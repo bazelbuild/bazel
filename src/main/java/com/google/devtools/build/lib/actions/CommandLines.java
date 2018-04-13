@@ -35,9 +35,9 @@ import javax.annotation.Nullable;
  * A class that keeps a list of command lines and optional associated parameter file info.
  *
  * <p>This class is used by {@link com.google.devtools.build.lib.exec.SpawnRunner} implementations
- * to resolve the command lines into a master argument list + any param files needed to be written.
+ * to expand the command lines into a master argument list + any param files needed to be written.
  */
-public class CommandLinesAndParamFiles {
+public class CommandLines {
 
   // A (hopefully) conservative estimate of how much long each param file arg would be
   // eg. the length of '@path/to/param_file'.
@@ -46,7 +46,7 @@ public class CommandLinesAndParamFiles {
       UUID.fromString("106c1389-88d7-4cc1-8f05-f8a61fd8f7b1");
 
   /** A simple tuple of a {@link CommandLine} and a {@link ParamFileInfo}. */
-  public static class CommandLineAndParamFileInfo {
+  static class CommandLineAndParamFileInfo {
     private final CommandLine commandLine;
     @Nullable private final ParamFileInfo paramFileInfo;
 
@@ -68,7 +68,7 @@ public class CommandLinesAndParamFiles {
    */
   private final Object commandLines;
 
-  public CommandLinesAndParamFiles(List<CommandLineAndParamFileInfo> commandLines) {
+  CommandLines(List<CommandLineAndParamFileInfo> commandLines) {
     if (commandLines.size() == 1) {
       CommandLineAndParamFileInfo pair = commandLines.get(0);
       if (pair.paramFileInfo != null) {
@@ -91,23 +91,23 @@ public class CommandLinesAndParamFiles {
   }
 
   /**
-   * Resolves this object into a single primary command line and (0-N) param files. The spawn runner
+   * Expands this object into a single primary command line and (0-N) param files. The spawn runner
    * is expected to write these param files prior to execution of an action.
    *
    * @param artifactExpander The artifact expander to use.
    * @param primaryOutput The primary output of the action. Used to derive param file names.
    * @param maxLength The maximum command line length the executing host system can tolerate.
-   * @return The resolved command line and its param files (if any).
+   * @return The expanded command line and its param files (if any).
    */
-  public ResolvedCommandLineAndParamFiles resolve(
+  public ExpandedCommandLines expand(
       ArtifactExpander artifactExpander, Artifact primaryOutput, int maxLength)
       throws CommandLineExpansionException {
-    return resolve(
+    return expand(
         artifactExpander, primaryOutput.getExecPath(), maxLength, PARAM_FILE_ARG_LENGTH_ESTIMATE);
   }
 
   @VisibleForTesting
-  ResolvedCommandLineAndParamFiles resolve(
+  ExpandedCommandLines expand(
       ArtifactExpander artifactExpander,
       PathFragment primaryOutputExecPath,
       int maxLength,
@@ -116,8 +116,7 @@ public class CommandLinesAndParamFiles {
     // Optimize for simple case of single command line
     if (commandLines instanceof CommandLine) {
       CommandLine commandLine = (CommandLine) commandLines;
-      return new ResolvedCommandLineAndParamFiles(
-          commandLine.arguments(artifactExpander), ImmutableList.of());
+      return new ExpandedCommandLines(commandLine.arguments(artifactExpander), ImmutableList.of());
     }
     List<Object> commandLines =
         (this.commandLines instanceof CommandLineAndParamFileInfo)
@@ -166,7 +165,7 @@ public class CommandLinesAndParamFiles {
         }
       }
     }
-    return new ResolvedCommandLineAndParamFiles(arguments.build(), paramFiles);
+    return new ExpandedCommandLines(arguments.build(), paramFiles);
   }
 
   public void addToFingerprint(ActionKeyContext actionKeyContext, Fingerprint fingerprint)
@@ -197,17 +196,16 @@ public class CommandLinesAndParamFiles {
   }
 
   /**
-   * Resolved command lines.
+   * Expanded command lines.
    *
    * <p>The spawn runner implementation is expected to ensure the param files are available once the
    * spawn is executed.
    */
-  public static class ResolvedCommandLineAndParamFiles {
+  public static class ExpandedCommandLines {
     private final Iterable<String> arguments;
     private final List<ParamFileActionInput> paramFiles;
 
-    ResolvedCommandLineAndParamFiles(
-        Iterable<String> arguments, List<ParamFileActionInput> paramFiles) {
+    ExpandedCommandLines(Iterable<String> arguments, List<ParamFileActionInput> paramFiles) {
       this.arguments = arguments;
       this.paramFiles = paramFiles;
     }
@@ -288,7 +286,7 @@ public class CommandLinesAndParamFiles {
     return new Builder();
   }
 
-  /** Builder for {@link CommandLinesAndParamFiles}. */
+  /** Builder for {@link CommandLines}. */
   public static class Builder {
     List<CommandLineAndParamFileInfo> commandLines = new ArrayList<>();
 
@@ -302,8 +300,8 @@ public class CommandLinesAndParamFiles {
       return this;
     }
 
-    public CommandLinesAndParamFiles build() {
-      return new CommandLinesAndParamFiles(commandLines);
+    public CommandLines build() {
+      return new CommandLines(commandLines);
     }
   }
 }

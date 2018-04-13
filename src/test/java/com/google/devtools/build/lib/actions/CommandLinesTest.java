@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.CommandLinesAndParamFiles.ResolvedCommandLineAndParamFiles;
+import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -28,63 +28,62 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link CommandLinesAndParamFiles}. */
+/** Tests for {@link CommandLines}. */
 @RunWith(JUnit4.class)
-public class CommandLinesAndParamFilesTest {
+public class CommandLinesTest {
 
   private final ArtifactExpander artifactExpander = null;
   private final PathFragment execPath = PathFragment.create("output.txt");
 
   @Test
   public void testSimpleCommandLine() throws Exception {
-    ResolvedCommandLineAndParamFiles resolved =
-        CommandLinesAndParamFiles.builder()
+    ExpandedCommandLines expanded =
+        CommandLines.builder()
             .addCommandLine(CommandLine.of(ImmutableList.of("--foo", "--bar")))
             .build()
-            .resolve(artifactExpander, execPath, 1024, 0);
-    assertThat(resolved.arguments()).containsExactly("--foo", "--bar");
-    assertThat(resolved.getParamFiles()).isEmpty();
+            .expand(artifactExpander, execPath, 1024, 0);
+    assertThat(expanded.arguments()).containsExactly("--foo", "--bar");
+    assertThat(expanded.getParamFiles()).isEmpty();
   }
 
   @Test
   public void testSimpleParamFileUseAlways() throws Exception {
-    ResolvedCommandLineAndParamFiles resolved =
-        CommandLinesAndParamFiles.builder()
+    ExpandedCommandLines expanded =
+        CommandLines.builder()
             .addCommandLine(
                 CommandLine.of(ImmutableList.of("--foo", "--bar")),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(true).build())
             .build()
-            .resolve(artifactExpander, execPath, 1024, 0);
-    assertThat(resolved.arguments()).containsExactly("@output.txt-0.params");
-    assertThat(resolved.getParamFiles()).hasSize(1);
-    assertThat(resolved.getParamFiles().get(0).arguments).containsExactly("--foo", "--bar");
+            .expand(artifactExpander, execPath, 1024, 0);
+    assertThat(expanded.arguments()).containsExactly("@output.txt-0.params");
+    assertThat(expanded.getParamFiles()).hasSize(1);
+    assertThat(expanded.getParamFiles().get(0).arguments).containsExactly("--foo", "--bar");
   }
 
   @Test
   public void testMaybeUseParamsFiles() throws Exception {
-    CommandLinesAndParamFiles commandLinesAndParamFiles =
-        CommandLinesAndParamFiles.builder()
+    CommandLines commandLines =
+        CommandLines.builder()
             .addCommandLine(
                 CommandLine.of(ImmutableList.of("--foo", "--bar")),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(false).build())
             .build();
     // Set max length to longer than command line, no param file needed
-    ResolvedCommandLineAndParamFiles resolved =
-        commandLinesAndParamFiles.resolve(artifactExpander, execPath, 1024, 0);
-    assertThat(resolved.arguments()).containsExactly("--foo", "--bar");
-    assertThat(resolved.getParamFiles()).isEmpty();
+    ExpandedCommandLines expanded = commandLines.expand(artifactExpander, execPath, 1024, 0);
+    assertThat(expanded.arguments()).containsExactly("--foo", "--bar");
+    assertThat(expanded.getParamFiles()).isEmpty();
 
     // Set max length to 0, spill to param file is forced
-    resolved = commandLinesAndParamFiles.resolve(artifactExpander, execPath, 0, 0);
-    assertThat(resolved.arguments()).containsExactly("@output.txt-0.params");
-    assertThat(resolved.getParamFiles()).hasSize(1);
-    assertThat(resolved.getParamFiles().get(0).arguments).containsExactly("--foo", "--bar");
+    expanded = commandLines.expand(artifactExpander, execPath, 0, 0);
+    assertThat(expanded.arguments()).containsExactly("@output.txt-0.params");
+    assertThat(expanded.getParamFiles()).hasSize(1);
+    assertThat(expanded.getParamFiles().get(0).arguments).containsExactly("--foo", "--bar");
   }
 
   @Test
   public void testMixOfCommandLinesAndParamFiles() throws Exception {
-    ResolvedCommandLineAndParamFiles resolved =
-        CommandLinesAndParamFiles.builder()
+    ExpandedCommandLines expanded =
+        CommandLines.builder()
             .addCommandLine(CommandLine.of(ImmutableList.of("a", "b")))
             .addCommandLine(
                 CommandLine.of(ImmutableList.of("c", "d")),
@@ -94,22 +93,22 @@ public class CommandLinesAndParamFilesTest {
                 CommandLine.of(ImmutableList.of("g", "h")),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(true).build())
             .build()
-            .resolve(artifactExpander, execPath, 1024, 0);
-    assertThat(resolved.arguments())
+            .expand(artifactExpander, execPath, 1024, 0);
+    assertThat(expanded.arguments())
         .containsExactly("a", "b", "@output.txt-0.params", "e", "f", "@output.txt-1.params");
-    assertThat(resolved.getParamFiles()).hasSize(2);
-    assertThat(resolved.getParamFiles().get(0).arguments).containsExactly("c", "d");
-    assertThat(resolved.getParamFiles().get(0).paramFileExecPath.getPathString())
+    assertThat(expanded.getParamFiles()).hasSize(2);
+    assertThat(expanded.getParamFiles().get(0).arguments).containsExactly("c", "d");
+    assertThat(expanded.getParamFiles().get(0).paramFileExecPath.getPathString())
         .isEqualTo("output.txt-0.params");
-    assertThat(resolved.getParamFiles().get(1).arguments).containsExactly("g", "h");
-    assertThat(resolved.getParamFiles().get(1).paramFileExecPath.getPathString())
+    assertThat(expanded.getParamFiles().get(1).arguments).containsExactly("g", "h");
+    assertThat(expanded.getParamFiles().get(1).paramFileExecPath.getPathString())
         .isEqualTo("output.txt-1.params");
   }
 
   @Test
   public void testFirstParamFilePassesButSecondFailsLengthTest() throws Exception {
-    ResolvedCommandLineAndParamFiles resolved =
-        CommandLinesAndParamFiles.builder()
+    ExpandedCommandLines expanded =
+        CommandLines.builder()
             .addCommandLine(
                 CommandLine.of(ImmutableList.of("a", "b")),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(false).build())
@@ -117,16 +116,16 @@ public class CommandLinesAndParamFilesTest {
                 CommandLine.of(ImmutableList.of("c", "d")),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(false).build())
             .build()
-            .resolve(artifactExpander, execPath, 4, 0);
-    assertThat(resolved.arguments()).containsExactly("a", "b", "@output.txt-0.params");
-    assertThat(resolved.getParamFiles()).hasSize(1);
-    assertThat(resolved.getParamFiles().get(0).arguments).containsExactly("c", "d");
+            .expand(artifactExpander, execPath, 4, 0);
+    assertThat(expanded.arguments()).containsExactly("a", "b", "@output.txt-0.params");
+    assertThat(expanded.getParamFiles()).hasSize(1);
+    assertThat(expanded.getParamFiles().get(0).arguments).containsExactly("c", "d");
   }
 
   @Test
   public void testWriteParamFiles() throws Exception {
-    CommandLinesAndParamFiles commandLinesAndParamFiles =
-        CommandLinesAndParamFiles.builder()
+    CommandLines commandLines =
+        CommandLines.builder()
             .addCommandLine(
                 CommandLine.of(ImmutableList.of("--foo", "--bar")),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(true).build())
@@ -137,10 +136,9 @@ public class CommandLinesAndParamFilesTest {
     InMemoryFileSystem inMemoryFileSystem = new InMemoryFileSystem();
     Path execRoot = inMemoryFileSystem.getPath("/exec");
     execRoot.createDirectoryAndParents();
-    ResolvedCommandLineAndParamFiles resolved =
-        commandLinesAndParamFiles.resolve(
-            artifactExpander, PathFragment.create("my/param/file/out"), 0, 0);
-    resolved.writeParamFiles(execRoot);
+    ExpandedCommandLines expanded =
+        commandLines.expand(artifactExpander, PathFragment.create("my/param/file/out"), 0, 0);
+    expanded.writeParamFiles(execRoot);
 
     assertThat(
             FileSystemUtils.readLines(
