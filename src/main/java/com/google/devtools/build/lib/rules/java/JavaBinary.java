@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Comp
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -302,9 +301,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         JavaPrimaryClassProvider.class,
         new JavaPrimaryClassProvider(
             semantics.getPrimaryClass(ruleContext, common.getSrcsArtifacts())));
-    semantics.addProviders(ruleContext, common, jvmFlags, classJar, srcJar,
-            genClassJar, genSourceJar, ImmutableMap.<Artifact, Artifact>of(),
-            filesBuilder, builder);
+    semantics.addProviders(ruleContext, common, genSourceJar, builder);
     if (generatedExtensionRegistryProvider != null) {
       builder.add(GeneratedExtensionRegistryProvider.class, generatedExtensionRegistryProvider);
     }

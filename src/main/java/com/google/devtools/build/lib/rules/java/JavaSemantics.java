@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
@@ -419,15 +418,10 @@ public interface JavaSemantics {
    * Adds extra providers to a Java target.
    * @throws InterruptedException
    */
-  void addProviders(RuleContext ruleContext,
+  void addProviders(
+      RuleContext ruleContext,
       JavaCommon javaCommon,
-      List<String> jvmFlags,
-      Artifact classJar,
-      Artifact srcJar,
-      Artifact genJar,
       Artifact gensrcJar,
-      ImmutableMap<Artifact, Artifact> compilationToRuntimeJarMap,
-      NestedSetBuilder<Artifact> filesBuilder,
       RuleConfiguredTargetBuilder ruleBuilder) throws InterruptedException;
 
   /**

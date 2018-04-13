@@ -20,7 +20,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -571,15 +570,10 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public void addProviders(RuleContext ruleContext,
+  public void addProviders(
+      RuleContext ruleContext,
       JavaCommon javaCommon,
-      List<String> jvmFlags,
-      Artifact classJar,
-      Artifact srcJar,
-      Artifact genJar,
       Artifact gensrcJar,
-      ImmutableMap<Artifact, Artifact> compilationToRuntimeJarMap,
-      NestedSetBuilder<Artifact> filesBuilder,
       RuleConfiguredTargetBuilder ruleBuilder) {
     if (!isJavaBinaryOrJavaTest(ruleContext)) {
       // TODO(plf): Figure out whether we can remove support for C++ dependencies in Bazel.
