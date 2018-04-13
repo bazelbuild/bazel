@@ -411,7 +411,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     if (AndroidCommon.getAndroidConfig(ruleContext).desugarJava8Libs()
         && dexPostprocessingOutput.classesDexZip().getFilename().endsWith(".zip")) {
       Artifact java8LegacyDex;
-      if (binaryJar == jarToDex) {
+      if (binaryJar.equals(jarToDex)) {
         // No Proguard: use canned Java 8 legacy .dex file
         java8LegacyDex =
             ruleContext.getPrerequisiteArtifact("$java8_legacy_dex", Mode.TARGET);
