@@ -22,6 +22,9 @@ def _sh_config_impl(repository_ctx):
 
   Detects the path of the shell interpreter on the local machine and
   stores it in a sh_toolchain rule.
+
+  Args:
+    repository_ctx: the repository rule context object
   """
   sh_path = repository_ctx.os.environ.get("BAZEL_SH")
   if not sh_path:
