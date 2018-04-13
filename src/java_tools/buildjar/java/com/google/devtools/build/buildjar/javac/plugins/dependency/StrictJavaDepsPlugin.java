@@ -408,6 +408,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
     @Override
     public void visitPackageDef(JCTree.JCPackageDecl tree) {
+      scan(tree.annotations);
       checkTypeLiteral(tree, tree.packge.package_info);
     }
   }
