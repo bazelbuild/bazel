@@ -28,7 +28,7 @@ The binary installers are on Bazel's [GitHub releases page](https://github.com/b
 The installer contains the Bazel binary<sup>1</sup>. Some additional libraries must 
 also be installed for Bazel to work.
 
-### 1. Install required packages
+### Step 1. Install required packages
 
 First, install the prerequisites: `zip`, `g++`, `zlipb1g-dev`, `unzip`, and `python`.
 
