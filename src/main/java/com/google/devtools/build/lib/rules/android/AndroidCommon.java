@@ -721,10 +721,7 @@ public class AndroidCommon {
     JavaSourceJarsProvider sourceJarsProvider = javaSourceJarsProviderBuilder.build();
     JavaCompilationArgsProvider compilationArgsProvider =
         JavaCompilationArgsProvider.create(
-            javaCompilationArgs,
-            recursiveJavaCompilationArgs,
-            compileTimeDependencyArtifacts,
-            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+            javaCompilationArgs, recursiveJavaCompilationArgs, compileTimeDependencyArtifacts);
 
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
 

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
@@ -171,7 +170,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         common.collectJavaCompilationArgs(true, neverLink, false);
     NestedSet<Artifact> compileTimeJavaDepArtifacts = common.collectCompileTimeDependencyArtifacts(
         javaArtifacts.getCompileTimeDependencyArtifact());
-    NestedSet<Artifact> runTimeJavaDepArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     NestedSet<LinkerInput> transitiveJavaNativeLibraries =
         common.collectTransitiveJavaNativeLibraries();
 
@@ -195,8 +193,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     JavaCompilationArgsProvider compilationArgsProvider =
         JavaCompilationArgsProvider.create(
-            javaCompilationArgs, recursiveJavaCompilationArgs,
-            compileTimeJavaDepArtifacts, runTimeJavaDepArtifacts);
+            javaCompilationArgs, recursiveJavaCompilationArgs, compileTimeJavaDepArtifacts);
     JavaSourceJarsProvider sourceJarsProvider = sourceJarsProviderBuilder.build();
     JavaRuleOutputJarsProvider ruleOutputJarsProvider = ruleOutputJarsProviderBuilder.build();
 

@@ -35,13 +35,9 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
   public static JavaCompilationArgsProvider create(
       JavaCompilationArgs javaCompilationArgs,
       JavaCompilationArgs recursiveJavaCompilationArgs,
-      NestedSet<Artifact> compileTimeJavaDependencyArtifacts,
-      NestedSet<Artifact> runTimeJavaDependencyArtifacts) {
+      NestedSet<Artifact> compileTimeJavaDependencyArtifacts) {
     return new AutoValue_JavaCompilationArgsProvider(
-        javaCompilationArgs,
-        recursiveJavaCompilationArgs,
-        compileTimeJavaDependencyArtifacts,
-        runTimeJavaDependencyArtifacts);
+        javaCompilationArgs, recursiveJavaCompilationArgs, compileTimeJavaDependencyArtifacts);
   }
 
   public static JavaCompilationArgsProvider create(
@@ -50,7 +46,6 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
     return create(
         javaCompilationArgs,
         recursiveJavaCompilationArgs,
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
   }
 
@@ -82,12 +77,6 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
    */
   public abstract NestedSet<Artifact> getCompileTimeJavaDependencyArtifacts();
 
-  /**
-   * Returns Java dependency artifacts for computing a restricted run-time
-   * classpath (called when strict_java_deps = 1).
-   */
-  public abstract NestedSet<Artifact> getRunTimeJavaDependencyArtifacts();
-
   public static JavaCompilationArgsProvider merge(
       Collection<JavaCompilationArgsProvider> providers) {
     if (providers.size() == 1) {
@@ -97,7 +86,6 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
     JavaCompilationArgs.Builder javaCompilationArgs = JavaCompilationArgs.builder();
     JavaCompilationArgs.Builder recursiveJavaCompilationArgs = JavaCompilationArgs.builder();
     NestedSetBuilder<Artifact> compileTimeJavaDepArtifacts = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> runTimeJavaDepArtifacts = NestedSetBuilder.stableOrder();
 
     for (JavaCompilationArgsProvider provider : providers) {
       javaCompilationArgs.addTransitiveArgs(
@@ -105,13 +93,11 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
       recursiveJavaCompilationArgs.addTransitiveArgs(
           provider.getRecursiveJavaCompilationArgs(), JavaCompilationArgs.ClasspathType.BOTH);
       compileTimeJavaDepArtifacts.addTransitive(provider.getCompileTimeJavaDependencyArtifacts());
-      runTimeJavaDepArtifacts.addTransitive(provider.getRunTimeJavaDependencyArtifacts());
     }
 
     return JavaCompilationArgsProvider.create(
         javaCompilationArgs.build(),
         recursiveJavaCompilationArgs.build(),
-        compileTimeJavaDepArtifacts.build(),
-        runTimeJavaDepArtifacts.build());
+        compileTimeJavaDepArtifacts.build());
   }
 }

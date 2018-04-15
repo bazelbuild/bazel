@@ -271,8 +271,7 @@ public final class JavaLibraryHelper {
     return JavaCompilationArgsProvider.create(
         isReportedAsStrict ? directArgs : transitiveArgs,
         transitiveArgs,
-        compileTimeJavaDepArtifacts,
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+        compileTimeJavaDepArtifacts);
   }
 
   private void addDepsToAttributes(JavaTargetAttributes.Builder attributes) {

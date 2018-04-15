@@ -430,8 +430,7 @@ public class JavaSkylarkCommon {
     return JavaCompilationArgsProvider.create(
         directCompilationArgs.build(),
         provider.getRecursiveJavaCompilationArgs(),
-        provider.getCompileTimeJavaDependencyArtifacts(),
-        provider.getRunTimeJavaDependencyArtifacts());
+        provider.getCompileTimeJavaDependencyArtifacts());
   }
 
   @SkylarkCallable(
