@@ -483,12 +483,27 @@ public final class JavaInfo extends NativeInfo {
 
   @SkylarkCallable(
       name = "transitive_compile_time_jars",
-      doc = "Depset of compile time jars recusrively required by this target. See `compile_jars` "
+      doc = "Depset of compile time jars recursively required by this target. See `compile_jars` "
           + "for more details.",
       structField = true
   )
   public SkylarkNestedSet getTransitiveCompileTimeJars() {
     return SkylarkNestedSet.of(Artifact.class, getTransitiveDeps());
+  }
+
+  @SkylarkCallable(
+      name = "transitive_full_compile_time_jars",
+      doc = "Depset of full compile time jars recursively required by this target. See "
+          + "`full_compile_jars` for more details.",
+      structField = true
+  )
+  public SkylarkNestedSet getTransitiveFullCompileTimeJars() {
+    NestedSet<Artifact> transitiveFullCompileTimeJars =
+        getProviderAsNestedSet(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider::getRecursiveJavaCompilationArgs,
+            JavaCompilationArgs::getFullCompileTimeJars);
+    return SkylarkNestedSet.of(Artifact.class, transitiveFullCompileTimeJars);
   }
 
   @SkylarkCallable(
@@ -734,4 +749,3 @@ public final class JavaInfo extends NativeInfo {
     }
   }
 }
-

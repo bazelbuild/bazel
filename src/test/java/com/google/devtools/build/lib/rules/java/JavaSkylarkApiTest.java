@@ -189,6 +189,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "   return [result(",
         "             transitive_runtime_jars = depj.transitive_runtime_jars,",
         "             transitive_compile_time_jars = depj.transitive_compile_time_jars,",
+        "             transitive_full_compile_time_jars = depj.transitive_full_compile_time_jars,",
         "             compile_jars = depj.compile_jars,",
         "             full_compile_jars = depj.full_compile_jars,",
         "             source_jars = depj.source_jars,",
@@ -205,6 +206,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         ((SkylarkNestedSet) info.getValue("transitive_runtime_jars"));
     SkylarkNestedSet transitiveCompileTimeJars =
         ((SkylarkNestedSet) info.getValue("transitive_compile_time_jars"));
+    SkylarkNestedSet transitiveFullCompileTimeJars =
+        ((SkylarkNestedSet) info.getValue("transitive_full_compile_time_jars"));
     SkylarkNestedSet compileJars = ((SkylarkNestedSet) info.getValue("compile_jars"));
     SkylarkNestedSet fullCompileJars = ((SkylarkNestedSet) info.getValue("full_compile_jars"));
     SkylarkList<Artifact> sourceJars = ((SkylarkList<Artifact>) info.getValue("source_jars"));
@@ -214,6 +217,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         .containsExactly("libdep.jar");
     assertThat(artifactFilesNames(transitiveCompileTimeJars.toCollection(Artifact.class)))
         .containsExactly("libdep-hjar.jar");
+    assertThat(artifactFilesNames(transitiveFullCompileTimeJars.toCollection(Artifact.class)))
+        .containsExactly("libdep.jar");
     assertThat(transitiveCompileTimeJars.toCollection()).isEqualTo(compileJars.toCollection());
     assertThat(artifactFilesNames(fullCompileJars.toCollection(Artifact.class)))
         .containsExactly("libdep.jar");
@@ -254,6 +259,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "             transitive_compile_time_jars = depj.transitive_compile_time_jars,",
         "             compile_jars = depj.compile_jars,",
         "             full_compile_jars = depj.full_compile_jars,",
+        "             transitive_full_compile_time_jars = depj.transitive_full_compile_time_jars,",
         "             source_jars = depj.source_jars,",
         "             outputs = depj.outputs,",
         "          )]",
@@ -1592,4 +1598,3 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     return true;
   }
 }
-
