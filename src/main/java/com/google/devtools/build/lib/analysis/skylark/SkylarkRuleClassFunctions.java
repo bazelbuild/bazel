@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -1020,17 +1021,16 @@ public class SkylarkRuleClassFunctions {
       ImmutableList.of(
           SkylarkProvider.class, SkylarkDefinedAspect.class, SkylarkRuleFunction.class);
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "Label",
     doc =
         "Creates a Label referring to a BUILD target. Use "
             + "this function only when you want to give a default value for the label attributes. "
             + "The argument must refer to an absolute label. "
             + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
-    returnType = Label.class,
-    objectType = Label.class,
     parameters = {
-      @Param(name = "label_string", type = String.class, doc = "the label string."),
+      @Param(name = "label_string", type = String.class, legacyNamed = true,
+          doc = "the label string."),
       @Param(
         name = "relative_to_caller_repository",
         type = Boolean.class,
@@ -1050,36 +1050,26 @@ public class SkylarkRuleClassFunctions {
     useLocation = true,
     useEnvironment = true
   )
-  private static final BuiltinFunction label =
-      new BuiltinFunction("Label") {
-        @SuppressWarnings({"unchecked", "unused"})
-        public Label invoke(
-            String labelString, Boolean relativeToCallerRepository, Location loc, Environment env)
-            throws EvalException {
-          Label parentLabel = null;
-          if (relativeToCallerRepository) {
-            parentLabel = env.getCallerLabel();
-          } else {
-            parentLabel = env.getGlobals().getTransitiveLabel();
-          }
-          try {
-            if (parentLabel != null) {
-              LabelValidator.parseAbsoluteLabel(labelString);
-              labelString = parentLabel.getRelative(labelString).getUnambiguousCanonicalForm();
-            }
-            return labelCache.get(labelString);
-          } catch (LabelValidator.BadLabelException | LabelSyntaxException | ExecutionException e) {
-            throw new EvalException(loc, "Illegal absolute label syntax: " + labelString);
-          }
-        }
-      };
-
-  // We want the Label ctor to show up under the Label documentation, but to be a "global
-  // function." Thus, we create a global Label object here, which just points to the Skylark
-  // function above.
-  @SkylarkSignature(name = "Label",
-      documented = false)
-  private static final BuiltinFunction globalLabel = label;
+  @SkylarkConstructor(objectType = Label.class)
+  public Label label(
+      String labelString, Boolean relativeToCallerRepository, Location loc, Environment env)
+      throws EvalException {
+    Label parentLabel = null;
+    if (relativeToCallerRepository) {
+      parentLabel = env.getCallerLabel();
+    } else {
+      parentLabel = env.getGlobals().getTransitiveLabel();
+    }
+    try {
+      if (parentLabel != null) {
+        LabelValidator.parseAbsoluteLabel(labelString);
+        labelString = parentLabel.getRelative(labelString).getUnambiguousCanonicalForm();
+      }
+      return labelCache.get(labelString);
+    } catch (LabelValidator.BadLabelException | LabelSyntaxException | ExecutionException e) {
+      throw new EvalException(loc, "Illegal absolute label syntax: " + labelString);
+    }
+  }
 
   @SkylarkSignature(
     name = "FileType",

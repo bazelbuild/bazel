@@ -20,6 +20,7 @@ import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -32,7 +33,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -120,10 +120,8 @@ final class SkylarkDocumentationCollector {
       Map<String, SkylarkModuleDoc> modules) {
     Set<Class<?>> done = new HashSet<>();
     Deque<Class<?>> toProcess = new ArrayDeque<>();
-    Map<Class<?>, SkylarkModule> annotations = new HashMap<>();
 
     toProcess.addLast(firstClass);
-    annotations.put(firstClass, firstModule);
 
     while (!toProcess.isEmpty()) {
       Class<?> c = toProcess.removeFirst();
@@ -143,7 +141,6 @@ final class SkylarkDocumentationCollector {
           if (returnClass.isAnnotationPresent(SkylarkModule.class)
               && !done.contains(returnClass)) {
             toProcess.addLast(returnClass);
-            annotations.put(returnClass, returnClass.getAnnotation(SkylarkModule.class));
           }
         }
       }
@@ -165,12 +162,21 @@ final class SkylarkDocumentationCollector {
   private static void collectBuiltinMethods(
       Map<String, SkylarkModuleDoc> modules, Class<?> moduleClass) {
 
-    SkylarkModuleDoc module = getTopLevelModuleDoc(modules);
+    SkylarkModuleDoc topLevelModuleDoc = getTopLevelModuleDoc(modules);
 
     ImmutableMap<Method, SkylarkCallable> methods =
         FuncallExpression.collectSkylarkMethodsWithAnnotation(moduleClass);
     for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
-      module.addMethod(new SkylarkJavaMethodDoc("", entry.getKey(), entry.getValue()));
+      if (entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
+        SkylarkConstructor constructorAnnotation =
+            entry.getKey().getAnnotation(SkylarkConstructor.class);
+        Class<?> objectClass = constructorAnnotation.objectType();
+        SkylarkModuleDoc module = getSkylarkModuleDoc(objectClass, modules);
+        module.addMethod(
+              new SkylarkJavaMethodDoc("", entry.getKey(), entry.getValue()));
+      } else {
+        topLevelModuleDoc.addMethod(new SkylarkJavaMethodDoc("", entry.getKey(), entry.getValue()));
+      }
     }
   }
 }
