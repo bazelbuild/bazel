@@ -581,6 +581,9 @@ public class SkylarkRepositoryContext {
                 + " to omit the SHA-256 as remote files can change. At best omitting this field"
                 + " will make your build non-hermetic. It is optional to make development easier"
                 + " but should be set before shipping."
+                + " If provided, the repository cache will first be checked for a file with the"
+                + " given hash; a download will only be attempted, if the file was not found in the"
+                + " cache. After a successful download, the file will be added to the cache."
       ),
       @Param(
         name = "type",
