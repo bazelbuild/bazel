@@ -84,7 +84,7 @@ public class AndroidCommon {
       JavaCommon.JAVA_COLLECTION_SPEC.withDependencyAttributes(
           "deps", "data", "exports", "runtime_deps", "binary_under_test");
 
-  public static final ImmutableSet<String> TRANSITIVE_ATTRIBUTES =
+  private static final ImmutableSet<String> TRANSITIVE_ATTRIBUTES =
       ImmutableSet.of("deps", "exports");
   private static final ResourceSet DEX_RESOURCE_SET =
       ResourceSet.createWithRamCpuIo(4096.0, 5.0, 0.0);

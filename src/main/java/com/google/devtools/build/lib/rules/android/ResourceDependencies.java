@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import java.util.Optional;
@@ -105,13 +103,9 @@ public final class ResourceDependencies {
     NestedSetBuilder<Artifact> transitiveStaticLib = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> transitiveRTxt = NestedSetBuilder.naiveLinkOrder();
 
-    AttributeMap attributes = ruleContext.attributes();
-    for (String attr : AndroidCommon.TRANSITIVE_ATTRIBUTES) {
-      if (!attributes.has(attr, BuildType.LABEL_LIST) && !attributes.has(attr, BuildType.LABEL)) {
-        continue;
-      }
-      for (AndroidResourcesInfo resources :
-          ruleContext.getPrerequisites(attr, Mode.TARGET, AndroidResourcesInfo.PROVIDER)) {
+    for (AndroidResourcesInfo resources :
+        AndroidCommon.getTransitivePrerequisites(
+            ruleContext, Mode.TARGET, AndroidResourcesInfo.PROVIDER)) {
         transitiveDependencies.addTransitive(resources.getTransitiveAndroidResources());
         directDependencies.addTransitive(resources.getDirectAndroidResources());
         transitiveResources.addTransitive(resources.getTransitiveResources());
@@ -122,7 +116,6 @@ public final class ResourceDependencies {
         transitiveCompiledSymbols.addTransitive(resources.getTransitiveCompiledSymbols());
         transitiveStaticLib.addTransitive(resources.getTransitiveStaticLib());
         transitiveRTxt.addTransitive(resources.getTransitiveRTxt());
-      }
     }
 
     return new ResourceDependencies(
