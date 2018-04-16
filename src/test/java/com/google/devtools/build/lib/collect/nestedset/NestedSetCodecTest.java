@@ -15,6 +15,9 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import org.junit.After;
@@ -41,7 +44,27 @@ public class NestedSetCodecTest {
   }
 
   @Test
-  public void testCodec() throws Exception {
+  public void testAutoCodecedCodec() throws Exception {
+    ObjectCodecs objectCodecs =
+        new ObjectCodecs(
+            AutoRegistry.get().getBuilder().setAllowDefaultCodec(true).build(), ImmutableMap.of());
+    checkCodec(objectCodecs);
+  }
+
+  @Test
+  public void testCacheBasedCodec() throws Exception {
+    ObjectCodecs objectCodecs =
+        new ObjectCodecs(
+            AutoRegistry.get()
+                .getBuilder()
+                .setAllowDefaultCodec(true)
+                .add(new NestedSetCodecWithStore<>())
+                .build(),
+            ImmutableMap.of());
+    checkCodec(objectCodecs);
+  }
+
+  private void checkCodec(ObjectCodecs objectCodecs) throws Exception {
     new SerializationTester(
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
@@ -62,6 +85,7 @@ public class NestedSetCodecTest {
                         .build())
                 .addTransitive(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
                 .build())
+        .setObjectCodecs(objectCodecs)
         .setVerificationFunction(NestedSetCodecTest::verifyDeserialization)
         .runTests();
   }

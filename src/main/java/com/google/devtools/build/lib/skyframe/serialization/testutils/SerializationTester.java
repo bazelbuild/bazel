@@ -61,6 +61,7 @@ public class SerializationTester {
   private final ImmutableMap.Builder<Class<?>, Object> dependenciesBuilder;
   private final ArrayList<ObjectCodec<?>> additionalCodecs = new ArrayList<>();
   private boolean memoize;
+  private ObjectCodecs objectCodecs;
 
   @SuppressWarnings("rawtypes")
   private VerificationFunction verificationFunction =
@@ -93,6 +94,11 @@ public class SerializationTester {
     return this;
   }
 
+  public SerializationTester setObjectCodecs(ObjectCodecs objectCodecs) {
+    this.objectCodecs = objectCodecs;
+    return this;
+  }
+
   @SuppressWarnings("rawtypes")
   public <T> SerializationTester setVerificationFunction(
       VerificationFunction<T> verificationFunction) {
@@ -107,6 +113,13 @@ public class SerializationTester {
   }
 
   public void runTests() throws Exception {
+    ObjectCodecs codecs = this.objectCodecs == null ? createObjectCodecs() : this.objectCodecs;
+    testSerializeDeserialize(codecs);
+    testStableSerialization(codecs);
+    testDeserializeJunkData(codecs);
+  }
+
+  private ObjectCodecs createObjectCodecs() {
     ObjectCodecRegistry registry = AutoRegistry.get();
     ImmutableMap<Class<?>, Object> dependencies = dependenciesBuilder.build();
     ObjectCodecRegistry.Builder registryBuilder = registry.getBuilder();
@@ -116,10 +129,7 @@ public class SerializationTester {
     for (ObjectCodec<?> codec : additionalCodecs) {
       registryBuilder.add(codec);
     }
-    ObjectCodecs codecs = new ObjectCodecs(registryBuilder.build(), dependencies);
-    testSerializeDeserialize(codecs);
-    testStableSerialization(codecs);
-    testDeserializeJunkData(codecs);
+    return new ObjectCodecs(registryBuilder.build(), dependencies);
   }
 
   private ByteString serialize(Object subject, ObjectCodecs codecs)

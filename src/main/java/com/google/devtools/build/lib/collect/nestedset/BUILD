@@ -12,7 +12,7 @@ java_library(
     srcs = [
         "NestedSet.java",
         "NestedSetBuilder.java",
-        "NestedSetCodecDisabled.java",
+        "NestedSetCodecWithStore.java",
         "NestedSetView.java",
         "NestedSetVisitor.java",
         "Order.java",

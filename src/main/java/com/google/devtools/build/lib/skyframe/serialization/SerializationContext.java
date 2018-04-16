@@ -92,6 +92,14 @@ public class SerializationContext {
     if (serializer != null) {
       return this;
     }
+    return getNewMemoizingContext();
+  }
+
+  /**
+   * Returns a memoizing {@link SerializationContext}, as getMemoizingContext above. Unlike
+   * getMemoizingContext, this method is not idempotent - the returned context will always be fresh.
+   */
+  public SerializationContext getNewMemoizingContext() {
     return new SerializationContext(this.registry, this.dependencies, new Memoizer.Serializer());
   }
 
