@@ -194,10 +194,10 @@ public final class CleanCommand implements BlazeCommand {
     logger.info("Executing shell commmand " + ShellEscaper.escapeString(command));
 
     // Doesn't throw iff command exited and was successful.
-    new CommandBuilder(tempPath.getParentDirectory())
-        // TODO(laszlocsomor): implement the async directory tree deleter as a native, embedded
-        // binary, and stop relying on the shell. See GitHub issue #4319.
-        .addArgs("/bin/sh", "-c", command)
+    new CommandBuilder()
+        .addArg(command)
+        .useShell(true)
+        .setWorkingDir(tempPath.getParentDirectory())
         .build()
         .execute();
   }

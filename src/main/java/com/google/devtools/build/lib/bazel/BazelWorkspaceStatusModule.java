@@ -109,12 +109,14 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       this.getWorkspaceStatusCommand =
           options.workspaceStatusCommand.equals(PathFragment.EMPTY_FRAGMENT)
               ? null
-              : new CommandBuilder(workspace)
-                  .addArg(options.workspaceStatusCommand.toString())
+              : new CommandBuilder()
+                  .addArgs(options.workspaceStatusCommand.toString())
                   // Pass client env, because certain SCM client(like
                   // perforce, git) relies on environment variables to work
                   // correctly.
                   .setEnv(clientEnv)
+                  .setWorkingDir(workspace)
+                  .useShell(true)
                   .build();
       this.workspace = workspace;
     }

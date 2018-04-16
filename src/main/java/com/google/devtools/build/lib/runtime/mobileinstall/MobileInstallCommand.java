@@ -285,7 +285,11 @@ public class MobileInstallCommand implements BlazeCommand {
 
     Path workingDir = env.getBlazeWorkspace().getOutputPath().getParentDirectory();
     com.google.devtools.build.lib.shell.Command command =
-        new CommandBuilder(workingDir).addArgs(cmdLine).setEnv(env.getClientEnv()).build();
+        new CommandBuilder()
+            .addArgs(cmdLine)
+            .setEnv(env.getClientEnv())
+            .setWorkingDir(workingDir)
+            .build();
 
     try {
       // Restore a raw EventHandler if it is registered. This allows for blaze run to produce the

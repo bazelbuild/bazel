@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -90,7 +90,10 @@ public final class SymlinkTreeHelper {
       Path execRoot, BuildConfiguration config, BinTools binTools)
           throws CommandException {
     List<String> argv = getSpawnArgumentList(execRoot, binTools.getExecPath(BUILD_RUNFILES));
-    new CommandBuilder(execRoot).addArgs(argv).build().execute();
+    CommandBuilder builder = new CommandBuilder();
+    builder.addArgs(argv);
+    builder.setWorkingDir(execRoot);
+    builder.build().execute();
   }
 
   /**
@@ -145,7 +148,7 @@ public final class SymlinkTreeHelper {
     ActionInput buildRunfiles = binTools.getActionInput(BUILD_RUNFILES);
     return new SimpleSpawn(
         owner,
-        ImmutableList.copyOf(getSpawnArgumentList(execRoot, buildRunfiles.getExecPath())),
+        getSpawnArgumentList(execRoot, buildRunfiles.getExecPath()),
         environment,
         ImmutableMap.of(
             ExecutionRequirements.LOCAL, "",
@@ -156,9 +159,11 @@ public final class SymlinkTreeHelper {
         RESOURCE_SET);
   }
 
-  /** Returns the complete argument list build-runfiles has to be called with. */
-  private ArrayList<String> getSpawnArgumentList(Path execRoot, PathFragment buildRunfiles) {
-    ArrayList<String> args = new ArrayList<>(filesetTree ? 5 : 3);
+  /**
+   * Returns the complete argument list build-runfiles has to be called with.
+   */
+  private ImmutableList<String> getSpawnArgumentList(Path execRoot, PathFragment buildRunfiles) {
+    List<String> args = Lists.newArrayList();
     args.add(buildRunfiles.getPathString());
 
     if (filesetTree) {
@@ -169,6 +174,6 @@ public final class SymlinkTreeHelper {
     args.add(inputManifest.relativeTo(execRoot).getPathString());
     args.add(symlinkTreeRoot.relativeTo(execRoot).getPathString());
 
-    return args;
+    return ImmutableList.copyOf(args);
   }
 }
