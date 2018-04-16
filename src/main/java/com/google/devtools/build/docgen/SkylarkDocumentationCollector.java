@@ -128,6 +128,7 @@ final class SkylarkDocumentationCollector {
     while (!toProcess.isEmpty()) {
       Class<?> c = toProcess.removeFirst();
       SkylarkModuleDoc module = getSkylarkModuleDoc(c, modules);
+      done.add(c);
 
       if (module.javaMethodsNotCollected()) {
         ImmutableMap<Method, SkylarkCallable> methods =
