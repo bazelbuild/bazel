@@ -34,7 +34,8 @@ public final class DirectoryBasedTest {
     File dir = new File(System.getenv("TEST_TMPDIR"), "mock/runfiles");
     assertThat(dir.mkdirs()).isTrue();
     DirectoryBased r = new DirectoryBased(dir.toString());
-    assertThat(r.rlocation("arg")).endsWith("/mock/runfiles/arg");
+    // Escaping for "\": once for string and once for regex.
+    assertThat(r.rlocation("arg")).matches(".*[/\\\\]mock[/\\\\]runfiles[/\\\\]arg");
   }
 
   @Test
