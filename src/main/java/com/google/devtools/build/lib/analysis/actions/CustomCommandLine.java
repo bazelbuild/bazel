@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.actions.CommandLineItemSimpleFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -239,7 +240,7 @@ public final class CustomCommandLine extends CommandLine {
       return new Builder().each(values);
     }
 
-    /** Each argument is formatted via {@link String#format}. */
+    /** Each argument is formatted via {@link CommandLineItemSimpleFormatter#format}. */
     public static Builder format(@CompileTimeConstant String formatEach) {
       return new Builder().format(formatEach);
     }
@@ -259,7 +260,7 @@ public final class CustomCommandLine extends CommandLine {
       private String beforeEach;
       private String joinWith;
 
-      /** Each argument is formatted via {@link String#format}. */
+      /** Each argument is formatted via {@link CommandLineItemSimpleFormatter#format}. */
       public Builder format(@CompileTimeConstant String formatEach) {
         Preconditions.checkNotNull(formatEach);
         this.formatEach = formatEach;
@@ -402,7 +403,8 @@ public final class CustomCommandLine extends CommandLine {
         if (hasFormatEach) {
           String formatStr = (String) arguments.get(argi++);
           for (int i = 0; i < count; ++i) {
-            mutatedValues.set(i, String.format(formatStr, mutatedValues.get(i)));
+            mutatedValues.set(
+                i, CommandLineItemSimpleFormatter.format(formatStr, mutatedValues.get(i)));
           }
         }
         if (hasBeforeEach) {

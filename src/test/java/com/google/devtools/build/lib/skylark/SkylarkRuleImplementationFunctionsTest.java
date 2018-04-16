@@ -2284,7 +2284,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testLazyArgIllegalFormatString() throws Exception {
+  public void testLazyArgIllegalLegacyFormatString() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_old_style_args_add=false");
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
@@ -2306,6 +2307,23 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     } catch (CommandLineExpansionException e) {
       assertThat(e.getMessage()).contains("not enough arguments");
     }
+  }
+
+  @Test
+  public void testLazyArgIllegalFormatString() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_old_style_args_add=true");
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    checkError(
+        ruleContext,
+        "Invalid value for parameter \"format\": Expected string with a single \"%s\"",
+        "args = ruleContext.actions.args()",
+        "args.add('foo', format='illegal_format')", // Expects two args, will only be given one
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        ")");
   }
 
   @Test

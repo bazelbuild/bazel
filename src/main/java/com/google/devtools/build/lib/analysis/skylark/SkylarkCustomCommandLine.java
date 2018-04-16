@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.actions.CommandLineItemSimpleFormatter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Location;
@@ -245,11 +246,11 @@ public class SkylarkCustomCommandLine extends CommandLine {
       }
       if ((features & HAS_FORMAT_EACH) != 0) {
         String formatStr = (String) arguments.get(argi++);
-        Formatter formatter = new Formatter(formatStr, skylarkSemantics, location);
+        Formatter formatter = Formatter.get(location, skylarkSemantics);
         try {
           int count = stringValues.size();
           for (int i = 0; i < count; ++i) {
-            stringValues.set(i, formatter.format(stringValues.get(i)));
+            stringValues.set(i, formatter.format(formatStr, stringValues.get(i)));
           }
         } catch (IllegalFormatException e) {
           throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, null));
@@ -269,9 +270,9 @@ public class SkylarkCustomCommandLine extends CommandLine {
         if (!isEmptyAndShouldOmit) {
           String result = Joiner.on(joinWith).join(stringValues);
           if (formatJoined != null) {
-            Formatter formatter = new Formatter(formatJoined, skylarkSemantics, location);
+            Formatter formatter = Formatter.get(location, skylarkSemantics);
             try {
-              result = formatter.format(result);
+              result = formatter.format(formatJoined, result);
             } catch (IllegalFormatException e) {
               throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, null));
             }
@@ -538,8 +539,8 @@ public class SkylarkCustomCommandLine extends CommandLine {
       String stringValue = CommandLineItem.expandToCommandLine(object);
       if (hasFormat) {
         String formatStr = (String) arguments.get(argi++);
-        Formatter formatter = new Formatter(formatStr, skylarkSemantics, location);
-        stringValue = formatter.format(stringValue);
+        Formatter formatter = Formatter.get(location, skylarkSemantics);
+        stringValue = formatter.format(formatStr, stringValue);
       }
       builder.add(stringValue);
       return argi;
@@ -696,26 +697,31 @@ public class SkylarkCustomCommandLine extends CommandLine {
     }
   }
 
-  private static class Formatter {
-    private final String formatStr;
-    private final SkylarkSemantics skylarkSemantics;
+  private interface Formatter {
+    String format(String formatStr, String subject) throws CommandLineExpansionException;
+
+    static Formatter get(Location location, SkylarkSemantics skylarkSemantics) {
+      return skylarkSemantics.incompatibleDisallowOldStyleArgsAdd()
+          ? CommandLineItemSimpleFormatter::format
+          : new LegacyFormatter(location);
+    }
+  }
+
+  private static class LegacyFormatter implements Formatter {
     @Nullable private final Location location;
     private final ArrayList<Object> args;
 
-    public Formatter(String formatStr, SkylarkSemantics skylarkSemantics, Location location) {
-      this.formatStr = formatStr;
-      this.skylarkSemantics = skylarkSemantics;
+    public LegacyFormatter(Location location) {
       this.location = location;
       this.args = new ArrayList<>(1); // Reused arg list to reduce GC
       this.args.add(null);
     }
 
-    String format(Object object) throws CommandLineExpansionException {
+    @Override
+    public String format(String formatStr, String subject) throws CommandLineExpansionException {
       try {
-        args.set(0, object);
-        SkylarkPrinter printer =
-            skylarkSemantics.incompatibleDisallowOldStyleArgsAdd()
-                ? Printer.getSimplifiedPrinter() : Printer.getPrinter();
+        args.set(0, subject);
+        SkylarkPrinter printer = Printer.getPrinter();
         return printer.formatWithList(formatStr, args).toString();
       } catch (IllegalFormatException e) {
         throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, null));
