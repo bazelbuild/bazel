@@ -223,7 +223,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 linkStaticness == LinkStaticness.DYNAMIC
                     ? DYNAMIC_LINKING_MODE
                     : STATIC_LINKING_MODE),
-            /* unsupportedFeatures= */ ImmutableSet.of(),
+            /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
             ccToolchain);
 
     CcCompilationHelper compilationHelper =

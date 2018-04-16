@@ -707,7 +707,6 @@ public final class CcCommon {
     ImmutableSet.Builder<String> allRequestedFeaturesBuilder = ImmutableSet.builder();
     ImmutableSet.Builder<String> unsupportedFeaturesBuilder = ImmutableSet.builder();
     unsupportedFeaturesBuilder.addAll(unsupportedFeatures);
-    unsupportedFeaturesBuilder.addAll(ruleContext.getDisabledFeatures());
     if (!toolchain.supportsHeaderParsing()) {
       // TODO(bazel-team): Remove once supports_header_parsing has been removed from the
       // cc_toolchain rule.
@@ -837,7 +836,7 @@ public final class CcCommon {
     return configureFeatures(
         ruleContext,
         /* requestedFeatures= */ ImmutableSet.of(),
-        /* unsupportedFeatures= */ ImmutableSet.of(),
+        /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
         toolchain);
   }
 
