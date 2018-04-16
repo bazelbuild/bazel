@@ -14,18 +14,32 @@
 
 package com.google.devtools.build.runfiles;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
 /** {@link Runfiles} implementation that appends runfiles paths to the runfiles root. */
-class DirectoryBased extends Runfiles {
+final class DirectoryBased extends Runfiles {
   private final String runfilesRoot;
 
-  DirectoryBased(String runfilesDir) {
-    Util.checkArgument(runfilesDir != null);
-    Util.checkArgument(!runfilesDir.isEmpty());
+  DirectoryBased(String runfilesDir) throws IOException {
+    Util.checkArgument(!Util.isNullOrEmpty(runfilesDir));
+    Util.checkArgument(new File(runfilesDir).isDirectory());
     this.runfilesRoot = runfilesDir;
   }
 
   @Override
   String rlocationChecked(String path) {
     return runfilesRoot + "/" + path;
+  }
+
+  @Override
+  public Map<String, String> getEnvVars() {
+    HashMap<String, String> result = new HashMap<>(2);
+    result.put("RUNFILES_DIR", runfilesRoot);
+    // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can pick up RUNFILES_DIR.
+    result.put("JAVA_RUNFILES", runfilesRoot);
+    return result;
   }
 }

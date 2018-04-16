@@ -31,50 +31,12 @@ class RunfilesTest(test_base.TestBase):
     self.assertIn("building runfiles is not supported on Windows",
                   "\n".join(stderr))
 
-  def testJavaRunfilesLibraryInBazelToolsRepo(self):
-    for s, t in [
-        ("WORKSPACE.mock", "WORKSPACE"),
-        ("foo/BUILD.mock", "foo/BUILD"),
-        ("foo/Foo.java", "foo/Foo.java"),
-        ("foo/datadep/hello.txt", "foo/datadep/hello.txt"),
-    ]:
-      self.CopyFile(
-          self.Rlocation(
-              "io_bazel/src/test/py/bazel/testdata/runfiles_test/" + s), t)
-
-    exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
-    self.AssertExitCode(exit_code, 0, stderr)
-    bazel_bin = stdout[0]
-
-    exit_code, _, stderr = self.RunBazel(["build", "//foo:runfiles-java"])
-    self.AssertExitCode(exit_code, 0, stderr)
-
-    if test_base.TestBase.IsWindows():
-      bin_path = os.path.join(bazel_bin, "foo/runfiles-java.exe")
-    else:
-      bin_path = os.path.join(bazel_bin, "foo/runfiles-java")
-
-    self.assertTrue(os.path.exists(bin_path))
-
-    exit_code, stdout, stderr = self.RunProgram(
-        [bin_path], env_add={"TEST_SRCDIR": "__ignore_me__"})
-    self.AssertExitCode(exit_code, 0, stderr)
-    if len(stdout) != 2:
-      self.fail("stdout: %s" % stdout)
-    self.assertEqual(stdout[0], "Hello Java Foo!")
-    six.assertRegex(self, stdout[1], "^rloc=.*/foo/datadep/hello.txt")
-    self.assertNotIn("__ignore_me__", stdout[1])
-    with open(stdout[1].split("=", 1)[1], "r") as f:
-      lines = [l.strip() for l in f.readlines()]
-    if len(lines) != 1:
-      self.fail("lines: %s" % lines)
-    self.assertEqual(lines[0], "world")
-
-  def _AssertPythonRunfilesLibraryInBazelToolsRepo(self, family, lang_name):
+  def _AssertRunfilesLibraryInBazelToolsRepo(self, family, lang_name):
     for s, t in [
         ("WORKSPACE.mock", "WORKSPACE"),
         ("foo/BUILD.mock", "foo/BUILD"),
         ("foo/foo.py", "foo/foo.py"),
+        ("foo/Foo.java", "foo/Foo.java"),
         ("foo/datadep/hello.txt", "foo/datadep/hello.txt"),
         ("bar/BUILD.mock", "bar/BUILD"),
         ("bar/bar.py", "bar/bar.py"),
@@ -132,7 +94,10 @@ class RunfilesTest(test_base.TestBase):
       i += 2
 
   def testPythonRunfilesLibraryInBazelToolsRepo(self):
-    self._AssertPythonRunfilesLibraryInBazelToolsRepo("py", "Python")
+    self._AssertRunfilesLibraryInBazelToolsRepo("py", "Python")
+
+  def testJavaRunfilesLibraryInBazelToolsRepo(self):
+    self._AssertRunfilesLibraryInBazelToolsRepo("java", "Java")
 
   def testRunfilesLibrariesFindRunfilesWithoutEnvvars(self):
     for s, t in [

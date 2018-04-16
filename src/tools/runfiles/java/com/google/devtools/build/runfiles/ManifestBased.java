@@ -15,6 +15,7 @@
 package com.google.devtools.build.runfiles;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -24,12 +25,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 /** {@link Runfiles} implementation that parses a runfiles-manifest file to look up runfiles. */
-class ManifestBased extends Runfiles {
+final class ManifestBased extends Runfiles {
   private final Map<String, String> runfiles;
+  private final String manifestPath;
 
   ManifestBased(String manifestPath) throws IOException {
     Util.checkArgument(manifestPath != null);
     Util.checkArgument(!manifestPath.isEmpty());
+    this.manifestPath = manifestPath;
     this.runfiles = loadRunfiles(manifestPath);
   }
 
@@ -49,8 +52,32 @@ class ManifestBased extends Runfiles {
     return Collections.unmodifiableMap(result);
   }
 
+  private static String findRunfilesDir(String manifest) {
+    if (manifest.endsWith("/MANIFEST")
+        || manifest.endsWith("\\MANIFEST")
+        || manifest.endsWith(".runfiles_manifest")) {
+      String path = manifest.substring(0, manifest.length() - 9);
+      if (new File(path).isDirectory()) {
+        return path;
+      }
+    }
+    return "";
+  }
+
   @Override
   public String rlocationChecked(String path) {
     return runfiles.get(path);
+  }
+
+  @Override
+  public Map<String, String> getEnvVars() {
+    HashMap<String, String> result = new HashMap<>(4);
+    result.put("RUNFILES_MANIFEST_ONLY", "1");
+    result.put("RUNFILES_MANIFEST_FILE", manifestPath);
+    String runfilesDir = findRunfilesDir(manifestPath);
+    result.put("RUNFILES_DIR", runfilesDir);
+    // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can pick up RUNFILES_DIR.
+    result.put("JAVA_RUNFILES", runfilesDir);
+    return result;
   }
 }
