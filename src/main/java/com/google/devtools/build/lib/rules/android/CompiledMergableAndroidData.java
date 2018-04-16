@@ -29,4 +29,6 @@ public interface CompiledMergableAndroidData extends MergableAndroidData {
   Iterable<Artifact> getArtifacts();
 
   Artifact getManifest();
+
+  boolean isManifestExported();
 }

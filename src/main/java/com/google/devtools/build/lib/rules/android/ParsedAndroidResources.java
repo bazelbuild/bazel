@@ -105,6 +105,11 @@ public class ParsedAndroidResources extends AndroidResources
   }
 
   @Override
+  public boolean isManifestExported() {
+    return manifest.isExported();
+  }
+
+  @Override
   public Label getLabel() {
     return label;
   }

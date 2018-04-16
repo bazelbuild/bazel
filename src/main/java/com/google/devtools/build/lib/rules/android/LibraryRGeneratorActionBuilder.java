@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 /** Builder for the action that generates the R class for libraries. */
 public class LibraryRGeneratorActionBuilder {
   private String javaPackage;
-  private Iterable<ResourceContainer> deps = ImmutableList.<ResourceContainer>of();
+  private Iterable<ValidatedAndroidData> deps = ImmutableList.of();
   private ResourceContainer resourceContainer;
   private Artifact rJavaClassJar;
 
@@ -71,12 +71,12 @@ public class LibraryRGeneratorActionBuilder {
       builder.add("--packageForR", javaPackage);
     }
 
-    FluentIterable<ResourceContainer> symbolProviders =
+    FluentIterable<ValidatedAndroidData> symbolProviders =
         FluentIterable.from(deps).append(resourceContainer);
 
     if (!symbolProviders.isEmpty()) {
       ImmutableList<Artifact> symbols =
-          symbolProviders.stream().map(ResourceContainer::getSymbols).collect(toImmutableList());
+          symbolProviders.stream().map(ValidatedAndroidData::getSymbols).collect(toImmutableList());
       builder.addExecPaths("--symbols", symbols);
       inputs.addTransitive(NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, symbols));
     }

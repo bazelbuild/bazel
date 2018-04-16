@@ -23,12 +23,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -155,7 +155,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
     doc = "Returns resources defined by this target."
   )
   public NestedSet<Artifact> getResources() {
-    return collectDirectArtifacts(ResourceType.RESOURCES);
+    return collectDirectArtifacts(ValidatedAndroidData::getResources);
   }
 
   @SkylarkCallable(
@@ -179,7 +179,8 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
     return getIdeInfoProvider().getAar();
   }
 
-  private NestedSet<Artifact> collectDirectArtifacts(final ResourceType resources) {
+  private NestedSet<Artifact> collectDirectArtifacts(
+      final Function<ValidatedAndroidData, Iterable<Artifact>> artifactFunction) {
     if (resourceInfo == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
@@ -189,9 +190,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
         Order.STABLE_ORDER,
         Iterables.concat(
             Iterables.transform(
-                resourceInfo.getDirectAndroidResources(),
-                (ResourceContainer resourceContainer) ->
-                    resourceContainer.getArtifacts(resources))));
+                resourceInfo.getDirectAndroidResources(), data -> artifactFunction.apply(data))));
   }
 
   /** Helper class to provide information about IDLs related to this rule. */

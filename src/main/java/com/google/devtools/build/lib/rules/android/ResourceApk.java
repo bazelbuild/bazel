@@ -105,6 +105,6 @@ public final class ResourceApk {
     if (primaryResource == null) {
       return resourceDeps.toInfo(label);
     }
-    return resourceDeps.toInfo(label, primaryResource);
+    return resourceDeps.toInfo(primaryResource);
   }
 }

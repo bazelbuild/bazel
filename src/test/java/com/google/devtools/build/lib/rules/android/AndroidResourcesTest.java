@@ -385,7 +385,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
         ruleContext,
         /* inputs = */ ImmutableList.of(validated.getMergedResources(), validated.getManifest()),
         /* outputs = */ ImmutableList.of(
-            validated.getRTxt(), validated.getSourceJar(), validated.getApk()));
+            validated.getRTxt(), validated.getJavaSourceJar(), validated.getApk()));
 
     // aapt2 artifacts should not be generated
     assertThat(validated.getCompiledSymbols()).isNull();
@@ -411,7 +411,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
         ruleContext,
         /* inputs = */ ImmutableList.of(validated.getMergedResources(), validated.getManifest()),
         /* outputs = */ ImmutableList.of(
-            validated.getRTxt(), validated.getSourceJar(), validated.getApk()));
+            validated.getRTxt(), validated.getJavaSourceJar(), validated.getApk()));
 
     // aapt2 artifacts should be recorded
     assertThat(validated.getCompiledSymbols()).isNotNull();

@@ -82,11 +82,11 @@ public class AarImportTest extends BuildViewTestCase {
   public void testResourcesProvided() throws Exception {
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:foo");
 
-    NestedSet<ResourceContainer> directResources =
+    NestedSet<ValidatedAndroidData> directResources =
         aarImportTarget.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
     assertThat(directResources).hasSize(1);
 
-    ResourceContainer resourceContainer = directResources.iterator().next();
+    ValidatedAndroidData resourceContainer = directResources.iterator().next();
     assertThat(resourceContainer.getManifest()).isNotNull();
 
     Artifact resourceTreeArtifact =
@@ -102,7 +102,7 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testResourcesExtractor() throws Exception {
-    ResourceContainer resourceContainer =
+    ValidatedAndroidData resourceContainer =
         getConfiguredTarget("//a:foo")
             .get(AndroidResourcesInfo.PROVIDER)
             .getDirectAndroidResources()
@@ -203,7 +203,7 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testNoCustomJavaPackage() throws Exception {
-    ResourceContainer resourceContainer =
+    ValidatedAndroidData resourceContainer =
         getConfiguredTarget("//a:foo")
             .get(AndroidResourcesInfo.PROVIDER)
             .getDirectAndroidResources()

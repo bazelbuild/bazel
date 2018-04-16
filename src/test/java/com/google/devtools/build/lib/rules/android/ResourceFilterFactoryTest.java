@@ -38,9 +38,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ResourceFilterFactoryTest extends ResourceTestBase {
 
-  private NestedSet<ResourceContainer> getResourceContainers(ImmutableList<Artifact>... resources)
-      throws Exception {
-    NestedSetBuilder<ResourceContainer> builder = NestedSetBuilder.naiveLinkOrder();
+  private NestedSet<ValidatedAndroidData> getResourceContainers(
+      ImmutableList<Artifact>... resources) throws Exception {
+    NestedSetBuilder<ValidatedAndroidData> builder = NestedSetBuilder.naiveLinkOrder();
     for (ImmutableList<Artifact> resourceList : resources) {
       builder.add(getResourceContainer(resourceList));
     }
@@ -398,29 +398,29 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
         .containsExactly(directResourceToKeep, transitiveResourceToKeep)
         .inOrder();
 
-    List<ResourceContainer> directContainers =
+    List<ValidatedAndroidData> directContainers =
         filteredResourceDeps.getDirectResourceContainers().toList();
     assertThat(directContainers).hasSize(2);
 
-    AndroidResources directToDiscard = directContainers.get(0).getAndroidResources();
+    ValidatedAndroidData directToDiscard = directContainers.get(0);
     assertThat(directToDiscard.getResources()).isEmpty();
     assertThat(directToDiscard.getResourceRoots()).isEmpty();
 
-    AndroidResources directToKeep = directContainers.get(1).getAndroidResources();
+    ValidatedAndroidData directToKeep = directContainers.get(1);
     assertThat(directToKeep.getResources()).containsExactly(directResourceToKeep);
     assertThat(directToKeep.getResourceRoots())
         .containsExactly(
             directResourceToKeep.getExecPath().getParentDirectory().getParentDirectory());
 
-    List<ResourceContainer> transitiveContainers =
+    List<ValidatedAndroidData> transitiveContainers =
         filteredResourceDeps.getTransitiveResourceContainers().toList();
     assertThat(transitiveContainers).hasSize(2);
 
-    AndroidResources transitiveToDiscard = transitiveContainers.get(0).getAndroidResources();
+    ValidatedAndroidData transitiveToDiscard = transitiveContainers.get(0);
     assertThat(transitiveToDiscard.getResources()).isEmpty();
     assertThat(transitiveToDiscard.getResourceRoots()).isEmpty();
 
-    AndroidResources transitiveToKeep = transitiveContainers.get(1).getAndroidResources();
+    ValidatedAndroidData transitiveToKeep = transitiveContainers.get(1);
     assertThat(transitiveToKeep.getResources()).containsExactly(transitiveResourceToKeep);
     assertThat(transitiveToKeep.getResourceRoots())
         .containsExactly(

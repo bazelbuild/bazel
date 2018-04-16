@@ -121,6 +121,10 @@ public class MergedAndroidResources extends ParsedAndroidResources {
     return dataBindingInfoZip;
   }
 
+  public Artifact getJavaClassJar() {
+    return classJar;
+  }
+
   @Override
   public ProcessedAndroidManifest getStampedManifest() {
     return manifest;
