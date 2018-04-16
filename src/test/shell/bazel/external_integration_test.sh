@@ -1243,7 +1243,7 @@ EOF
 }
 
 function test_repository_cache() {
-  # Verify that --experimental_repository_cache works for query and caches soly
+  # Verify that --repository_cache works for query and caches soly
   # based on the predicted hash.
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
@@ -1282,7 +1282,7 @@ http_archive(
 )
 EOF
   # Use the external repository once to make sure it is cached.
-  bazel build --experimental_repository_cache="${TOPDIR}/cache}" '@ext//:bar' \
+  bazel build --repository_cache="${TOPDIR}/cache}" '@ext//:bar' \
       || fail "expected sucess"
 
   # Now "go offline" and clean local resources.
@@ -1292,7 +1292,7 @@ EOF
 
   # The value should still be available from the repository cache
   bazel query 'deps("@ext//:bar")' \
-        --experimental_repository_cache="${TOPDIR}/cache}" > "${TEST_log}" \
+        --repository_cache="${TOPDIR}/cache}" > "${TEST_log}" \
       || fail "Expected success"
   expect_log '@ext//:foo'
 
@@ -1310,7 +1310,7 @@ http_archive(
 )
 EOF
   bazel query 'deps("@ext//:bar")' \
-        --experimental_repository_cache="${TOPDIR}/cache}" > "${TEST_log}" \
+        --repository_cache="${TOPDIR}/cache}" > "${TEST_log}" \
       || fail "Expected success"
   expect_log '@ext//:foo'
 }
