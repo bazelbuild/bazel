@@ -205,6 +205,13 @@ public class AndroidResourceParsingActionBuilder {
         androidResources, output, compiledSymbols, ruleContext.getLabel(), manifest);
   }
 
+  public ParsedAndroidAssets build(AndroidAssets assets) {
+    setAssets(assets);
+    build(ruleContext);
+
+    return ParsedAndroidAssets.of(assets, output, ruleContext.getLabel());
+  }
+
   /**
    * Builds and registers the action, and updates the given resourceContainer with the output
    * symbols.
