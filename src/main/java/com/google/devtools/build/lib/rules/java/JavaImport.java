@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import java.util.LinkedHashSet;
@@ -161,13 +162,17 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .setRuntimeJars(javaArtifacts.getRuntimeJars())
         .setNeverlink(neverLink)
         .build();
+
+    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
+    ccLinkingInfoBuilder.setCcLinkParamsInfo(new CcLinkParamsInfo(ccLinkParamsStore));
+
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
         .addSkylarkTransitiveInfo(
             JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaInfo)
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
-        .addNativeDeclaredProvider(new CcLinkParamsInfo(ccLinkParamsStore))
+        .addNativeDeclaredProvider(ccLinkingInfoBuilder.build())
         .add(
             JavaNativeLibraryProvider.class,
             new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))

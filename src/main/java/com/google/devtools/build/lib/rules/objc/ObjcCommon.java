@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContextInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -267,7 +268,7 @@ public final class ObjcCommon {
         addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.SKYLARK_CONSTRUCTOR);
         addAnyProviders(cppDeps, depCT, CcCompilationInfo.PROVIDER);
         if (isCcLibrary(dep)) {
-          cppDepLinkParams.add(depCT.get(CcLinkParamsInfo.PROVIDER));
+          cppDepLinkParams.add(depCT.get(CcLinkingInfo.PROVIDER).getCcLinkParamsInfo());
           CcCompilationContextInfo ccCompilationContextInfo =
               depCT.get(CcCompilationInfo.PROVIDER).getCcCompilationContextInfo();
           addDefines(ccCompilationContextInfo.getDefines());

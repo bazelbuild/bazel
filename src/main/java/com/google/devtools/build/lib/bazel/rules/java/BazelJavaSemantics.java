@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
@@ -577,7 +578,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       RuleConfiguredTargetBuilder ruleBuilder) {
     if (!isJavaBinaryOrJavaTest(ruleContext)) {
       // TODO(plf): Figure out whether we can remove support for C++ dependencies in Bazel.
-      ruleBuilder.addNativeDeclaredProvider(
+      CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
+      ccLinkingInfoBuilder.setCcLinkParamsInfo(
           new CcLinkParamsInfo(
               new CcLinkParamsStore() {
                 @Override
@@ -589,6 +591,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                       CcLinkParamsInfo.TO_LINK_PARAMS);
                 }
               }));
+      ruleBuilder.addNativeDeclaredProvider(ccLinkingInfoBuilder.build());
     }
   }
 

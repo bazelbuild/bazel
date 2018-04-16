@@ -243,7 +243,10 @@ public final class CcLinkParams {
      * the method does not do anything.
      */
     public Builder addTransitiveTarget(TransitiveInfoCollection target) {
-      return addTransitiveProvider(target.get(CcLinkParamsInfo.PROVIDER));
+      CcLinkingInfo ccLinkingInfo = target.get(CcLinkingInfo.PROVIDER);
+      CcLinkParamsInfo ccLinkParamsInfo =
+          ccLinkingInfo == null ? null : ccLinkingInfo.getCcLinkParamsInfo();
+      return addTransitiveProvider(ccLinkParamsInfo);
     }
 
     /**

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -122,11 +123,15 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     common.addCommonTransitiveInfoProviders(builder, semantics, common.getFilesToBuild());
 
     semantics.postInitBinary(ruleContext, runfilesSupport, common);
+
+    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
+    ccLinkingInfoBuilder.setCcLinkParamsInfo(new CcLinkParamsInfo(ccLinkParamsStore));
+
     return builder
         .setFilesToBuild(common.getFilesToBuild())
         .add(RunfilesProvider.class, runfilesProvider)
         .setRunfilesSupport(runfilesSupport, realExecutable)
-        .addNativeDeclaredProvider(new CcLinkParamsInfo(ccLinkParamsStore))
+        .addNativeDeclaredProvider(ccLinkingInfoBuilder.build())
         .add(PythonImportsProvider.class, new PythonImportsProvider(imports));
   }
 
