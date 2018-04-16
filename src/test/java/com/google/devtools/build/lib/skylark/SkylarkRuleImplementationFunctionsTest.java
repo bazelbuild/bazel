@@ -1764,7 +1764,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "args.add('-')",
         "args.add('foo', format='format%s')",
         "args.add('-')",
-        "args.add(arg_name='--foo', value='val')",
+        "args.add('--foo', 'val')",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -1805,7 +1805,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "args = ruleContext.actions.args()",
         "args.add_all([1, 2])",
         "args.add('-')",
-        "args.add_all(arg_name='--foo', values=[1, 2])",
+        "args.add_all('--foo', [1, 2])",
         "args.add('-')",
         "args.add_all([1, 2], before_each='-before')",
         "args.add('-')",
@@ -1894,11 +1894,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "args.add('-')",
         "args.add_joined([], join_with=',', omit_if_empty=False)",
         "args.add('-')",
-        "args.add_all(arg_name='--foo', values=[])",
+        "args.add_all('--foo', [])",
         "args.add('-')",
-        "args.add_all(arg_name='--foo', values=[], omit_if_empty=False)",
+        "args.add_all('--foo', [], omit_if_empty=False)",
         "args.add('-')",
-        "args.add_all(arg_name='--foo', values=[1], map_each=filter, terminate_with='hello')",
+        "args.add_all('--foo', [1], map_each=filter, terminate_with='hello')",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -2182,6 +2182,32 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         ruleContext,
         "'before_each' is not supported for scalar arguments",
         "args = ruleContext.actions.args()\n" + "args.add(1, before_each='illegal')");
+  }
+
+  @Test
+  public void testArgsAddInvalidTypesForArgAndValues() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_old_style_args_add=true");
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    checkError(
+        ruleContext,
+        "expected value of type 'string' for arg name, got 'Integer'",
+        "args = ruleContext.actions.args()",
+        "args.add(1, 'value')");
+    checkError(
+        ruleContext,
+        "expected value of type 'string' for arg name, got 'Integer'",
+        "args = ruleContext.actions.args()",
+        "args.add_all(1, [1, 2])");
+    checkError(
+        ruleContext,
+        "expected value of type 'sequence or depset' for values, got 'Integer'",
+        "args = ruleContext.actions.args()",
+        "args.add_all(1)");
+    checkErrorContains(
+        ruleContext,
+        "expected value of type 'sequence or depset' for parameter 'values'",
+        "args = ruleContext.actions.args()",
+        "args.add_all('--foo', 1)");
   }
 
   @Test
@@ -2492,10 +2518,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     commandLines.add(
         getCommandLine("args = ruleContext.actions.args()", "args.add('foo')", "args"));
     commandLines.add(
-        getCommandLine(
-            "args = ruleContext.actions.args()",
-            "args.add(arg_name='--foo', value='foo')",
-            "args"));
+        getCommandLine("args = ruleContext.actions.args()", "args.add('--foo', 'foo')", "args"));
     commandLines.add(
         getCommandLine(
             "args = ruleContext.actions.args()", "args.add('foo', format='--foo=%s')", "args"));
@@ -2504,9 +2527,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
             "args = ruleContext.actions.args()", "args.add_all(['foo', 'bar'])", "args"));
     commandLines.add(
         getCommandLine(
-            "args = ruleContext.actions.args()",
-            "args.add_all(arg_name='-foo', values=['foo', 'bar'])",
-            "args"));
+            "args = ruleContext.actions.args()", "args.add_all('-foo', ['foo', 'bar'])", "args"));
     commandLines.add(
         getCommandLine(
             "args = ruleContext.actions.args()",

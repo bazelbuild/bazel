@@ -904,6 +904,14 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "be <code>%s</code>. Literal percents may be escaped as <code>%%</code>. Formatting "
             + "is applied after the value is converted to a string as per the above."
             + ""
+            + "<p>Each of the <code>add*()</code> methods have an alternate form that accepts an "
+            + "extra positional parameter, an \"arg name\" string to insert before the rest of the "
+            + "arguments. For <code>add_all</code> and <code>add_joined</code> the extra string "
+            + "will not be added if the sequence turns out to be empty. "
+            + "For instance, the same usage can add either <code>--foo val1 val2 val3 --bar"
+            + "</code> or just <code>--bar</code> to the command line, depending on whether the "
+            + "given sequence contains <code>val1..val3</code> or is empty."
+            + ""
             + "<p>If the size of the command line can grow longer than the maximum size allowed by "
             + "the system, the arguments can be spilled over into parameter files. See "
             + "<a href='#use_param_file'><code>use_param_file()</code></a> and "
@@ -918,8 +926,8 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "# foo_deps and bar_deps are depsets containing\n"
             + "# File objects for the foo and bar .txt files.\n"
             + "args = ctx.actions.args()\n"
-            + "args.add_all(arg_name=\"--foo\", values=foo_deps)\n"
-            + "args.add_joined(arg_name=\"--bar\", values=bar_deps, join_with=\",\")\n"
+            + "args.add_all(\"--foo\", foo_deps)\n"
+            + "args.add_joined(\"--bar\", bar_deps, join_with=\",\")\n"
             + "args.add(\"--baz\")\n"
             + "ctx.actions.run(\n"
             + "  ...\n"
@@ -952,8 +960,16 @@ public class SkylarkActionFactory implements SkylarkValue {
               + "items.",
       parameters = {
         @Param(
+          name = "arg_name_or_value",
+          doc =
+              "If two positional parameters are passed this is interpreted as the arg name. "
+                  + "The arg name is added before the value without any processing. "
+                  + "If only one positional parameter is passed, it is interpreted as "
+                  + "<code>value</code> (see below)."
+        ),
+        @Param(
           name = "value",
-          named = true,
+          defaultValue = "unbound",
           doc =
               "The object to append. It will be converted to a string using the standard "
                   + "conversion mentioned above. Since there is no <code>map_each</code> parameter "
@@ -962,16 +978,6 @@ public class SkylarkActionFactory implements SkylarkValue {
                   + ""
                   + "<p><i>Deprecated behavior:</i> <code>value</code> may also be a list, tuple, "
                   + "or depset of multiple items to append."
-        ),
-        @Param(
-          name = "arg_name",
-          type = String.class,
-          named = true,
-          defaultValue = "None",
-          noneable = true,
-          doc = "An optional string to append prior to appending <code>value</code>. This is "
-                  + "equivalent to calling <code>add()</code> twice; this parameter is provided "
-                  + "for readability and symmetry with the other <code>add*()</code> methods."
         ),
         @Param(
           name = "format",
@@ -1029,8 +1035,8 @@ public class SkylarkActionFactory implements SkylarkValue {
       useLocation = true
     )
     public NoneType addArgument(
+        Object argNameOrValue,
         Object value,
-        Object argName,
         Object format,
         Object beforeEach,
         Object joinWith,
@@ -1040,7 +1046,15 @@ public class SkylarkActionFactory implements SkylarkValue {
       if (isImmutable()) {
         throw new EvalException(null, "cannot modify frozen value");
       }
-      if (argName != Runtime.NONE) {
+      final String argName;
+      if (value == Runtime.UNBOUND) {
+        value = argNameOrValue;
+        argName = null;
+      } else {
+        validateArgName(argNameOrValue, loc);
+        argName = (String) argNameOrValue;
+      }
+      if (argName != null) {
         commandLine.add(argName);
       }
       if (value instanceof SkylarkNestedSet || value instanceof SkylarkList) {
@@ -1108,31 +1122,31 @@ public class SkylarkActionFactory implements SkylarkValue {
               + "    argument before each existing argument in the list. This effectively doubles "
               + "    the number of arguments to be appended by this point."
               + "<li>Except in the case that the list is empty and <code>omit_if_empty</code> is "
-              + "    true (the default), <code>arg_name</code> and <code>terminate_with</code> are "
+              + "    true (the default), the arg name and <code>terminate_with</code> are "
               + "    inserted as the first and last arguments, respectively, if they are given."
               + "</ol>"
               + "Note that empty strings are valid arguments that are subject to all these "
               + "processing steps.",
       parameters = {
         @Param(
+          name = "arg_name_or_values",
+          doc =
+              "If two positional parameters are passed this is interpreted as the arg name. "
+                  + "The arg name is added before the <code>values</code> without any processing. "
+                  + "This arg name will not be added if <code>omit_if_empty</code> is true "
+                  + "(the default) and no other items are appended (as happens if "
+                  + "<code>values</code> is empty or all of its items are filtered). "
+                  + "If only one positional parameter is passed, it is interpreted as "
+                  + "<code>values</code> (see below)."
+        ),
+        @Param(
           name = "values",
           allowedTypes = {
             @ParamType(type = SkylarkList.class),
             @ParamType(type = SkylarkNestedSet.class),
           },
-          named = true,
+          defaultValue = "unbound",
           doc = "The list, tuple, or depset whose items will be appended."
-        ),
-        @Param(
-          name = "arg_name",
-          type = String.class,
-          named = true,
-          defaultValue = "None",
-          noneable = true,
-          doc = "An optional string to append before all other arguments. This string will not be "
-                  + "added if <code>omit_if_empty</code> is true (the default) and no other items "
-                  + "are appended (as happens if <code>values</code> is empty or all of its items "
-                  + "are filtered)."
         ),
         @Param(
           name = "map_each",
@@ -1196,7 +1210,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           doc =
               "If true, if there are no arguments derived from <code>values</code> to be appended, "
                   + "then all further processing is suppressed and the command line will be "
-                  + "unchanged. If false, <code>arg_name</code> and <code>terminate_with</code>, "
+                  + "unchanged. If false, the arg name and <code>terminate_with</code>, "
                   + "if provided, will still be appended regardless of whether or not there are "
                   + "other arguments."
         ),
@@ -1219,7 +1233,8 @@ public class SkylarkActionFactory implements SkylarkValue {
           positional = false,
           defaultValue = "None",
           noneable = true,
-          doc = "An optional string to append after all other arguments. This string will not be "
+          doc =
+              "An optional string to append after all other arguments. This string will not be "
                   + "added if <code>omit_if_empty</code> is true (the default) and no other items "
                   + "are appended (as happens if <code>values</code> is empty or all of its items "
                   + "are filtered)."
@@ -1228,8 +1243,8 @@ public class SkylarkActionFactory implements SkylarkValue {
       useLocation = true
     )
     public NoneType addAll(
-        Object value,
-        Object argName,
+        Object argNameOrValue,
+        Object values,
         Object mapEach,
         Object formatEach,
         Object beforeEach,
@@ -1241,9 +1256,18 @@ public class SkylarkActionFactory implements SkylarkValue {
       if (isImmutable()) {
         throw new EvalException(null, "cannot modify frozen value");
       }
+      final String argName;
+      if (values == Runtime.UNBOUND) {
+        values = argNameOrValue;
+        validateValues(values, loc);
+        argName = null;
+      } else {
+        validateArgName(argNameOrValue, loc);
+        argName = (String) argNameOrValue;
+      }
       addVectorArg(
-          value,
-          argName != Runtime.NONE ? (String) argName : null,
+          values,
+          argName,
           null /* mapAll */,
           mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
           formatEach != Runtime.NONE ? (String) formatEach : null,
@@ -1278,24 +1302,25 @@ public class SkylarkActionFactory implements SkylarkValue {
               + "false, the joined string will be an empty string.",
       parameters = {
         @Param(
+          name = "arg_name_or_values",
+          doc =
+              "If two positional parameters are passed this is interpreted as the arg name. "
+                  + "The arg name is added before <code>values</code> without any processing. "
+                  + "This arg will not be added if <code>omit_if_empty</code> is true "
+                  + "(the default) and there are no strings derived from <code>values</code> "
+                  + "to join together (which can happen if <code>values</code> is empty "
+                  + "or all of its items are filtered)."
+                  + "If only one positional parameter is passed, it is interpreted as "
+                  + "<code>values</code> (see below)."
+        ),
+        @Param(
           name = "values",
           allowedTypes = {
             @ParamType(type = SkylarkList.class),
             @ParamType(type = SkylarkNestedSet.class),
           },
-          named = true,
+          defaultValue = "unbound",
           doc = "The list, tuple, or depset whose items will be joined."
-        ),
-        @Param(
-          name = "arg_name",
-          type = String.class,
-          named = true,
-          defaultValue = "None",
-          noneable = true,
-          doc = "An optional string to append before the joined argument. This string will not be "
-                  + "added if <code>omit_if_empty</code> is true (the default) and there are no "
-                  + "strings derived from <code>values</code> to join together (which can happen "
-                  + "if <code>values</code> is empty or all of its items are filtered)."
         ),
         @Param(
           name = "join_with",
@@ -1345,7 +1370,7 @@ public class SkylarkActionFactory implements SkylarkValue {
                   + "</code> is empty or all its items are filtered), then all further processing "
                   + "is suppressed and the command line will be unchanged. If false, then even if "
                   + "there are no strings to join together, two arguments will be appended: "
-                  + "<code>arg_name</code> followed by an empty string (which is the logical join "
+                  + "the arg name followed by an empty string (which is the logical join "
                   + "of zero strings)."
         ),
         @Param(
@@ -1360,8 +1385,8 @@ public class SkylarkActionFactory implements SkylarkValue {
       useLocation = true
     )
     public NoneType addJoined(
-        Object value,
-        Object argName,
+        Object argNameOrValue,
+        Object values,
         String joinWith,
         Object mapEach,
         Object formatEach,
@@ -1373,9 +1398,18 @@ public class SkylarkActionFactory implements SkylarkValue {
       if (isImmutable()) {
         throw new EvalException(null, "cannot modify frozen value");
       }
+      final String argName;
+      if (values == Runtime.UNBOUND) {
+        values = argNameOrValue;
+        validateValues(values, loc);
+        argName = null;
+      } else {
+        validateArgName(argNameOrValue, loc);
+        argName = (String) argNameOrValue;
+      }
       addVectorArg(
-          value,
-          argName != Runtime.NONE ? (String) argName : null,
+          values,
+          argName,
           null /* mapAll */,
           mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
           formatEach != Runtime.NONE ? (String) formatEach : null,
@@ -1427,6 +1461,26 @@ public class SkylarkActionFactory implements SkylarkValue {
           .setTerminateWith(terminateWith)
           .setMapEach(mapEach);
       commandLine.add(vectorArg);
+    }
+
+    private void validateArgName(Object argName, Location loc) throws EvalException {
+      if (!(argName instanceof String)) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "expected value of type 'string' for arg name, got '%s'",
+                argName.getClass().getSimpleName()));
+      }
+    }
+
+    private void validateValues(Object values, Location loc) throws EvalException {
+      if (!(values instanceof SkylarkList || values instanceof SkylarkNestedSet)) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "expected value of type 'sequence or depset' for values, got '%s'",
+                values.getClass().getSimpleName()));
+      }
     }
 
     private void validateMapEach(BaseFunction mapEach, Location loc) throws EvalException {
