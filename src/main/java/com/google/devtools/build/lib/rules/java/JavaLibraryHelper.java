@@ -214,10 +214,21 @@ public final class JavaLibraryHelper {
             hostJavabase,
             jacocoInstrumental);
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(output, artifactsBuilder);
+
+    Artifact manifestProtoOutput = helper.createManifestProtoOutput(output);
+
+    Artifact genSourceJar = null;
+    Artifact genClassJar = null;
+    if (helper.usesAnnotationProcessing()) {
+      genClassJar = helper.createGenJar(output);
+      genSourceJar = helper.createGensrcJar(output);
+      helper.createGenJarAction(output, manifestProtoOutput, genClassJar, hostJavabase);
+    }
+
     helper.createCompileAction(
         output,
-        /* manifestProtoOutput= */ null,
-        /* gensrcOutputJar= */ null,
+        manifestProtoOutput,
+        genSourceJar,
         outputDepsProto,
         /* instrumentationMetadataJar= */ null,
         /* nativeHeaderOutput= */ null);
@@ -226,7 +237,8 @@ public final class JavaLibraryHelper {
     Artifact iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);
 
     if (createOutputSourceJar) {
-      helper.createSourceJarAction(outputSourceJar, null, javaToolchainProvider, hostJavabase);
+      helper.createSourceJarAction(
+          outputSourceJar, genSourceJar, javaToolchainProvider, hostJavabase);
     }
     ImmutableList<Artifact> outputSourceJars =
         outputSourceJar == null ? ImmutableList.of() : ImmutableList.of(outputSourceJar);

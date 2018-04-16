@@ -479,8 +479,18 @@ public final class JavaCompilationHelper {
    * @param manifestProto The artifact for the manifest proto emitted from JavaBuilder
    * @param genClassJar The artifact for the gen jar to output
    */
-  public void createGenJarAction(Artifact classJar, Artifact manifestProto,
+  public void createGenJarAction(
+      Artifact classJar,
+      Artifact manifestProto,
       Artifact genClassJar) {
+    createGenJarAction(
+        classJar, manifestProto, genClassJar, JavaRuntimeInfo.forHost(getRuleContext()));
+  }
+
+  public void createGenJarAction(Artifact classJar,
+      Artifact manifestProto,
+      Artifact genClassJar,
+      JavaRuntimeInfo hostJavabase) {
     getRuleContext()
         .registerAction(
             new SpawnAction.Builder()
@@ -488,9 +498,9 @@ public final class JavaCompilationHelper {
                 .addInput(classJar)
                 .addOutput(genClassJar)
                 .addTransitiveInputs(
-                    JavaRuntimeInfo.forHost(getRuleContext()).javaBaseInputsMiddleman())
+                    hostJavabase.javaBaseInputsMiddleman())
                 .setJarExecutable(
-                    JavaCommon.getHostJavaExecutable(ruleContext),
+                    JavaCommon.getHostJavaExecutable(hostJavabase),
                     getGenClassJar(ruleContext),
                     javaToolchain.getJvmOptions())
                 .addCommandLine(
