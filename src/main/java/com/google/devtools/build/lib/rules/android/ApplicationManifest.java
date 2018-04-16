@@ -310,8 +310,8 @@ public final class ApplicationManifest {
 
     ResourceContainer resourceContainer =
         ResourceContainer.builderFromRule(ruleContext)
-            .setAssets(AndroidAssets.from(ruleContext))
-            .setResources(AndroidResources.from(ruleContext, "local_resource_files"))
+            .setAndroidAssets(AndroidAssets.from(ruleContext))
+            .setAndroidResources(AndroidResources.from(ruleContext, "local_resource_files"))
             .setManifest(getManifest())
             .setApk(resourceApk)
             .setRTxt(rTxt)
@@ -456,8 +456,8 @@ public final class ApplicationManifest {
         ResourceContainer.builderFromRule(ruleContext)
             .setApk(resourceApk)
             .setManifest(getManifest())
-            .setAssets(AndroidAssets.from(ruleContext))
-            .setResources(resources)
+            .setAndroidAssets(AndroidAssets.from(ruleContext))
+            .setAndroidResources(resources)
             .build();
 
     ResourceContainer processed =
@@ -524,8 +524,8 @@ public final class ApplicationManifest {
     // container from it.
     ResourceContainer resourceContainer =
         ResourceContainer.builderFromRule(ruleContext)
-            .setAssets(AndroidAssets.from(ruleContext))
-            .setResources(resources)
+            .setAndroidAssets(AndroidAssets.from(ruleContext))
+            .setAndroidResources(resources)
             .setManifest(getManifest())
             .setRTxt(rTxt)
             .setApk(resourceApk)

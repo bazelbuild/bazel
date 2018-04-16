@@ -82,32 +82,40 @@ public abstract class ResourceContainer implements CompiledMergableAndroidData {
   @Nullable
   public abstract Artifact getJavaClassJar();
 
-  abstract AndroidAssets getAssets();
+  @Override
+  public ImmutableList<Artifact> getAssets() {
+    return getAndroidAssets().getAssets();
+  }
+
+  abstract AndroidAssets getAndroidAssets();
+
+  @Override
+  public ImmutableList<Artifact> getResources() {
+    return getAndroidResources().getResources();
+  }
 
   @VisibleForTesting
-  public abstract AndroidResources getResources();
+  public abstract AndroidResources getAndroidResources();
 
   /** @deprecated We are moving towards decoupling assets and resources */
   @Deprecated
   public ImmutableList<Artifact> getArtifacts(ResourceType resourceType) {
-    return resourceType == ResourceType.ASSETS
-        ? getAssets().getAssets()
-        : getResources().getResources();
+    return resourceType == ResourceType.ASSETS ? getAssets() : getResources();
   }
 
   @Override
   public Iterable<Artifact> getArtifacts() {
-    return Iterables.concat(getAssets().getAssets(), getResources().getResources());
+    return Iterables.concat(getAssets(), getResources());
   }
 
   @Override
   public ImmutableList<PathFragment> getResourceRoots() {
-    return getResources().getResourceRoots();
+    return getAndroidResources().getResourceRoots();
   }
 
   @Override
   public ImmutableList<PathFragment> getAssetRoots() {
-    return getAssets().getAssetRoots();
+    return getAndroidAssets().getAssetRoots();
   }
 
   /**
@@ -122,9 +130,7 @@ public abstract class ResourceContainer implements CompiledMergableAndroidData {
    */
   @Deprecated
   public ImmutableList<PathFragment> getRoots(ResourceType resourceType) {
-    return resourceType == ResourceType.ASSETS
-        ? getAssets().getAssetRoots()
-        : getResources().getResourceRoots();
+    return resourceType == ResourceType.ASSETS ? getAssetRoots() : getResourceRoots();
   }
 
   public abstract boolean isManifestExported();
@@ -201,21 +207,21 @@ public abstract class ResourceContainer implements CompiledMergableAndroidData {
       RuleErrorConsumer errorConsumer, ResourceFilter filter, boolean isDependency)
       throws RuleErrorException {
     Optional<? extends AndroidResources> filteredResources =
-        getResources().maybeFilter(errorConsumer, filter, isDependency);
+        getAndroidResources().maybeFilter(errorConsumer, filter, isDependency);
 
     if (!filteredResources.isPresent()) {
       // No filtering was done; return this container
       return this;
     }
-    return toBuilder().setResources(filteredResources.get()).build();
+    return toBuilder().setAndroidResources(filteredResources.get()).build();
   }
 
   /** Creates a new builder with default values. */
   public static Builder builder() {
     return new AutoValue_ResourceContainer.Builder()
         .setJavaPackageFrom(Builder.JavaPackageSource.MANIFEST)
-        .setAssets(AndroidAssets.empty())
-        .setResources(AndroidResources.empty());
+        .setAndroidAssets(AndroidAssets.empty())
+        .setAndroidResources(AndroidResources.empty());
   }
 
   /**
@@ -304,9 +310,9 @@ public abstract class ResourceContainer implements CompiledMergableAndroidData {
 
     public abstract Builder setJavaClassJar(@Nullable Artifact javaClassJar);
 
-    public abstract Builder setAssets(AndroidAssets assets);
+    public abstract Builder setAndroidAssets(AndroidAssets assets);
 
-    public abstract Builder setResources(AndroidResources resources);
+    public abstract Builder setAndroidResources(AndroidResources resources);
 
     public abstract Builder setManifestExported(boolean manifestExported);
 

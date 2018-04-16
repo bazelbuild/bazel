@@ -36,6 +36,14 @@ public interface MergableAndroidData {
     return ImmutableList.of();
   }
 
+  default ImmutableList<Artifact> getResources() {
+    return ImmutableList.of();
+  }
+
+  default ImmutableList<Artifact> getAssets() {
+    return ImmutableList.of();
+  }
+
   Label getLabel();
 
   Artifact getSymbols();
