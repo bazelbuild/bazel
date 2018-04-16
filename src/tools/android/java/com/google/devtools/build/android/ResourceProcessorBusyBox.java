@@ -143,6 +143,12 @@ public class ResourceProcessorBusyBox {
       void call(String[] args) throws Exception {
         Aapt2ResourceShrinkingAction.main(args);
       }
+    },
+    MERGE_ASSETS() {
+      @Override
+      void call(String[] args) throws Exception {
+        AndroidAssetMergingAction.main(args);
+      }
     };
 
     abstract void call(String[] args) throws Exception;

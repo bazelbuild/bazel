@@ -31,10 +31,10 @@ import java.util.logging.Logger;
 // TODO(bazel-team): Turn into an instance object, in order to use an external ExecutorService.
 public class AndroidResourceMerger {
   /** Thrown when there is a unexpected condition during merging. */
-  public static class MergingException extends RuntimeException {
+  public static class MergingException extends UserException {
 
     private MergingException(Throwable e) {
-      super(e);
+      super("Error during merging", e);
     }
 
     private MergingException(String message) {
