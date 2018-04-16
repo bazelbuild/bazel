@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkCustomCommandLine;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
@@ -406,6 +407,78 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "ruleContext.actions.run_shell(",
         "  outputs = ruleContext.files.srcs,",
         "  command = ['dummy_command', '--arg'])");
+  }
+
+  private void setupToolInInputsTest(String... ruleImpl) throws Exception {
+    ImmutableList.Builder<String> lines = ImmutableList.builder();
+    lines.add("def _main_rule_impl(ctx):");
+    for (String line : ruleImpl) {
+      lines.add("  " + line);
+    }
+    lines.add(
+        "my_rule = rule(",
+        "  _main_rule_impl,",
+        "  attrs = { ",
+        "    'exe' : attr.label(executable = True, allow_files = True, cfg='host'),",
+        "  },",
+        ")");
+    scratch.file("bar/bar.bzl", lines.build().toArray(new String[] {}));
+    scratch.file(
+        "bar/BUILD",
+        "load('//bar:bar.bzl', 'my_rule')",
+        "sh_binary(",
+        "  name = 'mytool',",
+        "  srcs = ['mytool.sh'],",
+        "  data = ['file1.dat', 'file2.dat'],",
+        ")",
+        "my_rule(",
+        "  name = 'my_rule',",
+        "  exe = ':mytool',",
+        ")");
+  }
+
+  @Test
+  public void testCreateSpawnActionWithToolInInputsLegacy() throws Exception {
+    setupToolInInputsTest(
+        "output = ctx.actions.declare_file('bar.out')",
+        "ctx.actions.run_shell(",
+        "  inputs = ctx.attr.exe.files,",
+        "  outputs = [output],",
+        "  command = 'boo bar baz',",
+        ")");
+    RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
+    SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
+    assertThat(action.getTools()).isNotEmpty();
+  }
+
+  @Test
+  public void testCreateSpawnActionWithToolAttribute() throws Exception {
+    setupToolInInputsTest(
+        "output = ctx.actions.declare_file('bar.out')",
+        "ctx.actions.run_shell(",
+        "  inputs = [],",
+        "  tools = ctx.attr.exe.files,",
+        "  outputs = [output],",
+        "  command = 'boo bar baz',",
+        ")");
+    RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
+    SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
+    assertThat(action.getTools()).isNotEmpty();
+  }
+
+  @Test
+  public void testCreateSpawnActionWithToolAttributeIgnoresToolsInInputs() throws Exception {
+    setupToolInInputsTest(
+        "output = ctx.actions.declare_file('bar.out')",
+        "ctx.actions.run_shell(",
+        "  inputs = ctx.attr.exe.files,",
+        "  tools = ctx.attr.exe.files,",
+        "  outputs = [output],",
+        "  command = 'boo bar baz',",
+        ")");
+    RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
+    SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
+    assertThat(action.getTools()).isNotEmpty();
   }
 
   @Test
