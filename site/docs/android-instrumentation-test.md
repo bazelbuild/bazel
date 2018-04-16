@@ -102,16 +102,6 @@ $ which Xvfb
 /usr/bin/Xvfb
 ```
 
-- **Maven**. Bazel uses `maven` to download JARs and AARs from Maven
-  repositories such as [Google Maven](https://maven.google.com). Install it by
-  running `apt-get install maven`. Run `which mvn` and ensure that it's
-  installed at `/usr/bin/mvn`:
-
-```
-$ which mvn
-/usr/bin/mvn
-```
-
 # Getting started
 
 Here is a typical target dependency graph of an `android_instrumentation_test`:
@@ -215,11 +205,11 @@ load("@android_test_support//:repo.bzl", "android_test_repositories")
 android_test_repositories()
 
 # Google Maven Repository
-GMAVEN_COMMIT = "$COMMIT_HASH"
+GMAVEN_TAG = "0.1.0"
 http_archive(
     name = "gmaven_rules",
-    strip_prefix = "gmaven_rules-%s" % GMAVEN_COMMIT,
-    urls = ["https://github.com/bazelbuild/gmaven_rules/archive/%s.tar.gz" % GMAVEN_COMMIT],
+    strip_prefix = "gmaven_rules-%s" % GMAVEN_TAG,
+    urls = ["https://github.com/bazelbuild/gmaven_rules/archive/%s.tar.gz" % GMAVEN_TAG],
 )
 load("@gmaven_rules//:gmaven.bzl", "gmaven_rules")
 gmaven_rules()
@@ -267,7 +257,7 @@ android_library(
 for managing Maven dependencies using [a `YAML`
 file](https://github.com/johnynek/bazel-deps/blob/master/dependencies.yaml).
 
-For dependencies hosted on on [Google's Maven
+For dependencies hosted on [Google's Maven
 repository](https://maven.google.com), [`@gmaven_rules`](https://github.com/bazelbuild/gmaven_rules)
 provides a simple way to fetch dependencies hosted with `gmaven_artifact`.
 
