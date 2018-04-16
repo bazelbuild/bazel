@@ -54,20 +54,15 @@ public class JavaSubprocessFactory implements SubprocessFactory {
 
     @Override
     public boolean finished() {
-      try {
-        if (deadlineMillis > 0
-            && System.currentTimeMillis() > deadlineMillis
-            && deadlineExceeded.compareAndSet(false, true)) {
-          // We use compareAndSet here to avoid calling destroy multiple times. Note that destroy
-          // returns immediately, and we don't want to wait in this method.
-          process.destroy();
-        }
-        // this seems to be the only non-blocking call for checking liveness
-        process.exitValue();
-        return true;
-      } catch (IllegalThreadStateException e) {
-        return false;
+      if (deadlineMillis > 0
+          && System.currentTimeMillis() > deadlineMillis
+          && deadlineExceeded.compareAndSet(false, true)) {
+        // We use compareAndSet here to avoid calling destroy multiple times. Note that destroy
+        // returns immediately, and we don't want to wait in this method.
+        process.destroy();
       }
+      // this seems to be the only non-blocking call for checking liveness
+      return !process.isAlive();
     }
 
     @Override

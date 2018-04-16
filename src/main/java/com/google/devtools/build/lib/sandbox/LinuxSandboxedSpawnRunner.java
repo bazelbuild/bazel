@@ -77,6 +77,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path execRoot;
   private final boolean allowNetwork;
   private final Path linuxSandbox;
+  private final Path sandboxBase;
   private final Path inaccessibleHelperFile;
   private final Path inaccessibleHelperDir;
   private final LocalEnvProvider localEnvProvider;
@@ -101,12 +102,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Path inaccessibleHelperDir,
       Duration timeoutKillDelay,
       @Nullable SandboxfsProcess sandboxfsProcess) {
-    super(cmdEnv, sandboxBase);
+    super(cmdEnv);
     this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.blazeDirs = cmdEnv.getDirectories();
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv);
+    this.sandboxBase = sandboxBase;
     this.inaccessibleHelperFile = inaccessibleHelperFile;
     this.inaccessibleHelperDir = inaccessibleHelperDir;
     this.timeoutKillDelay = timeoutKillDelay;
@@ -117,21 +119,18 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   @Override
   protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
       throws IOException, ExecException, InterruptedException {
-    // Each invocation of "exec" gets its own sandbox.
-    Path sandboxPath = getSandboxRoot();
-    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
-    sandboxExecRoot.createDirectoryAndParents();
+    // Each invocation of "exec" gets its own sandbox base, execroot and temporary directory.
+    Path sandboxPath = sandboxBase.getRelative(Integer.toString(policy.getId()));
+    sandboxPath.createDirectory();
 
-    // Each sandboxed action runs in its own directory so we don't need to make the temp directory's
-    // name unique (like we have to with standalone execution strategy).
-    //
-    // Note that, for sandboxfs-based executions, this temp directory lives outside of the sandboxfs
-    // instance. This is perfectly fine (because linux-sandbox controls accesses to this directory)
-    // and is actually desirable for performance reasons.
-    Path tmpDir = sandboxPath.getRelative("tmp");
+    // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
+    // the normal execroot does.
+    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
+    sandboxExecRoot.getParentDirectory().createDirectory();
+    sandboxExecRoot.createDirectory();
 
     Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir.getPathString());
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, "/tmp");
 
     ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
@@ -144,12 +143,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setBindMounts(getReadOnlyBindMounts(blazeDirs, sandboxExecRoot))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setCreateNetworkNamespace(!(allowNetwork || Spawns.requiresNetwork(spawn)))
-            .setUseDebugMode(getSandboxOptions().sandboxDebug);
+            .setUseDebugMode(getSandboxOptions().sandboxDebug)
+            .setKillDelay(timeoutKillDelay);
 
     if (!timeout.isZero()) {
       commandLineBuilder.setTimeout(timeout);
     }
-    commandLineBuilder.setKillDelay(timeoutKillDelay);
+
     if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_FAKEROOT)) {
       commandLineBuilder.setUseFakeRoot(true);
     } else if (getSandboxOptions().sandboxFakeUsername) {
@@ -185,7 +185,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               writableDirs);
     }
 
-    return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout, statisticsPath);
+    return runSpawn(spawn, sandbox, policy, execRoot, timeout, statisticsPath);
   }
 
   @Override

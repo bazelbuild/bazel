@@ -38,7 +38,7 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
 
   @Override
   public String toString() {
-    return "sandboxed";
+    return "linux-sandbox";
   }
 
   /**

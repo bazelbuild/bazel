@@ -151,14 +151,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
             spawn.getMnemonic(),
             workerFilesCombinedHash,
             workerFiles,
-            inputFiles,
-            outputFiles,
             policy.speculating());
 
     WorkRequest workRequest = createWorkRequest(spawn, policy, flagFiles, inputFileCache);
 
     long startTime = System.currentTimeMillis();
-    WorkResponse response = execInWorker(key, workRequest, policy);
+    WorkResponse response = execInWorker(key, workRequest, policy, inputFiles, outputFiles);
     Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
 
     FileOutErr outErr = policy.getFileOutErr();
@@ -257,7 +255,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
   }
 
-  private WorkResponse execInWorker(WorkerKey key, WorkRequest request, SpawnExecutionPolicy policy)
+  private WorkResponse execInWorker(
+      WorkerKey key,
+      WorkRequest request,
+      SpawnExecutionPolicy policy,
+      Map<PathFragment, Path> inputFiles,
+      Set<PathFragment> outputFiles)
       throws InterruptedException, ExecException {
     Worker worker = null;
     WorkResponse response;
@@ -275,7 +278,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
 
       try {
-        worker.prepareExecution(key);
+        worker.prepareExecution(inputFiles, outputFiles, key.getWorkerFilesWithHashes().keySet());
       } catch (IOException e) {
         throw new UserExecException(
             ErrorMessage.builder()
@@ -337,7 +340,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
 
       try {
-        worker.finishExecution(key);
+        worker.finishExecution(execRoot);
       } catch (IOException e) {
         throw new UserExecException(
             ErrorMessage.builder()
