@@ -27,6 +27,17 @@ import java.util.Map;
  *   Runfiles runfiles = Runfiles.create();
  *   File p = new File(runfiles.rlocation("io_bazel/src/bazel"));
  * </pre>
+ *
+ * <p>If you want to start subprocesses that also need runfiles, you need to set the right
+ * environment variables for them:
+ *
+ * <pre>
+ *   String path = r.rlocation("path/to/binary");
+ *   ProcessBuilder pb = new ProcessBuilder(path);
+ *   pb.environment().putAll(r.getEnvVars());
+ *   ...
+ *   Process p = pb.start();
+ * </pre>
  */
 public abstract class Runfiles {
 
@@ -102,6 +113,14 @@ public abstract class Runfiles {
     }
     return rlocationChecked(path);
   }
+
+  /**
+   * Returns environment variables for subprocesses.
+   *
+   * <p>The caller should add the returned key-value pairs to the environment of subprocesses in
+   * case those subprocesses are also Bazel-built binaries that need to use runfiles.
+   */
+  public abstract Map<String, String> getEnvVars();
 
   /** Returns true if the platform supports runfiles only via manifests. */
   private static boolean isManifestOnly(Map<String, String> env) {

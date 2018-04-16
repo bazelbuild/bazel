@@ -17,6 +17,7 @@ package com.google.devtools.build.runfiles;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import java.io.File;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,8 +31,11 @@ public final class DirectoryBasedTest {
     // The DirectoryBased implementation simply joins the runfiles directory and the runfile's path
     // on a "/". DirectoryBased does not perform any normalization, nor does it check that the path
     // exists.
-    DirectoryBased r = new DirectoryBased("foo/bar baz//qux/");
-    assertThat(r.rlocation("arg")).isEqualTo("foo/bar baz//qux//arg");
+    File dir = new File(System.getenv("TEST_TMPDIR"), "mock/runfiles");
+    assertThat(dir.mkdirs()).isTrue();
+    DirectoryBased r = new DirectoryBased(dir.toString());
+    // Escaping for "\": once for string and once for regex.
+    assertThat(r.rlocation("arg")).matches(".*[/\\\\]mock[/\\\\]runfiles[/\\\\]arg");
   }
 
   @Test
@@ -50,6 +54,13 @@ public final class DirectoryBasedTest {
       // expected
     }
 
-    new DirectoryBased("non-empty value is fine");
+    try {
+      new DirectoryBased("non-existent directory is bad");
+      fail();
+    } catch (IllegalArgumentException e) {
+      // expected
+    }
+
+    new DirectoryBased(System.getenv("TEST_TMPDIR"));
   }
 }
