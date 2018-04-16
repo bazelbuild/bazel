@@ -14990,11 +14990,9 @@ toolchain {
   unfiltered_cxx_flag: "-D__DATE__=\"redacted\""
   unfiltered_cxx_flag: "-D__TIMESTAMP__=\"redacted\""
   unfiltered_cxx_flag: "-D__TIME__=\"redacted\""
-  supports_normalizing_ar: false
   supports_start_end_lib: false
   default_python_version: "python2.7"
   supports_interface_shared_objects: false
-  supports_incremental_linker: false
   supports_fission: false
   feature {
     name: "fastbuild"
