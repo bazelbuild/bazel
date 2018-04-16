@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote.logging;
 
+import com.google.bytestream.ByteStreamGrpc;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
@@ -59,6 +60,10 @@ public class LoggingInterceptor implements ClientInterceptor {
       return new GetActionResultHandler();
     } else if (method == ContentAddressableStorageGrpc.getFindMissingBlobsMethod()) {
       return new FindMissingBlobsHandler();
+    } else if (method == ByteStreamGrpc.getReadMethod()) {
+      return new ReadHandler();
+    } else if (method == ByteStreamGrpc.getWriteMethod()) {
+      return new WriteHandler();
     }
     return null;
   }

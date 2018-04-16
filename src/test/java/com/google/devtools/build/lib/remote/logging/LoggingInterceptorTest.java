@@ -34,8 +34,10 @@ import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.ExecuteDe
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.FindMissingBlobsDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.GetActionResultDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.ReadDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RpcCallDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WatchDetails;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WriteDetails;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.remoteexecution.v1test.Action;
@@ -555,6 +557,197 @@ public class LoggingInterceptorTest {
                     .setCode(error.getCode().value())
                     .setMessage(error.getDescription()))
             .build();
+    verify(logStream).write(expectedEntry);
+  }
+
+  @Test
+  public void testReadCallOk() {
+    ReadRequest request = ReadRequest.newBuilder().setResourceName("test-resource").build();
+    ReadResponse response1 =
+        ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abc")).build();
+    ReadResponse response2 =
+        ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("def")).build();
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(response1);
+            responseObserver.onNext(response2);
+            responseObserver.onCompleted();
+          }
+        });
+
+    Iterator<ReadResponse> replies = ByteStreamGrpc.newBlockingStub(loggedChannel).read(request);
+
+    // Read both responses.
+    while (replies.hasNext()) {
+      replies.next();
+    }
+
+    LogEntry expectedEntry =
+        LogEntry.newBuilder()
+            .setMethodName(ByteStreamGrpc.getReadMethod().getFullMethodName())
+            .setDetails(
+                RpcCallDetails.newBuilder()
+                    .setRead(
+                        ReadDetails.newBuilder()
+                            .setRequest(request)
+                            .setNumReads(2)
+                            .setBytesRead(6)))
+            .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .build();
+    verify(logStream).write(expectedEntry);
+  }
+
+  @Test
+  public void testReadCallFail() {
+    ReadRequest request = ReadRequest.newBuilder().setResourceName("test-resource").build();
+    ReadResponse response1 =
+        ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abc")).build();
+    Status error = Status.DEADLINE_EXCEEDED.withDescription("timeout");
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(response1);
+            responseObserver.onError(error.asRuntimeException());
+          }
+        });
+    Iterator<ReadResponse> replies = ByteStreamGrpc.newBlockingStub(loggedChannel).read(request);
+    assertThrows(
+        StatusRuntimeException.class,
+        () -> {
+          while (replies.hasNext()) {
+            replies.next();
+          }
+        });
+
+    LogEntry expectedEntry =
+        LogEntry.newBuilder()
+            .setMethodName(ByteStreamGrpc.getReadMethod().getFullMethodName())
+            .setDetails(
+                RpcCallDetails.newBuilder()
+                    .setRead(
+                        ReadDetails.newBuilder()
+                            .setRequest(request)
+                            .setNumReads(1)
+                            .setBytesRead(3)))
+            .setStatus(
+                com.google.rpc.Status.newBuilder()
+                    .setCode(error.getCode().value())
+                    .setMessage(error.getDescription()))
+            .build();
+    verify(logStream).write(expectedEntry);
+  }
+
+  @Test
+  public void testWriteCallOk() {
+    WriteRequest request1 =
+        WriteRequest.newBuilder()
+            .setResourceName("test1")
+            .setData(ByteString.copyFromUtf8("abc"))
+            .build();
+    WriteRequest request2 =
+        WriteRequest.newBuilder()
+            .setResourceName("test2")
+            .setData(ByteString.copyFromUtf8("def"))
+            .build();
+    WriteResponse response = WriteResponse.newBuilder().setCommittedSize(6).build();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {}
+
+              @Override
+              public void onError(Throwable throwable) {}
+
+              @Override
+              public void onCompleted() {
+                streamObserver.onNext(response);
+                streamObserver.onCompleted();
+              }
+            };
+          }
+        });
+
+    ByteStreamStub stub = ByteStreamGrpc.newStub(loggedChannel);
+    @SuppressWarnings("unchecked")
+    StreamObserver<WriteResponse> responseObserver = Mockito.mock(StreamObserver.class);
+
+    // Request three writes, the first identical with the third.
+    StreamObserver<WriteRequest> requester = stub.write(responseObserver);
+    requester.onNext(request1);
+    requester.onNext(request2);
+    requester.onNext(request1);
+    requester.onCompleted();
+
+    LogEntry expectedEntry =
+        LogEntry.newBuilder()
+            .setMethodName(ByteStreamGrpc.getWriteMethod().getFullMethodName())
+            .setDetails(
+                RpcCallDetails.newBuilder()
+                    .setWrite(
+                        WriteDetails.newBuilder()
+                            .addResourceNames("test1")
+                            .addResourceNames("test2")
+                            .setResponse(response)
+                            .setBytesSent(9)
+                            .setNumWrites(3)))
+            .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .build();
+
+    verify(logStream).write(expectedEntry);
+  }
+
+  @Test
+  public void testWriteCallFail() {
+    WriteRequest request =
+        WriteRequest.newBuilder()
+            .setResourceName("test")
+            .setData(ByteString.copyFromUtf8("abc"))
+            .build();
+    Status error = Status.DEADLINE_EXCEEDED.withDescription("timeout");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          @SuppressWarnings("unchecked")
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            return Mockito.mock(StreamObserver.class);
+          }
+        });
+
+    ByteStreamStub stub = ByteStreamGrpc.newStub(loggedChannel);
+    @SuppressWarnings("unchecked")
+    StreamObserver<WriteResponse> responseObserver = Mockito.mock(StreamObserver.class);
+
+    // Write both responses.
+    StreamObserver<WriteRequest> requester = stub.write(responseObserver);
+    requester.onNext(request);
+    requester.onError(error.asRuntimeException());
+
+    Status expectedCancel = Status.CANCELLED.withCause(error.asRuntimeException());
+
+    LogEntry expectedEntry =
+        LogEntry.newBuilder()
+            .setMethodName(ByteStreamGrpc.getWriteMethod().getFullMethodName())
+            .setStatus(
+                com.google.rpc.Status.newBuilder()
+                    .setCode(expectedCancel.getCode().value())
+                    .setMessage(expectedCancel.getCause().toString()))
+            .setDetails(
+                RpcCallDetails.newBuilder()
+                    .setWrite(
+                        WriteDetails.newBuilder()
+                            .addResourceNames("test")
+                            .setNumWrites(1)
+                            .setBytesSent(3)))
+            .build();
+
     verify(logStream).write(expectedEntry);
   }
 }

@@ -16,6 +16,7 @@ syntax = "proto3";
 
 package remote_logging;
 
+import "google/bytestream/bytestream.proto";
 import "google/devtools/remoteexecution/v1test/remote_execution.proto";
 import "google/longrunning/operations.proto";
 import "google/rpc/status.proto";
@@ -84,6 +85,36 @@ message FindMissingBlobsDetails {
   google.devtools.remoteexecution.v1test.FindMissingBlobsResponse response = 2;
 }
 
+// Details for a call to google.bytestream.Read.
+message ReadDetails {
+  // The google.bytestream.ReadRequest sent.
+  google.bytestream.ReadRequest request = 1;
+
+  // The number of reads performed in this call.
+  int64 num_reads = 2;
+
+  // The total number of bytes read totalled over all stream responses.
+  int64 bytes_read = 3;
+}
+
+// Details for a call to google.bytestream.Write.
+message WriteDetails {
+  // The names of resources requested to be written to in this call in the order
+  // they were first requested in. If the ByteStream protocol is followed
+  // according to specification, this should only contain have a single element,
+  // which is the resource name specified in the first message of the stream.
+  repeated string resource_names = 1;
+
+  // The number of writes performed in this call.
+  int64 num_writes = 2;
+
+  // The total number of bytes sent over the stream.
+  int64 bytes_sent = 3;
+
+  // The received google.bytestream.WriteResponse.
+  google.bytestream.WriteResponse response = 4;
+}
+
 // Contains details for specific types of calls.
 message RpcCallDetails {
   oneof details {
@@ -91,5 +122,7 @@ message RpcCallDetails {
     GetActionResultDetails get_action_result = 2;
     WatchDetails watch = 3;
     FindMissingBlobsDetails find_missing_blobs = 4;
+    ReadDetails read = 5;
+    WriteDetails write = 6;
   }
 }

@@ -16,6 +16,8 @@ java_library(
         "//src/main/protobuf:remote_execution_log_java_proto",
         "//third_party:guava",
         "//third_party/grpc:grpc-jar",
+        "@googleapis//:google_bytestream_bytestream_java_grpc",
+        "@googleapis//:google_bytestream_bytestream_java_proto",
         "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_java_grpc",
         "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_java_proto",
         "@googleapis//:google_longrunning_operations_java_proto",
