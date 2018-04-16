@@ -70,6 +70,11 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         tools.getRelative("tools/osx/xcode_configure.bzl"),
         "def xcode_configure(*args, **kwargs):",
         "    pass");
+    FileSystemUtils.writeIsoLatin1(tools.getRelative("tools/sh/BUILD"), "");
+    FileSystemUtils.writeIsoLatin1(
+        tools.getRelative("tools/sh/sh_configure.bzl"),
+        "def sh_configure(*args, **kwargs):",
+        "    pass");
   }
 
   private void fetchExternalRepo(RepositoryName externalRepo) {
