@@ -122,7 +122,7 @@ py_binary(
         "//tools:embedded_tools_srcs",
         "//third_party:gpl-srcs",
         "//third_party/java/j2objc:embedded_tools_srcs",
-        "//third_party/java/jarjar:embedded_tools_srcs",
+        "//third_party/jarjar:embedded_tools_srcs",
         "//third_party/java/jdk/langtools:test-srcs",
         "//third_party/java/proguard:embedded_tools",
         "//third_party/py/concurrent:srcs",
