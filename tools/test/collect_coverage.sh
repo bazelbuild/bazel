@@ -127,10 +127,17 @@ if [[ "$COVERAGE_LEGACY_MODE" ]]; then
   done
 
   # Run lcov over the .gcno and .gcda files to generate the lcov tracefile.
-  /usr/bin/lcov -c --no-external -d "${COVERAGE_DIR}" -o "${COVERAGE_OUTPUT_FILE}"
+  # -c - Collect coverage data
+  # --no-external - Do not collect coverage data for system files
+  # --ignore-errors graph - Ignore missing .gcno files; Bazel only instruments some files
+  # -d "${COVERAGE_DIR}" - Directory to search for .gcda files
+  # -o "${COVERAGE_OUTPUT_FILE}" - Output file
+  /usr/bin/lcov -c --no-external --ignore-errors graph \
+      -d "${COVERAGE_DIR}" -o "${COVERAGE_OUTPUT_FILE}"
 
   # The paths are all wrong, because they point to /tmp. Fix up the paths to
   # point to the exec root instead (${ROOT}).
+  # This does not work with sandboxing, because ${ROOT} points to the sandbox dir.
   sed -i -e "s*${COVERAGE_DIR}*${ROOT}*g" "${COVERAGE_OUTPUT_FILE}"
 
   exit $TEST_STATUS
