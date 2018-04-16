@@ -737,7 +737,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testRuleBadTypeForDoc() throws Exception {
     registerDummyUserDefinedFunction();
     checkErrorContains(
-        "argument 'doc' has type 'int', but should be 'string'",
+        "expected string for 'doc' while calling rule but got int instead",
         "rule(impl, doc = 1)");
   }
 

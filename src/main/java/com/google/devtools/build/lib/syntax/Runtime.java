@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -322,7 +323,20 @@ public final class Runtime {
   }
 
   /**
-   * Registers global fields with SkylarkSignature into the specified Environment.
+   * Registers global (top-level) symbols provided by the given class object.
+   *
+   * <p>Global symbols may be provided by the given class in the following ways:
+   * <ul>
+   *   <li>If the class is annotated with {@link SkylarkModule}, an instance of that object is
+   *       a global object with the module's name.</li>
+   *   <li>If the class has fields annotated with {@link SkylarkSignature}, each of these
+   *       fields is a global object with the signature's name.</li>
+   *   <li>If the class is annotated with {@link SkylarkGlobalLibrary}, then all of its methods
+   *       which are annotated with
+   *       {@link com.google.devtools.build.lib.skylarkinterface.SkylarkCallable} are global
+   *       callables.</li>
+   * </ul>
+   *
    * @param env the Environment into which to register fields.
    * @param moduleClass the Class object containing globals.
    */
@@ -346,6 +360,12 @@ public final class Runtime {
                   && !annotation.objectType().equals(Object.class)))) {
             env.setup(annotation.name(), value);
           }
+        }
+      }
+      if (moduleClass.isAnnotationPresent(SkylarkGlobalLibrary.class)) {
+        Object moduleInstance = moduleClass.getConstructor().newInstance();
+        for (String methodName : FuncallExpression.getMethodNames(moduleClass)) {
+          env.setup(methodName, FuncallExpression.getBuiltinCallable(moduleInstance, methodName));
         }
       }
     } catch (ReflectiveOperationException e) {

@@ -86,7 +86,9 @@ public class SkylarkInterfaceUtils {
   public static SkylarkCallable getSkylarkCallable(Class<?> classObj, Method method) {
     try {
       Method superMethod = classObj.getMethod(method.getName(), method.getParameterTypes());
-      if (classObj.isAnnotationPresent(SkylarkModule.class)
+      boolean classAnnotatedForCallables = classObj.isAnnotationPresent(SkylarkModule.class)
+          || classObj.isAnnotationPresent(SkylarkGlobalLibrary.class);
+      if (classAnnotatedForCallables
           && superMethod.isAnnotationPresent(SkylarkCallable.class)) {
         return superMethod.getAnnotation(SkylarkCallable.class);
       }

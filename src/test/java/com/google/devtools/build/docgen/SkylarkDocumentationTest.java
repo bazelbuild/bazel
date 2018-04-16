@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -224,6 +225,26 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     }
   }
 
+  /** MockGlobalLibrary */
+  @SkylarkGlobalLibrary
+  private static class MockGlobalLibrary {
+    @SkylarkCallable(
+        name = "MockGlobalCallable",
+        doc = "GlobalCallable documentation",
+        parameters = {
+            @Param(name = "a", named = false, positional = true),
+            @Param(name = "b", named = true, positional = true),
+            @Param(name = "c", named = true, positional = false),
+            @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+        },
+        extraPositionals = @Param(name = "myArgs"),
+        extraKeywords = @Param(name = "myKwargs")
+    )
+    public Integer test(int a, int b, int c, int d, SkylarkList<?> args, SkylarkDict<?, ?> kwargs) {
+      return 0;
+    }
+  }
+
   /** MockClassWithContainerReturnValues */
   @SkylarkModule(name = "MockClassWithContainerReturnValues",
       doc = "MockClassWithContainerReturnValues")
@@ -346,6 +367,28 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
                 + "MockClassH.test(a, b, *, c, d=1, *myArgs, **myKwargs)");
     assertThat(methodDoc.getParams()).hasSize(6);
   }
+
+  @Test
+  public void testSkylarkGlobalLibraryCallable() throws Exception {
+    Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules();
+    SkylarkModuleDoc topLevel =
+        modules.remove(SkylarkDocumentationCollector.getTopLevelModule().name());
+
+    boolean foundGlobalLibrary = false;
+    for (SkylarkMethodDoc methodDoc : topLevel.getMethods()) {
+      if (methodDoc.getName().equals("MockGlobalCallable")) {
+        assertThat(methodDoc.getDocumentation()).isEqualTo("GlobalCallable documentation");
+        assertThat(methodDoc.getSignature())
+            .isEqualTo(
+                "<a class=\"anchor\" href=\"int.html\">int</a> "
+                    + "MockGlobalCallable(a, b, *, c, d=1, *myArgs, **myKwargs)");
+        foundGlobalLibrary = true;
+        break;
+      }
+    }
+    assertThat(foundGlobalLibrary).isTrue();
+  }
+
 
   @Test
   public void testSkylarkCallableOverriding() throws Exception {
