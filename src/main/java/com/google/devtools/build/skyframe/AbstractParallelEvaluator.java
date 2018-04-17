@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
+import com.google.devtools.build.skyframe.EvaluationProgressReceiver.NodeState;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
@@ -322,14 +323,26 @@ public abstract class AbstractParallelEvaluator {
         NodeEntry state =
             Preconditions.checkNotNull(graph.get(null, Reason.EVALUATION, skyKey), skyKey);
         Preconditions.checkState(state.isReady(), "%s %s", skyKey, state);
-        if (maybeHandleDirtyNode(state) == DirtyOutcome.ALREADY_PROCESSED) {
-          return;
+        try {
+          evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.CHECK_DIRTY);
+          if (maybeHandleDirtyNode(state) == DirtyOutcome.ALREADY_PROCESSED) {
+            return;
+          }
+        } finally {
+          evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.CHECK_DIRTY, -1);
         }
 
         Set<SkyKey> oldDeps = state.getAllRemainingDirtyDirectDeps();
-        SkyFunctionEnvironment env =
-            new SkyFunctionEnvironment(
-                skyKey, state.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
+        SkyFunctionEnvironment env;
+        try {
+          evaluatorContext.getProgressReceiver().stateStarting(skyKey,
+              NodeState.INITIALIZING_ENVIRONMENT);
+          env = new SkyFunctionEnvironment(skyKey, state.getTemporaryDirectDeps(), oldDeps,
+              evaluatorContext);
+        } finally {
+          evaluatorContext.getProgressReceiver().stateEnding(skyKey,
+              NodeState.INITIALIZING_ENVIRONMENT, -1);
+        }
         SkyFunctionName functionName = skyKey.functionName();
         SkyFunction factory =
             Preconditions.checkNotNull(
@@ -343,12 +356,13 @@ public abstract class AbstractParallelEvaluator {
         long startTime = BlazeClock.instance().nanoTime();
         try {
           try {
-            evaluatorContext.getProgressReceiver().computing(skyKey);
+            evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.COMPUTE);
             value = factory.compute(skyKey, env);
           } finally {
             long elapsedTimeNanos = BlazeClock.instance().nanoTime() - startTime;
             if (elapsedTimeNanos > 0) {
-              evaluatorContext.getProgressReceiver().computed(skyKey, elapsedTimeNanos);
+              evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMPUTE,
+                  elapsedTimeNanos);
               Profiler.instance()
                   .logSimpleTaskDuration(
                       startTime,
@@ -440,14 +454,16 @@ public abstract class AbstractParallelEvaluator {
               skyKey,
               newDirectDeps,
               state);
-          env.setValue(value);
-          registerNewlyDiscoveredDepsForDoneEntry(
-              skyKey,
-              state,
-              oldDeps,
-              env,
-              evaluatorContext.keepGoing());
-          env.commit(state, EnqueueParentBehavior.ENQUEUE);
+
+          try {
+            evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.COMMIT);
+            env.setValue(value);
+            registerNewlyDiscoveredDepsForDoneEntry(
+                skyKey, state, oldDeps, env, evaluatorContext.keepGoing());
+            env.commit(state, EnqueueParentBehavior.ENQUEUE);
+          } finally {
+            evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMMIT, -1);
+          }
           return;
         }
 
