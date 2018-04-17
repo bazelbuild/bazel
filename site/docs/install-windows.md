@@ -10,17 +10,17 @@ Supported Windows platforms (64-bit editions only):
 *  Windows 7 or newer
 *  Windows Server 2008 or newer
 
-### Installation
+## Installation
 
-1.  Download and install [MSYS2](https://msys2.github.io/).
+### Step 1:  Download and install [MSYS2](https://msys2.github.io/).
 
-2.  Download the [latest Bazel binary](https://github.com/bazelbuild/bazel/releases).
+### Step 2:  Download the [latest Bazel binary](https://github.com/bazelbuild/bazel/releases).
 
     No installation required.
 
     Optional: rename the binary to `bazel.exe` and move it to a directory that's on your `PATH`.
 
-3.  Try Bazel.
+### Step 3:  Try Bazel.
 
     *    Start PowerShell or the Command Prompt (`cmd.exe`).
 
