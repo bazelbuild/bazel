@@ -61,11 +61,17 @@ public final class JavaLibraryHelper {
   private StrictDepsMode strictDepsMode = StrictDepsMode.OFF;
   private JavaClasspathMode classpathMode = JavaClasspathMode.OFF;
   private String injectingRuleKind;
+  private boolean neverlink;
 
   public JavaLibraryHelper(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     ruleContext.getConfiguration();
     this.classpathMode = ruleContext.getFragment(JavaConfiguration.class).getReduceJavaClasspath();
+  }
+
+  public JavaLibraryHelper setNeverlink(boolean neverlink) {
+    this.neverlink = neverlink;
+    return this;
   }
 
   /**
@@ -183,6 +189,26 @@ public final class JavaLibraryHelper {
       JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
       boolean createOutputSourceJar,
       @Nullable Artifact outputSourceJar) {
+    return build(
+        semantics,
+        javaToolchainProvider,
+        hostJavabase,
+        jacocoInstrumental,
+        outputJarsBuilder,
+        createOutputSourceJar,
+        outputSourceJar,
+        /* javaInfoBuilder= */ null);
+  }
+
+  public JavaCompilationArtifacts build(
+      JavaSemantics semantics,
+      JavaToolchainProvider javaToolchainProvider,
+      JavaRuntimeInfo hostJavabase,
+      Iterable<Artifact> jacocoInstrumental,
+      JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
+      boolean createOutputSourceJar,
+      @Nullable Artifact outputSourceJar,
+      @Nullable JavaInfo.Builder javaInfoBuilder) {
     Preconditions.checkState(output != null, "must have an output file; use setOutput()");
     Preconditions.checkState(
         !createOutputSourceJar || outputSourceJar != null,
@@ -246,7 +272,26 @@ public final class JavaLibraryHelper {
         .addOutputJar(new OutputJar(output, iJar, outputSourceJars))
         .setJdeps(outputDepsProto);
 
-    return artifactsBuilder.build();
+    JavaCompilationArtifacts javaArtifacts = artifactsBuilder.build();
+    if (javaInfoBuilder != null) {
+      ClasspathConfiguredFragment classpathFragment = new ClasspathConfiguredFragment(
+        javaArtifacts,
+        attributes.build(),
+        neverlink,
+        JavaCompilationHelper.getBootClasspath(javaToolchainProvider)
+      );
+
+      javaInfoBuilder.addProvider(
+          JavaCompilationInfoProvider.class,
+          new JavaCompilationInfoProvider.Builder()
+              .setJavacOpts(javacOpts)
+              .setBootClasspath(classpathFragment.getBootClasspath())
+              .setCompilationClasspath(classpathFragment.getCompileTimeClasspath())
+              .setRuntimeClasspath(classpathFragment.getRuntimeClasspath())
+              .build());
+    }
+
+    return javaArtifacts;
   }
 
   /**

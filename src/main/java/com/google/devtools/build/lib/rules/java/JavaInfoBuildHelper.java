@@ -411,6 +411,7 @@ final class JavaInfoBuildHelper {
 
     helper.addAllPlugins(JavaInfo.fetchProvidersFromList(plugins, JavaPluginInfoProvider.class));
     helper.addAllPlugins(JavaInfo.fetchProvidersFromList(deps, JavaPluginInfoProvider.class));
+    helper.setNeverlink(neverlink);
 
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
 
@@ -422,6 +423,7 @@ final class JavaInfoBuildHelper {
             ? getSourceJar(skylarkRuleContext.getRuleContext(), outputJar)
             : sourceJars.get(0);
 
+    JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
     JavaCompilationArtifacts artifacts =
         helper.build(
             javaSemantics,
@@ -430,7 +432,8 @@ final class JavaInfoBuildHelper {
             SkylarkList.createImmutable(ImmutableList.of()),
             outputJarsBuilder,
             /*createOutputSourceJar*/ generateMergedSourceJar,
-            outputSourceJar);
+            outputSourceJar,
+            javaInfoBuilder);
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true, neverlink);
@@ -457,7 +460,7 @@ final class JavaInfoBuildHelper {
       transitiveSourceJars.addTransitive(sourceJarsProvider.getTransitiveSourceJars());
     }
 
-    return JavaInfo.Builder.create()
+    return javaInfoBuilder
         .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
         .addProvider(
             JavaSourceJarsProvider.class,
