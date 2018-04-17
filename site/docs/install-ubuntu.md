@@ -40,9 +40,6 @@ sudo apt-get install pkg-config zip g++ zlib1g-dev unzip python
 
 Next, download the Bazel binary installer named `bazel-<version>-installer-linux-x86_64.sh` from the [Bazel releases page on GitHub](https://github.com/bazelbuild/bazel/releases).
 
-**Note:** In the installer file name listed in this document, replace
-`<version>` with the appropriate Bazel version number.
-
 ### Step 3: Run the installer
 
 Run the Bazel installer as follows:
@@ -70,7 +67,7 @@ You can also add this command to your `~/.bashrc` file.
 
 _<sup>1</sup>Note that Bazel includes an embedded JDK, which can be used even if a JDK is already
 installed. `bazel-<version>-without-jdk-installer-linux-x86_64.sh` is a version of the installer 
-without an embedded JDK. Only use this installer if you already have JDK 8 or later installed._
+without an embedded JDK. Only use this installer if you already have JDK 8 installed. Later JDK versions are not supported._
 
 ## <a name="install-on-ubuntu"></a> Using Bazel custom APT repository
 
