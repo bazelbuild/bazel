@@ -124,15 +124,6 @@ elif [[ "$COVERAGE_LEGACY_MODE" ]]; then
     cp "${ROOT}/${path}" "${COVERAGE_DIR}/${path}"
   done
 
-  # Unfortunately, lcov messes up the source file names if it can't find the
-  # files at their relative paths. Workaround by creating empty source files
-  # according to the manifest (i.e., only for files that are supposed to be
-  # instrumented).
-  cat "${COVERAGE_MANIFEST}" | egrep ".(cc|h)$" | while read path; do
-    mkdir -p "${COVERAGE_DIR}/$(dirname ${path})"
-    touch "${COVERAGE_DIR}/${path}"
-  done
-
   # Symlink the gcov tool such with a link called gcov. Clang comes with a tool
   # called llvm-cov, which behaves like gcov if symlinked in this way (otherwise
   # we would need to invoke it with "llvm-cov gcov").
@@ -140,20 +131,21 @@ elif [[ "$COVERAGE_LEGACY_MODE" ]]; then
   ln -s "${COVERAGE_GCOV_PATH}" "${GCOV}"
 
   # Run lcov over the .gcno and .gcda files to generate the lcov tracefile.
-  # -c - Collect coverage data
-  # --no-external - Do not collect coverage data for system files
+  # -c                    - Collect coverage data
+  # --no-external         - Do not collect coverage data for system files
   # --ignore-errors graph - Ignore missing .gcno files; Bazel only instruments some files
+  # -q                    - Quiet mode
   # --gcov-tool "${GCOV}" - Pass the local symlink to be uses as gcov by lcov
-  # -d "${COVERAGE_DIR}" - Directory to search for .gcda files
+  # -b /proc/self/cwd     - Use this as a prefix for all source files instead of
+  #                         the current directory
+  # -d "${COVERAGE_DIR}"  - Directory to search for .gcda files
   # -o "${COVERAGE_OUTPUT_FILE}" - Output file
-  /usr/bin/lcov -c --no-external --ignore-errors graph \
-      --gcov-tool "${GCOV}" \
+  /usr/bin/lcov -c --no-external --ignore-errors graph -q \
+      --gcov-tool "${GCOV}" -b /proc/self/cwd \
       -d "${COVERAGE_DIR}" -o "${COVERAGE_OUTPUT_FILE}"
 
-  # The paths are all wrong, because they point to /tmp. Fix up the paths to
-  # point to the exec root instead (${ROOT}).
-  # This does not work with sandboxing, because ${ROOT} points to the sandbox dir.
-  sed -i -e "s*${COVERAGE_DIR}*${ROOT}*g" "${COVERAGE_OUTPUT_FILE}"
+  # Fix up the paths to be relative by removing the prefix we specified above.
+  sed -i -e "s*/proc/self/cwd/**g" "${COVERAGE_OUTPUT_FILE}"
 
   exit $TEST_STATUS
 fi
