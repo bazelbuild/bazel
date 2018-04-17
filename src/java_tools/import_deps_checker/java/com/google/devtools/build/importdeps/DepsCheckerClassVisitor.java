@@ -225,13 +225,13 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       }
       Class<?> clazz = value.getClass();
       if (PRIMITIVE_TYPES.contains(clazz)) {
-        checkType(Type.getType(clazz));
         return;
       }
-      if (clazz.isArray() && clazz.getComponentType().isPrimitive()) {
-        return;  // nothing to check for primitive arrays
-      }
-      throw new UnsupportedOperationException("Unhandled value " + value + " of type " + clazz);
+      checkState(
+          clazz.isArray() && clazz.getComponentType().isPrimitive(),
+          "Unexpected value %s of type %s",
+          value,
+          clazz);
     }
 
     @Override

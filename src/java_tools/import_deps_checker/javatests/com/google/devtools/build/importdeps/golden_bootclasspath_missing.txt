@@ -1,8 +1,8 @@
 Missing java.io.PrintStream
-Missing java.lang.Byte
 Missing java.lang.Class
 Missing java.lang.Enum
 Missing java.lang.Exception
+Missing java.lang.Integer
 Missing java.lang.Object
 Missing java.lang.String
 Missing java.lang.SuppressWarnings

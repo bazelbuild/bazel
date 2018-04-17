@@ -66,6 +66,8 @@ public class Client<@TypeAnnotation T> extends Library
     Object[] copy = array.clone();
     array = (Class8[][]) copy;
     System.out.println(array.clone().length);
+    Integer b = Integer.valueOf(0);
+    System.out.println(b);
   }
 
   public void testEnums() {
