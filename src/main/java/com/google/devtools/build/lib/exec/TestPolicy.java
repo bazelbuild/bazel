@@ -40,6 +40,8 @@ public class TestPolicy {
 
   public static final String INHERITED = "${inherited}";
 
+  public static final TestPolicy EMPTY_POLICY = new TestPolicy(ImmutableMap.of());
+
   private final ImmutableMap<String, String> envVariables;
 
   /**

@@ -41,8 +41,8 @@ import com.google.devtools.build.lib.buildtool.TargetValidator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.exec.SymlinkTreeHelper;
+import com.google.devtools.build.lib.exec.TestPolicy;
 import com.google.devtools.build.lib.exec.TestStrategy;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -158,10 +158,17 @@ public class RunCommand implements BlazeCommand  {
       "'run' only works with tests with one shard ('--test_sharding_strategy=disabled' is okay) "
       + "and without --runs_per_test";
 
+  // The test policy to determine the environment variables from when running tests
+  private final TestPolicy testPolicy;
+
   // Value of --run_under as of the most recent command invocation.
   private RunUnder currentRunUnder;
 
   private static final FileType RUNFILES_MANIFEST = FileType.of(".runfiles_manifest");
+
+  public RunCommand(TestPolicy testPolicy) {
+    this.testPolicy = testPolicy;
+  }
 
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   protected BuildResult processRequest(final CommandEnvironment env, BuildRequest request) {
@@ -465,9 +472,9 @@ public class RunCommand implements BlazeCommand  {
       Path tmpDirRoot = TestStrategy.getTmpRoot(
           env.getWorkspace(), env.getExecRoot(), executionOptions);
       PathFragment relativeTmpDir = tmpDirRoot.relativeTo(env.getExecRoot());
-      Duration timeout =
-          configuration.getTestTimeout().get(testAction.getTestProperties().getTimeout());
-      runEnvironment.putAll(StandaloneTestStrategy.DEFAULT_LOCAL_POLICY.computeTestEnvironment(
+      Duration timeout = configuration.getTestTimeout().get(
+          testAction.getTestProperties().getTimeout());
+      runEnvironment.putAll(testPolicy.computeTestEnvironment(
           testAction,
           env.getClientEnv(),
           timeout,
