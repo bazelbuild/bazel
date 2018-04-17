@@ -61,8 +61,6 @@ information.
 
 #### Troubleshooting
 
-*   Bazel won't start.
-
 -   **Incompatible Windows version**.
 
     Check the <a href="https://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx">version table</a>. Bazel requires 64-bit Windows 7 or higher, or equivalent Windows Server versions. 32-bit Windows is not supported.
