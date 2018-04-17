@@ -248,6 +248,15 @@ public final class InvocationPolicyEnforcer {
     OptionPriority nextPriority =
         OptionPriority.lowestOptionPriorityAtCategory(PriorityCategory.INVOCATION_POLICY);
     for (FlagPolicy policy : invocationPolicy.getFlagPoliciesList()) {
+      // Explicitly disallow --config in invocation policy.
+      if (policy.getFlagName().equals("config")) {
+        throw new OptionsParsingException(
+            "Invocation policy is applied after --config expansion, changing config values now "
+                + "would have no effect and is disallowed to prevent confusion. Please remove the "
+                + "following policy : "
+                + policy);
+      }
+
       // These policies are high-level, before expansion, and so are not the implicitDependents or
       // expansions of any other flag, other than in an obtuse sense from --invocation_policy.
       OptionPriority currentPriority = nextPriority;
