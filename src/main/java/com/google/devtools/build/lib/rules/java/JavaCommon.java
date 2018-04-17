@@ -605,9 +605,6 @@ public class JavaCommon {
     javaTargetAttributes.addSourceArtifacts(extraSrcs);
     processRuntimeDeps(javaTargetAttributes);
 
-    semantics.commonDependencyProcessing(ruleContext, javaTargetAttributes,
-        targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
-
     semantics.checkProtoDeps(ruleContext, targetsTreatedAsDeps(ClasspathType.BOTH));
 
     if (disallowDepsWithoutSrcs(ruleContext.getRule().getRuleClass())

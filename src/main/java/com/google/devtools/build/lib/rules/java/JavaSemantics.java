@@ -462,13 +462,6 @@ public interface JavaSemantics {
   void addArtifactToJavaTargetAttribute(JavaTargetAttributes.Builder builder, Artifact srcArtifact);
 
   /**
-   * Works on the list of dependencies of a java target to builder the {@link JavaTargetAttributes}.
-   * This work is performed in {@link JavaCommon} for all java targets.
-   */
-  void commonDependencyProcessing(RuleContext ruleContext, JavaTargetAttributes.Builder attributes,
-      Collection<? extends TransitiveInfoCollection> deps);
-
-  /**
    * Takes the path of a Java resource and tries to determine the Java
    * root relative path of the resource.
    *

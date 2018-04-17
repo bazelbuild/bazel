@@ -800,12 +800,6 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public void commonDependencyProcessing(RuleContext ruleContext,
-      JavaTargetAttributes.Builder attributes,
-      Collection<? extends TransitiveInfoCollection> deps) {
-  }
-
-  @Override
   public PathFragment getDefaultJavaResourcePath(PathFragment path) {
     // Look for src/.../resources to match Maven repository structure.
     List<String> segments = path.getSegments();
