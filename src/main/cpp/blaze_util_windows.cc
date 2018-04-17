@@ -202,19 +202,12 @@ string GetSelfPath() {
 }
 
 string GetOutputRoot() {
-  for (const char* i : {"TMPDIR", "TEMPDIR", "TMP", "TEMP"}) {
-    string tmpdir(GetEnv(i));
-    if (!tmpdir.empty()) {
-      return tmpdir;
-    }
-  }
-
-  WCHAR buffer[kWindowsPathBufferSize] = {0};
-  if (!::GetTempPathW(kWindowsPathBufferSize, buffer)) {
+  string home = GetHomeDir();
+  if (home.empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "GetOutputRoot: GetTempPathW: " << GetLastErrorString();
+        << "Cannot find a good output root. Use the --output_user_root flag.";
   }
-  return string(blaze_util::WstringToCstring(buffer).get());
+  return home;
 }
 
 string GetHomeDir() {
