@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TestSize;
+import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.Type;
@@ -209,6 +210,7 @@ public final class TargetCompleteEvent
     builder.addAllOutputGroup(getOutputFilesByGroup(converters.artifactGroupNamer()));
 
     if (isTest) {
+      builder.setTestTimeoutSeconds(getTestTimeoutSeconds(targetAndData));
       builder.setTestSize(
           TargetConfiguredEvent.bepTestSize(
               TestSize.getTestSize(targetAndData.getTarget().getAssociatedRule())));
@@ -291,5 +293,18 @@ public final class TargetCompleteEvent
               .build());
     }
     return groups.build();
+  }
+
+  /**
+   * Returns timeout value in seconds that should be used for all test actions under this configured
+   * target. We always use the "categorical timeouts" which are based on the --test_timeout flag. A
+   * rule picks its timeout but ends up with the same effective value as all other rules in that
+   * category and configuration.
+   */
+  private Long getTestTimeoutSeconds(ConfiguredTargetAndData targetAndData) {
+    BuildConfiguration configuration = targetAndData.getConfiguration();
+    Rule associatedRule = targetAndData.getTarget().getAssociatedRule();
+    TestTimeout categoricalTimeout = TestTimeout.getTestTimeout(associatedRule);
+    return configuration.getTestTimeout().get(categoricalTimeout).getSeconds();
   }
 }

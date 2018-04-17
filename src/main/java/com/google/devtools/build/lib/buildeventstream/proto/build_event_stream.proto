@@ -475,6 +475,9 @@ message TargetComplete {
 
   // List of tags associated with this configured target.
   repeated string tag = 3;
+
+  // The timeout specified for test actions under this configured target.
+  int64 test_timeout_seconds = 7;
 }
 
 enum TestStatus {
@@ -518,7 +521,8 @@ message TestResult {
   // Message providing optional meta data on the execution of the test action,
   // if available.
   message ExecutionInfo {
-    int32 timeout_seconds = 1;
+    // Deprecated, use TargetComplete.test_timeout_seconds instead.
+    int32 timeout_seconds = 1 [deprecated = true];
 
     // Name of the strategy to execute this test action (e.g., "local",
     // "remote")
