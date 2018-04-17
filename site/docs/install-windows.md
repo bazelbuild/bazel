@@ -44,7 +44,7 @@ Optional: rename the binary to `bazel.exe` and move it to a directory that's on 
      Build timestamp as int: 1523462006655
      ```
 
-#### Other ways to get Bazel
+## Other ways to get Bazel
 
 *   [Compile Bazel from source](install-compile-source.html)
 
@@ -59,7 +59,7 @@ choco install bazel
 See [Chocolatey package maintenance guide](https://bazel.build/windows-chocolatey-maintenance.html) for more
 information.
 
-#### Troubleshooting
+## Troubleshooting
 
 -   **Incompatible Windows version**.
 
