@@ -304,10 +304,18 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
 
     public Builder(String prefix, ManifestType manifestType, ActionOwner owner, Artifact output,
                    boolean legacyExternalRunfiles) {
-      this.runfilesBuilder = new Runfiles.Builder(prefix, legacyExternalRunfiles);
-      manifestWriter = manifestType;
+      this(manifestType, owner, output, new Runfiles.Builder(prefix, legacyExternalRunfiles));
+    }
+
+    public Builder(
+        ManifestType manifestType,
+        ActionOwner owner,
+        Artifact output,
+        Runfiles.Builder runfilesBuilder) {
+      this.manifestWriter = manifestType;
       this.owner = owner;
       this.output = output;
+      this.runfilesBuilder = runfilesBuilder;
     }
 
     @VisibleForTesting  // Only used for testing.
