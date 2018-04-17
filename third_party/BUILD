@@ -16,7 +16,6 @@ filegroup(
         "//third_party/java/dd_plist:srcs",
         "//third_party/java/j2objc:srcs",
         "//third_party/java/jacoco:srcs",
-        "//third_party/java/jarjar:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
         "//third_party/java/jopt-simple:srcs",
