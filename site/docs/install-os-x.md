@@ -42,10 +42,6 @@ sudo xcodebuild -license accept
 
 Next, download the Bazel binary installer named `bazel-<version>-installer-darwin-x86_64.sh` from the [Bazel releases page on GitHub](https://github.com/bazelbuild/bazel/releases).
 
-**Note:** In the installer file name listed in this document, replace
-`<version>` with the appropriate Bazel version number.
-
-
 ### Step 3: Run the installer
 
 Run the Bazel installer as follows:
@@ -80,13 +76,14 @@ To update to a newer release of Bazel, download and install the desired version.
 
 _<sup>1</sup>Note that Bazel includes an embedded JDK, which can be used even if a JDK is already
 installed. `bazel-<version>-without-jdk-installer-linux-x86_64.sh` is a version of the installer 
-without an embedded JDK. Only use this installer if you already have JDK 8 or later installed._
+without an embedded JDK. Only use this installer if you already have JDK 8 installed. Later JDK 
+versions are not supported._
 
 ## <a name="install-on-mac-os-x-homebrew"></a>Installing using Homebrew
 
 ### Step 1: Install the JDK
 
-Download the JDK from [Oracle's JDK Page](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html). Look for "macOS" under "Java SE Development Kit". This will download a DMG image with an install wizard.
+Download the JDK from [Oracle's JDK Page](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html). Look for "macOS" under "Java SE Development Kit" and download JDK version 8.
 
 ### Step 2: Install Homebrew on macOS
 
