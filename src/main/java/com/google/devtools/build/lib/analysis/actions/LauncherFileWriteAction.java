@@ -89,11 +89,7 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addString(GUID);
-    try {
-      fp.addBytes(this.launcher.getPath().getDigest());
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    fp.addPath(this.launcher.getExecPath());
     fp.addString(this.launchInfo.fingerPrint);
   }
 

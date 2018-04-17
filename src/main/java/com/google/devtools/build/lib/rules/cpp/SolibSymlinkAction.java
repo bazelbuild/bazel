@@ -46,7 +46,6 @@ import java.io.IOException;
 @AutoCodec
 @Immutable
 public final class SolibSymlinkAction extends AbstractAction {
-  private final Path target;
   private final Artifact symlink;
 
   @VisibleForSerialization
@@ -56,7 +55,6 @@ public final class SolibSymlinkAction extends AbstractAction {
 
     Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(primaryInput.getFilename()));
     this.symlink = Preconditions.checkNotNull(primaryOutput);
-    this.target = primaryInput.getPath();
   }
 
   @Override
@@ -64,18 +62,25 @@ public final class SolibSymlinkAction extends AbstractAction {
       throws ActionExecutionException {
     Path mangledPath = actionExecutionContext.getInputPath(symlink);
     try {
-      mangledPath.createSymbolicLink(target);
+      mangledPath.createSymbolicLink(actionExecutionContext.getInputPath(getPrimaryInput()));
     } catch (IOException e) {
-      throw new ActionExecutionException("failed to create _solib symbolic link '"
-          + symlink.prettyPrint() + "' to target '" + target + "'", e, this, false);
+      throw new ActionExecutionException(
+          "failed to create _solib symbolic link '"
+              + symlink.prettyPrint()
+              + "' to target '"
+              + getPrimaryInput()
+              + "'",
+          e,
+          this,
+          false);
     }
     return ActionResult.EMPTY;
   }
 
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
-    fp.addPath(symlink.getPath());
-    fp.addPath(target);
+    fp.addPath(symlink.getExecPath());
+    fp.addPath(getPrimaryInput().getExecPath());
   }
 
   @Override
