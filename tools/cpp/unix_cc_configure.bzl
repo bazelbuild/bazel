@@ -351,13 +351,17 @@ def _coverage_feature(darwin):
         flag: '-fprofile-instr-generate'
       }"""
   else:
+    # gcc requires --coverage being passed for compilation and linking
+    # https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#Instrumentation-Options
     compile_flags = """flag_group {
-        flag: '-fprofile-arcs'
-        flag: '-ftest-coverage'
+        flag: '--coverage'
       }"""
     link_flags = """flag_group {
-        flag: '-lgcov'
+        flag: '--coverage'
       }"""
+  # Note that we also set --coverage for c++-link-nodeps-dynamic-library. The
+  # generated code contains references to gcov symbols, and the dynamic linker
+  # can't resolve them unless the library is linked against gcov.
   return """
     feature {
       name: 'coverage'
@@ -370,12 +374,10 @@ def _coverage_feature(darwin):
         action: 'c++-header-preprocessing'
         action: 'c++-module-compile'
         """ + compile_flags + """
-
-
-
       }
       flag_set {
         action: 'c++-link-dynamic-library'
+        action: 'c++-link-nodeps-dynamic-library'
         action: 'c++-link-executable'
         """ + link_flags + """
       }
