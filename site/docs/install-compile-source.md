@@ -15,9 +15,9 @@ Ensure that JDK 8, Python, bash, zip, and the usual C++ build toolchain are inst
 *   On systems based on Debian packages (such as Debian and Ubuntu), you can install 
     OpenJDK 8 and Python by running the following command:
 
-```sh
-   sudo apt-get install build-essential openjdk-8-jdk python zip
-```
+    ```sh
+       sudo apt-get install build-essential openjdk-8-jdk python zip
+    ```
 
 *   On Windows, you need additional software and the right OS version. See the [Windows page](windows.html).
 
