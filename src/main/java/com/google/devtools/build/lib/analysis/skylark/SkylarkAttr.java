@@ -41,9 +41,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -52,7 +50,6 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -536,49 +533,6 @@ public final class SkylarkAttr implements SkylarkValue {
         ast,
         env);
   }
-
-  @SkylarkSignature(
-    name = "configuration_field",
-    returnType = SkylarkLateBoundDefault.class,
-    // TODO(cparsons): Provide a link to documentation for available SkylarkConfigurationFields.
-    doc = "References a late-bound default value for an attribute of type "
-      + "<a href=\"attr.html#label\">label</a>. A value is 'late-bound' if it requires "
-      + "the configuration to be built before determining the value. Any attribute using this "
-      + "as a value must <a href=\"../rules.html#private-attributes\">be private</a>.",
-    parameters = {
-        @Param(
-            name = "fragment",
-            type = String.class,
-            doc = "The name of a configuration fragment which contains the late-bound value."
-        ),
-        @Param(
-            name = "name",
-            type = String.class,
-            doc = "The name of the value to obtain from the configuration fragment."),
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
-  private static final BuiltinFunction configurationField =
-      new BuiltinFunction("configuration_field") {
-        public SkylarkLateBoundDefault<?> invoke(
-            String fragment, String name, Location loc, Environment env)
-            throws EvalException {
-          Class<?> fragmentClass = SkylarkUtils.getFragmentMap(env).get(fragment);
-
-          if (fragmentClass == null) {
-            throw new EvalException(
-                loc,
-                String.format("invalid configuration fragment name '%s'", fragment));
-          }
-          try {
-            return SkylarkLateBoundDefault.forConfigurationField(
-                fragmentClass, name, SkylarkUtils.getToolsRepository(env));
-          } catch (SkylarkLateBoundDefault.InvalidConfigurationFieldException exception) {
-            throw new EvalException(loc, exception);
-          }
-        }
-      };
 
   @SkylarkCallable(
     name = "string",
@@ -1707,9 +1661,5 @@ public final class SkylarkAttr implements SkylarkValue {
     public void repr(SkylarkPrinter printer) {
       printer.append("<attr." + name + ">");
     }
-  }
-
-  static {
-    SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkAttr.class);
   }
 }
