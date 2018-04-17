@@ -159,7 +159,7 @@ TEST(FilePosixTest, MakeDirectories) {
   ASSERT_TRUE(ok);
   struct stat filestat = {};
   ASSERT_EQ(0, stat(dir.c_str(), &filestat));
-  ASSERT_EQ(0750, filestat.st_mode & 0777);
+  ASSERT_EQ(mode_t(0750), filestat.st_mode & 0777);
 
   // srcdir shouldn't be writable.
   // TODO(ulfjack): Fix this!
@@ -361,7 +361,7 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
   // Actual test: list the directory.
   MockDirectoryEntryConsumer consumer;
   ForEachDirectoryEntry(root, &consumer);
-  ASSERT_EQ(4, consumer.entries.size());
+  ASSERT_EQ(size_t(4), consumer.entries.size());
 
   // Sort the collected directory entries.
   struct {
@@ -387,7 +387,7 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
   // Actual test: list a directory symlink.
   consumer.entries.clear();
   ForEachDirectoryEntry(dir_sym, &consumer);
-  ASSERT_EQ(1, consumer.entries.size());
+  ASSERT_EQ(size_t(1), consumer.entries.size());
   expected = pair<string, bool>(subfile_through_sym, false);
   ASSERT_EQ(expected, consumer.entries[0]);
 
