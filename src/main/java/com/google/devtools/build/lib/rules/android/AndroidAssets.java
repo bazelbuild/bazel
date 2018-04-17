@@ -128,6 +128,12 @@ public class AndroidAssets {
     return ParsedAndroidAssets.parseFrom(ruleContext, this);
   }
 
+  /** Convenience method to do all of asset processing - parsing and merging. */
+  public MergedAndroidAssets process(RuleContext ruleContext, boolean neverlink)
+      throws InterruptedException {
+    return parse(ruleContext).merge(ruleContext, neverlink);
+  }
+
   @Override
   public boolean equals(Object object) {
     if (object == null || getClass() != object.getClass()) {

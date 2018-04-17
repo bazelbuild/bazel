@@ -34,10 +34,20 @@ public class ParsedAndroidAssets extends AndroidAssets implements MergableAndroi
     return new ParsedAndroidAssets(assets, symbols, label);
   }
 
+  ParsedAndroidAssets(ParsedAndroidAssets other) {
+    this(other, other.symbols, other.label);
+  }
+
   private ParsedAndroidAssets(AndroidAssets other, Artifact symbols, Label label) {
     super(other);
     this.symbols = symbols;
     this.label = label;
+  }
+
+  /** Merges these assets with assets from dependencies. */
+  public MergedAndroidAssets merge(RuleContext ruleContext, boolean neverlink)
+      throws InterruptedException {
+    return MergedAndroidAssets.mergeFrom(ruleContext, this, neverlink);
   }
 
   @Override

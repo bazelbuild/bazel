@@ -17,7 +17,11 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,10 +33,7 @@ public class AndroidAssetsTest extends ResourceTestBase {
   @Test
   public void testParse() throws Exception {
     RuleContext ruleContext = getRuleContext();
-    AndroidAssets assets =
-        new AndroidAssets(
-            ImmutableList.of(getResource("asset_1"), getResource("asset_2")),
-            ImmutableList.of(PathFragment.create("asset_dir")));
+    AndroidAssets assets = getLocalAssets();
     ParsedAndroidAssets parsed = assets.parse(ruleContext);
 
     // Assets should be unchanged
@@ -47,6 +48,130 @@ public class AndroidAssetsTest extends ResourceTestBase {
         ruleContext,
         /* inputs = */ assets.getAssets(),
         /* outputs = */ ImmutableList.of(parsed.getSymbols()));
+  }
+
+  @Test
+  public void testMergeNoDeps() throws Exception {
+    RuleContext ruleContext = getRuleContext();
+    ParsedAndroidAssets parsed = getLocalAssets().parse(ruleContext);
+    MergedAndroidAssets merged = assertMerge(ruleContext, parsed, AssetDependencies.empty());
+
+    // The assets can be correctly built into a provider
+    AndroidAssetsInfo info = merged.toProvider();
+    assertThat(info.getLabel()).isEqualTo(merged.getLabel());
+
+    // The provider just has the local values
+    assertThat(info.getAssets()).containsExactlyElementsIn(merged.getAssets()).inOrder();
+    assertThat(info.getSymbols()).containsExactly(merged.getSymbols());
+    assertThat(info.getDirectParsedAssets()).containsExactly(parsed);
+    assertThat(info.getTransitiveParsedAssets()).isEmpty();
+  }
+
+  @Test
+  public void testMergeNeverlink() throws Exception {
+    RuleContext ruleContext = getRuleContext();
+    ParsedAndroidAssets parsed = getLocalAssets().parse(ruleContext);
+    AssetDependencies deps = makeDeps(ruleContext, /* neverlink = */ true);
+
+    MergedAndroidAssets merged = assertMerge(ruleContext, parsed, deps);
+
+    AndroidAssetsInfo info = merged.toProvider();
+    assertThat(info.getLabel()).isEqualTo(merged.getLabel());
+
+    // The provider should be empty because of neverlinking
+    assertThat(info.getAssets()).isEmpty();
+    assertThat(info.getSymbols()).isEmpty();
+    assertThat(info.getDirectParsedAssets()).isEmpty();
+    assertThat(info.getTransitiveParsedAssets()).isEmpty();
+  }
+
+  @Test
+  public void testMerge() throws Exception {
+    RuleContext ruleContext = getRuleContext();
+    ParsedAndroidAssets parsed = getLocalAssets().parse(ruleContext);
+    AssetDependencies deps = makeDeps(ruleContext, /* neverlink = */ false);
+
+    MergedAndroidAssets merged = assertMerge(ruleContext, parsed, deps);
+
+    AndroidAssetsInfo info = merged.toProvider();
+    assertThat(info.getLabel()).isEqualTo(merged.getLabel());
+
+    // The provider should have transitive and direct deps
+    assertThat(info.getAssets())
+        .containsExactlyElementsIn(Iterables.concat(parsed.getAssets(), deps.getTransitiveAssets()))
+        .inOrder();
+    assertThat(info.getSymbols())
+        .containsExactlyElementsIn(
+            Iterables.concat(ImmutableList.of(parsed.getSymbols()), deps.getTransitiveSymbols()))
+        .inOrder();
+    assertThat(info.getDirectParsedAssets()).containsExactly(parsed).inOrder();
+    assertThat(info.getTransitiveParsedAssets())
+        .containsExactlyElementsIn(
+            Iterables.concat(deps.getTransitiveParsedAssets(), deps.getDirectParsedAssets()))
+        .inOrder();
+  }
+
+  private AssetDependencies makeDeps(RuleContext ruleContext, boolean neverlink) {
+    ParsedAndroidAssets firstDirect = getDependencyAssets(ruleContext, "first_direct");
+    ParsedAndroidAssets secondDirect = getDependencyAssets(ruleContext, "second_direct");
+    ParsedAndroidAssets firstTransitive = getDependencyAssets(ruleContext, "first_transitive");
+    ParsedAndroidAssets secondTransitive = getDependencyAssets(ruleContext, "second_transitive");
+
+    return AssetDependencies.of(
+        neverlink,
+        NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, firstDirect, secondDirect),
+        NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, firstTransitive, secondTransitive),
+        NestedSetBuilder.wrap(
+            Order.NAIVE_LINK_ORDER,
+            Iterables.concat(
+                firstDirect.getAssets(),
+                secondDirect.getAssets(),
+                firstTransitive.getAssets(),
+                secondTransitive.getAssets())),
+        NestedSetBuilder.wrap(
+            Order.NAIVE_LINK_ORDER,
+            ImmutableList.of(
+                firstDirect.getSymbols(),
+                secondDirect.getSymbols(),
+                firstTransitive.getSymbols(),
+                secondTransitive.getSymbols())));
+  }
+
+  private MergedAndroidAssets assertMerge(
+      RuleContext ruleContext, ParsedAndroidAssets parsed, AssetDependencies deps)
+      throws InterruptedException {
+    MergedAndroidAssets merged = MergedAndroidAssets.mergeFrom(ruleContext, parsed, deps);
+
+    // Inherited values should be unchanged
+    assertThat(new ParsedAndroidAssets(merged)).isEqualTo(parsed);
+
+    // The raw assets should be used to merge
+    assertActionArtifacts(
+        ruleContext,
+        /* inputs = */ ImmutableList.<Artifact>builder()
+            .addAll(merged.getAssets())
+            .add(merged.getSymbols())
+            .addAll(deps.getTransitiveAssets())
+            .addAll(deps.getTransitiveSymbols())
+            .build(),
+        /* outputs = */ ImmutableList.of(merged.getMergedAssets()));
+
+    return merged;
+  }
+
+  private AndroidAssets getLocalAssets() {
+    return new AndroidAssets(
+        ImmutableList.of(getResource("asset_1"), getResource("asset_2")),
+        ImmutableList.of(PathFragment.create("asset_dir")));
+  }
+
+  private ParsedAndroidAssets getDependencyAssets(RuleContext ruleContext, String depName) {
+    return ParsedAndroidAssets.of(
+        new AndroidAssets(
+            ImmutableList.of(getResource(depName + "_asset_1"), getResource(depName + "_asset_2")),
+            ImmutableList.of(PathFragment.create(depName))),
+        getResource("symbols_for_" + depName),
+        ruleContext.getLabel());
   }
 
   private RuleContext getRuleContext() throws Exception {

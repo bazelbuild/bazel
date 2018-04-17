@@ -32,6 +32,18 @@ import java.util.stream.Collectors;
  */
 public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
 
+  /**
+   * Converts Android data to the "SerializedAndroidData" format used by the Android data processing
+   * actions.
+   */
+  static final AndroidDataConverter<MergableAndroidData> MERGABLE_DATA_CONVERTER =
+      AndroidDataConverter.<MergableAndroidData>builder(JoinerType.SEMICOLON_AMPERSAND)
+          .withRoots(MergableAndroidData::getResourceRoots)
+          .withRoots(MergableAndroidData::getAssetRoots)
+          .withLabel(MergableAndroidData::getLabel)
+          .withArtifact(MergableAndroidData::getSymbols)
+          .build();
+
   /** Indicates the type of joiner between options expected by the command line. */
   public enum JoinerType {
     COLON_COMMA(":", ","),
