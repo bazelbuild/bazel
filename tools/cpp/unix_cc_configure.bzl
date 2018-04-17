@@ -423,7 +423,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     overriden_tools["gcc"] = "cc_wrapper.sh"
 
   tool_paths = _get_tool_paths(repository_ctx, darwin, overriden_tools)
-  crosstool_content = _crosstool_content(repository_ctx, str(cc), cpu_value, darwin)
+  crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
   opt_content = _opt_content(darwin)
   dbg_content = _dbg_content()
   tpl(repository_ctx, "BUILD", {
