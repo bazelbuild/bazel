@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -21,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.repository.GitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpArchiveFunction;
@@ -67,11 +69,13 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.runtime.commands.InfoItem;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -83,6 +87,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -159,9 +164,25 @@ public class BazelRepositoryModule extends BlazeModule {
         }
       };
 
+  private static class RepositoryCacheInfoItem extends InfoItem {
+    private final RepositoryCache repositoryCache;
+
+    RepositoryCacheInfoItem(RepositoryCache repositoryCache) {
+      super("repository_cache", "The location of the repository download cache used");
+      this.repositoryCache = repositoryCache;
+    }
+
+    @Override
+    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
+        throws AbruptExitException, InterruptedException {
+      return this.repositoryCache.getRootPath().toString().getBytes(StandardCharsets.UTF_8);
+    }
+  }
+
   @Override
   public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
     builder.addCommands(new FetchCommand());
+    builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
   }
 
   @Override
