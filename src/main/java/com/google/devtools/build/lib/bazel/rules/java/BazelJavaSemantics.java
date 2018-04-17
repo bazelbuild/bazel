@@ -576,23 +576,21 @@ public class BazelJavaSemantics implements JavaSemantics {
       JavaCommon javaCommon,
       Artifact gensrcJar,
       RuleConfiguredTargetBuilder ruleBuilder) {
-    if (!isJavaBinaryOrJavaTest(ruleContext)) {
-      // TODO(plf): Figure out whether we can remove support for C++ dependencies in Bazel.
-      CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-      ccLinkingInfoBuilder.setCcLinkParamsInfo(
-          new CcLinkParamsInfo(
-              new CcLinkParamsStore() {
-                @Override
-                protected void collect(
-                    CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-                  builder.addTransitiveTargets(
-                      javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH),
-                      JavaCcLinkParamsProvider.TO_LINK_PARAMS,
-                      CcLinkParamsInfo.TO_LINK_PARAMS);
-                }
-              }));
-      ruleBuilder.addNativeDeclaredProvider(ccLinkingInfoBuilder.build());
-    }
+    // TODO(plf): Figure out whether we can remove support for C++ dependencies in Bazel.
+    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
+    ccLinkingInfoBuilder.setCcLinkParamsInfo(
+        new CcLinkParamsInfo(
+            new CcLinkParamsStore() {
+              @Override
+              protected void collect(
+                  CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
+                builder.addTransitiveTargets(
+                    javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH),
+                    JavaCcLinkParamsProvider.TO_LINK_PARAMS,
+                    CcLinkParamsInfo.TO_LINK_PARAMS);
+              }
+            }));
+    ruleBuilder.addNativeDeclaredProvider(ccLinkingInfoBuilder.build());
   }
 
   // TODO(dmarting): simplify that logic when we remove the legacy Bazel java_test behavior.
