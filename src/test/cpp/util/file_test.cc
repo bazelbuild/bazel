@@ -71,7 +71,7 @@ TEST(FileTest, TestReadFileIntoString) {
   std::string filename(JoinPath(tempdir, "test.readfile"));
   AutoFileStream fh(fopen(filename.c_str(), "wt"));
   EXPECT_TRUE(fh.IsOpen());
-  ASSERT_EQ(11, fwrite("hello world", 1, 11, fh));
+  ASSERT_EQ(size_t(11), fwrite("hello world", 1, 11, fh));
   fh.Close();
 
   std::string actual;
@@ -93,7 +93,7 @@ TEST(FileTest, TestReadFileIntoBuffer) {
   std::string filename(JoinPath(tempdir, "test.readfile"));
   AutoFileStream fh(fopen(filename.c_str(), "wt"));
   EXPECT_TRUE(fh.IsOpen());
-  EXPECT_EQ(11, fwrite("hello world", 1, 11, fh));
+  EXPECT_EQ(size_t(11), fwrite("hello world", 1, 11, fh));
   fh.Close();
 
   char buffer[30];
@@ -123,7 +123,7 @@ TEST(FileTest, TestWriteFile) {
   AutoFileStream fh(fopen(filename.c_str(), "rt"));
   EXPECT_TRUE(fh.IsOpen());
   fflush(fh);
-  ASSERT_EQ(3, fread(buf, 1, 5, fh));
+  ASSERT_EQ(size_t(3), fread(buf, 1, 5, fh));
   fh.Close();
   ASSERT_EQ(std::string(buf), std::string("hel"));
 
@@ -131,7 +131,7 @@ TEST(FileTest, TestWriteFile) {
   fh = fopen(filename.c_str(), "rt");
   EXPECT_TRUE(fh.IsOpen());
   memset(buf, 0, 6);
-  ASSERT_EQ(5, fread(buf, 1, 5, fh));
+  ASSERT_EQ(size_t(5), fread(buf, 1, 5, fh));
   fh.Close();
   ASSERT_EQ(std::string(buf), std::string("hello"));
 
