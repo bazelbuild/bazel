@@ -1322,7 +1322,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void declaredProvidersBadTypeForDoc() throws Exception {
     checkErrorContains(
-        "argument 'doc' has type 'int', but should be 'string'",
+        "expected string for 'doc' while calling provider but got int instead",
         "provider(doc = 1)");
   }
 
@@ -1465,7 +1465,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void aspectBadTypeForDoc() throws Exception {
     registerDummyUserDefinedFunction();
     checkErrorContains(
-        "argument 'doc' has type 'int', but should be 'string'",
+        "expected string for 'doc' while calling aspect but got int instead",
         "aspect(impl, doc = 1)");
   }
 
