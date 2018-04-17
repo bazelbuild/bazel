@@ -126,6 +126,8 @@ if [[ "$COVERAGE_LEGACY_MODE" ]]; then
     touch "${COVERAGE_DIR}/${path}"
   done
 
+  GCOV="${COVERAGE_DIR}/gcov"
+  ln -s "$(which llvm-cov-3.9)" "${GCOV}"
   # Run lcov over the .gcno and .gcda files to generate the lcov tracefile.
   # -c - Collect coverage data
   # --no-external - Do not collect coverage data for system files
@@ -133,6 +135,7 @@ if [[ "$COVERAGE_LEGACY_MODE" ]]; then
   # -d "${COVERAGE_DIR}" - Directory to search for .gcda files
   # -o "${COVERAGE_OUTPUT_FILE}" - Output file
   /usr/bin/lcov -c --no-external --ignore-errors graph \
+      --gcov-tool "${GCOV}" \
       -d "${COVERAGE_DIR}" -o "${COVERAGE_OUTPUT_FILE}"
 
   # The paths are all wrong, because they point to /tmp. Fix up the paths to
