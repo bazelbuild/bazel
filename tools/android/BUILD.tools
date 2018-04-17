@@ -195,6 +195,7 @@ genrule(
         --rewrite_core_library_prefix java/util/function/ \
         --rewrite_core_library_prefix java/util/Arrays8 \
         --rewrite_core_library_prefix java/util/Comparators \
+        --rewrite_core_library_prefix java/util/Date8 \
         --rewrite_core_library_prefix java/util/DoubleSummaryStatistics \
         --rewrite_core_library_prefix java/util/IntSummaryStatistics \
         --rewrite_core_library_prefix java/util/LinkedHashSet8 \

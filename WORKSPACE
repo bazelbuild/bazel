@@ -93,10 +93,10 @@ new_local_repository(
 
 http_archive(
     name = "desugar_jdk_libs",
-    url = "https://github.com/google/desugar_jdk_libs/archive/91c7bd26d3ae32be7cc548d83ce173e8f88a7b94.zip",
+    url = "https://github.com/google/desugar_jdk_libs/archive/f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip",
     # Computed using "shasum -a 256 <zip>"
-    sha256 = "3aa43733e16e94c24c98edcf6732df43f8a6ef2bed589b412b00e3003d0c3179",
-    strip_prefix = "desugar_jdk_libs-91c7bd26d3ae32be7cc548d83ce173e8f88a7b94",
+    sha256 = "c80f3f3d442d8a6ca7adc83f90ecd638c3864087fdd6787ffac070b6f1cc8f9b",
+    strip_prefix = "desugar_jdk_libs-f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd",
 )
 
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
