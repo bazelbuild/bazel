@@ -27,6 +27,7 @@ import com.android.io.StreamException;
 import com.android.utils.StdLogger;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
@@ -34,6 +35,7 @@ import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOpti
 import com.google.devtools.build.android.AndroidResourceProcessor.FlagAaptOptions;
 import com.google.devtools.build.android.Converters.DependencyAndroidDataListConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.Converters.SerializedAndroidDataListConverter;
 import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
 import com.google.devtools.build.android.Converters.VariantTypeConverter;
 import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSplitsException;
@@ -136,6 +138,36 @@ public class AndroidResourceProcessingAction {
               + "[,...]"
     )
     public List<DependencyAndroidData> directData;
+
+    @Option(
+      name = "assets",
+      defaultValue = "",
+      converter = SerializedAndroidDataListConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Transitive asset dependencies. These can also be specified together with resources"
+              + " using --data. Expected format: "
+              + SerializedAndroidData.EXPECTED_FORMAT
+              + "[,...]"
+    )
+    public List<SerializedAndroidData> transitiveAssets;
+
+    @Option(
+      name = "directAssets",
+      defaultValue = "",
+      converter = SerializedAndroidDataListConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Direct asset dependencies. These can also be specified together with resources using "
+              + "--directData. Expected format: "
+              + SerializedAndroidData.EXPECTED_FORMAT
+              + "[,...]"
+    )
+    public List<SerializedAndroidData> directAssets;
 
     @Option(
       name = "rOutput",
@@ -380,7 +412,7 @@ public class AndroidResourceProcessingAction {
 
       logger.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      List<DependencyAndroidData> data =
+      List<DependencyAndroidData> resourceData =
           ImmutableSet.<DependencyAndroidData>builder()
               .addAll(options.directData)
               .addAll(options.transitiveData)
@@ -390,8 +422,14 @@ public class AndroidResourceProcessingAction {
       final MergedAndroidData mergedData =
           AndroidResourceMerger.mergeData(
               options.primaryData,
-              options.directData,
-              options.transitiveData,
+              ImmutableList.<SerializedAndroidData>builder()
+                  .addAll(options.directData)
+                  .addAll(options.directAssets)
+                  .build(),
+              ImmutableList.<SerializedAndroidData>builder()
+                  .addAll(options.transitiveData)
+                  .addAll(options.transitiveAssets)
+                  .build(),
               mergedResources,
               mergedAssets,
               selectPngCruncher(),
@@ -461,7 +499,7 @@ public class AndroidResourceProcessingAction {
               aaptConfigOptions.resourceConfigs,
               aaptConfigOptions.splits,
               processedData,
-              data,
+              resourceData,
               generatedSources,
               options.packagePath,
               options.proguardOutput,
