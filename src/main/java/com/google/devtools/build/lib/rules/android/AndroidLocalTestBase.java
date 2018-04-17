@@ -142,7 +142,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         Substitution.of("%android_merged_assets%", "jar:file:" + resourcesLocation + "!/assets"));
     substitutions.add(
         Substitution.of(
-            "%android_custom_package%", resourceApk.getPrimaryResource().getJavaPackage()));
+            "%android_custom_package%", resourceApk.getPrimaryResources().getJavaPackage()));
 
     boolean generateBinaryResources =
         androidLocalTestConfiguration.useAndroidLocalTestBinaryResources();
@@ -371,7 +371,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     if (resourceApk.getResourceJavaClassJar() == null) {
       new RClassGeneratorActionBuilder(ruleContext)
           .targetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
-          .withPrimary(resourceApk.getPrimaryResource())
+          .withPrimary(resourceApk.getPrimaryResources())
           .withDependencies(resourceApk.getResourceDependencies())
           .setClassJarOut(resourceClassJar)
           .build();

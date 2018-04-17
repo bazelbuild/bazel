@@ -269,7 +269,7 @@ public class AndroidCommon {
       ideInfoProviderBuilder
           .setDefinesAndroidResources(true)
           // Sets the possibly merged manifest and the raw manifest.
-          .setGeneratedManifest(resourceApk.getPrimaryResource().getManifest())
+          .setGeneratedManifest(resourceApk.getManifest())
           .setManifest(ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET))
           .setJavaPackage(getJavaPackage(ruleContext))
           .setResourceApk(resourceApk.getArtifact());
@@ -437,7 +437,7 @@ public class AndroidCommon {
       if (useRClassGenerator) {
         new RClassGeneratorActionBuilder(ruleContext)
             .targetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
-            .withPrimary(resourceApk.getPrimaryResource())
+            .withPrimary(resourceApk.getPrimaryResources())
             .withDependencies(resourceApk.getResourceDependencies())
             .setClassJarOut(resourceClassJar)
             .build();
@@ -740,7 +740,7 @@ public class AndroidCommon {
         .setNeverlink(isNeverlink)
         .build();
 
-    AndroidResourcesInfo resourceInfo = resourceApk.toResourceInfo(ruleContext.getLabel());
+    resourceApk.addToConfiguredTargetBuilder(builder, ruleContext.getLabel());
 
     return builder
         .setFilesToBuild(filesToBuild)
@@ -748,7 +748,6 @@ public class AndroidCommon {
             JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaInfo)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
-        .addNativeDeclaredProvider(resourceInfo)
         .addProvider(
             AndroidIdeInfoProvider.class,
             createAndroidIdeInfoProvider(
@@ -760,8 +759,6 @@ public class AndroidCommon {
                 zipAlignedApk,
                 apksUnderTest,
                 nativeLibs))
-        .addSkylarkTransitiveInfo(
-            AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider(resourceInfo))
         .addOutputGroup(
             OutputGroupInfo.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))
         .addOutputGroup(

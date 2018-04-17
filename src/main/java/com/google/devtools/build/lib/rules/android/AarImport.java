@@ -187,12 +187,13 @@ public class AarImport implements RuleConfiguredTargetFactory {
     common.addTransitiveInfoProviders(
         ruleBuilder, javaInfoBuilder, filesToBuild, /*classJar=*/ null);
 
+    resourceApk.addToConfiguredTargetBuilder(ruleBuilder, ruleContext.getLabel());
+
     ruleBuilder
         .setFilesToBuild(filesToBuild)
         .addSkylarkTransitiveInfo(
             JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .addNativeDeclaredProvider(resourceApk.toResourceInfo(ruleContext.getLabel()))
         .addNativeDeclaredProvider(
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).add(nativeLibs).build()))

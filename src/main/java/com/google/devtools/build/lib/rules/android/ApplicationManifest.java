@@ -348,15 +348,7 @@ public final class ApplicationManifest {
     }
     ResourceContainer processed = builder.build(ruleContext);
 
-    return new ResourceApk(
-        resourceContainer.getApk(),
-        processed.getJavaSourceJar(),
-        processed.getJavaClassJar(),
-        resourceDeps,
-        processed,
-        processed.getManifest(),
-        proguardCfg,
-        mainDexProguardCfg);
+    return ResourceApk.of(processed, resourceDeps, proguardCfg, mainDexProguardCfg);
   }
 
   /** Packages up the manifest with resource and assets from the LocalResourceContainer. */
@@ -419,15 +411,7 @@ public final class ApplicationManifest {
             .setStaticLibraryOut(merged.getStaticLibrary())
             .build(ruleContext, merged);
 
-    return new ResourceApk(
-        resourceContainer.getApk(),
-        processed.getJavaSourceJar(),
-        processed.getJavaClassJar(),
-        resourceDeps,
-        processed,
-        processed.getManifest(),
-        null,
-        null);
+    return ResourceApk.of(processed, resourceDeps);
   }
 
   /* Creates an incremental apk from assets and data. */
@@ -483,15 +467,7 @@ public final class ApplicationManifest {
             .setPackageUnderTest(null)
             .build(ruleContext);
 
-    return new ResourceApk(
-        resourceContainer.getApk(),
-        processed.getJavaSourceJar(),
-        processed.getJavaClassJar(),
-        resourceDeps,
-        processed,
-        processed.getManifest(),
-        proguardCfg,
-        null);
+    return ResourceApk.of(processed, resourceDeps, proguardCfg, null);
   }
 
   /** Packages up the manifest with resource and assets from the rule and dependent resources. */
@@ -572,15 +548,7 @@ public final class ApplicationManifest {
             .setSourceJarOut(resourceContainer.getJavaSourceJar())
             .build(ruleContext);
 
-    return new ResourceApk(
-        resourceContainer.getApk(),
-        processed.getJavaSourceJar(),
-        processed.getJavaClassJar(),
-        resourceDeps,
-        processed,
-        processed.getManifest(),
-        proguardCfg,
-        mainDexProguardCfg);
+    return ResourceApk.of(processed, resourceDeps, proguardCfg, mainDexProguardCfg);
   }
 
   public ResourceApk packLibraryWithDataAndResources(
@@ -682,15 +650,7 @@ public final class ApplicationManifest {
             .setStaticLibraryOut(merged.getStaticLibrary())
             .build(ruleContext, merged);
 
-    return new ResourceApk(
-        resourceContainer.getApk(),
-        processed.getJavaSourceJar(),
-        processed.getJavaClassJar(),
-        resourceDeps,
-        processed,
-        processed.getManifest(),
-        null,
-        null);
+    return ResourceApk.of(processed, resourceDeps);
   }
 
   public Artifact getManifest() {
