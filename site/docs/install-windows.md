@@ -52,9 +52,9 @@ Optional: rename the binary to `bazel.exe` and move it to a directory that's on 
 
 Install the latest Bazel and dependencies:
 
-```sh
-choco install bazel
-```
+    ```sh
+    choco install bazel
+    ```
 
 See [Chocolatey package maintenance guide](https://bazel.build/windows-chocolatey-maintenance.html) for more
 information.
