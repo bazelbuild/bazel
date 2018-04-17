@@ -5,9 +5,10 @@ title: Installing Bazel on Windows
 
 # <a name="windows"></a>Installing Bazel on Windows
 
-Supported Windows platforms:
+Supported Windows platforms (64-bit editions only):
 
-*   64-bit Windows 7 or higher, or equivalent Windows Server versions.
+*  Windows 7 or newer
+*  Windows Server 2008 or newer
 
 ### Installation
 
