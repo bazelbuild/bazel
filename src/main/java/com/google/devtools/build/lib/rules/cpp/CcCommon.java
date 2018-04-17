@@ -728,7 +728,7 @@ public final class CcCommon {
     // according to compilation mode.
     // If STATIC_LINK_MSVCRT feature is specified, we add STATIC_LINK_MSVCRT_* feature
     // according to compilation mode.
-    if (ruleContext.getFeatures().contains(CppRuleClasses.STATIC_LINK_MSVCRT)) {
+    if (requestedFeatures.contains(CppRuleClasses.STATIC_LINK_MSVCRT)) {
       allRequestedFeaturesBuilder.add(
           toolchain.getCompilationMode() == CompilationMode.DBG
               ? CppRuleClasses.STATIC_LINK_MSVCRT_DEBUG
@@ -747,8 +747,9 @@ public final class CcCommon {
                     toolchain.getCompilationMode().toString(),
                     getHostOrNonHostFeature(ruleContext)))
             .addAll(DEFAULT_FEATURES)
-            .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs())
-            .addAll(ruleContext.getFeatures());
+            .addAll(DEFAULT_ACTION_CONFIGS)
+            .addAll(requestedFeatures)
+            .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs());
     if (CppHelper.useFission(ruleContext.getFragment(CppConfiguration.class), toolchain)) {
       allFeatures.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
@@ -793,9 +794,6 @@ public final class CcCommon {
         allRequestedFeaturesBuilder.add(feature);
       }
     }
-    allRequestedFeaturesBuilder.addAll(requestedFeatures);
-
-    allRequestedFeaturesBuilder.addAll(DEFAULT_ACTION_CONFIGS);
 
     try {
       FeatureConfiguration featureConfiguration =
@@ -835,7 +833,7 @@ public final class CcCommon {
       RuleContext ruleContext, CcToolchainProvider toolchain) {
     return configureFeatures(
         ruleContext,
-        /* requestedFeatures= */ ImmutableSet.of(),
+        /* requestedFeatures= */ ruleContext.getFeatures(),
         /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
         toolchain);
   }

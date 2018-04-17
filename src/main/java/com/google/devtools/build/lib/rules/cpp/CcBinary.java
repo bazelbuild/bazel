@@ -219,10 +219,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeatures(
             ruleContext,
-            /* requestedFeatures= */ ImmutableSet.of(
-                linkStaticness == LinkStaticness.DYNAMIC
-                    ? DYNAMIC_LINKING_MODE
-                    : STATIC_LINKING_MODE),
+            /* requestedFeatures= */ ImmutableSet.<String>builder()
+                .addAll(ruleContext.getFeatures())
+                .add(
+                    linkStaticness == LinkStaticness.DYNAMIC
+                        ? DYNAMIC_LINKING_MODE
+                        : STATIC_LINKING_MODE)
+                .build(),
             /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
             ccToolchain);
 
