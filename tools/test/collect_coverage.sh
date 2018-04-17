@@ -107,41 +107,43 @@ fi
 
 cd $ROOT
 
-# If LCOV_MERGER is not set, use the legacy, awful, C++-only method to convert
-# coverage files.
-# NB: This is here just so that we don't regress. Do not add support for new
-# coverage features here. Implement it instead properly in LcovMerger.
-if [[ "$COVERAGE_LEGACY_MODE" ]]; then
-  cat "${COVERAGE_MANIFEST}" | grep ".gcno$" | while read path; do
+USES_LLVM_COV=
+if stat --printf='' "${COVERAGE_DIR}"/*.profraw 2>/dev/null; then
+  USES_LLVM_COV=1
+fi
+
+if [[ "$USES_LLVM_COV" ]]; then
+  llvm-profdata-3.9 merge -output "${COVERAGE_OUTPUT_FILE}" "${COVERAGE_DIR}"/*.profraw
+  exit $TEST_STATUS
+
+# If LCOV_MERGER is not set, use the legacy C++-only method to convert coverage files.
+elif [[ "$COVERAGE_LEGACY_MODE" ]]; then
+  # Copy the .gcno files so they can be found at the correct relative path
+  # inside the COVERAGE_DIR.
+  cat "${COVERAGE_MANIFEST}" | grep "\.gcno$" | while read path; do
     mkdir -p "${COVERAGE_DIR}/$(dirname ${path})"
     cp "${ROOT}/${path}" "${COVERAGE_DIR}/${path}"
   done
 
-  # Unfortunately, lcov messes up the source file names if it can't find the
-  # files at their relative paths. Workaround by creating empty source files
-  # according to the manifest (i.e., only for files that are supposed to be
-  # instrumented).
-  cat "${COVERAGE_MANIFEST}" | egrep ".(cc|h)$" | while read path; do
-    mkdir -p "${COVERAGE_DIR}/$(dirname ${path})"
-    touch "${COVERAGE_DIR}/${path}"
-  done
-
   GCOV="${COVERAGE_DIR}/gcov"
-  ln -s "$(which llvm-cov-3.9)" "${GCOV}"
+  # Use gcov or llvm-cov-3.9 here.
+  ln -s "$(which gcov)" "${GCOV}"
   # Run lcov over the .gcno and .gcda files to generate the lcov tracefile.
-  # -c - Collect coverage data
-  # --no-external - Do not collect coverage data for system files
-  # --ignore-errors graph - Ignore missing .gcno files; Bazel only instruments some files
-  # -d "${COVERAGE_DIR}" - Directory to search for .gcda files
+  # -c                    - Collect coverage data
+  # --no-external         - Do not collect coverage data for system headers
+  # --ignore-errors graph - Ignore missing .gcno files; Bazel only instruments
+  #                         some files
+  # -q                    - Quiet mode
+  # -d "${COVERAGE_DIR}"  - Directory to search for .gcda files
+  # -b /proc/self/cwd     - Use this as a prefix for all source files instead of
+  #                         the current directory
   # -o "${COVERAGE_OUTPUT_FILE}" - Output file
   /usr/bin/lcov -c --no-external --ignore-errors graph \
-      --gcov-tool "${GCOV}" \
-      -d "${COVERAGE_DIR}" -o "${COVERAGE_OUTPUT_FILE}"
+      --gcov-tool "${GCOV}" -q \
+      -d "${COVERAGE_DIR}" -b /proc/self/cwd -o "${COVERAGE_OUTPUT_FILE}"
 
-  # The paths are all wrong, because they point to /tmp. Fix up the paths to
-  # point to the exec root instead (${ROOT}).
-  # This does not work with sandboxing, because ${ROOT} points to the sandbox dir.
-  sed -i -e "s*${COVERAGE_DIR}*${ROOT}*g" "${COVERAGE_OUTPUT_FILE}"
+  # Fix up the paths to be relative by removing the prefix we specified above.
+  sed -i -e "s*/proc/self/cwd/**g" "${COVERAGE_OUTPUT_FILE}"
 
   exit $TEST_STATUS
 fi
