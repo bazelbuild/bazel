@@ -166,14 +166,12 @@ public class TryWithResourcesRewriter extends ClassVisitor {
             new CloseResourceMethodSpecializer(cv, resourceInternalName, isInterface));
       }
     } else {
+      // It is possible that all calls to $closeResources(...) are in dead code regions, and the
+      // calls are eliminated, which leaving the method $closeResources() unused. (b/78030676).
+      // In this case, we just discard the method body.
       checkState(
-          closeResourceMethod == null,
-          "The field resourceTypeInternalNames is empty. "
-              + "But the class has the $closeResource method.");
-      checkState(
-          !hasCloseResourceMethod,
-          "The class %s has close resource method, but resourceTypeInternalNames is empty.",
-          internalName);
+          !hasCloseResourceMethod || closeResourceMethod != null,
+          "There should be $closeResources(...) in the class file.");
     }
     super.visitEnd();
   }
