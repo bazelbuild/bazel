@@ -338,8 +338,13 @@ def get_env(repository_ctx):
     return ""
 
 
-def _coverage_feature(darwin):
-  if darwin:
+def _coverage_feature(repository_ctx, darwin):
+  use_llvm_cov = "1" == get_env_var(
+      repository_ctx,
+      "BAZEL_USE_LLVM_NATIVE_COVERAGE",
+      default="0",
+      enable_warning=False)
+  if darwin or use_llvm_cov:
     compile_flags = """flag_group {
         flag: '-fprofile-instr-generate'
         flag: '-fcoverage-mapping'
@@ -450,7 +455,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
       "%{opt_content}": _build_crosstool(opt_content, "    "),
       "%{dbg_content}": _build_crosstool(dbg_content, "    "),
       "%{cxx_builtin_include_directory}": "",
-      "%{coverage}": _coverage_feature(darwin),
+      "%{coverage}": _coverage_feature(repository_ctx, darwin),
       "%{msvc_env_tmp}": "",
       "%{msvc_env_path}": "",
       "%{msvc_env_include}": "",
