@@ -414,15 +414,16 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
   repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
   darwin = cpu_value == "darwin"
 
+  cc = _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
   overriden_tools = dict(overriden_tools)
-  overriden_tools["gcc"] = _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
+  overriden_tools["gcc"] = cc
   overriden_tools["gcov"] = _find_generic(repository_ctx, "gcov", "GCOV", overriden_tools)
   if darwin:
     overriden_tools["ar"] = "/usr/bin/libtool"
     overriden_tools["gcc"] = "cc_wrapper.sh"
 
   tool_paths = _get_tool_paths(repository_ctx, darwin, overriden_tools)
-  crosstool_content = _crosstool_content(repository_ctx, overriden_tools["gcc"], cpu_value, darwin)
+  crosstool_content = _crosstool_content(repository_ctx, str(cc), cpu_value, darwin)
   opt_content = _opt_content(darwin)
   dbg_content = _dbg_content()
   tpl(repository_ctx, "BUILD", {
@@ -433,7 +434,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
   })
   tpl(repository_ctx,
       "osx_cc_wrapper.sh" if darwin else "linux_cc_wrapper.sh",
-      {"%{cc}": escape_string(overriden_tools["gcc"]),
+      {"%{cc}": escape_string(str(cc)),
        "%{env}": escape_string(get_env(repository_ctx))},
       "cc_wrapper.sh")
   tpl(repository_ctx, "CROSSTOOL", {
