@@ -130,6 +130,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     javaSemantics.checkRule(ruleContext, javaCommon);
     AndroidCommon androidCommon = new AndroidCommon(javaCommon);
 
+    AndroidConfiguration androidConfig = AndroidCommon.getAndroidConfig(ruleContext);
+
     boolean definesLocalResources =
         AndroidResources.definesAndroidResources(ruleContext.attributes());
     if (definesLocalResources) {
@@ -139,28 +141,42 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     // TODO(b/69668042): Always correctly apply neverlinking for resources
     boolean isNeverLink =
         JavaCommon.isNeverLink(ruleContext)
-            && (definesLocalResources
-                || ruleContext.getFragment(AndroidConfiguration.class).fixedResourceNeverlinking());
+            && (definesLocalResources || androidConfig.fixedResourceNeverlinking());
     ResourceDependencies resourceDeps = ResourceDependencies.fromRuleDeps(ruleContext, isNeverLink);
     AssetDependencies assetDeps = AssetDependencies.fromRuleDeps(ruleContext, isNeverLink);
 
     final ResourceApk resourceApk;
     if (definesLocalResources) {
-      ApplicationManifest applicationManifest =
-          androidSemantics
-              .getManifestForRule(ruleContext)
-              .renamePackage(ruleContext, AndroidCommon.getJavaPackage(ruleContext));
-      resourceApk =
-          applicationManifest.packLibraryWithDataAndResources(
-              ruleContext,
-              resourceDeps,
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_MERGED_SYMBOLS),
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
-              DataBinding.isEnabled(ruleContext)
-                  ? DataBinding.getLayoutInfoFile(ruleContext)
-                  : null);
+      if (androidConfig.decoupleDataProcessing()) {
+        StampedAndroidManifest manifest =
+            AndroidManifest.from(ruleContext, androidSemantics).stamp(ruleContext);
+
+        ValidatedAndroidResources resources =
+            AndroidResources.from(ruleContext, "resource_files")
+                .process(ruleContext, manifest, isNeverLink);
+
+        MergedAndroidAssets assets =
+            AndroidAssets.from(ruleContext).process(ruleContext, isNeverLink);
+
+        resourceApk = ResourceApk.of(resources, assets);
+      } else {
+        ApplicationManifest applicationManifest =
+            androidSemantics
+                .getManifestForRule(ruleContext)
+                .renamePackage(ruleContext, AndroidCommon.getJavaPackage(ruleContext));
+        resourceApk =
+            applicationManifest.packLibraryWithDataAndResources(
+                ruleContext,
+                resourceDeps,
+                ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
+                ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_MERGED_SYMBOLS),
+                ruleContext.getImplicitOutputArtifact(
+                    AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
+                ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
+                DataBinding.isEnabled(ruleContext)
+                    ? DataBinding.getLayoutInfoFile(ruleContext)
+                    : null);
+      }
       if (ruleContext.hasErrors()) {
         return null;
       }
@@ -208,8 +224,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         .withClasses(classesJar)
         .setAAROut(aarOut)
         .setProguardSpecs(proguardLibrary.collectLocalProguardSpecs())
-        .setThrowOnResourceConflict(
-            ruleContext.getFragment(AndroidConfiguration.class).throwOnResourceConflict())
+        .setThrowOnResourceConflict(androidConfig.throwOnResourceConflict())
         .build(ruleContext);
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
