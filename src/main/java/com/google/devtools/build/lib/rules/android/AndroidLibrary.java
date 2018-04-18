@@ -225,12 +225,11 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
                       AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
               .setSourceJarOut(resourceContainer.getJavaSourceJar())
               .setJavaPackage(resourceContainer.getJavaPackage())
-              .withPrimary(resourceContainer)
               .withResourceDependencies(resourceApk.getResourceDependencies())
               .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
               .setThrowOnResourceConflict(
                   ruleContext.getFragment(AndroidConfiguration.class).throwOnResourceConflict())
-              .build(ruleContext);
+              .build(resourceContainer);
     }
 
     new AarGeneratorBuilder(ruleContext)

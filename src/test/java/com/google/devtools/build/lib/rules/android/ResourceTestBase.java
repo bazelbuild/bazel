@@ -59,7 +59,8 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
           "aapt2",
           "empty.sh",
           "android_blaze.jar",
-          "android.jar");
+          "android.jar",
+          "ResourceProcessorBusyBox_deploy.jar");
 
   private static final ArtifactOwner OWNER = () -> {
     try {

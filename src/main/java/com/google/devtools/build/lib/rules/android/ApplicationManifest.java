@@ -325,7 +325,6 @@ public final class ApplicationManifest {
             .setCrunchPng(true)
             .setJavaPackage(resourceContainer.getJavaPackage())
             .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
-            .withPrimary(resourceContainer)
             .withResourceDependencies(resourceDeps)
             .setProguardOut(proguardCfg)
             .setMainDexProguardOut(mainDexProguardCfg)
@@ -346,7 +345,7 @@ public final class ApplicationManifest {
           .setSymbols(resourceContainer.getSymbols())
           .setSourceJarOut(resourceContainer.getJavaSourceJar());
     }
-    ResourceContainer processed = builder.build(ruleContext);
+    ResourceContainer processed = builder.build(resourceContainer);
 
     ResourceContainer finalContainer =
         new RClassGeneratorActionBuilder(ruleContext)
@@ -462,7 +461,6 @@ public final class ApplicationManifest {
             .setCrunchPng(crunchPng)
             .setJavaPackage(resourceContainer.getJavaPackage())
             .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
-            .withPrimary(resourceContainer)
             .withResourceDependencies(resourceDeps)
             .setProguardOut(proguardCfg)
             .setApplicationId(manifestValues.get("applicationId"))
@@ -474,7 +472,7 @@ public final class ApplicationManifest {
                     .getFragment(AndroidConfiguration.class)
                     .throwOnResourceConflict())
             .setPackageUnderTest(null)
-            .build(ruleContext);
+            .build(resourceContainer);
 
     // Intentionally skip building an R class JAR - incremental binaries handle this separately.
 
@@ -540,7 +538,6 @@ public final class ApplicationManifest {
             .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
             .setManifestOut(manifestOut)
             .setMergedResourcesOut(mergedResources)
-            .withPrimary(resourceContainer)
             .withResourceDependencies(resourceDeps)
             .setProguardOut(proguardCfg)
             .setMainDexProguardOut(mainDexProguardCfg)
@@ -557,7 +554,7 @@ public final class ApplicationManifest {
             .setRTxtOut(resourceContainer.getRTxt())
             .setSymbols(resourceContainer.getSymbols())
             .setSourceJarOut(resourceContainer.getJavaSourceJar())
-            .build(ruleContext);
+            .build(resourceContainer);
 
     ResourceContainer finalContainer =
         new RClassGeneratorActionBuilder(ruleContext)

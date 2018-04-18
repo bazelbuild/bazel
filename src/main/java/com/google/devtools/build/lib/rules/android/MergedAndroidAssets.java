@@ -63,7 +63,12 @@ public class MergedAndroidAssets extends ParsedAndroidAssets {
         .addTransitiveInputValues(deps.getTransitiveSymbols())
         .buildAndRegister("Merging Android assets", "AndroidAssetMerger");
 
-    return new MergedAndroidAssets(parsed, mergedAssets, deps);
+    return of(parsed, mergedAssets, deps);
+  }
+
+  static MergedAndroidAssets of(
+      ParsedAndroidAssets parsed, Artifact mergedAssets, AssetDependencies assetDependencies) {
+    return new MergedAndroidAssets(parsed, mergedAssets, assetDependencies);
   }
 
   private MergedAndroidAssets(

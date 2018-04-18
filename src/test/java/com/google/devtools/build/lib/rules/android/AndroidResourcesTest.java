@@ -415,6 +415,32 @@ public class AndroidResourcesTest extends ResourceTestBase {
             validated.getAapt2RTxt(), validated.getAapt2SourceJar(), validated.getStaticLibrary()));
   }
 
+  @Test
+  public void testGenerateRClass() throws Exception {
+    RuleContext ruleContext = getRuleContext(/* useDataBinding = */ false);
+    Artifact rTxt = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT);
+    ProcessedAndroidManifest manifest = getManifest();
+
+    ProcessedAndroidData processedData =
+        ProcessedAndroidData.of(
+            makeParsedResources(ruleContext),
+            AndroidAssets.from(ruleContext).process(ruleContext, /* neverlink = */ false),
+            manifest,
+            rTxt,
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR),
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
+            /* dataBindingInfoZip = */ null,
+            ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false));
+
+    ValidatedAndroidResources validated = processedData.generateRClass(ruleContext);
+
+    // An action to generate the R.class file should be registered.
+    assertActionArtifacts(
+        ruleContext,
+        /* inputs = */ ImmutableList.of(rTxt, manifest.getManifest()),
+        /* outputs = */ ImmutableList.of(validated.getClassJar()));
+  }
+
   /**
    * Validates that a parse action was invoked correctly. Returns the {@link ParsedAndroidResources}
    * for further validation.
@@ -439,15 +465,19 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
   private MergedAndroidResources makeMergedResources(RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
+    return makeParsedResources(ruleContext).merge(ruleContext, /* neverlink = */ true);
+  }
+
+  private ParsedAndroidResources makeParsedResources(RuleContext ruleContext)
+      throws RuleErrorException, InterruptedException {
     ImmutableList<Artifact> resources = getResources("values-en/foo.xml", "drawable-hdpi/bar.png");
     return new AndroidResources(
             resources, AndroidResources.getResourceRoots(ruleContext, resources, "resource_files"))
-        .parse(ruleContext, getManifest())
-        .merge(ruleContext, /* neverlink = */ true);
+        .parse(ruleContext, getManifest());
   }
 
-  private StampedAndroidManifest getManifest() {
-    return new StampedAndroidManifest(
+  private ProcessedAndroidManifest getManifest() {
+    return new ProcessedAndroidManifest(
         getResource("some/path/AndroidManifest.xml"), "some.java.pkg", /* exported = */ true);
   }
 

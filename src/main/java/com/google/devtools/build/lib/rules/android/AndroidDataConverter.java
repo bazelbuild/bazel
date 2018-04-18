@@ -133,13 +133,7 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
     }
 
     Builder<T> withRoots(Function<T, ImmutableList<PathFragment>> rootsFunction) {
-      return with(
-          t ->
-              rootsFunction
-                  .apply(t)
-                  .stream()
-                  .map(PathFragment::toString)
-                  .collect(Collectors.joining("#")));
+      return with(t -> rootsToString(rootsFunction.apply(t)));
     }
 
     Builder<T> withArtifact(Function<T, Artifact> artifactFunction) {
@@ -159,5 +153,9 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
     AndroidDataConverter<T> build() {
       return new AndroidDataConverter<>(inner.build(), joinerType);
     }
+  }
+
+  static String rootsToString(ImmutableList<PathFragment> roots) {
+    return roots.stream().map(PathFragment::toString).collect(Collectors.joining("#"));
   }
 }
