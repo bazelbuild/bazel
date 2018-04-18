@@ -184,6 +184,7 @@ genrule(
     srcs = ["@desugar_jdk_libs"],
     outs = ["desugar_jdk_libs.jar"],
     cmd = "cp $< $@",
+    output_to_bindir = 1,
     visibility = ["//visibility:private"],
 )
 
