@@ -233,7 +233,7 @@ public class RunCommand implements BlazeCommand  {
     }
     List<String> prettyCmdLine = new ArrayList<>();
     constructCommandLine(cmdLine, prettyCmdLine, env, shellExecutable,
-        targetToRun, runUnderTarget, args);
+        targetToRun, runUnderTarget, args, false);
 
     // Add a newline between the blaze output and the binary's output.
     env.getReporter().getOutErr().printErrLn("");
@@ -287,14 +287,26 @@ public class RunCommand implements BlazeCommand  {
 
   private void constructCommandLine(List<String> cmdLine, List<String> prettyCmdLine,
       CommandEnvironment env, PathFragment shellExecutable, ConfiguredTarget targetToRun,
-      ConfiguredTarget runUnderTarget, List<String> args) {
+      ConfiguredTarget runUnderTarget, List<String> args, boolean useRunfilesPath) {
     String productName = env.getRuntime().getProductName();
-    Path executablePath =
-        targetToRun.getProvider(FilesToRunProvider.class).getExecutable().getPath();
-    PathFragment prettyExecutablePath = OutputDirectoryLinksUtils.getPrettyPath(executablePath,
-        env.getWorkspaceName(), env.getWorkspace(),
-        env.getOptions().getOptions(BuildRequestOptions.class).getSymlinkPrefix(productName),
-        productName);
+    Artifact executable = targetToRun.getProvider(FilesToRunProvider.class).getExecutable();
+
+    PathFragment executablePath;
+    PathFragment prettyExecutablePath;
+
+    if (useRunfilesPath) {
+      executablePath = executable.getRunfilesPath();
+      prettyExecutablePath = executable.getRunfilesPath();
+    } else {
+      executablePath = executable.getPath().asFragment();
+      prettyExecutablePath =
+          OutputDirectoryLinksUtils.getPrettyPath(
+              executable.getPath(),
+              env.getWorkspaceName(),
+              env.getWorkspace(),
+              env.getOptions().getOptions(BuildRequestOptions.class).getSymlinkPrefix(productName),
+              productName);
+    }
 
     RunUnder runUnder = env.getOptions().getOptions(BuildConfiguration.Options.class).runUnder;
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option
@@ -429,13 +441,21 @@ public class RunCommand implements BlazeCommand  {
     }
 
     Path runfilesDir;
-    try {
-      runfilesDir = ensureRunfilesBuilt(env, targetToRun);
-    } catch (CommandException e) {
-      env.getReporter().handle(Event.error("Error creating runfiles: " + e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
-    }
+    FilesToRunProvider provider = targetToRun.getProvider(FilesToRunProvider.class);
+    RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
 
+    if (runfilesSupport == null) {
+      runfilesDir = env.getWorkingDirectory();
+    } else {
+      try {
+        runfilesDir = ensureRunfilesBuilt(env, runfilesSupport,
+            env.getSkyframeExecutor().getConfiguration(env.getReporter(),
+                targetToRun.getConfigurationKey()));
+      } catch (CommandException e) {
+        env.getReporter().handle(Event.error("Error creating runfiles: " + e.getMessage()));
+        return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+      }
+    }
 
     PathFragment shellExecutable =
         configuration.getFragment(ShellConfiguration.class).getShellExecutable();
@@ -498,7 +518,7 @@ public class RunCommand implements BlazeCommand  {
       List<String> prettyCmdLine = new ArrayList<>();
       List<String> args = computeArgs(env, targetToRun, commandLineArgs);
       constructCommandLine(cmdLine, prettyCmdLine, env,
-          shellExecutable, targetToRun, runUnderTarget, args);
+          shellExecutable, targetToRun, runUnderTarget, args, runfilesSupport != null);
     }
 
     if (runOptions.scriptPath != null) {
@@ -511,6 +531,9 @@ public class RunCommand implements BlazeCommand  {
         return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
       }
     }
+
+    env.getReporter().handle(Event.info(
+        null, "Running command line: " + ShellEscaper.escapeJoinAll(cmdLine)));
 
     ExecRequest.Builder execDescription = ExecRequest.newBuilder()
         .setWorkingDirectory(
@@ -553,19 +576,11 @@ public class RunCommand implements BlazeCommand  {
    * @return the path of the runfiles directory.
    * @throws CommandException
    */
-  private Path ensureRunfilesBuilt(CommandEnvironment env, ConfiguredTarget target)
-      throws CommandException {
-    FilesToRunProvider provider = target.getProvider(FilesToRunProvider.class);
-    RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
-    if (runfilesSupport == null) {
-      return env.getWorkingDirectory();
-    }
-
+  private Path ensureRunfilesBuilt(CommandEnvironment env, RunfilesSupport runfilesSupport,
+      BuildConfiguration configuration) throws CommandException {
     Artifact manifest = Preconditions.checkNotNull(runfilesSupport.getRunfilesManifest());
     PathFragment runfilesDir = runfilesSupport.getRunfilesDirectoryExecPath();
     Path workingDir = env.getExecRoot().getRelative(runfilesDir);
-    BuildConfiguration configuration =
-        env.getSkyframeExecutor().getConfiguration(env.getReporter(), target.getConfigurationKey());
     // On Windows, runfiles tree is disabled.
     // Workspace name directory doesn't exist, so don't add it.
     if (configuration.runfilesEnabled()) {
