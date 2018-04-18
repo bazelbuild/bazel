@@ -108,6 +108,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
     this.manifest = manifest;
   }
 
+  @Deprecated
   public Artifact getMergedResources() {
     return mergedResources;
   }

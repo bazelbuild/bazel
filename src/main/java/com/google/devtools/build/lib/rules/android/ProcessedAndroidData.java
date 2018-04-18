@@ -76,19 +76,23 @@ public class ProcessedAndroidData {
   }
 
   /**
-   * Gets the fully processed resources from this class.
+   * Gets the fully processed data from this class.
    *
    * <p>Registers an action to run R class generation, the last step needed in resource processing.
-   * Returns the fully processed resources.
+   * Returns the fully processed data, including validated resources, wrapped in a ResourceApk.
    */
-  public ValidatedAndroidResources generateRClass(RuleContext ruleContext)
+  public ResourceApk generateRClass(RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
-    return new RClassGeneratorActionBuilder(ruleContext)
-        .targetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
-        .withDependencies(resourceDeps)
-        .setClassJarOut(
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
-        .build(this);
+    ValidatedAndroidResources validated =
+        new RClassGeneratorActionBuilder(ruleContext)
+            .targetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
+            .withDependencies(resourceDeps)
+            .setClassJarOut(
+                ruleContext.getImplicitOutputArtifact(
+                    AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
+            .build(this);
+
+    return ResourceApk.of(validated, assets);
   }
 
   /**

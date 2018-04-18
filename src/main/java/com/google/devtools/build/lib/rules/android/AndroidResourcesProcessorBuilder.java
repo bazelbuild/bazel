@@ -258,6 +258,9 @@ public class AndroidResourcesProcessorBuilder {
     if (manifestOut != null) {
       builder.setManifest(manifestOut);
     }
+    if (mergedResourcesOut != null) {
+      builder.setMergedResources(mergedResourcesOut);
+    }
 
     return builder.build();
   }

@@ -174,6 +174,11 @@ public abstract class ResourceContainer implements ValidatedAndroidData {
   @Nullable
   public abstract Artifact getAapt2JavaSourceJar();
 
+  @Nullable
+  @Override
+  @Deprecated
+  public abstract Artifact getMergedResources();
+
   // The limited hashCode and equals behavior is necessary to avoid duplication when building with
   // fat_apk_cpu set. Artifacts generated in different configurations will naturally be different
   // and non-equal objects, causing the ResourceContainer not to be automatically deduplicated at
@@ -330,6 +335,8 @@ public abstract class ResourceContainer implements ValidatedAndroidData {
     public abstract Builder setAapt2JavaSourceJar(@Nullable Artifact javaSourceJar);
 
     public abstract Builder setAapt2RTxt(@Nullable Artifact rTxt);
+
+    public abstract Builder setMergedResources(@Nullable Artifact mergedResources);
 
     abstract ResourceContainer autoBuild();
 

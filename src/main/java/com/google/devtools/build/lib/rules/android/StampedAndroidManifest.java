@@ -38,7 +38,7 @@ public class StampedAndroidManifest extends AndroidManifest {
    * <p>The manifest is guaranteed to be stamped with the correct Android package.
    */
   @Override
-  Artifact getManifest() {
+  public Artifact getManifest() {
     return super.getManifest();
   }
 

@@ -47,4 +47,16 @@ public interface ValidatedAndroidData extends CompiledMergableAndroidData {
 
   @VisibleForTesting
   Artifact getApk();
+
+  /**
+   * Gets an Artifact containing a zip of merged resources.
+   *
+   * <p>If assets were processed together with resources, the zip will also contain merged assets.
+   *
+   * @deprecated This artifact is produced by an often-expensive action and should not be used if
+   *     another option is available. Furthermore, it will be replaced by flat files once we
+   *     completely move to aapt2.
+   */
+  @Deprecated
+  Artifact getMergedResources();
 }

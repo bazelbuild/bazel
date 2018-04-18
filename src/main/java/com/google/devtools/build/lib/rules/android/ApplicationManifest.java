@@ -168,7 +168,7 @@ public final class ApplicationManifest {
     return generatedManifest;
   }
 
-  private static ImmutableMap<String, String> getManifestValues(RuleContext context) {
+  static ImmutableMap<String, String> getManifestValues(RuleContext context) {
     Map<String, String> manifestValues = new TreeMap<>();
     if (context.attributes().isAttributeValueExplicitlySpecified("manifest_values")) {
       manifestValues.putAll(context.attributes().get("manifest_values", Type.STRING_DICT));
@@ -193,15 +193,19 @@ public final class ApplicationManifest {
   }
 
   public ApplicationManifest mergeWith(RuleContext ruleContext, ResourceDependencies resourceDeps) {
-    boolean legacy = useLegacyMerging(ruleContext);
-    return mergeWith(ruleContext, resourceDeps, legacy);
+    return maybeMergeWith(ruleContext, manifest, resourceDeps, manifestValues)
+        .map(merged -> new ApplicationManifest(ruleContext, merged, targetAaptVersion))
+        .orElse(this);
   }
 
-  private ApplicationManifest mergeWith(
-      RuleContext ruleContext, ResourceDependencies resourceDeps, boolean legacy) {
+  static Optional<Artifact> maybeMergeWith(
+      RuleContext ruleContext,
+      Artifact primaryManifest,
+      ResourceDependencies resourceDeps,
+      Map<String, String> manifestValues) {
     Map<Artifact, Label> mergeeManifests = getMergeeManifests(resourceDeps.getResourceContainers());
 
-    if (legacy) {
+    if (useLegacyMerging(ruleContext)) {
       if (!mergeeManifests.isEmpty()) {
         Artifact outputManifest =
             ruleContext.getUniqueDirectoryArtifact(
@@ -210,11 +214,11 @@ public final class ApplicationManifest {
                 ruleContext.getBinOrGenfilesDirectory());
         AndroidManifestMergeHelper.createMergeManifestAction(
             ruleContext,
-            getManifest(),
+            primaryManifest,
             mergeeManifests.keySet(),
             ImmutableList.of("all"),
             outputManifest);
-        return new ApplicationManifest(ruleContext, outputManifest, targetAaptVersion);
+        return Optional.of(outputManifest);
       }
     } else {
       if (!mergeeManifests.isEmpty() || !manifestValues.isEmpty()) {
@@ -229,7 +233,7 @@ public final class ApplicationManifest {
                 "manifest_merger_log.txt",
                 ruleContext.getBinOrGenfilesDirectory());
         new ManifestMergerActionBuilder(ruleContext)
-            .setManifest(getManifest())
+            .setManifest(primaryManifest)
             .setMergeeManifests(mergeeManifests)
             .setLibrary(false)
             .setManifestValues(manifestValues)
@@ -237,13 +241,13 @@ public final class ApplicationManifest {
             .setManifestOutput(outputManifest)
             .setLogOut(mergeLog)
             .build(ruleContext);
-        return new ApplicationManifest(ruleContext, outputManifest, targetAaptVersion);
+        return Optional.of(outputManifest);
       }
     }
-    return this;
+    return Optional.empty();
   }
 
-  private boolean useLegacyMerging(RuleContext ruleContext) {
+  private static boolean useLegacyMerging(RuleContext ruleContext) {
     boolean legacy = false;
     if (ruleContext.isLegalFragment(AndroidConfiguration.class)
         && ruleContext.getRule().isAttrDefined("manifest_merger", STRING)) {

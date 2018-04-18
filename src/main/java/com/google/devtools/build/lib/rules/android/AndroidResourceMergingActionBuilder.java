@@ -301,6 +301,9 @@ public class AndroidResourceMergingActionBuilder {
     if (manifestOut != null) {
       result.setManifest(manifestOut);
     }
+    if (mergedResourcesOut != null) {
+      result.setMergedResources(mergedResourcesOut);
+    }
     return result.build();
   }
 
