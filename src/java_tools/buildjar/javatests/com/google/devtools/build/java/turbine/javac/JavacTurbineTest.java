@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.java.turbine.javac;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toSet;
@@ -275,6 +276,114 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
       };
       assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
     }
+  }
+
+  /**
+   * A sample annotation processor for testing.
+   *
+   * <p>Writes an output file containing a SJD violation.
+   */
+  @SupportedAnnotationTypes("MyAnnotation")
+  public static class SjdProcessor extends AbstractProcessor {
+
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
+      return SourceVersion.latest();
+    }
+
+    boolean first = true;
+
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+      if (!first) {
+        return false;
+      }
+      if (roundEnv.getRootElements().isEmpty()) {
+        return false;
+      }
+      first = false;
+      Element element = roundEnv.getRootElements().iterator().next();
+      try {
+        JavaFileObject sourceFile = processingEnv.getFiler().createSourceFile("Generated", element);
+        try (OutputStream os = sourceFile.openOutputStream()) {
+          os.write(
+              ("public class Generated {\n"
+                      + "  public static final int CONST = A.CONST;"
+                      + "  public static B b;"
+                      + "}")
+                  .getBytes(UTF_8));
+        }
+      } catch (IOException e) {
+        throw new IOError(e);
+      }
+      return false;
+    }
+  }
+
+  @Test
+  public void processingStrict() throws Exception {
+
+    Path libD = temp.newFile("libd.jar").toPath();
+    compileLib(
+        libD,
+        Collections.<Path>emptyList(),
+        ImmutableList.of(
+            new StringJavaFileObject("D.java", "public class D { static final int CONST = 42; }")));
+
+    Path libC = temp.newFile("libc.jar").toPath();
+    compileLib(
+        libC,
+        Collections.singleton(libD),
+        ImmutableList.of(new StringJavaFileObject("C.java", "class C extends D {}")));
+
+    Path libB = temp.newFile("libb.jar").toPath();
+    compileLib(
+        libB,
+        ImmutableList.of(libC, libD),
+        ImmutableList.of(new StringJavaFileObject("B.java", "class B extends C {}")));
+
+    Path libA = temp.newFile("liba.jar").toPath();
+    compileLib(
+        libA,
+        ImmutableList.of(libB, libC, libD),
+        ImmutableList.of(new StringJavaFileObject("A.java", "class A extends B {}")));
+    Path depsA =
+        writedeps(
+            "liba.jdeps",
+            Deps.Dependencies.newBuilder()
+                .setSuccess(true)
+                .setRuleLabel("//lib:a")
+                .addDependency(
+                    Deps.Dependency.newBuilder()
+                        .setPath(libB.toString())
+                        .setKind(Deps.Dependency.Kind.EXPLICIT))
+                .build());
+
+    addSourceLines(
+        "MyAnnotation.java", //
+        "public @interface MyAnnotation {}");
+    addSourceLines(
+        "Hello.java", //
+        "@MyAnnotation",
+        "class Hello {}");
+
+    optionsBuilder.addSources(sources.stream().map(p -> p.toString()).collect(toImmutableList()));
+    optionsBuilder.addProcessors(ImmutableList.of(SjdProcessor.class.getName()));
+    optionsBuilder.addProcessorPathEntries(HOST_CLASSPATH);
+    optionsBuilder.addClassPathEntries(
+        ImmutableList.of(libA.toString(), libB.toString(), libC.toString(), libD.toString()));
+    optionsBuilder.addAllDepsArtifacts(ImmutableList.of(depsA.toString()));
+    optionsBuilder.addDirectJars(ImmutableList.of(libA.toString()));
+    optionsBuilder.setTargetLabel("//my:target");
+
+    StringWriter errOutput = new StringWriter();
+    Result result;
+    try (JavacTurbine turbine =
+        new JavacTurbine(new PrintWriter(errOutput, true), optionsBuilder.build())) {
+      result = turbine.compile();
+    }
+    assertThat(errOutput.toString()).isEmpty();
+    assertThat(result).isEqualTo(Result.OK_WITH_FULL_CLASSPATH);
   }
 
   static Map<String, byte[]> collectFiles(Path jar) throws IOException {

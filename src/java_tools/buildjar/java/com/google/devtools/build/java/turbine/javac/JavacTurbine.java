@@ -154,6 +154,8 @@ public class JavacTurbine implements AutoCloseable {
     if (compileResult == null || shouldFallBack(compileResult)) {
       // fall back to transitive classpath
       actualClasspath = originalClasspath;
+      // reset SJD plugin
+      requestBuilder.setStrictDepsPlugin(new StrictJavaDepsPlugin(dependencyModule));
       requestBuilder.setClassPath(actualClasspath);
       compileResult = JavacTurbineCompiler.compile(requestBuilder.build());
       if (compileResult.success()) {
