@@ -19,8 +19,10 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.NoSuchElementException;
 
 /**
@@ -31,31 +33,32 @@ import java.util.NoSuchElementException;
  */
 public interface SpawnCache extends ActionContext {
   /** A no-op implementation that has no result, and performs no upload. */
-  public static CacheHandle NO_RESULT_NO_STORE =
-      new CacheHandle() {
-        @Override
-        public boolean hasResult() {
-          return false;
-        }
+  public static CacheHandle NO_RESULT_NO_STORE = new CacheHandle() {
+    @Override
+    public boolean hasResult() {
+      return false;
+    }
 
-        @Override
-        public SpawnResult getResult() {
-          throw new NoSuchElementException();
-        }
+    @Override
+    public SpawnResult getResult() {
+      throw new NoSuchElementException();
+    }
 
-        @Override
-        public boolean willStore() {
-          return false;
-        }
+    @Override
+    public boolean willStore() {
+      return false;
+    }
 
-        @Override
-        public void store(SpawnResult result) throws InterruptedException, IOException {
-          // Do nothing.
-        }
+    @Override
+    public void store(SpawnResult result, Collection<Path> files)
+        throws InterruptedException, IOException {
+      // Do nothing.
+    }
 
-        @Override
-        public void close() {}
-      };
+    @Override
+    public void close() {
+    }
+  };
 
   /**
    * Helper method to create a {@link CacheHandle} from a successful {@link SpawnResult} instance.
@@ -78,12 +81,14 @@ public interface SpawnCache extends ActionContext {
       }
 
       @Override
-      public void store(SpawnResult result) throws InterruptedException, IOException {
+      public void store(SpawnResult result, Collection<Path> files)
+          throws InterruptedException, IOException {
         throw new IllegalStateException();
       }
 
       @Override
-      public void close() {}
+      public void close() {
+      }
     };
   }
 
@@ -143,7 +148,8 @@ public interface SpawnCache extends ActionContext {
      * <p>If the current thread is interrupted, then this method should return as quickly as
      * possible with an {@link InterruptedException}.
      */
-    void store(SpawnResult result) throws ExecException, InterruptedException, IOException;
+    void store(SpawnResult result, Collection<Path> files)
+        throws InterruptedException, IOException;
   }
 
   /**
