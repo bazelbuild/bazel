@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -353,13 +354,14 @@ public final class FuncallExpression extends Expression {
    * @throws EvalException if there was an issue evaluating the method
    */
   public static Object invokeStructField(
-      MethodDescriptor methodDescriptor, String fieldName, Object obj) throws EvalException {
+      MethodDescriptor methodDescriptor, String fieldName, Object obj)
+      throws EvalException, InterruptedException {
     Preconditions.checkArgument(methodDescriptor.getAnnotation().structField());
     return callMethod(methodDescriptor, fieldName, obj, new Object[0], Location.BUILTIN, null);
   }
 
   static Object callMethod(MethodDescriptor methodDescriptor, String methodName, Object obj,
-      Object[] args, Location loc, Environment env) throws EvalException {
+      Object[] args, Location loc, Environment env) throws EvalException, InterruptedException {
     try {
       Method method = methodDescriptor.getMethod();
       if (obj == null && !Modifier.isStatic(method.getModifiers())) {
@@ -401,6 +403,8 @@ public final class FuncallExpression extends Expression {
       if (e.getCause() instanceof FuncallException) {
         throw new EvalException(loc, e.getCause().getMessage());
       } else if (e.getCause() != null) {
+        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+
         throw new EvalExceptionWithJavaCause(loc, e.getCause());
       } else {
         // This is unlikely to happen

@@ -36,7 +36,16 @@ public class NativeInfo extends Info {
       return values.get(name);
     } else if (hasField(name)) {
       MethodDescriptor methodDescriptor = FuncallExpression.getStructField(this.getClass(), name);
-      return FuncallExpression.invokeStructField(methodDescriptor, name, this);
+      try {
+        return FuncallExpression.invokeStructField(methodDescriptor, name, this);
+      } catch (InterruptedException exception) {
+        // Struct fields on NativeInfo objects are supposed to behave well and not throw
+        // exceptions, as they should be logicless field accessors. If this occurs, it's
+        // indicative of a bad NativeInfo implementation.
+        throw new IllegalStateException(
+            String.format("Access of field %s was unexpectedly interrupted, but should be "
+                + "uninterruptible. This is indicative of a bad provider implementation.", name));
+      }
     } else {
       return null;
     }

@@ -745,7 +745,7 @@ public class MethodLibrary {
         @SuppressWarnings("unused")
         public Object invoke(
             Object obj, String name, Object defaultValue, Location loc, Environment env)
-            throws EvalException {
+            throws EvalException, InterruptedException {
           Object result = DotExpression.eval(obj, name, loc, env);
           if (result == null) {
             // 'Real' describes methods with structField() == false. Because DotExpression.eval
