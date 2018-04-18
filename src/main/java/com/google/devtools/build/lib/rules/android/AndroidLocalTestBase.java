@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -35,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
+import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
@@ -312,6 +315,27 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     RunfilesSupport runfilesSupport =
         RunfilesSupport.withExecutable(ruleContext, defaultRunfiles, executable);
+
+    Artifact deployJar =
+        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_JAR);
+
+    // Create the deploy jar and make it dependent on the runfiles middleman if an executable is
+    // created. Do not add the deploy jar to files to build, so we will only build it when it gets
+    // requested.
+    new DeployArchiveBuilder(javaSemantics, ruleContext)
+        .setOutputJar(deployJar)
+        .setJavaStartClass(mainClass)
+        .setDeployManifestLines(ImmutableList.<String>of())
+        .setAttributes(helper.getAttributes())
+        .addRuntimeJars(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
+        .setIncludeBuildData(true)
+        .setRunfilesMiddleman(runfilesSupport.getRunfilesMiddleman())
+        .setCompression(COMPRESSED)
+        .setLauncher(launcher)
+        .setOneVersionEnforcementLevel(
+            doOneVersionEnforcement ? oneVersionEnforcementLevel : OneVersionEnforcementLevel.OFF,
+            javaToolchain.getOneVersionWhitelist())
+        .build();
 
     JavaSourceJarsProvider sourceJarsProvider = javaSourceJarsProviderBuilder.build();
     NestedSet<Artifact> transitiveSourceJars = sourceJarsProvider.getTransitiveSourceJars();
