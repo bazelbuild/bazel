@@ -19,11 +19,6 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
@@ -1863,15 +1858,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest().testIfExactError(
         "unexpected keywords 'end', 'other' in call to print(*args, sep: string = \" \")",
         "print(end='x', other='y')");
-  }
-
-  @Test
-  public void testSkylarkTypes() {
-    assertThat(EvalUtils.getSkylarkType(FileConfiguredTarget.class))
-        .isEqualTo(TransitiveInfoCollection.class);
-    assertThat(EvalUtils.getSkylarkType(RuleConfiguredTarget.class))
-        .isEqualTo(TransitiveInfoCollection.class);
-    assertThat(EvalUtils.getSkylarkType(SpecialArtifact.class)).isEqualTo(Artifact.class);
   }
 
   // Override tests in EvaluationTest incompatible with Skylark

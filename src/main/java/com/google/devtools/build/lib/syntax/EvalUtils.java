@@ -173,7 +173,7 @@ public final class EvalUtils {
    * @return a super-class of c to be used in validation-time type inference.
    */
   public static Class<?> getSkylarkType(Class<?> c) {
-    // TODO(bazel-team): replace these with SkylarkValue-s
+    // TODO(bazel-team): Iterable and Class likely do not belong here.
     if (String.class.equals(c)
         || Boolean.class.equals(c)
         || Integer.class.equals(c)
@@ -181,8 +181,9 @@ public final class EvalUtils {
         || Class.class.equals(c)) {
       return c;
     }
-    // TODO(bazel-team): also unify all implementations of ClassObject,
-    // that we used to all print the same as "struct"?
+    // TODO(bazel-team): We should require all Skylark-addressable values that aren't builtin types
+    // (String/Boolean/Integer) to implement SkylarkValue. We should also require them to have a
+    // (possibly inherited) @SkylarkModule annotation.
     Class<?> parent = SkylarkInterfaceUtils.getParentWithSkylarkModule(c);
     if (parent != null) {
       return parent;
