@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
@@ -102,8 +100,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     String resourcesLocation = resourcesZip.getRunfilesPathString();
 
     // Create the final merged R class
-    Artifact resourcesClassJar =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
     ResourceApk resourceApk =
         applicationManifest.packBinaryWithDataAndResources(
             ruleContext,
@@ -121,8 +117,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             DataBinding.isEnabled(ruleContext) ? DataBinding.getLayoutInfoFile(ruleContext) : null,
             null, /* featureOfArtifact */
             null /* featureAfterArtifact */);
-    compileResourceJar(ruleContext, resourceApk, resourcesClassJar);
-    attributesBuilder.addRuntimeClassPathEntry(resourcesClassJar);
+    attributesBuilder.addRuntimeClassPathEntry(resourceApk.getResourceJavaClassJar());
 
     // Exclude the Rs from the library from the runtime classpath.
     NestedSet<Artifact> excludedRuntimeArtifacts = getLibraryResourceJars(ruleContext);
@@ -299,7 +294,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             javaCommon,
             filesToBuild,
             manifest,
-            resourcesClassJar,
+            resourceApk.getResourceJavaClassJar(),
             resourcesZip,
             generateBinaryResources ? resourceApk : null);
 
@@ -362,22 +357,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             JavaSourceInfoProvider.fromJavaTargetAttributes(helper.getAttributes(), javaSemantics))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .build();
-  }
-
-  /** Creates the final merged R class with all of the transitive resources. */
-  private void compileResourceJar(
-      RuleContext ruleContext, ResourceApk resourceApk, Artifact resourceClassJar)
-      throws InterruptedException, RuleErrorException {
-    if (resourceApk.getResourceJavaClassJar() == null) {
-      new RClassGeneratorActionBuilder(ruleContext)
-          .targetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
-          .withPrimary(resourceApk.getPrimaryResources())
-          .withDependencies(resourceApk.getResourceDependencies())
-          .setClassJarOut(resourceClassJar)
-          .build();
-    } else {
-      Preconditions.checkArgument(resourceApk.getResourceJavaClassJar().equals(resourceClassJar));
-    }
   }
 
   /**

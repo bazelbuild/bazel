@@ -348,7 +348,16 @@ public final class ApplicationManifest {
     }
     ResourceContainer processed = builder.build(ruleContext);
 
-    return ResourceApk.of(processed, resourceDeps, proguardCfg, mainDexProguardCfg);
+    ResourceContainer finalContainer =
+        new RClassGeneratorActionBuilder(ruleContext)
+            .targetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
+            .withDependencies(resourceDeps)
+            .setClassJarOut(
+                ruleContext.getImplicitOutputArtifact(
+                    AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
+            .build(processed);
+
+    return ResourceApk.of(finalContainer, resourceDeps, proguardCfg, mainDexProguardCfg);
   }
 
   /** Packages up the manifest with resource and assets from the LocalResourceContainer. */
@@ -467,6 +476,8 @@ public final class ApplicationManifest {
             .setPackageUnderTest(null)
             .build(ruleContext);
 
+    // Intentionally skip building an R class JAR - incremental binaries handle this separately.
+
     return ResourceApk.of(processed, resourceDeps, proguardCfg, null);
   }
 
@@ -548,7 +559,16 @@ public final class ApplicationManifest {
             .setSourceJarOut(resourceContainer.getJavaSourceJar())
             .build(ruleContext);
 
-    return ResourceApk.of(processed, resourceDeps, proguardCfg, mainDexProguardCfg);
+    ResourceContainer finalContainer =
+        new RClassGeneratorActionBuilder(ruleContext)
+            .targetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
+            .withDependencies(resourceDeps)
+            .setClassJarOut(
+                ruleContext.getImplicitOutputArtifact(
+                    AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
+            .build(processed);
+
+    return ResourceApk.of(finalContainer, resourceDeps, proguardCfg, mainDexProguardCfg);
   }
 
   public ResourceApk packLibraryWithDataAndResources(

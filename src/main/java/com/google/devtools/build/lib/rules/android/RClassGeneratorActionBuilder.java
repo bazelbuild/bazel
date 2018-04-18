@@ -38,7 +38,6 @@ import javax.annotation.Nullable;
 public class RClassGeneratorActionBuilder {
 
   private final RuleContext ruleContext;
-  private ResourceContainer primary;
   private ResourceDependencies dependencies;
 
   private Artifact classJarOut;
@@ -48,11 +47,6 @@ public class RClassGeneratorActionBuilder {
   /** @param ruleContext The RuleContext that is used to create a SpawnAction.Builder. */
   public RClassGeneratorActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
-  }
-
-  public RClassGeneratorActionBuilder withPrimary(ResourceContainer primary) {
-    this.primary = primary;
-    return this;
   }
 
   public RClassGeneratorActionBuilder withDependencies(ResourceDependencies resourceDeps) {
@@ -70,7 +64,13 @@ public class RClassGeneratorActionBuilder {
     return this;
   }
 
-  public void build() {
+  public ResourceContainer build(ResourceContainer primary) {
+    build(primary.getRTxt(), ProcessedAndroidManifest.from(primary));
+
+    return primary.toBuilder().setJavaClassJar(classJarOut).build();
+  }
+
+  private void build(Artifact rTxt, ProcessedAndroidManifest manifest) {
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
 
     // Set the busybox tool.
@@ -84,16 +84,12 @@ public class RClassGeneratorActionBuilder {
             .getRunfilesArtifacts());
 
     List<Artifact> outs = new ArrayList<>();
-    if (primary.getRTxt() != null) {
-      builder.addExecPath("--primaryRTxt", primary.getRTxt());
-      inputs.add(primary.getRTxt());
-    }
-    if (primary.getManifest() != null) {
-      builder.addExecPath("--primaryManifest", primary.getManifest());
-      inputs.add(primary.getManifest());
-    }
-    if (!Strings.isNullOrEmpty(primary.getJavaPackage())) {
-      builder.add("--packageForR", primary.getJavaPackage());
+    builder.addExecPath("--primaryRTxt", rTxt);
+    inputs.add(rTxt);
+    builder.addExecPath("--primaryManifest", manifest.getManifest());
+    inputs.add(manifest.getManifest());
+    if (!Strings.isNullOrEmpty(manifest.getPackage())) {
+      builder.add("--packageForR", manifest.getPackage());
     }
     if (dependencies != null) {
       // TODO(corysmith): Remove NestedSet as we are already flattening it.
