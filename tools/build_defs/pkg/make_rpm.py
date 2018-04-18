@@ -41,6 +41,8 @@ gflags.DEFINE_string('spec_file', '',
                      'The file containing the RPM specification.')
 gflags.DEFINE_string('out_file', '',
                      'The destination to save the resulting RPM file to.')
+gflags.DEFINE_boolean('debug', False,
+                      'Print debug messages.')
 
 
 # Setup to safely create a temporary directory and clean it up when done.
@@ -162,11 +164,12 @@ class RpmBuilder(object):
   TEMP_DIR = 'TMP'
   DIRS = [SOURCE_DIR, BUILD_DIR, TEMP_DIR]
 
-  def __init__(self, name, version, release, arch):
+  def __init__(self, name, version, release, arch, debug):
     self.name = name
     self.version = GetFlagValue(version)
     self.release = GetFlagValue(release)
     self.arch = arch
+    self.debug = debug
     self.files = []
     self.rpmbuild_path = FindRpmbuild()
     self.rpm_path = None
@@ -231,13 +234,15 @@ class RpmBuilder(object):
 
     if self.rpm_path:
       shutil.copy(self.rpm_path, out_file)
-      print('Saved RPM file to %s' % out_file)
+      if self.debug:
+        print('Saved RPM file to %s' % out_file)
     else:
       print('No RPM file created.')
 
   def Build(self, spec_file, out_file):
     """Build the RPM described by the spec_file."""
-    print('Building RPM for %s at %s' % (self.name, out_file))
+    if self.debug:
+      print('Building RPM for %s at %s' % (self.name, out_file))
 
     original_dir = os.getcwd()
     spec_file = os.path.join(original_dir, spec_file)
@@ -252,7 +257,8 @@ class RpmBuilder(object):
 
 def main(argv=()):
   try:
-    builder = RpmBuilder(FLAGS.name, FLAGS.version, FLAGS.release, FLAGS.arch)
+    builder = RpmBuilder(FLAGS.name, FLAGS.version, FLAGS.release, FLAGS.arch,
+                         FLAGS.debug)
     builder.AddFiles(argv[1:])
     return builder.Build(FLAGS.spec_file, FLAGS.out_file)
   except NoRpmbuildFound:
