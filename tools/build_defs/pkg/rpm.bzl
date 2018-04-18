@@ -72,6 +72,9 @@ def _pkg_rpm_impl(ctx):
   for f in ctx.files.data:
     args += [f.path]
 
+  if ctx.attr.debug:
+    args += ["--debug"]
+
   # Call the generator script.
   # TODO(katre): Generate a source RPM.
   ctx.actions.run(
@@ -143,6 +146,7 @@ pkg_rpm = rule(
         ),
         "release_file": attr.label(allow_files=True, single_file=True),
         "release": attr.string(),
+        "debug": attr.bool(default=False),
 
         # Implicit dependencies.
         "_make_rpm": attr.label(

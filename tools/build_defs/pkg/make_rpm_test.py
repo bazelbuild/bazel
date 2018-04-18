@@ -121,7 +121,7 @@ class MakeRpmTest(unittest.TestCase):
 
       with PrependPath([outer]):
         # Create the builder and exercise it.
-        builder = make_rpm.RpmBuilder('test', '1.0', '0', 'x86')
+        builder = make_rpm.RpmBuilder('test', '1.0', '0', 'x86', False)
 
         # Create spec_file, test files.
         WriteFile('test.spec', 'Name: test', 'Version: 0.1',
