@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
+import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
@@ -530,6 +531,20 @@ public class RunCommand implements BlazeCommand  {
       } else {
         return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
       }
+    }
+
+    // We need to do update runEnvironment so that the environment of --batch is not contaminated
+    // with that required for the server. Note that some differences between the environment of
+    // the process being run and the environment of the client are still possible if the environment
+    // variables added for the server were not in the original client environment.
+    //
+    // This is done after writing the script for --script_path so that that is not contaminated
+    // with the original client environment (CommandFailureUtils.describeCommand() puts
+    // runEnvironment into the written script)
+    boolean batchMode = env.getRuntime().getStartupOptionsProvider()
+        .getOptions(BlazeServerStartupOptions.class).batch;
+    if (batchMode) {
+      runEnvironment.putAll(env.getClientEnv());
     }
 
     env.getReporter().handle(Event.info(

@@ -16,10 +16,12 @@
 #define BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_
 
 #include <cinttypes>
+#include <map>
 #include <string>
 #include <vector>
 
 #include "src/main/cpp/util/port.h"
+#include "src/main/cpp/blaze_util.h"
 
 namespace blaze {
 
@@ -101,6 +103,7 @@ class BlazeServerStartup {
   virtual bool IsStillAlive() = 0;
 };
 
+
 // Starts a daemon process with its standard output and standard error
 // redirected (and conditionally appended) to the file "daemon_output". Sets
 // server_startup to an object that can be used to query if the server is
@@ -109,6 +112,7 @@ class BlazeServerStartup {
 // caller.
 int ExecuteDaemon(const std::string& exe,
                   const std::vector<std::string>& args_vector,
+                  const std::map<std::string, EnvVarValue>& env,
                   const std::string& daemon_output,
                   const bool daemon_output_append,
                   const std::string& server_dir,
@@ -183,6 +187,8 @@ std::string GetHashedBaseDir(const std::string& root,
 void CreateSecureOutputRoot(const std::string& path);
 
 std::string GetEnv(const std::string& name);
+
+bool ExistsEnv(const std::string& name);
 
 void SetEnv(const std::string& name, const std::string& value);
 

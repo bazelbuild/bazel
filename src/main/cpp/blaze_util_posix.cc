@@ -332,6 +332,7 @@ void WriteSystemSpecificProcessIdentifier(
 // localized here.
 int ExecuteDaemon(const string& exe,
                   const std::vector<string>& args_vector,
+                  const std::map<string, EnvVarValue>& env,
                   const string& daemon_output,
                   const bool daemon_output_append,
                   const string& server_dir,
@@ -379,24 +380,26 @@ int ExecuteDaemon(const string& exe,
     // before ExecuteDaemon() to understand why.
     close(fds[0]);  // ...child keeps the other.
 
-    Daemonize(daemon_output_chars, daemon_output_append);
+    {
+      WithEnvVars env_obj(env);
+      Daemonize(daemon_output_chars, daemon_output_append);
+      pid_t server_pid = getpid();
+      WriteToFdWithRetryEintr(fds[1], &server_pid, sizeof server_pid,
+                              "cannot communicate server PID to client");
+      // We wait until the client writes the PID file so that there is no race
+      // condition; the server expects the PID file to already be there so that
+      // it can read it and know its own PID (see the ctor GrpcServerImpl) and
+      // so that it can kill itself if the PID file is deleted (see
+      // GrpcServerImpl.PidFileWatcherThread)
+      char dummy;
+      ReadFromFdWithRetryEintr(
+          fds[1], &dummy, 1,
+          "cannot get PID file write acknowledgement from client");
 
-    pid_t server_pid = getpid();
-    WriteToFdWithRetryEintr(fds[1], &server_pid, sizeof server_pid,
-                            "cannot communicate server PID to client");
-    // We wait until the client writes the PID file so that there is no race
-    // condition; the server expects the PID file to already be there so that
-    // it can read it and know its own PID (see the ctor GrpcServerImpl) and so
-    // that it can kill itself if the PID file is deleted (see
-    // GrpcServerImpl.PidFileWatcherThread)
-    char dummy;
-    ReadFromFdWithRetryEintr(
-        fds[1], &dummy, 1,
-        "cannot get PID file write acknowledgement from client");
-
-    execv(exe_chars, const_cast<char**>(argv));
-    DieAfterFork("Cannot execute daemon");
-    return -1;
+      execv(exe_chars, const_cast<char**>(argv));
+      DieAfterFork("Cannot execute daemon");
+      return -1;
+    }
   }
 }
 
@@ -459,6 +462,10 @@ void CreateSecureOutputRoot(const string& path) {
 string GetEnv(const string& name) {
   char* result = getenv(name.c_str());
   return result != NULL ? string(result) : "";
+}
+
+bool ExistsEnv(const string& name) {
+  return getenv(name.c_str()) != NULL;
 }
 
 void SetEnv(const string& name, const string& value) {

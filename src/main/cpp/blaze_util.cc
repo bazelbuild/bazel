@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <cassert>
 #include <iostream>
 
 #include "src/main/cpp/blaze_util_platform.h"
@@ -32,6 +33,7 @@
 
 namespace blaze {
 
+using std::map;
 using std::string;
 using std::vector;
 
@@ -180,6 +182,39 @@ void SetDebugLog(bool enabled) {
   } else {
     blaze_util::SetLoggingOutputStream(nullptr);
   }
+}
+
+void WithEnvVars::SetEnvVars(const map<string, EnvVarValue>& vars) {
+  for (const auto& var : vars) {
+    switch (var.second.action) {
+      case EnvVarAction::UNSET:
+        UnsetEnv(var.first);
+        break;
+
+      case EnvVarAction::SET:
+        SetEnv(var.first, var.second.value);
+        break;
+
+      default:
+        assert(false);
+    }
+  }
+}
+
+WithEnvVars::WithEnvVars(const map<string, EnvVarValue>& vars) {
+  for (const auto& v : vars) {
+    if (ExistsEnv(v.first)) {
+      _old_values[v.first] = EnvVarValue(EnvVarAction::SET, GetEnv(v.first));
+    } else {
+      _old_values[v.first] = EnvVarValue(EnvVarAction::UNSET, "");
+    }
+  }
+
+  SetEnvVars(vars);
+}
+
+WithEnvVars::~WithEnvVars() {
+  SetEnvVars(_old_values);
 }
 
 }  // namespace blaze

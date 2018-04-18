@@ -44,6 +44,7 @@
 #include <algorithm>
 #include <chrono>  // NOLINT (gRPC requires this)
 #include <cinttypes>
+#include <map>
 #include <mutex>  // NOLINT
 #include <set>
 #include <sstream>
@@ -74,6 +75,7 @@ using blaze_util::GetLastErrorString;
 
 namespace blaze {
 
+using std::map;
 using std::set;
 using std::string;
 using std::vector;
@@ -317,6 +319,8 @@ class CompoundZipProcessor : public devtools_ijar::ZipExtractorProcessor {
  private:
   const vector<PureZipExtractorProcessor*> processors_;
 };
+
+static map<string, EnvVarValue> PrepareEnvironmentForJvm();
 
 // A PureZipExtractorProcessor to extract the InstallKeyFile
 class GetInstallKeyFileProcessor : public PureZipExtractorProcessor {
@@ -671,9 +675,9 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
   // we can still print errors to the terminal.
   GoToWorkspace(workspace_layout);
 
-  return ExecuteDaemon(exe, jvm_args_vector, globals->jvm_log_file,
-                       globals->jvm_log_file_append, server_dir,
-                       server_startup);
+  return ExecuteDaemon(exe, jvm_args_vector, PrepareEnvironmentForJvm(),
+                       globals->jvm_log_file, globals->jvm_log_file_append,
+                       server_dir, server_startup);
 }
 
 // Replace this process with blaze in standalone/batch mode.
@@ -718,12 +722,15 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
                          command_arguments.end());
 
   GoToWorkspace(workspace_layout);
-
   string exe =
       globals->options->GetExe(globals->jvm_path, globals->ServerJarPath());
-  ExecuteProgram(exe, jvm_args_vector);
-  BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-      << "execv of '" << exe << "' failed: " << GetLastErrorString();
+
+  {
+    WithEnvVars env_obj(PrepareEnvironmentForJvm());
+    ExecuteProgram(exe, jvm_args_vector);
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "execv of '" << exe << "' failed: " << GetLastErrorString();
+  }
 }
 
 static void WriteFileToStderrOrDie(const char *file_name) {
@@ -1343,10 +1350,12 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
 // Prepares the environment to be suitable to start a JVM.
 // Changes made to the environment in this function *will not* be part
 // of '--client_env'.
-static void PrepareEnvironmentForJvm() {
+static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
+  map<string, EnvVarValue> result;
+
   if (!blaze::GetEnv("http_proxy").empty()) {
     BAZEL_LOG(WARNING) << "ignoring http_proxy in environment.";
-    blaze::UnsetEnv("http_proxy");
+    result["http_proxy"] = EnvVarValue(EnvVarAction::UNSET, "");
   }
 
   if (!blaze::GetEnv("LD_ASSUME_KERNEL").empty()) {
@@ -1355,18 +1364,18 @@ static void PrepareEnvironmentForJvm() {
     // This is also provoked by LD_LIBRARY_PATH=/usr/lib/debug,
     // or anything else that causes the JVM to use LinuxThreads.
     BAZEL_LOG(WARNING) << "ignoring LD_ASSUME_KERNEL in environment.";
-    blaze::UnsetEnv("LD_ASSUME_KERNEL");
+    result["LD_ASSUME_KERNEL"] = EnvVarValue(EnvVarAction::UNSET, "");
   }
 
   if (!blaze::GetEnv("LD_PRELOAD").empty()) {
     BAZEL_LOG(WARNING) << "ignoring LD_PRELOAD in environment.";
-    blaze::UnsetEnv("LD_PRELOAD");
+    result["LD_PRELOAD"] = EnvVarValue(EnvVarAction::UNSET, "");
   }
 
   if (!blaze::GetEnv("_JAVA_OPTIONS").empty()) {
     // This would override --host_jvm_args
     BAZEL_LOG(WARNING) << "ignoring _JAVA_OPTIONS in environment.";
-    blaze::UnsetEnv("_JAVA_OPTIONS");
+    result["_JAVA_OPTIONS"] = EnvVarValue(EnvVarAction::UNSET, "");
   }
 
   // TODO(bazel-team):  We've also seen a failure during loading (creating
@@ -1375,10 +1384,12 @@ static void PrepareEnvironmentForJvm() {
   // Make the JVM use ISO-8859-1 for parsing its command line because "blaze
   // run" doesn't handle non-ASCII command line arguments. This is apparently
   // the most reliable way to select the platform default encoding.
-  blaze::SetEnv("LANG", "en_US.ISO-8859-1");
-  blaze::SetEnv("LANGUAGE", "en_US.ISO-8859-1");
-  blaze::SetEnv("LC_ALL", "en_US.ISO-8859-1");
-  blaze::SetEnv("LC_CTYPE", "en_US.ISO-8859-1");
+  result["LANG"] = EnvVarValue(EnvVarAction::SET, "en_US.ISO-8859-1");
+  result["LANGUAGE"] = EnvVarValue(EnvVarAction::SET, "en_US.ISO-8859-1");
+  result["LC_ALL"] = EnvVarValue(EnvVarAction::SET, "en_US.ISO-8859-1");
+  result["LC_CTYPE"] = EnvVarValue(EnvVarAction::SET, "en_US.ISO-8859-1");
+
+  return result;
 }
 
 static string CheckAndGetBinaryPath(const string &argv0) {
@@ -1462,7 +1473,6 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   BAZEL_LOG(INFO) << "Debug logging requested, sending all client log "
                      "statements to stderr";
 
-  PrepareEnvironmentForJvm();
   blaze::CreateSecureOutputRoot(globals->options->output_user_root);
 
   const string self_path = GetSelfPath();

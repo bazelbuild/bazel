@@ -21,6 +21,7 @@
 
 #include <sys/types.h>
 
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -105,6 +106,38 @@ std::string ToString(const T &value) {
 // Control the output of debug information by debug_log.
 // Revisit once client logging is fixed (b/32939567).
 void SetDebugLog(bool enabled);
+
+// What WithEnvVar should do with an environment variable
+enum EnvVarAction { UNSET, SET };
+
+// What WithEnvVar should do with an environment variable
+struct EnvVarValue {
+  // What should be done with the given variable
+  EnvVarAction action;
+
+  // The value of the variable; ignored if action == UNSET
+  std::string value;
+
+  EnvVarValue() {}
+
+  EnvVarValue(EnvVarAction action, const std::string& value)
+      : action(action),
+        value(value) {}
+};
+
+// While this class is in scope, the specified environment variables will be set
+// to a specified value (or unset). When it leaves scope, changed variables will
+// be set to their original values.
+class WithEnvVars {
+ private:
+  std::map<std::string, EnvVarValue> _old_values;
+
+  void SetEnvVars(const std::map<std::string, EnvVarValue>& vars);
+
+ public:
+  WithEnvVars(const std::map<std::string, EnvVarValue>& vars);
+  ~WithEnvVars();
+};
 
 }  // namespace blaze
 

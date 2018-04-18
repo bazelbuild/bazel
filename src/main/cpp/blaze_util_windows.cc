@@ -432,8 +432,11 @@ class ProcessHandleBlazeServerStartup : public BlazeServerStartup {
 };
 
 
-int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
-                  const string& daemon_output, const bool daemon_out_append,
+int ExecuteDaemon(const string& exe,
+                  const std::vector<string>& args_vector,
+                  const std::map<string, EnvVarValue>& env,
+                  const string& daemon_output,
+                  const bool daemon_out_append,
                   const string& server_dir,
                   BlazeServerStartup** server_startup) {
   wstring wdaemon_output;
@@ -512,18 +515,23 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, args_vector);
 
-  BOOL ok = CreateProcessA(
-      /* lpApplicationName */ NULL,
-      /* lpCommandLine */ cmdline.cmdline,
-      /* lpProcessAttributes */ NULL,
-      /* lpThreadAttributes */ NULL,
-      /* bInheritHandles */ TRUE,
-      /* dwCreationFlags */ DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP |
-          EXTENDED_STARTUPINFO_PRESENT,
-      /* lpEnvironment */ NULL,
-      /* lpCurrentDirectory */ NULL,
-      /* lpStartupInfo */ &startupInfoEx.StartupInfo,
-      /* lpProcessInformation */ &processInfo);
+  BOOL ok;
+  {
+    WithEnvVars env_obj(env);
+
+    ok = CreateProcessA(
+        /* lpApplicationName */ NULL,
+        /* lpCommandLine */ cmdline.cmdline,
+        /* lpProcessAttributes */ NULL,
+        /* lpThreadAttributes */ NULL,
+        /* bInheritHandles */ TRUE,
+        /* dwCreationFlags */ DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP |
+        EXTENDED_STARTUPINFO_PRESENT,
+        /* lpEnvironment */ NULL,
+        /* lpCurrentDirectory */ NULL,
+        /* lpStartupInfo */ &startupInfoEx.StartupInfo,
+        /* lpProcessInformation */ &processInfo);
+  }
 
   if (!ok) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -814,6 +822,10 @@ string GetEnv(const string& name) {
   unique_ptr<char[]> value(new char[size]);
   ::GetEnvironmentVariableA(name.c_str(), value.get(), size);
   return string(value.get());
+}
+
+bool ExistsEnv(const string& name) {
+  return ::GetEnvironmentVariableA(name.c_str(), NULL, 0) != 0;
 }
 
 void SetEnv(const string& name, const string& value) {
