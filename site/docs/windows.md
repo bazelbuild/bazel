@@ -5,14 +5,10 @@ title: Windows
 
 # Using Bazel on Windows
 
-## Windows version requirements
+## <a name="install"></a>Installation
 
-Bazel is a native Windows binary.
-
-Bazel runs on 64 bit Windows 7 or higher, and on equivalent Windows Server
-versions. Check
-<a href="https://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx">Microsoft's
-Operating System Version table</a> to see if your OS is supported.
+See [Install Bazel on Windows](install-windows.html) for installation
+instructions.
 
 ## Known issues
 
@@ -27,62 +23,6 @@ You can also run Bazel from the MSYS2 shell, but you need to disable MSYS2's
 automatic path conversion. See [this StackOverflow
 answer](https://stackoverflow.com/a/49004265/7778502) for details.
 
-## <a name="requirements"></a>Software requirements
-
-*   Python 2.7 or later.
-
-    Use the Windows-native Python version. Do not use Python that comes with the
-    MSYS2 shell or that you installed in MSYS using Pacman because it doesn't
-    work with Bazel.
-
-*   [MSYS2 shell](https://msys2.github.io/).
-
-    You also need to set the `BAZEL_SH` environment variable to point to
-    `bash.exe`. For example in the Windows Command Prompt (`cmd.exe`):
-
-    ```
-    set BAZEL_SH=C:\tools\msys64\usr\bin\bash.exe
-    ```
-
-    **Note**: do not use quotes (") around the path like you would on Unixes.
-    Windows doesn't need them and it may confuse Bazel.
-
-*   Several MSYS2 packages.
-
-    Run the following command in the MSYS2 shell to install them:
-
-    ```bash
-    pacman -Syuu git curl zip unzip
-    ```
-
-*   Java JDK 8.
-
-    JDK 7 and 9 are not supported.
-
-    This step is not required if you downloaded a binary distribution of Bazel
-    because it has JDK 8 embedded.
-
-*   If you built Bazel from source: set the `JAVA_HOME` environment variable to
-    the JDK's directory.
-
-    For example in the Windows Command Prompt (`cmd.exe`):
-
-    ```
-    set JAVA_HOME=C:\Program Files\Java\jdk1.8.0_112
-    ```
-
-    **Note**: do not use quotes (") around the path like you would on Unix.
-    Windows doesn't need them and they may confuse Bazel.
-
-    This step is not required if you downloaded a binary distribution of Bazel
-    or installed Bazel using Chocolatey. See [installing Bazel on
-    Windows](install-windows.html).
-
-*   [Microsoft Visual C++ Redistributable for Visual Studio 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
-
-    This may already be installed on your system.
-
-
 ## Setting environment variables
 
 Environment variables you set in the Windows Command Prompt (`cmd.exe`) are only
@@ -90,11 +30,6 @@ set in that command prompt session. If you start a new `cmd.exe`, you need to
 set the variables again. To always set the variables when `cmd.exe` starts, you
 can add them to the User variables or System variables in the `Control Panel >
 System Properties > Advanced > Environment Variables...` dialog box.
-
-## <a name="install"></a>Installation
-
-See [Install Bazel on Windows](install-windows.html) for installation
-instructions.
 
 ## <a name="using"></a>Using Bazel on Windows
 
