@@ -95,9 +95,10 @@ See [documentation on depsets](depsets.md) for background and examples of use.
 
 ### Docstrings
 
-<a name="missing-docstring"></a>
+<a name="missing-module-docstring"></a>
+<a name="missing-function-docstring"></a>
 <a name="bad-docstring-format"></a>
-Categories: [missing-docstring] [bad-docstring-format]
+Categories: [missing-module-docstring] [missing-function-docstring] [bad-docstring-format]
 
 The Skylark conventions for docstrings are similar to the [the Python
 conventions](https://google.github.io/styleguide/pyguide.html?showone=Comments#Comments).
