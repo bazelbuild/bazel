@@ -52,4 +52,20 @@ public class StampedAndroidManifest extends AndroidManifest {
     return new StampedAndroidManifest(
         ApplicationManifest.generateManifest(ruleContext, pkg), pkg, exported);
   }
+
+  public StampedAndroidManifest addMobileInstallStubApplication(RuleContext ruleContext)
+      throws InterruptedException {
+    return new StampedAndroidManifest(
+        ApplicationManifest.addMobileInstallStubApplication(ruleContext, getManifest()),
+        getPackage(),
+        isExported());
+  }
+
+  public StampedAndroidManifest createSplitManifest(
+      RuleContext ruleContext, String splitName, boolean hasCode) {
+    return new StampedAndroidManifest(
+        ApplicationManifest.createSplitManifest(ruleContext, getManifest(), splitName, hasCode),
+        getPackage(),
+        isExported());
+  }
 }

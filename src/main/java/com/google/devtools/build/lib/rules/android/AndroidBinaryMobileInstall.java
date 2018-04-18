@@ -63,29 +63,58 @@ public final class AndroidBinaryMobileInstall {
       ResourceDependencies resourceDeps)
       throws RuleErrorException, InterruptedException {
 
-    ResourceApk incrementalResourceApk =
-        applicationManifest
-            .addMobileInstallStubApplication(ruleContext)
-            .packIncrementalBinaryWithDataAndResources(
-                ruleContext,
-                ruleContext.getImplicitOutputArtifact(
-                    AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
-                resourceDeps,
-                ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
-                ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-                ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"));
-    ruleContext.assertNoErrors();
+    final ResourceApk incrementalResourceApk;
+    final ResourceApk splitResourceApk;
+    if (AndroidResources.decoupleDataProcessing(ruleContext)) {
+      StampedAndroidManifest manifest =
+          new StampedAndroidManifest(
+              applicationManifest.getManifest(), /* pkg = */ null, /* exported = */ true);
 
-    ResourceApk splitResourceApk =
-        applicationManifest
-            .createSplitManifest(ruleContext, "android_resources", false)
-            .packIncrementalBinaryWithDataAndResources(
-                ruleContext,
-                getMobileInstallArtifact(ruleContext, "android_resources.ap_"),
-                resourceDeps,
-                ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
-                ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-                ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"));
+      incrementalResourceApk =
+          ProcessedAndroidData.processIncrementalBinaryDataFrom(
+                  ruleContext,
+                  manifest.addMobileInstallStubApplication(ruleContext),
+                  ruleContext.getImplicitOutputArtifact(
+                      AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
+                  "incremental")
+              // Intentionally skip building an R class JAR - incremental binaries handle this
+              // separately.
+              .withValidatedResources(null);
+
+      splitResourceApk =
+          ProcessedAndroidData.processIncrementalBinaryDataFrom(
+                  ruleContext,
+                  manifest.createSplitManifest(ruleContext, "android_resources", false),
+                  getMobileInstallArtifact(ruleContext, "android_resources.ap_"),
+                  "incremental_split")
+              // Intentionally skip building an R class JAR - incremental binaries handle this
+              // separately.
+              .withValidatedResources(null);
+    } else {
+      incrementalResourceApk =
+          applicationManifest
+              .addMobileInstallStubApplication(ruleContext)
+              .packIncrementalBinaryWithDataAndResources(
+                  ruleContext,
+                  ruleContext.getImplicitOutputArtifact(
+                      AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
+                  resourceDeps,
+                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
+                  ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
+                  ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"));
+      ruleContext.assertNoErrors();
+
+      splitResourceApk =
+          applicationManifest
+              .createSplitManifest(ruleContext, "android_resources", false)
+              .packIncrementalBinaryWithDataAndResources(
+                  ruleContext,
+                  getMobileInstallArtifact(ruleContext, "android_resources.ap_"),
+                  resourceDeps,
+                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
+                  ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
+                  ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"));
+    }
     ruleContext.assertNoErrors();
 
     return new MobileInstallResourceApks(incrementalResourceApk, splitResourceApk);

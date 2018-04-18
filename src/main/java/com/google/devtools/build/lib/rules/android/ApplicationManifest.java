@@ -45,6 +45,12 @@ public final class ApplicationManifest {
 
   public ApplicationManifest createSplitManifest(
       RuleContext ruleContext, String splitName, boolean hasCode) {
+    Artifact result = createSplitManifest(ruleContext, manifest, splitName, hasCode);
+    return new ApplicationManifest(ruleContext, result, targetAaptVersion);
+  }
+
+  static Artifact createSplitManifest(
+      RuleContext ruleContext, Artifact manifest, String splitName, boolean hasCode) {
     // aapt insists that manifests be called AndroidManifest.xml, even though they have to be
     // explicitly designated as manifests on the command line
     Artifact result =
@@ -68,17 +74,23 @@ public final class ApplicationManifest {
       commandLine.add("--nohascode");
     }
 
-    String overridePackage = manifestValues.get("applicationId");
+    String overridePackage = getManifestValues(ruleContext).get("applicationId");
     if (overridePackage != null) {
       commandLine.add("--override_package", overridePackage);
     }
 
     builder.addCommandLine(commandLine.build());
     ruleContext.registerAction(builder.build(ruleContext));
-    return new ApplicationManifest(ruleContext, result, targetAaptVersion);
+    return result;
   }
 
   public ApplicationManifest addMobileInstallStubApplication(RuleContext ruleContext)
+      throws InterruptedException {
+    Artifact stubManifest = addMobileInstallStubApplication(ruleContext, manifest);
+    return new ApplicationManifest(ruleContext, stubManifest, targetAaptVersion);
+  }
+
+  static Artifact addMobileInstallStubApplication(RuleContext ruleContext, Artifact manifest)
       throws InterruptedException {
 
     Artifact stubManifest =
@@ -103,7 +115,7 @@ public final class ApplicationManifest {
             .addExecPath("--output_manifest", stubManifest)
             .addExecPath("--output_datafile", stubData);
 
-    String overridePackage = manifestValues.get("applicationId");
+    String overridePackage = getManifestValues(ruleContext).get("applicationId");
     if (overridePackage != null) {
       commandLine.add("--override_package", overridePackage);
     }
@@ -111,7 +123,7 @@ public final class ApplicationManifest {
     builder.addCommandLine(commandLine.build());
     ruleContext.registerAction(builder.build(ruleContext));
 
-    return new ApplicationManifest(ruleContext, stubManifest, targetAaptVersion);
+    return stubManifest;
   }
 
   public static ApplicationManifest fromRule(RuleContext ruleContext) throws RuleErrorException {
@@ -246,7 +258,6 @@ public final class ApplicationManifest {
     }
     return Optional.empty();
   }
-
 
   private static boolean useLegacyMerging(RuleContext ruleContext) {
     boolean legacy = false;
