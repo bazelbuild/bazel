@@ -99,6 +99,10 @@ public class AndroidResources {
     validateManifest(ruleContext);
   }
 
+  public static boolean decoupleDataProcessing(RuleContext ruleContext) {
+    return AndroidCommon.getAndroidConfig(ruleContext).decoupleDataProcessing();
+  }
+
   /**
    * Validates that there are no targets with resources in the srcs, as they should not be used with
    * the Android data logic.

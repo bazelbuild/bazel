@@ -88,29 +88,46 @@ public class AarImport implements RuleConfiguredTargetFactory {
     ruleContext.registerAction(
         createAarResourcesExtractorActions(ruleContext, aar, resources, assets));
 
-    ApplicationManifest androidManifest =
-        ApplicationManifest.fromExplicitManifest(ruleContext, androidManifestArtifact);
+    final ResourceApk resourceApk;
+    if (AndroidResources.decoupleDataProcessing(ruleContext)) {
+      StampedAndroidManifest manifest =
+          AndroidManifest.forAarImport(ruleContext, androidManifestArtifact);
 
-    Artifact resourcesZip =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP);
+      boolean neverlink = JavaCommon.isNeverLink(ruleContext);
+      ValidatedAndroidResources validatedResources =
+          AndroidResources.forAarImport(resources).process(ruleContext, manifest, neverlink);
+      MergedAndroidAssets mergedAssets =
+          AndroidAssets.forAarImport(assets).process(ruleContext, neverlink);
 
-    ResourceApk resourceApk =
-        androidManifest.packAarWithDataAndResources(
-            ruleContext,
-            AndroidAssets.forAarImport(assets),
-            AndroidResources.forAarImport(resources),
-            ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LOCAL_SYMBOLS),
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
-            resourcesZip);
+      resourceApk = ResourceApk.of(validatedResources, mergedAssets);
+    } else {
+      ApplicationManifest androidManifest =
+          ApplicationManifest.fromExplicitManifest(ruleContext, androidManifestArtifact);
+
+      Artifact resourcesZip =
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP);
+
+      resourceApk =
+          androidManifest.packAarWithDataAndResources(
+              ruleContext,
+              AndroidAssets.forAarImport(assets),
+              AndroidResources.forAarImport(resources),
+              ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LOCAL_SYMBOLS),
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
+              resourcesZip);
+    }
 
     // There isn't really any use case for building an aar_import target on its own, so the files to
     // build could be empty. The resources zip and merged jars are added here as a sanity check for
     // Bazel developers so that `bazel build java/com/my_aar_import` will fail if the resource
     // processing or jar merging steps fail.
     NestedSet<Artifact> filesToBuild =
-        NestedSetBuilder.<Artifact>stableOrder().add(resourcesZip).add(mergedJar).build();
+        NestedSetBuilder.<Artifact>stableOrder()
+            .add(resourceApk.getValidatedResources().getMergedResources())
+            .add(mergedJar)
+            .build();
 
     Artifact nativeLibs = createAarArtifact(ruleContext, "native_libs.zip");
     ruleContext.registerAction(createAarNativeLibsFilterActions(ruleContext, aar, nativeLibs));
