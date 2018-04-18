@@ -137,7 +137,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         Substitution.of("%android_merged_assets%", "jar:file:" + resourcesLocation + "!/assets"));
     substitutions.add(
         Substitution.of(
-            "%android_custom_package%", resourceApk.getPrimaryResources().getJavaPackage()));
+            "%android_custom_package%", resourceApk.getValidatedResources().getJavaPackage()));
 
     boolean generateBinaryResources =
         androidLocalTestConfiguration.useAndroidLocalTestBinaryResources();

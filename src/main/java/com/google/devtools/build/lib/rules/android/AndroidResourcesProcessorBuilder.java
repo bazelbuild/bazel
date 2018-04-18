@@ -220,6 +220,25 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
+  /**
+   * Creates and registers an action that processes only transitive data.
+   *
+   * <p>Local resources and assets will be completely ignored by this action.
+   *
+   * @return a {@link ResourceApk} containing the processed resource, asset, and manifest
+   *     information.
+   */
+  public ResourceApk buildWithoutLocalResources(StampedAndroidManifest manifest) {
+
+    build(AndroidResources.empty(), AndroidAssets.empty(), manifest);
+
+    return ResourceApk.fromTransitiveResources(
+        resourceDependencies,
+        assetDependencies,
+        manifestOut == null ? manifest.getManifest() : manifestOut,
+        rTxtOut);
+  }
+
   public ResourceContainer build(ResourceContainer primary) {
     build(
         primary.getAndroidResources(),

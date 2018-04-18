@@ -780,7 +780,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
               .withShrunkJar(proguardOutput.getOutputJar())
               .withProguardMapping(proguardOutput.getMapping())
-              .withPrimary(resourceApk.getPrimaryResources())
+              .withPrimary(resourceApk.getValidatedResources())
               .withDependencies(resourceApk.getResourceDependencies())
               .setTargetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
               .setResourceFilterFactory(ResourceFilterFactory.fromRuleContext(ruleContext))

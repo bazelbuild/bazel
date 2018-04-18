@@ -135,13 +135,22 @@ public final class ApplicationManifest {
    */
   public static ApplicationManifest generatedManifest(RuleContext ruleContext)
       throws RuleErrorException {
+    return fromExplicitManifest(
+        ruleContext, generateManifest(ruleContext, AndroidCommon.getJavaPackage(ruleContext)));
+  }
+
+  /**
+   * Creates an action to generate an empty manifest file with a specific package name.
+   *
+   * @return an artifact for the generated manifest
+   */
+  static Artifact generateManifest(RuleContext ruleContext, String manifestPackage) {
     Artifact generatedManifest =
         ruleContext.getUniqueDirectoryArtifact(
             ruleContext.getRule().getName() + "_generated",
             PathFragment.create("AndroidManifest.xml"),
             ruleContext.getBinOrGenfilesDirectory());
 
-    String manifestPackage = AndroidCommon.getJavaPackage(ruleContext);
     String contents =
         Joiner.on("\n")
             .join(
@@ -156,7 +165,7 @@ public final class ApplicationManifest {
         .registerAction(
             FileWriteAction.create(
                 ruleContext, generatedManifest, contents, /*makeExecutable=*/ false));
-    return fromExplicitManifest(ruleContext, generatedManifest);
+    return generatedManifest;
   }
 
   private static ImmutableMap<String, String> getManifestValues(RuleContext context) {
