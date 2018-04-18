@@ -315,7 +315,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     return false;
   }
 
-  private static <T extends TransitiveInfoProvider> IterablesChain<T> collectPrerequisites(
+  private static <T extends TransitiveInfoProvider> Iterable<T> collectPrerequisites(
       RuleContext ruleContext, Class<T> classType) {
     IterablesChain.Builder<T> result = IterablesChain.builder();
     for (String attr : TRANSITIVE_ATTRIBUTES) {

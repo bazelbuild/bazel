@@ -67,6 +67,26 @@ class IterableCodecs {
     }
   }
 
+  static class DedupingIterableCodec implements ObjectCodec<DedupingIterable> {
+    @Override
+    public Class<DedupingIterable> getEncodedClass() {
+      return DedupingIterable.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, DedupingIterable obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      IterableCodecs.serialize(context, obj, codedOut);
+    }
+
+    @Override
+    public DedupingIterable deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      return new DedupingIterable<>(IterableCodecs.deserialize(context, codedIn));
+    }
+  }
+
   private static void serialize(
       SerializationContext context, Iterable obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
