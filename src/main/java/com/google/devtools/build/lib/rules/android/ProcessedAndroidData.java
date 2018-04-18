@@ -15,8 +15,12 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
+import com.google.devtools.build.lib.rules.java.ProguardHelper;
+import com.google.devtools.build.lib.syntax.Type;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -42,6 +46,131 @@ public class ProcessedAndroidData {
   private final Artifact apk;
   @Nullable private final Artifact dataBindingInfoZip;
   private final ResourceDependencies resourceDeps;
+
+  /** Processes Android data (assets, resources, and manifest) for android_binary targets. */
+  public static ProcessedAndroidData processBinaryDataFrom(
+      RuleContext ruleContext, StampedAndroidManifest manifest, boolean conditionalKeepRules)
+      throws RuleErrorException, InterruptedException {
+
+    AndroidResources resources = AndroidResources.from(ruleContext, "resource_files");
+    ResourceDependencies resourceDeps =
+        ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false);
+    ResourceFilterFactory resourceFilterFactory =
+        ResourceFilterFactory.fromRuleContext(ruleContext);
+
+    ResourceFilter resourceFilter =
+        resourceFilterFactory.getResourceFilter(ruleContext, resourceDeps, resources);
+
+    // Filter unwanted resources out
+    resources = resources.filterLocalResources(ruleContext, resourceFilter);
+    resourceDeps = resourceDeps.filter(ruleContext, resourceFilter);
+
+    if (conditionalKeepRules
+        && AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) != AndroidAaptVersion.AAPT2) {
+      throw ruleContext.throwWithRuleError(
+          "resource cycle shrinking can only be enabled for builds with aapt2");
+    }
+
+    return builderForTopLevelTarget(ruleContext, manifest)
+        .setUseCompiledResourcesForMerge(
+            AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) == AndroidAaptVersion.AAPT2
+                && AndroidCommon.getAndroidConfig(ruleContext).skipParsingAction())
+        .setManifestOut(
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
+        .setMergedResourcesOut(
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+        .setResourceFilterFactory(resourceFilterFactory)
+        .setUncompressedExtensions(
+            ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"))
+        .setCrunchPng(ruleContext.attributes().get("crunch_png", Type.BOOLEAN))
+        .setMainDexProguardOut(AndroidBinary.createMainDexProguardSpec(ruleContext))
+        .conditionalKeepRules(conditionalKeepRules)
+        .setDataBindingInfoZip(
+            DataBinding.isEnabled(ruleContext) ? DataBinding.getLayoutInfoFile(ruleContext) : null)
+        .withResourceDependencies(resourceDeps)
+        .withAssetDependencies(AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false))
+        .build(resources, AndroidAssets.from(ruleContext), manifest);
+  }
+
+  /** Processes Android data (assets, resources, and manifest) for android_local_test targets. */
+  public static ProcessedAndroidData processLocalTestDataFrom(
+      RuleContext ruleContext, StampedAndroidManifest manifest)
+      throws RuleErrorException, InterruptedException {
+
+    return builderForTopLevelTarget(ruleContext, manifest)
+        .setUseCompiledResourcesForMerge(
+            AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) == AndroidAaptVersion.AAPT2
+                && AndroidCommon.getAndroidConfig(ruleContext).skipParsingAction())
+        .setManifestOut(
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
+        .setMergedResourcesOut(
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+        .setCrunchPng(false)
+        .withResourceDependencies(
+            ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false))
+        .withAssetDependencies(AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false))
+        .build(
+            AndroidResources.from(ruleContext, "resource_files"),
+            AndroidAssets.from(ruleContext),
+            manifest);
+  }
+
+  /** Processes Android data (assets, resources, and manifest) for android_test targets. */
+  public static ProcessedAndroidData processTestDataFrom(
+      RuleContext ruleContext,
+      StampedAndroidManifest manifest,
+      String packageUnderTest,
+      boolean hasLocalResourceFiles)
+      throws InterruptedException, RuleErrorException {
+
+    AndroidResourcesProcessorBuilder builder =
+        builderForTopLevelTarget(ruleContext, manifest)
+            .setMainDexProguardOut(AndroidBinary.createMainDexProguardSpec(ruleContext))
+            .setPackageUnderTest(packageUnderTest)
+            .setIsTestWithResources(hasLocalResourceFiles);
+
+    if (hasLocalResourceFiles) {
+      builder
+          .withResourceDependencies(
+              ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false))
+          .withAssetDependencies(
+              AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false));
+    }
+
+    return builder.build(
+        AndroidResources.from(ruleContext, "local_resource_files"),
+        AndroidAssets.from(ruleContext),
+        manifest);
+  }
+
+  /**
+   * Common {@link AndroidResourcesProcessorBuilder} builder for top-level targets.
+   *
+   * <p>The builder will be populated with commonly-used settings and outputs.
+   */
+  private static AndroidResourcesProcessorBuilder builderForTopLevelTarget(
+      RuleContext ruleContext, StampedAndroidManifest manifest)
+      throws InterruptedException, RuleErrorException {
+    Map<String, String> manifestValues = ApplicationManifest.getManifestValues(ruleContext);
+
+    return new AndroidResourcesProcessorBuilder(ruleContext)
+        // Settings
+        .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
+        .setJavaPackage(manifest.getPackage())
+        .setApplicationId(manifestValues.get("applicationId"))
+        .setVersionCode(manifestValues.get("versionCode"))
+        .setVersionName(manifestValues.get("versionName"))
+        .setThrowOnResourceConflict(
+            AndroidCommon.getAndroidConfig(ruleContext).throwOnResourceConflict())
+        .targetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
+
+        // Outputs
+        .setApkOut(ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK))
+        .setRTxtOut(ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT))
+        .setSourceJarOut(
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR))
+        .setProguardOut(ProguardHelper.getProguardConfigArtifact(ruleContext, ""));
+  }
 
   static ProcessedAndroidData of(
       ParsedAndroidResources resources,

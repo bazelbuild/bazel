@@ -186,8 +186,25 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // Retrieve and compile the resources defined on the android_binary rule.
     AndroidResources.validateRuleContext(ruleContext);
 
-    ApplicationManifest applicationManifest =
-        androidSemantics.getManifestForRule(ruleContext).mergeWith(ruleContext, resourceDeps);
+    final ApplicationManifest applicationManifest;
+    final ResourceApk resourceApk;
+
+    if (AndroidCommon.getAndroidConfig(ruleContext).decoupleDataProcessing()) {
+      StampedAndroidManifest manifest =
+          AndroidManifest.from(ruleContext, androidSemantics).mergeWithDeps(ruleContext);
+      applicationManifest =
+          ApplicationManifest.fromExplicitManifest(ruleContext, manifest.getManifest());
+
+      resourceApk =
+          ProcessedAndroidData.processBinaryDataFrom(
+                  ruleContext,
+                  manifest,
+                  /* conditionalKeepRules = */ shouldShrinkResourceCycles(
+                      ruleContext, shrinkResources))
+              .generateRClass(ruleContext);
+    } else {
+      applicationManifest =
+          androidSemantics.getManifestForRule(ruleContext).mergeWith(ruleContext, resourceDeps);
 
       Artifact featureOfArtifact =
           ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")
@@ -195,29 +212,31 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               : null;
       Artifact featureAfterArtifact =
           ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_after")
-              ? ruleContext
-                  .getPrerequisite("feature_after", Mode.TARGET, ApkInfo.PROVIDER)
-                  .getApk()
+              ? ruleContext.getPrerequisite("feature_after", Mode.TARGET, ApkInfo.PROVIDER).getApk()
               : null;
 
-    ResourceApk resourceApk =
-        applicationManifest.packBinaryWithDataAndResources(
-            ruleContext,
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
-            resourceDeps,
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-            ResourceFilterFactory.fromRuleContext(ruleContext),
-            ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
-            ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-            ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
-            createMainDexProguardSpec(ruleContext),
-            shouldShrinkResourceCycles(ruleContext, shrinkResources),
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
-            DataBinding.isEnabled(ruleContext) ? DataBinding.getLayoutInfoFile(ruleContext) : null,
-            featureOfArtifact,
-            featureAfterArtifact);
-      ruleContext.assertNoErrors();
+      resourceApk =
+          applicationManifest.packBinaryWithDataAndResources(
+              ruleContext,
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
+              resourceDeps,
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
+              ResourceFilterFactory.fromRuleContext(ruleContext),
+              ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
+              ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
+              ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
+              createMainDexProguardSpec(ruleContext),
+              shouldShrinkResourceCycles(ruleContext, shrinkResources),
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
+              DataBinding.isEnabled(ruleContext)
+                  ? DataBinding.getLayoutInfoFile(ruleContext)
+                  : null,
+              featureOfArtifact,
+              featureAfterArtifact);
+    }
+
+    ruleContext.assertNoErrors();
 
     // Remove the library resource JARs from the binary's runtime classpath.
     // Resource classes from android_library dependencies are replaced by the binary's resource
