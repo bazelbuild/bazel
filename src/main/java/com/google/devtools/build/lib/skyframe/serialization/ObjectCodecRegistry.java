@@ -52,7 +52,9 @@ public class ObjectCodecRegistry {
   private final IdentityHashMap<Object, Integer> referenceConstantsMap;
   private final ImmutableList<Object> referenceConstants;
 
-  private final ValueConstants valueConstants;
+  private final int valueConstantsStartTag;
+  private final ImmutableMap<Class<?>, ImmutableMap<Object, Integer>> valueConstantsMap;
+  private final ImmutableList<Object> valueConstants;
 
   /** This is sorted, but we need index-based access. */
   private final ImmutableList<String> classNames;
@@ -62,7 +64,7 @@ public class ObjectCodecRegistry {
   private ObjectCodecRegistry(
       ImmutableSet<ObjectCodec<?>> memoizingCodecs,
       ImmutableList<Object> referenceConstants,
-      ValueConstants.Builder valueConstantsBuilder,
+      ImmutableList<Object> valueConstants,
       ImmutableSortedSet<String> classNames,
       boolean allowDefaultCodec) {
     this.allowDefaultCodec = allowDefaultCodec;
@@ -86,9 +88,22 @@ public class ObjectCodecRegistry {
     }
     this.referenceConstants = referenceConstants;
 
-    this.valueConstants = valueConstantsBuilder.build(nextTag);
-    nextTag = this.valueConstants.getNextTag();
+    valueConstantsStartTag = nextTag;
 
+    HashMap<Class<?>, HashMap<Object, Integer>> valuesBuilder = new HashMap<>();
+    for (Object constant : valueConstants) {
+      valuesBuilder
+          .computeIfAbsent(constant.getClass(), k -> new HashMap<>())
+          .put(constant, nextTag++);
+    }
+    this.valueConstantsMap =
+        valuesBuilder
+            .entrySet()
+            .stream()
+            .collect(
+                ImmutableMap.toImmutableMap(
+                    Map.Entry::getKey, e -> ImmutableMap.copyOf(e.getValue())));
+    this.valueConstants = valueConstants;
     this.classNames = classNames.asList();
     this.dynamicCodecs = createDynamicCodecs(classNames, nextTag);
   }
@@ -133,7 +148,10 @@ public class ObjectCodecRegistry {
         && tag < referenceConstantsStartTag + referenceConstants.size()) {
       return referenceConstants.get(tag - referenceConstantsStartTag);
     }
-    return valueConstants.maybeGetConstantByTag(tag);
+    if (valueConstantsStartTag <= tag && tag < valueConstantsStartTag + valueConstants.size()) {
+      return valueConstants.get(tag - valueConstantsStartTag);
+    }
+    return null;
   }
 
   @Nullable
@@ -142,7 +160,11 @@ public class ObjectCodecRegistry {
     if (result != null) {
       return result;
     }
-    return valueConstants.maybeGetTagForConstant(object);
+    ImmutableMap<Object, Integer> valueConstantsForClass = valueConstantsMap.get(object.getClass());
+    if (valueConstantsForClass == null) {
+      return null;
+    }
+    return valueConstantsForClass.get(object);
   }
 
   /** Returns the {@link CodecDescriptor} associated with the supplied tag. */
@@ -182,7 +204,9 @@ public class ObjectCodecRegistry {
       builder.addReferenceConstant(constant);
     }
 
-    builder.addValueConstants(valueConstants.toBuilder());
+    for (Object constant : valueConstants) {
+      builder.addValueConstant(constant);
+    }
 
     for (String className : classNames) {
       builder.addClassName(className);
@@ -260,7 +284,7 @@ public class ObjectCodecRegistry {
   public static class Builder {
     private final Map<Class<?>, ObjectCodec<?>> codecs = new HashMap<>();
     private final ImmutableList.Builder<Object> referenceConstantsBuilder = ImmutableList.builder();
-    private final ValueConstants.Builder valueConstantsBuilder = new ValueConstants.Builder();
+    private final ImmutableList.Builder<Object> valueConstantsBuilder = ImmutableList.builder();
     private final ImmutableSortedSet.Builder<String> classNames = ImmutableSortedSet.naturalOrder();
     private boolean allowDefaultCodec = true;
 
@@ -308,14 +332,16 @@ public class ObjectCodecRegistry {
       return this;
     }
 
-    public Builder addValueConstants(ValueConstants.Builder valueConstantsBuilder) {
-      this.valueConstantsBuilder.merge(valueConstantsBuilder);
-      return this;
-    }
-
-    /** See {@link ValueConstants.Builder#addSimpleConstant}. */
-    public Builder addValueConstant(Object constant) {
-      this.valueConstantsBuilder.addSimpleConstant(constant);
+    /**
+     * Adds a constant value. Any value encountered during serialization which has the same class as
+     * {@code object} and {@link Object#equals} {@code object} will be replaced by {@code object}
+     * upon deserialization. These objects should therefore be indistinguishable, and unequal
+     * objects should quickly compare unequal (it is ok for equal objects to be relatively expensive
+     * to compare equal, if that is still less expensive than the cost of serializing the object).
+     * Short {@link String} objects are ideal for value constants.
+     */
+    public Builder addValueConstant(Object object) {
+      valueConstantsBuilder.add(object);
       return this;
     }
 
@@ -328,7 +354,7 @@ public class ObjectCodecRegistry {
       return new ObjectCodecRegistry(
           ImmutableSet.copyOf(codecs.values()),
           referenceConstantsBuilder.build(),
-          valueConstantsBuilder,
+          valueConstantsBuilder.build(),
           classNames.build(),
           allowDefaultCodec);
     }
