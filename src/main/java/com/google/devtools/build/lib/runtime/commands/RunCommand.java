@@ -234,7 +234,7 @@ public class RunCommand implements BlazeCommand  {
     }
     List<String> prettyCmdLine = new ArrayList<>();
     constructCommandLine(cmdLine, prettyCmdLine, env, shellExecutable,
-        targetToRun, runUnderTarget, args, false);
+        targetToRun, runUnderTarget, args);
 
     // Add a newline between the blaze output and the binary's output.
     env.getReporter().getOutErr().printErrLn("");
@@ -288,26 +288,17 @@ public class RunCommand implements BlazeCommand  {
 
   private void constructCommandLine(List<String> cmdLine, List<String> prettyCmdLine,
       CommandEnvironment env, PathFragment shellExecutable, ConfiguredTarget targetToRun,
-      ConfiguredTarget runUnderTarget, List<String> args, boolean useRunfilesPath) {
+      ConfiguredTarget runUnderTarget, List<String> args) {
     String productName = env.getRuntime().getProductName();
     Artifact executable = targetToRun.getProvider(FilesToRunProvider.class).getExecutable();
 
-    PathFragment executablePath;
-    PathFragment prettyExecutablePath;
-
-    if (useRunfilesPath) {
-      executablePath = executable.getRunfilesPath();
-      prettyExecutablePath = executable.getRunfilesPath();
-    } else {
-      executablePath = executable.getPath().asFragment();
-      prettyExecutablePath =
-          OutputDirectoryLinksUtils.getPrettyPath(
-              executable.getPath(),
-              env.getWorkspaceName(),
-              env.getWorkspace(),
-              env.getOptions().getOptions(BuildRequestOptions.class).getSymlinkPrefix(productName),
-              productName);
-    }
+    PathFragment executablePath = executable.getPath().asFragment();
+    PathFragment prettyExecutablePath = OutputDirectoryLinksUtils.getPrettyPath(
+          executable.getPath(),
+          env.getWorkspaceName(),
+          env.getWorkspace(),
+          env.getOptions().getOptions(BuildRequestOptions.class).getSymlinkPrefix(productName),
+          productName);
 
     RunUnder runUnder = env.getOptions().getOptions(BuildConfiguration.Options.class).runUnder;
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option
@@ -468,6 +459,7 @@ public class RunCommand implements BlazeCommand  {
 
     Map<String, String> runEnvironment = new TreeMap<>();
     List<String> cmdLine = new ArrayList<>();
+    List<String> prettyCmdLine = new ArrayList<>();
     Path workingDir;
 
     runEnvironment.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
@@ -510,16 +502,16 @@ public class RunCommand implements BlazeCommand  {
       try {
         cmdLine.addAll(TestStrategy.getArgs(testAction));
         cmdLine.addAll(commandLineArgs);
+        prettyCmdLine.addAll(cmdLine);
       } catch (ExecException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
         return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
       }
     } else {
       workingDir = runfilesDir;
-      List<String> prettyCmdLine = new ArrayList<>();
       List<String> args = computeArgs(env, targetToRun, commandLineArgs);
       constructCommandLine(cmdLine, prettyCmdLine, env,
-          shellExecutable, targetToRun, runUnderTarget, args, runfilesSupport != null);
+          shellExecutable, targetToRun, runUnderTarget, args);
     }
 
     if (runOptions.scriptPath != null) {
@@ -548,7 +540,7 @@ public class RunCommand implements BlazeCommand  {
     }
 
     env.getReporter().handle(Event.info(
-        null, "Running command line: " + ShellEscaper.escapeJoinAll(cmdLine)));
+        null, "Running command line: " + ShellEscaper.escapeJoinAll(prettyCmdLine)));
 
     ExecRequest.Builder execDescription = ExecRequest.newBuilder()
         .setWorkingDirectory(
