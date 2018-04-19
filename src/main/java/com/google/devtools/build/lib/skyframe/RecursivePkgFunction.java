@@ -89,7 +89,7 @@ public class RecursivePkgFunction implements SkyFunction {
     }
 
     @Override
-    public void notePackageError(NoSuchPackageException e) {
+    public void notePackageError(String noSuchPackageExceptionErrorMessage) {
       // Nothing to do because the RecursiveDirectoryTraversalFunction has already emitted an error
       // event.
     }
