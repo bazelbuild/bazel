@@ -61,6 +61,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Output formatter that prints {@link ConfigurationTransition} information for rule configured
@@ -71,6 +72,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
   protected final BuildConfiguration hostConfiguration;
 
   private final HashMap<Label, Target> partialResultMap;
+  @Nullable private final RuleTransitionFactory trimmingTransitionFactory;
 
   @Override
   public String getName() {
@@ -87,9 +89,11 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor,
-      BuildConfiguration hostConfiguration) {
+      BuildConfiguration hostConfiguration,
+      @Nullable RuleTransitionFactory trimmingTransitionFactory) {
     super(reporter, options, out, skyframeExecutor, accessor);
     this.hostConfiguration = hostConfiguration;
+    this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.partialResultMap = Maps.newHashMap();
   }
 
@@ -139,7 +143,8 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
                     ImmutableSet.copyOf(
                         ConfiguredAttributeMapper.of(target.getAssociatedRule(), configConditions)
                             .get(PlatformSemantics.TOOLCHAINS_ATTR, BuildType.LABEL_LIST)),
-                    fromOptions);
+                    fromOptions,
+                    trimmingTransitionFactory);
       } catch (EvalException | InvalidConfigurationException | InconsistentAspectOrderException e) {
         throw new InterruptedException(e.getMessage());
       }

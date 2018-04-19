@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
+import javax.annotation.Nullable;
 
 /**
  * Tool for evaluating which {@link ConfigurationTransition}(s) should be applied to given targets.
@@ -51,6 +52,9 @@ public final class TransitionResolver {
    * @param fromRule the parent rule
    * @param attribute the attribute creating the dependency (e.g. "srcs")
    * @param toTarget the child target (which may or may not be a rule)
+   * @param attributeMap the attributes of the rule
+   * @param trimmingTransitionFactory the transition factory used to trim rules (note: this is a
+   *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
    *
    * @return the child's configuration, expressed as a diff from the parent's configuration. This
    *     is either a {@link PatchTransition} or {@link SplitTransition}.
@@ -60,7 +64,8 @@ public final class TransitionResolver {
       final Rule fromRule,
       final Attribute attribute,
       final Target toTarget,
-      ConfiguredAttributeMapper attributeMap) {
+      ConfiguredAttributeMapper attributeMap,
+      @Nullable RuleTransitionFactory trimmingTransitionFactory) {
 
     // I. Input files and package groups have no configurations. We don't want to duplicate them.
     if (usesNullConfiguration(toTarget)) {
@@ -106,9 +111,13 @@ public final class TransitionResolver {
           attribute.getConfigurationTransition());
     }
 
-    // IV. Applies any rule transitions associated with the dep target, composes their transitions
-    // with a passed-in existing transition, and returns the composed result.
-    return applyRuleTransition(currentTransition, toTarget);
+    // IV. Applies any rule transitions associated with the dep target and composes their
+    // transitions with a passed-in existing transition.
+    currentTransition = applyRuleTransition(currentTransition, toTarget);
+
+    // V. Applies a transition to trim the result and returns it. (note: this is a temporary
+    // feature; see the corresponding methods in ConfiguredRuleClassProvider)
+    return applyTransitionFromFactory(currentTransition, toTarget, trimmingTransitionFactory);
   }
 
   /**
@@ -116,7 +125,8 @@ public final class TransitionResolver {
    * enables support for rule-triggered top-level configuration hooks.
    */
   public static ConfigurationTransition evaluateTopLevelTransition(
-      TargetAndConfiguration targetAndConfig) {
+      TargetAndConfiguration targetAndConfig,
+      @Nullable RuleTransitionFactory trimmingTransitionFactory) {
     Target target = targetAndConfig.getTarget();
     BuildConfiguration fromConfig = targetAndConfig.getConfiguration();
 
@@ -130,7 +140,10 @@ public final class TransitionResolver {
     if (target.getAssociatedRule() == null) {
       return topLevelTransition;
     }
-    return applyRuleTransition(topLevelTransition, target);
+    ConfigurationTransition ruleTransition = applyRuleTransition(topLevelTransition, target);
+    ConfigurationTransition trimmingTransition =
+        applyTransitionFromFactory(ruleTransition, target, trimmingTransitionFactory);
+    return trimmingTransition;
   }
 
   /**
@@ -185,19 +198,31 @@ public final class TransitionResolver {
 
   /**
    * @param currentTransition a pre-existing transition to be composed with
-   * @param toTarget rule to examine for transitions
+   * @param toTarget target whose associated rule's incoming transition should be applied
    */
   private static ConfigurationTransition applyRuleTransition(
       ConfigurationTransition currentTransition, Target toTarget) {
-    if (isFinal(currentTransition)) {
-      return currentTransition;
-    }
     Rule associatedRule = toTarget.getAssociatedRule();
     RuleTransitionFactory transitionFactory =
         associatedRule.getRuleClassObject().getTransitionFactory();
+    return applyTransitionFromFactory(currentTransition, toTarget, transitionFactory);
+  }
+
+  /**
+   * @param currentTransition a pre-existing transition to be composed with
+   * @param toTarget target whose associated rule's incoming transition should be applied
+   * @param transitionFactory a rule transition factory to apply, or null to do nothing
+   */
+  private static ConfigurationTransition applyTransitionFromFactory(
+      ConfigurationTransition currentTransition,
+      Target toTarget,
+      @Nullable RuleTransitionFactory transitionFactory) {
+    if (isFinal(currentTransition)) {
+      return currentTransition;
+    }
     if (transitionFactory != null) {
       PatchTransition ruleClassTransition =
-          (PatchTransition) transitionFactory.buildTransitionFor(associatedRule);
+          (PatchTransition) transitionFactory.buildTransitionFor(toTarget.getAssociatedRule());
       if (ruleClassTransition != null) {
         if (currentTransition == NoTransition.INSTANCE) {
           return ruleClassTransition;

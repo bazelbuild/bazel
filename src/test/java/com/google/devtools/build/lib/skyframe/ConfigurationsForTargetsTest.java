@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
@@ -220,14 +221,11 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
         });
   }
 
-  /**
-   * Returns the configured deps for a given target, assuming the target uses the target
-   * configuration.
-   */
-  private Multimap<Attribute, ConfiguredTargetAndData> getConfiguredDeps(String targetLabel)
+  /** Returns the configured deps for a given target. */
+  private Multimap<Attribute, ConfiguredTargetAndData> getConfiguredDeps(ConfiguredTarget target)
       throws Exception {
-    update(targetLabel);
-    SkyKey key = ComputeDependenciesFunction.key(getTarget(targetLabel), getTargetConfiguration());
+    String targetLabel = AliasProvider.getDependencyLabel(target).toString();
+    SkyKey key = ComputeDependenciesFunction.key(getTarget(targetLabel), getConfiguration(target));
     // Must re-enable analysis for Skyframe functions that create configured targets.
     skyframeExecutor.getSkyframeBuildView().enableAnalysis(true);
     Object evalResult = SkyframeExecutorTestUtils.evaluate(
@@ -245,7 +243,19 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    */
   protected List<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
       throws Exception {
-    Multimap<Attribute, ConfiguredTargetAndData> allDeps = getConfiguredDeps(targetLabel);
+    ConfiguredTarget target = Iterables.getOnlyElement(update(targetLabel).getTargetsToBuild());
+    return getConfiguredDeps(target, attrName);
+  }
+
+  /**
+   * Returns the configured deps for a given configured target under the given attribute.
+   *
+   * <p>Throws an exception if the attribute can't be found.
+   */
+  protected List<ConfiguredTarget> getConfiguredDeps(ConfiguredTarget target, String attrName)
+      throws Exception {
+    String targetLabel = AliasProvider.getDependencyLabel(target).toString();
+    Multimap<Attribute, ConfiguredTargetAndData> allDeps = getConfiguredDeps(target);
     for (Attribute attribute : allDeps.keySet()) {
       if (attribute.getName().equals(attrName)) {
         return ImmutableList.copyOf(

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
@@ -125,7 +126,8 @@ public class PostConfiguredTargetFunction implements SkyFunction {
               /*aspect=*/ null,
               configConditions,
               /*toolchainLabels*/ ImmutableSet.of(),
-              defaultBuildOptions);
+              defaultBuildOptions,
+              ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
       if (configuredTargetAndData.getConfiguration() != null) {
         deps =
             ConfigurationResolver.resolveConfigurations(

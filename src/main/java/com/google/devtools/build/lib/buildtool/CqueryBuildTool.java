@@ -134,6 +134,7 @@ public class CqueryBuildTool extends BuildTool {
             env.getReporter(),
             env.getSkyframeExecutor(),
             hostConfiguration,
+            runtime.getRuleClassProvider().getTrimmingTransitionFactory(),
             cqueryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
     CqueryThreadsafeCallback callback =
         CqueryThreadsafeCallback.getCallback(cqueryOptions.outputFormat, callbacks);

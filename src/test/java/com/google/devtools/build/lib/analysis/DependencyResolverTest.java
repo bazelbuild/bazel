@@ -115,7 +115,8 @@ public class DependencyResolverTest extends AnalysisTestCase {
         ImmutableMap.<Label, ConfigMatchingProvider>of(),
         /*toolchainLabels=*/ ImmutableSet.of(),
         DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
-            ruleClassProvider.getConfigurationOptions()));
+            ruleClassProvider.getConfigurationOptions()),
+        /*trimmingTransitionFactory=*/ null);
   }
 
   @SafeVarargs

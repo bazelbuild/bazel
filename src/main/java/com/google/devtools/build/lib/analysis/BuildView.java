@@ -1098,7 +1098,8 @@ public class BuildView {
         toolchainContext == null
             ? ImmutableSet.of()
             : toolchainContext.getResolvedToolchainLabels(),
-        skyframeExecutor.getDefaultBuildOptions());
+        skyframeExecutor.getDefaultBuildOptions(),
+        ruleClassProvider.getTrimmingTransitionFactory());
   }
 
   /**

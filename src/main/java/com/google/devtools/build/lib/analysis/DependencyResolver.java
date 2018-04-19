@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -93,6 +94,8 @@ public abstract class DependencyResolver {
    * @param toolchainLabels required toolchain labels
    * @param defaultBuildOptions default build options provided to the server to use for creating
    *     diffs during SkyKey construction
+   * @param trimmingTransitionFactory the transition factory used to trim rules (note: this is a
+   *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
   public final OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
@@ -101,7 +104,8 @@ public abstract class DependencyResolver {
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ImmutableSet<Label> toolchainLabels,
-      BuildOptions defaultBuildOptions)
+      BuildOptions defaultBuildOptions,
+      @Nullable RuleTransitionFactory trimmingTransitionFactory)
       throws EvalException, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException {
     NestedSetBuilder<Label> rootCauses = NestedSetBuilder.<Label>stableOrder();
@@ -113,7 +117,8 @@ public abstract class DependencyResolver {
             configConditions,
             toolchainLabels,
             rootCauses,
-            defaultBuildOptions);
+            defaultBuildOptions,
+            trimmingTransitionFactory);
     if (!rootCauses.isEmpty()) {
       throw new IllegalStateException(rootCauses.build().iterator().next().toString());
     }
@@ -146,10 +151,12 @@ public abstract class DependencyResolver {
    * @param aspects the aspects applied to this target (if any)
    * @param configConditions resolver for config_setting labels
    * @param toolchainLabels required toolchain labels
-   * @param rootCauses collector for dep labels that can't be (loading phase) loaded @return a
-   *     mapping of each attribute in this rule or aspects to its dependent nodes
+   * @param trimmingTransitionFactory the transition factory used to trim rules (note: this is a
+   *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
+   * @param rootCauses collector for dep labels that can't be (loading phase) loaded
    * @param defaultBuildOptions default build options provided by the server to use for creating
    *     diffs during SkyKey construction
+   * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
   public final OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
       TargetAndConfiguration node,
@@ -158,7 +165,8 @@ public abstract class DependencyResolver {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ImmutableSet<Label> toolchainLabels,
       NestedSetBuilder<Label> rootCauses,
-      BuildOptions defaultBuildOptions)
+      BuildOptions defaultBuildOptions,
+      @Nullable RuleTransitionFactory trimmingTransitionFactory)
       throws EvalException, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException {
     Target target = node.getTarget();
@@ -182,7 +190,8 @@ public abstract class DependencyResolver {
           toolchainLabels,
           rootCauses,
           outgoingEdges,
-          defaultBuildOptions);
+          defaultBuildOptions,
+          trimmingTransitionFactory);
     } else if (target instanceof PackageGroup) {
       visitPackageGroup(node, (PackageGroup) target, rootCauses, outgoingEdges.get(null));
     } else {
@@ -200,7 +209,8 @@ public abstract class DependencyResolver {
       ImmutableSet<Label> toolchainLabels,
       NestedSetBuilder<Label> rootCauses,
       OrderedSetMultimap<Attribute, Dependency> outgoingEdges,
-      BuildOptions defaultBuildOptions)
+      BuildOptions defaultBuildOptions,
+      @Nullable RuleTransitionFactory trimmingTransitionFactory)
       throws EvalException, InvalidConfigurationException, InconsistentAspectOrderException,
           InterruptedException {
     Preconditions.checkArgument(node.getTarget() instanceof Rule);
@@ -210,7 +220,14 @@ public abstract class DependencyResolver {
     ConfiguredAttributeMapper attributeMap = ConfiguredAttributeMapper.of(rule, configConditions);
     attributeMap.validateAttributes();
     RuleResolver depResolver =
-        new RuleResolver(rule, ruleConfig, aspects, attributeMap, rootCauses, outgoingEdges);
+        new RuleResolver(
+            rule,
+            ruleConfig,
+            aspects,
+            attributeMap,
+            rootCauses,
+            outgoingEdges,
+            trimmingTransitionFactory);
 
     visitTargetVisibility(node, rootCauses, outgoingEdges.get(null));
     resolveEarlyBoundAttributes(depResolver);
@@ -548,14 +565,21 @@ public abstract class DependencyResolver {
   public final Collection<Dependency> resolveRuleLabels(
       TargetAndConfiguration node,
       OrderedSetMultimap<Attribute, Label> depLabels,
-      NestedSetBuilder<Label> rootCauses)
+      NestedSetBuilder<Label> rootCauses,
+      @Nullable RuleTransitionFactory trimmingTransitionFactory)
       throws InterruptedException, InconsistentAspectOrderException {
     Preconditions.checkArgument(node.getTarget() instanceof Rule);
     Rule rule = (Rule) node.getTarget();
     OrderedSetMultimap<Attribute, Dependency> outgoingEdges = OrderedSetMultimap.create();
-    RuleResolver depResolver = new RuleResolver(
-        rule, node.getConfiguration(), ImmutableList.<Aspect>of(),
-        /*attributeMap=*/null, rootCauses, outgoingEdges);
+    RuleResolver depResolver =
+        new RuleResolver(
+            rule,
+            node.getConfiguration(),
+            ImmutableList.<Aspect>of(),
+            /*attributeMap=*/ null,
+            rootCauses,
+            outgoingEdges,
+            trimmingTransitionFactory);
     Map<Attribute, Collection<Label>> m = depLabels.asMap();
     for (Map.Entry<Attribute, Collection<Label>> entry : depLabels.asMap().entrySet()) {
       for (Label depLabel : entry.getValue()) {
@@ -680,6 +704,7 @@ public abstract class DependencyResolver {
     private final ConfiguredAttributeMapper attributeMap;
     private final NestedSetBuilder<Label> rootCauses;
     private final OrderedSetMultimap<Attribute, Dependency> outgoingEdges;
+    @Nullable private final RuleTransitionFactory trimmingTransitionFactory;
     private final List<AttributeAndOwner> attributes;
 
     /**
@@ -692,15 +717,21 @@ public abstract class DependencyResolver {
      * @param rootCauses output collector for dep labels that can't be (loading phase) loaded
      * @param outgoingEdges output collector for the resolved dependencies
      */
-    RuleResolver(Rule rule, BuildConfiguration ruleConfig, Iterable<Aspect> aspects,
-        ConfiguredAttributeMapper attributeMap, NestedSetBuilder<Label> rootCauses,
-        OrderedSetMultimap<Attribute, Dependency> outgoingEdges) {
+    RuleResolver(
+        Rule rule,
+        BuildConfiguration ruleConfig,
+        Iterable<Aspect> aspects,
+        ConfiguredAttributeMapper attributeMap,
+        NestedSetBuilder<Label> rootCauses,
+        OrderedSetMultimap<Attribute, Dependency> outgoingEdges,
+        @Nullable RuleTransitionFactory trimmingTransitionFactory) {
       this.rule = rule;
       this.ruleConfig = ruleConfig;
       this.aspects = aspects;
       this.attributeMap = attributeMap;
       this.rootCauses = rootCauses;
       this.outgoingEdges = outgoingEdges;
+      this.trimmingTransitionFactory = trimmingTransitionFactory;
 
       this.attributes =
           getAttributes(
@@ -737,8 +768,14 @@ public abstract class DependencyResolver {
       if (toTarget == null) {
         return; // Skip this round: we still need to Skyframe-evaluate the dep's target.
       }
-      ConfigurationTransition transition = TransitionResolver.evaluateTransition(
-          ruleConfig, rule, attributeAndOwner.attribute, toTarget, attributeMap);
+      ConfigurationTransition transition =
+          TransitionResolver.evaluateTransition(
+              ruleConfig,
+              rule,
+              attributeAndOwner.attribute,
+              toTarget,
+              attributeMap,
+              trimmingTransitionFactory);
       outgoingEdges.put(
           attributeAndOwner.attribute,
           transition == NullTransition.INSTANCE

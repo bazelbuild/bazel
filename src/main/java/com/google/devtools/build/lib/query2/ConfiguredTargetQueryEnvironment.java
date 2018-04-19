@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -187,6 +188,7 @@ public class ConfiguredTargetQueryEnvironment
       Reporter reporter,
       SkyframeExecutor skyframeExecutor,
       BuildConfiguration hostConfiguration,
+      @Nullable RuleTransitionFactory trimmingTransitionFactory,
       AspectResolver resolver) {
     OutputStream out = reporter.getOutErr().getOutputStream();
     return new ImmutableList.Builder<CqueryThreadsafeCallback>()
@@ -195,7 +197,13 @@ public class ConfiguredTargetQueryEnvironment
                 reporter, options, out, skyframeExecutor, accessor))
         .add(
             new TransitionsOutputFormatterCallback(
-                reporter, options, out, skyframeExecutor, accessor, hostConfiguration))
+                reporter,
+                options,
+                out,
+                skyframeExecutor,
+                accessor,
+                hostConfiguration,
+                trimmingTransitionFactory))
         .add(
             new ProtoOutputFormatterCallback(
                 reporter, options, out, skyframeExecutor, accessor, resolver))
