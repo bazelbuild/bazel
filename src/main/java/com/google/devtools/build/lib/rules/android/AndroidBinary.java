@@ -154,7 +154,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .get(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
             .isEmpty()) {
       ruleContext.throwWithAttributeError(
-          "proguard_apply_mapping",
+          "proguard_apply_dictionary",
           "'proguard_apply_dictionary' can only be used when 'proguard_specs' is also set");
     }
 
