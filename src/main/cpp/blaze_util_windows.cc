@@ -775,22 +775,29 @@ void ExcludePathFromBackup(const string &path) {
 
 string GetHashedBaseDir(const string& root, const string& hashable) {
   // Builds a shorter output base dir name for Windows.
-  // This algorithm only uses 1/3 of the bits to get 8-char alphanumeric
-  // file name.
 
-  static const char* alphabet
-      // Exactly 64 characters.
-      = "abcdefghigklmnopqrstuvwxyzABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789_-";
+  // We create a path name representing the 128 bits of MD5 digest. To avoid
+  // platform incompatibilities we restrict the alphabet to ASCII letters and
+  // numbers. Windows paths are case-insensitive, so use only lower-case
+  // letters. These constraints yield a 5-bit alphabet.
+  // Since we only need 6 digits, ignore 0 and 1 because they look like
+  // upper-case "O" and lower-case "l".
+  static const char* alphabet = "abcdefghijklmnopqrstuvwxyz234567";
 
-  // The length of the resulting filename (8 characters).
-  static const int filename_length = blaze_util::Md5Digest::kDigestLength / 2;
-  unsigned char buf[blaze_util::Md5Digest::kDigestLength];
+  // 128 bits of data in base-32 require 128/5 = 25 digits with 3 bits lost.
+  // Maximum path length on Windows is only 259 characters, so we'll only use
+  // a few characters characters (base-32 digits) to represent the digest.
+  // Using only 8 characters we represent 40 bits of the original 128.
+  // Since the mapping is lossy and collisions are unlikely in practice, we'll
+  // keep the mapping simple and just use the lower 5 bits of the first 8 bytes.
+  static const int filename_length = 8;
+  unsigned char md5[blaze_util::Md5Digest::kDigestLength];
   char coded_name[filename_length + 1];
   blaze_util::Md5Digest digest;
   digest.Update(hashable.data(), hashable.size());
-  digest.Finish(buf);
-  for (int i = 0; i < filename_length; i++) {
-    coded_name[i] = alphabet[buf[i] & 0x3F];
+  digest.Finish(md5);
+  for (int i = 0; i < filename_length; ++i) {
+    coded_name[i] = alphabet[md5[i] & 0x1F];
   }
   coded_name[filename_length] = '\0';
   return blaze_util::JoinPath(root, string(coded_name));
