@@ -279,7 +279,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       stringValue = Integer.toString(item.getPrim().getData());
     } else {
       throw new IllegalArgumentException(
-          String.format("'%s' is not a valid resource type.", resourceType));
+          String.format("'%s' with value %s is not a simple resource type.", resourceType, proto));
     }
 
     return of(

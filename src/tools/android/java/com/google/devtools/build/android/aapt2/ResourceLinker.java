@@ -350,6 +350,8 @@ public class ResourceLinker {
               .forBuildToolsVersion(buildToolsVersion)
               .forVariantType(VariantType.DEFAULT)
               .add("optimize")
+              .when(Objects.equals(logger.getLevel(), Level.FINE))
+              .thenAdd("-v")
               .add("--target-densities", densities.stream().collect(Collectors.joining(",")))
               .add("-o", optimized)
               .add(outPath.toString())

@@ -14,7 +14,9 @@
 package com.google.devtools.build.android;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.emptyToNull;
 
+import com.android.annotations.VisibleForTesting;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
 import com.android.ide.common.resources.configuration.ResourceQualifier;
 import com.android.resources.ResourceType;
@@ -64,6 +66,7 @@ public class FullyQualifiedName implements DataKey {
   private final String name;
 
   private FullyQualifiedName(String pkg, ImmutableList<String> qualifiers, Type type, String name) {
+    Preconditions.checkArgument(!pkg.isEmpty());
     this.pkg = pkg;
     this.qualifiers = qualifiers;
     this.type = type;
@@ -84,18 +87,20 @@ public class FullyQualifiedName implements DataKey {
   /**
    * Creates a new FullyQualifiedName with normalized qualifiers.
    *
-   * @param pkg The resource package of the name. If unknown the default should be "res-auto"
+   * @param rawPkg The resource package of the name. If unknown the default should be "res-auto"
    * @param qualifiers The resource qualifiers of the name, such as "en" or "xhdpi".
    * @param type The type of the name.
    * @param name The name of the name.
    * @return A new FullyQualifiedName.
    */
-  public static FullyQualifiedName of(String pkg, List<String> qualifiers, Type type, String name) {
-    checkNotNull(pkg);
+  public static FullyQualifiedName of(
+      String rawPkg, List<String> qualifiers, Type type, String name) {
+    checkNotNull(rawPkg);
     checkNotNull(qualifiers);
     checkNotNull(type);
     checkNotNull(name);
     ImmutableList<String> immutableQualifiers = ImmutableList.copyOf(qualifiers);
+    String pkg = rawPkg.isEmpty() ? DEFAULT_PACKAGE : rawPkg;
     // TODO(corysmith): Address the GC thrash this creates by managing a simplified, mutable key to
     // do the instance check.
     FullyQualifiedName fqn = new FullyQualifiedName(pkg, immutableQualifiers, type, name);
@@ -135,7 +140,8 @@ public class FullyQualifiedName implements DataKey {
   static final Pattern QUALIFIED_REFERENCE =
       Pattern.compile("((?<package>[^:]+):)?(?<type>\\w+)/(?<name>\\w+)");
 
-  public static FullyQualifiedName fromReference(String qualifiedReference) {
+  public static FullyQualifiedName fromReference(
+      String qualifiedReference, Optional<String> packageName) {
     final Matcher matcher = QUALIFIED_REFERENCE.matcher(qualifiedReference);
     Preconditions.checkArgument(
         matcher.find(),
@@ -143,7 +149,8 @@ public class FullyQualifiedName implements DataKey {
         qualifiedReference,
         QUALIFIED_REFERENCE.pattern());
     return of(
-        Optional.ofNullable(matcher.group("package")).orElse(DEFAULT_PACKAGE),
+        Optional.ofNullable(emptyToNull(matcher.group("package")))
+            .orElse(packageName.orElse(DEFAULT_PACKAGE)),
         ImmutableList.of(),
         ResourceType.getEnum(matcher.group("type")),
         matcher.group("name"));
@@ -178,7 +185,8 @@ public class FullyQualifiedName implements DataKey {
   public String toPrettyString() {
     // TODO(corysmith): Add package when we start tracking it.
     return String.format(
-        "%s/%s",
+        "%s%s/%s",
+        pkg != DEFAULT_PACKAGE ? pkg + ':' : "",
         DASH_JOINER.join(
             ImmutableList.<String>builder().add(type.getName()).addAll(qualifiers).build()),
         name);
@@ -201,8 +209,21 @@ public class FullyQualifiedName implements DataKey {
         .toString();
   }
 
+  @VisibleForTesting
+  public String asUnqualifedName() {
+    return String.format(
+        "%s/%s",
+        DASH_JOINER.join(
+            ImmutableList.<String>builder().add(type.getName()).addAll(qualifiers).build()),
+        name);
+  }
+
   public String name() {
     return name;
+  }
+
+  public boolean isInPackage(String packageName) {
+    return pkg.equals(packageName);
   }
 
   /** Provides the name qualified by the package it belongs to. */
@@ -563,7 +584,7 @@ public class FullyQualifiedName implements DataKey {
     }
 
     public static Factory from(List<String> qualifiers, String pkg) {
-      return new Factory(ImmutableList.copyOf(qualifiers), pkg);
+      return new Factory(ImmutableList.copyOf(qualifiers), pkg.isEmpty() ? DEFAULT_PACKAGE : pkg);
     }
 
     public static Factory from(List<String> qualifiers) {
