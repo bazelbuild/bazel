@@ -560,6 +560,7 @@ java_library(
         "//src/main/protobuf:analysis_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
+        "//src/main/protobuf:spawn_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -672,6 +673,7 @@ java_library(
     ],
     deps = [
         ":bazel/BazelRepositoryModule",
+        ":exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:bazel",
         "//src/main/java/com/google/devtools/build/lib:bazel-commands",
         "//src/main/java/com/google/devtools/build/lib:bazel-repository",

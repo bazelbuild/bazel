@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -86,6 +87,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       cache = SpawnCache.NO_CACHE;
     }
     SpawnResult spawnResult;
+    ExecException ex = null;
     try {
       try (CacheHandle cacheHandle = cache.lookup(spawn, context)) {
         if (cacheHandle.hasResult()) {
@@ -101,6 +103,30 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       }
     } catch (IOException e) {
       throw new EnvironmentalExecException("Unexpected IO error.", e);
+    } catch (SpawnExecException e) {
+      ex = e;
+      spawnResult = e.getSpawnResult();
+      // Log the Spawn and re-throw.
+    }
+
+    SpawnLogContext spawnLogContext = actionExecutionContext.getContext(SpawnLogContext.class);
+    if (spawnLogContext != null) {
+      try {
+        spawnLogContext.logSpawn(
+            spawn,
+            actionExecutionContext.getActionInputFileCache(),
+            context.getInputMapping(),
+            context.getTimeout(),
+            spawnResult);
+      } catch (IOException e) {
+        actionExecutionContext
+            .getEventHandler()
+            .handle(
+                Event.warn("Exception " + e + " while logging properties of " + spawn.toString()));
+      }
+    }
+    if (ex != null) {
+      throw ex;
     }
 
     if (spawnResult.status() != Status.SUCCESS) {

@@ -27,6 +27,7 @@ FILES = [
     "invocation_policy",
     "java_compilation",
     "plmerge",
+    "spawn",
     "test_status",
     "worker_protocol",
 ]

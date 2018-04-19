@@ -23,16 +23,26 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.exec.Protos.Digest;
+import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
+import com.google.devtools.build.lib.exec.Protos.File;
+import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.Collection;
 import java.util.List;
@@ -58,18 +68,23 @@ public class AbstractSpawnStrategyTest {
 
   private final FileSystem fs = new InMemoryFileSystem();
   private final Path execRoot = fs.getPath("/execroot");
+  private Scratch scratch;
+  private ArtifactRoot rootDir;
   @Mock private SpawnRunner spawnRunner;
   @Mock private ActionExecutionContext actionExecutionContext;
+  @Mock private MessageOutputStream messageOutput;
 
   @Before
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
+    scratch = new Scratch(fs);
+    rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/execroot")));
   }
 
   @Test
   public void testZeroExit() throws Exception {
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(SpawnCache.NO_CACHE);
-    when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
+    when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
     SpawnResult spawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
     when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
@@ -115,7 +130,7 @@ public class AbstractSpawnStrategyTest {
     when(cache.lookup(any(Spawn.class), any(SpawnExecutionContext.class)))
         .thenReturn(SpawnCache.success(spawnResult));
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(cache);
-    when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
+    when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
 
     List<SpawnResult> spawnResults =
         new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
@@ -133,7 +148,7 @@ public class AbstractSpawnStrategyTest {
     when(entry.willStore()).thenReturn(true);
 
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(cache);
-    when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
+    when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
     SpawnResult spawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
     when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
@@ -159,7 +174,7 @@ public class AbstractSpawnStrategyTest {
     when(entry.willStore()).thenReturn(true);
 
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(cache);
-    when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
+    when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
     SpawnResult result =
         new SpawnResult.Builder()
             .setStatus(Status.NON_ZERO_EXIT)
@@ -178,5 +193,91 @@ public class AbstractSpawnStrategyTest {
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
     verify(entry).store(eq(result), any(Collection.class));
+  }
+
+  @Test
+  public void testLogSpawn() throws Exception {
+    when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(SpawnCache.NO_CACHE);
+    when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
+    when(actionExecutionContext.getContext(eq(SpawnLogContext.class)))
+        .thenReturn(new SpawnLogContext(execRoot, messageOutput));
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
+        .thenReturn(
+            new SpawnResult.Builder()
+                .setStatus(Status.NON_ZERO_EXIT)
+                .setExitCode(23)
+                .setRunnerName("runner")
+                .build());
+    when(actionExecutionContext.getActionInputFileCache())
+        .thenReturn(mock(ActionInputFileCache.class));
+
+    Artifact input = new Artifact(scratch.file("/execroot/foo", "1"), rootDir);
+    scratch.file("/execroot/out1", "123");
+    scratch.file("/execroot/out2", "123");
+    Spawn spawn =
+        new SpawnBuilder("/bin/echo", "Foo!")
+            .withEnvironment("FOO", "v1")
+            .withEnvironment("BAR", "v2")
+            .withMnemonic("MyMnemonic")
+            .withProgressMessage("my progress message")
+            .withInput(input)
+            .withOutputs("out2", "out1")
+            .build();
+    try {
+      new TestedSpawnStrategy(execRoot, spawnRunner).exec(spawn, actionExecutionContext);
+      fail("expected failure");
+    } catch (SpawnExecException expected) {
+      // Should throw.
+    }
+
+    SpawnExec expectedSpawnLog =
+        SpawnExec.newBuilder()
+            .addCommandArgs("/bin/echo")
+            .addCommandArgs("Foo!")
+            .addEnvironmentVariables(
+                EnvironmentVariable.newBuilder().setName("BAR").setValue("v2").build())
+            .addEnvironmentVariables(
+                EnvironmentVariable.newBuilder().setName("FOO").setValue("v1").build())
+            .addInputs(
+                File.newBuilder()
+                    .setPath("foo")
+                    .setDigest(
+                        Digest.newBuilder()
+                            .setHash("b026324c6904b2a9cb4b88d6d61c81d1")
+                            .setSizeBytes(2)
+                            .setHashFunctionName("MD5")
+                            .build())
+                    .build())
+            .addListedOutputs("out1")
+            .addListedOutputs("out2")
+            .addActualOutputs(
+                File.newBuilder()
+                    .setPath("out1")
+                    .setDigest(
+                        Digest.newBuilder()
+                            .setHash("ba1f2511fc30423bdbb183fe33f3dd0f")
+                            .setSizeBytes(4)
+                            .setHashFunctionName("MD5")
+                            .build())
+                    .build())
+            .addActualOutputs(
+                File.newBuilder()
+                    .setPath("out2")
+                    .setDigest(
+                        Digest.newBuilder()
+                            .setHash("ba1f2511fc30423bdbb183fe33f3dd0f")
+                            .setSizeBytes(4)
+                            .setHashFunctionName("MD5")
+                            .build())
+                    .build())
+            .setStatus("NON_ZERO_EXIT")
+            .setExitCode(23)
+            .setRemotable(true)
+            .setCacheable(true)
+            .setProgressMessage("my progress message")
+            .setMnemonic("MyMnemonic")
+            .setRunner("runner")
+            .build();
+    verify(messageOutput).write(expectedSpawnLog);
   }
 }

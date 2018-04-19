@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * close future.
  */
 @ThreadSafety.ThreadSafe
-public class AsynchronousFileOutputStream extends OutputStream {
+public class AsynchronousFileOutputStream extends OutputStream implements MessageOutputStream {
   private final AsynchronousFileChannel ch;
   private final WriteCompletionHandler completionHandler = new WriteCompletionHandler();
   // The offset in the file to begin the next write at.
@@ -83,6 +83,7 @@ public class AsynchronousFileOutputStream extends OutputStream {
    * multiple calls to write on the underlying stream, so we have to provide this method here
    * instead of the caller using it directly.
    */
+  @Override
   public void write(Message m) {
     Preconditions.checkNotNull(m);
     final int size = m.getSerializedSize();

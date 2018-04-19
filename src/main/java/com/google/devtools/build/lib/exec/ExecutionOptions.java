@@ -275,6 +275,16 @@ public class ExecutionOptions extends OptionsBase {
   )
   public boolean enableCriticalPathProfiling;
 
+  @Option(
+    name = "experimental_execution_log_file",
+    defaultValue = "",
+    category = "verbosity",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Log the executed spawns into this file as delimited Spawn protos."
+  )
+  public String executionLogFile;
+
   /** Converter for the --flaky_test_attempts option. */
   public static class TestAttemptsConverter extends PerLabelOptions.PerLabelOptionsConverter {
     private static final int MIN_VALUE = 1;
