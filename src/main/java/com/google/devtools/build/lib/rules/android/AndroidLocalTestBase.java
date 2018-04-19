@@ -39,8 +39,8 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -511,12 +511,9 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     // The dep may be a simple JAR and not a java rule, hence we can't simply do
     // dep.getProvider(JavaCompilationArgsProvider.class).getRecursiveJavaCompilationArgs(),
     // so we reuse the logic within JavaCompilationArgs to handle both scenarios.
-    JavaCompilationArgs args =
-        JavaCompilationArgs.builder()
-            .addTransitiveTargets(
-                ImmutableList.of(deps), /*recursive=*/ true, ClasspathType.RUNTIME_ONLY)
-            .build();
-    return args.getRuntimeJars();
+    return JavaCompilationArgsProvider.legacyFromTargets(ImmutableList.of(deps))
+        .getRecursiveJavaCompilationArgs()
+        .getRuntimeJars();
   }
 
   private static String getAndCheckTestClass(

@@ -332,28 +332,19 @@ public final class JavaLibraryHelper {
   }
 
   private void addDepsToAttributes(JavaTargetAttributes.Builder attributes) {
-    NestedSet<Artifact> directJars;
+    JavaCompilationArgsProvider argsProvider = JavaCompilationArgsProvider.merge(deps);
+
     if (isStrict()) {
-      directJars = getNonRecursiveCompileTimeJarsFromDeps();
+      NestedSet<Artifact> directJars = argsProvider.getJavaCompilationArgs().getCompileTimeJars();
       if (directJars != null) {
         attributes.addDirectJars(directJars);
       }
     }
 
-    JavaCompilationArgs args =
-        JavaCompilationArgs.builder()
-            .addTransitiveDependencies(deps, true)
-            .build();
-    attributes.addCompileTimeClassPathEntries(args.getCompileTimeJars());
-    attributes.addRuntimeClassPathEntries(args.getRuntimeJars());
-    attributes.addInstrumentationMetadataEntries(args.getInstrumentationMetadata());
-  }
-
-  private NestedSet<Artifact> getNonRecursiveCompileTimeJarsFromDeps() {
-    return JavaCompilationArgs.builder()
-        .addTransitiveDependencies(deps, false)
-        .build()
-        .getCompileTimeJars();
+    JavaCompilationArgs recursiveArgs = argsProvider.getRecursiveJavaCompilationArgs();
+    attributes.addCompileTimeClassPathEntries(recursiveArgs.getCompileTimeJars());
+    attributes.addRuntimeClassPathEntries(recursiveArgs.getRuntimeJars());
+    attributes.addInstrumentationMetadataEntries(recursiveArgs.getInstrumentationMetadata());
   }
 
   static JavaCompilationArgs getJavaCompilationArgs(JavaCompilationArgsHelper helper) {
@@ -361,18 +352,14 @@ public final class JavaLibraryHelper {
     JavaCompilationArgs.Builder builder =
         JavaCompilationArgs.builder()
             .merge(helper.compilationArtifacts(), helper.isNeverLink())
-            .addTransitiveTargets(helper.exports(), helper.recursive(), type)
             .addTransitiveCompilationArgs(
                 helper.exportsCompilationArgs(), helper.recursive(), type);
     // TODO(bazel-team): remove srcs-less behaviour after android_library users are refactored
     if (helper.recursive() || helper.srcLessDepsExport()) {
       builder
           .addTransitiveCompilationArgs(helper.depsCompilationArgs(), helper.recursive(), type)
-          .addTransitiveTargets(helper.deps(), helper.recursive(), type)
           .addTransitiveCompilationArgs(
-              helper.runtimeDepsCompilationArgs(), helper.recursive(), ClasspathType.RUNTIME_ONLY)
-          .addTransitiveTargets(
-              helper.runtimeDeps(), helper.recursive(), ClasspathType.RUNTIME_ONLY);
+              helper.runtimeDepsCompilationArgs(), helper.recursive(), ClasspathType.RUNTIME_ONLY);
     }
     return builder.build();
   }

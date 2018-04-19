@@ -16,13 +16,10 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.FileType;
 
 /** A container of Java compilation artifacts. */
 @AutoValue
@@ -195,9 +192,8 @@ public abstract class JavaCompilationArgs {
 
     public Builder addTransitiveCompilationArgs(
         JavaCompilationArgsProvider dep, boolean recursive, ClasspathType type) {
-      JavaCompilationArgs args = recursive
-          ? dep.getRecursiveJavaCompilationArgs()
-          : dep.getJavaCompilationArgs();
+      JavaCompilationArgs args =
+          recursive ? dep.getRecursiveJavaCompilationArgs() : dep.getJavaCompilationArgs();
       addTransitiveArgs(args, type);
       return this;
     }
@@ -207,85 +203,6 @@ public abstract class JavaCompilationArgs {
       for (JavaCompilationArgsProvider provider : args) {
         addTransitiveCompilationArgs(provider, recursive, type);
       }
-      return this;
-    }
-
-    /**
-     * Merges the artifacts of another target.
-     */
-    public Builder addTransitiveTarget(TransitiveInfoCollection dep, boolean recursive,
-        ClasspathType type) {
-      JavaCompilationArgsProvider provider =
-          JavaInfo.getProvider(JavaCompilationArgsProvider.class, dep);
-      if (provider != null) {
-        addTransitiveCompilationArgs(provider, recursive, type);
-        return this;
-      } else {
-        NestedSet<Artifact> filesToBuild =
-            dep.getProvider(FileProvider.class).getFilesToBuild();
-        for (Artifact jar : FileType.filter(filesToBuild, JavaSemantics.JAR)) {
-          addCompileTimeJarAsFullJar(jar);
-          addRuntimeJar(jar);
-        }
-      }
-      return this;
-    }
-
-    /**
-     * Merges the artifacts of a collection of targets.
-     */
-    public Builder addTransitiveTargets(Iterable<? extends TransitiveInfoCollection> deps,
-        boolean recursive, ClasspathType type) {
-      for (TransitiveInfoCollection dep : deps) {
-        addTransitiveTarget(dep, recursive, type);
-      }
-      return this;
-    }
-
-    /**
-     * Merges the artifacts of a collection of targets.
-     */
-    public Builder addTransitiveTargets(Iterable<? extends TransitiveInfoCollection> deps,
-        boolean recursive) {
-      return addTransitiveTargets(deps, recursive, ClasspathType.BOTH);
-    }
-
-    /**
-     * Merges the artifacts of a collection of targets.
-     */
-    public Builder addTransitiveTargets(Iterable<? extends TransitiveInfoCollection> deps) {
-      return addTransitiveTargets(deps, /*recursive=*/true, ClasspathType.BOTH);
-    }
-
-    /**
-     * Merges the artifacts of a collection of targets.
-     */
-    public Builder addTransitiveDependencies(Iterable<JavaCompilationArgsProvider> deps,
-        boolean recursive) {
-      for (JavaCompilationArgsProvider dep : deps) {
-        addTransitiveDependency(dep, recursive, ClasspathType.BOTH);
-      }
-      return this;
-    }
-
-    /** Merges the artifacts of a collection of targets. */
-    public Builder addTransitiveDependencies(
-        Iterable<JavaCompilationArgsProvider> deps, boolean recursive, ClasspathType type) {
-      for (JavaCompilationArgsProvider dep : deps) {
-        addTransitiveDependency(dep, recursive, type);
-      }
-      return this;
-    }
-
-    /**
-     * Merges the artifacts of another target.
-     */
-    private Builder addTransitiveDependency(JavaCompilationArgsProvider dep, boolean recursive,
-        ClasspathType type) {
-      JavaCompilationArgs args = recursive
-          ? dep.getRecursiveJavaCompilationArgs()
-          : dep.getJavaCompilationArgs();
-      addTransitiveArgs(args, type);
       return this;
     }
 

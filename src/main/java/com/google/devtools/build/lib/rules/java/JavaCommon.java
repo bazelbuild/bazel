@@ -272,9 +272,16 @@ public class JavaCommon {
             .setIsNeverLink(isNeverLink)
             .setSrcLessDepsExport(srcLessDepsExport)
             .setCompilationArtifacts(getJavaCompilationArtifacts())
-            .setDeps(targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY))
-            .setRuntimeDeps(getRuntimeDeps(ruleContext))
-            .setExports(getExports(ruleContext))
+            .setDepsCompilationArgs(
+                ImmutableList.of(
+                    JavaCompilationArgsProvider.legacyFromTargets(
+                        targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY))))
+            .setRuntimeDepsCompilationArgs(
+                ImmutableList.of(
+                    JavaCompilationArgsProvider.legacyFromTargets(getRuntimeDeps(ruleContext))))
+            .setExportsCompilationArgs(
+                ImmutableList.of(
+                    JavaCompilationArgsProvider.legacyFromTargets(getExports(ruleContext))))
             .build());
   }
 
@@ -752,9 +759,9 @@ public class JavaCommon {
   private void processRuntimeDeps(JavaTargetAttributes.Builder attributes) {
     List<TransitiveInfoCollection> runtimeDepInfo = getRuntimeDeps(ruleContext);
     checkRuntimeDeps(ruleContext, runtimeDepInfo);
-    JavaCompilationArgs args = JavaCompilationArgs.builder()
-        .addTransitiveTargets(runtimeDepInfo, true, ClasspathType.RUNTIME_ONLY)
-        .build();
+    JavaCompilationArgs args =
+        JavaCompilationArgsProvider.legacyFromTargets(runtimeDepInfo)
+            .getRecursiveJavaCompilationArgs();
     attributes.addRuntimeClassPathEntries(args.getRuntimeJars());
     attributes.addInstrumentationMetadataEntries(args.getInstrumentationMetadata());
   }

@@ -17,12 +17,16 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.FileType;
 import java.util.Collection;
 
 /** An interface for objects that provide information on how to include them in Java builds. */
@@ -99,5 +103,42 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
         javaCompilationArgs.build(),
         recursiveJavaCompilationArgs.build(),
         compileTimeJavaDepArtifacts.build());
+  }
+
+  /**
+   * Returns a {@link JavaCompilationArgsProvider} for the given {@link TransitiveInfoCollection}s.
+   *
+   * <p>If the given targets have a {@link JavaCompilationArgsProvider}, the information from that
+   * provider will be returned. Otherwise, any jar files provided by the targets will be wrapped in
+   * the returned provider.
+   *
+   * @deprecated The handling of raw jar files is present for legacy compatibility. All new
+   *     Java-based rules should require their dependencies to provide {@link
+   *     JavaCompilationArgsProvider}, and that precompiled jar files be wrapped in {@code
+   *     java_import}. New rules should not use this method, and existing rules should be cleaned up
+   *     to disallow jar files in their deps.
+   */
+  // TODO(b/11285003): disallow jar files in deps, require java_import instead
+  @Deprecated
+  public static JavaCompilationArgsProvider legacyFromTargets(
+      Iterable<? extends TransitiveInfoCollection> infos) {
+    JavaCompilationArgs.Builder argsBuilder = JavaCompilationArgs.builder();
+    JavaCompilationArgs.Builder recursiveArgsBuilder = JavaCompilationArgs.builder();
+    for (TransitiveInfoCollection info : infos) {
+      JavaCompilationArgsProvider provider =
+          JavaInfo.getProvider(JavaCompilationArgsProvider.class, info);
+      if (provider != null) {
+        argsBuilder.addTransitiveArgs(provider.getJavaCompilationArgs(), ClasspathType.BOTH);
+        recursiveArgsBuilder.addTransitiveArgs(
+            provider.getRecursiveJavaCompilationArgs(), ClasspathType.BOTH);
+      } else {
+        NestedSet<Artifact> filesToBuild = info.getProvider(FileProvider.class).getFilesToBuild();
+        for (Artifact jar : FileType.filter(filesToBuild, JavaSemantics.JAR)) {
+          argsBuilder.addRuntimeJar(jar).addCompileTimeJarAsFullJar(jar);
+          recursiveArgsBuilder.addRuntimeJar(jar).addCompileTimeJarAsFullJar(jar);
+        }
+      }
+    }
+    return create(argsBuilder.build(), recursiveArgsBuilder.build());
   }
 }
