@@ -13,9 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import com.google.common.hash.Hashing;
-import com.google.common.hash.HashingOutputStream;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
@@ -26,7 +23,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Codec for {@link NestedSet} that uses the {@link NestedSetStore}.
@@ -36,10 +32,12 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
 
-  private final ConcurrentHashMap<ByteString, Object> fingerprintToContents =
-      new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<Object, ByteString> contentsToFingerprint =
-      new ConcurrentHashMap<>();
+  private final NestedSetStore nestedSetStore;
+
+  /** Creates a NestedSetCodecWithStore that will use the given {@link NestedSetStore}. */
+  public NestedSetCodecWithStore(NestedSetStore nestedSetStore) {
+    this.nestedSetStore = nestedSetStore;
+  }
 
   @SuppressWarnings("unchecked")
   @Override
@@ -64,7 +62,7 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
     if (obj.isEmpty()) {
       return;
     }
-    ByteString fingerprint = serializeToFingerprint(obj.rawChildren(), context);
+    ByteString fingerprint = nestedSetStore.computeFingerprintAndStore(obj.rawChildren(), context);
     codedOut.writeByteArrayNoTag(fingerprint.toByteArray());
   }
 
@@ -83,53 +81,7 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
     }
 
     ByteString fingerprint = ByteString.copyFrom(codedIn.readByteArray());
-    Object members = fingerprintToContents.get(fingerprint);
+    Object members = nestedSetStore.getContentsAndDeserialize(fingerprint, context);
     return new NestedSet<>(order, members);
-  }
-
-  private ByteString serializeToFingerprint(
-      Object children, SerializationContext serializationContext) throws SerializationException {
-    // For every fingerprint computation, we need to use a new memoization table.  This is required
-    // to guarantee that the same child will always have the same fingerprint - otherwise,
-    // differences in memoization context could cause part of a child to be memoized in one
-    // fingerprinting but not in the other.  We expect this clearing of memoization state to be a
-    // major source of extra work over the naive serialization approach.  The same value may have to
-    // be serialized many times across separate fingerprintings.
-    SerializationContext newSerializationContext = serializationContext.getNewMemoizingContext();
-
-    HashingOutputStream hashingOutputStream =
-        new HashingOutputStream(Hashing.md5(), ByteStreams.nullOutputStream());
-    CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(hashingOutputStream);
-
-    try {
-      if (children instanceof Object[]) {
-        for (Object child : (Object[]) children) {
-          if (child instanceof Object[]) {
-            ByteString fingerprint = contentsToFingerprint.get(child);
-            // If this fingerprint is not yet known, we recurse to compute it.
-            if (fingerprint == null) {
-              fingerprint = serializeToFingerprint(child, serializationContext);
-            }
-            codedOutputStream.writeBytesNoTag(fingerprint);
-          } else {
-            newSerializationContext.serialize(child, codedOutputStream);
-          }
-        }
-      } else {
-        newSerializationContext.serialize(children, codedOutputStream);
-      }
-      codedOutputStream.flush();
-    } catch (IOException e) {
-      throw new SerializationException(
-          "Could not serialize " + children + ": " + e.getMessage(), e);
-    }
-
-    ByteString fingerprint = ByteString.copyFrom(hashingOutputStream.hash().asBytes());
-
-    // Update the bimap
-    fingerprintToContents.put(fingerprint, children);
-    contentsToFingerprint.put(children, fingerprint);
-
-    return fingerprint;
   }
 }

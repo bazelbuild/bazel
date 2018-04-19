@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.protobuf.ByteString;
 import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
@@ -94,6 +95,9 @@ public final class NestedSet<E> implements Iterable<E> {
         for (E member : directOrder) {
           if (member instanceof Object[]) {
             throw new IllegalArgumentException("cannot store Object[] in NestedSet");
+          }
+          if (member instanceof ByteString) {
+            throw new IllegalArgumentException("cannot store ByteString in NestedSet");
           }
           if (!alreadyInserted.contains(member)) {
             children[n++] = member;

@@ -52,13 +52,13 @@ public class NestedSetCodecTest {
   }
 
   @Test
-  public void testCacheBasedCodec() throws Exception {
+  public void testCodecWithInMemoryNestedSetStore() throws Exception {
     ObjectCodecs objectCodecs =
         new ObjectCodecs(
             AutoRegistry.get()
                 .getBuilder()
                 .setAllowDefaultCodec(true)
-                .add(new NestedSetCodecWithStore<>())
+                .add(new NestedSetCodecWithStore<>(new NestedSetStore()))
                 .build(),
             ImmutableMap.of());
     checkCodec(objectCodecs);
