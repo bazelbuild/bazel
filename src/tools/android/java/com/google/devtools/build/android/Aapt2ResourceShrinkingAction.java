@@ -111,6 +111,7 @@ public class Aapt2ResourceShrinkingAction {
           .outputAsProto(aapt2ConfigOptions.resourceTableAsProto)
           .buildVersion(aapt2ConfigOptions.buildToolsVersion)
           .includeOnlyConfigs(aapt2ConfigOptions.resourceConfigs)
+          .debug(aapt2ConfigOptions.debug)
           .link(compiled)
           .copyPackageTo(options.shrunkApk)
           .copyRTxtTo(options.rTxtOutput);

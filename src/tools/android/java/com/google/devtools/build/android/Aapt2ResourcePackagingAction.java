@@ -174,6 +174,7 @@ public class Aapt2ResourcePackagingAction {
               .buildVersion(aaptConfigOptions.buildToolsVersion)
               .conditionalKeepRules(aaptConfigOptions.conditionalKeepRules == TriState.YES)
               .filterToDensity(options.densities)
+              .debug(aaptConfigOptions.debug)
               .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
               .link(compiled)
               .copyPackageTo(options.packagePath)
