@@ -61,6 +61,7 @@ cc_autoconf = repository_rule(
         "CPLUS_INCLUDE_PATH",
         "CUDA_COMPUTE_CAPABILITIES",
         "CUDA_PATH",
+        "GCOV",
         "HOMEBREW_RUBY_PATH",
         "NO_WHOLE_ARCHIVE_OPTION",
         "USE_DYNAMIC_CRT",

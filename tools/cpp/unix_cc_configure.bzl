@@ -85,24 +85,21 @@ def _find_tool(repository_ctx, tool, overriden_tools):
     return overriden_tools[tool]
   return which(repository_ctx, tool, "/usr/bin/" + tool)
 
-def _get_tool_paths(repository_ctx, darwin, cc, overriden_tools):
+def _get_tool_paths(repository_ctx, overriden_tools):
   """Compute the path to the various tools. Doesn't %-escape the result!"""
   return dict({k: _find_tool(repository_ctx, k, overriden_tools)
           for k in [
+              "ar",
               "ld",
               "cpp",
+              "gcc",
               "dwp",
               "gcov",
               "nm",
               "objcopy",
               "objdump",
               "strip",
-          ]}.items() + {
-              "gcc": cc,
-              "ar": "/usr/bin/libtool"
-                    if darwin else which(repository_ctx, "ar", "/usr/bin/ar")
-          }.items())
-
+          ]}.items())
 
 def _escaped_cplus_include_paths(repository_ctx):
   """Use ${CPLUS_INCLUDE_PATH} to compute the %-escaped list of flags for cxxflag."""
@@ -384,38 +381,47 @@ def _coverage_feature(darwin):
     }
   """
 
-def find_cc(repository_ctx, overriden_tools):
-  """Find the C++ compiler. Doesn't %-escape the result."""
+def _find_generic(repository_ctx, name, env_name, overriden_tools):
+  """Find a generic C++ toolchain tool. Doesn't %-escape the result."""
 
-  if "gcc" in overriden_tools:
-    return overriden_tools["gcc"]
+  if name in overriden_tools:
+    return overriden_tools[name]
 
-  cc_name = "gcc"
-  cc_environ = repository_ctx.os.environ.get("CC")
-  cc_paren = ""
-  if cc_environ != None:
-    cc_environ = cc_environ.strip()
-    if cc_environ:
-      cc_name = cc_environ
-      cc_paren = " (%s)" % cc_environ
-  if cc_name.startswith("/"):
+  result = name
+  env_value = repository_ctx.os.environ.get(env_name)
+  env_value_with_paren = ""
+  if env_value != None:
+    env_value = env_value.strip()
+    if env_value:
+      result = env_value
+      env_value_with_paren = " (%s)" % env_value
+  if result.startswith("/"):
     # Absolute path, maybe we should make this suported by our which function.
-    return cc_name
-  cc = repository_ctx.which(cc_name)
-  if cc == None:
+    return result
+  result = repository_ctx.which(result)
+  if result == None:
     fail(
-        ("Cannot find gcc or CC%s, either correct your path or set the CC"
-         + " environment variable") % cc_paren)
-  return cc
+        ("Cannot find %s or %s%s, either correct your path or set the %s"
+         + " environment variable") % (name, env_name, env_value_with_paren, env_name))
+  return result
+
+def find_cc(repository_ctx, overriden_tools):
+  return _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
 
 def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
   """Configure C++ toolchain on Unix platforms."""
   repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
   darwin = cpu_value == "darwin"
-  cc = find_cc(repository_ctx, overriden_tools)
-  tool_paths = _get_tool_paths(repository_ctx, darwin,
-                               "cc_wrapper.sh" if darwin else str(cc),
-                               overriden_tools)
+
+  cc = _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
+  overriden_tools = dict(overriden_tools)
+  overriden_tools["gcc"] = cc
+  overriden_tools["gcov"] = _find_generic(repository_ctx, "gcov", "GCOV", overriden_tools)
+  if darwin:
+    overriden_tools["gcc"] = "cc_wrapper.sh"
+    overriden_tools["ar"] = "/usr/bin/libtool"
+
+  tool_paths = _get_tool_paths(repository_ctx, overriden_tools)
   crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
   opt_content = _opt_content(darwin)
   dbg_content = _dbg_content()
