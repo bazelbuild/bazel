@@ -286,6 +286,9 @@ public interface SkyFunction {
 
     /**
      * Register dependencies on keys without necessarily requiring their values.
+     *
+     * <p>WARNING: Dependencies here MUST be done! Only use this function if you know what you're
+     * doing.
      */
     default void registerDependencies(Iterable<SkyKey> keys) throws InterruptedException {
       getValues(keys);
