@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
@@ -266,7 +265,7 @@ public class VanillaJavaBuilder implements Closeable {
       OptionsParser optionsParser, StandardJavaFileManager fileManager, CompilationTask task) {
     ClassLoader processorLoader =
         fileManager.getClassLoader(StandardLocation.ANNOTATION_PROCESSOR_PATH);
-    Builder<Processor> processors = ImmutableList.builder();
+    ImmutableList.Builder<Processor> processors = ImmutableList.builder();
     for (String processor : optionsParser.getProcessorNames()) {
       try {
         processors.add(
