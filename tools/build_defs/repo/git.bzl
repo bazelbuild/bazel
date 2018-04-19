@@ -84,7 +84,7 @@ set -ex
 def _new_git_repository_implementation(ctx):
   if ((not ctx.attr.build_file and not ctx.attr.build_file_content) or
       (ctx.attr.build_file and ctx.attr.build_file_content)):
-    fail('Exactly one of build_file and build_file_content must be provided.')
+    fail('Exactly one of build_file or build_file_content must be provided.')
   _clone_or_update(ctx)
   workspace_and_buildfile(ctx)
   patch(ctx)

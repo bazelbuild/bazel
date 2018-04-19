@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
+import com.google.devtools.build.lib.skyframe.WorkspaceMappingsFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameFunction;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -410,6 +411,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             SkyFunctions.WORKSPACE_FILE,
             new WorkspaceFileFunction(ruleClassProvider, pkgFactory, directories))
         .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
+        .put(SkyFunctions.WORKSPACE_MAPPINGS, new WorkspaceMappingsFunction())
         .put(
             SkyFunctions.PACKAGE,
             new PackageFunction(

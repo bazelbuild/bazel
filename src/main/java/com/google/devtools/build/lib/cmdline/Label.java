@@ -117,6 +117,17 @@ public final class Label
    */
   public static Label parseAbsolute(String absName, boolean defaultToMain)
       throws LabelSyntaxException {
+    return parseAbsoluteWithRemapping(absName, defaultToMain, null);
+  }
+
+  public interface RepoMapper {
+    RepositoryName localToGlobalName(RepositoryName localName);
+  }
+
+  public static Label parseAbsoluteWithRemapping(String absName,
+      boolean defaultToMain,
+      @Nullable RepoMapper repoMapper)
+      throws LabelSyntaxException {
     String repo = defaultToMain ? "@" : RepositoryName.DEFAULT_REPOSITORY;
     int packageStartPos = absName.indexOf("//");
     if (packageStartPos > 0) {
@@ -134,7 +145,11 @@ public final class Label
       if (repo.isEmpty() && ABSOLUTE_PACKAGE_NAMES.contains(packageFragment)) {
         repo = "@";
       }
-      return create(PackageIdentifier.create(repo, packageFragment), labelParts.getTargetName());
+      RepositoryName repoName = RepositoryName.create(repo);
+      if (repoMapper != null) {
+        repoName = repoMapper.localToGlobalName(repoName);
+      }
+      return create(PackageIdentifier.create(repoName, packageFragment), labelParts.getTargetName());
     } catch (BadLabelException e) {
       throw new LabelSyntaxException(e.getMessage());
     }
@@ -479,13 +494,18 @@ public final class Label
       )
     }
   )
+
   public Label getRelative(String relName) throws LabelSyntaxException {
+    return getRelative(relName, null);
+  }
+
+  public Label getRelative(String relName, @Nullable RepoMapper repoMapper) throws LabelSyntaxException {
     if (relName.length() == 0) {
       throw new LabelSyntaxException("empty package-relative label");
     }
 
     if (LabelValidator.isAbsolute(relName)) {
-      return resolveRepositoryRelative(parseAbsolute(relName, false));
+      return resolveRepositoryRelative(parseAbsoluteWithRemapping(relName, false, repoMapper));
     } else if (relName.equals(":")) {
       throw new LabelSyntaxException("':' is not a valid package-relative label");
     } else if (relName.charAt(0) == ':') {

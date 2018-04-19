@@ -238,6 +238,42 @@ EOF
   bazel build @bar//:depend-on-foo || fail "Expected build to succeed"
 }
 
+function test_repository_reassignment() {
+  # Repository a refers to @x
+  mkdir -p a
+  touch a/WORKSPACE
+  cat > a/BUILD<<EOF
+genrule(name = "a",
+        srcs = ["@x//:x.txt"],
+        outs = ["result.txt"],
+        cmd = "echo \$(location @x//:x.txt) > \$(location result.txt); cat \$(location @x//:x.txt)>> \$(location result.txt);"
+)
+EOF
+
+
+  # Repository b is a substitute for x
+  mkdir -p b
+  touch b/WORKSPACE
+  cat >b/BUILD <<EOF
+exports_files(srcs = ["x.txt"])
+EOF
+  echo "Hello from @b//:x.txt" > b/x.txt
+
+  # Main repo assigns @x to @b within @a
+  mkdir -p main
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+
+local_repository(name = "a", path="../a", assignments = {"@x" : "@b"})
+local_repository(name = "b", path="../b")
+EOF
+  touch main/BUILD
+
+  cd main
+  bazel build @a//:a || fail "Expected build to succeed"
+  grep "external/b/x.txt" bazel-genfiles/external/a/result.txt || fail "expected external/b/x.txt in $(cat bazel-genfiles/external/a/result.txt)"
+}
+
 function test_workspace_override() {
   mkdir -p original
   touch original/WORKSPACE

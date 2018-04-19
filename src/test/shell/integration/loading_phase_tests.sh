@@ -324,4 +324,83 @@ function test_no_package_loading_on_benign_workspace_file_changes() {
   expect_log "//foo:shname2"
 }
 
+function test_package_loading_with_remapping_changes() {
+  # structure is
+  # workspace/
+  #   WORKSPACE (name=main)
+  #   lily/
+  #     WORKSPACE (name=lily)
+  #     BUILD (:orchid)
+  #   daisy/
+  #     WORKSPACE (name=daisy)
+  #     BUILD (:daffodil)
+
+  mkdir lily
+  mkdir daisy
+  echo 'workspace(name="daisy")' > daisy/WORKSPACE
+  echo 'sh_library(name="daffodil")' > daisy/BUILD
+  cat > lily/WORKSPACE <<EOF
+workspace(name="lily")
+local_repository(
+    name = "daisy",
+    path="../daisy",
+    assignments = {"@tulip" : "@rose"}
+)
+EOF
+  echo 'sh_library(name="orchid")' > lily/BUILD
+
+  # TODO(b/37617303): make tests UI-independent
+  bazel query --noexperimental_ui //lily:all >& "$TEST_log" \
+      || fail "Expected success"
+  expect_log "Loading package: lily"
+  expect_log "//lily:orchid"
+
+  # TODO(b/37617303): make tests UI-independent
+  bazel query --noexperimental_ui //daisy:all >& "$TEST_log" \
+      || fail "Expected success"
+  expect_log "Loading package: daisy"
+  expect_log "//daisy:daffodil"
+
+
+  # Test that adding comment doesn't cause reload
+  echo '#benign comment' >> lily/WORKSPACE
+  echo '#benign comment' >> daisy/WORKSPACE
+
+  # TODO(b/37617303): make tests UI-independent
+  bazel query --noexperimental_ui //lily:all >& "$TEST_log" \
+      || fail "Expected success"
+  expect_not_log "Loading package: lily"
+  expect_log "//lily:orchid"
+
+  # TODO(b/37617303): make tests UI-independent
+  bazel query --noexperimental_ui //daisy:all >& "$TEST_log" \
+      || fail "Expected success"
+  expect_not_log "Loading package: daisy"
+  expect_log "//daisy:daffodil"
+
+
+  # Test that changing mapping does cause reload
+  cat > lily/WORKSPACE <<EOF
+workspace(name="lily")
+local_repository(
+    name = "daisy",
+    path="../daisy",
+    assignments = {"@tulip" : "@iris"}
+)
+EOF
+
+  # TODO(b/37617303): make tests UI-independent
+  bazel query --noexperimental_ui //lily:all >& "$TEST_log" \
+      || fail "Expected success"
+  expect_not_log "Loading package: lily"
+  expect_log "//lily:orchid"
+
+  # TODO(b/37617303): make tests UI-independent
+  bazel query --noexperimental_ui //daisy:all >& "$TEST_log" \
+      || fail "Expected success"
+  expect_not_log "Loading package: daisy"
+  expect_log "//daisy:daffodil"
+
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

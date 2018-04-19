@@ -27,6 +27,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.RepoMapper;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -38,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -67,23 +67,28 @@ public final class LocationExpander {
   private static final boolean USE_EXEC_PATHS = true;
 
   private final RuleErrorConsumer ruleErrorConsumer;
-  private final ImmutableMap<String, Function<String, String>> functions;
+  private final Label.RepoMapper repoMapper;
+  private final ImmutableMap<String, LocationFunction> functions;
 
   @VisibleForTesting
   LocationExpander(
       RuleErrorConsumer ruleErrorConsumer,
-      Map<String, Function<String, String>> functions) {
+      Label.RepoMapper repoMapper,
+      Map<String, LocationFunction> functions) {
     this.ruleErrorConsumer = ruleErrorConsumer;
+    this.repoMapper = repoMapper;
     this.functions = ImmutableMap.copyOf(functions);
   }
 
   private LocationExpander(
       RuleErrorConsumer ruleErrorConsumer,
       Label root,
+      Label.RepoMapper repoMapper,
       Supplier<Map<Label, Collection<Artifact>>> locationMap,
       boolean execPaths) {
     this(
         ruleErrorConsumer,
+        repoMapper,
         allLocationFunctions(root, locationMap, execPaths));
   }
 
@@ -105,6 +110,7 @@ public final class LocationExpander {
     this(
         ruleContext,
         ruleContext.getLabel(),
+        ruleContext.getLabelParsingContext(),
         // Use a memoizing supplier to avoid eagerly building the location map.
         Suppliers.memoize(
             () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData)),
@@ -118,7 +124,6 @@ public final class LocationExpander {
    * $(execpath)/$(execpaths) using Artifact.getExecPath().
    *
    * @param ruleContext BUILD rule
-   * @param labelMap A mapping of labels to build artifacts.
    */
   public static LocationExpander withRunfilesPaths(RuleContext ruleContext) {
     return new LocationExpander(ruleContext, null, false, false);
@@ -209,7 +214,7 @@ public final class LocationExpander {
       // (2) Call appropriate function to obtain string replacement.
       String functionValue = value.substring(nextWhitespace + 1, end).trim();
       try {
-        String replacement = functions.get(fname).apply(functionValue);
+        String replacement = functions.get(fname).apply(functionValue, repoMapper);
         result.append(replacement);
       } catch (IllegalStateException ise) {
         reporter.report(ise.getMessage());
@@ -223,7 +228,7 @@ public final class LocationExpander {
   }
 
   @VisibleForTesting
-  static final class LocationFunction implements Function<String, String> {
+  static final class LocationFunction {
     private static final int MAX_PATHS_SHOWN = 5;
 
     private final Label root;
@@ -242,11 +247,10 @@ public final class LocationExpander {
       this.multiple = multiple;
     }
 
-    @Override
-    public String apply(String arg) {
+    public String apply(String arg, Label.RepoMapper repoMapper) {
       Label label;
       try {
-        label = root.getRelative(arg);
+        label = root.getRelative(arg, repoMapper);
       } catch (LabelSyntaxException e) {
         throw new IllegalStateException(
             String.format(
@@ -327,9 +331,9 @@ public final class LocationExpander {
     }
   }
 
-  static ImmutableMap<String, Function<String, String>> allLocationFunctions(
+  static ImmutableMap<String, LocationFunction> allLocationFunctions(
       Label root, Supplier<Map<Label, Collection<Artifact>>> locationMap, boolean execPaths) {
-    return new ImmutableMap.Builder<String, Function<String, String>>()
+    return new ImmutableMap.Builder<String, LocationFunction>()
         .put("location", new LocationFunction(root, locationMap, execPaths, EXACTLY_ONE))
         .put("locations", new LocationFunction(root, locationMap, execPaths, ALLOW_MULTIPLE))
         .put("rootpath", new LocationFunction(root, locationMap, USE_ROOT_PATHS, EXACTLY_ONE))

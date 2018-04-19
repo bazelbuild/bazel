@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConf
 import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -69,9 +70,12 @@ import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.WorkspaceMappingsValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -246,11 +250,33 @@ public final class ConfiguredTargetFactory {
       @Nullable ToolchainContext toolchainContext)
       throws InterruptedException, ActionConflictException {
     if (target instanceof Rule) {
+//      SkyKey externalPackageKey = PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+//      PackageValue externalPackageValue =
+//          (PackageValue) analysisEnvironment.getSkyframeEnv().getValue(externalPackageKey);
+//      if (externalPackageValue == null) {
+//        return null;
+//      }
+//      ImmutableMap<RepositoryName, RepositoryName> workspaceMappings = externalPackageValue
+//          .getPackage().getWorkspaceMappings(target.getLabel().getPackageIdentifier().getRepository());
+
+      WorkspaceMappingsValue workspaceMappingsValue =
+          (WorkspaceMappingsValue) analysisEnvironment.getSkyframeEnv()
+              .getValue(WorkspaceMappingsValue.key(target.getLabel().getPackageIdentifier().getRepository()));
+      if(workspaceMappingsValue == null) {
+        return null;
+      }
+      ImmutableMap<RepositoryName, RepositoryName> workspaceMappings =
+          workspaceMappingsValue.getWorkspaceMappings();
+
       try {
         CurrentRuleTracker.beginConfiguredTarget(((Rule) target).getRuleClassObject());
         return createRule(
             analysisEnvironment,
             (Rule) target,
+            localName -> {
+              RepositoryName globalName = workspaceMappings.get(localName);
+              return globalName != null ? globalName : localName;
+            },
             config,
             hostConfig,
             prerequisiteMap,
@@ -313,6 +339,7 @@ public final class ConfiguredTargetFactory {
   private ConfiguredTarget createRule(
       AnalysisEnvironment env,
       Rule rule,
+      Label.RepoMapper repoMapper,
       BuildConfiguration configuration,
       BuildConfiguration hostConfiguration,
       OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
@@ -331,6 +358,7 @@ public final class ConfiguredTargetFactory {
                 env,
                 rule,
                 ImmutableList.of(),
+                repoMapper,
                 configuration,
                 hostConfiguration,
                 ruleClassProvider.getLipoDataTransition(),
@@ -445,6 +473,7 @@ public final class ConfiguredTargetFactory {
             env,
             associatedTarget.getTarget().getAssociatedRule(),
             aspectPath,
+            null,
             aspectConfiguration,
             hostConfiguration,
             ruleClassProvider.getLipoDataTransition(),

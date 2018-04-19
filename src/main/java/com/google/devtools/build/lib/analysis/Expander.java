@@ -35,7 +35,7 @@ public final class Expander {
   private final RuleContext ruleContext;
   private final TemplateContext templateContext;
 
-  Expander(RuleContext ruleContext, TemplateContext templateContext) {
+  public Expander(RuleContext ruleContext, TemplateContext templateContext) {
     this.ruleContext = ruleContext;
     this.templateContext = templateContext;
   }

@@ -123,6 +123,12 @@ import javax.annotation.Nullable;
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
 
+  private final Label.RepoMapper repoMapper;
+
+  public Label.RepoMapper getLabelParsingContext() {
+    return repoMapper;
+  }
+
   /**
    * The configured version of FilesetEntry.
    */
@@ -212,6 +218,7 @@ public final class RuleContext extends TargetContext
             .stream()
             .map(a -> a.getDescriptor())
             .collect(ImmutableList.toImmutableList());
+    this.repoMapper = builder.repoMapper;
     this.configurationFragmentPolicy = builder.configurationFragmentPolicy;
     this.universalFragments = universalFragments;
     this.targetMap = targetMap;
@@ -1031,7 +1038,7 @@ public final class RuleContext extends TargetContext
   }
 
   public Expander getExpander() {
-    return new Expander(this, getConfigurationMakeVariableContext());
+    return getExpander(getConfigurationMakeVariableContext());
   }
 
   public ImmutableMap<String, String> getMakeVariables(Iterable<String> attributeNames) {
@@ -1396,6 +1403,7 @@ public final class RuleContext extends TargetContext
   public static final class Builder implements RuleErrorConsumer  {
     private final AnalysisEnvironment env;
     private final Rule rule;
+    private final Label.RepoMapper repoMapper;
     private final ConfigurationFragmentPolicy configurationFragmentPolicy;
     private ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
     private final BuildConfiguration configuration;
@@ -1414,6 +1422,7 @@ public final class RuleContext extends TargetContext
         AnalysisEnvironment env,
         Rule rule,
         ImmutableList<Aspect> aspects,
+        Label.RepoMapper repoMapper,
         BuildConfiguration configuration,
         BuildConfiguration hostConfiguration,
         PatchTransition disableLipoTransition,
@@ -1422,6 +1431,7 @@ public final class RuleContext extends TargetContext
       this.env = Preconditions.checkNotNull(env);
       this.rule = Preconditions.checkNotNull(rule);
       this.aspects = aspects;
+      this.repoMapper = repoMapper;
       this.configurationFragmentPolicy = Preconditions.checkNotNull(configurationFragmentPolicy);
       this.configuration = Preconditions.checkNotNull(configuration);
       this.hostConfiguration = Preconditions.checkNotNull(hostConfiguration);

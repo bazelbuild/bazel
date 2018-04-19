@@ -366,7 +366,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
    * @return the value associated to the key, or {@code null} if not present
    * @throws EvalException if the dict is frozen
    */
-  V remove(Object key, Location loc, Mutability mutability) throws EvalException {
+  public V remove(Object key, Location loc, Mutability mutability) throws EvalException {
     checkMutable(loc, mutability);
     return contents.remove(key);
   }
