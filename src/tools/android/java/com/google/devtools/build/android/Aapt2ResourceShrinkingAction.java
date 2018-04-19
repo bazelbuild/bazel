@@ -76,7 +76,8 @@ public class Aapt2ResourceShrinkingAction {
               executorService,
               workingResourcesDirectory,
               aapt2ConfigOptions.aapt2,
-              aapt2ConfigOptions.buildToolsVersion);
+              aapt2ConfigOptions.buildToolsVersion,
+              aapt2ConfigOptions.generatePseudoLocale);
       profiler.recordEndOf("setup").startTask("compile");
 
       final ResourcesZip resourcesZip =

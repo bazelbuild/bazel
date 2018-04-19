@@ -175,4 +175,14 @@ public class Aapt2ConfigOptions extends OptionsBase {
     help = "Generate the resource table as a protocol buffer."
   )
   public boolean resourceTableAsProto;
+
+  @Option(
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    name = "generatePseudoLocale",
+    defaultValue = "false",
+    category = "config",
+    help = "Whether to generate pseudo locales during compilation."
+  )
+  public boolean generatePseudoLocale;
 }

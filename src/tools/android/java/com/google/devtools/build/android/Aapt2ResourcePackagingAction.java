@@ -117,12 +117,13 @@ public class Aapt2ResourcePackagingAction {
 
      
         profiler.startTask("compile");
-        final ResourceCompiler compiler =
-            ResourceCompiler.create(
-                executorService,
-                compiledResources,
-                aaptConfigOptions.aapt2,
-                aaptConfigOptions.buildToolsVersion);
+      final ResourceCompiler compiler =
+          ResourceCompiler.create(
+              executorService,
+              compiledResources,
+              aaptConfigOptions.aapt2,
+              aaptConfigOptions.buildToolsVersion,
+              aaptConfigOptions.generatePseudoLocale);
 
         CompiledResources compiled =
             options
