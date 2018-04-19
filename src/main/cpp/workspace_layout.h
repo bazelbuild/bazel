@@ -48,13 +48,9 @@ class WorkspaceLayout {
   // Returns if workspace is a valid build workspace.
   virtual bool InWorkspace(const std::string& workspace) const;
 
-  // Returns the candidate master RC file absolute paths.
-  // All readable files from the result will be used. Empty or nonexistant files
-  // will be ignored. It is ok if no usable candidate exists.
-  virtual std::vector<std::string> FindCandidateBlazercPaths(
+  // Returns the path of the workspace rc file.
+  virtual std::string GetWorkspaceRcPath(
       const std::string& workspace,
-      const std::string& cwd,
-      const std::string& path_to_binary,
       const std::vector<std::string>& startup_args) const;
 
   // Turn a %workspace%-relative import into its true name in the filesystem.

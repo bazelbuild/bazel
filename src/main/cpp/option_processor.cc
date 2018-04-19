@@ -129,52 +129,45 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
       new CommandLine(path_to_binary, startup_args, command, command_args));
 }
 
-// Return the path to the user's rc file.  If cmdLineRcFile != NULL,
-// use it, dying if it is not readable.  Otherwise, return the first
-// readable file called rc_basename from [workspace, $HOME]
-//
-// If no readable .blazerc file is found, return the empty string.
 blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
-    const char* cmdLineRcFile,
-    const string& workspace,
-    string* blaze_rc_file,
-    string* error) {
+    const char* cmd_line_rc_file, const string& workspace,
+    string* user_blazerc_file, string* error) const {
   const string rc_basename =
       "." + parsed_startup_options_->GetLowercaseProductName() + "rc";
 
-  if (cmdLineRcFile != NULL) {
-    string rcFile = MakeAbsolute(cmdLineRcFile);
+  if (cmd_line_rc_file != nullptr) {
+    string rcFile = MakeAbsolute(cmd_line_rc_file);
     if (!blaze_util::CanReadFile(rcFile)) {
       blaze_util::StringPrintf(error,
           "Error: Unable to read %s file '%s'.", rc_basename.c_str(),
           rcFile.c_str());
       return blaze_exit_code::BAD_ARGV;
     }
-    *blaze_rc_file = rcFile;
+    *user_blazerc_file = rcFile;
     return blaze_exit_code::SUCCESS;
   }
 
   string workspaceRcFile = blaze_util::JoinPath(workspace, rc_basename);
   if (blaze_util::CanReadFile(workspaceRcFile)) {
-    *blaze_rc_file = workspaceRcFile;
+    *user_blazerc_file = workspaceRcFile;
     return blaze_exit_code::SUCCESS;
   }
 
   string home = blaze::GetHomeDir();
-  if (home.empty()) {
-    *blaze_rc_file = "";
-    return blaze_exit_code::SUCCESS;
+  if (!home.empty()) {
+    string userRcFile = blaze_util::JoinPath(home, rc_basename);
+    if (blaze_util::CanReadFile(userRcFile)) {
+      *user_blazerc_file = userRcFile;
+      return blaze_exit_code::SUCCESS;
+    }
   }
 
-  string userRcFile = blaze_util::JoinPath(home, rc_basename);
-  if (blaze_util::CanReadFile(userRcFile)) {
-    *blaze_rc_file = userRcFile;
-    return blaze_exit_code::SUCCESS;
-  }
-  *blaze_rc_file = "";
+  BAZEL_LOG(INFO) << "User provided no rc file.";
+  *user_blazerc_file = "";
   return blaze_exit_code::SUCCESS;
 }
 
+// TODO(#4502 related cleanup) This should be an anonymous namespace.
 namespace internal {
 
 vector<string> DedupeBlazercPaths(const vector<string>& paths) {
@@ -191,6 +184,18 @@ vector<string> DedupeBlazercPaths(const vector<string>& paths) {
     }
   }
   return result;
+}
+
+string FindRcAlongsideBinary(const string& cwd, const string& path_to_binary) {
+  const string path = blaze_util::IsAbsolute(path_to_binary)
+                          ? path_to_binary
+                          : blaze_util::JoinPath(cwd, path_to_binary);
+  const string base = blaze_util::Basename(path_to_binary);
+  const string binary_blazerc_path = path + "." + base + "rc";
+  if (blaze_util::CanReadFile(binary_blazerc_path)) {
+    return binary_blazerc_path;
+  }
+  return "";
 }
 
 blaze_exit_code::ExitCode ParseErrorToExitCode(RcFile::ParseError parse_error) {
@@ -210,73 +215,107 @@ blaze_exit_code::ExitCode ParseErrorToExitCode(RcFile::ParseError parse_error) {
 
 }  // namespace internal
 
-// Parses the arguments provided in args using the workspace path and the
-// current working directory (cwd) and stores the results.
-blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
-    const vector<string>& args,
-    const string& workspace,
-    const string& cwd,
-    string* error) {
+// TODO(#4502) Consider simplifying result_rc_files to a vector of RcFiles, no
+// unique_ptrs.
+blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
+    const WorkspaceLayout* workspace_layout, const std::string& workspace,
+    const std::string& cwd, const CommandLine* cmd_line,
+    std::vector<std::unique_ptr<RcFile>>* result_rc_files,
+    std::string* error) const {
+  assert(cmd_line != nullptr);
+  assert(result_rc_files != nullptr);
 
+  // Find the master bazelrcs if requested. This list may contain duplicates.
+  vector<string> candidate_bazelrc_paths;
+  if (SearchNullaryOption(cmd_line->startup_args, "master_blazerc", true) &&
+      SearchNullaryOption(cmd_line->startup_args, "master_bazelrc", true)) {
+    const string workspace_rc =
+        workspace_layout->GetWorkspaceRcPath(workspace, cmd_line->startup_args);
+    const string binary_rc =
+        internal::FindRcAlongsideBinary(cwd, cmd_line->path_to_binary);
+    const string system_rc = FindSystemWideBlazerc();
+    BAZEL_LOG(INFO)
+        << "Looking for master bazelrcs in the following three paths: "
+        << workspace_rc << ", " << binary_rc << ", " << system_rc;
+    candidate_bazelrc_paths = {workspace_rc, binary_rc, system_rc};
+  }
+
+  const char* blazerc = SearchUnaryOption(cmd_line->startup_args, "--blazerc");
+  if (blazerc == nullptr) {
+    blazerc = SearchUnaryOption(cmd_line->startup_args, "--bazelrc");
+  }
+  string user_bazelrc_path;
+  blaze_exit_code::ExitCode find_bazelrc_exit_code =
+      FindUserBlazerc(blazerc, workspace, &user_bazelrc_path, error);
+  if (find_bazelrc_exit_code != blaze_exit_code::SUCCESS) {
+    return find_bazelrc_exit_code;
+  }
+
+  vector<string> deduped_blazerc_paths =
+      internal::DedupeBlazercPaths(candidate_bazelrc_paths);
+  deduped_blazerc_paths.push_back(user_bazelrc_path);
+
+  for (const auto& bazelrc_path : deduped_blazerc_paths) {
+    if (bazelrc_path.empty()) {
+      continue;
+    }
+    std::unique_ptr<RcFile> parsed_rc;
+    blaze_exit_code::ExitCode parse_rcfile_exit_code = ParseRcFile(
+        workspace_layout, workspace, bazelrc_path, &parsed_rc, error);
+    if (parse_rcfile_exit_code != blaze_exit_code::SUCCESS) {
+      return parse_rcfile_exit_code;
+    }
+    result_rc_files->push_back(std::move(parsed_rc));
+  }
+
+  return blaze_exit_code::SUCCESS;
+}
+
+blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
+                                      const std::string& workspace,
+                                      const std::string& rc_file_path,
+                                      std::unique_ptr<RcFile>* result_rc_file,
+                                      std::string* error) {
+  assert(!rc_file_path.empty());
+  assert(result_rc_file != nullptr);
+
+  RcFile::ParseError parse_error;
+  std::unique_ptr<RcFile> parsed_file = RcFile::Parse(
+      rc_file_path, workspace_layout, workspace, &parse_error, error);
+  if (parsed_file == nullptr) {
+    return internal::ParseErrorToExitCode(parse_error);
+  }
+  *result_rc_file = std::move(parsed_file);
+  return blaze_exit_code::SUCCESS;
+}
+
+blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
+    const vector<string>& args, const string& workspace, const string& cwd,
+    string* error) {
   cmd_line_ = SplitCommandLine(args, error);
   if (cmd_line_ == nullptr) {
     return blaze_exit_code::BAD_ARGV;
   }
-  const char* blazerc = SearchUnaryOption(cmd_line_->startup_args, "--blazerc");
-  if (blazerc == NULL) {
-    blazerc = SearchUnaryOption(cmd_line_->startup_args, "--bazelrc");
+
+  // Populate rc_files_. This depends on the startup options in argv since these
+  // may contain rc-modifying options. For all other options, the precedence of
+  // options will be rc first, then command line options, though, despite this
+  // exception.
+  const blaze_exit_code::ExitCode rc_parsing_exit_code = GetRcFiles(
+      workspace_layout_, workspace, cwd, cmd_line_.get(), &rc_files_, error);
+  if (rc_parsing_exit_code != blaze_exit_code::SUCCESS) {
+    return rc_parsing_exit_code;
   }
 
-  bool use_master_blazerc = true;
-  if (!SearchNullaryOption(cmd_line_->startup_args, "master_blazerc", true) ||
-      !SearchNullaryOption(cmd_line_->startup_args, "master_bazelrc", true)) {
-    use_master_blazerc = false;
-  }
-
-  // Use the workspace path, the current working directory, the path to the
-  // blaze binary and the startup args to determine the list of possible
-  // paths to the rc files. This list may contain duplicates.
-  vector<string> candidate_blazerc_paths;
-  if (use_master_blazerc) {
-    candidate_blazerc_paths =
-        workspace_layout_->FindCandidateBlazercPaths(
-            workspace, cwd, cmd_line_->path_to_binary, cmd_line_->startup_args);
-  }
-
-  string user_blazerc_path;
-  blaze_exit_code::ExitCode find_blazerc_exit_code = FindUserBlazerc(
-      blazerc, workspace, &user_blazerc_path, error);
-  if (find_blazerc_exit_code != blaze_exit_code::SUCCESS) {
-    return find_blazerc_exit_code;
-  }
-
-  vector<string> deduped_blazerc_paths =
-      internal::DedupeBlazercPaths(candidate_blazerc_paths);
-  // TODO(b/37731193): Decide whether the user blazerc should be included in
-  // the deduplication process. If so then we need to handle all cases
-  // (e.g. user rc coming from process substitution).
-  deduped_blazerc_paths.push_back(user_blazerc_path);
-
-  for (const auto& blazerc_path : deduped_blazerc_paths) {
-    if (!blazerc_path.empty()) {
-      RcFile::ParseError parse_error;
-      auto rcfile = RcFile::Parse(blazerc_path, workspace_layout_, workspace,
-                                  &parse_error, error);
-      if (rcfile == nullptr) {
-        return internal::ParseErrorToExitCode(parse_error);
-      }
-      blazercs_.push_back(std::move(rcfile));
-    }
-  }
-
-  blaze_exit_code::ExitCode parse_startup_options_exit_code =
+  // Parse the startup options in the correct priority order.
+  const blaze_exit_code::ExitCode parse_startup_options_exit_code =
       ParseStartupOptions(error);
   if (parse_startup_options_exit_code != blaze_exit_code::SUCCESS) {
     return parse_startup_options_exit_code;
   }
 
   blazerc_and_env_command_args_ =
-      GetBlazercAndEnvCommandArgs(cwd, blazercs_, GetProcessedEnv());
+      GetBlazercAndEnvCommandArgs(cwd, rc_files_, GetProcessedEnv());
   return blaze_exit_code::SUCCESS;
 }
 
@@ -326,7 +365,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
   // option_sources tracking and for sending to the server.
   std::vector<RcStartupFlag> rcstartup_flags;
 
-  for (const auto& blazerc : blazercs_) {
+  for (const auto& blazerc : rc_files_) {
     const auto iter = blazerc->options().find("startup");
     if (iter == blazerc->options().end()) continue;
 

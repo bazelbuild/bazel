@@ -34,6 +34,7 @@ cc_test(
     deps = [
         "//src/main/cpp:blaze_util",
         "//src/main/cpp:option_processor",
+        "//src/main/cpp:rc_file",
         "//src/main/cpp:workspace_layout",
         "//src/main/cpp/util",
         "@com_google_googletest//:gtest_main",

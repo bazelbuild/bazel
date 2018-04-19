@@ -56,31 +56,10 @@ string WorkspaceLayout::GetPrettyWorkspaceName(
   return blaze_util::Basename(workspace);
 }
 
-static string FindAlongsideBinaryBlazerc(const string& cwd,
-                                         const string& path_to_binary) {
-  // TODO(b/32115171): This doesn't work on Windows. Fix this together with the
-  // associated bug.
-  const string path = blaze_util::IsAbsolute(path_to_binary)
-                          ? path_to_binary
-                          : blaze_util::JoinPath(cwd, path_to_binary);
-  const string base = blaze_util::Basename(path_to_binary);
-  const string binary_blazerc_path = path + "." + base + "rc";
-  if (blaze_util::CanReadFile(binary_blazerc_path)) {
-    return binary_blazerc_path;
-  }
-  return "";
-}
-
-vector<string> WorkspaceLayout::FindCandidateBlazercPaths(
-    const string& workspace,
-    const string& cwd,
-    const string& path_to_binary,
-    const vector<string>& startup_args) const {
-  return {
-    blaze_util::JoinPath(workspace, "tools/bazel.rc"),
-    FindAlongsideBinaryBlazerc(cwd, path_to_binary),
-    FindSystemWideBlazerc(),
-  };
+std::string WorkspaceLayout::GetWorkspaceRcPath(
+    const std::string &workspace,
+    const std::vector<std::string> &startup_args) const {
+  return blaze_util::JoinPath(workspace, "tools/bazel.rc");
 }
 
 bool WorkspaceLayout::WorkspaceRelativizeRcFilePath(const string &workspace,

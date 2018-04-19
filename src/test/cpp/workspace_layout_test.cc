@@ -67,31 +67,4 @@ TEST_F(WorkspaceLayoutTest, GetWorkspace) {
   ASSERT_EQ(build_root_, workspace_layout_->GetWorkspace(cwd));
 }
 
-TEST_F(WorkspaceLayoutTest, FindCandidateBlazercPaths) {
-  const std::string binary_dir = blaze_util::JoinPath(build_root_, "bazeldir");
-  const std::string tools_dir = blaze_util::JoinPath(build_root_, "tools");
-  const std::string workspace_rc_path =
-      blaze_util::JoinPath(build_root_, "tools/bazel.rc");
-  const std::string binary_rc_path =
-      blaze_util::JoinPath(binary_dir, "bazel.bazelrc");
-  ASSERT_TRUE(blaze_util::MakeDirectories(binary_dir, 0755));
-  ASSERT_TRUE(blaze_util::MakeDirectories(tools_dir, 0755));
-  ASSERT_TRUE(blaze_util::WriteFile("", workspace_rc_path, 0755));
-  ASSERT_TRUE(blaze_util::WriteFile("", binary_rc_path, 0755));
-
-  std::vector<std::string> expected = {workspace_rc_path, binary_rc_path};
-  std::vector<std::string> actual =
-      workspace_layout_->FindCandidateBlazercPaths(
-          build_root_, build_root_, "bazeldir/bazel", {});
-  // The third entry is the system wide blazerc path, /etc/bazel.bazelrc, which
-  // we do not mock within this test because it is not within the sandbox. It
-  // may or may not exist on the system running the test, so we do not check for
-  // it.
-  // TODO(https://github.com/bazelbuild/bazel/issues/4502): Make the system-wide
-  // master bazelrc location configurable and add test coverage for it.
-  std::vector<std::string> actual_first_two_entries(actual.begin(),
-                                                    actual.begin() + 2);
-  ASSERT_EQ(expected, actual_first_two_entries);
-}
-
 }  // namespace blaze

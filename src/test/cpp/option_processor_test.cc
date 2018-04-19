@@ -17,6 +17,7 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor-internal.h"
+#include "src/main/cpp/rc_file.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/workspace_layout.h"
@@ -166,6 +167,46 @@ TEST_F(OptionProcessorTest, CanParseDifferentStartupArgs) {
 
   EXPECT_EQ(std::vector<std::string>({}),
             option_processor_->GetExplicitCommandArguments());
+}
+
+TEST_F(OptionProcessorTest, GetRcFilesLoadsAllMasterBazelrcs) {
+  // We only test 2 of the 3 master bazelrc locations in this test. The third
+  // masterrc that should be loaded is the system wide blazerc path,
+  // /etc/bazel.bazelrc, which we do not mock within this test because it is not
+  // within the sandbox. It may or may not exist on the system running the test,
+  // so we do not check for it.
+  // TODO(#4502): Make the system-wide master bazelrc location configurable and
+  // add test coverage for it.
+  const std::string binary_dir = blaze_util::JoinPath(workspace_, "bazeldir");
+  const std::string tools_dir = blaze_util::JoinPath(workspace_, "tools");
+  const std::string workspace_rc_path =
+      blaze_util::JoinPath(tools_dir, "bazel.rc");
+  const std::string binary_rc_path =
+      blaze_util::JoinPath(binary_dir, "bazel.bazelrc");
+  const std::string binary_path = blaze_util::JoinPath(binary_dir, "bazel");
+  ASSERT_TRUE(blaze_util::MakeDirectories(binary_dir, 0755));
+  ASSERT_TRUE(blaze_util::MakeDirectories(tools_dir, 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("", workspace_rc_path, 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("", binary_rc_path, 0755));
+
+  const CommandLine cmd_line =
+      CommandLine(binary_path, {"--bazelrc=/dev/null"}, "build", {});
+  std::string error = "check that this string is not modified";
+  std::vector<std::unique_ptr<RcFile>> parsed_rcs;
+  const blaze_exit_code::ExitCode exit_code =
+      option_processor_->GetRcFiles(workspace_layout_.get(), workspace_, cwd_,
+                                    &cmd_line, &parsed_rcs, &error);
+  EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
+  EXPECT_EQ("check that this string is not modified", error);
+
+  // There should be 3-4 rc files, "/dev/null" does in some sense count as a
+  // file, and there's an optional /etc/ file the test environment cannot
+  // control. The first 2 rcs parsed should be the two rc files we expect.
+  ASSERT_LT(2, parsed_rcs.size());
+  const std::deque<std::string> expected_workspace_src = {workspace_rc_path};
+  const std::deque<std::string> expected_binary_src = {binary_rc_path};
+  EXPECT_EQ(expected_workspace_src, parsed_rcs[0].get()->sources());
+  EXPECT_EQ(expected_binary_src, parsed_rcs[1].get()->sources());
 }
 
 TEST_F(OptionProcessorTest, CommandLineBazelrcTest) {
