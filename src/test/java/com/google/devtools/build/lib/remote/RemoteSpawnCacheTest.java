@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -95,8 +95,8 @@ public class RemoteSpawnCacheTest {
 
   private StoredEventHandler eventHandler = new StoredEventHandler();
 
-  private final SpawnExecutionPolicy simplePolicy =
-      new SpawnExecutionPolicy() {
+  private final SpawnExecutionContext simplePolicy =
+      new SpawnExecutionContext() {
         @Override
         public int getId() {
           return 0;

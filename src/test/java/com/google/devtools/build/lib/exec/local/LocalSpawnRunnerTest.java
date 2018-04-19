@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -185,7 +185,7 @@ public class LocalSpawnRunnerTest {
     }
   }
 
-  private final class SpawnExecutionPolicyForTesting implements SpawnExecutionPolicy {
+  private final class SpawnExecutionContextForTesting implements SpawnExecutionContext {
     private final List<ProgressStatus> reportedStatus = new ArrayList<>();
     private final TreeMap<PathFragment, ActionInput> inputMapping = new TreeMap<>();
 
@@ -194,7 +194,7 @@ public class LocalSpawnRunnerTest {
     private boolean lockOutputFilesCalled;
     private FileOutErr fileOutErr;
 
-    public SpawnExecutionPolicyForTesting(FileOutErr fileOutErr) {
+    public SpawnExecutionContextForTesting(FileOutErr fileOutErr) {
       this.fileOutErr = fileOutErr;
     }
 
@@ -311,7 +311,7 @@ public class LocalSpawnRunnerTest {
             LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
+    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     policy.timeoutMillis = 123 * 1000L;
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
@@ -365,7 +365,7 @@ public class LocalSpawnRunnerTest {
             LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
+    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     policy.timeoutMillis = 123 * 1000L;
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
@@ -410,7 +410,7 @@ public class LocalSpawnRunnerTest {
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
+    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
     verify(factory).create(any(SubprocessBuilder.class));
     assertThat(result.status()).isEqualTo(SpawnResult.Status.NON_ZERO_EXIT);
@@ -456,7 +456,7 @@ public class LocalSpawnRunnerTest {
     assertThat(fs.getPath("/out").createDirectory()).isTrue();
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
+    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
     verify(factory).create(any(SubprocessBuilder.class));
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
@@ -490,7 +490,7 @@ public class LocalSpawnRunnerTest {
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     FileOutErr fileOutErr = new FileOutErr();
-    SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
+    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     SpawnResult reply = runner.exec(SIMPLE_SPAWN, policy);
     assertThat(reply.status()).isEqualTo(SpawnResult.Status.EXECUTION_DENIED);
     assertThat(reply.exitCode()).isEqualTo(-1);
@@ -539,7 +539,7 @@ public class LocalSpawnRunnerTest {
             LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
+    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     try {
       runner.exec(SIMPLE_SPAWN, policy);
@@ -570,7 +570,7 @@ public class LocalSpawnRunnerTest {
             LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
+    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     policy.timeoutMillis = 123 * 1000L;
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     runner.exec(SIMPLE_SPAWN, policy);
@@ -596,7 +596,7 @@ public class LocalSpawnRunnerTest {
             LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
+    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     policy.timeoutMillis = 123 * 1000L;
 
     Spawn spawn = new SpawnBuilder("/bin/echo", "Hi!")
@@ -626,7 +626,7 @@ public class LocalSpawnRunnerTest {
             localEnvProvider);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
+    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     policy.timeoutMillis = 123 * 1000L;
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
 
@@ -664,7 +664,7 @@ public class LocalSpawnRunnerTest {
             LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
+    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     policy.timeoutMillis = 321 * 1000L;
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
@@ -795,7 +795,7 @@ public class LocalSpawnRunnerTest {
             .build();
 
     FileOutErr fileOutErr = new FileOutErr();
-    SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
+    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
 
     SpawnResult spawnResult = runner.exec(spawn, policy);
 
@@ -856,7 +856,7 @@ public class LocalSpawnRunnerTest {
             .build();
 
     FileOutErr fileOutErr = new FileOutErr();
-    SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
+    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
 
     SpawnResult spawnResult = runner.exec(spawn, policy);
 

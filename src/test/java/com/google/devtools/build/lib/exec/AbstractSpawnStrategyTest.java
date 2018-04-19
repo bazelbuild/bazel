@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -72,7 +72,7 @@ public class AbstractSpawnStrategyTest {
     when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
     SpawnResult spawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
-    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class)))
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
         .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
@@ -81,7 +81,7 @@ public class AbstractSpawnStrategyTest {
     assertThat(spawnResults).containsExactly(spawnResult);
 
     // Must only be called exactly once.
-    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
+    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
   }
 
   @Test
@@ -94,8 +94,7 @@ public class AbstractSpawnStrategyTest {
             .setExitCode(1)
             .setRunnerName("test")
             .build();
-    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class)))
-        .thenReturn(result);
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class))).thenReturn(result);
 
     try {
       // Ignoring the List<SpawnResult> return value.
@@ -105,7 +104,7 @@ public class AbstractSpawnStrategyTest {
       assertThat(e.getSpawnResult()).isSameAs(result);
     }
     // Must only be called exactly once.
-    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
+    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
   }
 
   @Test
@@ -113,7 +112,7 @@ public class AbstractSpawnStrategyTest {
     SpawnCache cache = mock(SpawnCache.class);
     SpawnResult spawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
-    when(cache.lookup(any(Spawn.class), any(SpawnExecutionPolicy.class)))
+    when(cache.lookup(any(Spawn.class), any(SpawnExecutionContext.class)))
         .thenReturn(SpawnCache.success(spawnResult));
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(cache);
     when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
@@ -121,7 +120,7 @@ public class AbstractSpawnStrategyTest {
     List<SpawnResult> spawnResults =
         new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
     assertThat(spawnResults).containsExactly(spawnResult);
-    verify(spawnRunner, never()).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
+    verify(spawnRunner, never()).exec(any(Spawn.class), any(SpawnExecutionContext.class));
   }
 
   @SuppressWarnings("unchecked")
@@ -129,7 +128,7 @@ public class AbstractSpawnStrategyTest {
   public void testCacheMiss() throws Exception {
     SpawnCache cache = mock(SpawnCache.class);
     CacheHandle entry = mock(CacheHandle.class);
-    when(cache.lookup(any(Spawn.class), any(SpawnExecutionPolicy.class))).thenReturn(entry);
+    when(cache.lookup(any(Spawn.class), any(SpawnExecutionContext.class))).thenReturn(entry);
     when(entry.hasResult()).thenReturn(false);
     when(entry.willStore()).thenReturn(true);
 
@@ -137,7 +136,7 @@ public class AbstractSpawnStrategyTest {
     when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
     SpawnResult spawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
-    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class)))
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
         .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
@@ -146,7 +145,7 @@ public class AbstractSpawnStrategyTest {
     assertThat(spawnResults).containsExactly(spawnResult);
 
     // Must only be called exactly once.
-    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
+    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
     verify(entry).store(eq(spawnResult), any(Collection.class));
   }
 
@@ -155,7 +154,7 @@ public class AbstractSpawnStrategyTest {
   public void testCacheMissWithNonZeroExit() throws Exception {
     SpawnCache cache = mock(SpawnCache.class);
     CacheHandle entry = mock(CacheHandle.class);
-    when(cache.lookup(any(Spawn.class), any(SpawnExecutionPolicy.class))).thenReturn(entry);
+    when(cache.lookup(any(Spawn.class), any(SpawnExecutionContext.class))).thenReturn(entry);
     when(entry.hasResult()).thenReturn(false);
     when(entry.willStore()).thenReturn(true);
 
@@ -167,7 +166,7 @@ public class AbstractSpawnStrategyTest {
             .setExitCode(1)
             .setRunnerName("test")
             .build();
-    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class))).thenReturn(result);
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class))).thenReturn(result);
 
     try {
       // Ignoring the List<SpawnResult> return value.
@@ -177,7 +176,7 @@ public class AbstractSpawnStrategyTest {
       assertThat(e.getSpawnResult()).isSameAs(result);
     }
     // Must only be called exactly once.
-    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
+    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
     verify(entry).store(eq(result), any(Collection.class));
   }
 }

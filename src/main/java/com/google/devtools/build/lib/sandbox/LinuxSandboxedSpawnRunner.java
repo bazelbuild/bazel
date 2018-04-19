@@ -117,10 +117,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
+  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox base, execroot and temporary directory.
-    Path sandboxPath = sandboxBase.getRelative(Integer.toString(policy.getId()));
+    Path sandboxPath = sandboxBase.getRelative(Integer.toString(context.getId()));
     sandboxPath.createDirectory();
 
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
@@ -134,7 +134,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
-    Duration timeout = policy.getTimeout();
+    Duration timeout = context.getTimeout();
 
     LinuxSandboxUtil.CommandLineBuilder commandLineBuilder =
         LinuxSandboxUtil.commandLineBuilder(linuxSandbox, spawn.getArguments())
@@ -170,7 +170,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               sandboxPath,
               commandLineBuilder.build(),
               environment,
-              SandboxHelpers.getInputFiles(spawn, policy, execRoot),
+              SandboxHelpers.getInputFiles(spawn, context, execRoot),
               outputs,
               ImmutableSet.of());
     } else {
@@ -180,12 +180,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               sandboxExecRoot,
               commandLineBuilder.build(),
               environment,
-              SandboxHelpers.getInputFiles(spawn, policy, execRoot),
+              SandboxHelpers.getInputFiles(spawn, context, execRoot),
               outputs,
               writableDirs);
     }
 
-    return runSpawn(spawn, sandbox, policy, execRoot, timeout, statisticsPath);
+    return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
   }
 
   @Override

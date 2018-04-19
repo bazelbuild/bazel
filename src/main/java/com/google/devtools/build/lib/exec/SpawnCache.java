@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.Closeable;
 import java.io.IOException;
@@ -99,7 +99,7 @@ public interface SpawnCache extends ActionContext {
   )
   public static class NoSpawnCache implements SpawnCache {
     @Override
-    public CacheHandle lookup(Spawn spawn, SpawnExecutionPolicy context) {
+    public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context) {
       return SpawnCache.NO_RESULT_NO_STORE;
     }
   }
@@ -156,12 +156,12 @@ public interface SpawnCache extends ActionContext {
    * Perform a spawn lookup. This method is similar to {@link SpawnRunner#exec}, taking the same
    * parameters and being allowed to throw the same exceptions. The intent for this method is to
    * compute a cache lookup key for the given spawn, looking it up in an implementation-dependent
-   * cache (can be either on the local or remote machine), and returning a non-null
-   * {@link CacheHandle} instance.
+   * cache (can be either on the local or remote machine), and returning a non-null {@link
+   * CacheHandle} instance.
    *
    * <p>If the lookup was successful, this method should write the cached outputs to their
    * corresponding output locations in the output tree, as well as stdout and stderr, after
-   * notifying {@link SpawnExecutionPolicy#lockOutputFiles}.
+   * notifying {@link SpawnExecutionContext#lockOutputFiles}.
    *
    * <p>If the lookup was unsuccessful, this method can return a {@link CacheHandle} instance that
    * has no result, but uploads the results of the execution to the cache. The reason for a callback
@@ -173,6 +173,6 @@ public interface SpawnCache extends ActionContext {
    * <p>Note that cache stores may be disabled, in which case the returned {@link CacheHandle}
    * instance's {@link CacheHandle#store} is a no-op.
    */
-  CacheHandle lookup(Spawn spawn, SpawnExecutionPolicy context)
+  CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException;
 }

@@ -63,10 +63,10 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   }
 
   @Override
-  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
+  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox.
-    Path sandboxPath = sandboxBase.getRelative(Integer.toString(policy.getId()));
+    Path sandboxPath = sandboxBase.getRelative(Integer.toString(context.getId()));
     sandboxPath.createDirectory();
 
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
@@ -78,7 +78,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, "/tmp");
 
-    Duration timeout = policy.getTimeout();
+    Duration timeout = context.getTimeout();
     ProcessWrapperUtil.CommandLineBuilder commandLineBuilder =
         ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(), spawn.getArguments())
             .setTimeout(timeout);
@@ -97,11 +97,11 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
             sandboxExecRoot,
             commandLineBuilder.build(),
             environment,
-            SandboxHelpers.getInputFiles(spawn, policy, execRoot),
+            SandboxHelpers.getInputFiles(spawn, context, execRoot),
             SandboxHelpers.getOutputFiles(spawn),
             getWritableDirs(sandboxExecRoot, environment));
 
-    return runSpawn(spawn, sandbox, policy, execRoot, timeout, statisticsPath);
+    return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
   }
 
   @Override

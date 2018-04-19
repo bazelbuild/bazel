@@ -30,6 +30,7 @@ import java.util.SortedMap;
  * or without sandboxing, on a remote machine, or only consult a remote cache.
  *
  * <h2>Environment Variables</h2>
+ *
  * <ul>
  *   <li>Implementations MUST set the specified environment variables.
  *   <li>Implementations MAY add TMPDIR as an additional env variable, if it is not set already.
@@ -38,12 +39,14 @@ import java.util.SortedMap;
  * </ul>
  *
  * <h2>Command line</h2>
+ *
  * <ul>
  *   <li>Implementations MUST use the specified command line unmodified by default.
  *   <li>Implementations MAY modify the specified command line if explicitly requested by the user.
  * </ul>
  *
  * <h2>Process</h2>
+ *
  * <ul>
  *   <li>Implementations MUST be thread-safe.
  *   <li>Implementations MUST ensure that all child processes (including transitive) exit in all
@@ -53,30 +56,32 @@ import java.util.SortedMap;
  *   <li>Implementations MUST be interruptible; they MUST throw {@link InterruptedException} from
  *       {@link #exec} when interrupted
  *   <li>Implementations MUST apply the specified timeout to the execution of the subprocess
- *     <ul>
- *       <li>If no timeout is specified, the implementation MAY apply an implementation-specific
- *           timeout
- *       <li>If the specified timeout is larger than an implementation-dependent maximum, then the
- *           implementation MUST throw {@link IllegalArgumentException}; it MUST not silently change
- *           the timeout to a smaller value
- *       <li>If the timeout is exceeded, the implementation MUST throw TimeoutException, with the
- *           timeout that was applied to the subprocess (TODO)
- *     </ul>
+ *       <ul>
+ *         <li>If no timeout is specified, the implementation MAY apply an implementation-specific
+ *             timeout
+ *         <li>If the specified timeout is larger than an implementation-dependent maximum, then the
+ *             implementation MUST throw {@link IllegalArgumentException}; it MUST not silently
+ *             change the timeout to a smaller value
+ *         <li>If the timeout is exceeded, the implementation MUST throw TimeoutException, with the
+ *             timeout that was applied to the subprocess (TODO)
+ *       </ul>
  * </ul>
  *
  * <h2>Optimistic Concurrency</h2>
+ *
  * Bazel may choose to execute a spawn using multiple {@link SpawnRunner} implementations
  * simultaneously in order to minimize total latency. This is especially useful for builds with few
  * actions where remotely executing the actions incurs high round trip times.
+ *
  * <ul>
- *   <li>All implementations MUST call {@link SpawnExecutionPolicy#lockOutputFiles} before writing
+ *   <li>All implementations MUST call {@link SpawnExecutionContext#lockOutputFiles} before writing
  *       to any of the output files, but may write to stdout and stderr without calling it. Instead,
  *       all callers must provide temporary locations for stdout & stderr if they ever call multiple
  *       {@link SpawnRunner} implementations concurrently. Spawn runners that use the local machine
  *       MUST either call it before starting the subprocess, or ensure that subprocesses write to
  *       temporary locations (for example by running in a mount namespace) and then copy or move the
  *       outputs into place.
- *   <li>Implementations SHOULD delay calling {@link SpawnExecutionPolicy#lockOutputFiles} until
+ *   <li>Implementations SHOULD delay calling {@link SpawnExecutionContext#lockOutputFiles} until
  *       just before writing.
  * </ul>
  */
@@ -113,15 +118,15 @@ public interface SpawnRunner {
   }
 
   /**
-   * A helper class to provide additional tools and methods to {@link SpawnRunner} implementations.
+   * A context that binds a {@link Spawn} to a {@link SpawnRunner}.
    *
    * <p>This interface may change without notice.
    *
-   * <p>Implementations must be at least thread-compatible, i.e., they must be safe as long as
-   * each instance is only used within a single thread. Different instances of the same class may
-   * be used by different threads, so they MUST not call any shared non-thread-safe objects.
+   * <p>Implementations must be at least thread-compatible, i.e., they must be safe as long as each
+   * instance is only used within a single thread. Different instances of the same class may be used
+   * by different threads, so they MUST not call any shared non-thread-safe objects.
    */
-  public interface SpawnExecutionPolicy {
+  interface SpawnExecutionContext {
     /**
      * Returns a unique id for this spawn, to be used for logging. Note that a single spawn may be
      * passed to multiple {@link SpawnRunner} implementations, so any log entries should also
@@ -192,17 +197,15 @@ public interface SpawnRunner {
    * Run the given spawn.
    *
    * @param spawn the spawn to run
-   * @param policy a helper that provides additional parameters
+   * @param context the spawn execution context
    * @return the result from running the spawn
    * @throws InterruptedException if the calling thread was interrupted, or if the runner could not
-   *         lock the output files (see {@link SpawnExecutionPolicy#lockOutputFiles()})
+   *     lock the output files (see {@link SpawnExecutionContext#lockOutputFiles()})
    * @throws IOException if something went wrong reading or writing to the local file system
    * @throws ExecException if the request is malformed
    */
-  SpawnResult exec(
-      Spawn spawn,
-      SpawnExecutionPolicy policy)
-          throws InterruptedException, IOException, ExecException;
+  SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
+      throws InterruptedException, IOException, ExecException;
 
   /* Name of the SpawnRunner. */
   String getName();

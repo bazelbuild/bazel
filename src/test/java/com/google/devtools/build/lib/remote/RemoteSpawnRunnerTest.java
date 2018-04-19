@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
@@ -161,7 +161,7 @@ public class RemoteSpawnRunnerTest {
         /*outputs=*/ ImmutableList.<ActionInput>of(),
         ResourceSet.ZERO);
 
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     runner.exec(spawn, policy);
 
@@ -219,7 +219,7 @@ public class RemoteSpawnRunnerTest {
         /*outputs=*/ ImmutableList.<ActionInput>of(),
         ResourceSet.ZERO);
 
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     runner.exec(spawn, policy);
 
@@ -261,7 +261,7 @@ public class RemoteSpawnRunnerTest {
                 logDir));
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     SpawnResult res = Mockito.mock(SpawnResult.class);
     when(res.exitCode()).thenReturn(1);
@@ -292,7 +292,7 @@ public class RemoteSpawnRunnerTest {
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(failedAction);
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     RemoteSpawnRunner runner =
         spy(
@@ -345,7 +345,7 @@ public class RemoteSpawnRunnerTest {
             logDir);
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     when(cache.getCachedActionResult(any(ActionKey.class)))
         .thenThrow(new IOException("cache down"));
@@ -402,7 +402,7 @@ public class RemoteSpawnRunnerTest {
             logDir);
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
 
@@ -442,7 +442,7 @@ public class RemoteSpawnRunnerTest {
             logDir);
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenThrow(new IOException());
 
@@ -482,7 +482,7 @@ public class RemoteSpawnRunnerTest {
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     IOException err = new IOException("local execution error");
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
@@ -524,7 +524,7 @@ public class RemoteSpawnRunnerTest {
                 .build());
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
@@ -564,7 +564,7 @@ public class RemoteSpawnRunnerTest {
                 "", 1, new ExecutionStatusException(resp.getStatus(), resp)));
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
@@ -602,7 +602,7 @@ public class RemoteSpawnRunnerTest {
                 .build());
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
@@ -642,7 +642,7 @@ public class RemoteSpawnRunnerTest {
                 .build());
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.SUCCESS);
@@ -686,7 +686,7 @@ public class RemoteSpawnRunnerTest {
 
     Spawn spawn = newSimpleSpawn();
 
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
@@ -733,7 +733,7 @@ public class RemoteSpawnRunnerTest {
 
     Spawn spawn = newSimpleSpawn();
 
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
@@ -781,7 +781,7 @@ public class RemoteSpawnRunnerTest {
 
     Spawn spawn = newSimpleSpawn();
 
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
@@ -818,7 +818,7 @@ public class RemoteSpawnRunnerTest {
 
     Spawn spawn = newSimpleSpawn();
 
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
@@ -855,7 +855,7 @@ public class RemoteSpawnRunnerTest {
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     try {
       runner.exec(spawn, policy);
@@ -891,7 +891,7 @@ public class RemoteSpawnRunnerTest {
     when(cache.getCachedActionResult(any(ActionKey.class))).thenThrow(new IOException());
 
     Spawn spawn = newSimpleSpawn();
-    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     try {
       runner.exec(spawn, policy);
@@ -914,14 +914,14 @@ public class RemoteSpawnRunnerTest {
   }
 
   // TODO(buchgr): Extract a common class to be used for testing.
-  class FakeSpawnExecutionPolicy implements SpawnExecutionPolicy {
+  class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
     private final ArtifactExpander artifactExpander =
         (artifact, output) -> output.add(artifact);
 
     private final Spawn spawn;
 
-    FakeSpawnExecutionPolicy(Spawn spawn) {
+    FakeSpawnExecutionContext(Spawn spawn) {
       this.spawn = spawn;
     }
 

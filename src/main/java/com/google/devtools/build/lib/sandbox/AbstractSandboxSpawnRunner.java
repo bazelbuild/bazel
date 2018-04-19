@@ -62,14 +62,14 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   }
 
   @Override
-  public SpawnResult exec(Spawn spawn, SpawnExecutionPolicy policy)
+  public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
-    policy.report(ProgressStatus.SCHEDULING, getName());
+    context.report(ProgressStatus.SCHEDULING, getName());
     try (ResourceHandle ignored =
         ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
-      policy.report(ProgressStatus.EXECUTING, getName());
-      return actuallyExec(spawn, policy);
+      context.report(ProgressStatus.EXECUTING, getName());
+      return actuallyExec(spawn, context);
     } catch (IOException e) {
       throw new UserExecException("I/O exception during sandboxed execution", e);
     }
@@ -78,25 +78,25 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   // TODO(laszlocsomor): refactor this class to make `actuallyExec`'s contract clearer: the caller
   // of `actuallyExec` should not depend on `actuallyExec` calling `runSpawn` because it's easy to
   // forget to do so in `actuallyExec`'s implementations.
-  protected abstract SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
+  protected abstract SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException;
 
   protected SpawnResult runSpawn(
       Spawn originalSpawn,
       SandboxedSpawn sandbox,
-      SpawnExecutionPolicy policy,
+      SpawnExecutionContext context,
       Path execRoot,
       Duration timeout,
       Path statisticsPath)
       throws IOException, InterruptedException {
     try {
       sandbox.createFileSystem();
-      OutErr outErr = policy.getFileOutErr();
-      policy.prefetchInputs();
+      OutErr outErr = context.getFileOutErr();
+      context.prefetchInputs();
 
       SpawnResult result = run(originalSpawn, sandbox, outErr, timeout, execRoot, statisticsPath);
 
-      policy.lockOutputFiles();
+      context.lockOutputFiles();
       try {
         // We copy the outputs even when the command failed.
         sandbox.copyOutputs(execRoot);

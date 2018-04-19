@@ -127,12 +127,12 @@ final class SandboxActionContextProvider extends ActionContextProvider {
     }
 
     @Override
-    public SpawnResult exec(Spawn spawn, SpawnExecutionPolicy policy)
+    public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
         throws InterruptedException, IOException, ExecException {
       if (!Spawns.mayBeSandboxed(spawn)) {
-        return fallbackSpawnRunner.exec(spawn, policy);
+        return fallbackSpawnRunner.exec(spawn, context);
       } else {
-        return sandboxSpawnRunner.exec(spawn, policy);
+        return sandboxSpawnRunner.exec(spawn, context);
       }
     }
   }

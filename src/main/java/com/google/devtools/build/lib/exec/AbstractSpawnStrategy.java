@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -74,9 +74,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       actionExecutionContext.reportSubcommand(spawn);
     }
     final Duration timeout = Spawns.getTimeout(spawn);
-    SpawnExecutionPolicy policy =
-        new SpawnExecutionPolicyImpl(
-            spawn, actionExecutionContext, writeOutputFiles, timeout);
+    SpawnExecutionContext context =
+        new SpawnExecutionContextImpl(spawn, actionExecutionContext, writeOutputFiles, timeout);
     // TODO(ulfjack): Provide a way to disable the cache. We don't want the RemoteSpawnStrategy to
     // check the cache twice. Right now that can't happen because this is hidden behind an
     // experimental flag.
@@ -88,12 +87,12 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     }
     SpawnResult spawnResult;
     try {
-      try (CacheHandle cacheHandle = cache.lookup(spawn, policy)) {
+      try (CacheHandle cacheHandle = cache.lookup(spawn, context)) {
         if (cacheHandle.hasResult()) {
           spawnResult = Preconditions.checkNotNull(cacheHandle.getResult());
         } else {
           // Actual execution.
-          spawnResult = spawnRunner.exec(spawn, policy);
+          spawnResult = spawnRunner.exec(spawn, context);
           if (cacheHandle.willStore()) {
             cacheHandle.store(
                 spawnResult, listExistingOutputFiles(spawn, actionExecutionContext.getExecRoot()));
@@ -133,7 +132,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     return outputFiles;
   }
 
-  private final class SpawnExecutionPolicyImpl implements SpawnExecutionPolicy {
+  private final class SpawnExecutionContextImpl implements SpawnExecutionContext {
     private final Spawn spawn;
     private final ActionExecutionContext actionExecutionContext;
     private final AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles;
@@ -144,7 +143,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     // TODO(ulfjack): Guard against client modification of this map.
     private SortedMap<PathFragment, ActionInput> lazyInputMapping;
 
-    public SpawnExecutionPolicyImpl(
+    public SpawnExecutionContextImpl(
         Spawn spawn,
         ActionExecutionContext actionExecutionContext,
         AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles,

@@ -193,10 +193,10 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
+  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
       throws IOException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox.
-    Path sandboxPath = sandboxBase.getRelative(Integer.toString(policy.getId()));
+    Path sandboxPath = sandboxBase.getRelative(Integer.toString(context.getId()));
     sandboxPath.createDirectory();
 
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
@@ -215,7 +215,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
 
     final Path sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");
-    Duration timeout = policy.getTimeout();
+    Duration timeout = context.getTimeout();
 
     ProcessWrapperUtil.CommandLineBuilder processWrapperCommandLineBuilder =
         ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(), spawn.getArguments())
@@ -241,7 +241,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     boolean allowNetworkForThisSpawn = allowNetwork || Spawns.requiresNetwork(spawn);
 
-    Map<PathFragment, Path> inputs = SandboxHelpers.getInputFiles(spawn, policy, execRoot);
+    Map<PathFragment, Path> inputs = SandboxHelpers.getInputFiles(spawn, context, execRoot);
 
     SandboxedSpawn sandbox;
     if (sandboxfsProcess != null) {
@@ -287,7 +287,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             }
           };
     }
-    return runSpawn(spawn, sandbox, policy, execRoot, timeout, statisticsPath);
+    return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
   }
 
   private void writeConfig(

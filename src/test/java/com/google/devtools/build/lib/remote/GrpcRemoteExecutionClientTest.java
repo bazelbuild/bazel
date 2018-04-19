@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -128,8 +128,8 @@ public class GrpcRemoteExecutionClientTest {
   private FileOutErr outErr;
   private Server fakeServer;
 
-  private final SpawnExecutionPolicy simplePolicy =
-      new SpawnExecutionPolicy() {
+  private final SpawnExecutionContext simplePolicy =
+      new SpawnExecutionContext() {
         @Override
         public int getId() {
           return 0;
