@@ -790,6 +790,7 @@ string GetHashedBaseDir(const string& root, const string& hashable) {
   // Using only 8 characters we represent 40 bits of the original 128.
   // Since the mapping is lossy and collisions are unlikely in practice, we'll
   // keep the mapping simple and just use the lower 5 bits of the first 8 bytes.
+  static const unsigned char kLower5BitsMask = 0x1F;
   static const int filename_length = 8;
   unsigned char md5[blaze_util::Md5Digest::kDigestLength];
   char coded_name[filename_length + 1];
@@ -797,7 +798,7 @@ string GetHashedBaseDir(const string& root, const string& hashable) {
   digest.Update(hashable.data(), hashable.size());
   digest.Finish(md5);
   for (int i = 0; i < filename_length; ++i) {
-    coded_name[i] = alphabet[md5[i] & 0x1F];
+    coded_name[i] = alphabet[md5[i] & kLower5BitsMask];
   }
   coded_name[filename_length] = '\0';
   return blaze_util::JoinPath(root, string(coded_name));
