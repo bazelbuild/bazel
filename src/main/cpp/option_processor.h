@@ -16,7 +16,6 @@
 #define BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_H_
 
 #include <list>
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -135,15 +134,9 @@ class OptionProcessor {
       std::string* user_blazerc_file, std::string* error) const;
 
  private:
-  blaze_exit_code::ExitCode ParseStartupOptions(std::string* error);
-
-  // The list of parsed rc files, this field is initialized by ParseOptions.
-  std::vector<std::unique_ptr<RcFile>> rc_files_;
-
-  // A map representing the flags parsed from the bazelrc files.
-  // A key is a command (e.g. 'build', 'startup') and its value is an ordered
-  // list of RcOptions.
-  std::map<std::string, std::vector<RcOption>> rcoptions_;
+  blaze_exit_code::ExitCode ParseStartupOptions(
+      const std::vector<std::unique_ptr<RcFile>>& rc_files,
+      std::string* error);
 
   // An ordered list of command args that contain information about the
   // execution environment and the flags passed via the bazelrc files.
