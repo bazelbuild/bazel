@@ -697,16 +697,18 @@ public class AndroidCommon {
     javaCommon.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
 
     DataBinding.maybeAddProvider(builder, ruleContext);
-    JavaInfo javaInfo = javaInfoBuilder
-        .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
-        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-        .addProvider(JavaPluginInfoProvider.class, JavaCommon.getTransitivePlugins(ruleContext))
-        .setRuntimeJars(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
-        .setNeverlink(isNeverlink)
-        .build();
+    JavaInfo javaInfo =
+        javaInfoBuilder
+            .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
+            .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+            .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+            .addProvider(JavaPluginInfoProvider.class, JavaCommon.getTransitivePlugins(ruleContext))
+            .setRuntimeJars(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
+            .setNeverlink(isNeverlink)
+            .build();
 
-    resourceApk.addToConfiguredTargetBuilder(builder, ruleContext.getLabel());
+    resourceApk.addToConfiguredTargetBuilder(
+        builder, ruleContext.getLabel(), /* includeSkylarkApiProvider = */ true);
 
     return builder
         .setFilesToBuild(filesToBuild)
@@ -825,8 +827,7 @@ public class AndroidCommon {
   private NestedSet<Artifact> collectHiddenTopLevelArtifacts(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (OutputGroupInfo provider :
-        getTransitivePrerequisites(
-            ruleContext, Mode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+        getTransitivePrerequisites(ruleContext, Mode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
       builder.addTransitive(provider.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
     }
     return builder.build();
@@ -934,4 +935,3 @@ public class AndroidCommon {
         .build();
   }
 }
-
