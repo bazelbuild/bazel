@@ -56,6 +56,17 @@ public class WorkerOptions extends OptionsBase {
   public int workerMaxInstances;
 
   @Option(
+      name = "high_priority_workers",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Mnemonics of workers to run with high priority. When high priority workers are running "
+              + "all other workers are throttled.",
+      allowMultiple = true)
+  public List<String> highPriorityWorkers;
+
+  @Option(
     name = "worker_quit_after_build",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

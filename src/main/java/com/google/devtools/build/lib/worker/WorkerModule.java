@@ -105,7 +105,7 @@ public class WorkerModule extends BlazeModule {
 
     if (workerPool == null) {
       workerPoolConfig = newConfig;
-      workerPool = new WorkerPool(workerFactory, workerPoolConfig);
+      workerPool = new WorkerPool(workerFactory, workerPoolConfig, options.highPriorityWorkers);
     }
   }
 

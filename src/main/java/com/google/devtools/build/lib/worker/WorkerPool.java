@@ -14,13 +14,12 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.base.Throwables;
-
+import com.google.common.collect.ImmutableSet;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.concurrent.ThreadSafe;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
-
-import java.io.IOException;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * A worker pool that spawns multiple workers and delegates work to them.
@@ -30,28 +29,93 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 final class WorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
+  private final AtomicInteger highPriorityWorkersInUse = new AtomicInteger(0);
+  private final ImmutableSet<String> highPriorityWorkerMnemonics;
 
-  public WorkerPool(WorkerFactory factory, GenericKeyedObjectPoolConfig config) {
+  /**
+   * @param factory worker factory
+   * @param config pool configuration
+   * @param highPriorityWorkers mnemonics of high priority workers
+   */
+  public WorkerPool(
+      WorkerFactory factory,
+      GenericKeyedObjectPoolConfig config,
+      Iterable<String> highPriorityWorkers) {
     super(factory, config);
+    highPriorityWorkerMnemonics = ImmutableSet.copyOf(highPriorityWorkers);
+  }
+
+  /**
+   * Gets a worker.
+   *
+   * @param key worker key
+   * @return a worker
+   */
+  @Override
+  public Worker borrowObject(WorkerKey key) throws IOException, InterruptedException {
+    Worker result;
+    try {
+      result = super.borrowObject(key);
+    } catch (Throwable t) {
+      Throwables.propagateIfPossible(t, IOException.class, InterruptedException.class);
+      throw new RuntimeException("unexpected", t);
+    }
+
+    if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
+      highPriorityWorkersInUse.incrementAndGet();
+    } else {
+      try {
+        waitForHighPriorityWorkersToFinish();
+      } catch (InterruptedException e) {
+        returnObject(key, result);
+        throw e;
+      }
+    }
+
+    return result;
   }
 
   @Override
-  public Worker borrowObject(WorkerKey key) throws IOException, InterruptedException {
+  public void returnObject(WorkerKey key, Worker obj) {
+    if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
+      decrementHighPriorityWorkerCount();
+    }
+    super.returnObject(key, obj);
+  }
+
+  @Override
+  public void invalidateObject(WorkerKey key, Worker obj) throws IOException, InterruptedException {
+    if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
+      decrementHighPriorityWorkerCount();
+    }
     try {
-      return super.borrowObject(key);
+      super.invalidateObject(key, obj);
     } catch (Throwable t) {
       Throwables.propagateIfPossible(t, IOException.class, InterruptedException.class);
       throw new RuntimeException("unexpected", t);
     }
   }
 
-  @Override
-  public void invalidateObject(WorkerKey key, Worker obj) throws IOException, InterruptedException {
-    try {
-      super.invalidateObject(key, obj);
-    } catch (Throwable t) {
-      Throwables.propagateIfPossible(t, IOException.class, InterruptedException.class);
-      throw new RuntimeException("unexpected", t);
+  // Decrements the high-priority workers counts and pings waiting threads if appropriate.
+  private void decrementHighPriorityWorkerCount() {
+    if (highPriorityWorkersInUse.decrementAndGet() <= 1) {
+      synchronized (highPriorityWorkersInUse) {
+        highPriorityWorkersInUse.notifyAll();
+      }
+    }
+  }
+
+  // Returns once less than two high-priority workers are running.
+  private void waitForHighPriorityWorkersToFinish() throws InterruptedException {
+    // Fast path for the case where the high-priority workers feature is not in use.
+    if (highPriorityWorkerMnemonics.isEmpty()) {
+      return;
+    }
+
+    while (highPriorityWorkersInUse.get() > 1) {
+      synchronized (highPriorityWorkersInUse) {
+        highPriorityWorkersInUse.wait();
+      }
     }
   }
 }
