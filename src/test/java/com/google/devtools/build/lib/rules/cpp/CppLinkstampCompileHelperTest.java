@@ -226,4 +226,60 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         ImmutableList.copyOf(linkstampCompileAction.getInputs());
     assertThat(linkstampInputs).containsAllOf(mainObject, bar);
   }
+
+  @Test
+  public void testLinkstampGetsCoptsFromOptions() throws Exception {
+    useConfiguration("--copt=-foo_copt_from_option");
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'foo',",
+        "  deps = ['a'],",
+        "  copts = [ '-bar_copt_from_attribute' ],",
+        ")",
+        "cc_library(",
+        "  name = 'a',",
+        "  srcs = [ 'a.cc' ],",
+        "  linkstamp = 'ls.cc',",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Artifact executable = getExecutable(target);
+    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    Artifact compiledLinkstamp =
+        ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
+    assertThat(generatingAction.getInputs()).contains(compiledLinkstamp);
+
+    CppCompileAction linkstampCompileAction =
+        (CppCompileAction) getGeneratingAction(compiledLinkstamp);
+    assertThat(linkstampCompileAction.getArguments()).contains("-foo_copt_from_option");
+  }
+
+  @Test
+  public void testLinkstampDoesNotGetCoptsFromAttribute() throws Exception {
+    useConfiguration("--copt=-foo_copt_from_option");
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'foo',",
+        "  deps = ['a'],",
+        "  copts = [ '-bar_copt_from_attribute' ],",
+        ")",
+        "cc_library(",
+        "  name = 'a',",
+        "  srcs = [ 'a.cc' ],",
+        "  linkstamp = 'ls.cc',",
+        "  copts = [ '-baz_copt_from_attribute' ],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Artifact executable = getExecutable(target);
+    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    Artifact compiledLinkstamp =
+        ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
+    assertThat(generatingAction.getInputs()).contains(compiledLinkstamp);
+
+    CppCompileAction linkstampCompileAction =
+        (CppCompileAction) getGeneratingAction(compiledLinkstamp);
+    assertThat(linkstampCompileAction.getArguments()).doesNotContain("-bar_copt_from_attribute");
+    assertThat(linkstampCompileAction.getArguments()).doesNotContain("-baz_copt_from_attribute");
+  }
 }
