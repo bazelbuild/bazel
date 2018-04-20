@@ -515,6 +515,7 @@ public class AndroidResourcesProcessorBuilder {
             AndroidDataConverter.rootsToString(primaryAssets.getAssetRoots()),
             primaryManifest.getManifest().getExecPathString()));
     inputs.addAll(primaryResources.getResources());
+    inputs.addAll(primaryAssets.getAssets());
     inputs.add(primaryManifest.getManifest());
 
     if (!Strings.isNullOrEmpty(sdk.getBuildToolsVersion())) {
