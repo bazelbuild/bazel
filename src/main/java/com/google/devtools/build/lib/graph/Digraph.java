@@ -356,10 +356,10 @@ public final class Digraph<T> implements Cloneable {
    * null pointer is not a valid label.
    */
   public Node<T> createNode(T label) {
-    return nodes.computeIfAbsent(label, this::createNodeNative);
+    return nodes.computeIfAbsent(label, Digraph::createNodeNative);
   }
 
-  private Node<T> createNodeNative(T label) {
+  private static <T> Node<T> createNodeNative(T label) {
     Preconditions.checkNotNull(label);
     return new Node<>(label);
   }
