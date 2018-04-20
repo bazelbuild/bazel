@@ -18,8 +18,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -33,18 +31,13 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
   category = SkylarkModuleCategory.PROVIDER,
   doc = "."
 )
-public final class CcExecutionDynamicLibrariesInfo extends NativeInfo {
-  public static final NativeProvider<CcExecutionDynamicLibrariesInfo> PROVIDER =
-      new NativeProvider<CcExecutionDynamicLibrariesInfo>(
-          CcExecutionDynamicLibrariesInfo.class, "CcExecutionDynamicLibrariesInfo") {};
-
+public final class CcExecutionDynamicLibrariesInfo {
   public static final CcExecutionDynamicLibrariesInfo EMPTY =
       new CcExecutionDynamicLibrariesInfo(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<Artifact> ccExecutionDynamicLibraries;
 
   public CcExecutionDynamicLibrariesInfo(NestedSet<Artifact> ccExecutionDynamicLibraries) {
-    super(PROVIDER);
     this.ccExecutionDynamicLibraries = ccExecutionDynamicLibraries;
   }
 

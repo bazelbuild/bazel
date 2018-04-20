@@ -119,7 +119,8 @@ public class CcCommonTest extends BuildViewTestCase {
     }
     assertThat(
             emptylib
-                .get(CcExecutionDynamicLibrariesInfo.PROVIDER)
+                .get(CcLinkingInfo.PROVIDER)
+                .getCcExecutionDynamicLibrariesInfo()
                 .getExecutionDynamicLibraryArtifacts()
                 .isEmpty())
         .isTrue();
@@ -231,7 +232,8 @@ public class CcCommonTest extends BuildViewTestCase {
             "           linkstatic=1)");
     assertThat(
             statically
-                .get(CcExecutionDynamicLibrariesInfo.PROVIDER)
+                .get(CcLinkingInfo.PROVIDER)
+                .getCcExecutionDynamicLibrariesInfo()
                 .getExecutionDynamicLibraryArtifacts()
                 .isEmpty())
         .isTrue();

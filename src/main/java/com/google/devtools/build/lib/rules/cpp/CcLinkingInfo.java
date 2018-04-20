@@ -15,9 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
@@ -41,13 +38,18 @@ public final class CcLinkingInfo extends NativeInfo {
 
   private final CcLinkParamsInfo ccLinkParamsInfo;
   private final CcRunfilesInfo ccRunfilesInfo;
+  private final CcExecutionDynamicLibrariesInfo ccExecutionDynamicLibrariesInfo;
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
-  CcLinkingInfo(CcLinkParamsInfo ccLinkParamsInfo, CcRunfilesInfo ccRunfilesInfo) {
+  CcLinkingInfo(
+      CcLinkParamsInfo ccLinkParamsInfo,
+      CcRunfilesInfo ccRunfilesInfo,
+      CcExecutionDynamicLibrariesInfo ccExecutionDynamicLibrariesInfo) {
     super(PROVIDER);
     this.ccLinkParamsInfo = ccLinkParamsInfo;
     this.ccRunfilesInfo = ccRunfilesInfo;
+    this.ccExecutionDynamicLibrariesInfo = ccExecutionDynamicLibrariesInfo;
   }
 
   public CcLinkParamsInfo getCcLinkParamsInfo() {
@@ -58,10 +60,15 @@ public final class CcLinkingInfo extends NativeInfo {
     return ccRunfilesInfo;
   }
 
+  public CcExecutionDynamicLibrariesInfo getCcExecutionDynamicLibrariesInfo() {
+    return ccExecutionDynamicLibrariesInfo;
+  }
+
   /** A Builder for {@link CcLinkingInfo}. */
   public static class Builder {
     CcLinkParamsInfo ccLinkParamsInfo;
     CcRunfilesInfo ccRunfilesInfo;
+    CcExecutionDynamicLibrariesInfo ccExecutionDynamicLibrariesInfo;
 
     public static CcLinkingInfo.Builder create() {
       return new CcLinkingInfo.Builder();
@@ -79,20 +86,15 @@ public final class CcLinkingInfo extends NativeInfo {
       return this;
     }
 
-    public CcLinkingInfo build() {
-      return new CcLinkingInfo(ccLinkParamsInfo, ccRunfilesInfo);
+    public Builder setCcExecutionDynamicLibrariesInfo(
+        CcExecutionDynamicLibrariesInfo ccExecutionDynamicLibrariesInfo) {
+      Preconditions.checkState(this.ccExecutionDynamicLibrariesInfo == null);
+      this.ccExecutionDynamicLibrariesInfo = ccExecutionDynamicLibrariesInfo;
+      return this;
     }
-  }
 
-  public static ImmutableList<CcLinkParamsInfo> getCcLinkParamsInfos(
-      Iterable<? extends TransitiveInfoCollection> deps) {
-    ImmutableList.Builder<CcLinkParamsInfo> ccLinkParamsInfosBuilder = ImmutableList.builder();
-    for (CcLinkingInfo ccLinkingInfo : AnalysisUtils.getProviders(deps, CcLinkingInfo.PROVIDER)) {
-      CcLinkParamsInfo ccLinkParamsInfo = ccLinkingInfo.getCcLinkParamsInfo();
-      if (ccLinkParamsInfo != null) {
-        ccLinkParamsInfosBuilder.add(ccLinkParamsInfo);
-      }
+    public CcLinkingInfo build() {
+      return new CcLinkingInfo(ccLinkParamsInfo, ccRunfilesInfo, ccExecutionDynamicLibrariesInfo);
     }
-    return ccLinkParamsInfosBuilder.build();
   }
 }
