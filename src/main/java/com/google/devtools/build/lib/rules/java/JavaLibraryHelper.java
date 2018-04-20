@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.OFF;
+import static com.google.devtools.build.lib.rules.java.JavaCommon.collectJavaCompilationArgs;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDe
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import java.util.ArrayList;
@@ -307,19 +307,25 @@ public final class JavaLibraryHelper {
    */
   public JavaCompilationArgsProvider buildCompilationArgsProvider(
       JavaCompilationArtifacts artifacts, boolean isReportedAsStrict, boolean isNeverlink) {
-    JavaCompilationArgsHelper compilationArgsHelper =
-        JavaCompilationArgsHelper.builder()
-            .setRecursive(false)
-            .setIsNeverLink(isNeverlink)
-            .setSrcLessDepsExport(false)
-            .setCompilationArtifacts(artifacts)
-            .setDepsCompilationArgs(deps)
-            .setExportsCompilationArgs(exports)
-            .build();
 
-    JavaCompilationArgs directArgs = getJavaCompilationArgs(compilationArgsHelper);
+    JavaCompilationArgs directArgs =
+        collectJavaCompilationArgs(
+            /* recursive= */ false,
+            /* isNeverLink= */ isNeverlink,
+            /* srcLessDepsExport= */ false,
+            artifacts,
+            deps,
+            /* runtimeDeps= */ ImmutableList.of(),
+            exports);
     JavaCompilationArgs transitiveArgs =
-        getJavaCompilationArgs(compilationArgsHelper.toBuilder().setRecursive(true).build());
+        collectJavaCompilationArgs(
+            /* recursive= */ true,
+            /* isNeverLink= */ isNeverlink,
+            /* srcLessDepsExport= */ false,
+            artifacts,
+            deps,
+            /* runtimeDeps= */ ImmutableList.of(),
+            exports);
 
     Artifact compileTimeDepArtifact = artifacts.getCompileTimeDependencyArtifact();
     NestedSet<Artifact> compileTimeJavaDepArtifacts = compileTimeDepArtifact != null 
@@ -347,22 +353,6 @@ public final class JavaLibraryHelper {
     attributes.addInstrumentationMetadataEntries(recursiveArgs.getInstrumentationMetadata());
   }
 
-  static JavaCompilationArgs getJavaCompilationArgs(JavaCompilationArgsHelper helper) {
-    ClasspathType type = helper.isNeverLink() ? ClasspathType.COMPILE_ONLY : ClasspathType.BOTH;
-    JavaCompilationArgs.Builder builder =
-        JavaCompilationArgs.builder()
-            .merge(helper.compilationArtifacts(), helper.isNeverLink())
-            .addTransitiveCompilationArgs(
-                helper.exportsCompilationArgs(), helper.recursive(), type);
-    // TODO(bazel-team): remove srcs-less behaviour after android_library users are refactored
-    if (helper.recursive() || helper.srcLessDepsExport()) {
-      builder
-          .addTransitiveCompilationArgs(helper.depsCompilationArgs(), helper.recursive(), type)
-          .addTransitiveCompilationArgs(
-              helper.runtimeDepsCompilationArgs(), helper.recursive(), ClasspathType.RUNTIME_ONLY);
-    }
-    return builder.build();
-  }
 
   private boolean isStrict() {
     return strictDepsMode != OFF;

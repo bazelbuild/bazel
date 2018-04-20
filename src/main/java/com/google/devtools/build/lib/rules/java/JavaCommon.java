@@ -266,23 +266,39 @@ public class JavaCommon {
    */
   public JavaCompilationArgs collectJavaCompilationArgs(
       boolean recursive, boolean isNeverLink, boolean srcLessDepsExport) {
-    return JavaLibraryHelper.getJavaCompilationArgs(
-        JavaCompilationArgsHelper.builder()
-            .setRecursive(recursive)
-            .setIsNeverLink(isNeverLink)
-            .setSrcLessDepsExport(srcLessDepsExport)
-            .setCompilationArtifacts(getJavaCompilationArtifacts())
-            .setDepsCompilationArgs(
-                ImmutableList.of(
-                    JavaCompilationArgsProvider.legacyFromTargets(
-                        targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY))))
-            .setRuntimeDepsCompilationArgs(
-                ImmutableList.of(
-                    JavaCompilationArgsProvider.legacyFromTargets(getRuntimeDeps(ruleContext))))
-            .setExportsCompilationArgs(
-                ImmutableList.of(
-                    JavaCompilationArgsProvider.legacyFromTargets(getExports(ruleContext))))
-            .build());
+    return collectJavaCompilationArgs(
+        /* recursive= */ recursive,
+        /* isNeverLink= */ isNeverLink,
+        /* srcLessDepsExport= */ srcLessDepsExport,
+        getJavaCompilationArtifacts(),
+        ImmutableList.of(
+            JavaCompilationArgsProvider.legacyFromTargets(
+                targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY))),
+        ImmutableList.of(
+            JavaCompilationArgsProvider.legacyFromTargets(getRuntimeDeps(ruleContext))),
+        ImmutableList.of(JavaCompilationArgsProvider.legacyFromTargets(getExports(ruleContext))));
+  }
+
+  static JavaCompilationArgs collectJavaCompilationArgs(
+      boolean recursive,
+      boolean isNeverLink,
+      boolean srcLessDepsExport,
+      JavaCompilationArtifacts compilationArtifacts,
+      List<JavaCompilationArgsProvider> deps,
+      List<JavaCompilationArgsProvider> runtimeDeps,
+      List<JavaCompilationArgsProvider> exports) {
+    ClasspathType type = isNeverLink ? ClasspathType.COMPILE_ONLY : ClasspathType.BOTH;
+    JavaCompilationArgs.Builder builder =
+        JavaCompilationArgs.builder()
+            .merge(compilationArtifacts, isNeverLink)
+            .addTransitiveCompilationArgs(exports, recursive, type);
+    // TODO(bazel-team): remove srcs-less behaviour after android_library users are refactored
+    if (recursive || srcLessDepsExport) {
+      builder
+          .addTransitiveCompilationArgs(deps, recursive, type)
+          .addTransitiveCompilationArgs(runtimeDeps, recursive, ClasspathType.RUNTIME_ONLY);
+    }
+    return builder.build();
   }
 
   /**

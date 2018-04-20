@@ -936,7 +936,6 @@ java_library(
         "rules/java/JavaBuildInfoFactory.java",
         "rules/java/JavaCommon.java",
         "rules/java/JavaCompilationArgs.java",
-        "rules/java/JavaCompilationArgsHelper.java",
         "rules/java/JavaCompilationArgsProvider.java",
         "rules/java/JavaCompilationArtifacts.java",
         "rules/java/JavaCompilationHelper.java",
