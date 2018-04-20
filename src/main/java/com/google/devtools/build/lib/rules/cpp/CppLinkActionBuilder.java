@@ -763,7 +763,9 @@ public class CppLinkActionBuilder {
     boolean needWholeArchive =
         wholeArchive
             || needWholeArchive(linkStaticness, linkType, linkopts, isNativeDeps, cppConfiguration);
-    // Disallow LTO indexing for tests that link statically. Otherwise this will provoke
+    // Disallow LTO indexing for test targets that link statically, and optionally for any
+    // linkstatic target (which can be used to disable LTO indexing for non-testonly cc_binary
+    // built due to data dependences for a blaze test invocation). Otherwise this will provoke
     // Blaze OOM errors in the case where multiple static tests are invoked together,
     // since each target needs a separate set of LTO Backend actions. With dynamic linking,
     // the targest share the dynamic libraries which were produced via smaller subsets of
@@ -771,10 +773,16 @@ public class CppLinkActionBuilder {
     // optimizations applied to the associated main binaries anyway.
     // Even for dynamically linked tests, disallow linkstatic libraries from participating
     // in the test's LTO indexing step for similar reasons.
+    boolean canIncludeAnyLinkStaticInLtoIndexing =
+        !featureConfiguration.isEnabled(
+            CppRuleClasses.THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS);
+    boolean canIncludeAnyLinkStaticTestTargetInLtoIndexing =
+        !featureConfiguration.isEnabled(
+            CppRuleClasses.THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS);
     boolean includeLinkStaticInLtoIndexing =
-        !(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
-            || !featureConfiguration.isEnabled(
-                CppRuleClasses.THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS);
+        canIncludeAnyLinkStaticInLtoIndexing
+            && (canIncludeAnyLinkStaticTestTargetInLtoIndexing
+                || !(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget()));
     boolean allowLtoIndexing =
         includeLinkStaticInLtoIndexing
             || (linkStaticness == LinkStaticness.DYNAMIC && !ltoBitcodeFiles.isEmpty());
