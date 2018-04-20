@@ -872,7 +872,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeatures(getRuleContext(target), toolchainProvider);
+        CcCommon.configureFeaturesOrReportRuleError(getRuleContext(target), toolchainProvider);
     assertThat(toolchainProvider.supportsEmbeddedRuntimes())
         .isEqualTo(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES));
   }
@@ -886,7 +886,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeatures(getRuleContext(target), toolchainProvider);
+        CcCommon.configureFeaturesOrReportRuleError(getRuleContext(target), toolchainProvider);
     assertThat(toolchainProvider.supportsEmbeddedRuntimes())
         .isEqualTo(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES));
   }

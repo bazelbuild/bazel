@@ -517,7 +517,7 @@ public class CppHelper {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeatures(ruleContext, defaultToolchain);
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
     return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
   }
 
@@ -533,7 +533,7 @@ public class CppHelper {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeatures(ruleContext, defaultToolchain);
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
     return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
   }
 

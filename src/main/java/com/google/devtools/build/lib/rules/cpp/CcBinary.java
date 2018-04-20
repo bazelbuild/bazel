@@ -217,7 +217,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         getLinkStaticness(ruleContext, linkopts, cppConfiguration, ccToolchain);
     FdoSupportProvider fdoSupport = common.getFdoSupport();
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeatures(
+        CcCommon.configureFeaturesOrReportRuleError(
             ruleContext,
             /* requestedFeatures= */ ImmutableSet.<String>builder()
                 .addAll(ruleContext.getFeatures())

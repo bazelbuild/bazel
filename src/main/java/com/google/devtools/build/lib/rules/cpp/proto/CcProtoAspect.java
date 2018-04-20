@@ -230,7 +230,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
         unsupportedFeatures.add(CppRuleClasses.HEADER_MODULES);
       }
       FeatureConfiguration featureConfiguration =
-          CcCommon.configureFeatures(
+          CcCommon.configureFeaturesOrReportRuleError(
               ruleContext,
               requestedFeatures.build(),
               unsupportedFeatures.build(),

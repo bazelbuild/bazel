@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -214,7 +213,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     PathFragment crosstoolTopPathFragment =
         params.crosstoolTop.getPackageIdentifier().getPathUnderExecRoot();
     CppToolchainInfo cppToolchainInfo =
-        CppToolchainInfo.create(toolchain, crosstoolTopPathFragment, params.crosstoolTop);
+        CppToolchainInfo.create(toolchain, crosstoolTopPathFragment, params.ccToolchainLabel);
 
     ListMultimap<CompilationMode, String> cFlags = ArrayListMultimap.create();
     ListMultimap<CompilationMode, String> cxxFlags = ArrayListMultimap.create();
@@ -755,8 +754,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    *
    * @param featuresNotUsedAnymore
    * @param sharedLib true if the output is a shared lib, false if it's an executable
-   *     <p>Deprecated: Use {@link CppHelper#getMostlyStaticLinkOptions(CppConfiguration,
-   *     CcToolchainProvider, Boolean)}
+   *     <p>Deprecated: Use {@link CppHelper#getMostlyStaticLinkOptions( CppConfiguration,
+   *     CcToolchainProvider, boolean, boolean)}
    */
   // TODO(b/64384912): Migrate skylark users to cc_common and remove.
   @SkylarkCallable(
@@ -911,7 +910,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns true if LLVM FDO Optimization should be applied for this configuration.
    *
-   * <p>Deprecated: Use {@link CcToolchain#isLLVMOptimizedFdo(boolean, Path)}
+   * <p>Deprecated: Use {@link CcToolchain#isLLVMOptimizedFdo(boolean, PathFragment)}
    */
   // TODO(b/64384912): Remove in favor of overload with isLLVMCompiler.
   @Deprecated

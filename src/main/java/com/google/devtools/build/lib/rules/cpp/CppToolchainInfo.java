@@ -84,6 +84,7 @@ public final class CppToolchainInfo {
   private final ImmutableList<String> ldOptionsForEmbedding;
   private final ImmutableList<String> objCopyOptionsForEmbedding;
 
+  private final Label ccToolchainLabel;
   private final Label staticRuntimeLibsLabel;
   private final Label dynamicRuntimeLibsLabel;
   private final String solibDirectory;
@@ -189,6 +190,7 @@ public final class CppToolchainInfo {
           ImmutableList.copyOf(toolchain.getTestOnlyLinkerFlagList()),
           ImmutableList.copyOf(toolchain.getLdEmbedFlagList()),
           ImmutableList.copyOf(toolchain.getObjcopyEmbedFlagList()),
+          toolchainLabel,
           toolchainLabel.getRelative(
               toolchain.hasStaticRuntimesFilegroup()
                   ? toolchain.getStaticRuntimesFilegroup()
@@ -208,8 +210,7 @@ public final class CppToolchainInfo {
           lipoCFlagsBuilder.build(),
           lipoCxxFlagsBuilder.build(),
           new FlagList(
-              ImmutableList.copyOf(toolchain.getUnfilteredCxxFlagList()),
-              ImmutableList.of()),
+              ImmutableList.copyOf(toolchain.getUnfilteredCxxFlagList()), ImmutableList.of()),
           toolchain.getSupportsFission(),
           toolchain.getSupportsStartEndLib(),
           toolchain.getSupportsEmbeddedRuntimes(),
@@ -247,6 +248,7 @@ public final class CppToolchainInfo {
       ImmutableList<String> testOnlyLinkFlags,
       ImmutableList<String> ldOptionsForEmbedding,
       ImmutableList<String> objCopyOptionsForEmbedding,
+      Label ccToolchainLabel,
       Label staticRuntimeLibsLabel,
       Label dynamicRuntimeLibsLabel,
       String solibDirectory,
@@ -291,6 +293,7 @@ public final class CppToolchainInfo {
     this.testOnlyLinkFlags = testOnlyLinkFlags;
     this.ldOptionsForEmbedding = ldOptionsForEmbedding;
     this.objCopyOptionsForEmbedding = objCopyOptionsForEmbedding;
+    this.ccToolchainLabel = ccToolchainLabel;
     this.staticRuntimeLibsLabel = staticRuntimeLibsLabel;
     this.dynamicRuntimeLibsLabel = dynamicRuntimeLibsLabel;
     this.solibDirectory = solibDirectory;
@@ -515,6 +518,11 @@ public final class CppToolchainInfo {
    */
   public PathFragment getToolPathFragment(CppConfiguration.Tool tool) {
     return getToolPathFragment(toolPaths, tool);
+  }
+
+  /** Returns a label that references the current cc_toolchain target. */
+  public Label getCcToolchainLabel() {
+    return ccToolchainLabel;
   }
 
   /**
