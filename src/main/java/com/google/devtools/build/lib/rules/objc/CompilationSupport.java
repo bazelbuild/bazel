@@ -547,7 +547,7 @@ public class CompilationSupport {
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
 
-    activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(ruleContext));
+    activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(toolchain));
 
     try {
       return ccToolchain

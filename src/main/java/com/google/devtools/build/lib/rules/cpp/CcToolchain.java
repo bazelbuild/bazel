@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -311,12 +312,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    BuildConfiguration configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
     CppConfiguration cppConfiguration =
-        Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
+        Preconditions.checkNotNull(configuration.getFragment(CppConfiguration.class));
     CppToolchainInfo toolchainInfo = getCppToolchainInfo(ruleContext, cppConfiguration);
 
     PathFragment fdoZip = null;
-    if (ruleContext.getConfiguration().getCompilationMode() == CompilationMode.OPT) {
+    if (configuration.getCompilationMode() == CompilationMode.OPT) {
       if (cppConfiguration.getFdoPath() != null) {
         fdoZip = cppConfiguration.getFdoPath();
       } else if (cppConfiguration.getFdoOptimizeLabel() != null) {
@@ -404,8 +406,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     final NestedSet<Artifact> libcLink = inputsForLibc(ruleContext);
     String purposePrefix = Actions.escapeLabel(label) + "_";
     String runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(label);
-    final PathFragment runtimeSolibDir = ruleContext.getConfiguration()
-        .getBinFragment().getRelative(runtimeSolibDirBase);
+    final PathFragment runtimeSolibDir =
+        configuration.getBinFragment().getRelative(runtimeSolibDirBase);
 
     // Static runtime inputs.
     TransitiveInfoCollection staticRuntimeLibDep = selectDep(ruleContext, "static_runtime_libs",
@@ -452,7 +454,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
                   artifact,
                   toolchainInfo.getSolibDirectory(),
                   runtimeSolibDirBase,
-                  ruleContext.getConfiguration()));
+                  configuration));
         }
       }
       dynamicRuntimeLinkSymlinks = dynamicRuntimeLinkSymlinksBuilder.build();
@@ -468,7 +470,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
               dynamicRuntimeLinkInputs,
               toolchainInfo.getSolibDirectory(),
               runtimeSolibDirBase,
-              ruleContext.getConfiguration());
+              configuration);
       dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddlemanSet.isEmpty()
           ? null : Iterables.getOnlyElement(dynamicRuntimeLinkMiddlemanSet);
     } else {
@@ -566,7 +568,10 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
                 : null,
             builtInIncludeDirectories,
             sysroot,
-            fdoMode);
+            fdoMode,
+            cppConfiguration.useLLVMCoverageMapFormat(),
+            configuration.isCodeCoverageEnabled(),
+            configuration.isHostConfiguration());
 
     TemplateVariableInfo templateVariableInfo =
         createMakeVariableProvider(cppConfiguration, sysroot);

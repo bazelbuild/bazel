@@ -66,7 +66,10 @@ public class CcToolchainProviderTest {
             /* linkDynamicLibraryTool= */ null,
             /* builtInIncludeDirectories= */ ImmutableList.<PathFragment>of(),
             /* sysroot= */ null,
-            FdoMode.OFF);
+            FdoMode.OFF,
+            /* useLLVMCoverageMapFormat= */ false,
+            /* codeCoverageEnabled= */ false,
+            /* isHostConfiguration= */ false);
 
     CcToolchainProvider b =
         new CcToolchainProvider(
@@ -100,7 +103,10 @@ public class CcToolchainProviderTest {
             /* linkDynamicLibraryTool= */ null,
             /* builtInIncludeDirectories= */ ImmutableList.<PathFragment>of(),
             /* sysroot= */ null,
-            FdoMode.OFF);
+            FdoMode.OFF,
+            /* useLLVMCoverageMapFormat= */ false,
+            /* codeCoverageEnabled= */ false,
+            /* isHostConfiguration= */ false);
 
     new EqualsTester()
         .addEqualityGroup(a)
