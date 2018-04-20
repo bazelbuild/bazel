@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
@@ -97,13 +98,8 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               null,
               buildEnv);
       if (retValue != Runtime.NONE) {
-        throw new RepositoryFunctionException(
-            new EvalException(
-                rule.getLocation(),
-                "Call to repository rule "
-                    + rule.getName()
-                    + " returned a non-None value, None expected."),
-            Transience.PERSISTENT);
+        env.getListener()
+            .handle(Event.info("Repository rule '" + rule.getName() + "' returned: " + retValue));
       }
     } catch (EvalException e) {
       if (e.getCause() instanceof RepositoryMissingDependencyException) {
