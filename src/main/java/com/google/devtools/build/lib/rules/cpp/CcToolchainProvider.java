@@ -831,6 +831,123 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return fdoMode;
   }
 
+  /**
+   * WARNING: This method is only added to allow incremental migration of existing users. Please do
+   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
+   */
+  @SkylarkCallable(
+      name = "compiler_options",
+      doc =
+          "Returns the default options to use for compiling C, C++, and assembler. "
+              + "This is just the options that should be used for all three languages. "
+              + "There may be additional C-specific or C++-specific options that should be used, "
+              + "in addition to the ones returned by this method"
+  )
+  public ImmutableList<String> getCompilerOptions() {
+    return CppHelper.getCompilerOptions(cppConfiguration, this);
+  }
+
+  /**
+   * WARNING: This method is only added to allow incremental migration of existing users. Please do
+   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
+   *
+   * Returns the list of additional C-specific options to use for compiling C. These should be go on
+   * the command line after the common options returned by {@link CppHelper#getCompilerOptions}.
+   */
+  @SkylarkCallable(
+      name = "c_options",
+      doc =
+          "Returns the list of additional C-specific options to use for compiling C. "
+              + "These should be go on the command line after the common options returned by "
+              + "<code>compiler_options</code>")
+  public ImmutableList<String> getCOptions() {
+    return cppConfiguration.getCOptions();
+  }
+
+  /**
+   * WARNING: This method is only added to allow incremental migration of existing users. Please do
+   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
+   *
+   * Returns the list of additional C++-specific options to use for compiling C++. These should be
+   * on the command line after the common options returned by {@link #getCompilerOptions}.
+   */
+  @SkylarkCallable(
+      name = "cxx_options",
+      doc =
+          "Returns the list of additional C++-specific options to use for compiling C++. "
+              + "These should be go on the command line after the common options returned by "
+              + "<code>compiler_options</code>"
+  )
+  @Deprecated
+  public ImmutableList<String> getCxxOptions() {
+    return CppHelper.getCxxOptions(cppConfiguration, this);
+  }
+
+  /**
+   * WARNING: This method is only added to allow incremental migration of existing users. Please do
+   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
+   *
+   * Returns the immutable list of linker options for fully statically linked outputs. Does not
+   * include command-line options passed via --linkopt or --linkopts.
+   *
+   * @param sharedLib true if the output is a shared lib, false if it's an executable
+   */
+  @SkylarkCallable(
+      name = "fully_static_link_options",
+      doc =
+          "Returns the immutable list of linker options for fully statically linked "
+              + "outputs. Does not include command-line options passed via --linkopt or "
+              + "--linkopts."
+  )
+  @Deprecated
+  public ImmutableList<String> getFullyStaticLinkOptions(Boolean sharedLib) {
+    return CppHelper.getFullyStaticLinkOptions(cppConfiguration, this, sharedLib);
+  }
+
+  /**
+   * WARNING: This method is only added to allow incremental migration of existing users. Please do
+   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
+   *
+   * Returns the immutable list of linker options for mostly statically linked outputs. Does not
+   * include command-line options passed via --linkopt or --linkopts.
+   *
+   * @param sharedLib true if the output is a shared lib, false if it's an executable
+   */
+  @SkylarkCallable(
+      name = "mostly_static_link_options",
+      doc =
+          "Returns the immutable list of linker options for mostly statically linked "
+              + "outputs. Does not include command-line options passed via --linkopt or "
+              + "--linkopts.")
+  @Deprecated
+  public ImmutableList<String> getMostlyStaticLinkOptions(Boolean sharedLib) {
+    return CppHelper.getMostlyStaticLinkOptions(
+        cppConfiguration, this, sharedLib, /* shouldStaticallyLinkCppRuntimes= */ true);
+  }
+
+  /**
+   * WARNING: This method is only added to allow incremental migration of existing users. Please do
+   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
+   *
+   * Returns the immutable list of linker options for artifacts that are not fully or mostly
+   * statically linked. Does not include command-line options passed via --linkopt or --linkopts.
+   *
+   * @param sharedLib true if the output is a shared lib, false if it's an executable
+   */
+  @SkylarkCallable(
+      name = "dynamic_link_options",
+      doc =
+          "Returns the immutable list of linker options for artifacts that are not "
+              + "fully or mostly statically linked. Does not include command-line options "
+              + "passed via --linkopt or --linkopts."
+  )
+  @Deprecated
+  public ImmutableList<String> getDynamicLinkOptions(Boolean sharedLib) {
+    return CppHelper.getDynamicLinkOptions(cppConfiguration, this, sharedLib);
+  }
+
+
+
   // Not all of CcToolchainProvider is exposed to Skylark, which makes implementing deep equality
   // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they
   // are not, the behavior is surprising in Java. Thus, object identity it is.
