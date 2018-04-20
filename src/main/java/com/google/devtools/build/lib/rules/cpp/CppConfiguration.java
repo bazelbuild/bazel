@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -860,6 +861,23 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * otherwise.
    */
   public Label getStl() {
+    return stlLabel;
+  }
+
+  @SkylarkConfigurationField(
+      name = "stl",
+      doc = "The label of the STL target",
+      defaultLabel = "//third_party/stl",
+      defaultInToolRepository = false
+  )
+  public Label getSkylarkStl() {
+    if (stlLabel == null) {
+      try {
+        return Label.parseAbsolute("//third_party/stl");
+      } catch (LabelSyntaxException e) {
+        throw new IllegalStateException("STL label not formatted correctly", e);
+      }
+    }
     return stlLabel;
   }
 
