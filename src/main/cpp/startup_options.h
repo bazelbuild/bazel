@@ -74,8 +74,9 @@ struct RcStartupFlag {
       : source(source_arg), value(value_arg) {}
 };
 
-// This class holds the parsed startup options for Blaze.
-// These options and their defaults must be kept in sync with those in
+// This class defines the startup options accepted by all versions Bazel, and
+// holds the parsed values. These options and their defaults must be kept in
+// sync with those in
 // src/main/java/com/google/devtools/build/lib/runtime/BlazeServerStartupOptions.java.
 // The latter are (usually) purely decorative (they affect the help message,
 // which displays the defaults).  The actual defaults are defined
@@ -86,7 +87,6 @@ struct RcStartupFlag {
 // names also don't conform to the style guide.
 class StartupOptions {
  public:
-  explicit StartupOptions(const WorkspaceLayout* workspace_layout);
   virtual ~StartupOptions();
 
   // Parses a single argument, either from the command line or from the .blazerc
@@ -131,7 +131,7 @@ class StartupOptions {
   // StartupOptions, the "ExtraOptions" concept makes no sense; remove it.
   virtual blaze_exit_code::ExitCode ProcessArgExtra(
       const char *arg, const char *next_arg, const std::string &rcfile,
-      const char **value, bool *is_processed, std::string *error);
+      const char **value, bool *is_processed, std::string *error) = 0;
 
   // Return the default path to the JDK used to run Blaze itself
   // (must be an absolute directory).
@@ -291,8 +291,8 @@ class StartupOptions {
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the
   // capitalized version of the name, as in "Bazel".
-  explicit StartupOptions(const std::string &product_name,
-                          const WorkspaceLayout* workspace_layout);
+  StartupOptions(const std::string &product_name,
+                 const WorkspaceLayout *workspace_layout);
 
   void RegisterUnaryStartupFlag(const std::string& flag_name);
 

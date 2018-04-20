@@ -14,6 +14,7 @@
 
 #include "src/main/cpp/option_processor.h"
 
+#include "src/main/cpp/bazel_startup_options.h"
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor-internal.h"
@@ -41,7 +42,7 @@ class OptionProcessorTest : public ::testing::Test {
     option_processor_.reset(new OptionProcessor(
         workspace_layout_.get(),
         std::unique_ptr<StartupOptions>(
-            new StartupOptions(workspace_layout_.get()))));
+            new BazelStartupOptions(workspace_layout_.get()))));
   }
 
   void TearDown() override {

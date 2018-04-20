@@ -32,6 +32,7 @@ cc_test(
     srcs = ["option_processor_test.cc"],
     tags = ["requires_internet"],
     deps = [
+        "//src/main/cpp:bazel_startup_options",
         "//src/main/cpp:blaze_util",
         "//src/main/cpp:option_processor",
         "//src/main/cpp:rc_file",
@@ -74,6 +75,19 @@ cc_test(
         ":test_util",
         "//src/main/cpp:blaze_util",
         "//src/main/cpp:startup_options",
+        "//src/main/cpp:workspace_layout",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "bazel_startup_options_test",
+    size = "small",
+    srcs = ["bazel_startup_options_test.cc"],
+    deps = [
+        ":test_util",
+        "//src/main/cpp:bazel_startup_options",
+        "//src/main/cpp:blaze_util",
         "//src/main/cpp:workspace_layout",
         "@com_google_googletest//:gtest_main",
     ],

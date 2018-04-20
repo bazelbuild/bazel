@@ -58,9 +58,6 @@ bool NullaryStartupFlag::IsValid(const std::string &arg) const {
       GetNullaryOption(arg.c_str(), ("--no" + name_).c_str());
 }
 
-StartupOptions::StartupOptions(const WorkspaceLayout* workspace_layout)
-    : StartupOptions("Bazel", workspace_layout) {}
-
 void StartupOptions::RegisterNullaryStartupFlag(const std::string &flag_name) {
   valid_startup_flags.insert(std::unique_ptr<NullaryStartupFlag>(
       new NullaryStartupFlag(flag_name)));
@@ -131,13 +128,9 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("experimental_oom_more_eagerly");
   RegisterNullaryStartupFlag("fatal_event_bus_exceptions");
   RegisterNullaryStartupFlag("host_jvm_debug");
-  RegisterNullaryStartupFlag("master_bazelrc");
-  RegisterNullaryStartupFlag("master_blazerc");
   RegisterNullaryStartupFlag("watchfs");
   RegisterNullaryStartupFlag("write_command_log");
   RegisterNullaryStartupFlag("expand_configs_in_place");
-  RegisterUnaryStartupFlag("bazelrc");
-  RegisterUnaryStartupFlag("blazerc");
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("experimental_oom_more_eagerly_threshold");
@@ -232,30 +225,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
              NULL) {
     host_jvm_args.push_back(value);
     option_sources["host_jvm_args"] = rcfile;  // NB: This is incorrect
-  } else if ((value = GetUnaryOption(arg, next_arg, "--bazelrc")) != NULL) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --bazelrc in the .bazelrc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-  } else if ((value = GetUnaryOption(arg, next_arg, "--blazerc")) != NULL) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --blazerc in the .blazerc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-  } else if (GetNullaryOption(arg, "--nomaster_blazerc") ||
-             GetNullaryOption(arg, "--master_blazerc")) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --[no]master_blazerc in .blazerc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    option_sources["blazerc"] = rcfile;
-  } else if (GetNullaryOption(arg, "--nomaster_bazelrc") ||
-             GetNullaryOption(arg, "--master_bazelrc")) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --[no]master_bazelrc in .bazelrc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    option_sources["blazerc"] = rcfile;
   } else if (GetNullaryOption(arg, "--batch")) {
     batch = true;
     option_sources["batch"] = rcfile;
@@ -420,13 +389,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArgs(
       return process_arg_exit_code;
     }
   }
-  return blaze_exit_code::SUCCESS;
-}
-
-blaze_exit_code::ExitCode StartupOptions::ProcessArgExtra(
-    const char *arg, const char *next_arg, const string &rcfile,
-    const char **value, bool *is_processed, string *error) {
-  *is_processed = false;
   return blaze_exit_code::SUCCESS;
 }
 

@@ -23,6 +23,19 @@
 
 namespace blaze {
 
+// Minimal StartupOptions class for testing.
+class FakeStartupOptions : public StartupOptions {
+ public:
+  FakeStartupOptions(const WorkspaceLayout *workspace_layout)
+      : StartupOptions("Bazel", workspace_layout) {}
+  blaze_exit_code::ExitCode ProcessArgExtra(
+      const char *arg, const char *next_arg, const std::string &rcfile,
+      const char **value, bool *is_processed, std::string *error) override {
+    *is_processed = false;
+    return blaze_exit_code::SUCCESS;
+  }
+};
+
 class StartupOptionsTest : public ::testing::Test {
  protected:
   StartupOptionsTest() : workspace_layout_(new WorkspaceLayout()) {}
@@ -45,7 +58,7 @@ class StartupOptionsTest : public ::testing::Test {
 
   // Recreates startup_options_ after changes to the environment.
   void ReinitStartupOptions() {
-    startup_options_.reset(new StartupOptions(workspace_layout_.get()));
+    startup_options_.reset(new FakeStartupOptions(workspace_layout_.get()));
   }
 
  private:
@@ -93,39 +106,6 @@ TEST_F(StartupOptionsTest, EmptyFlagsAreInvalidTest) {
   EXPECT_FALSE(startup_options_->IsNullary("--"));
   EXPECT_FALSE(startup_options_->IsUnary(""));
   EXPECT_FALSE(startup_options_->IsUnary("--"));
-}
-
-TEST_F(StartupOptionsTest, ValidStartupFlagsTest) {
-  // IMPORTANT: Before modifying this test, please contact a Bazel core team
-  // member that knows the Google-internal procedure for adding/deprecating
-  // startup flags.
-  const StartupOptions* options = startup_options_.get();
-  ExpectIsNullaryOption(options, "batch");
-  ExpectIsNullaryOption(options, "batch_cpu_scheduling");
-  ExpectIsNullaryOption(options, "block_for_lock");
-  ExpectIsNullaryOption(options, "client_debug");
-  ExpectIsNullaryOption(options, "deep_execroot");
-  ExpectIsNullaryOption(options, "experimental_oom_more_eagerly");
-  ExpectIsNullaryOption(options, "fatal_event_bus_exceptions");
-  ExpectIsNullaryOption(options, "host_jvm_debug");
-  ExpectIsNullaryOption(options, "master_bazelrc");
-  ExpectIsNullaryOption(options, "master_blazerc");
-  ExpectIsNullaryOption(options, "watchfs");
-  ExpectIsNullaryOption(options, "write_command_log");
-  ExpectIsUnaryOption(options, "bazelrc");
-  ExpectIsUnaryOption(options, "blazerc");
-  ExpectIsUnaryOption(options, "command_port");
-  ExpectIsUnaryOption(options, "connect_timeout_secs");
-  ExpectIsUnaryOption(options, "experimental_oom_more_eagerly_threshold");
-  ExpectIsUnaryOption(options, "host_javabase");
-  ExpectIsUnaryOption(options, "host_jvm_args");
-  ExpectIsUnaryOption(options, "host_jvm_profile");
-  ExpectIsUnaryOption(options, "invocation_policy");
-  ExpectIsUnaryOption(options, "io_nice_level");
-  ExpectIsUnaryOption(options, "install_base");
-  ExpectIsUnaryOption(options, "max_idle_secs");
-  ExpectIsUnaryOption(options, "output_base");
-  ExpectIsUnaryOption(options, "output_user_root");
 }
 
 TEST_F(StartupOptionsTest, ProcessSpaceSeparatedArgsTest) {

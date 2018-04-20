@@ -227,8 +227,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
 
   // Find the master bazelrcs if requested. This list may contain duplicates.
   vector<string> candidate_bazelrc_paths;
-  if (SearchNullaryOption(cmd_line->startup_args, "master_blazerc", true) &&
-      SearchNullaryOption(cmd_line->startup_args, "master_bazelrc", true)) {
+  if (SearchNullaryOption(cmd_line->startup_args, "master_bazelrc", true)) {
     const string workspace_rc =
         workspace_layout->GetWorkspaceRcPath(workspace, cmd_line->startup_args);
     const string binary_rc =
@@ -240,13 +239,10 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     candidate_bazelrc_paths = {workspace_rc, binary_rc, system_rc};
   }
 
-  const char* blazerc = SearchUnaryOption(cmd_line->startup_args, "--blazerc");
-  if (blazerc == nullptr) {
-    blazerc = SearchUnaryOption(cmd_line->startup_args, "--bazelrc");
-  }
   string user_bazelrc_path;
   blaze_exit_code::ExitCode find_bazelrc_exit_code =
-      FindUserBlazerc(blazerc, workspace, &user_bazelrc_path, error);
+      FindUserBlazerc(SearchUnaryOption(cmd_line->startup_args, "--bazelrc"),
+                      workspace, &user_bazelrc_path, error);
   if (find_bazelrc_exit_code != blaze_exit_code::SUCCESS) {
     return find_bazelrc_exit_code;
   }
