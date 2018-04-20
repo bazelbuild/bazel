@@ -1093,7 +1093,8 @@ public final class BlazeRuntime {
           ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     }
     runtime.initWorkspace(directories, binTools);
-    CustomExitCodePublisher.setAbruptExitStatusFileDir(serverDirectories.getOutputBase());
+    CustomExitCodePublisher.setAbruptExitStatusFileDir(
+        serverDirectories.getOutputBase().getPathString());
 
     // Most static initializers for @SkylarkSignature-containing classes have already run by this
     // point, but this will pick up the stragglers.
