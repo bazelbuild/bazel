@@ -35,10 +35,15 @@ guarded behind flags in the current release:
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
 *   [Depset union](#depset-union)
 *   [String is no longer iterable](#string-is-no-longer-iterable)
+*   [Integer division operator is //](#integer-division-operator-is)
+*   [Package name is a function](#package-name-is-a-function)
 *   [FileType is deprecated](#filetype-is-deprecated)
 *   [New actions API](#new-actions-api)
 *   [New args API](#new-args-api)
 *   [Glob tracking](#glob-tracking)
+*   [Disable objc provider resources](#disable-objc-provider-resources)
+*   [Remove native git repository](#remove-native-git-repository)
+*   [Remove native http archive](#remove-native-http-archive)
 
 
 ### Dictionary concatenation
@@ -153,6 +158,21 @@ x = 7 // 2  # x is 3
 *   Default: `false`
 
 
+### Package name is a function
+
+The current package name should be retrieved by calling `package_name()` in
+BUILD files or `native.package_name()` in .bzl files. The old way of referring
+to the magic `PACKAGE_NAME` variable bends the language since it is neither a
+parameter, local variable, nor global variable.
+
+Likewise, the magic `REPOSITORY_NAME` variable is replaced by
+`repository_name()` and `native.repository_name()`. Both deprecations use the
+same flag.
+
+*   Flag: `--incompatible_package_name_is_a_function`
+*   Default: `false`
+
+
 ### FileType is deprecated
 
 The [FileType](lib/FileType.html) function is going away. The main use-case was
@@ -162,6 +182,7 @@ rule accepts.
 
 *   Flag: `--incompatible_disallow_filetype`
 *   Default: `false`
+
 
 ### New actions API
 
@@ -206,5 +227,43 @@ no user-visible impact.
 
 *   Flag: `--incompatible_disable_glob_tracking`
 *   Default: `true`
+
+
+### Disable objc provider resources
+
+This flag disables certain deprecated resource fields on
+[ObjcProvider](lib/ObjcProvider.html).
+
+*   Flag: `--incompatible_objc_provider_resources`
+*   Default: `false`
+
+
+### Remove native git repository
+
+When set, the native `git_repository` rule is disabled. The Skylark version
+
+```python
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+```
+
+should be used instead.
+
+*   Flag: `--incompatible_remove_native_git_repository`
+*   Default: `false`
+
+
+### Remove native http archive
+
+When set, the native `http_archive` rule is disabled. The skylark version
+
+```python
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+```
+
+should be used instead.
+
+*   Flag: `--incompatible_remove_native_http_archive`
+*   Default: `false`
+
 
 <!-- Add new options here -->
