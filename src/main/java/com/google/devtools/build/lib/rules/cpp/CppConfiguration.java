@@ -18,10 +18,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -215,33 +213,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     CppToolchainInfo cppToolchainInfo =
         CppToolchainInfo.create(toolchain, crosstoolTopPathFragment, params.ccToolchainLabel);
 
-    ListMultimap<CompilationMode, String> cFlags = ArrayListMultimap.create();
-    ListMultimap<CompilationMode, String> cxxFlags = ArrayListMultimap.create();
-    for (CrosstoolConfig.CompilationModeFlags flags : toolchain.getCompilationModeFlagsList()) {
-      // Remove this when CROSSTOOL files no longer contain 'coverage'.
-      if (flags.getMode() == CrosstoolConfig.CompilationMode.COVERAGE) {
-        continue;
-      }
-      CompilationMode realmode = CppToolchainInfo.importCompilationMode(flags.getMode());
-      cFlags.putAll(realmode, flags.getCompilerFlagList());
-      cxxFlags.putAll(realmode, flags.getCxxFlagList());
-    }
-
     CompilationMode compilationMode = params.commonOptions.compilationMode;
-
-    ListMultimap<LipoMode, String> lipoCFlags = ArrayListMultimap.create();
-    ListMultimap<LipoMode, String> lipoCxxFlags = ArrayListMultimap.create();
-    for (CrosstoolConfig.LipoModeFlags flags : toolchain.getLipoModeFlagsList()) {
-      LipoMode realmode = flags.getMode();
-      lipoCFlags.putAll(realmode, flags.getCompilerFlagList());
-      lipoCxxFlags.putAll(realmode, flags.getCxxFlagList());
-    }
 
     ImmutableList.Builder<String> coptsBuilder =
         ImmutableList.<String>builder()
-            .addAll(toolchain.getCompilerFlagList())
-            .addAll(cFlags.get(compilationMode))
-            .addAll(lipoCFlags.get(cppOptions.getLipoMode()));
+            .addAll(cppToolchainInfo.getCompilerFlags())
+            .addAll(cppToolchainInfo.getCFlagsByCompilationMode().get(compilationMode))
+            .addAll(cppToolchainInfo.getLipoCFlags().get(cppOptions.getLipoMode()));
     if (cppOptions.experimentalOmitfp) {
       coptsBuilder.add("-fomit-frame-pointer");
       coptsBuilder.add("-fasynchronous-unwind-tables");
@@ -250,9 +228,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
 
     ImmutableList.Builder<String> cxxOptsBuilder =
         ImmutableList.<String>builder()
-            .addAll(toolchain.getCxxFlagList())
-            .addAll(cxxFlags.get(compilationMode))
-            .addAll(lipoCxxFlags.get(cppOptions.getLipoMode()));
+            .addAll(cppToolchainInfo.getCxxFlags())
+            .addAll(cppToolchainInfo.getCxxFlagsByCompilationMode().get(compilationMode))
+            .addAll(cppToolchainInfo.getLipoCxxFlags().get(cppOptions.getLipoMode()));
 
     ImmutableList.Builder<String> linkoptsBuilder = ImmutableList.builder();
     linkoptsBuilder.addAll(cppOptions.linkoptList);
