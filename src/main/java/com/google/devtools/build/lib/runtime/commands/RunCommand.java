@@ -122,7 +122,7 @@ public class RunCommand implements BlazeCommand  {
 
     @Option(
       name = "direct_run",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "If set, the 'run' command will execute the binary to be executed in the terminal "
