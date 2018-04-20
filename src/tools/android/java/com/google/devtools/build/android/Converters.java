@@ -19,7 +19,6 @@ import com.android.manifmerger.ManifestMerger2.MergeType;
 import com.android.repository.Revision;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
@@ -423,7 +422,7 @@ public final class Converters {
 
     @Override
     public List<StaticLibrary> convert(String input) throws OptionsParsingException {
-      final Builder<StaticLibrary> builder = ImmutableList.<StaticLibrary>builder();
+      final ImmutableList.Builder<StaticLibrary> builder = ImmutableList.<StaticLibrary>builder();
       for (String path : SPLITTER.splitToList(input)) {
         builder.add(libraryConverter.convert(path));
       }

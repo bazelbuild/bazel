@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSet.Builder;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -84,7 +83,7 @@ public enum BuildEventTransportFactory {
    */
   public static ImmutableSet<BuildEventTransport> createFromOptions(BuildEventStreamOptions options,
       PathConverter pathConverter) throws IOException {
-    Builder<BuildEventTransport> buildEventTransportsBuilder = ImmutableSet.builder();
+    ImmutableSet.Builder<BuildEventTransport> buildEventTransportsBuilder = ImmutableSet.builder();
     for (BuildEventTransportFactory transportFactory : BuildEventTransportFactory.values()) {
       if (transportFactory.enabled(options)) {
         buildEventTransportsBuilder.add(transportFactory.create(options, pathConverter));

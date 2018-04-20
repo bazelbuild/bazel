@@ -18,7 +18,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
@@ -204,7 +203,7 @@ public class MavenDownloader extends HttpDownloader {
     private final Map<String, String> authenticationInfo;
 
     private MavenAuthentication(Server server) {
-      Builder<String, String> builder = ImmutableMap.<String, String>builder();
+      ImmutableMap.Builder<String, String> builder = ImmutableMap.<String, String>builder();
       // From https://maven.apache.org/settings.html: "If you use a private key to login to the
       // server, make sure you omit the <password> element. Otherwise, the key will be ignored."
       if (server.getPassword() != null) {

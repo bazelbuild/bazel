@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
@@ -872,7 +871,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // have encountered errors that they were able to recover from.
     Set<Entry<SkyKey, SkyValue>> successfulEntries =
         graph.getSuccessfulValues(transitiveTraversalKeys).entrySet();
-    Builder<SkyKey> successfulKeysBuilder = ImmutableSet.builder();
+    ImmutableSet.Builder<SkyKey> successfulKeysBuilder = ImmutableSet.builder();
     for (Entry<SkyKey, SkyValue> successfulEntry : successfulEntries) {
       successfulKeysBuilder.add(successfulEntry.getKey());
       TransitiveTraversalValue value = (TransitiveTraversalValue) successfulEntry.getValue();

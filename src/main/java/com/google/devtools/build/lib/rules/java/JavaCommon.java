@@ -17,7 +17,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -674,7 +673,7 @@ public class JavaCommon {
 
   private static ImmutableList<TransitiveInfoCollection> collectTargetsTreatedAsDeps(
       RuleContext ruleContext, JavaSemantics semantics, ClasspathType type) {
-    ImmutableList.Builder<TransitiveInfoCollection> builder = new Builder<>();
+    ImmutableList.Builder<TransitiveInfoCollection> builder = new ImmutableList.Builder<>();
 
     if (!type.equals(ClasspathType.COMPILE_ONLY)) {
       builder.addAll(getRuntimeDeps(ruleContext));

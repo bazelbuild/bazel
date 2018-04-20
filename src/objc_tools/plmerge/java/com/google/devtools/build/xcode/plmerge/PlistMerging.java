@@ -25,7 +25,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteSource;
 import com.google.devtools.build.xcode.plmerge.proto.PlMergeProtos.Control;
@@ -164,11 +163,11 @@ public class PlistMerging extends Value<PlistMerging> {
 
     FileSystem fileSystem = FileSystems.getDefault();
 
-    ImmutableList.Builder<Path> sourceFilePathsBuilder = new Builder<>();
+    ImmutableList.Builder<Path> sourceFilePathsBuilder = new ImmutableList.Builder<>();
     for (String pathString : control.getSourceFileList()) {
       sourceFilePathsBuilder.add(fileSystem.getPath(pathString));
     }
-    ImmutableList.Builder<Path> immutableSourceFilePathsBuilder = new Builder<>();
+    ImmutableList.Builder<Path> immutableSourceFilePathsBuilder = new ImmutableList.Builder<>();
     for (String pathString : control.getImmutableSourceFileList()) {
       immutableSourceFilePathsBuilder.add(fileSystem.getPath(pathString));
     }

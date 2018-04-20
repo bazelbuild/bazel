@@ -19,7 +19,6 @@ import com.android.builder.core.VariantType;
 import com.android.repository.Revision;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AaptCommandBuilder;
@@ -273,7 +272,7 @@ public class ResourceCompiler {
     }
 
     List<Path> getCompiledArtifacts() {
-      Builder<Path> builder = ImmutableList.builder();
+      ImmutableList.Builder<Path> builder = ImmutableList.builder();
       List<Throwable> compilationErrors = new ArrayList<>();
       for (ListenableFuture<List<Path>> task : tasks) {
         try {

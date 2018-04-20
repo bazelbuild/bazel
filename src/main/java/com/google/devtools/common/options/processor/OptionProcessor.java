@@ -15,7 +15,6 @@ package com.google.devtools.common.options.processor;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.ExpansionFunction;
@@ -96,11 +95,12 @@ public final class OptionProcessor extends AbstractProcessor {
     // Because of the discrepancies between the java.lang and javax.lang type models, we can't
     // directly use the get() method for the default converter map. Instead, we'll convert it once,
     // to be more usable, and with the boxed type return values of convert() as the keys.
-    ImmutableMap.Builder<TypeMirror, Converter<?>> converterMapBuilder = new Builder<>();
+    ImmutableMap.Builder<TypeMirror, Converter<?>> converterMapBuilder =
+        new ImmutableMap.Builder<>();
 
     // Create a link from the primitive Classes to their primitive types. This intentionally
     // only contains the types in the DEFAULT_CONVERTERS map.
-    ImmutableMap.Builder<Class<?>, PrimitiveType> builder = new Builder<>();
+    ImmutableMap.Builder<Class<?>, PrimitiveType> builder = new ImmutableMap.Builder<>();
     builder.put(int.class, typeUtils.getPrimitiveType(TypeKind.INT));
     builder.put(double.class, typeUtils.getPrimitiveType(TypeKind.DOUBLE));
     builder.put(boolean.class, typeUtils.getPrimitiveType(TypeKind.BOOLEAN));

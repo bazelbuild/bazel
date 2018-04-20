@@ -18,7 +18,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -131,7 +130,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
   }
 
   private ImmutableList<String> getJavacOpts(RuleContext ruleContext) {
-    Builder<String> javacopts = ImmutableList.builder();
+    ImmutableList.Builder<String> javacopts = ImmutableList.builder();
     String source = ruleContext.attributes().get("source_version", Type.STRING);
     if (!isNullOrEmpty(source)) {
       javacopts.add("-source").add(source);

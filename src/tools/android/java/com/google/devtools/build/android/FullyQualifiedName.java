@@ -24,7 +24,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.devtools.build.android.proto.SerializeFormat;
@@ -561,7 +560,7 @@ public class FullyQualifiedName implements DataKey {
 
       // This is fragile but better than the Gradle scheme of just dropping
       // entire subtrees.
-      Builder<String> builder = ImmutableList.<String>builder();
+      ImmutableList.Builder<String> builder = ImmutableList.<String>builder();
       addIfNotNull(config.getCountryCodeQualifier(), builder);
       addIfNotNull(config.getNetworkCodeQualifier(), builder);
       if (transformedLocaleQualifiers.isEmpty()) {

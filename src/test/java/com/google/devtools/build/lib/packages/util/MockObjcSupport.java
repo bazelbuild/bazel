@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -227,7 +226,7 @@ public final class MockObjcSupport {
       }
 
       // Create the test BUILD file.
-      Builder<String> crosstoolBuild =
+      ImmutableList.Builder<String> crosstoolBuild =
           ImmutableList.<String>builder()
               .add(
                   "package(default_visibility=['//visibility:public'])",

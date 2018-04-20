@@ -20,7 +20,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
@@ -278,7 +277,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
         }
       }
 
-      Builder<Artifact, Label> artifactLabelMapBuilder = ImmutableMap.builder();
+      ImmutableMap.Builder<Artifact, Label> artifactLabelMapBuilder = ImmutableMap.builder();
       for (Attribute a : attributes) {
         String attrName = a.getName();
         Type<?> type = a.getType();

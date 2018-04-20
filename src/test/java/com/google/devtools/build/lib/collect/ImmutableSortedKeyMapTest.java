@@ -18,7 +18,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.Maps;
 import com.google.common.testing.NullPointerTester;
-import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap.Builder;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -108,7 +107,7 @@ public class ImmutableSortedKeyMapTest {
 
   @Test
   public void builderPutNullKey() {
-    Builder<String, Integer> builder = new Builder<>();
+    ImmutableSortedKeyMap.Builder<String, Integer> builder = new ImmutableSortedKeyMap.Builder<>();
     try {
       builder.put(null, 1);
       fail();
@@ -118,7 +117,7 @@ public class ImmutableSortedKeyMapTest {
 
   @Test
   public void builderPutNullValue() {
-    Builder<String, Integer> builder = new Builder<>();
+    ImmutableSortedKeyMap.Builder<String, Integer> builder = new ImmutableSortedKeyMap.Builder<>();
     try {
       builder.put("one", null);
       fail();
@@ -128,7 +127,7 @@ public class ImmutableSortedKeyMapTest {
 
   @Test
   public void builderPutNullKeyViaPutAll() {
-    Builder<String, Integer> builder = new Builder<>();
+    ImmutableSortedKeyMap.Builder<String, Integer> builder = new ImmutableSortedKeyMap.Builder<>();
     try {
       builder.putAll(Collections.<String, Integer>singletonMap(null, 1));
       fail();
@@ -138,7 +137,7 @@ public class ImmutableSortedKeyMapTest {
 
   @Test
   public void builderPutNullValueViaPutAll() {
-    Builder<String, Integer> builder = new Builder<>();
+    ImmutableSortedKeyMap.Builder<String, Integer> builder = new ImmutableSortedKeyMap.Builder<>();
     try {
       builder.putAll(Collections.<String, Integer>singletonMap("one", null));
       fail();

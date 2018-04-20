@@ -19,7 +19,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.android.AndroidCompiledDataDeserializer.ReferenceResolver;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
@@ -96,7 +95,7 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
 
   private static Map<FullyQualifiedName, Boolean> createAttrDefinitionMap(
       FullyQualifiedName[] attrNames, Boolean definitionType) {
-    Builder<FullyQualifiedName, Boolean> builder = ImmutableMap.builder();
+    ImmutableMap.Builder<FullyQualifiedName, Boolean> builder = ImmutableMap.builder();
     for (FullyQualifiedName attrName : attrNames) {
       builder.put(attrName, definitionType);
     }

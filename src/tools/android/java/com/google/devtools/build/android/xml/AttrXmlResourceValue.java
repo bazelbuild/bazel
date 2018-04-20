@@ -26,7 +26,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.StartTag;
@@ -99,7 +98,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
 
   private static Map<String, String> readSubValues(XMLEventReader reader, QName subTagType)
       throws XMLStreamException {
-    Builder<String, String> builder = ImmutableMap.builder();
+    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
     while (reader.hasNext()
         && XmlResourceValues.isTag(XmlResourceValues.peekNextTag(reader), subTagType)) {
       StartElement element = reader.nextEvent().asStartElement();
@@ -156,7 +155,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   @SuppressWarnings("deprecation")
   public static XmlResourceValue from(SerializeFormat.DataValueXml proto)
       throws InvalidProtocolBufferException {
-    Builder<String, ResourceXmlAttrValue> formats =
+    ImmutableMap.Builder<String, ResourceXmlAttrValue> formats =
         ImmutableMap.<String, AttrXmlResourceValue.ResourceXmlAttrValue>builder();
     for (Entry<String, SerializeFormat.DataValueXml> entry : proto.getMappedXmlValue().entrySet()) {
       switch (entry.getKey()) {
@@ -200,8 +199,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   }
 
   public static XmlResourceValue from(Value proto) throws InvalidProtocolBufferException {
-    Builder<String, ResourceXmlAttrValue> formats =
-        ImmutableMap.builder();
+    ImmutableMap.Builder<String, ResourceXmlAttrValue> formats = ImmutableMap.builder();
 
     Attribute attribute = proto.getCompoundValue().getAttr();
     int formatFlags = attribute.getFormatFlags();
@@ -280,7 +278,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
       }
     }
 
-    Builder<String, ResourceXmlAttrValue> formats = ImmutableMap.builder();
+    ImmutableMap.Builder<String, ResourceXmlAttrValue> formats = ImmutableMap.builder();
     for (String formatName : formatNames) {
       switch (formatName) {
         case FLAGS:
@@ -455,7 +453,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     public static Entry<String, ResourceXmlAttrValue> asEntryOf(String... keyThenValue) {
       Preconditions.checkArgument(keyThenValue.length > 0);
       Preconditions.checkArgument(keyThenValue.length % 2 == 0);
-      Builder<String, String> builder = ImmutableMap.builder();
+      ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       for (int i = 0; i < keyThenValue.length; i += 2) {
         builder.put(keyThenValue[i], keyThenValue[i + 1]);
       }
@@ -531,7 +529,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
 
     @VisibleForTesting
     public static Entry<String, ResourceXmlAttrValue> asEntryOf(String... keyThenValue) {
-      Builder<String, String> builder = ImmutableMap.builder();
+      ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       Preconditions.checkArgument(keyThenValue.length > 0);
       Preconditions.checkArgument(keyThenValue.length % 2 == 0);
       for (int i = 0; i < keyThenValue.length; i += 2) {
