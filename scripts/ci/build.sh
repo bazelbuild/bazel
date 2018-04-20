@@ -324,6 +324,6 @@ function deploy_release() {
   github_working_dir="$(mktemp -d --tmpdir)"
   echo "github_working_dir = ${github_working_dir}"
   cp "${artifact_dir}"/* "${github_working_dir}"
-  rm -f "${github_working_dir}/bazel_${release_label}"*.{deb,dsc,tar.gz}
+  rm -f "${github_working_dir}/bazel_${release_label}"*.{dsc,tar.gz}{,.sha256,.sig}
   release_to_github "${github_working_dir}"
 }
