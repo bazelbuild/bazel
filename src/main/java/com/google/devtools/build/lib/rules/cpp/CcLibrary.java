@@ -317,6 +317,14 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
+    List<Artifact> instrumentedObjectFiles = new ArrayList<>();
+    instrumentedObjectFiles.addAll(compilationInfo.getCcCompilationOutputs().getObjectFiles(false));
+    instrumentedObjectFiles.addAll(compilationInfo.getCcCompilationOutputs().getObjectFiles(true));
+    InstrumentedFilesProvider instrumentedFilesProvider =
+        common.getInstrumentedFilesProvider(
+            instrumentedObjectFiles, /* withBaselineCoverage= */ true);
+    CppHelper.maybeAddStaticLinkMarkerProvider(targetBuilder, ruleContext);
+
     Runfiles staticRunfiles =
         collectRunfiles(
             ruleContext,
@@ -336,17 +344,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             addDynamicRuntimeInputArtifactsToRunfiles,
             false);
 
-    List<Artifact> instrumentedObjectFiles = new ArrayList<>();
-    instrumentedObjectFiles.addAll(compilationInfo.getCcCompilationOutputs().getObjectFiles(false));
-    instrumentedObjectFiles.addAll(compilationInfo.getCcCompilationOutputs().getObjectFiles(true));
-    InstrumentedFilesProvider instrumentedFilesProvider =
-        common.getInstrumentedFilesProvider(instrumentedObjectFiles, /*withBaselineCoverage=*/true);
-    CppHelper.maybeAddStaticLinkMarkerProvider(targetBuilder, ruleContext);
-
     targetBuilder
         .setFilesToBuild(filesToBuild)
         .addProviders(compilationInfo.getProviders())
         .addProviders(linkingInfo.getProviders())
+        .addNativeDeclaredProvider(
+            overrideRunfilesProvider(staticRunfiles, sharedRunfiles, linkingInfo))
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
         .addOutputGroups(
             CcCommon.mergeOutputGroups(
@@ -354,8 +357,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider)
         .addProvider(
             RunfilesProvider.class, RunfilesProvider.withData(staticRunfiles, sharedRunfiles))
-        // Remove this?
-        .addNativeDeclaredProvider(new CcRunfilesInfo(staticRunfiles, sharedRunfiles))
         .addOutputGroup(
             OutputGroupInfo.HIDDEN_TOP_LEVEL,
             collectHiddenTopLevelArtifacts(
@@ -364,6 +365,17 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             CcCompilationHelper.HIDDEN_HEADER_TOKENS,
             CcCompilationHelper.collectHeaderTokens(
                 ruleContext, compilationInfo.getCcCompilationOutputs()));
+  }
+
+  private static CcLinkingInfo overrideRunfilesProvider(
+      Runfiles staticRunfiles, Runfiles sharedRunfiles, LinkingInfo linkingInfo) {
+    CcLinkingInfo ccLinkingInfo =
+        (CcLinkingInfo) linkingInfo.getProviders().getProvider(CcLinkingInfo.PROVIDER.getKey());
+    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
+    ccLinkingInfoBuilder.setCcLinkParamsInfo(ccLinkingInfo.getCcLinkParamsInfo());
+    ccLinkingInfoBuilder.setCcRunfilesInfo(new CcRunfilesInfo(staticRunfiles, sharedRunfiles));
+
+    return ccLinkingInfoBuilder.build();
   }
 
   private static NestedSet<Artifact> collectHiddenTopLevelArtifacts(

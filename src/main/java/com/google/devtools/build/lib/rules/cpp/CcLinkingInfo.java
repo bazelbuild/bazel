@@ -40,21 +40,28 @@ public final class CcLinkingInfo extends NativeInfo {
       new NativeProvider<CcLinkingInfo>(CcLinkingInfo.class, "CcLinkingInfo") {};
 
   private final CcLinkParamsInfo ccLinkParamsInfo;
+  private final CcRunfilesInfo ccRunfilesInfo;
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
-  CcLinkingInfo(CcLinkParamsInfo ccLinkParamsInfo) {
+  CcLinkingInfo(CcLinkParamsInfo ccLinkParamsInfo, CcRunfilesInfo ccRunfilesInfo) {
     super(PROVIDER);
     this.ccLinkParamsInfo = ccLinkParamsInfo;
+    this.ccRunfilesInfo = ccRunfilesInfo;
   }
 
   public CcLinkParamsInfo getCcLinkParamsInfo() {
     return ccLinkParamsInfo;
   }
 
+  public CcRunfilesInfo getCcRunfilesInfo() {
+    return ccRunfilesInfo;
+  }
+
   /** A Builder for {@link CcLinkingInfo}. */
   public static class Builder {
     CcLinkParamsInfo ccLinkParamsInfo;
+    CcRunfilesInfo ccRunfilesInfo;
 
     public static CcLinkingInfo.Builder create() {
       return new CcLinkingInfo.Builder();
@@ -66,8 +73,14 @@ public final class CcLinkingInfo extends NativeInfo {
       return this;
     }
 
+    public Builder setCcRunfilesInfo(CcRunfilesInfo ccRunfilesInfo) {
+      Preconditions.checkState(this.ccRunfilesInfo == null);
+      this.ccRunfilesInfo = ccRunfilesInfo;
+      return this;
+    }
+
     public CcLinkingInfo build() {
-      return new CcLinkingInfo(ccLinkParamsInfo);
+      return new CcLinkingInfo(ccLinkParamsInfo, ccRunfilesInfo);
     }
   }
 
