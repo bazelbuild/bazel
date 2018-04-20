@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -238,7 +237,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   }
 
   @Override
-  public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
+  public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
     globalMakeEnvBuilder.putAll(
         getCppBuildVariables(
             this::getToolPathFragment,

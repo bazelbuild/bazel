@@ -21,7 +21,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -1479,7 +1478,7 @@ public final class CcCompilationHelper {
       Artifact ltoIndexingFile,
       ImmutableMap<String, String> additionalBuildVariables) {
     Artifact sourceFile = builder.getSourceFile();
-    Builder<String> userCompileFlags = ImmutableList.builder();
+    ImmutableList.Builder<String> userCompileFlags = ImmutableList.builder();
     userCompileFlags.addAll(getCoptsFromOptions(cppConfiguration, sourceFile.getExecPathString()));
     userCompileFlags.addAll(copts);
     if (sourceFile != null && sourceLabel != null) {

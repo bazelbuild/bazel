@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -91,7 +90,7 @@ public class CppLinkstampCompileHelper {
       boolean codeCoverageEnabled) {
     String labelPattern = Pattern.quote("${LABEL}");
     String outputPathPattern = Pattern.quote("${OUTPUT_PATH}");
-    Builder<String> defines =
+    ImmutableList.Builder<String> defines =
         ImmutableList.<String>builder()
             .add("GPLATFORM=\"" + cppConfiguration + "\"")
             .add("BUILD_COVERAGE_ENABLED=" + (codeCoverageEnabled ? "1" : "0"))

@@ -21,7 +21,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
@@ -1280,7 +1279,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   @Override
-  public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
+  public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
     if (!cppOptions.enableMakeVariables) {
       return;
     }

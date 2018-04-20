@@ -20,7 +20,6 @@ import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.stream.Stream;
@@ -202,7 +201,7 @@ public class GlobCriteria {
       return ImmutableList.of();
     }
     Iterable<String> split = Splitter.on(", ").split(text);
-    Builder<String> listBuilder = ImmutableList.builder();
+    ImmutableList.Builder<String> listBuilder = ImmutableList.builder();
     for (String element : split) {
       if (!element.isEmpty()) {
         if ((element.length() < 2) || !element.startsWith("'") || !element.endsWith("'")) {
