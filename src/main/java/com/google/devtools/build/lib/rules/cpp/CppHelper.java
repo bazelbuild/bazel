@@ -1001,7 +1001,7 @@ public class CppHelper {
             .addTransitiveInputs(toolchain.getStrip())
             .addOutput(output)
             .useDefaultShellEnvironment()
-            .setExecutable(stripTool.getToolPath(cppConfiguration.getCrosstoolTopPathFragment()))
+            .setExecutable(stripTool.getToolPathFragment())
             .setExecutionInfo(executionInfoBuilder.build())
             .setProgressMessage("Stripping %s for %s", output.prettyPrint(), context.getLabel())
             .setMnemonic("CcStrip")

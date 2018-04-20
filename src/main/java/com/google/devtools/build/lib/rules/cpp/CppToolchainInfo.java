@@ -274,7 +274,7 @@ public final class CppToolchainInfo {
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.toolchainIdentifier = toolchainIdentifier;
     // Since this field can be derived from `toolchain`, it is re-derived instead of serialized.
-    this.toolchainFeatures = new CcToolchainFeatures(toolchain);
+    this.toolchainFeatures = new CcToolchainFeatures(toolchain, crosstoolTopPathFragment);
     this.toolPaths = toolPaths;
     this.compiler = compiler;
     this.abiGlibcVersion = abiGlibcVersion;

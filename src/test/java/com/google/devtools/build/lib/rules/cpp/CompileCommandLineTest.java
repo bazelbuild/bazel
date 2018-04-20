@@ -141,7 +141,6 @@ public class CompileCommandLineTest extends BuildViewTestCase {
         scratchArtifact("a/FakeInput"),
         CoptsFilter.alwaysPasses(),
         "c++-compile",
-        getTargetConfiguration().getFragment(CppConfiguration.class).getCrosstoolTopPathFragment(),
         new DotdFile(scratchArtifact("a/dotD")));
   }
 }

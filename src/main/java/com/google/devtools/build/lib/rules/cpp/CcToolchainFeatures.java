@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
@@ -57,6 +56,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
@@ -933,25 +933,32 @@ public class CcToolchainFeatures implements Serializable {
    */
   @Immutable
   static class Tool {
-    private final String toolPathString;
+    private final PathFragment toolPathFragment;
     private final ImmutableSet<String> executionRequirements;
+    private final ImmutableSet<WithFeatureSet> withFeatureSetSets;
 
-    private Tool(CToolchain.Tool tool) {
-      toolPathString = tool.getToolPath();
+    private Tool(
+        CToolchain.Tool tool,
+        PathFragment crosstoolTop,
+        ImmutableSet<WithFeatureSet> withFeatureSetSets) {
+      this.withFeatureSetSets = withFeatureSetSets;
+      toolPathFragment = crosstoolTop.getRelative(tool.getToolPath());
       executionRequirements = ImmutableSet.copyOf(tool.getExecutionRequirementList());
     }
 
     @VisibleForTesting
-    public Tool(String toolPathString, ImmutableSet<String> executionRequirements) {
-      this.toolPathString = toolPathString;
+    public Tool(
+        PathFragment toolPathFragment,
+        ImmutableSet<String> executionRequirements,
+        ImmutableSet<WithFeatureSet> withFeatureSetSets) {
+      this.toolPathFragment = toolPathFragment;
       this.executionRequirements = executionRequirements;
+      this.withFeatureSetSets = withFeatureSetSets;
     }
 
-    /**
-     * Returns the path to this action's tool relative to the provided crosstool path.
-     */
-    PathFragment getToolPath(PathFragment crosstoolTopPathFragment) {
-      return crosstoolTopPathFragment.getRelative(toolPathString);
+    /** Returns the path to this action's tool relative to the provided crosstool path. */
+    PathFragment getToolPathFragment() {
+      return toolPathFragment;
     }
 
     /**
@@ -959,6 +966,14 @@ public class CcToolchainFeatures implements Serializable {
      */
     ImmutableSet<String> getExecutionRequirements() {
       return executionRequirements;
+    }
+
+    /**
+     * Returns a set of {@link WithFeatureSet} instances used to decide whether to use this tool
+     * given a set of enabled features.
+     */
+    public ImmutableSet<WithFeatureSet> getWithFeatureSetSets() {
+      return withFeatureSetSets;
     }
   }
 
@@ -991,14 +1006,19 @@ public class CcToolchainFeatures implements Serializable {
 
     private final String configName;
     private final String actionName;
-    private final List<CToolchain.Tool> tools;
+    private final ImmutableList<Tool> tools;
     private final ImmutableList<FlagSet> flagSets;
 
-    private ActionConfig(CToolchain.ActionConfig actionConfig)
+    private ActionConfig(CToolchain.ActionConfig actionConfig, PathFragment crosstoolTop)
         throws InvalidConfigurationException {
       this.configName = actionConfig.getConfigName();
       this.actionName = actionConfig.getActionName();
-      this.tools = actionConfig.getToolList();
+      this.tools =
+          actionConfig
+              .getToolList()
+              .stream()
+              .map(t -> new Tool(t, crosstoolTop, ImmutableSet.copyOf(t.getWithFeatureList())))
+              .collect(ImmutableList.toImmutableList());
 
       ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
       for (CToolchain.FlagSet flagSet : actionConfig.getFlagSetList()) {
@@ -1017,7 +1037,7 @@ public class CcToolchainFeatures implements Serializable {
     ActionConfig(
         String configName,
         String actionName,
-        List<CToolchain.Tool> tools,
+        ImmutableList<Tool> tools,
         ImmutableList<FlagSet> flagSets) {
       this.configName = configName;
       this.actionName = actionName;
@@ -1042,14 +1062,13 @@ public class CcToolchainFeatures implements Serializable {
      * of enabled features.
      */
     private Tool getTool(final Set<String> enabledFeatureNames) {
-      Optional<CToolchain.Tool> tool =
-          Iterables.tryFind(
-              tools,
-              input -> {
-                return isWithFeaturesSatisfied(input.getWithFeatureList(), enabledFeatureNames);
-              });
+      Optional<Tool> tool =
+          tools
+              .stream()
+              .filter(t -> isWithFeaturesSatisfied(t.getWithFeatureSetSets(), enabledFeatureNames))
+              .findFirst();
       if (tool.isPresent()) {
-        return new Tool(tool.get());
+        return tool.get();
       } else {
         throw new IllegalArgumentException(
             "Matching tool for action "
@@ -2257,7 +2276,8 @@ public class CcToolchainFeatures implements Serializable {
    * @throws InvalidConfigurationException if the configuration has logical errors.
    */
   @VisibleForTesting
-  public CcToolchainFeatures(CToolchain toolchain) throws InvalidConfigurationException {
+  public CcToolchainFeatures(CToolchain toolchain, PathFragment crosstoolTop)
+      throws InvalidConfigurationException {
     // Build up the feature/action config graph.  We refer to features/action configs as
     // 'selectables'.
     // First, we build up the map of name -> selectables in one pass, so that earlier selectables
@@ -2279,7 +2299,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     for (CToolchain.ActionConfig toolchainActionConfig : toolchain.getActionConfigList()) {
-      ActionConfig actionConfig = new ActionConfig(toolchainActionConfig);
+      ActionConfig actionConfig = new ActionConfig(toolchainActionConfig, crosstoolTop);
       selectablesBuilder.add(actionConfig);
       selectablesByName.put(actionConfig.getName(), actionConfig);
       actionConfigsByActionName.put(actionConfig.getActionName(), actionConfig);

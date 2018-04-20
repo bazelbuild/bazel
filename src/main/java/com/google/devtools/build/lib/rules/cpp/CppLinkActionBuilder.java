@@ -1032,8 +1032,7 @@ public class CppLinkActionBuilder {
             .setNativeDeps(isNativeDeps)
             .setUseTestOnlyFlags(useTestOnlyFlags)
             .setParamFile(paramFile)
-            .setFeatureConfiguration(featureConfiguration)
-            .setCrosstoolTopPathFragment(cppConfiguration.getCrosstoolTopPathFragment());
+            .setFeatureConfiguration(featureConfiguration);
 
     // TODO(b/62693279): Cleanup once internal crosstools specify ifso building correctly.
     if (shouldUseLinkDynamicLibraryTool()) {
