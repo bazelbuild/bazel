@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingM
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -168,6 +169,16 @@ public final class CcCompilationHelper {
 
     public Map<String, NestedSet<Artifact>> getOutputGroups() {
       return outputGroups;
+    }
+
+    @SkylarkCallable(name = "cc_output_groups", documented = false)
+    public Map<String, SkylarkNestedSet> getSkylarkOutputGroups() {
+      Map<String, SkylarkNestedSet> skylarkOutputGroups = new TreeMap<>();
+      for (Map.Entry<String, NestedSet<Artifact>> entry : outputGroups.entrySet()) {
+        skylarkOutputGroups.put(
+            entry.getKey(), SkylarkNestedSet.of(Artifact.class, entry.getValue()));
+      }
+      return skylarkOutputGroups;
     }
 
     @SkylarkCallable(name = "cc_compilation_outputs", documented = false)

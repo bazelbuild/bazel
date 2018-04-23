@@ -167,7 +167,7 @@ public class CcCompilationOutputs {
     return files.build();
   }
 
-
+  /** Builder for CcCompilationOutputs. */
   public static final class Builder {
     private final Set<Artifact> objectFiles = new LinkedHashSet<>();
     private final Set<Artifact> picObjectFiles = new LinkedHashSet<>();
