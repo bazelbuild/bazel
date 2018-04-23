@@ -451,7 +451,7 @@ sh_test(
     size = "large",
     srcs = ["bazel_repository_cache_test.sh"],
     data = [":test-deps"],
-    shard_count = 4,
+    shard_count = 6,
 )
 
 sh_test(

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyT
 import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -164,8 +165,8 @@ public class HttpDownloader {
 
     Path destination = getDownloadDestination(urls.get(0), type, output);
 
-    // Used to decide whether to cache the download at the end of this method.
-    boolean isCaching = false;
+    // Is set to true if the value should be cached by the sha256 value provided
+    boolean isCachingByProvidedSha256 = false;
 
     if (!sha256.isEmpty()) {
       try {
@@ -180,7 +181,7 @@ public class HttpDownloader {
       }
 
       if (repositoryCache.isEnabled()) {
-        isCaching = true;
+        isCachingByProvidedSha256 = true;
 
         Path cachedDestination = repositoryCache.get(sha256, destination, KeyType.SHA256);
         if (cachedDestination != null) {
@@ -193,7 +194,7 @@ public class HttpDownloader {
         Path candidate = dir.getRelative(destination.getBaseName());
         if (RepositoryCache.getChecksum(KeyType.SHA256, candidate).equals(sha256)) {
           // Found the archive in one of the distdirs, no need to download.
-          if (isCaching) {
+          if (isCachingByProvidedSha256) {
             repositoryCache.put(sha256, candidate, KeyType.SHA256);
           }
           FileSystemUtils.createDirectoryAndParents(destination.getParentDirectory());
@@ -231,8 +232,11 @@ public class HttpDownloader {
       eventHandler.post(new FetchEvent(urls.get(0).toString(), success));
     }
 
-    if (isCaching) {
+    if (isCachingByProvidedSha256) {
       repositoryCache.put(sha256, destination, KeyType.SHA256);
+    } else if (repositoryCache.isEnabled()) {
+      String newSha256 = repositoryCache.put(destination, KeyType.SHA256);
+      eventHandler.handle(Event.info("SHA256 (" + urls.get(0) + ") = " + newSha256));
     }
 
     return destination;

@@ -283,6 +283,50 @@ function test_load_cached_value() {
   expect_log "All external dependencies fetched successfully"
 }
 
+function test_write_cache_without_hash() {
+  setup_repository
+
+  # Have a WORKSPACE file without the specified sha256
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = 'endangered',
+    url = 'http://localhost:$nc_port/bleh',
+    type = 'zip',
+)
+EOF
+
+  # Fetch; as we did not specify a hash, we expect bazel to tell us the hash
+  # in an info message.
+  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+    || fail "expected fetch to succeed"
+
+  expect_log "${sha256}"
+
+  # Shutdown the server; so fetching again won't work
+  shutdown_server
+  bazel clean --expunge
+
+  # As we don't have a predicted cache, we expect fetching to fail now.
+  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+    && fail "expected failure" || :
+
+  # However, if we add the hash, the value is taken from cache
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = 'endangered',
+    url = 'http://localhost:$nc_port/bleh',
+    type = 'zip',
+    sha256 = '${sha256}',
+)
+EOF
+  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+    || fail "expected fetch to succeed"
+}
+
 function test_failed_fetch_without_cache() {
   setup_repository
 
