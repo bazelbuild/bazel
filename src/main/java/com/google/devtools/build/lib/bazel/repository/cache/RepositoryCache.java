@@ -164,6 +164,20 @@ public class RepositoryCache {
     FileSystemUtils.copyFile(sourcePath, cacheValue);
   }
 
+  /**
+   * Copies a value from a specified path into the cache, computing the cache key itself.
+   *
+   * @param sourcePath The path of the value to be cached.
+   * @param keyType The type of key to be used.
+   * @throws IOException
+   * @return The key for the cached entry.
+   */
+  public synchronized String put(Path sourcePath, KeyType keyType) throws IOException {
+    String cacheKey = getChecksum(keyType, sourcePath);
+    put(cacheKey, sourcePath, keyType);
+    return cacheKey;
+  }
+
   private void ensureCacheDirectoryExists(KeyType keyType) throws IOException {
     Path directoryPath = keyType.getCachePath(contentAddressablePath);
     if (!directoryPath.exists()) {
