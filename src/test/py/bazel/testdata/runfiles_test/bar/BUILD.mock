@@ -15,3 +15,10 @@ java_binary(
     main_class = "Bar",
     deps = ["@bazel_tools//tools/runfiles:java-runfiles"],
 )
+
+sh_binary(
+    name = "bar-sh",
+    srcs = ["bar.sh"],
+    data = ["bar-sh-data.txt"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
