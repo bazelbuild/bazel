@@ -14,44 +14,19 @@
 
 package com.google.devtools.build.lib.analysis.skylark;
 
-
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkBuildApiGlobals;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 
 /**
- * A collection of global skylark build API functions that belong in the global namespace.
+ * Bazel implementation of {@link SkylarkBuildApiGlobals}: a collection of global skylark build
+ * API functions that belong in the global namespace.
  */
-@SkylarkGlobalLibrary
-public class SkylarkBuildApiGlobals {
+public class BazelBuildApiGlobals implements SkylarkBuildApiGlobals {
 
-  @SkylarkCallable(
-    name = "configuration_field",
-    // TODO(cparsons): Provide a link to documentation for available SkylarkConfigurationFields.
-    doc = "References a late-bound default value for an attribute of type "
-      + "<a href=\"attr.html#label\">label</a>. A value is 'late-bound' if it requires "
-      + "the configuration to be built before determining the value. Any attribute using this "
-      + "as a value must <a href=\"../rules.html#private-attributes\">be private</a>.",
-    parameters = {
-        @Param(
-            name = "fragment",
-            type = String.class,
-            named = true,
-            doc = "The name of a configuration fragment which contains the late-bound value."
-        ),
-        @Param(
-            name = "name",
-            type = String.class,
-            named = true,
-            doc = "The name of the value to obtain from the configuration fragment."),
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
+  @Override
   public SkylarkLateBoundDefault<?> configurationField(
       String fragment, String name, Location loc, Environment env)
       throws EvalException {

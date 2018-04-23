@@ -38,8 +38,8 @@ public final class SkylarkModules {
    */
   public static final ImmutableList<Class<?>> MODULES =
       ImmutableList.of(
+          BazelBuildApiGlobals.class,
           SkylarkAttr.class,
-          SkylarkBuildApiGlobals.class,
           SkylarkCommandLine.class,
           SkylarkNativeModule.class,
           SkylarkRuleClassFunctions.class);

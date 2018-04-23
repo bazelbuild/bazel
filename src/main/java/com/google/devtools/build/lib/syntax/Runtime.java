@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -337,14 +338,19 @@ public final class Runtime {
    *       callables.</li>
    * </ul>
    *
+   * <p>On collisions, this method throws an {@link AssertionError}. Collisions may occur if
+   * multiple global libraries have functions of the same name, two modules of the same name
+   * are given, or if two subclasses of the same module are given.
+   *
    * @param env the Environment into which to register fields.
    * @param moduleClass the Class object containing globals.
    */
   public static void setupModuleGlobals(Environment env, Class<?> moduleClass) {
     try {
-      if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {
+      SkylarkModule skylarkModule = SkylarkInterfaceUtils.getSkylarkModule(moduleClass);
+      if (skylarkModule != null) {
         env.setup(
-            moduleClass.getAnnotation(SkylarkModule.class).name(),
+            skylarkModule.name(),
             moduleClass.getConstructor().newInstance());
       }
       for (Field field : moduleClass.getDeclaredFields()) {
@@ -362,7 +368,7 @@ public final class Runtime {
           }
         }
       }
-      if (moduleClass.isAnnotationPresent(SkylarkGlobalLibrary.class)) {
+      if (SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(moduleClass)) {
         Object moduleInstance = moduleClass.getConstructor().newInstance();
         for (String methodName : FuncallExpression.getMethodNames(moduleClass)) {
           env.setup(methodName, FuncallExpression.getBuiltinCallable(moduleInstance, methodName));
