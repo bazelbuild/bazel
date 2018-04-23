@@ -165,3 +165,11 @@ http_file(
   name = 'mount_path_toolchain',
   url = 'https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz',
 )
+
+load("//scripts/docs:versions.bzl", "DOCS_VERSIONS")
+
+[http_file(
+    name = "bazel_docs_%s" % DOC_VERSION["version"].replace(".", "_"),
+    url = "https://mirror.bazel.build/bazel_versioned_docs/jekyll-tree-%s.tar" % DOC_VERSION["version"],
+    sha256 = DOC_VERSION["sha256"],
+) for DOC_VERSION in DOCS_VERSIONS]

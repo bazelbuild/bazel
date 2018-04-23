@@ -147,8 +147,12 @@ genrule(
     ],
 )
 
+load("//scripts/docs:versions.bzl", "DOCS_VERSIONS")
+
 jekyll_build(
     name = "site",
-    srcs = [":jekyll-tree"],
+    srcs = [
+        ":jekyll-tree",
+    ] + ["@bazel_docs_%s//file" % DOC_VERSION["version"].replace(".", "_") for DOC_VERSION in DOCS_VERSIONS],
     bucket = "docs.bazel.build",
 )

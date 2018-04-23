@@ -16,4 +16,7 @@ py_binary(
     deps = [":dot-converter"],
 )
 
-exports_files(["jekyll_build.sh.tpl"])
+exports_files([
+    "jekyll_build.sh.tpl",
+    "versions.bzl",
+])
