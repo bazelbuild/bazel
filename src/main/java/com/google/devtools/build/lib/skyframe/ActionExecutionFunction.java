@@ -191,9 +191,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     ActionExecutionValue result;
     try {
-      result =
-          checkCacheAndExecuteIfNeeded(
-              action, state, env, clientEnv, actionLookupData, sharedActionAlreadyRan);
+      result = checkCacheAndExecuteIfNeeded(action, state, env, clientEnv, actionLookupData);
     } catch (ActionExecutionException e) {
       // Remove action from state map in case it's there (won't be unless it discovers inputs).
       stateMap.remove(action);
@@ -341,20 +339,13 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       ContinuationState state,
       Environment env,
       Map<String, String> clientEnv,
-      ActionLookupData actionLookupData,
-      boolean sharedActionAlreadyRan)
+      ActionLookupData actionLookupData)
       throws ActionExecutionException, InterruptedException {
     // If this is a shared action and the other action is the one that executed, we must use that
     // other action's value, provided here, since it is populated with metadata for the outputs.
-    if (sharedActionAlreadyRan) {
-      return skyframeActionExecutor.executeAction(
-          env.getListener(),
-          action,
-          /* metadataHandler= */ null,
-          /* actionStartTime= */ -1,
-          /* actionExecutionContext= */ null,
-          actionLookupData,
-          /* inputDiscoveryRan= */ false);
+    if (!state.hasArtifactData()) {
+      return skyframeActionExecutor
+          .executeAction(env.getListener(), action, null, -1, null, actionLookupData);
     }
     // This may be recreated if we discover inputs.
     ActionMetadataHandler metadataHandler = new ActionMetadataHandler(state.inputArtifactData,
@@ -438,13 +429,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       if (!state.hasExecutedAction()) {
         state.value =
             skyframeActionExecutor.executeAction(
-                env.getListener(),
-                action,
-                metadataHandler,
-                actionStartTime,
-                actionExecutionContext,
-                actionLookupData,
-                /* inputDiscoveryRan= */ true);
+                env.getListener(), action, metadataHandler, actionStartTime, actionExecutionContext,
+                actionLookupData);
       }
     } catch (IOException e) {
       throw new ActionExecutionException(
