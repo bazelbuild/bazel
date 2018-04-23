@@ -38,7 +38,8 @@ to make your files easy to process, both by humans and tools.
 
 ## General advice
 
-* Use [skylint](skylint.md)
+*   Use [skylint](skylint.md).
+*   Follow [testing guidelines](testing.md).
 
 ## Style
 
