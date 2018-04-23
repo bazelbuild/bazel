@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
@@ -169,11 +170,13 @@ public class BazelPythonSemantics implements PythonSemantics {
               true));
 
       if (OS.getCurrent() != OS.WINDOWS) {
+        PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
         ruleContext.registerAction(
             new SpawnAction.Builder()
                 .addInput(zipFile)
                 .addOutput(executable)
                 .setShellCommand(
+                    shExecutable,
                     "echo '#!/usr/bin/env python' | cat - "
                         + zipFile.getExecPathString()
                         + " > "

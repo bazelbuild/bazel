@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.ShellConfiguration;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -244,7 +244,7 @@ public class RunCommand implements BlazeCommand  {
       String unisolatedCommand = CommandFailureUtils.describeCommand(
           CommandDescriptionForm.COMPLETE_UNISOLATED,
           cmdLine, null, workingDir.getPathString());
-      if (writeScript(env, runOptions.scriptPath, unisolatedCommand)) {
+      if (writeScript(env, shellExecutable, runOptions.scriptPath, unisolatedCommand)) {
         return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       } else {
         return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
@@ -450,12 +450,21 @@ public class RunCommand implements BlazeCommand  {
       }
     }
 
-    PathFragment shellExecutable =
-        configuration.getFragment(ShellConfiguration.class).getShellExecutable();
+    // TODO(laszlocsomor): change RunCommand to not require a shell and not write a shell script,
+    // then remove references to ShToolchain. See https://github.com/bazelbuild/bazel/issues/4319
+    PathFragment shExecutable = ShToolchain.getPath(configuration);
+    if (shExecutable.isEmpty()) {
+      env.getReporter()
+          .handle(
+              Event.error(
+                  "the \"run\" command needs a shell; use the --shell_executable=<path> flag "
+                      + "to specify its path, e.g. --shell_executable=/usr/local/bin/bash"));
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+    }
 
     if (!runOptions.direct) {
       return runTargetUnderServer(
-          env, targetToRun, shellExecutable, runUnderTarget, runfilesDir, commandLineArgs);
+          env, targetToRun, shExecutable, runUnderTarget, runfilesDir, commandLineArgs);
     }
 
     Map<String, String> runEnvironment = new TreeMap<>();
@@ -511,15 +520,15 @@ public class RunCommand implements BlazeCommand  {
     } else {
       workingDir = runfilesDir;
       List<String> args = computeArgs(env, targetToRun, commandLineArgs);
-      constructCommandLine(cmdLine, prettyCmdLine, env,
-          shellExecutable, targetToRun, runUnderTarget, args);
+      constructCommandLine(
+          cmdLine, prettyCmdLine, env, shExecutable, targetToRun, runUnderTarget, args);
     }
 
     if (runOptions.scriptPath != null) {
       String unisolatedCommand = CommandFailureUtils.describeCommand(
           CommandDescriptionForm.COMPLETE_UNISOLATED,
           cmdLine, runEnvironment, workingDir.getPathString());
-      if (writeScript(env, runOptions.scriptPath, unisolatedCommand)) {
+      if (writeScript(env, shExecutable, runOptions.scriptPath, unisolatedCommand)) {
         return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       } else {
         return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
@@ -547,10 +556,9 @@ public class RunCommand implements BlazeCommand  {
         .setWorkingDirectory(
             ByteString.copyFrom(workingDir.getPathString(), StandardCharsets.ISO_8859_1));
 
-    ImmutableList<String> shellCmdLine = ImmutableList.<String>of(
-        shellExecutable.getPathString(),
-        "-c",
-        ShellEscaper.escapeJoinAll(cmdLine));
+    ImmutableList<String> shellCmdLine =
+        ImmutableList.<String>of(
+            shExecutable.getPathString(), "-c", ShellEscaper.escapeJoinAll(cmdLine));
 
     for (String arg : shellCmdLine) {
       execDescription.addArgv(ByteString.copyFrom(arg, StandardCharsets.ISO_8859_1));
@@ -612,11 +620,17 @@ public class RunCommand implements BlazeCommand  {
     return workingDir;
   }
 
-  private boolean writeScript(CommandEnvironment env, PathFragment scriptPathFrag, String cmd) {
+  private boolean writeScript(
+      CommandEnvironment env,
+      PathFragment shellExecutable,
+      PathFragment scriptPathFrag,
+      String cmd) {
     Path scriptPath = env.getWorkingDirectory().getRelative(scriptPathFrag);
     try {
-      FileSystemUtils.writeContent(scriptPath, StandardCharsets.ISO_8859_1,
-          "#!/bin/sh\n" + cmd + " \"$@\"");
+      FileSystemUtils.writeContent(
+          scriptPath,
+          StandardCharsets.ISO_8859_1,
+          "#!" + shellExecutable.getPathString() + "\n" + cmd + " \"$@\"");
       scriptPath.setExecutable(true);
     } catch (IOException e) {
       env.getReporter().handle(Event.error("Error writing run script:" + e.getMessage()));

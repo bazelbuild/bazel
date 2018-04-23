@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.ShellConfiguration;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.actions.ExecutableSymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * Implementation for the sh_binary rule.
@@ -101,8 +102,8 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         || artifact.getExtension().equals("bat");
   }
 
-  private static Artifact createWindowsExeLauncher(RuleContext ruleContext)
-      throws RuleErrorException {
+  private static Artifact createWindowsExeLauncher(
+      RuleContext ruleContext, PathFragment shExecutable) throws RuleErrorException {
     Artifact bashLauncher =
         ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
 
@@ -110,12 +111,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         LaunchInfo.builder()
             .addKeyValuePair("binary_type", "Bash")
             .addKeyValuePair("workspace_name", ruleContext.getWorkspaceName())
-            .addKeyValuePair(
-                "bash_bin_path",
-                ruleContext
-                    .getFragment(ShellConfiguration.class)
-                    .getShellExecutable()
-                    .getPathString())
+            .addKeyValuePair("bash_bin_path", shExecutable.getPathString())
             .build();
 
     LauncherFileWriteAction.createAndRegister(ruleContext, bashLauncher, launchInfo);
@@ -138,8 +134,9 @@ public class ShBinary implements RuleConfiguredTargetFactory {
       }
     }
 
+    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
     if (ruleContext.getConfiguration().enableWindowsExeLauncher()) {
-      return createWindowsExeLauncher(ruleContext);
+      return createWindowsExeLauncher(ruleContext, shExecutable);
     }
 
     Artifact wrapper =
@@ -149,13 +146,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
             ruleContext.getActionOwner(),
             wrapper,
             STUB_SCRIPT_WINDOWS,
-            ImmutableList.of(
-                Substitution.of(
-                    "%bash_exe_path%",
-                    ruleContext
-                        .getFragment(ShellConfiguration.class)
-                        .getShellExecutable()
-                        .getPathString())),
+            ImmutableList.of(Substitution.of("%bash_exe_path%", shExecutable.getPathString())),
             true));
     return wrapper;
   }

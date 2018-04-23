@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -680,8 +679,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         AnalysisEnvironment analysisEnvironment,
         BuildConfiguration configuration,
         List<Action> paramFileActions) {
-      ImmutableList<String> executableArgs = buildExecutableArgs(
-          configuration.getFragment(ShellConfiguration.class).getShellExecutable());
+      ImmutableList<String> executableArgs = buildExecutableArgs();
       boolean hasConditionalParamFile =
           commandLines.stream().anyMatch(c -> c.paramFileInfo != null && !c.paramFileInfo.always());
       boolean spillToParamFiles = false;
@@ -812,7 +810,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      */
     CommandLine buildCommandLineWithoutParamsFiles() {
       SpawnActionCommandLine.Builder result = new SpawnActionCommandLine.Builder();
-      ImmutableList<String> executableArgs = buildExecutableArgs(null);
+      ImmutableList<String> executableArgs = buildExecutableArgs();
       result.addExecutableArguments(executableArgs);
       for (CommandLineAndParamFileInfo commandLineAndParamFileInfo : commandLines) {
         result.addCommandLine(commandLineAndParamFileInfo.commandLine);
@@ -851,12 +849,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           extraActionInfoSupplier);
     }
 
-    private ImmutableList<String> buildExecutableArgs(
-        @Nullable PathFragment defaultShellExecutable) {
-      if (isShellCommand && executable == null) {
-        Preconditions.checkNotNull(defaultShellExecutable);
-        executable = defaultShellExecutable;
-      }
+    private ImmutableList<String> buildExecutableArgs() {
       Preconditions.checkNotNull(executable);
       Preconditions.checkNotNull(executableArgs);
 
@@ -1119,18 +1112,16 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
 
     /**
-     * Sets the executable to be the shell and adds the given command as the
-     * command to be executed.
+     * Sets the executable to be the shell and adds the given command as the command to be executed.
      *
-     * <p>Note that this will not clear the arguments, so any arguments will
-     * be passed in addition to the command given here.
+     * <p>Note that this will not clear the arguments, so any arguments will be passed in addition
+     * to the command given here.
      *
-     * <p>Calling this method overrides any previous values set via calls to
-     * {@link #setExecutable(Artifact)}, {@link #setJavaExecutable}, or
-     * {@link #setShellCommand(String)}.
+     * <p>Calling this method overrides any previous values set via calls to {@link
+     * #setExecutable(Artifact)}, {@link #setJavaExecutable}, or {@link #setShellCommand(String)}.
      */
-    public Builder setShellCommand(String command) {
-      this.executable = null;
+    public Builder setShellCommand(PathFragment shExecutable, String command) {
+      this.executable = shExecutable;
       // 0=shell command switch, 1=command
       this.executableArgs = Lists.newArrayList("-c", command);
       this.isShellCommand = true;

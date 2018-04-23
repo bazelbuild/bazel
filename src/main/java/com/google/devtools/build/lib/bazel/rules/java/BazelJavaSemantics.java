@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.ShellConfiguration;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
@@ -395,25 +395,17 @@ public class BazelJavaSemantics implements JavaSemantics {
     if (OS.getCurrent() == OS.WINDOWS) {
       Artifact newExecutable =
           ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".cmd");
+      PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
       ruleContext.registerAction(
           new TemplateExpansionAction(
               ruleContext.getActionOwner(),
               newExecutable,
               STUB_SCRIPT_WINDOWS,
               ImmutableList.of(
-                  Substitution.of(
-                      "%bash_exe_path%",
-                      ruleContext
-                          .getFragment(ShellConfiguration.class)
-                          .getShellExecutable()
-                          .getPathString()),
+                  Substitution.of("%bash_exe_path%", shExecutable.getPathString()),
                   Substitution.of(
                       "%cygpath_exe_path%",
-                      ruleContext
-                          .getFragment(ShellConfiguration.class)
-                          .getShellExecutable()
-                          .replaceName("cygpath.exe")
-                          .getPathString())),
+                      shExecutable.replaceName("cygpath.exe").getPathString())),
               true));
       return newExecutable;
     } else {

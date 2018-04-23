@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
-import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
@@ -80,6 +79,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private final Artifact cacheStatus;
   private final PathFragment testWarningsPath;
   private final PathFragment unusedRunfilesLogPath;
+  private final PathFragment shExecutable;
   private final PathFragment splitLogsPath;
   private final PathFragment splitLogsDir;
   private final PathFragment undeclaredOutputsDir;
@@ -125,18 +125,18 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   /**
-   * Create new TestRunnerAction instance. Should not be called directly.
-   * Use {@link TestActionBuilder} instead.
+   * Create new TestRunnerAction instance. Should not be called directly. Use {@link
+   * TestActionBuilder} instead.
    *
-   * @param shardNum The shard number. Must be 0 if totalShards == 0
-   *     (no sharding). Otherwise, must be >= 0 and < totalShards.
+   * @param shardNum The shard number. Must be 0 if totalShards == 0 (no sharding). Otherwise, must
+   *     be >= 0 and < totalShards.
    * @param runNumber test run number
    */
   TestRunnerAction(
       ActionOwner owner,
       Iterable<Artifact> inputs,
-      Artifact testSetupScript,  // Must be in inputs
-      @Nullable Artifact collectCoverageScript,  // Must be in inputs, if not null
+      Artifact testSetupScript, // Must be in inputs
+      @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
       Artifact testLog,
       Artifact cacheStatus,
       Artifact coverageArtifact,
@@ -147,6 +147,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       int runNumber,
       BuildConfiguration configuration,
       String workspaceName,
+      PathFragment shExecutable,
       boolean useTestRunner) {
     super(
         owner,
@@ -182,6 +183,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     this.testWarningsPath = baseDir.getChild("test.warnings");
     this.unusedRunfilesLogPath = baseDir.getChild("test.unused_runfiles_log");
     this.testStderr = baseDir.getChild("test.err");
+    this.shExecutable = shExecutable;
     this.splitLogsDir = baseDir.getChild("test.raw_splitlogs");
     // See note in {@link #getSplitLogsPath} on the choice of file name.
     this.splitLogsPath = splitLogsDir.getChild("test.splitlogs");
@@ -756,7 +758,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   public PathFragment getShExecutable() {
-    return configuration.getFragment(ShellConfiguration.class).getShellExecutable();
+    return shExecutable;
   }
 
   public ImmutableMap<String, String> getLocalShellEnvironment() {

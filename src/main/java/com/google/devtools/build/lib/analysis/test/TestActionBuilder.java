@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -306,14 +307,25 @@ public final class TestActionBuilder {
           coverageArtifacts.add(coverageArtifact);
         }
 
-        env.registerAction(new TestRunnerAction(
-            ruleContext.getActionOwner(), inputs,
-            testSetupScript, collectCoverageScript,
-            testLog, cacheStatus,
-            coverageArtifact,
-            testProperties, extraTestEnv, executionSettings,
-            shard, run, config, ruleContext.getWorkspaceName(),
-            useTestRunner));
+        PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+        env.registerAction(
+            new TestRunnerAction(
+                ruleContext.getActionOwner(),
+                inputs,
+                testSetupScript,
+                collectCoverageScript,
+                testLog,
+                cacheStatus,
+                coverageArtifact,
+                testProperties,
+                extraTestEnv,
+                executionSettings,
+                shard,
+                run,
+                config,
+                ruleContext.getWorkspaceName(),
+                shExecutable,
+                useTestRunner));
         results.add(cacheStatus);
       }
     }
