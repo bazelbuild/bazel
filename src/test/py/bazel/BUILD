@@ -96,7 +96,6 @@ py_test(
         "//src/conditions:windows": "windows_remote_test.py",
         "//conditions:default": "empty_test.py",
     }),
-    tags = ["manual"],  # TODO(jsharpe): Reenable once Bazel 0.12 is used on CI.
     deps = select({
         "//src/conditions:windows": [":test_base"],
         "//conditions:default": [],
