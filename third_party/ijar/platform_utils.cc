@@ -39,9 +39,10 @@ using std::string;
 bool stat_file(const char* path, Stat* result) {
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
   std::wstring wpath;
-  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath)) {
+  std::string error;
+  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
     BAZEL_DIE(255) << "stat_file: AsAbsoluteWindowsPath(" << path
-                   << ") failed: " << blaze_util::GetLastErrorString();
+                   << ") failed: " << error;
   }
   bool success = false;
   BY_HANDLE_FILE_INFORMATION info;
