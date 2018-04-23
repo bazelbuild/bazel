@@ -53,7 +53,7 @@ def main():
   else:
     env = {}
   env.update(r.EnvVars())
-  for lang in ["py", "java"]:
+  for lang in ["py", "java", "sh"]:
     p = subprocess.Popen(
         [r.Rlocation(ChildBinaryName(lang))],
         env=env,
