@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static java.util.Collections.unmodifiableSet;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
@@ -1041,28 +1043,23 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public Iterable<Artifact> getAllowedDerivedInputs() {
-    return getAllowedDerivedInputsMap().values();
-  }
-
-  protected Map<PathFragment, Artifact> getAllowedDerivedInputsMap() {
-    Map<PathFragment, Artifact> allowedDerivedInputMap = new HashMap<>();
-    addToMap(allowedDerivedInputMap, mandatoryInputs);
-    addToMap(allowedDerivedInputMap, prunableInputs);
-    addToMap(allowedDerivedInputMap, getDeclaredIncludeSrcs());
-    addToMap(
-        allowedDerivedInputMap, ccCompilationContextInfo.getTransitiveCompilationPrerequisites());
-    addToMap(allowedDerivedInputMap, ccCompilationContextInfo.getTransitiveModules(usePic));
+    HashSet<Artifact> result = new HashSet<>();
+    addNonSources(result, mandatoryInputs);
+    addNonSources(result, prunableInputs);
+    addNonSources(result, getDeclaredIncludeSrcs());
+    addNonSources(result, ccCompilationContextInfo.getTransitiveCompilationPrerequisites());
+    addNonSources(result, ccCompilationContextInfo.getTransitiveModules(usePic));
     Artifact artifact = getSourceFile();
     if (!artifact.isSourceArtifact()) {
-      allowedDerivedInputMap.put(artifact.getExecPath(), artifact);
+      result.add(artifact);
     }
-    return allowedDerivedInputMap;
+    return unmodifiableSet(result);
   }
 
-  private void addToMap(Map<PathFragment, Artifact> map, Iterable<Artifact> artifacts) {
-    for (Artifact artifact : artifacts) {
-      if (!artifact.isSourceArtifact()) {
-        map.put(artifact.getExecPath(), artifact);
+  private static void addNonSources(HashSet<Artifact> result, Iterable<Artifact> artifacts) {
+    for (Artifact a : artifacts) {
+      if (!a.isSourceArtifact()) {
+        result.add(a);
       }
     }
   }
@@ -1229,7 +1226,7 @@ public class CppCompileAction extends AbstractAction
             .setSourceFile(getSourceFile())
             .setDependencies(dependencies.build())
             .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
-            .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap());
+            .setAllowedDerivedinputs(getAllowedDerivedInputs());
 
     if (needsIncludeValidation) {
       discoveryBuilder.shouldValidateInclusions();
@@ -1255,7 +1252,7 @@ public class CppCompileAction extends AbstractAction
             .setDependencies(
                 processDepset(actionExecutionContext, execRoot, reply).getDependencies())
             .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
-            .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap());
+            .setAllowedDerivedinputs(getAllowedDerivedInputs());
 
     if (needsIncludeValidation) {
       discoveryBuilder.shouldValidateInclusions();
