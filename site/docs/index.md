@@ -1,4 +1,4 @@
 ---
 layout: redirect
-redirect: bazel-overview.html
+redirect: /versions/master/bazel-overview.html
 ---
