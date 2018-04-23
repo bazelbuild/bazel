@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RpcCallDe
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WatchDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WriteDetails;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.remoteexecution.v1test.Action;
 import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc;
@@ -60,6 +61,7 @@ import com.google.devtools.remoteexecution.v1test.OutputFile;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Timestamp;
 import com.google.watcher.v1.Change;
 import com.google.watcher.v1.ChangeBatch;
 import com.google.watcher.v1.Request;
@@ -93,12 +95,13 @@ public class LoggingInterceptorTest {
   private Channel loggedChannel;
   private LoggingInterceptor interceptor;
   private AsynchronousFileOutputStream logStream;
+  private ManualClock clock;
 
   // This returns a logging interceptor where all calls are handled by the given handler.
   @SuppressWarnings({"rawtypes", "unchecked"})
   private LoggingInterceptor getInterceptorWithAlwaysThisHandler(
       LoggingHandler handler, AsynchronousFileOutputStream outputFile) {
-    return new LoggingInterceptor(outputFile) {
+    return new LoggingInterceptor(outputFile, clock) {
       @Override
       public <ReqT, RespT> LoggingHandler<ReqT, RespT> selectHandler(
           MethodDescriptor<ReqT, RespT> method) {
@@ -117,7 +120,8 @@ public class LoggingInterceptorTest {
             .build()
             .start();
     logStream = Mockito.mock(AsynchronousFileOutputStream.class);
-    interceptor = new LoggingInterceptor(logStream);
+    clock = new ManualClock();
+    interceptor = new LoggingInterceptor(logStream, clock);
     loggedChannel =
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
@@ -139,6 +143,7 @@ public class LoggingInterceptorTest {
         new ByteStreamImplBase() {
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            clock.advanceMillis(1234);
             responseObserver.onNext(response);
             responseObserver.onCompleted();
           }
@@ -161,8 +166,11 @@ public class LoggingInterceptorTest {
             .setMethodName(ByteStreamGrpc.getReadMethod().getFullMethodName())
             .setDetails(details)
             .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .setStartTime(Timestamp.newBuilder().setSeconds(12).setNanos(300000000))
+            .setEndTime(Timestamp.newBuilder().setSeconds(13).setNanos(534000000))
             .build();
 
+    clock.advanceMillis(12300);
     stub.read(request).next();
     verify(handler).handleReq(request);
     verify(handler).handleResp(response);
@@ -181,7 +189,9 @@ public class LoggingInterceptorTest {
         new ByteStreamImplBase() {
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            clock.advanceMillis(50);
             responseObserver.onNext(response1);
+            clock.advanceMillis(1500);
             responseObserver.onNext(response2);
             responseObserver.onCompleted();
           }
@@ -209,6 +219,8 @@ public class LoggingInterceptorTest {
             .setMethodName(ByteStreamGrpc.getReadMethod().getFullMethodName())
             .setDetails(details)
             .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .setStartTime(Timestamp.getDefaultInstance())
+            .setEndTime(Timestamp.newBuilder().setSeconds(1).setNanos(550000000))
             .build();
 
     verify(handler).handleReq(request);
@@ -264,12 +276,14 @@ public class LoggingInterceptorTest {
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
     ByteStreamStub stub = ByteStreamGrpc.newStub(channel);
 
+    clock.advanceMillis(1000);
     @SuppressWarnings("unchecked")
     StreamObserver<WriteResponse> responseObserver = Mockito.mock(StreamObserver.class);
     // Write both responses.
     StreamObserver<WriteRequest> requester = stub.write(responseObserver);
     requester.onNext(request1);
     requester.onNext(request2);
+    clock.advanceMillis(1000);
     requester.onCompleted();
 
     ArgumentCaptor<WriteRequest> resultCaptor = ArgumentCaptor.forClass(WriteRequest.class);
@@ -279,6 +293,8 @@ public class LoggingInterceptorTest {
             .setMethodName(ByteStreamGrpc.getWriteMethod().getFullMethodName())
             .setDetails(details)
             .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .setStartTime(Timestamp.newBuilder().setSeconds(1))
+            .setEndTime(Timestamp.newBuilder().setSeconds(2))
             .build();
 
     verify(handler, times(2)).handleReq(resultCaptor.capture());
@@ -298,6 +314,7 @@ public class LoggingInterceptorTest {
         new ByteStreamImplBase() {
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            clock.advanceMillis(100);
             responseObserver.onError(error.asRuntimeException());
           }
         });
@@ -314,6 +331,7 @@ public class LoggingInterceptorTest {
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
     ByteStreamBlockingStub stub = ByteStreamGrpc.newBlockingStub(channel);
 
+    clock.advanceMillis(1500);
     assertThrows(StatusRuntimeException.class, () -> stub.read(request).next());
 
     LogEntry expectedEntry =
@@ -324,6 +342,8 @@ public class LoggingInterceptorTest {
                 com.google.rpc.Status.newBuilder()
                     .setCode(error.getCode().value())
                     .setMessage(error.getDescription()))
+            .setStartTime(Timestamp.newBuilder().setSeconds(1).setNanos(500000000))
+            .setEndTime(Timestamp.newBuilder().setSeconds(1).setNanos(600000000))
             .build();
 
     verify(handler).handleReq(request);
@@ -345,11 +365,13 @@ public class LoggingInterceptorTest {
           @Override
           public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
             responseObserver.onNext(response);
+            clock.advanceMillis(100);
             responseObserver.onCompleted();
           }
         });
 
     ExecutionBlockingStub stub = ExecutionGrpc.newBlockingStub(loggedChannel);
+    clock.advanceMillis(15000);
     stub.execute(request);
     LogEntry expectedEntry =
         LogEntry.newBuilder()
@@ -359,6 +381,8 @@ public class LoggingInterceptorTest {
                     .setExecute(
                         ExecuteDetails.newBuilder().setRequest(request).setResponse(response)))
             .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .setStartTime(Timestamp.newBuilder().setSeconds(15))
+            .setEndTime(Timestamp.newBuilder().setSeconds(15).setNanos(100000000))
             .build();
     verify(logStream).write(expectedEntry);
   }
@@ -375,11 +399,12 @@ public class LoggingInterceptorTest {
         new ExecutionImplBase() {
           @Override
           public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            clock.advanceMillis(1100);
             responseObserver.onError(error.asRuntimeException());
           }
         });
     ExecutionBlockingStub stub = ExecutionGrpc.newBlockingStub(loggedChannel);
-
+    clock.advanceMillis(20000000000001L);
     assertThrows(StatusRuntimeException.class, () -> stub.execute(request));
     LogEntry expectedEntry =
         LogEntry.newBuilder()
@@ -391,6 +416,8 @@ public class LoggingInterceptorTest {
                 com.google.rpc.Status.newBuilder()
                     .setCode(error.getCode().value())
                     .setMessage(error.getDescription()))
+            .setStartTime(Timestamp.newBuilder().setSeconds(20000000000L).setNanos(1000000))
+            .setEndTime(Timestamp.newBuilder().setSeconds(20000000001L).setNanos(101000000))
             .build();
     verify(logStream).write(expectedEntry);
   }
@@ -411,6 +438,7 @@ public class LoggingInterceptorTest {
           public void findMissingBlobs(
               FindMissingBlobsRequest request,
               StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            clock.advanceMillis(200);
             responseObserver.onNext(response);
             responseObserver.onCompleted();
           }
@@ -419,6 +447,7 @@ public class LoggingInterceptorTest {
     ContentAddressableStorageBlockingStub stub =
         ContentAddressableStorageGrpc.newBlockingStub(loggedChannel);
 
+    clock.advanceMillis(14900);
     stub.findMissingBlobs(request);
     LogEntry expectedEntry =
         LogEntry.newBuilder()
@@ -431,6 +460,8 @@ public class LoggingInterceptorTest {
                             .setRequest(request)
                             .setResponse(response)))
             .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .setStartTime(Timestamp.newBuilder().setSeconds(14).setNanos(900000000))
+            .setEndTime(Timestamp.newBuilder().setSeconds(15).setNanos(100000000))
             .build();
     verify(logStream).write(expectedEntry);
   }
@@ -454,12 +485,14 @@ public class LoggingInterceptorTest {
           @Override
           public void getActionResult(
               GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            clock.advanceMillis(22222);
             responseObserver.onNext(response);
             responseObserver.onCompleted();
           }
         });
     ActionCacheBlockingStub stub = ActionCacheGrpc.newBlockingStub(loggedChannel);
 
+    clock.advanceMillis(11111);
     stub.getActionResult(request);
     LogEntry expectedEntry =
         LogEntry.newBuilder()
@@ -471,6 +504,8 @@ public class LoggingInterceptorTest {
                             .setRequest(request)
                             .setResponse(response)))
             .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .setStartTime(Timestamp.newBuilder().setSeconds(11).setNanos(111000000))
+            .setEndTime(Timestamp.newBuilder().setSeconds(33).setNanos(333000000))
             .build();
     verify(logStream).write(expectedEntry);
   }
@@ -493,11 +528,14 @@ public class LoggingInterceptorTest {
           @Override
           public void watch(Request request, StreamObserver<ChangeBatch> responseObserver) {
             responseObserver.onNext(response1);
+            clock.advanceMillis(2200);
             responseObserver.onNext(response2);
+            clock.advanceMillis(1100);
             responseObserver.onCompleted();
           }
         });
 
+    clock.advanceMillis(50000);
     Iterator<ChangeBatch> replies = WatcherGrpc.newBlockingStub(loggedChannel).watch(request);
 
     // Read both responses.
@@ -516,6 +554,8 @@ public class LoggingInterceptorTest {
                             .addResponses(response1)
                             .addResponses(response2)))
             .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .setStartTime(Timestamp.newBuilder().setSeconds(50))
+            .setEndTime(Timestamp.newBuilder().setSeconds(53).setNanos(300000000))
             .build();
     verify(logStream).write(expectedEntry);
   }
@@ -533,10 +573,14 @@ public class LoggingInterceptorTest {
         new WatcherImplBase() {
           @Override
           public void watch(Request request, StreamObserver<ChangeBatch> responseObserver) {
+            clock.advanceMillis(100);
             responseObserver.onNext(response);
+            clock.advanceMillis(100);
             responseObserver.onError(error.asRuntimeException());
           }
         });
+
+    clock.advanceMillis(2000);
     Iterator<ChangeBatch> replies = WatcherGrpc.newBlockingStub(loggedChannel).watch(request);
     assertThrows(
         StatusRuntimeException.class,
@@ -556,6 +600,8 @@ public class LoggingInterceptorTest {
                 com.google.rpc.Status.newBuilder()
                     .setCode(error.getCode().value())
                     .setMessage(error.getDescription()))
+            .setStartTime(Timestamp.newBuilder().setSeconds(2))
+            .setEndTime(Timestamp.newBuilder().setSeconds(2).setNanos(200000000))
             .build();
     verify(logStream).write(expectedEntry);
   }
@@ -574,10 +620,12 @@ public class LoggingInterceptorTest {
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
             responseObserver.onNext(response1);
             responseObserver.onNext(response2);
+            clock.advanceMillis(2000);
             responseObserver.onCompleted();
           }
         });
 
+    clock.advanceMillis(500000);
     Iterator<ReadResponse> replies = ByteStreamGrpc.newBlockingStub(loggedChannel).read(request);
 
     // Read both responses.
@@ -596,6 +644,8 @@ public class LoggingInterceptorTest {
                             .setNumReads(2)
                             .setBytesRead(6)))
             .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .setStartTime(Timestamp.newBuilder().setSeconds(500))
+            .setEndTime(Timestamp.newBuilder().setSeconds(502))
             .build();
     verify(logStream).write(expectedEntry);
   }
@@ -612,6 +662,7 @@ public class LoggingInterceptorTest {
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
             responseObserver.onNext(response1);
+            clock.advanceMillis(100);
             responseObserver.onError(error.asRuntimeException());
           }
         });
@@ -638,6 +689,8 @@ public class LoggingInterceptorTest {
                 com.google.rpc.Status.newBuilder()
                     .setCode(error.getCode().value())
                     .setMessage(error.getDescription()))
+            .setStartTime(Timestamp.getDefaultInstance())
+            .setEndTime(Timestamp.newBuilder().setNanos(100000000))
             .build();
     verify(logStream).write(expectedEntry);
   }
@@ -679,11 +732,15 @@ public class LoggingInterceptorTest {
     @SuppressWarnings("unchecked")
     StreamObserver<WriteResponse> responseObserver = Mockito.mock(StreamObserver.class);
 
+    clock.advanceMillis(10000);
     // Request three writes, the first identical with the third.
     StreamObserver<WriteRequest> requester = stub.write(responseObserver);
     requester.onNext(request1);
+    clock.advanceMillis(100);
     requester.onNext(request2);
+    clock.advanceMillis(200);
     requester.onNext(request1);
+    clock.advanceMillis(100);
     requester.onCompleted();
 
     LogEntry expectedEntry =
@@ -699,6 +756,8 @@ public class LoggingInterceptorTest {
                             .setBytesSent(9)
                             .setNumWrites(3)))
             .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .setStartTime(Timestamp.newBuilder().setSeconds(10))
+            .setEndTime(Timestamp.newBuilder().setSeconds(10).setNanos(400000000))
             .build();
 
     verify(logStream).write(expectedEntry);
@@ -724,10 +783,12 @@ public class LoggingInterceptorTest {
     ByteStreamStub stub = ByteStreamGrpc.newStub(loggedChannel);
     @SuppressWarnings("unchecked")
     StreamObserver<WriteResponse> responseObserver = Mockito.mock(StreamObserver.class);
+    clock.advanceMillis(10000000000L);
 
     // Write both responses.
     StreamObserver<WriteRequest> requester = stub.write(responseObserver);
     requester.onNext(request);
+    clock.advanceMillis(10000000000L);
     requester.onError(error.asRuntimeException());
 
     Status expectedCancel = Status.CANCELLED.withCause(error.asRuntimeException());
@@ -746,6 +807,8 @@ public class LoggingInterceptorTest {
                             .addResourceNames("test")
                             .setNumWrites(1)
                             .setBytesSent(3)))
+            .setStartTime(Timestamp.newBuilder().setSeconds(10000000))
+            .setEndTime(Timestamp.newBuilder().setSeconds(20000000))
             .build();
 
     verify(logStream).write(expectedEntry);

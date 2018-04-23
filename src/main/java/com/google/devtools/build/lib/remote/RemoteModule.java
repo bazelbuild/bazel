@@ -133,7 +133,7 @@ public final class RemoteModule extends BlazeModule {
       LoggingInterceptor logger = null;
       if (!remoteOptions.experimentalRemoteGrpcLog.isEmpty()) {
         rpcLogFile = new AsynchronousFileOutputStream(remoteOptions.experimentalRemoteGrpcLog);
-        logger = new LoggingInterceptor(rpcLogFile);
+        logger = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
       }
 
       RemoteRetrier retrier =

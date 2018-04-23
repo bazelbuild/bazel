@@ -16,6 +16,7 @@ syntax = "proto3";
 
 package remote_logging;
 
+import "google/protobuf/timestamp.proto";
 import "google/bytestream/bytestream.proto";
 import "google/devtools/remoteexecution/v1test/remote_execution.proto";
 import "google/longrunning/operations.proto";
@@ -39,6 +40,12 @@ message LogEntry {
 
   // Method specific details for this call.
   RpcCallDetails details = 4;
+
+  // Time the call started.
+  google.protobuf.Timestamp start_time = 5;
+
+  // Time the call closed.
+  google.protobuf.Timestamp end_time = 6;
 }
 
 // Details for a call to
