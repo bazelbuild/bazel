@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.java.ImportDepsCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -148,14 +150,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
             /* compileDeps = */ targets,
             /* runtimeDeps = */ targets,
             /* bothDeps = */ targets);
-    // Need to compute the "deps" here, as mergedJar is put on the classpath later too.
-    NestedSet<Artifact> deps =
-        common
-            .collectJavaCompilationArgs(
-                /* recursive = */ true,
-                JavaCommon.isNeverLink(ruleContext),
-                /* srcLessDepsExport = */ false)
-            .getCompileTimeJars();
+
     common.setJavaCompilationArtifacts(
         new JavaCompilationArtifacts.Builder()
             .addRuntimeJar(mergedJar)
@@ -173,10 +168,13 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 JavaCommon.isNeverLink(ruleContext),
                 /* srcLessDepsExport = */ false));
 
-    JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
-
     Artifact depsCheckerResult = null;
+    JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
     if (javaConfig.getImportDepsCheckingLevel() != ImportDepsCheckingLevel.OFF) {
+      NestedSet<Artifact> deps =
+          getCompileTimeJarsFromCollection(
+              targets,
+              javaConfig.getImportDepsCheckingLevel() == ImportDepsCheckingLevel.STRICT_ERROR);
       NestedSet<Artifact> bootclasspath = getBootclasspath(ruleContext);
       depsCheckerResult = createAarArtifact(ruleContext, "aar_import_deps_checker_result.txt");
       ImportDepsCheckActionBuilder.newBuilder()
@@ -221,6 +219,17 @@ public class AarImport implements RuleConfiguredTargetFactory {
       ruleBuilder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, depsCheckerResult);
     }
     return ruleBuilder.build();
+  }
+
+  private NestedSet<Artifact> getCompileTimeJarsFromCollection(
+      ImmutableList<TransitiveInfoCollection> deps, boolean isStrict) {
+    return JavaCompilationArgs.builder()
+        .addTransitiveCompilationArgs(
+            JavaCompilationArgsProvider.legacyFromTargets(deps),
+            /*recursive=*/ !isStrict,
+            ClasspathType.BOTH)
+        .build()
+        .getCompileTimeJars();
   }
 
   private NestedSet<Artifact> getBootclasspath(RuleContext ruleContext) {

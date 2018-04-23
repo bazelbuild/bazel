@@ -80,10 +80,7 @@ public final class ImportDepsCheckActionBuilder {
     checkNotNull(bootclasspath);
     checkNotNull(declaredDeps);
     checkState(
-        importDepsCheckingLevel == ImportDepsCheckingLevel.ERROR
-            || importDepsCheckingLevel == ImportDepsCheckingLevel.WARNING,
-        "%s",
-        importDepsCheckingLevel);
+        importDepsCheckingLevel != ImportDepsCheckingLevel.OFF, "%s", importDepsCheckingLevel);
 
     CustomCommandLine args =
         CustomCommandLine.builder()
@@ -91,10 +88,7 @@ public final class ImportDepsCheckActionBuilder {
             .addExecPaths(VectorArg.addBefore("--input").each(jarsToCheck))
             .addExecPaths(VectorArg.addBefore("--classpath_entry").each(declaredDeps))
             .addExecPaths(VectorArg.addBefore("--bootclasspath_entry").each(bootclasspath))
-            .add(
-                importDepsCheckingLevel == ImportDepsCheckingLevel.ERROR
-                    ? "--fail_on_errors"
-                    : "--nofail_on_errors")
+            .addDynamicString(convertErrorFlag(importDepsCheckingLevel))
             .build();
     ruleContext.registerAction(
         new SpawnAction.Builder()
@@ -114,5 +108,17 @@ public final class ImportDepsCheckActionBuilder {
                     .collect(Collectors.joining(", ")))
             .addCommandLine(args)
             .build(ruleContext));
+  }
+
+  private static String convertErrorFlag(ImportDepsCheckingLevel level) {
+    switch (level) {
+      case ERROR:
+      case STRICT_ERROR:
+        return "--fail_on_errors";
+      case WARNING:
+        return "--nofail_on_errors";
+      default:
+        throw new RuntimeException("Unhandled deps checking level: " + level);
+    }
   }
 }

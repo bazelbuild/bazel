@@ -32,8 +32,10 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,8 +46,8 @@ import org.junit.runners.JUnit4;
 public class AarImportTest extends BuildViewTestCase {
   @Before
   public void setup() throws Exception {
-    useConfiguration("--experimental_import_deps_checking=ERROR");
-    scratch.file("a/BUILD",
+    scratch.file(
+        "a/BUILD",
         "aar_import(",
         "    name = 'foo',",
         "    aar = 'foo.aar',",
@@ -59,6 +61,16 @@ public class AarImportTest extends BuildViewTestCase {
         "    aar = 'bar.aar',",
         "    deps = [':baz'],",
         "    exports = [':foo', '//java:baz'],",
+        ")",
+        "aar_import(",
+        "    name = 'intermediate',",
+        "    aar = 'intermediate.aar',",
+        "    deps = [':bar']",
+        ")",
+        "aar_import(",
+        "    name = 'last',",
+        "    aar = 'last.aar',",
+        "    deps = [':intermediate'],",
         ")");
     scratch.file("java/BUILD",
         "android_binary(",
@@ -129,7 +141,66 @@ public class AarImportTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDepsCheckerActionExists() throws Exception {
+  public void testDepsCheckerActionExistsForLevelError() throws Exception {
+    useConfiguration("--experimental_import_deps_checking=ERROR");
+    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:last");
+    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
+    NestedSet<Artifact> outputGroup =
+        outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
+    Artifact artifact = Iterables.getOnlyElement(outputGroup);
+    assertThat(artifact.isTreeArtifact()).isFalse();
+    assertThat(artifact.getExecPathString())
+        .endsWith("_aar/last/aar_import_deps_checker_result.txt");
+
+    SpawnAction checkerAction = getGeneratingSpawnAction(artifact);
+    List<String> arguments = checkerAction.getArguments();
+    assertThat(arguments)
+        .containsAllOf(
+            "--bootclasspath_entry",
+            "--classpath_entry",
+            "--input",
+            "--output",
+            "--fail_on_errors");
+    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/bar/classes_and_libs_merged.jar");
+    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/java/baz-ijar.jar");
+    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/classes_and_libs_merged.jar");
+    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/foo/classes_and_libs_merged.jar");
+    ensureArgumentsHaveClassEntryOptionWithSuffix(
+        arguments, "/intermediate/classes_and_libs_merged.jar");
+    assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
+        .isEqualTo(5);
+  }
+
+  @Test
+  public void testDepsCheckerActionExistsForLevelStrictError() throws Exception {
+    useConfiguration("--experimental_import_deps_checking=STRICT_ERROR");
+    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:last");
+    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
+    NestedSet<Artifact> outputGroup =
+        outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
+    Artifact artifact = Iterables.getOnlyElement(outputGroup);
+    assertThat(artifact.isTreeArtifact()).isFalse();
+    assertThat(artifact.getExecPathString())
+        .endsWith("_aar/last/aar_import_deps_checker_result.txt");
+
+    SpawnAction checkerAction = getGeneratingSpawnAction(artifact);
+    List<String> arguments = checkerAction.getArguments();
+    assertThat(arguments)
+        .containsAllOf(
+            "--bootclasspath_entry",
+            "--classpath_entry",
+            "--input",
+            "--output",
+            "--fail_on_errors");
+    ensureArgumentsHaveClassEntryOptionWithSuffix(
+        arguments, "/intermediate/classes_and_libs_merged.jar");
+    assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
+        .isEqualTo(1);
+  }
+
+  @Test
+  public void testDepsCheckerActionExistsForLevelWarning() throws Exception {
+    useConfiguration("--experimental_import_deps_checking=WARNING");
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
     OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
     NestedSet<Artifact> outputGroup =
@@ -147,7 +218,41 @@ public class AarImportTest extends BuildViewTestCase {
             "--classpath_entry",
             "--input",
             "--output",
-            "--fail_on_errors");
+            "--nofail_on_errors");
+  }
+
+  /**
+   * Tests whether the given argument list contains an argument nameds "--classpath_entry" with a
+   * value that ends with the given suffix.
+   */
+  private static void ensureArgumentsHaveClassEntryOptionWithSuffix(
+      List<String> arguments, String suffix) {
+    assertThat(arguments).isNotEmpty();
+    Iterator<String> iterator = arguments.iterator();
+    assertThat(iterator.hasNext()).isTrue();
+    String prev = iterator.next();
+    while (iterator.hasNext()) {
+      String current = iterator.next();
+      if ("--classpath_entry".equals(prev) && current.endsWith(suffix)) {
+        return; // Success.
+      }
+      prev = current;
+    }
+    Assert.fail(
+        "The arguments does not have the expected --classpath_entry: The arguments are "
+            + arguments
+            + ", and the expected class entry suffix is "
+            + suffix);
+  }
+
+  @Test
+  public void testDepsCheckerActionNotExistsForLevelOff() throws Exception {
+    useConfiguration("--experimental_import_deps_checking=OFF");
+    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
+    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
+    NestedSet<Artifact> outputGroup =
+        outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
+    assertThat(outputGroup).isEmpty();
   }
 
   @Test
