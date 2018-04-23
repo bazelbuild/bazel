@@ -167,7 +167,6 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
   return blaze_exit_code::SUCCESS;
 }
 
-// TODO(#4502 related cleanup) This should be an anonymous namespace.
 namespace internal {
 
 vector<string> DedupeBlazercPaths(const vector<string>& paths) {
