@@ -581,7 +581,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         .inOrder();
 
     assertThat(makeProviderA.getVariables().entrySet())
-        .containsExactlyElementsIn(
+        .containsAllIn(
             ImmutableMap.<String, String>builder()
                 .put("SOME_MAKE_VARIABLE-A-1", "make-variable-value-A-1")
                 .put("SOME_MAKE_VARIABLE-A-2", "make-variable-value-A-2 with spaces in")

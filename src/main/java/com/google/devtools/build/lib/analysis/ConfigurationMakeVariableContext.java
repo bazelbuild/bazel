@@ -76,10 +76,16 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
       Iterable<? extends MakeVariableSupplier> extraMakeVariableSuppliers) {
     this.allMakeVariableSuppliers =
         ImmutableList.<MakeVariableSupplier>builder()
+            // These should be in priority order:
+            // 1) extra suppliers passed in (assume the caller knows what they are doing)
+            // 2) variables from the command-line
+            // 3) package-level overrides (ie, vardef)
+            // 4) variables from the rule (and thus the toolchains)
+            // 5) variables from the global configuration
             .addAll(Preconditions.checkNotNull(extraMakeVariableSuppliers))
-            .add(new MapBackedMakeVariableSupplier(ruleMakeVariables))
             .add(new MapBackedMakeVariableSupplier(configuration.getCommandLineBuildVariables()))
             .add(new MapBackedMakeVariableSupplier(pkg.getMakeEnvironment()))
+            .add(new MapBackedMakeVariableSupplier(ruleMakeVariables))
             .add(new MapBackedMakeVariableSupplier(configuration.getGlobalMakeEnvironment()))
             .build();
   }
