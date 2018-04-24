@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -928,11 +930,11 @@ public class CcToolchainFeatures implements Serializable {
   }
 
   /**
-   * An executable to be invoked by a blaze action.  Can carry information on its platform
+   * An executable to be invoked by a blaze action. Can carry information on its platform
    * restrictions.
    */
   @Immutable
-  static class Tool {
+  public static class Tool {
     private final PathFragment toolPathFragment;
     private final ImmutableSet<String> executionRequirements;
     private final ImmutableSet<WithFeatureSet> withFeatureSetSets;
@@ -957,7 +959,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /** Returns the path to this action's tool relative to the provided crosstool path. */
-    PathFragment getToolPathFragment() {
+    public PathFragment getToolPathFragment() {
       return toolPathFragment;
     }
 
@@ -2054,6 +2056,12 @@ public class CcToolchainFeatures implements Serializable {
   /** Captures the set of enabled features and action configs for a rule. */
   @Immutable
   @AutoCodec
+  @SkylarkModule(
+    name = "feature_configuration",
+    documented = false,
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "Class used to construct command lines from CROSSTOOL features."
+  )
   public static class FeatureConfiguration {
     private final ImmutableSet<String> enabledFeatureNames;
     private final ImmutableList<Feature> enabledFeatures;
@@ -2161,10 +2169,8 @@ public class CcToolchainFeatures implements Serializable {
       return envBuilder.build();
     }
 
-    /**
-     * Returns a given action's tool under this FeatureConfiguration.
-     */
-    Tool getToolForAction(String actionName) {
+    /** Returns a given action's tool under this FeatureConfiguration. */
+    public Tool getToolForAction(String actionName) {
       Preconditions.checkArgument(
           actionConfigByActionName.containsKey(actionName),
           "Action %s does not have an enabled configuration in the toolchain.",
