@@ -276,10 +276,11 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
                               const std::vector<string>& args_vector) {
   std::ostringstream cmdline;
   string short_exe;
-  if (!blaze_util::AsShortWindowsPath(exe, &short_exe)) {
+  string error;
+  if (!blaze_util::AsShortWindowsPath(exe, &short_exe, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "CreateCommandLine: AsShortWindowsPath(" << exe
-        << "): " << GetLastErrorString();
+        << "): " << error;
   }
   bool first = true;
   for (const auto& s : args_vector) {
@@ -440,10 +441,11 @@ int ExecuteDaemon(const string& exe,
                   const string& server_dir,
                   BlazeServerStartup** server_startup) {
   wstring wdaemon_output;
-  if (!blaze_util::AsAbsoluteWindowsPath(daemon_output, &wdaemon_output)) {
+  string error;
+  if (!blaze_util::AsAbsoluteWindowsPath(daemon_output, &wdaemon_output, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "ExecuteDaemon(" << exe << "): AsAbsoluteWindowsPath("
-        << daemon_output << ") failed: " << GetLastErrorString();
+        << daemon_output << ") failed: " << error;
   }
 
   SECURITY_ATTRIBUTES sa;
@@ -653,10 +655,11 @@ const char kListSeparator = ';';
 
 string PathAsJvmFlag(const string& path) {
   string spath;
-  if (!blaze_util::AsShortWindowsPath(path, &spath)) {
+  string error;
+  if (!blaze_util::AsShortWindowsPath(path, &spath, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "PathAsJvmFlag(" << path
-        << "): AsShortWindowsPath failed: " << GetLastErrorString();
+        << "): AsShortWindowsPath failed: " << error;
   }
   // Convert backslashes to forward slashes, in order to avoid the JVM parsing
   // Windows paths as if they contained escaped characters.
@@ -668,10 +671,11 @@ string PathAsJvmFlag(const string& path) {
 string ConvertPath(const string& path) {
   // The path may not be Windows-style and may not be normalized, so convert it.
   wstring wpath;
-  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath)) {
+  string error;
+  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "ConvertPath(" << path
-        << "): AsAbsoluteWindowsPath failed: " << GetLastErrorString();
+        << "): AsAbsoluteWindowsPath failed: " << error;
   }
   std::transform(wpath.begin(), wpath.end(), wpath.begin(), ::towlower);
   return string(blaze_util::WstringToCstring(
@@ -682,18 +686,19 @@ string ConvertPath(const string& path) {
 bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
   wstring name;
   wstring target;
-  if (!blaze_util::AsAbsoluteWindowsPath(posix_name, &name)) {
+  string error;
+  if (!blaze_util::AsAbsoluteWindowsPath(posix_name, &name, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "SymlinkDirectories(" << posix_target << ", " << posix_name
         << "): AsAbsoluteWindowsPath(" << posix_target
-        << ") failed: " << GetLastErrorString();
+        << ") failed: " << error;
     return false;
   }
-  if (!blaze_util::AsAbsoluteWindowsPath(posix_target, &target)) {
+  if (!blaze_util::AsAbsoluteWindowsPath(posix_target, &target, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "SymlinkDirectories(" << posix_target << ", " << posix_name
         << "): AsAbsoluteWindowsPath(" << posix_name
-        << ") failed: " << GetLastErrorString();
+        << ") failed: " << error;
     return false;
   }
   wstring werror(CreateJunction(name, target));
@@ -961,10 +966,11 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
                      BlazeLock* blaze_lock) {
   string lockfile = blaze_util::JoinPath(output_base, "lock");
   wstring wlockfile;
-  if (!blaze_util::AsAbsoluteWindowsPath(lockfile, &wlockfile)) {
+  string error;
+  if (!blaze_util::AsAbsoluteWindowsPath(lockfile, &wlockfile, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "AcquireLock(" << output_base << "): AsAbsoluteWindowsPath("
-        << lockfile << ") failed: " << GetLastErrorString();
+        << lockfile << ") failed: " << error;
   }
 
   blaze_lock->handle = INVALID_HANDLE_VALUE;
