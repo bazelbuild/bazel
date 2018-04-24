@@ -42,6 +42,36 @@ using std::vector;
 
 namespace {
 
+bool starts_with(const string& s, const string& prefix) {
+  if (prefix.empty()) {
+    return true;
+  }
+  if (s.empty()) {
+    return false;
+  }
+  return s.find(prefix) == 0;
+}
+
+bool contains(const string& s, const string& substr) {
+  if (substr.empty()) {
+    return true;
+  }
+  if (s.empty()) {
+    return false;
+  }
+  return s.find(substr) != string::npos;
+}
+
+bool ends_with(const string& s, const string& suffix) {
+  if (suffix.empty()) {
+    return true;
+  }
+  if (s.empty()) {
+    return false;
+  }
+  return s.rfind(suffix) == s.size() - suffix.size();
+}
+
 class RunfilesImpl : public Runfiles {
  public:
   static Runfiles* Create(const string& argv0,
@@ -163,9 +193,10 @@ bool IsAbsolute(const string& path) {
     return false;
   }
   char c = path.front();
-  return (c == '/') || (path.size() >= 3 &&
-                        ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) &&
-                        path[1] == ':' && (path[2] == '\\' || path[2] == '/'));
+  return (c == '/' && (path.size() < 2 || path[1] != '/')) ||
+         (path.size() >= 3 &&
+          ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) &&
+          path[1] == ':' && (path[2] == '\\' || path[2] == '/'));
 }
 
 string GetEnv(const string& key) {
@@ -184,7 +215,9 @@ string GetEnv(const string& key) {
 }
 
 string RunfilesImpl::Rlocation(const string& path) const {
-  if (path.empty() || path.find("..") != string::npos) {
+  if (path.empty() || starts_with(path, "../") || contains(path, "/..") ||
+      starts_with(path, "./") || contains(path, "/./") ||
+      ends_with(path, "/.") || contains(path, "//")) {
     return std::move(string());
   }
   if (IsAbsolute(path)) {

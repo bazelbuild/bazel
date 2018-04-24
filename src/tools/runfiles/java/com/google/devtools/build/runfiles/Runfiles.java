@@ -100,12 +100,20 @@ public abstract class Runfiles {
    *
    * @param path runfiles-root-relative path of the runfile
    * @throws IllegalArgumentException if {@code path} fails validation, for example if it's null or
-   *     empty, or contains uplevel references
+   *     empty, or not normalized (contains "./", "../", or "//")
    */
   public final String rlocation(String path) {
     Util.checkArgument(path != null);
     Util.checkArgument(!path.isEmpty());
-    Util.checkArgument(!path.contains(".."), "path contains uplevel references: \"%s\"", path);
+    Util.checkArgument(
+        !path.startsWith("../")
+            && !path.contains("/..")
+            && !path.startsWith("./")
+            && !path.contains("/./")
+            && !path.endsWith("/.")
+            && !path.contains("//"),
+        "path is not normalized: \"%s\"",
+        path);
     Util.checkArgument(
         !path.startsWith("\\"), "path is absolute without a drive letter: \"%s\"", path);
     if (new File(path).isAbsolute()) {

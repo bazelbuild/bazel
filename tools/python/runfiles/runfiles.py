@@ -119,15 +119,15 @@ class _Runfiles(object):
       None if the method doesn't know about this runfile
     Raises:
       TypeError: if `path` is not a string
-      ValueError: if `path` is None or empty, or it's absolute or contains
-        uplevel references
+      ValueError: if `path` is None or empty, or it's absolute or not normalized
     """
     if not path:
       raise ValueError()
     if not isinstance(path, str):
       raise TypeError()
-    if ".." in path:
-      raise ValueError("path contains uplevel references: \"%s\"" % path)
+    if (path.startswith("../") or "/.." in path or path.startswith("./") or
+        "/./" in path or path.endswith("/.") or "//" in path):
+      raise ValueError("path is not normalized: \"%s\"" % path)
     if path[0] == "\\":
       raise ValueError("path is absolute without a drive letter: \"%s\"" % path)
     if os.path.isabs(path):
