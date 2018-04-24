@@ -74,8 +74,10 @@ void PrintError(const char* format, ...) {
 
 wstring AsAbsoluteWindowsPath(const char* path) {
   wstring wpath;
-  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath)) {
-    die("Couldn't convert %s to absoulte Windows path.", path);
+  string error;
+  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
+    die("Couldn't convert %s to absolute Windows path: %s", path,
+        error.c_str());
   }
   return wpath;
 }
@@ -173,8 +175,9 @@ string GetRandomStr(size_t len) {
 }
 
 bool NormalizePath(const string& path, string* result) {
-  if (!blaze_util::AsWindowsPath(path, result)) {
-    PrintError("Failed to normalize %s", path.c_str());
+  string error;
+  if (!blaze_util::AsWindowsPath(path, result, &error)) {
+    PrintError("Failed to normalize %s: %s", path.c_str(), error.c_str());
     return false;
   }
   std::transform(result->begin(), result->end(), result->begin(), ::tolower);

@@ -213,15 +213,18 @@ void ForEachDirectoryEntry(const std::string &path,
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
 const wchar_t *RemoveUncPrefixMaybe(const wchar_t *ptr);
 
-bool AsWindowsPath(const std::string &path, std::string *result);
+bool AsWindowsPath(const std::string &path, std::string *result,
+                   std::string *error);
 
-bool AsAbsoluteWindowsPath(const std::string &path, std::wstring *wpath);
+bool AsAbsoluteWindowsPath(const std::string &path, std::wstring *wpath,
+                           std::string *error);
 
 // Same as `AsWindowsPath`, but returns a lowercase 8dot3 style shortened path.
 // Result will never have a UNC prefix, nor a trailing "/" or "\".
 // Works also for non-existent paths; shortens as much of them as it can.
 // Also works for non-existent drives.
-bool AsShortWindowsPath(const std::string &path, std::string *result);
+bool AsShortWindowsPath(const std::string &path, std::string *result,
+                        std::string *error);
 #endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 
 }  // namespace blaze_util
