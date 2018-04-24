@@ -200,10 +200,10 @@ EOF
 PATH=".:$PATH"
 
 if [ -z "$COVERAGE_DIR" ]; then
-  EXE="$1"
+  EXE="${1#./}"
   shift
 else
-  EXE="$2"
+  EXE="${2#./}"
 fi
 
 if is_absolute "$EXE"; then
