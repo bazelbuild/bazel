@@ -78,10 +78,34 @@ function test_rlocation_argument_validation() {
   source "$runfiles_lib_path"
 
   # Test invalid inputs to make sure rlocation catches these.
-  if (rlocation "foo/.." >&/dev/null); then
+  if rlocation "../foo" >&/dev/null; then
     fail
   fi
-  if (rlocation "\\foo" >&/dev/null); then
+  if rlocation "foo/.." >&/dev/null; then
+    fail
+  fi
+  if rlocation "foo/../bar" >&/dev/null; then
+    fail
+  fi
+  if rlocation "./foo" >&/dev/null; then
+    fail
+  fi
+  if rlocation "foo/." >&/dev/null; then
+    fail
+  fi
+  if rlocation "foo/./bar" >&/dev/null; then
+    fail
+  fi
+  if rlocation "//foo" >&/dev/null; then
+    fail
+  fi
+  if rlocation "foo//" >&/dev/null; then
+    fail
+  fi
+  if rlocation "foo//bar" >&/dev/null; then
+    fail
+  fi
+  if rlocation "\\foo" >&/dev/null; then
     fail
   fi
 }
