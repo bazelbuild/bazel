@@ -52,9 +52,10 @@ alias(
     actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileSplitter",
 )
 
-alias(
+sh_binary(
     name = "desugar_java8",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar",
+    srcs = ["desugar.sh"],
+    data = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
 alias(
