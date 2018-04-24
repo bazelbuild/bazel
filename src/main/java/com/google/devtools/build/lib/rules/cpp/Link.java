@@ -396,9 +396,12 @@ public abstract class Link {
         // deps is true, in which case this code only computes the list of inputs for the link
         // action (so the order isn't critical).
         if (passMembersToLinkCmd || (deps && needMembersForLink)) {
-          delayList = LinkerInputs
-              .simpleLinkerInputs(inputLibrary.getObjectFiles(), ArtifactCategory.OBJECT_FILE)
-              .iterator();
+          delayList =
+              LinkerInputs.simpleLinkerInputs(
+                      inputLibrary.getObjectFiles(),
+                      ArtifactCategory.OBJECT_FILE,
+                      /* disableWholeArchive= */ false)
+                  .iterator();
         }
 
         if (!(passMembersToLinkCmd || (deps && useStartEndLib(inputLibrary, archiveType)))) {

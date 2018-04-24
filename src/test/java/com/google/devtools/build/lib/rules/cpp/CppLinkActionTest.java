@@ -334,7 +334,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             builder.setUseTestOnlyFlags(
                 attributesToFlip.contains(NonStaticAttributes.USE_TEST_ONLY_FLAGS));
             builder.setFake(attributesToFlip.contains(NonStaticAttributes.FAKE));
-            builder.setRuntimeSolibDir(
+            builder.setToolchainLibrariesSolibDir(
                 attributesToFlip.contains(NonStaticAttributes.RUNTIME_SOLIB_DIR)
                     ? null
                     : PathFragment.create("so1"));

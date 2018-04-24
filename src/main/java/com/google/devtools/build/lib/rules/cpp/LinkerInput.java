@@ -58,4 +58,7 @@ public interface LinkerInput {
    * Returns whether we must keep debug symbols for this input.
    */
   boolean isMustKeepDebug();
+
+  /** If true, Bazel will not wrap this input in whole-archive block. */
+  boolean disableWholeArchive();
 }
