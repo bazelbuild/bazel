@@ -274,7 +274,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             WrappingProvider.Helper.getWrappedProvider(
                 base, JavaProtoLibraryAspectProvider.class, JavaCompilationArgsProvider.class);
         if (javaCompilationArgsProvider != null) {
-          return javaCompilationArgsProvider.getRuntimeJars();
+          return javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars();
         }
       }
     } else {

@@ -364,7 +364,8 @@ public final class AndroidBinaryMobileInstall {
 
     JavaTargetAttributes attributes =
         new JavaTargetAttributes.Builder(javaSemantics)
-            .addRuntimeClassPathEntries(provider.getRuntimeJars())
+            // TODO(b/78520435): why is this using non-transitive runtime jars?
+            .addRuntimeClassPathEntries(provider.getJavaCompilationArgs().getRuntimeJars())
             .build();
 
     Function<Artifact, Artifact> desugaredJars = Functions.identity();
