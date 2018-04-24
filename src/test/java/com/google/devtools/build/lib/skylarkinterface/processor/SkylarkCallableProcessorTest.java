@@ -265,4 +265,34 @@ public final class SkylarkCallableProcessorTest {
             "@SkylarkCallable annotated method has 3 parameters, but annotation declared "
                 + "1 user-supplied parameters and 3 extra interpreter parameters.");
   }
+
+  @Test
+  public void testSelfCallWithNoName() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("SelfCallWithNoName.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "@SkylarkCallable-annotated methods with selfCall=true must have a name");
+  }
+
+  @Test
+  public void testSelfCallWithStructField() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("SelfCallWithStructField.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "@SkylarkCallable-annotated methods with selfCall=true must have structField=false");
+  }
+
+  @Test
+  public void testMultipleSelfCallMethods() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("MultipleSelfCallMethods.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Containing class has more than one selfCall method defined.");
+  }
 }

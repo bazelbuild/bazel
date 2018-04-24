@@ -110,6 +110,15 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @SkylarkModule(name = "Mock", doc = "")
   static class Mock {
+    @SkylarkCallable(name = "MockFn", selfCall = true, documented = false,
+        parameters = {
+            @Param(name = "pos", positional = true, type = String.class),
+        }
+    )
+    public static String selfCall(String myName) {
+      return "I'm a mock named " + myName;
+    }
+
     @SkylarkCallable(documented = false)
     public static Integer valueOf(String str) {
       return Integer.valueOf(str);
@@ -1200,6 +1209,25 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .testIfExactError("'string' object is not callable", "v = mock.struct_field()");
+  }
+
+  @Test
+  public void testSelfCall() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("v = mock('bestmock')")
+        .testLookup("v", "I'm a mock named bestmock");
+
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("mockfunction = mock", "v = mockfunction('bestmock')")
+        .testLookup("v", "I'm a mock named bestmock");
+
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .testIfErrorContains(
+            "expected string for 'pos' while calling MockFn but got int instead: 1",
+            "v = mock(1)");
   }
 
   @Test

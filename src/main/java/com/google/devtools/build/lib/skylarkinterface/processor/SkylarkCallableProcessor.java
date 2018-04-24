@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylarkinterface.processor;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
@@ -60,6 +61,9 @@ import javax.tools.Diagnostic;
  *   positional parameters with default values.
  * </li>
  * <li>Either the doc string is non-empty, or documented is false.</li>
+ * <li>Each class may only have one annotated method with selfCall=true.</li>
+ * <li>A method annotated with selfCall=true must have a non-empty name.</li>
+ * <li>A method annotated with selfCall=true must have structField=false.</li>
  * </ul>
  *
  * <p>These properties can be relied upon at runtime without additional checks.
@@ -67,6 +71,8 @@ import javax.tools.Diagnostic;
 @SupportedAnnotationTypes({"com.google.devtools.build.lib.skylarkinterface.SkylarkCallable"})
 public final class SkylarkCallableProcessor extends AbstractProcessor {
   private Messager messager;
+
+  private Set<String> classesWithSelfcall;
 
   private static final String SKYLARK_LIST = "com.google.devtools.build.lib.syntax.SkylarkList<?>";
   private static final String SKYLARK_DICT =
@@ -86,6 +92,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
     messager = processingEnv.getMessager();
+    classesWithSelfcall = new HashSet<>();
   }
 
   @Override
@@ -107,6 +114,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
         verifyParamSemantics(methodElement, annotation);
         verifyNumberOfParameters(methodElement, annotation);
         verifyExtraInterpreterParams(methodElement, annotation);
+        verifyIfSelfCall(methodElement, annotation);
       } catch (SkylarkCallableProcessorException exception) {
         error(exception.methodElement, exception.errorMessage);
       }
@@ -115,12 +123,33 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     return true;
   }
 
+  private void verifyIfSelfCall(ExecutableElement methodElement, SkylarkCallable annotation)
+      throws SkylarkCallableProcessorException {
+    if (annotation.selfCall()) {
+      if (annotation.structField()) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            "@SkylarkCallable-annotated methods with selfCall=true must have structField=false");
+      }
+      if (annotation.name().isEmpty()) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            "@SkylarkCallable-annotated methods with selfCall=true must have a name");
+      }
+      if (!classesWithSelfcall.add(methodElement.getEnclosingElement().asType().toString())) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            "Containing class has more than one selfCall method defined.");
+      }
+    }
+  }
+
   private void verifyDocumented(ExecutableElement methodElement, SkylarkCallable annotation)
       throws SkylarkCallableProcessorException {
     if (annotation.documented() && annotation.doc().isEmpty()) {
       throw new SkylarkCallableProcessorException(
-            methodElement,
-            "The 'doc' string must be non-empty if 'documented' is true.");
+          methodElement,
+          "The 'doc' string must be non-empty if 'documented' is true.");
     }
   }
 
@@ -162,8 +191,8 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
         throw new SkylarkCallableProcessorException(
             methodElement,
             String.format("Parameter '%s' has 'None' default value but is not noneable. "
-                + "(If this is intended as a mandatory parameter, leave the defaultValue field "
-                + "empty)",
+                    + "(If this is intended as a mandatory parameter, leave the defaultValue field "
+                    + "empty)",
                 parameter.name()));
       }
       if ((parameter.allowedTypes().length > 0)
@@ -171,8 +200,8 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
         throw new SkylarkCallableProcessorException(
             methodElement,
             String.format("Parameter '%s' has both 'type' and 'allowedTypes' specified. Only"
-                + " one may be specified.",
-            parameter.name()));
+                    + " one may be specified.",
+                parameter.name()));
       }
 
       if (parameter.positional()) {

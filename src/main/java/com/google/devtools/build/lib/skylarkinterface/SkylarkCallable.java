@@ -111,6 +111,18 @@ public @interface SkylarkCallable {
   Param extraKeywords() default @Param(name = "");
 
   /**
+   * If true, indicates that the class containing the annotated method has the ability to be called
+   * from skylark (as if it were a function) and that the annotated method should be invoked when
+   * this occurs.
+   *
+   * <p>A class may only have one method with selfCall set to true.</p>
+   *
+   * <p>A method with selfCall=true must not be a structField, and must have name specified
+   * (used for descriptive errors if, for example, there are missing arguments).</p>
+   */
+  boolean selfCall() default false;
+
+  /**
    * Set it to true if the Java method may return <code>null</code> (which will then be converted to
    * <code>None</code>). If not set and the Java method returns null, an error will be raised.
    */

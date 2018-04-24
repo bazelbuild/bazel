@@ -49,6 +49,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -82,6 +83,33 @@ public final class FuncallExpression extends Expression {
     }
   }
 
+  private static final LoadingCache<Class<?>, Optional<MethodDescriptor>> selfCallCache =
+      CacheBuilder.newBuilder()
+          .build(
+              new CacheLoader<Class<?>, Optional<MethodDescriptor>>() {
+                @Override
+                public Optional<MethodDescriptor> load(Class<?> key) throws Exception {
+                  MethodDescriptor returnValue = null;
+                  for (Method method : key.getMethods()) {
+                    // Synthetic methods lead to false multiple matches
+                    if (method.isSynthetic()) {
+                      continue;
+                    }
+                    SkylarkCallable callable = SkylarkInterfaceUtils.getSkylarkCallable(method);
+                    if (callable != null && callable.selfCall()) {
+                      if (returnValue != null) {
+                        throw new IllegalArgumentException(
+                          String.format(
+                              "Class %s has two selfCall methods defined",
+                              key.getName()));
+                      }
+                      returnValue = new MethodDescriptor(method, callable);
+                    }
+                  }
+                  return Optional.ofNullable(returnValue);
+                }
+              });
+
   private static final LoadingCache<Class<?>, Map<String, List<MethodDescriptor>>> methodCache =
       CacheBuilder.newBuilder()
           .build(
@@ -97,6 +125,10 @@ public final class FuncallExpression extends Expression {
                     }
                     SkylarkCallable callable = SkylarkInterfaceUtils.getSkylarkCallable(method);
                     if (callable == null) {
+                      continue;
+                    }
+                    if (callable.selfCall()) {
+                      // Self-call java methods are not treated as methods of the skylark value.
                       continue;
                     }
                     String name = callable.name();
@@ -324,6 +356,38 @@ public final class FuncallExpression extends Expression {
   public static Set<String> getMethodNames(Class<?> objClass) {
     try {
       return methodCache.get(getClassOrProxyClass(objClass)).keySet();
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("Method loading failed: " + e);
+    }
+  }
+
+  /**
+   * Returns true if the given class has a method annotated with {@link SkylarkCallable}
+   * with {@link SkylarkCallable#selfCall()} set to true.
+   */
+  public static boolean hasSelfCallMethod(Class<?> objClass) {
+    try {
+      return selfCallCache.get(objClass).isPresent();
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("Method loading failed: " + e);
+    }
+  }
+
+  /**
+   * Returns a {@link BuiltinCallable} object representing a function which calls the selfCall
+   * java method of the given object (the {@link SkylarkCallable} method with
+   * {@link SkylarkCallable#selfCall()} set to true).
+   *
+   * @throws IllegalStateException if no such method exists for the object
+   */
+  public static BuiltinCallable getSelfCallMethod(Object obj) {
+    try {
+      Optional<MethodDescriptor> selfCallDescriptor = selfCallCache.get(obj.getClass());
+      if (!selfCallDescriptor.isPresent()) {
+        throw new IllegalStateException("Class " + obj.getClass() + " has no selfCall method");
+      }
+      MethodDescriptor descriptor = selfCallDescriptor.get();
+      return new BuiltinCallable(descriptor.getAnnotation().name(), obj, descriptor);
     } catch (ExecutionException e) {
       throw new IllegalStateException("Method loading failed: " + e);
     }
@@ -728,14 +792,18 @@ public final class FuncallExpression extends Expression {
   }
 
   /**
-   * Checks whether the given object is a {@link BaseFunction}.
+   * Checks whether the given object is callable, either by being a {@link BaseFunction} or having
+   * a {@link SkylarkCallable}-annotated method with selfCall = true.
    *
-   * @throws EvalException If not a BaseFunction.
+   * @return a BaseFunction object representing the callable function this object represents
+   * @throws EvalException if the object is not callable.
    */
   private static BaseFunction checkCallable(Object functionValue, Location location)
       throws EvalException {
     if (functionValue instanceof BaseFunction) {
       return (BaseFunction) functionValue;
+    } else if (hasSelfCallMethod(functionValue.getClass())) {
+      return getSelfCallMethod(functionValue);
     } else {
       throw new EvalException(
           location, "'" + EvalUtils.getDataTypeName(functionValue) + "' object is not callable");

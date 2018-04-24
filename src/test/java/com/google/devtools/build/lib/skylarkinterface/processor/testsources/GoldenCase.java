@@ -198,4 +198,17 @@ public class GoldenCase {
       Environment environment) {
     return "yar";
   }
+
+  @SkylarkCallable(
+    name = "selfCallMethod",
+    selfCall = true,
+    parameters = {
+        @Param(name = "one", type = String.class, named = true),
+        @Param(name = "two", type = Integer.class, named = true),
+    },
+    documented = false
+  )
+  public Integer selfCallMethod(String one, Integer two) {
+    return 0;
+  }
 }
