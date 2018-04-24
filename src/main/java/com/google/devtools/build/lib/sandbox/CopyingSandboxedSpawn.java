@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -23,12 +26,11 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Creates an execRoot for a Spawn that contains input files as symlinks to their original
- * destination.
+ * Creates an execRoot for a Spawn that contains input files as copies from their original source.
  */
-public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpawn {
+public class CopyingSandboxedSpawn extends AbstractContainerizingSandboxedSpawn {
 
-  public SymlinkedSandboxedSpawn(
+  public CopyingSandboxedSpawn(
       Path sandboxPath,
       Path sandboxExecRoot,
       List<String> arguments,
@@ -41,6 +43,12 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
 
   @Override
   protected void copyFile(Path source, Path target) throws IOException {
-    target.createSymbolicLink(source);
+    FileStatus stat = source.stat(Symlinks.NOFOLLOW);
+    if (stat.isSymbolicLink() || stat.isFile()) {
+      FileSystemUtils.copyFile(source, target);
+    } else if (stat.isDirectory()) {
+      target.createDirectory();
+      FileSystemUtils.copyTreesBelow(source, target, Symlinks.NOFOLLOW);
+    }
   }
 }
