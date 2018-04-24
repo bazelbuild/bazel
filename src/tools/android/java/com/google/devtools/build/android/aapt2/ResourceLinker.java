@@ -21,7 +21,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AaptCommandBuilder;
@@ -49,9 +48,6 @@ import java.util.stream.Stream;
 /** Performs linking of {@link CompiledResources} using aapt2. */
 public class ResourceLinker {
 
-  private static final ImmutableSet<String> PSEUDO_LOCALES_CONFIGS =
-      ImmutableSet.of("en_XA", "ar_XB");
-  private static final ImmutableSet<String> PSEUDO_LOCALES = ImmutableSet.of("en-rXA", "ar-rXB");
   private boolean debug;
 
   /** Represents errors thrown during linking. */
@@ -304,9 +300,9 @@ public class ResourceLinker {
       Path mainDexProguard = workingDirectory.resolve("proguard.maindex.cfg");
       Path javaSourceDirectory = Files.createDirectories(workingDirectory.resolve("java"));
       Path resourceIds = workingDirectory.resolve("ids.txt");
-      Path pseudoSplit = workingDirectory.resolve("pseudo-split.apk");
+
       profiler.startTask("fulllink");
-      logger.fine(
+      logger.finer(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
               .forVariantType(VariantType.DEFAULT)
@@ -343,8 +339,6 @@ public class ResourceLinker {
               // Filter by resource configuration type.
               .when(!resourceConfigs.isEmpty())
               .thenAdd("-c", Joiner.on(',').join(resourceConfigs))
-              .when(resourceConfigs.stream().noneMatch(PSEUDO_LOCALES_CONFIGS::contains))
-              .thenAdd("--split", pseudoSplit + ":" + Joiner.on(",").join(PSEUDO_LOCALES))
               .add("--output-text-symbols", rTxt)
               .add("--emit-ids", resourceIds)
               .add("--java", javaSourceDirectory)
