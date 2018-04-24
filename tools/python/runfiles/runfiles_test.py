@@ -28,8 +28,24 @@ class RunfilesTest(unittest.TestCase):
     self.assertRaises(ValueError, lambda: r.Rlocation(None))
     self.assertRaises(ValueError, lambda: r.Rlocation(""))
     self.assertRaises(TypeError, lambda: r.Rlocation(1))
-    self.assertRaisesRegexp(ValueError, "contains uplevel",
+    self.assertRaisesRegexp(ValueError, "is not normalized",
+                            lambda: r.Rlocation("../foo"))
+    self.assertRaisesRegexp(ValueError, "is not normalized",
                             lambda: r.Rlocation("foo/.."))
+    self.assertRaisesRegexp(ValueError, "is not normalized",
+                            lambda: r.Rlocation("foo/../bar"))
+    self.assertRaisesRegexp(ValueError, "is not normalized",
+                            lambda: r.Rlocation("./foo"))
+    self.assertRaisesRegexp(ValueError, "is not normalized",
+                            lambda: r.Rlocation("foo/."))
+    self.assertRaisesRegexp(ValueError, "is not normalized",
+                            lambda: r.Rlocation("foo/./bar"))
+    self.assertRaisesRegexp(ValueError, "is not normalized",
+                            lambda: r.Rlocation("//foobar"))
+    self.assertRaisesRegexp(ValueError, "is not normalized",
+                            lambda: r.Rlocation("foo//"))
+    self.assertRaisesRegexp(ValueError, "is not normalized",
+                            lambda: r.Rlocation("foo//bar"))
     self.assertRaisesRegexp(ValueError, "is absolute without a drive letter",
                             lambda: r.Rlocation("\\foo"))
 

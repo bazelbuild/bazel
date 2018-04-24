@@ -68,7 +68,7 @@ msys*|mingw*|cygwin*)
   ;;
 *)
   # matches an absolute Unix path
-  _rlocation_isabs_pattern="^/.*"
+  _rlocation_isabs_pattern="^/[^/].*"
   ;;
 esac
 
@@ -77,9 +77,9 @@ function rlocation() {
   if [[ "$1" =~ $_rlocation_isabs_pattern ]]; then
     # If the path is absolute, print it as-is.
     echo $1
-  elif [[ "$1" =~ \.\. ]]; then
+  elif [[ "$1" == ../* || "$1" == */.. || "$1" == ./* || "$1" == */./* || "$1" == "*/." || "$1" == *//* ]]; then
     if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-      echo >&2 "ERROR[runfiles.bash]: rlocation($1): contains uplevel reference"
+      echo >&2 "ERROR[runfiles.bash]: rlocation($1): path is not normalized"
     fi
     return 1
   elif [[ "$1" == \\* ]]; then

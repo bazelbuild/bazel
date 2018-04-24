@@ -61,7 +61,15 @@ public final class RunfilesTest {
     Runfiles r = Runfiles.create(ImmutableMap.of("RUNFILES_DIR", dir.toString()));
     assertRlocationArg(r, null, null);
     assertRlocationArg(r, "", null);
-    assertRlocationArg(r, "foo/..", "contains uplevel");
+    assertRlocationArg(r, "../foo", "is not normalized");
+    assertRlocationArg(r, "foo/..", "is not normalized");
+    assertRlocationArg(r, "foo/../bar", "is not normalized");
+    assertRlocationArg(r, "./foo", "is not normalized");
+    assertRlocationArg(r, "foo/.", "is not normalized");
+    assertRlocationArg(r, "foo/./bar", "is not normalized");
+    assertRlocationArg(r, "//foobar", "is not normalized");
+    assertRlocationArg(r, "foo//", "is not normalized");
+    assertRlocationArg(r, "foo//bar", "is not normalized");
     assertRlocationArg(r, "\\foo", "path is absolute without a drive letter");
   }
 
