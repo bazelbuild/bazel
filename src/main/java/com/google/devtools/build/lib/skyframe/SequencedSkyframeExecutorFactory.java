@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor.MutableArtifactFactorySupplier;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -62,6 +63,7 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
         BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE,
-        defaultBuildOptions);
+        defaultBuildOptions,
+        new MutableArtifactFactorySupplier());
   }
 }

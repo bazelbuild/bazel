@@ -30,6 +30,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -81,6 +82,11 @@ public class SerializationTester {
 
   public <D> SerializationTester addDependency(Class<? super D> type, D dependency) {
     dependenciesBuilder.put(type, dependency);
+    return this;
+  }
+
+  public SerializationTester addDependencies(Map<Class<?>, Object> dependencies) {
+    dependenciesBuilder.putAll(dependencies);
     return this;
   }
 

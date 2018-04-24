@@ -27,9 +27,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
+import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -43,6 +48,9 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -468,10 +476,9 @@ public class Artifact
    *
    * TODO(shahan): move {@link Artifact#getPath} to this subclass.
    * */
-  @AutoCodec
   public static final class SourceArtifact extends Artifact {
-    @AutoCodec.VisibleForSerialization
-    SourceArtifact(ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
+    @VisibleForTesting
+    public SourceArtifact(ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
       super(root, execPath, owner);
     }
 
@@ -739,6 +746,37 @@ public class Artifact
       // TODO(blaze-team): this is misleading beacuse execution_root isn't unique. Dig the
       // workspace name out and print that also.
       return "[[<execution_root>]" + root.getExecPath() + "]" + rootRelativePath;
+    }
+  }
+
+  /** {@link ObjectCodec} for {@link SourceArtifact} */
+  private static class SourceArtifactCodec implements ObjectCodec<SourceArtifact> {
+
+    @Override
+    public Class<? extends SourceArtifact> getEncodedClass() {
+      return SourceArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, SourceArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.getExecPath(), codedOut);
+      context.serialize(obj.getRoot(), codedOut);
+      context.serialize(obj.getArtifactOwner(), codedOut);
+    }
+
+    @Override
+    public SourceArtifact deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      PathFragment execPath = context.deserialize(codedIn);
+      ArtifactRoot artifactRoot = context.deserialize(codedIn);
+      ArtifactOwner owner = context.deserialize(codedIn);
+      return (SourceArtifact)
+          context
+              .getDependency(ArtifactResolverSupplier.class)
+              .get()
+              .getSourceArtifact(execPath, artifactRoot.getRoot(), owner);
     }
   }
 

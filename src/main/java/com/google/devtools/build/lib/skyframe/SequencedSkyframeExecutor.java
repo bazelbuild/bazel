@@ -150,7 +150,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
-      BuildOptions defaultBuildOptions) {
+      BuildOptions defaultBuildOptions,
+      MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
     super(
         evaluatorSupplier,
         pkgFactory,
@@ -168,7 +169,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         actionOnIOExceptionReadingBuildFile,
         /*shouldUnblockCpuWorkWhenFetchingDeps=*/ false,
         defaultBuildOptions,
-        new PackageProgressReceiver());
+        new PackageProgressReceiver(),
+        mutableArtifactFactorySupplier);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
   }
@@ -189,6 +191,42 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions) {
+    return create(
+        pkgFactory,
+        fileSystem,
+        directories,
+        actionKeyContext,
+        workspaceStatusActionFactory,
+        buildInfoFactories,
+        diffAwarenessFactories,
+        extraSkyFunctions,
+        customDirtinessCheckers,
+        hardcodedBlacklistedPackagePrefixes,
+        additionalBlacklistedPackagePrefixesFile,
+        crossRepositoryLabelViolationStrategy,
+        buildFilesByPriority,
+        actionOnIOExceptionReadingBuildFile,
+        defaultBuildOptions,
+        new MutableArtifactFactorySupplier());
+  }
+
+  public static SequencedSkyframeExecutor create(
+      PackageFactory pkgFactory,
+      FileSystem fileSystem,
+      BlazeDirectories directories,
+      ActionKeyContext actionKeyContext,
+      Factory workspaceStatusActionFactory,
+      ImmutableList<BuildInfoFactory> buildInfoFactories,
+      Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
+      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
+      ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes,
+      PathFragment additionalBlacklistedPackagePrefixesFile,
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
+      List<BuildFileName> buildFilesByPriority,
+      ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
+      BuildOptions defaultBuildOptions,
+      MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
     SequencedSkyframeExecutor skyframeExecutor =
         new SequencedSkyframeExecutor(
             InMemoryMemoizingEvaluator.SUPPLIER,
@@ -206,7 +244,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             crossRepositoryLabelViolationStrategy,
             buildFilesByPriority,
             actionOnIOExceptionReadingBuildFile,
-            defaultBuildOptions);
+            defaultBuildOptions,
+            mutableArtifactFactorySupplier);
     skyframeExecutor.init();
     return skyframeExecutor;
   }

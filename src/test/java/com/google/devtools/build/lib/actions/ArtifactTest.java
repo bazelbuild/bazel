@@ -17,14 +17,19 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
+import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -317,6 +322,43 @@ public class ArtifactTest {
         .addDependency(FileSystem.class, scratch.getFileSystem())
         .addDependency(OutputBaseSupplier.class, () -> scratch.getFileSystem().getPath("/"))
         .runTests();
+  }
+
+  @Test
+  public void testCodecRecyclesSourceArtifactInstances() throws Exception {
+    Root root = Root.fromPath(scratch.dir("/"));
+    ArtifactRoot artifactRoot = ArtifactRoot.asSourceRoot(root);
+    ArtifactFactory artifactFactory = new ArtifactFactory(execDir, "blaze-out");
+    artifactFactory.setSourceArtifactRoots(ImmutableMap.of(root, artifactRoot));
+    ArtifactResolverSupplier artifactResolverSupplierForTest = () -> artifactFactory;
+
+    OutputBaseSupplier outputBaseSupplier = () -> scratch.getFileSystem().getPath("/");
+    ObjectCodecs objectCodecs =
+        new ObjectCodecs(
+            AutoRegistry.get()
+                .getBuilder()
+                .addReferenceConstant(scratch.getFileSystem())
+                .setAllowDefaultCodec(true)
+                .build(),
+            ImmutableMap.of(
+                FileSystem.class, scratch.getFileSystem(),
+                OutputBaseSupplier.class, outputBaseSupplier,
+                ArtifactResolverSupplier.class, artifactResolverSupplierForTest));
+
+    PathFragment pathFragment = PathFragment.create("src/foo.cc");
+    ArtifactOwner owner = new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar"));
+    SourceArtifact sourceArtifact = new SourceArtifact(artifactRoot, pathFragment, owner);
+    SourceArtifact deserialized1 =
+        (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
+    SourceArtifact deserialized2 =
+        (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
+    assertThat(deserialized1).isSameAs(deserialized2);
+
+    Artifact sourceArtifactFromFactory =
+        artifactFactory.getSourceArtifact(pathFragment, root, owner);
+    Artifact deserialized =
+        (Artifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifactFromFactory));
+    assertThat(sourceArtifactFromFactory).isSameAs(deserialized);
   }
 
   @Test
