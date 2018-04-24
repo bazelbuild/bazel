@@ -669,6 +669,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     skyframeBuildView.clearLegacyData();
   }
 
+  /**
+   * Notifies the executor that the command is complete. May safely be called multiple times for a
+   * single command, so callers should err on the side of calling it more frequently. Should be
+   * idempotent, so that calls after the first one in the same evaluation should be quick.
+   */
+  public final void notifyCommandComplete() throws InterruptedException {
+    memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished();
+  }
+
   protected abstract Differencer evaluatorDiffer();
 
   protected abstract BuildDriver getBuildDriver();

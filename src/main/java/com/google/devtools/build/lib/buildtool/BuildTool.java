@@ -77,6 +77,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -550,10 +551,29 @@ public class BuildTool {
     Preconditions.checkState((crash == null) || !exitCondition.equals(ExitCode.SUCCESS));
     result.setUnhandledThrowable(crash);
     result.setExitCondition(exitCondition);
+    InterruptedException ie = null;
+    try {
+      env.getSkyframeExecutor().notifyCommandComplete();
+    } catch (InterruptedException e) {
+      env.getReporter().handle(Event.error("Build interrupted during command completion"));
+      ie = e;
+    }
     // The stop time has to be captured before we send the BuildCompleteEvent.
     result.setStopTime(runtime.getClock().currentTimeMillis());
     env.getEventBus()
         .post(new BuildCompleteEvent(result, ImmutableList.of(BuildEventId.buildToolLogs())));
+    if (ie != null) {
+      if (exitCondition.equals(ExitCode.SUCCESS)) {
+        result.setExitCondition(ExitCode.INTERRUPTED);
+      } else if (!exitCondition.equals(ExitCode.INTERRUPTED)) {
+        logger.log(
+            Level.WARNING,
+            "Suppressed interrupted exception during stop request because already failing with exit"
+                + " code "
+                + exitCondition,
+            ie);
+      }
+    }
   }
 
   private void reportTargets(AnalysisResult analysisResult) {

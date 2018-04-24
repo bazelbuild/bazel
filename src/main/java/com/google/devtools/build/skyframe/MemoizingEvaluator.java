@@ -99,6 +99,14 @@ public interface MemoizingEvaluator {
   Map<SkyKey, ? extends NodeEntry> getGraphMap();
 
   /**
+   * Informs the evaluator that a sequence of evaluations at the same version has finished.
+   * Evaluators may make optimizations under the assumption that successive evaluations are all at
+   * the same version. A call of this method tells the evaluator that the next evaluation is not
+   * guaranteed to be at the same version.
+   */
+  default void noteEvaluationsAtSameVersionMayBeFinished() throws InterruptedException {}
+
+  /**
    * Returns the done (without error) values in the graph.
    *
    * <p>The returned map may be a live view of the graph.

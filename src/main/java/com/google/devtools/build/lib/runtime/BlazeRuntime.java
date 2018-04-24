@@ -458,9 +458,12 @@ public final class BlazeRuntime {
     workspace.getSkyframeExecutor().getEventBus().post(new CommandCompleteEvent(exitCode));
   }
 
-  /** Hook method called by the BlazeCommandDispatcher after the dispatch of each command. */
+  /**
+   * Hook method called by the BlazeCommandDispatcher after the dispatch of each command. Returns a
+   * new exit code in case exceptions were encountered during cleanup.
+   */
   @VisibleForTesting
-  public void afterCommand(CommandEnvironment env, int exitCode) {
+  public int afterCommand(CommandEnvironment env, int exitCode) {
     // Remove any filters that the command might have added to the reporter.
     env.getReporter().setOutputFilter(OutputFilter.OUTPUT_EVERYTHING);
 
@@ -479,6 +482,16 @@ public final class BlazeRuntime {
       workspace.getSkyframeExecutor().resetEvaluator();
     }
 
+    // Build-related commands already call this hook in BuildTool#stopRequest, but non-build
+    // commands might also need to notify the SkyframeExecutor. It's called in #stopRequest so that
+    // timing metrics for builds can be more accurate (since this call can be slow).
+    try {
+      workspace.getSkyframeExecutor().notifyCommandComplete();
+    } catch (InterruptedException e) {
+      exitCode = ExitCode.INTERRUPTED.getNumericExitCode();
+      Thread.currentThread().interrupt();
+    }
+
     env.getBlazeWorkspace().clearEventBus();
 
     try {
@@ -490,6 +503,7 @@ public final class BlazeRuntime {
     env.getReporter().clearEventBus();
 
     actionKeyContext.clear();
+    return exitCode;
   }
 
   // Make sure we keep a strong reference to this logger, so that the
