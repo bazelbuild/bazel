@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.util.List;
 
@@ -30,15 +31,11 @@ public abstract class StandaloneTestResult {
   /** Returns the TestResultData for the test. */
   public abstract TestResultData testResultData();
 
+  public abstract BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo();
+
   /** Returns a builder that can be used to construct a {@link StandaloneTestResult} object. */
   public static Builder builder() {
     return new AutoValue_StandaloneTestResult.Builder();
-  }
-
-  /** Creates a StandaloneTestResult, given spawnResults and testResultData. */
-  public static StandaloneTestResult create(
-      List<SpawnResult> spawnResults, TestResultData testResultData) {
-    return builder().setSpawnResults(spawnResults).setTestResultData(testResultData).build();
   }
 
   /** Builder for a {@link StandaloneTestResult} instance, which is immutable once built. */
@@ -53,6 +50,9 @@ public abstract class StandaloneTestResult {
 
     /** Sets the TestResultData for the test. */
     public abstract Builder setTestResultData(TestResultData testResultData);
+
+    public abstract Builder setExecutionInfo(
+        BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo);
 
     abstract StandaloneTestResult realBuild();
 
