@@ -308,7 +308,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       status = Status.EXECUTION_FAILED;
     }
     throw new SpawnExecException(
-        Throwables.getStackTraceAsString(exception),
+        verboseFailures ? Throwables.getStackTraceAsString(exception) : exception.getMessage(),
         new SpawnResult.Builder()
             .setRunnerName(getName())
             .setStatus(status)

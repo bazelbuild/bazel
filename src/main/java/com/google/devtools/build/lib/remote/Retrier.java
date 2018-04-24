@@ -235,12 +235,12 @@ class Retrier {
         }
         int attempts = backoff.getRetryAttempts();
         if (!shouldRetry.test(e)) {
-          throw new RetryException("Call failed with not retriable error.", attempts, e);
+          throw new RetryException("Call failed with not retriable error: " + e, attempts, e);
         }
         final long delayMillis = backoff.nextDelayMillis();
         if (delayMillis < 0) {
           throw new RetryException(
-              "Call failed after exhausting retry attempts: " + attempts, attempts, e);
+              "Call failed after " + attempts + " retry attempts: " + e, attempts, e);
         }
         sleeper.sleep(delayMillis);
       }
