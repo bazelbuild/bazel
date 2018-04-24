@@ -704,6 +704,7 @@ public class AndroidCommon {
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaPluginInfoProvider.class, JavaCommon.getTransitivePlugins(ruleContext))
             .setRuntimeJars(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
+            .setJavaConstraints(ImmutableList.of("android"))
             .setNeverlink(isNeverlink)
             .build();
 

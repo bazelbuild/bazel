@@ -390,6 +390,11 @@ public final class JavaInfo extends NativeInfo {
   */
   private final ImmutableList<Artifact> directRuntimeJars;
 
+  /**
+   * Java constraints (e.g. "android") that are present on the target.
+   */
+  private final ImmutableList<String> javaConstraints;
+
   // Whether or not this library should be used only for compilation and not at runtime.
   private final boolean neverlink;
 
@@ -543,11 +548,13 @@ public final class JavaInfo extends NativeInfo {
       TransitiveInfoProviderMap providers,
       ImmutableList<Artifact> directRuntimeJars,
       boolean neverlink,
+      ImmutableList<String> javaConstraints,
       Location location) {
     super(PROVIDER, location);
     this.directRuntimeJars = directRuntimeJars;
     this.providers = providers;
     this.neverlink = neverlink;
+    this.javaConstraints = javaConstraints;
   }
 
   public Boolean isNeverlink() {
@@ -704,6 +711,13 @@ public final class JavaInfo extends NativeInfo {
   }
 
   /**
+   * Returns all constraints set on the associated target.
+   */
+  public ImmutableList<String> getJavaConstraints() {
+    return javaConstraints;
+  }
+
+  /**
    * Gets Provider, check it for not null and call function to get NestedSet&lt;S&gt; from it.
    *
    * <p>Gets provider from map. If Provider is null, return default, empty, stabled ordered
@@ -751,6 +765,7 @@ public final class JavaInfo extends NativeInfo {
   public static class Builder {
     TransitiveInfoProviderMapBuilder providerMap;
     private ImmutableList<Artifact> runtimeJars;
+    private ImmutableList<String> javaConstraints;
     private boolean neverlink;
     private Location location = Location.BUILTIN;
 
@@ -760,12 +775,16 @@ public final class JavaInfo extends NativeInfo {
 
     public static Builder create() {
       return new Builder(new TransitiveInfoProviderMapBuilder())
-          .setRuntimeJars(ImmutableList.of());
+          .setRuntimeJars(ImmutableList.of())
+          .setJavaConstraints(ImmutableList.of());
     }
 
     public static Builder copyOf(JavaInfo javaInfo) {
-      return new Builder(
-          new TransitiveInfoProviderMapBuilder().addAll(javaInfo.getProviders()));
+      return new Builder(new TransitiveInfoProviderMapBuilder().addAll(javaInfo.getProviders()))
+          .setRuntimeJars(javaInfo.getDirectRuntimeJars())
+          .setNeverlink(javaInfo.isNeverlink())
+          .setJavaConstraints(javaInfo.getJavaConstraints())
+          .setLocation(javaInfo.getCreationLoc());
     }
 
     public Builder setRuntimeJars(ImmutableList<Artifact> runtimeJars) {
@@ -775,6 +794,11 @@ public final class JavaInfo extends NativeInfo {
 
     public Builder setNeverlink(boolean neverlink) {
       this.neverlink = neverlink;
+      return this;
+    }
+
+    public Builder setJavaConstraints(ImmutableList<String> javaConstraints) {
+      this.javaConstraints = javaConstraints;
       return this;
     }
 
@@ -791,7 +815,7 @@ public final class JavaInfo extends NativeInfo {
     }
 
     public JavaInfo build() {
-      return new JavaInfo(providerMap.build(), runtimeJars, neverlink, location);
+      return new JavaInfo(providerMap.build(), runtimeJars, neverlink, javaConstraints, location);
     }
   }
 }

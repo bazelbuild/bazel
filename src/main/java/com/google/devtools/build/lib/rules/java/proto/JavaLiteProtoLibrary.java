@@ -92,6 +92,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
                         ruleContext.getPrerequisites("deps", TARGET))))
             .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
             .addProvider(JavaRunfilesProvider.class, javaRunfilesProvider)
+            .setJavaConstraints(ImmutableList.of("android"))
             .build();
 
     return new RuleConfiguredTargetBuilder(ruleContext)

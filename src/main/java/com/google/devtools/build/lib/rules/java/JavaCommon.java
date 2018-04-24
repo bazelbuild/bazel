@@ -162,12 +162,11 @@ public class JavaCommon {
    */
   public static final void validateConstraint(RuleContext ruleContext,
       String constraint, Iterable<? extends TransitiveInfoCollection> targets) {
-    for (JavaConstraintProvider constraintProvider :
-        AnalysisUtils.getProviders(targets, JavaConstraintProvider.class)) {
-      if (!constraintProvider.getJavaConstraints().contains(constraint)) {
+    for (TransitiveInfoCollection target : targets) {
+      JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
+      if (javaInfo != null && !javaInfo.getJavaConstraints().contains(constraint)) {
         ruleContext.attributeError("deps",
-            String.format("%s: does not have constraint '%s'",
-                constraintProvider.getLabel(), constraint));
+            String.format("%s: does not have constraint '%s'", target.getLabel(), constraint));
       }
     }
   }

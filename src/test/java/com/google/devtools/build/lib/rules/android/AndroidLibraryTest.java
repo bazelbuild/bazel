@@ -1882,7 +1882,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    name = 'al_bottom_for_deps',",
         "    srcs = ['java/A.java'],",
         ")",
-        "java_library(",
+        "android_library(",
         "    name = 'jl_bottom_for_exports',",
         "    srcs = ['java/A2.java'],",
         ")",

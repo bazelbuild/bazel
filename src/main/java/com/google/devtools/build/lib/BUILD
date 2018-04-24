@@ -944,7 +944,6 @@ java_library(
         "rules/java/JavaCompilationInfoProvider.java",
         "rules/java/JavaCompileAction.java",
         "rules/java/JavaConfiguration.java",
-        "rules/java/JavaConstraintProvider.java",
         "rules/java/JavaExportsProvider.java",
         "rules/java/JavaGenJarsProvider.java",
         "rules/java/JavaHeaderCompileAction.java",
