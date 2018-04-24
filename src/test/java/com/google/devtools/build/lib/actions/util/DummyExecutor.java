@@ -65,7 +65,7 @@ public final class DummyExecutor implements Executor {
 
   @Override
   public EventBus getEventBus() {
-    throw new UnsupportedOperationException();
+    return new EventBus();
   }
 
   @Override
