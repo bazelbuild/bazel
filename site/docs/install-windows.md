@@ -64,10 +64,10 @@ After you download the binary, you'll need additional
 software and some setup in your environment to run Bazel. For details, see the
 [Windows requirements](windows.html).
 
-_<sup>1</sup>Note that Bazel includes an embedded JDK 8, which can be used even if
-a JDK is already installed. bazel-<version>-without-jdk-installer-windows-x86_64.sh
-  is a version of the installer without embedded JDK 8. Only use this installer if
-  you already have JDK 8 installed._
+**Note:** Bazel includes an embedded JDK, which can be used even if a JDK is already
+installed. `bazel-<version>-without-jdk-installer-linux-x86_64.sh` is a version of the installer
+without an embedded JDK. Only use this installer if you already have JDK 8 installed. Later JDK
+versions are not supported.
 
 #### Install using Chocolatey
 
