@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.syntax.Type;
@@ -119,7 +120,8 @@ public class TestRuleClassProvider {
       return new RuleConfiguredTargetBuilder(ruleContext)
           .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
           .addProvider(RunfilesProvider.EMPTY)
-          .addNativeDeclaredProvider(new TemplateVariableInfo(ImmutableMap.copyOf(variables)))
+          .addNativeDeclaredProvider(
+              new TemplateVariableInfo(ImmutableMap.copyOf(variables), Location.BUILTIN))
           .build();
     }
   }

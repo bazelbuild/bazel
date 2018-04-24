@@ -102,7 +102,8 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
     // out the lookup rule -> toolchain rule mapping. For now, it only provides Make variables that
     // come from BuildConfiguration so no need to ask Skyframe.
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addNativeDeclaredProvider(new TemplateVariableInfo(ImmutableMap.copyOf(makeVariables)))
+        .addNativeDeclaredProvider(new TemplateVariableInfo(
+            ImmutableMap.copyOf(makeVariables), ruleContext.getRule().getLocation()))
         .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
   }

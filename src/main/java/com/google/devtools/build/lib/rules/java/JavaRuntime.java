@@ -76,9 +76,11 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         JavaRuntimeInfo.create(
             filesToBuild, middleman, javaHome, javaBinaryExecPath, javaBinaryRunfilesPath);
 
-    TemplateVariableInfo templateVariableInfo = new TemplateVariableInfo(ImmutableMap.of(
-        "JAVA", javaBinaryExecPath.getPathString(),
-        "JAVABASE", javaHome.getPathString()));
+    TemplateVariableInfo templateVariableInfo = new TemplateVariableInfo(
+        ImmutableMap.of(
+            "JAVA", javaBinaryExecPath.getPathString(),
+            "JAVABASE", javaHome.getPathString()),
+        ruleContext.getRule().getLocation());
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
