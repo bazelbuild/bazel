@@ -54,20 +54,57 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
   }
 
   /**
-   * Returns non-recursively collected Java compilation information for
-   * building this target (called when strict_java_deps = 1).
+   * Non-recursively collected Java compilation information, used when Strict Java Deps is enabled
+   * to implement {@link #getDirectCompileTimeJars}.
    *
-   * <p>Note that some of the parameters are still collected from the complete
-   * transitive closure. The non-recursive collection applies mainly to
-   * compile-time jars.
+   * @deprecated use {@link #getDirectCompileTimeJars} instead.
    */
+  @Deprecated
   public abstract JavaCompilationArgs getJavaCompilationArgs();
 
   /**
-   * Returns recursively collected Java compilation information for building
-   * this target (called when strict_java_deps = 0).
+   * Returns recursively collected Java compilation information.
+   *
+   * @deprecated use one of: {@link #getTransitiveCompileTimeJars}, {@link #getRuntimeJars}, {@link
+   *     #getInstrumentationMetadata} instead.
    */
+  @Deprecated
   public abstract JavaCompilationArgs getRecursiveJavaCompilationArgs();
+
+  /**
+   * Returns non-recursively collected compile-time jars. This is the set of jars that compilations
+   * are permitted to reference with Strict Java Deps enabled.
+   */
+  public NestedSet<Artifact> getDirectCompileTimeJars() {
+    return getJavaCompilationArgs().getCompileTimeJars();
+  }
+
+  /**
+   * Returns non-recursively collected, non-interface compile-time jars.
+   *
+   * <p>If you're reading this, you probably want {@link #getTransitiveCompileTimeJars}.
+   */
+  public NestedSet<Artifact> getFullCompileTimeJars() {
+    return getJavaCompilationArgs().getFullCompileTimeJars();
+  }
+
+  /**
+   * Returns recursively collected compile-time jars. This is the compile-time classpath passed to
+   * the compiler.
+   */
+  public NestedSet<Artifact> getTransitiveCompileTimeJars() {
+    return getRecursiveJavaCompilationArgs().getCompileTimeJars();
+  }
+
+  /** Returns recursively collected runtime jars. */
+  public NestedSet<Artifact> getRuntimeJars() {
+    return getRecursiveJavaCompilationArgs().getRuntimeJars();
+  }
+
+  /** Returns recursively collected instrumentation metadata. */
+  public NestedSet<Artifact> getInstrumentationMetadata() {
+    return getRecursiveJavaCompilationArgs().getInstrumentationMetadata();
+  }
 
   /**
    * Returns non-recursively collected Java dependency artifacts for

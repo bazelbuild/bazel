@@ -182,7 +182,7 @@ public class AndroidCommon {
       builder.addAll(runtimeJars);
       for (JavaCompilationArgsProvider provider :
           JavaInfo.getProvidersFromListOfTargets(JavaCompilationArgsProvider.class, deps)) {
-        builder.addTransitive(provider.getRecursiveJavaCompilationArgs().getRuntimeJars());
+        builder.addTransitive(provider.getRuntimeJars());
       }
     }
 

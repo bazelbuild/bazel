@@ -341,16 +341,15 @@ public final class JavaLibraryHelper {
     JavaCompilationArgsProvider argsProvider = JavaCompilationArgsProvider.merge(deps);
 
     if (isStrict()) {
-      NestedSet<Artifact> directJars = argsProvider.getJavaCompilationArgs().getCompileTimeJars();
+      NestedSet<Artifact> directJars = argsProvider.getDirectCompileTimeJars();
       if (directJars != null) {
         attributes.addDirectJars(directJars);
       }
     }
 
-    JavaCompilationArgs recursiveArgs = argsProvider.getRecursiveJavaCompilationArgs();
-    attributes.addCompileTimeClassPathEntries(recursiveArgs.getCompileTimeJars());
-    attributes.addRuntimeClassPathEntries(recursiveArgs.getRuntimeJars());
-    attributes.addInstrumentationMetadataEntries(recursiveArgs.getInstrumentationMetadata());
+    attributes.addCompileTimeClassPathEntries(argsProvider.getTransitiveCompileTimeJars());
+    attributes.addRuntimeClassPathEntries(argsProvider.getRuntimeJars());
+    attributes.addInstrumentationMetadataEntries(argsProvider.getInstrumentationMetadata());
   }
 
 

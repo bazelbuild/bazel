@@ -514,7 +514,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     // dep.getProvider(JavaCompilationArgsProvider.class).getRecursiveJavaCompilationArgs(),
     // so we reuse the logic within JavaCompilationArgs to handle both scenarios.
     return JavaCompilationArgsProvider.legacyFromTargets(ImmutableList.copyOf(deps))
-        .getRecursiveJavaCompilationArgs()
         .getRuntimeJars();
   }
 

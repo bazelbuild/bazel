@@ -211,8 +211,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         transitiveOutputJars.add(outputJar);
 
         Artifact compileTimeJar =
-            getOnlyElement(
-                generatedCompilationArgsProvider.getJavaCompilationArgs().getCompileTimeJars());
+            getOnlyElement(generatedCompilationArgsProvider.getDirectCompileTimeJars());
         // TODO(carmi): Expose to native rules
         JavaRuleOutputJarsProvider ruleOutputJarsProvider =
             JavaRuleOutputJarsProvider.builder()
@@ -244,7 +243,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                   transitiveOutputJars.build(),
                   createNonStrictCompilationArgsProvider(
                       javaProtoLibraryAspectProviders,
-                      generatedCompilationArgsProvider.getJavaCompilationArgs(),
+                      generatedCompilationArgsProvider,
                       aspectCommon.getProtoRuntimeDeps())));
     }
 

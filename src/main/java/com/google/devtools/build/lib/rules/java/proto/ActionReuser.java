@@ -103,7 +103,7 @@ public class ActionReuser {
                 transitiveOutputJars.build(),
                 createNonStrictCompilationArgsProvider(
                     javaProtoLibraryAspectProviders,
-                    JavaCompilationArgs.builder().merge(directJars).build(),
+                    compilationArgsProvider,
                     javaApi.getProtoRuntimeImmutable())));
     return true;
   }

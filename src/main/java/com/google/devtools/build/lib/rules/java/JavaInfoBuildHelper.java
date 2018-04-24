@@ -440,7 +440,7 @@ final class JavaInfoBuildHelper {
     Runfiles runfiles =
         new Runfiles.Builder(skylarkRuleContext.getWorkspaceName())
             .addTransitiveArtifactsWrappedInStableOrder(
-                javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars())
+                javaCompilationArgsProvider.getRuntimeJars())
             .build();
 
     JavaPluginInfoProvider transitivePluginsProvider =

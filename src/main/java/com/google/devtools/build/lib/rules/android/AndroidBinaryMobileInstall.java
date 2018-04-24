@@ -364,7 +364,7 @@ public final class AndroidBinaryMobileInstall {
 
     JavaTargetAttributes attributes =
         new JavaTargetAttributes.Builder(javaSemantics)
-            .addRuntimeClassPathEntries(provider.getJavaCompilationArgs().getRuntimeJars())
+            .addRuntimeClassPathEntries(provider.getRuntimeJars())
             .build();
 
     Function<Artifact, Artifact> desugaredJars = Functions.identity();

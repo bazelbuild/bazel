@@ -388,10 +388,11 @@ public class AarImportTest extends BuildViewTestCase {
     JavaCompilationArgsProvider provider = JavaInfo
         .getProvider(JavaCompilationArgsProvider.class, aarImportTarget);
     assertThat(provider).isNotNull();
-    assertThat(artifactsToStrings(provider.getJavaCompilationArgs().getRuntimeJars()))
+    assertThat(artifactsToStrings(provider.getRuntimeJars()))
         .containsExactly(
             "bin a/_aar/bar/classes_and_libs_merged.jar",
             "bin a/_aar/foo/classes_and_libs_merged.jar",
+            "bin a/_aar/baz/classes_and_libs_merged.jar",
             "src java/baz.jar");
   }
 

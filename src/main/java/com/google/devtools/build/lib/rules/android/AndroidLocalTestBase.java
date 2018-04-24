@@ -512,7 +512,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     // dep.getProvider(JavaCompilationArgsProvider.class).getRecursiveJavaCompilationArgs(),
     // so we reuse the logic within JavaCompilationArgs to handle both scenarios.
     return JavaCompilationArgsProvider.legacyFromTargets(ImmutableList.of(deps))
-        .getRecursiveJavaCompilationArgs()
         .getRuntimeJars();
   }
 

@@ -248,9 +248,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     if (javaInfo != null) {
       // These are all transitive hjars of dependencies and hjar of the jar itself
       NestedSet<Artifact> compileTimeClasspath =
-          getJavaCompilationArgsProvider(base, ruleContext)
-              .getRecursiveJavaCompilationArgs()
-              .getCompileTimeJars();
+          getJavaCompilationArgsProvider(base, ruleContext).getTransitiveCompileTimeJars();
       // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
       ImmutableList<Artifact> bootclasspath = getBootclasspath(base, ruleContext);
 
@@ -276,7 +274,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             WrappingProvider.Helper.getWrappedProvider(
                 base, JavaProtoLibraryAspectProvider.class, JavaCompilationArgsProvider.class);
         if (javaCompilationArgsProvider != null) {
-          return javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars();
+          return javaCompilationArgsProvider.getRuntimeJars();
         }
       }
     } else {

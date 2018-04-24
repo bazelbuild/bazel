@@ -506,8 +506,7 @@ public final class JavaInfo extends NativeInfo {
     NestedSet<Artifact> compileTimeJars =
         getProviderAsNestedSet(
             JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider::getJavaCompilationArgs,
-            JavaCompilationArgs::getCompileTimeJars);
+            JavaCompilationArgsProvider::getDirectCompileTimeJars);
     return SkylarkNestedSet.of(Artifact.class, compileTimeJars);
   }
 
@@ -524,9 +523,7 @@ public final class JavaInfo extends NativeInfo {
   public SkylarkNestedSet getFullCompileTimeJars() {
     NestedSet<Artifact> fullCompileTimeJars =
         getProviderAsNestedSet(
-            JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider::getJavaCompilationArgs,
-            JavaCompilationArgs::getFullCompileTimeJars);
+            JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::getFullCompileTimeJars);
     return SkylarkNestedSet.of(Artifact.class, fullCompileTimeJars);
   }
 
@@ -588,8 +585,7 @@ public final class JavaInfo extends NativeInfo {
   public NestedSet<Artifact> getTransitiveDeps() {
     return getProviderAsNestedSet(
         JavaCompilationArgsProvider.class,
-        JavaCompilationArgsProvider::getRecursiveJavaCompilationArgs,
-        JavaCompilationArgs::getCompileTimeJars);
+        JavaCompilationArgsProvider::getTransitiveCompileTimeJars);
   }
 
   @SkylarkCallable(
@@ -599,9 +595,7 @@ public final class JavaInfo extends NativeInfo {
   )
   public NestedSet<Artifact> getTransitiveRuntimeDeps() {
     return getProviderAsNestedSet(
-        JavaCompilationArgsProvider.class,
-        JavaCompilationArgsProvider::getRecursiveJavaCompilationArgs,
-        JavaCompilationArgs::getRuntimeJars);
+        JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::getRuntimeJars);
   }
 
   @SkylarkCallable(
@@ -650,21 +644,6 @@ public final class JavaInfo extends NativeInfo {
     }
     return mapper.apply(provider);
   }
-
-  /**
-   * The same as {@link JavaInfo#getProviderAsNestedSet(Class, Function)}, but uses
-   * sequence of two mappers.
-   *
-   * @see JavaInfo#getProviderAsNestedSet(Class, Function)
-   */
-  private <P extends TransitiveInfoProvider, S extends SkylarkValue, V>
-      NestedSet<S> getProviderAsNestedSet(
-          Class<P> providerClass,
-          Function<P, V> firstMapper,
-          Function<V, NestedSet<S>> secondMapper) {
-    return getProviderAsNestedSet(providerClass, firstMapper.andThen(secondMapper));
-  }
-
 
   @Override
   public boolean equals(Object otherObject) {

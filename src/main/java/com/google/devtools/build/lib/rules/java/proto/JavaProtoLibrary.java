@@ -57,8 +57,7 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
     // with the same root relative path
     Runfiles runfiles =
         new Runfiles.Builder(ruleContext.getWorkspaceName())
-            .addTransitiveArtifactsWrappedInStableOrder(
-                dependencyArgsProviders.getRecursiveJavaCompilationArgs().getRuntimeJars())
+            .addTransitiveArtifactsWrappedInStableOrder(dependencyArgsProviders.getRuntimeJars())
             .build();
 
     JavaSourceJarsProvider sourceJarsProvider =

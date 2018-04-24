@@ -528,8 +528,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
     argBuilder.add("-d").addPath(j2ObjcSource.getObjcFilePath());
 
-    NestedSet<Artifact> compileTimeJars =
-        compArgsProvider.getRecursiveJavaCompilationArgs().getCompileTimeJars();
+    NestedSet<Artifact> compileTimeJars = compArgsProvider.getTransitiveCompileTimeJars();
     if (!compileTimeJars.isEmpty()) {
       argBuilder.addExecPaths("-classpath", VectorArg.join(":").each(compileTimeJars));
     }

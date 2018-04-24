@@ -774,11 +774,10 @@ public class JavaCommon {
   private void processRuntimeDeps(JavaTargetAttributes.Builder attributes) {
     List<TransitiveInfoCollection> runtimeDepInfo = getRuntimeDeps(ruleContext);
     checkRuntimeDeps(ruleContext, runtimeDepInfo);
-    JavaCompilationArgs args =
-        JavaCompilationArgsProvider.legacyFromTargets(runtimeDepInfo)
-            .getRecursiveJavaCompilationArgs();
-    attributes.addRuntimeClassPathEntries(args.getRuntimeJars());
-    attributes.addInstrumentationMetadataEntries(args.getInstrumentationMetadata());
+    JavaCompilationArgsProvider provider =
+        JavaCompilationArgsProvider.legacyFromTargets(runtimeDepInfo);
+    attributes.addRuntimeClassPathEntries(provider.getRuntimeJars());
+    attributes.addInstrumentationMetadataEntries(provider.getInstrumentationMetadata());
   }
 
   /**
