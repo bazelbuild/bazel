@@ -1430,7 +1430,7 @@ my_rule = rule(
 EOF
 
   bazel build java/com/google/foo:banana >& "$TEST_log" && fail "Unexpected success"
-  expect_log "The value of use_ijar is True. Make sure the java_toolchain argument is a valid."
+  expect_log "The value of use_ijar is True. Make sure the java_toolchain argument is valid."
 }
 
 
@@ -1467,7 +1467,7 @@ my_rule = rule(
 EOF
 
   bazel build java/com/google/foo:my_skylark_rule >& "$TEST_log" && fail "Unexpected success"
-  expect_log "The value of use_ijar is True. Make sure the java_toolchain argument is a valid."
+  expect_log "The value of use_ijar is True. Make sure the java_toolchain argument is valid."
 }
 
 
@@ -1558,6 +1558,55 @@ EOF
     bazel build //java/com/google/runfiles:EchoRunfiles
     # We're testing a formerly non-hermetic interaction, so disable the sandbox.
     bazel test --spawn_strategy=standalone --test_output=errors :check_runfiles
+}
+
+function test_java_info_constructor_e2e() {
+  mkdir -p java/com/google/foo
+  touch java/com/google/foo/{BUILD,my_rule.bzl}
+  cat > java/com/google/foo/BUILD << EOF
+load(":my_rule.bzl", "my_rule")
+my_rule(
+  name = 'my_skylark_rule',
+  output_jar = 'my_skylark_rule_lib.jar',
+  source_jars = ['my_skylark_rule_src.jar'],
+)
+EOF
+
+  cat > java/com/google/foo/my_rule.bzl << EOF
+result = provider()
+def _impl(ctx):
+  compile_jar = java_common.run_ijar(
+    ctx.actions,
+    jar = ctx.file.output_jar,
+    target_label = ctx.label,
+    java_toolchain = ctx.attr._java_toolchain,
+  )
+  source_jar = java_common.pack_sources(
+    ctx.actions,
+    output_jar = ctx.file.output_jar,
+    source_jars = ctx.files.source_jars,
+    java_toolchain = ctx.attr._java_toolchain,
+    host_javabase = ctx.attr._host_javabase,
+  )
+  javaInfo = JavaInfo(
+    output_jar = ctx.file.output_jar,
+    compile_jar = compile_jar,
+    source_jar = source_jar,
+  )
+  return [result(property = javaInfo)]
+
+my_rule = rule(
+  implementation = _impl,
+  attrs = {
+    'output_jar' : attr.label(allow_single_file=True),
+    'source_jars' : attr.label_list(allow_files=['.jar']),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
+    "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
+  }
+)
+EOF
+
+  bazel build java/com/google/foo:my_skylark_rule >& "$TEST_log" || fail "Expected success"
 }
 
 run_suite "Java integration tests"
