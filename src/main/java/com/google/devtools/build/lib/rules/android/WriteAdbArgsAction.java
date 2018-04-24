@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -29,6 +30,7 @@ import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -112,16 +114,6 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
       expansion = {"--start=DEBUG"}
     )
     public Void debugApp;
-
-    public ImmutableList<String> getAdbArgs() {
-      ImmutableList.Builder<String> allAdbArgs = ImmutableList.builder();
-      allAdbArgs.addAll(adbArgs);
-      if (!device.isEmpty()) {
-        allAdbArgs.add("-s");
-        allAdbArgs.add(device);
-      }
-      return allAdbArgs.build();
-    }
   }
 
   public WriteAdbArgsAction(ActionOwner owner, Artifact outputFile) {
@@ -129,14 +121,16 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
+      throws IOException, InterruptedException, ExecException {
     Options options = ctx.getOptions().getOptions(Options.class);
+    final List<String> args = new ArrayList<>(options.adbArgs);
     final String adb = options.adb;
+    final String device = options.device;
     final String incrementalInstallVerbosity = options.incrementalInstallVerbosity;
     final StartType start = options.start;
     final String userHomeDirectory =
         ctx.getContext(WriteAdbArgsActionContext.class).getUserHomeDirectory();
-    ImmutableList<String> adbArgs = options.getAdbArgs();
 
     return new DeterministicWriter() {
       @Override
@@ -147,7 +141,12 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
           ps.printf("--adb=%s\n", adb);
         }
 
-        for (String arg : adbArgs) {
+        if (!device.isEmpty()) {
+          args.add("-s");
+          args.add(device);
+        }
+
+        for (String arg : args) {
           ps.printf("--extra_adb_arg=%s\n", arg);
         }
 

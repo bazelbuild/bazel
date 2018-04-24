@@ -262,7 +262,7 @@ public class MobileInstallCommand implements BlazeCommand {
     if (!adbOptions.adb.isEmpty()) {
       cmdLine.add("--adb=" + adbOptions.adb);
     }
-    for (String adbArg : adbOptions.getAdbArgs()) {
+    for (String adbArg : adbOptions.adbArgs) {
       if (!adbArg.isEmpty()) {
         cmdLine.add("--adb_arg=" + adbArg);
       }
