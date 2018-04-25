@@ -28,6 +28,8 @@ public final class ProcessUtils {
 
   /**
    * @return the real group ID of the current process.
+   * @throws UnsatisfiedLinkError when JNI is not available.
+   * @throws UnsupportedOperationException on operating systems where this call is not implemented.
    */
   public static int getgid() {
     if (OS.getCurrent() == OS.WINDOWS) {
@@ -39,6 +41,7 @@ public final class ProcessUtils {
 
   /**
    * @return the process ID of this process.
+   * @throws UnsatisfiedLinkError when JNI is not available.
    */
   public static int getpid() {
     if (OS.getCurrent() == OS.WINDOWS) {
@@ -50,6 +53,8 @@ public final class ProcessUtils {
 
   /**
    * @return the real user ID of the current process.
+   * @throws UnsatisfiedLinkError when JNI is not available.
+   * @throws UnsupportedOperationException on operating systems where this call is not implemented.
    */
   public static int getuid() {
     if (OS.getCurrent() == OS.WINDOWS) {
