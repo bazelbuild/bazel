@@ -14,8 +14,14 @@
 
 package com.google.devtools.build.runfiles;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -42,7 +48,7 @@ import java.util.Map;
 public abstract class Runfiles {
 
   // Package-private constructor, so only package-private classes may extend it.
-  Runfiles() {}
+  private Runfiles() {}
 
   /**
    * Returns a new {@link Runfiles} instance.
@@ -158,4 +164,95 @@ public abstract class Runfiles {
   }
 
   abstract String rlocationChecked(String path);
+
+  /** {@link Runfiles} implementation that parses a runfiles-manifest file to look up runfiles. */
+  private static final class ManifestBased extends Runfiles {
+    private final Map<String, String> runfiles;
+    private final String manifestPath;
+
+    ManifestBased(String manifestPath) throws IOException {
+      Util.checkArgument(manifestPath != null);
+      Util.checkArgument(!manifestPath.isEmpty());
+      this.manifestPath = manifestPath;
+      this.runfiles = loadRunfiles(manifestPath);
+    }
+
+    private static Map<String, String> loadRunfiles(String path) throws IOException {
+      HashMap<String, String> result = new HashMap<>();
+      try (BufferedReader r =
+          new BufferedReader(
+              new InputStreamReader(new FileInputStream(path), StandardCharsets.UTF_8))) {
+        String line = null;
+        while ((line = r.readLine()) != null) {
+          int index = line.indexOf(' ');
+          String runfile = (index == -1) ? line : line.substring(0, index);
+          String realPath = (index == -1) ? line : line.substring(index + 1);
+          result.put(runfile, realPath);
+        }
+      }
+      return Collections.unmodifiableMap(result);
+    }
+
+    private static String findRunfilesDir(String manifest) {
+      if (manifest.endsWith("/MANIFEST")
+          || manifest.endsWith("\\MANIFEST")
+          || manifest.endsWith(".runfiles_manifest")) {
+        String path = manifest.substring(0, manifest.length() - 9);
+        if (new File(path).isDirectory()) {
+          return path;
+        }
+      }
+      return "";
+    }
+
+    @Override
+    public String rlocationChecked(String path) {
+      return runfiles.get(path);
+    }
+
+    @Override
+    public Map<String, String> getEnvVars() {
+      HashMap<String, String> result = new HashMap<>(4);
+      result.put("RUNFILES_MANIFEST_ONLY", "1");
+      result.put("RUNFILES_MANIFEST_FILE", manifestPath);
+      String runfilesDir = findRunfilesDir(manifestPath);
+      result.put("RUNFILES_DIR", runfilesDir);
+      // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can pick up RUNFILES_DIR.
+      result.put("JAVA_RUNFILES", runfilesDir);
+      return result;
+    }
+  }
+
+  /** {@link Runfiles} implementation that appends runfiles paths to the runfiles root. */
+  private static final class DirectoryBased extends Runfiles {
+    private final String runfilesRoot;
+
+    DirectoryBased(String runfilesDir) throws IOException {
+      Util.checkArgument(!Util.isNullOrEmpty(runfilesDir));
+      Util.checkArgument(new File(runfilesDir).isDirectory());
+      this.runfilesRoot = runfilesDir;
+    }
+
+    @Override
+    String rlocationChecked(String path) {
+      return runfilesRoot + "/" + path;
+    }
+
+    @Override
+    public Map<String, String> getEnvVars() {
+      HashMap<String, String> result = new HashMap<>(2);
+      result.put("RUNFILES_DIR", runfilesRoot);
+      // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can pick up RUNFILES_DIR.
+      result.put("JAVA_RUNFILES", runfilesRoot);
+      return result;
+    }
+  }
+
+  static Runfiles createManifestBasedForTesting(String manifestPath) throws IOException {
+    return new ManifestBased(manifestPath);
+  }
+
+  static Runfiles createDirectoryBasedForTesting(String runfilesDir) throws IOException {
+    return new DirectoryBased(runfilesDir);
+  }
 }
