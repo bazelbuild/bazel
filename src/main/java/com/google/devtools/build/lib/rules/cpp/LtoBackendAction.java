@@ -24,8 +24,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -67,8 +68,10 @@ public final class LtoBackendAction extends SpawnAction {
       Map<PathFragment, Artifact> allBitcodeFiles,
       Artifact importsFile,
       Collection<Artifact> outputs,
+      Artifact primaryOutput,
       ActionOwner owner,
-      CommandLine argv,
+      CommandLines argv,
+      CommandLineLimits commandLineLimits,
       boolean isShellCommand,
       ActionEnvironment env,
       Map<String, String> executionInfo,
@@ -80,8 +83,10 @@ public final class LtoBackendAction extends SpawnAction {
         ImmutableList.<Artifact>of(),
         inputs,
         outputs,
+        primaryOutput,
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
+        commandLineLimits,
         isShellCommand,
         env,
         ImmutableMap.copyOf(executionInfo),
@@ -220,8 +225,10 @@ public final class LtoBackendAction extends SpawnAction {
         NestedSet<Artifact> tools,
         NestedSet<Artifact> inputsAndTools,
         ImmutableList<Artifact> outputs,
+        Artifact primaryOutput,
         ResourceSet resourceSet,
-        CommandLine actualCommandLine,
+        CommandLines commandLines,
+        CommandLineLimits commandLineLimits,
         boolean isShellCommand,
         ActionEnvironment env,
         ImmutableMap<String, String> executionInfo,
@@ -233,8 +240,10 @@ public final class LtoBackendAction extends SpawnAction {
           bitcodeFiles,
           imports,
           outputs,
+          primaryOutput,
           owner,
-          actualCommandLine,
+          commandLines,
+          commandLineLimits,
           isShellCommand,
           env,
           executionInfo,

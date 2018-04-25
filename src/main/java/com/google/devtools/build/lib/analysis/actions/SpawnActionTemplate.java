@@ -129,8 +129,7 @@ public final class SpawnActionTemplate implements ActionTemplate<SpawnAction> {
     // Note that we pass in nulls below because SpawnActionTemplate does not support param file, and
     // it does not use any default value for executable or shell environment. They must be set
     // explicitly via builder method #setExecutable and #setEnvironment.
-    return actionBuilder.buildSpawnAction(
-        getOwner(), actionBuilder.buildCommandLineWithoutParamsFiles(), /*configEnv=*/ null);
+    return actionBuilder.buildForActionTemplate(getOwner());
   }
 
   /**
@@ -204,9 +203,7 @@ public final class SpawnActionTemplate implements ActionTemplate<SpawnAction> {
 
   @Override
   public Iterable<String> getClientEnvironmentVariables() {
-    return spawnActionBuilder
-        .buildSpawnAction(getOwner(), CommandLine.of(ImmutableList.of()), null)
-        .getClientEnvironmentVariables();
+    return spawnActionBuilder.buildForActionTemplate(getOwner()).getClientEnvironmentVariables();
   }
 
   @Override

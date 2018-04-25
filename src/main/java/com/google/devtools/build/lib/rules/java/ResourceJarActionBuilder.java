@@ -135,7 +135,7 @@ public class ResourceJarActionBuilder {
     // the params file in situations where it is required for --min_param_file_size.
     if (sizeGreaterThanOrEqual(
             Iterables.concat(messages, resources.values(), resourceJars, classpathResources), 10)
-        || ruleContext.getConfiguration().getMinParamFileSize() < 10000) {
+        || ruleContext.getConfiguration().getCommandLineLimits().maxLength < 10000) {
       paramFileInfo = ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).build();
     }
     ruleContext.registerAction(

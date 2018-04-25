@@ -34,6 +34,7 @@ import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -422,6 +423,21 @@ public class BuildConfiguration {
       help = "Minimum command line length before creating a parameter file."
     )
     public int minParamFileSize;
+
+    @Option(
+        name = "defer_param_files",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.EXECUTION,
+          OptionEffectTag.ACTION_COMMAND_LINES
+        },
+        help =
+            "Whether to use deferred param files. WHen set, param files will not be "
+                + "added to the action graph. Instead, they will be added as virtual action inputs "
+                + "and written at the same time as the action executes.")
+    public boolean deferParamFiles;
 
     @Option(
       name = "experimental_extended_sanity_checks",
@@ -993,6 +1009,7 @@ public class BuildConfiguration {
   private final String repositoryName;
   private final RepositoryName mainRepositoryName;
   private final ImmutableSet<String> reservedActionMnemonics;
+  private CommandLineLimits commandLineLimits;
 
   /**
    * Directories in the output tree.
@@ -1316,6 +1333,7 @@ public class BuildConfiguration {
 
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.buildEventSupplier = Suppliers.memoize(this::createBuildEvent);
+    this.commandLineLimits = new CommandLineLimits(options.minParamFileSize);
   }
 
   /**
@@ -1752,8 +1770,12 @@ public class BuildConfiguration {
     return testEnv;
   }
 
-  public int getMinParamFileSize() {
-    return options.minParamFileSize;
+  public CommandLineLimits getCommandLineLimits() {
+    return commandLineLimits;
+  }
+
+  public boolean deferParamFiles() {
+    return options.deferParamFiles;
   }
 
   @SkylarkCallable(name = "coverage_enabled", structField = true,

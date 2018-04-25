@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -47,6 +46,14 @@ public class CommandLines {
 
   /** Command line OS limitations, such as the max length. */
   public static class CommandLineLimits {
+    /**
+     * "Unlimited" command line limits.
+     *
+     * <p>Use these limits when you want to prohibit param files, or you don't use param files so
+     * you don't care what the limit is.
+     */
+    public static final CommandLineLimits UNLIMITED = new CommandLineLimits(Integer.MAX_VALUE);
+
     public final int maxLength;
 
     public CommandLineLimits(int maxLength) {
@@ -56,10 +63,10 @@ public class CommandLines {
 
   /** A simple tuple of a {@link CommandLine} and a {@link ParamFileInfo}. */
   public static class CommandLineAndParamFileInfo {
-    private final CommandLine commandLine;
-    @Nullable private final ParamFileInfo paramFileInfo;
+    public final CommandLine commandLine;
+    @Nullable public final ParamFileInfo paramFileInfo;
 
-    private CommandLineAndParamFileInfo(
+    public CommandLineAndParamFileInfo(
         CommandLine commandLine, @Nullable ParamFileInfo paramFileInfo) {
       this.commandLine = commandLine;
       this.paramFileInfo = paramFileInfo;
@@ -121,11 +128,10 @@ public class CommandLines {
     if (commandLines instanceof CommandLine) {
       CommandLine commandLine = (CommandLine) commandLines;
       Iterable<String> arguments = commandLine.arguments(artifactExpander);
-      return new ExpandedCommandLines(arguments, arguments, ImmutableList.of());
+      return new ExpandedCommandLines(arguments, ImmutableList.of());
     }
     List<CommandLineAndParamFileInfo> commandLines = getCommandLines();
     IterablesChain.Builder<String> arguments = IterablesChain.builder();
-    IterablesChain.Builder<String> allArguments = IterablesChain.builder();
     ArrayList<ParamFileActionInput> paramFiles = new ArrayList<>(commandLines.size());
     int conservativeMaxLength = limits.maxLength - commandLines.size() * paramFileArgLengthEstimate;
     int cmdLineLength = 0;
@@ -136,13 +142,11 @@ public class CommandLines {
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
       if (paramFileInfo == null) {
         Iterable<String> args = commandLine.arguments(artifactExpander);
-        allArguments.add(args);
         arguments.add(args);
         cmdLineLength += totalArgLen(args);
       } else {
         Preconditions.checkNotNull(paramFileInfo); // If null, we would have just had a CommandLine
         Iterable<String> args = commandLine.arguments(artifactExpander);
-        allArguments.add(args);
         boolean useParamFile = true;
         if (!paramFileInfo.always()) {
           int tentativeCmdLineLength = cmdLineLength + totalArgLen(args);
@@ -167,7 +171,7 @@ public class CommandLines {
         }
       }
     }
-    return new ExpandedCommandLines(arguments.build(), allArguments.build(), paramFiles);
+    return new ExpandedCommandLines(arguments.build(), paramFiles);
   }
 
   public void addToFingerprint(ActionKeyContext actionKeyContext, Fingerprint fingerprint)
@@ -197,15 +201,12 @@ public class CommandLines {
    */
   public static class ExpandedCommandLines {
     private final Iterable<String> arguments;
-    private final Iterable<String> allArguments;
     private final List<ParamFileActionInput> paramFiles;
 
     ExpandedCommandLines(
         Iterable<String> arguments,
-        Iterable<String> allArguments,
         List<ParamFileActionInput> paramFiles) {
       this.arguments = arguments;
-      this.allArguments = allArguments;
       this.paramFiles = paramFiles;
     }
 
@@ -214,27 +215,9 @@ public class CommandLines {
       return arguments;
     }
 
-    /**
-     * Returns all arguments, including ones inside of param files.
-     *
-     * <p>Suitable for debugging and printing messages to users.
-     */
-    public Iterable<String> allArguments() {
-      return allArguments;
-    }
-
     /** Returns the param file action inputs needed to execute the command. */
     public List<ParamFileActionInput> getParamFiles() {
       return paramFiles;
-    }
-
-    /** Convenience function to write all param files locally under the given exec root. */
-    public void writeParamFiles(Path execRoot) throws IOException {
-      for (ParamFileActionInput actionInput : paramFiles) {
-        Path paramFilePath = execRoot.getRelative(actionInput.paramFileExecPath);
-        paramFilePath.getParentDirectory().createDirectoryAndParents();
-        actionInput.writeTo(paramFilePath.getOutputStream());
-      }
     }
   }
 
@@ -276,7 +259,7 @@ public class CommandLines {
 
   // Helper function to unpack the optimized storage format into a list
   @SuppressWarnings("unchecked")
-  private List<CommandLineAndParamFileInfo> getCommandLines() {
+  public List<CommandLineAndParamFileInfo> getCommandLines() {
     if (commandLines instanceof CommandLine) {
       return ImmutableList.of(new CommandLineAndParamFileInfo((CommandLine) commandLines, null));
     } else if (commandLines instanceof CommandLineAndParamFileInfo) {
@@ -316,8 +299,17 @@ public class CommandLines {
     return new Builder();
   }
 
+  public static Builder builder(Builder other) {
+    return new Builder(other);
+  }
+
+  /** Returns an instance with a single command line. */
+  public static CommandLines of(CommandLine commandLine) {
+    return new CommandLines(commandLine);
+  }
+
   /** Returns an instance with a single trivial command line. */
-  public static CommandLines fromArguments(Iterable<String> args) {
+  public static CommandLines of(Iterable<String> args) {
     return new CommandLines(CommandLine.of(args));
   }
 
@@ -332,7 +324,15 @@ public class CommandLines {
 
   /** Builder for {@link CommandLines}. */
   public static class Builder {
-    List<CommandLineAndParamFileInfo> commandLines = new ArrayList<>();
+    private final List<CommandLineAndParamFileInfo> commandLines;
+
+    Builder() {
+      commandLines = new ArrayList<>();
+    }
+
+    Builder(Builder other) {
+      commandLines = new ArrayList<>(other.commandLines);
+    }
 
     public Builder addCommandLine(CommandLine commandLine) {
       commandLines.add(new CommandLineAndParamFileInfo(commandLine, null));

@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -28,6 +29,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -78,8 +81,10 @@ public final class ExtraAction extends SpawnAction {
         ImmutableList.<Artifact>of(),
         createInputs(shadowedAction.getInputs(), ImmutableList.<Artifact>of(), extraActionInputs),
         outputs,
+        Iterables.getFirst(outputs, null),
         AbstractAction.DEFAULT_RESOURCE_SET,
-        argv,
+        CommandLines.of(argv),
+        CommandLineLimits.UNLIMITED,
         false,
         env,
         ImmutableMap.copyOf(executionInfo),

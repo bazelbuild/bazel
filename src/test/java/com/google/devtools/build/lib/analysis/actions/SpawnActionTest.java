@@ -26,11 +26,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
@@ -47,6 +50,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.StreamSupport;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -161,8 +166,58 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBuilderWithJavaExecutableAndParameterFile2() throws Exception {
+    useConfiguration("--min_param_file_size=0", "--defer_param_files");
+    collectingAnalysisEnvironment =
+        new AnalysisTestUtil.CollectingAnalysisEnvironment(getTestAnalysisEnvironment());
+    Artifact output = getBinArtifactWithNoOwner("output");
+    Action[] actions =
+        builder()
+            .addOutput(output)
+            .setJavaExecutable(
+                scratch.file("/bin/java").asFragment(),
+                jarArtifact,
+                "MyMainClass",
+                asList("-jvmarg"))
+            .addCommandLine(
+                CustomCommandLine.builder().add("-X").build(),
+                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+    SpawnAction action = (SpawnAction) actions[0];
+
+    // The action reports all arguments, including those inside the param file
+    assertThat(action.getArguments())
+        .containsExactly(
+            "/bin/java", "-Xverify:none", "-jvmarg", "-cp", "pkg/exe.jar", "MyMainClass", "-X")
+        .inOrder();
+
+    Spawn spawn = action.getSpawn((artifact, outputs) -> outputs.add(artifact), ImmutableMap.of());
+    String paramFileName = output.getExecPathString() + "-0.params";
+    // The spawn's primary arguments should reference the param file
+    assertThat(spawn.getArguments())
+        .containsExactly(
+            "/bin/java",
+            "-Xverify:none",
+            "-jvmarg",
+            "-cp",
+            "pkg/exe.jar",
+            "MyMainClass",
+            "@" + paramFileName)
+        .inOrder();
+
+    // Asserts that the inputs contain the param file virtual input
+    Optional<? extends ActionInput> input =
+        StreamSupport.stream(spawn.getInputFiles().spliterator(), false)
+            .filter(i -> i instanceof VirtualActionInput)
+            .findFirst();
+    assertThat(input.isPresent()).isTrue();
+    VirtualActionInput paramFile = (VirtualActionInput) input.get();
+    assertThat(paramFile.getBytes().toString(ISO_8859_1).trim()).isEqualTo("-X");
+  }
+
+  @Test
   public void testBuilderWithJavaExecutableAndParameterFile() throws Exception {
-    useConfiguration("--min_param_file_size=0");
+    useConfiguration("--min_param_file_size=0", "--nodefer_param_files");
     collectingAnalysisEnvironment = new AnalysisTestUtil.CollectingAnalysisEnvironment(
         getTestAnalysisEnvironment());
     Artifact output = getBinArtifactWithNoOwner("output");
@@ -205,7 +260,7 @@ public class SpawnActionTest extends BuildViewTestCase {
 
   @Test
   public void testBuilderWithJavaExecutableAndParameterFileAndParameterFileFlag() throws Exception {
-    useConfiguration("--min_param_file_size=0");
+    useConfiguration("--min_param_file_size=0", "--nodefer_param_files");
     collectingAnalysisEnvironment = new AnalysisTestUtil.CollectingAnalysisEnvironment(
         getTestAnalysisEnvironment());
 
@@ -279,7 +334,7 @@ public class SpawnActionTest extends BuildViewTestCase {
 
   @Test
   public void testBuilderWithExtraExecutableArgumentsAndParameterFile() throws Exception {
-    useConfiguration("--min_param_file_size=0");
+    useConfiguration("--min_param_file_size=0", "--nodefer_param_files");
     collectingAnalysisEnvironment = new AnalysisTestUtil.CollectingAnalysisEnvironment(
         getTestAnalysisEnvironment());
     Artifact output = getBinArtifactWithNoOwner("output");
@@ -338,7 +393,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     Artifact paramFile = getBinArtifactWithNoOwner("output1-2.params");
     PathFragment executable = PathFragment.create("/bin/executable");
 
-    useConfiguration("--min_param_file_size=500");
+    useConfiguration("--min_param_file_size=500", "--nodefer_param_files");
 
     String longOption = Strings.repeat("x", 1000);
     SpawnAction spawnAction =
@@ -355,7 +410,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertThat(spawnAction.getRemainingArguments()).containsExactly(
         "@" + paramFile.getExecPathString()).inOrder();
 
-    useConfiguration("--min_param_file_size=1500");
+    useConfiguration("--min_param_file_size=1500", "--nodefer_param_files");
     spawnAction =
         ((SpawnAction)
             builder()
@@ -388,7 +443,7 @@ public class SpawnActionTest extends BuildViewTestCase {
 
   @Test
   public void testMultipleParameterFiles() throws Exception {
-    useConfiguration("--min_param_file_size=0");
+    useConfiguration("--min_param_file_size=0", "--nodefer_param_files");
     Artifact input = getSourceArtifact("input");
     Artifact output = getBinArtifactWithNoOwner("output");
     Artifact paramFile1 = getBinArtifactWithNoOwner("output-2.params");

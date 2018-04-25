@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.rules.genrule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -47,7 +49,7 @@ public class GenRuleAction extends SpawnAction {
       Iterable<Artifact> tools,
       Iterable<Artifact> inputs,
       Iterable<Artifact> outputs,
-      CommandLine argv,
+      CommandLines commandLines,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       RunfilesSupplier runfilesSupplier,
@@ -57,8 +59,10 @@ public class GenRuleAction extends SpawnAction {
         tools,
         inputs,
         outputs,
+        Iterables.getFirst(outputs, null),
         GENRULE_RESOURCES,
-        argv,
+        commandLines,
+        CommandLineLimits.UNLIMITED,
         false,
         env,
         executionInfo,
