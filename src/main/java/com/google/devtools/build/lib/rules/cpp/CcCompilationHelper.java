@@ -1222,15 +1222,16 @@ public final class CcCompilationHelper {
     for (Artifact source : sourceArtifacts) {
       String outputName =
           FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
-      count.put(outputName, count.getOrDefault(outputName, 0) + 1);
+      count.put(outputName.toLowerCase(),
+          count.getOrDefault(outputName.toLowerCase(), 0) + 1);
     }
 
     for (Artifact source : sourceArtifacts) {
       String outputName =
           FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
-      if (count.getOrDefault(outputName, 0) > 1) {
-        int num = number.getOrDefault(outputName, 0);
-        number.put(outputName, num + 1);
+      if (count.getOrDefault(outputName.toLowerCase(), 0) > 1) {
+        int num = number.getOrDefault(outputName.toLowerCase(), 0);
+        number.put(outputName.toLowerCase(), num + 1);
         outputName = num + "/" + outputName;
       }
       // If prefixDir is set, prepend it to the outputName

@@ -584,7 +584,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "foo/BUILD",
         "cc_library(",
         "    name = 'lib',",
-        "    srcs = ['a.cc', 'subpkg/b.cc', 'subpkg/a.c', '//bar:srcs'],",
+        "    srcs = ['a.cc', 'subpkg1/b.cc', 'subpkg1/a.c', '//bar:srcs', 'subpkg2/A.c'],",
         ")");
     scratch.file("bar/BUILD", "filegroup(name = 'srcs', srcs = ['a.cpp'])");
   }
@@ -599,17 +599,20 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact a0 = getBinArtifact("_objs/lib/0/a.pic.o", "//foo:lib");
     Artifact a1 = getBinArtifact("_objs/lib/1/a.pic.o", "//foo:lib");
     Artifact a2 = getBinArtifact("_objs/lib/2/a.pic.o", "//foo:lib");
+    Artifact a3 = getBinArtifact("_objs/lib/3/A.pic.o", "//foo:lib");
     Artifact b = getBinArtifact("_objs/lib/b.pic.o", "//foo:lib");
 
     assertThat(getGeneratingAction(a0)).isNotNull();
     assertThat(getGeneratingAction(a1)).isNotNull();
     assertThat(getGeneratingAction(a2)).isNotNull();
+    assertThat(getGeneratingAction(a3)).isNotNull();
     assertThat(getGeneratingAction(b)).isNotNull();
 
     assertThat(getGeneratingAction(a0).getInputs()).contains(getSourceArtifact("foo/a.cc"));
-    assertThat(getGeneratingAction(a1).getInputs()).contains(getSourceArtifact("foo/subpkg/a.c"));
+    assertThat(getGeneratingAction(a1).getInputs()).contains(getSourceArtifact("foo/subpkg1/a.c"));
     assertThat(getGeneratingAction(a2).getInputs()).contains(getSourceArtifact("bar/a.cpp"));
-    assertThat(getGeneratingAction(b).getInputs()).contains(getSourceArtifact("foo/subpkg/b.cc"));
+    assertThat(getGeneratingAction(a3).getInputs()).contains(getSourceArtifact("foo/subpkg2/A.c"));
+    assertThat(getGeneratingAction(b).getInputs()).contains(getSourceArtifact("foo/subpkg1/b.cc"));
   }
 
   @Test
@@ -620,19 +623,22 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     getConfiguredTarget("//foo:lib");
 
     Artifact a0 = getBinArtifact("_objs/lib/foo/a.pic.o", "//foo:lib");
-    Artifact a1 = getBinArtifact("_objs/lib/foo/subpkg/a.pic.o", "//foo:lib");
+    Artifact a1 = getBinArtifact("_objs/lib/foo/subpkg1/a.pic.o", "//foo:lib");
     Artifact a2 = getBinArtifact("_objs/lib/bar/a.pic.o", "//foo:lib");
-    Artifact b = getBinArtifact("_objs/lib/foo/subpkg/b.pic.o", "//foo:lib");
+    Artifact a3 = getBinArtifact("_objs/lib/foo/subpkg2/A.pic.o", "//foo:lib");
+    Artifact b = getBinArtifact("_objs/lib/foo/subpkg1/b.pic.o", "//foo:lib");
 
     assertThat(getGeneratingAction(a0)).isNotNull();
     assertThat(getGeneratingAction(a1)).isNotNull();
     assertThat(getGeneratingAction(a2)).isNotNull();
+    assertThat(getGeneratingAction(a3)).isNotNull();
     assertThat(getGeneratingAction(b)).isNotNull();
 
     assertThat(getGeneratingAction(a0).getInputs()).contains(getSourceArtifact("foo/a.cc"));
-    assertThat(getGeneratingAction(a1).getInputs()).contains(getSourceArtifact("foo/subpkg/a.c"));
+    assertThat(getGeneratingAction(a1).getInputs()).contains(getSourceArtifact("foo/subpkg1/a.c"));
     assertThat(getGeneratingAction(a2).getInputs()).contains(getSourceArtifact("bar/a.cpp"));
-    assertThat(getGeneratingAction(b).getInputs()).contains(getSourceArtifact("foo/subpkg/b.cc"));
+    assertThat(getGeneratingAction(a3).getInputs()).contains(getSourceArtifact("foo/subpkg2/A.c"));
+    assertThat(getGeneratingAction(b).getInputs()).contains(getSourceArtifact("foo/subpkg1/b.cc"));
   }
 
   private void setupPackagesForModuleTests(boolean useHeaderModules) throws Exception {
