@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.Expander;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -1112,30 +1112,19 @@ public class CppHelper {
       argv.addDynamicString(objectFile.getExecPathString());
     }
 
-    Artifact paramFile =
-        ruleContext.getDerivedArtifact(
-            ParameterFile.derivePath(defFile.getRootRelativePath()), defFile.getRoot());
-
-    ruleContext.registerAction(
-        new ParameterFileWriteAction(
-            ruleContext.getActionOwner(),
-            paramFile,
-            argv.build(),
-            ParameterFile.ParameterFileType.SHELL_QUOTED,
-            UTF_8));
-
     ruleContext.registerAction(
         new SpawnAction.Builder()
-            .addInput(paramFile)
             .addInputs(objectFiles)
             .addOutput(defFile)
             .setExecutable(defParser)
             .useDefaultShellEnvironment()
             .addCommandLine(
-                CustomCommandLine.builder()
-                    .addExecPath(defFile)
-                    .addDynamicString(dllName)
-                    .addPrefixedExecPath("@", paramFile)
+                CustomCommandLine.builder().addExecPath(defFile).addDynamicString(dllName).build())
+            .addCommandLine(
+                argv.build(),
+                ParamFileInfo.builder(ParameterFile.ParameterFileType.SHELL_QUOTED)
+                    .setCharset(UTF_8)
+                    .setUseAlways(true)
                     .build())
             .setMnemonic("DefParser")
             .build(ruleContext));
