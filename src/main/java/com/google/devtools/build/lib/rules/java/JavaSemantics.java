@@ -364,9 +364,13 @@ public interface JavaSemantics {
   void addRunfilesForLibrary(RuleContext ruleContext, Runfiles.Builder runfilesBuilder);
 
   /**
-   * Returns the additional options to be passed to javac.
+   * Returns the command line options to be used when compiling Java code for {@code java_*} rules.
+   *
+   * <p>These will come after the default options specified by the toolchain, and before the ones in
+   * the {@code javacopts} attribute.
    */
-  Iterable<String> getExtraJavacOpts(RuleContext ruleContext);
+  ImmutableList<String> getCompatibleJavacOptions(
+      RuleContext ruleContext, JavaToolchainProvider toolchain);
 
   /**
    * Add additional targets to be treated as direct dependencies.

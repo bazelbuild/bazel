@@ -451,6 +451,8 @@ final class JavaInfoBuildHelper {
       throw new EvalException(null, "'host_javabase' must point to a Java runtime");
     }
 
+    JavaToolchainProvider toolchainProvider = getJavaToolchainProvider(javaToolchain);
+
     JavaLibraryHelper helper =
         new JavaLibraryHelper(skylarkRuleContext.getRuleContext())
             .setOutput(outputJar)
@@ -458,7 +460,16 @@ final class JavaInfoBuildHelper {
             .addSourceFiles(sourceFiles)
             .addResources(resources)
             .setSourcePathEntries(sourcepathEntries)
-            .setJavacOpts(javacOpts);
+            .setJavacOpts(
+                ImmutableList.<String>builder()
+                    .addAll(
+                        JavaCommon.computeToolchainJavacOpts(
+                            skylarkRuleContext.getRuleContext(), toolchainProvider))
+                    .addAll(
+                        javaSemantics.getCompatibleJavacOptions(
+                            skylarkRuleContext.getRuleContext(), toolchainProvider))
+                    .addAll(javacOpts)
+                    .build());
 
     List<JavaCompilationArgsProvider> depsCompilationArgsProviders =
         JavaInfo.fetchProvidersFromList(deps, JavaCompilationArgsProvider.class);
@@ -486,7 +497,7 @@ final class JavaInfoBuildHelper {
     JavaCompilationArtifacts artifacts =
         helper.build(
             javaSemantics,
-            getJavaToolchainProvider(javaToolchain),
+            toolchainProvider,
             javaRuntimeInfo,
             SkylarkList.createImmutable(ImmutableList.of()),
             outputJarsBuilder,

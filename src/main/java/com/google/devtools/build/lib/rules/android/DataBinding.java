@@ -169,7 +169,7 @@ public final class DataBinding {
   }
 
   /** The javac flags that are needed to configure data binding's annotation processor. */
-  static ImmutableList<String> getJavacopts(RuleContext ruleContext, boolean isBinary) {
+  static ImmutableList<String> getJavacOpts(RuleContext ruleContext, boolean isBinary) {
     ImmutableList.Builder<String> flags = ImmutableList.builder();
     String metadataOutputDir = getDataBindingExecPath(ruleContext).getPathString();
 

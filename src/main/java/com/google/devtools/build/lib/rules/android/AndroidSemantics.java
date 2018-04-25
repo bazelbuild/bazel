@@ -69,10 +69,10 @@ public interface AndroidSemantics {
    * Returns the command line options to be used when compiling Java code for {@code android_*}
    * rules.
    *
-   * <p>These will come after the default options specified by the toolchain and the ones in the
-   * {@code javacopts} attribute.
+   * <p>These will come after the default options specified by the toolchain, and before the ones in
+   * the {@code javacopts} attribute.
    */
-  ImmutableList<String> getJavacArguments(RuleContext ruleContext);
+  ImmutableList<String> getCompatibleJavacOptions(RuleContext ruleContext);
 
   /**
    * Configures the builder for generating the output jar used to configure the main dex file.

@@ -524,8 +524,9 @@ public class JavaSkylarkCommon {
       mandatoryPositionals = 1,
       parameters = {
         @Param(name = "java_toolchain_attr", positional = false, named = true, type = String.class)
-      }
-  )
+      })
+  // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
+  // delete
   public static ImmutableList<String> getDefaultJavacOpts(
       SkylarkRuleContext skylarkRuleContext, String javaToolchainAttr) throws EvalException {
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();

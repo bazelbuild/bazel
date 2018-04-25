@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -466,13 +465,14 @@ public class AndroidCommon {
       bootclasspath =
           ImmutableList.of(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar());
     }
-    Iterable<String> javacopts = androidSemantics.getJavacArguments(ruleContext);
+    ImmutableList.Builder<String> javacopts = ImmutableList.builder();
+    javacopts.addAll(androidSemantics.getCompatibleJavacOptions(ruleContext));
     if (DataBinding.isEnabled(ruleContext)) {
-      javacopts = Iterables.concat(javacopts, DataBinding.getJavacopts(ruleContext, isBinary));
+      javacopts.addAll(DataBinding.getJavacOpts(ruleContext, isBinary));
     }
     JavaTargetAttributes.Builder attributes =
         javaCommon
-            .initCommon(idlHelper.getIdlGeneratedJavaSources(), javacopts)
+            .initCommon(idlHelper.getIdlGeneratedJavaSources(), javacopts.build())
             .setBootClassPath(bootclasspath);
     if (DataBinding.isEnabled(ruleContext)) {
       DataBinding.addAnnotationProcessor(ruleContext, attributes);

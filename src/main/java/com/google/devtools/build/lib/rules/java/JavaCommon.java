@@ -61,7 +61,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -108,6 +107,7 @@ public class JavaCommon {
 
   private final RuleContext ruleContext;
   private final JavaSemantics semantics;
+  private final JavaToolchainProvider javaToolchain;
   private JavaCompilationHelper javaCompilationHelper;
 
   public JavaCommon(RuleContext ruleContext, JavaSemantics semantics) {
@@ -144,6 +144,7 @@ public class JavaCommon {
       ImmutableList<TransitiveInfoCollection> runtimeDeps,
       ImmutableList<TransitiveInfoCollection> bothDeps) {
     this.ruleContext = ruleContext;
+    this.javaToolchain = JavaToolchainProvider.from(ruleContext);
     this.semantics = semantics;
     this.sources = sources;
     this.targetsTreatedAsDeps = ImmutableMap.of(
@@ -451,37 +452,32 @@ public class JavaCommon {
 
   public final void initializeJavacOpts() {
     Preconditions.checkState(javacOpts == null);
-    javacOpts = computeJavacOpts(semantics.getExtraJavacOpts(ruleContext));
+    javacOpts = computeJavacOpts(getCompatibleJavacOptions());
+  }
+
+  /** Computes javacopts for the current rule. */
+  private ImmutableList<String> computeJavacOpts(Collection<String> extraRuleJavacOpts) {
+    return ImmutableList.<String>builder()
+        .addAll(computeToolchainJavacOpts(ruleContext, javaToolchain))
+        .addAll(extraRuleJavacOpts)
+        .addAll(ruleContext.getExpander().withDataLocations().tokenized("javacopts"))
+        .build();
   }
 
   /**
-   * For backwards compatibility, this method allows multiple calls to set the Javac opts. Do not
-   * use this.
+   * Returns the toolchain javacopts for the current rule, including global defaults as well as any
+   * per-package configuration.
    */
-  @Deprecated
-  public final void initializeJavacOpts(Iterable<String> extraJavacOpts) {
-    javacOpts = computeJavacOpts(extraJavacOpts);
-  }
-
-  private ImmutableList<String> computeJavacOpts(Iterable<String> extraJavacOpts) {
+  public static ImmutableList<String> computeToolchainJavacOpts(
+      RuleContext ruleContext, JavaToolchainProvider toolchain) {
     return Streams.concat(
-            toolchainJavacOpts(ruleContext),
-            Streams.stream(extraJavacOpts),
-            ruleContext.getExpander().withDataLocations().tokenized("javacopts").stream())
+            toolchain.getJavacOptions().stream(),
+            toolchain
+                .packageConfiguration()
+                .stream()
+                .filter(p -> p.matches(ruleContext.getLabel()))
+                .flatMap(p -> p.javacopts().stream()))
         .collect(toImmutableList());
-  }
-
-  private Stream<String> toolchainJavacOpts(RuleContext ruleContext) {
-    JavaToolchainProvider toolchain = JavaToolchainProvider.from(ruleContext);
-    return Stream.concat(
-        toolchain.getJavacOptions().stream(),
-        // Enable any javacopts from java_toolchain.packages that are configured for the current
-        // package.
-        toolchain
-            .packageConfiguration()
-            .stream()
-            .filter(p -> p.matches(ruleContext.getLabel()))
-            .flatMap(p -> p.javacopts().stream()));
   }
 
   public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
@@ -600,7 +596,11 @@ public class JavaCommon {
   }
 
   public JavaTargetAttributes.Builder initCommon() {
-    return initCommon(ImmutableList.<Artifact>of(), semantics.getExtraJavacOpts(ruleContext));
+    return initCommon(ImmutableList.<Artifact>of(), getCompatibleJavacOptions());
+  }
+
+  private ImmutableList<String> getCompatibleJavacOptions() {
+    return semantics.getCompatibleJavacOptions(ruleContext, javaToolchain);
   }
 
   /**
@@ -614,7 +614,7 @@ public class JavaCommon {
   public JavaTargetAttributes.Builder initCommon(
       Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) {
     Preconditions.checkState(javacOpts == null);
-    javacOpts = computeJavacOpts(extraJavacOpts);
+    javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));
     activePlugins = collectPlugins();
 
     JavaTargetAttributes.Builder javaTargetAttributes = new JavaTargetAttributes.Builder(semantics);
