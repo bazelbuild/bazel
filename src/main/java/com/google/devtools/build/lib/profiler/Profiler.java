@@ -369,7 +369,7 @@ public final class Profiler {
     // @ThreadSafe
     Iterable<SlowTask> getSlowestTasks() {
       // This is slow, but since it only happens during the end of the invocation, it's OK
-      Extrema mergedExtrema = Extrema.max(size * SHARDS);
+      Extrema<SlowTask> mergedExtrema = Extrema.max(size);
       for (int i = 0; i < SHARDS; i++) {
         Extrema<SlowTask> extrema = extremaAggregators[i];
         synchronized (extrema) {
