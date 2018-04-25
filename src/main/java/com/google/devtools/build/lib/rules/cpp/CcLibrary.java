@@ -97,10 +97,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(context);
     LinkTargetType staticLinkType = getStaticLinkType(context);
     boolean linkStatic = context.attributes().get("linkstatic", Type.BOOLEAN);
-    init(semantics, context, builder, staticLinkType,
-        /*neverLink =*/ false,
+    init(semantics, context, builder,
+        /* additionalCopts= */ImmutableList.of(),
+        staticLinkType,
+        /* neverLink= */ false,
         linkStatic,
-        /*addDynamicRuntimeInputArtifactsToRunfiles =*/ false);
+        /* addDynamicRuntimeInputArtifactsToRunfiles= */ false);
     return builder.build();
   }
 
@@ -108,6 +110,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       CppSemantics semantics,
       RuleContext ruleContext,
       RuleConfiguredTargetBuilder targetBuilder,
+      ImmutableList<String> additionalCopts,
       LinkTargetType staticLinkType,
       boolean neverLink,
       boolean linkStatic,
@@ -140,7 +143,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     CcCompilationHelper compilationHelper =
         new CcCompilationHelper(
                 ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
-            .fromCommon(common)
+            .fromCommon(common, additionalCopts)
             .addSources(common.getSources())
             .addPublicHeaders(common.getHeaders())
             .enableCompileProviders()
