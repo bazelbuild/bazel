@@ -688,6 +688,46 @@ public final class CcCommon {
   }
 
   /**
+   * Determines whether to statically link the C++ runtimes.
+   *
+   * <p>This is complicated because it depends both on a legacy field in the CROSSTOOL
+   * protobuf--supports_embedded_runtimes--and the newer crosstool
+   * feature--statically_link_cpp_runtimes. Neither, one, or both could be present or set. Or they
+   * could be set in to conflicting values.
+   *
+   * @return true if we should statically link, false otherwise.
+   */
+  private static boolean enableStaticLinkCppRuntimesFeature(
+      ImmutableSet<String> requestedFeatures,
+      ImmutableSet<String> disabledFeatures,
+      CcToolchainProvider toolchain) {
+    // All of these cases are encountered in various unit tests,
+    // integration tests, and obscure CROSSTOOLs.
+
+    // A. If the legacy field "supports_embedded_runtimes" is false (or not present):
+    //      dynamically link the cpp runtimes. Done.
+    if (!toolchain.supportsEmbeddedRuntimes()) {
+      return false;
+    }
+    // From here, the toolchain _can_ statically link the cpp runtime.
+    //
+    // B. If the feature static_link_cpp_runtimes is disabled:
+    //      dynamically link the cpp runtimes. Done.
+    if (disabledFeatures.contains(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)) {
+      return false;
+    }
+    // C. If the feature is not requested:
+    //     the feature is neither disabled nor requested: statically
+    //     link (for compatibility with the legacy field).
+    if (!requestedFeatures.contains(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)) {
+      return true;
+    }
+    // D. The feature is requested:
+    //     statically link the cpp runtimes. Done.
+    return true;
+  }
+
+  /**
    * Creates a feature configuration for a given rule. Assumes strictly cc sources.
    *
    * @param ruleContext the context of the rule we want the feature configuration for.
@@ -740,7 +780,7 @@ public final class CcCommon {
     if (toolchain.getCcCompilationContextInfo().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
-    if (toolchain.supportsEmbeddedRuntimes()) {
+    if (enableStaticLinkCppRuntimesFeature(requestedFeatures, unsupportedFeatures, toolchain)) {
       allRequestedFeaturesBuilder.add(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
     } else {
       unsupportedFeaturesBuilder.add(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);

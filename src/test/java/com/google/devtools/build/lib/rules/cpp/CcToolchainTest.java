@@ -29,7 +29,9 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -863,6 +865,8 @@ public class CcToolchainTest extends BuildViewTestCase {
     assertThat(toolchainProvider.supportsDynamicLinker()).isTrue();
   }
 
+  // Tests CcCommon::enableStaticLinkCppRuntimesFeature when supports_embedded_runtimes is not
+  // present at all in the toolchain.
   @Test
   public void testStaticLinkCppRuntimesSetViaSupportsEmbeddedRuntimesUnset() throws Exception {
     writeDummyCcToolchain();
@@ -877,6 +881,8 @@ public class CcToolchainTest extends BuildViewTestCase {
         .isEqualTo(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES));
   }
 
+  // Tests CcCommon::enableStaticLinkCppRuntimesFeature when supports_embedded_runtimes is false
+  // in the toolchain.
   @Test
   public void testStaticLinkCppRuntimesSetViaSupportsEmbeddedRuntimesFalse() throws Exception {
     writeDummyCcToolchain();
@@ -889,5 +895,56 @@ public class CcToolchainTest extends BuildViewTestCase {
         CcCommon.configureFeaturesOrReportRuleError(getRuleContext(target), toolchainProvider);
     assertThat(toolchainProvider.supportsEmbeddedRuntimes())
         .isEqualTo(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES));
+  }
+
+  private FeatureConfiguration configureFeaturesForStaticLinkCppRuntimesTest(
+      String partialToolchain, String configurationToUse) throws Exception {
+    writeDummyCcToolchain();
+    CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
+    TextFormat.merge(partialToolchain, toolchainBuilder);
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            /* addEmbeddedRuntimes= */ true,
+            /* addModuleMap= */ false,
+            /* staticRuntimesLabel= */ null,
+            /* dynamicRuntimesLabel= */ null,
+            toolchainBuilder.buildPartial());
+    useConfiguration(configurationToUse);
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    return CcCommon.configureFeaturesOrReportRuleError(getRuleContext(target), toolchainProvider);
+  }
+
+  // Tests CcCommon::enableStaticLinkCppRuntimesFeature when supports_embedded_runtimes is true in
+  // the toolchain and the feature is not present at all.
+  @Test
+  public void testSupportsEmbeddedRuntimesNoFeatureAtAll() throws Exception {
+    FeatureConfiguration featureConfiguration =
+        configureFeaturesForStaticLinkCppRuntimesTest("supports_embedded_runtimes: true", "");
+    assertThat(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)).isTrue();
+  }
+
+  // Tests CcCommon::enableStaticLinkCppRuntimesFeature when supports_embedded_runtimes is true in
+  // the toolchain and the feature is enabled.
+  @Test
+  public void testSupportsEmbeddedRuntimesFeatureEnabled() throws Exception {
+    FeatureConfiguration featureConfiguration =
+        configureFeaturesForStaticLinkCppRuntimesTest(
+            "supports_embedded_runtimes: true", "--features=static_link_cpp_runtimes");
+    assertThat(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)).isTrue();
+  }
+
+  // Tests CcCommon::enableStaticLinkCppRuntimesFeature when supports_embedded_runtimes is true in
+  // the toolchain and the feature is disabled.
+  @Test
+  public void testStaticLinkCppRuntimesOverridesSupportsEmbeddedRuntimes() throws Exception {
+    FeatureConfiguration featureConfiguration =
+        configureFeaturesForStaticLinkCppRuntimesTest(
+            "supports_embedded_runtimes: true feature { name: 'static_link_cpp_runtimes' }",
+            "--features=-static_link_cpp_runtimes");
+    assertThat(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)).isFalse();
   }
 }
