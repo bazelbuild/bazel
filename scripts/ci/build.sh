@@ -194,7 +194,7 @@ function ensure_gpg_secret_key_imported() {
     keyfile=$(mktemp --tmpdir)
     chmod 0600 "${keyfile}"
     gsutil cat "gs://bazel-encrypted-secrets/release-key.gpg.enc" | \
-        gcloud kms decrypt --location "global" --keyring "buildkite" --key "bazel-release-key" --plaintext-file "-" --ciphertext-file "${keyfile}"
+        gcloud kms decrypt --location "global" --keyring "buildkite" --key "bazel-release-key" --ciphertext-file "-" --plaintext-file "${keyfile}"
     gpg --allow-secret-key-import --import "${keyfile}"
     rm -f "${keyfile}"
   fi
