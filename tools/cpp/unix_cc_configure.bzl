@@ -127,9 +127,9 @@ def _cxx_inc_convert(path):
   return path
 
 
-def get_escaped_cxx_inc_directories(repository_ctx, cc, additional_flags = []):
+def get_escaped_cxx_inc_directories(repository_ctx, cc, lang_flag, additional_flags = []):
   """Compute the list of default %-escaped C++ include directories."""
-  result = repository_ctx.execute([cc, "-E", "-xc++", "-", "-v"] + additional_flags)
+  result = repository_ctx.execute([cc, "-E", lang_flag, "-", "-v"] + additional_flags)
   index1 = result.stderr.find(_INC_DIR_MARKER_BEGIN)
   if index1 == -1:
     return []
@@ -210,9 +210,12 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
     bin_search_flag = []
 
   escaped_cxx_include_directories = _uniq(
-      get_escaped_cxx_inc_directories(repository_ctx, cc) +
+      get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc") +
+      get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++") +
       get_escaped_cxx_inc_directories(
-          repository_ctx, cc, _get_no_canonical_prefixes_opt(repository_ctx, cc)))
+          repository_ctx, cc, "-xc", _get_no_canonical_prefixes_opt(repository_ctx, cc)) +
+      get_escaped_cxx_inc_directories(
+          repository_ctx, cc, "-xc++", _get_no_canonical_prefixes_opt(repository_ctx, cc)))
   return {
       "abi_version": escape_string(get_env_var(repository_ctx, "ABI_VERSION", "local", False)),
       "abi_libc_version": escape_string(get_env_var(repository_ctx, "ABI_LIBC_VERSION", "local", False)),
