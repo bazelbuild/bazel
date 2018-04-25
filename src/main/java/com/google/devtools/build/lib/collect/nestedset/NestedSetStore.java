@@ -84,14 +84,14 @@ public class NestedSetStore {
 
   /** An in-memory cache for fingerprint <-> NestedSet associations. */
   private static class NestedSetCache {
-    private final Map<ByteString, Object> fingerprintToContents =
+    private final Map<ByteString, Object[]> fingerprintToContents =
         new MapMaker()
             .concurrencyLevel(SerializationConstants.DESERIALIZATION_POOL_SIZE)
             .weakValues()
             .makeMap();
 
     /** Object/Object[] contents to fingerprint. Maintained for fast fingerprinting. */
-    private final Map<Object, ByteString> contentsToFingerprint =
+    private final Map<Object[], ByteString> contentsToFingerprint =
         new MapMaker()
             .concurrencyLevel(SerializationConstants.DESERIALIZATION_POOL_SIZE)
             .weakKeys()
@@ -102,7 +102,7 @@ public class NestedSetStore {
      * fingerprint is not known.
      */
     @Nullable
-    public Object contentsForFingerprint(ByteString fingerprint) {
+    public Object[] contentsForFingerprint(ByteString fingerprint) {
       return fingerprintToContents.get(fingerprint);
     }
 
@@ -111,12 +111,12 @@ public class NestedSetStore {
      * contents are not known.
      */
     @Nullable
-    public ByteString fingerprintForContents(Object contents) {
+    public ByteString fingerprintForContents(Object[] contents) {
       return contentsToFingerprint.get(contents);
     }
 
     /** Associates the provided fingerprint and NestedSet contents. */
-    public void put(ByteString fingerprint, Object contents) {
+    public void put(ByteString fingerprint, Object[] contents) {
       contentsToFingerprint.put(contents, fingerprint);
       fingerprintToContents.put(fingerprint, contents);
     }
@@ -132,8 +132,8 @@ public class NestedSetStore {
    * store. Recursively does the same for all transitive members (i.e. Object[] members) of the
    * provided contents.
    */
-  ByteString computeFingerprintAndStore(Object contents, SerializationContext serializationContext)
-      throws SerializationException {
+  ByteString computeFingerprintAndStore(
+      Object[] contents, SerializationContext serializationContext) throws SerializationException {
     ByteString priorFingerprint = nestedSetCache.fingerprintForContents(contents);
     if (priorFingerprint != null) {
       return priorFingerprint;
@@ -150,24 +150,19 @@ public class NestedSetStore {
     CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(byteArrayOutputStream);
 
     try {
-      if (contents instanceof Object[]) {
-        Object[] contentsArray = (Object[]) contents;
-        codedOutputStream.writeInt32NoTag(contentsArray.length);
-        for (Object child : contentsArray) {
-          if (child instanceof Object[]) {
-            ByteString fingerprint = computeFingerprintAndStore(child, serializationContext);
-            newSerializationContext.serialize(fingerprint, codedOutputStream);
-          } else {
-            newSerializationContext.serialize(child, codedOutputStream);
-          }
+      codedOutputStream.writeInt32NoTag(contents.length);
+      for (Object child : contents) {
+        if (child instanceof Object[]) {
+          ByteString fingerprint =
+              computeFingerprintAndStore((Object[]) child, serializationContext);
+          newSerializationContext.serialize(fingerprint, codedOutputStream);
+        } else {
+          newSerializationContext.serialize(child, codedOutputStream);
         }
-      } else {
-        codedOutputStream.writeInt32NoTag(1);
-        newSerializationContext.serialize(contents, codedOutputStream);
       }
       codedOutputStream.flush();
     } catch (IOException e) {
-      throw new SerializationException("Could not serialize " + contents, e);
+      throw new SerializationException("Could not serialize NestedSet contents", e);
     }
 
     byte[] serializedBytes = byteArrayOutputStream.toByteArray();
@@ -181,10 +176,10 @@ public class NestedSetStore {
   }
 
   /** Retrieves and deserializes the NestedSet contents associated with the given fingerprint. */
-  public Object getContentsAndDeserialize(
+  public Object[] getContentsAndDeserialize(
       ByteString fingerprint, DeserializationContext deserializationContext)
       throws IOException, SerializationException {
-    Object contents = nestedSetCache.contentsForFingerprint(fingerprint);
+    Object[] contents = nestedSetCache.contentsForFingerprint(fingerprint);
     if (contents != null) {
       return contents;
     }
@@ -199,20 +194,14 @@ public class NestedSetStore {
         deserializationContext.getNewMemoizingContext();
 
     int numberOfElements = codedIn.readInt32();
-    Object dereferencedContents;
-    if (numberOfElements > 1) {
-      Object[] dereferencedContentsArray = new Object[numberOfElements];
-      for (int i = 0; i < numberOfElements; i++) {
-        Object deserializedElement = newDeserializationContext.deserialize(codedIn);
-        dereferencedContentsArray[i] =
-            deserializedElement instanceof ByteString
-                ? getContentsAndDeserialize(
-                    (ByteString) deserializedElement, deserializationContext)
-                : deserializedElement;
-      }
-      dereferencedContents = dereferencedContentsArray;
-    } else {
-      dereferencedContents = newDeserializationContext.deserialize(codedIn);
+    Object[] dereferencedContents = new Object[numberOfElements];
+    for (int i = 0; i < numberOfElements; i++) {
+      Object deserializedElement = newDeserializationContext.deserialize(codedIn);
+      dereferencedContents[i] =
+          deserializedElement instanceof ByteString
+              ? getContentsAndDeserialize(
+                  (ByteString) deserializedElement, deserializationContext)
+              : deserializedElement;
     }
 
     nestedSetCache.put(fingerprint, dereferencedContents);

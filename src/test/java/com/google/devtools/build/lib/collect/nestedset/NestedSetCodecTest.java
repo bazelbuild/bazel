@@ -25,6 +25,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /** Tests for {@link NestedSet} serialization. */
 @RunWith(JUnit4.class)
@@ -62,6 +63,23 @@ public class NestedSetCodecTest {
                 .build(),
             ImmutableMap.of());
     checkCodec(objectCodecs);
+  }
+
+  @Test
+  public void testSingletonNestedSetSerializedWithoutStore() throws Exception {
+    NestedSetStore mockNestedSetStore = Mockito.mock(NestedSetStore.class);
+    Mockito.when(mockNestedSetStore.computeFingerprintAndStore(Mockito.any(), Mockito.any()))
+        .thenThrow(new AssertionError("NestedSetStore should not have been used"));
+
+    ObjectCodecs objectCodecs =
+        new ObjectCodecs(
+            AutoRegistry.get()
+                .getBuilder()
+                .setAllowDefaultCodec(true)
+                .add(new NestedSetCodecWithStore<>(mockNestedSetStore))
+                .build());
+    NestedSet<String> singletonNestedSet = new NestedSet<>(Order.STABLE_ORDER, "a");
+    objectCodecs.serialize(singletonNestedSet);
   }
 
   private void checkCodec(ObjectCodecs objectCodecs) throws Exception {

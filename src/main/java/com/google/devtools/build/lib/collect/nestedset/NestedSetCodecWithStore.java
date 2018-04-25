@@ -62,7 +62,16 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
     if (obj.isEmpty()) {
       return;
     }
-    ByteString fingerprint = nestedSetStore.computeFingerprintAndStore(obj.rawChildren(), context);
+
+    // If the NestedSet is a singleton, we serialize directly as an optimization.
+    codedOut.writeBoolNoTag(obj.isSingleton());
+    if (obj.isSingleton()) {
+      context.serialize(obj.rawChildren(), codedOut);
+      return;
+    }
+
+    ByteString fingerprint =
+        nestedSetStore.computeFingerprintAndStore((Object[]) obj.rawChildren(), context);
     codedOut.writeByteArrayNoTag(fingerprint.toByteArray());
   }
 
@@ -78,6 +87,12 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
     boolean isEmpty = codedIn.readBool();
     if (isEmpty) {
       return NestedSetBuilder.emptySet(order);
+    }
+
+    boolean isSingleton = codedIn.readBool();
+    if (isSingleton) {
+      T contents = context.deserialize(codedIn);
+      return new NestedSet<T>(order, contents);
     }
 
     ByteString fingerprint = ByteString.copyFrom(codedIn.readByteArray());

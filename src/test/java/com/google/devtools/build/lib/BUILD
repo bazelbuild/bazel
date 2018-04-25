@@ -225,6 +225,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
     ],
 )
