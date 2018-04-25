@@ -530,7 +530,26 @@ public class ExperimentalEventHandler implements EventHandler {
       buildRunning = false;
     }
     stopUpdateThread();
-    flushStdOutStdErrBuffers();
+    synchronized (this) {
+      try {
+        // If a progress bar is currently present, clean it and redraw it.
+        boolean progressBarPresent = numLinesProgressBar > 0;
+        if (progressBarPresent) {
+          clearProgressBar();
+        }
+        terminal.flush();
+        boolean incompleteLine = flushStdOutStdErrBuffers();
+        if (incompleteLine) {
+          crlf();
+        }
+        if (progressBarPresent) {
+          addProgressBar();
+        }
+        terminal.flush();
+      } catch (IOException e) {
+        logger.warning("IO Error writing to output stream: " + e);
+      }
+    }
   }
 
   @Subscribe
@@ -554,8 +573,7 @@ public class ExperimentalEventHandler implements EventHandler {
     synchronized (this) {
       buildRunning = true;
     }
-    stopUpdateThread();
-    flushStdOutStdErrBuffers();
+    completeBuild();
     try {
       terminal.resetTerminal();
       terminal.flush();
