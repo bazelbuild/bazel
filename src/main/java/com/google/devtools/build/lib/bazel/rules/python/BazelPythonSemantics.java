@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
@@ -290,32 +290,20 @@ public class BazelPythonSemantics implements PythonSemantics {
       }
     }
 
-    // zipper can only consume file list options from param file not other options,
-    // so write file list in the param file first.
-    Artifact paramFile =
-        ruleContext.getDerivedArtifact(
-            ParameterFile.derivePath(zipFile.getRootRelativePath()), zipFile.getRoot());
-
-    ruleContext.registerAction(
-        new ParameterFileWriteAction(
-            ruleContext.getActionOwner(),
-            paramFile,
-            argv.build(),
-            ParameterFile.ParameterFileType.UNQUOTED,
-            ISO_8859_1));
-
     ruleContext.registerAction(
         new SpawnAction.Builder()
-            .addInput(paramFile)
             .addTransitiveInputs(inputsBuilder.build())
             .addOutput(zipFile)
             .setExecutable(zipper)
             .useDefaultShellEnvironment()
+            .addCommandLine(CustomCommandLine.builder().add("cC").addExecPath(zipFile).build())
+            // zipper can only consume file list options from param file not other options,
+            // so write file list in the param file.
             .addCommandLine(
-                CustomCommandLine.builder()
-                    .add("cC")
-                    .addExecPath(zipFile)
-                    .addPrefixedExecPath("@", paramFile)
+                argv.build(),
+                ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED)
+                    .setCharset(ISO_8859_1)
+                    .setUseAlways(true)
                     .build())
             .setMnemonic("PythonZipper")
             .build(ruleContext));
