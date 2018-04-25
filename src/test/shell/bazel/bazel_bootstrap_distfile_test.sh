@@ -21,11 +21,6 @@ set -u
 DISTFILE=$(rlocation io_bazel/${1#./})
 shift 1
 
-if [ "${JAVA_VERSION:-}" == "1.7" ] ; then
-  echo "Warning: bootstrapping not tested for java 1.7"
-  exit 0
-fi
-
 # Load the test setup defined in the parent directory
 source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }

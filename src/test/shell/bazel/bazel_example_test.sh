@@ -67,10 +67,6 @@ function test_java_test() {
 
   assert_build "-- //examples/java-native/... -${java_native_main}:hello-error-prone"
   JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:toolchain' | grep source_version | cut -d '"' -f 2)"
-  if [ "${JAVA_VERSION}" -ne "1.7" ]; then
-    assert_build_fails "${java_native_main}:hello-error-prone" \
-        "Did you mean 'result = b == -1;'?"
-  fi
   assert_test_ok "${java_native_tests}:hello"
   assert_test_ok "${java_native_tests}:custom"
   assert_test_fails "${java_native_tests}:fail"
