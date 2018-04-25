@@ -32,6 +32,10 @@ import java.io.IOException;
  */
 public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
 
+  private enum NestedSetSize {
+    EMPTY, SINGLETON, GROUP
+  }
+
   private final NestedSetStore nestedSetStore;
 
   /** Creates a NestedSetCodecWithStore that will use the given {@link NestedSetStore}. */
@@ -56,23 +60,20 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
     }
 
     context.serialize(obj.getOrder(), codedOut);
-    // If the NestedSet is empty, it needs to be assigned to the EMPTY_CHILDREN constant on
-    // deserialization.
-    codedOut.writeBoolNoTag(obj.isEmpty());
     if (obj.isEmpty()) {
-      return;
-    }
-
-    // If the NestedSet is a singleton, we serialize directly as an optimization.
-    codedOut.writeBoolNoTag(obj.isSingleton());
-    if (obj.isSingleton()) {
+      // If the NestedSet is empty, it needs to be assigned to the EMPTY_CHILDREN constant on
+      // deserialization.
+      context.serialize(NestedSetSize.EMPTY, codedOut);
+    } else if (obj.isSingleton()) {
+      // If the NestedSet is a singleton, we serialize directly as an optimization.
+      context.serialize(NestedSetSize.SINGLETON, codedOut);
       context.serialize(obj.rawChildren(), codedOut);
-      return;
+    } else {
+      context.serialize(NestedSetSize.GROUP, codedOut);
+      ByteString fingerprint =
+          nestedSetStore.computeFingerprintAndStore((Object[]) obj.rawChildren(), context);
+      codedOut.writeByteArrayNoTag(fingerprint.toByteArray());
     }
-
-    ByteString fingerprint =
-        nestedSetStore.computeFingerprintAndStore((Object[]) obj.rawChildren(), context);
-    codedOut.writeByteArrayNoTag(fingerprint.toByteArray());
   }
 
   @Override
@@ -84,19 +85,18 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
     }
 
     Order order = context.deserialize(codedIn);
-    boolean isEmpty = codedIn.readBool();
-    if (isEmpty) {
-      return NestedSetBuilder.emptySet(order);
+    NestedSetSize nestedSetSize = context.deserialize(codedIn);
+    switch (nestedSetSize) {
+      case EMPTY:
+        return NestedSetBuilder.emptySet(order);
+      case SINGLETON:
+        T contents = context.deserialize(codedIn);
+        return new NestedSet<>(order, contents);
+      case GROUP:
+        ByteString fingerprint = ByteString.copyFrom(codedIn.readByteArray());
+        Object members = nestedSetStore.getContentsAndDeserialize(fingerprint, context);
+        return new NestedSet<>(order, members);
     }
-
-    boolean isSingleton = codedIn.readBool();
-    if (isSingleton) {
-      T contents = context.deserialize(codedIn);
-      return new NestedSet<T>(order, contents);
-    }
-
-    ByteString fingerprint = ByteString.copyFrom(codedIn.readByteArray());
-    Object members = nestedSetStore.getContentsAndDeserialize(fingerprint, context);
-    return new NestedSet<>(order, members);
+    throw new IllegalStateException("NestedSet size " + nestedSetSize + " not known");
   }
 }
