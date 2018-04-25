@@ -2487,8 +2487,8 @@ into binaries ("stamping")</h3>
     <p>Bazel always outputs the following volatile keys:</p>
     <ul>
       <li>
-        <code>BUILD_TIMESTAMP</code>: time of the build in milliseconds since the Unix Epoch (the
-        value of <code>System.currentTimeMillis()</code>)
+        <code>BUILD_TIMESTAMP</code>: time of the build in seconds since the Unix Epoch (the value
+        of <code>System.currentTimeMillis()</code> divided by a thousand)
       </li>
     </ul>
   </li>
