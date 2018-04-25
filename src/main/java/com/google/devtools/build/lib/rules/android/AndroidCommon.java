@@ -555,8 +555,6 @@ public class AndroidCommon {
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     attributes.setTargetLabel(ruleContext.getLabel());
 
-    JavaCommon.validateConstraint(
-        ruleContext, "android", javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH));
     ruleContext.checkSrcsSamePackage(true);
     return helper;
   }

@@ -150,6 +150,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
             /* compileDeps = */ targets,
             /* runtimeDeps = */ targets,
             /* bothDeps = */ targets);
+    javaSemantics.checkRule(ruleContext, common);
 
     common.setJavaCompilationArtifacts(
         new JavaCompilationArtifacts.Builder()
