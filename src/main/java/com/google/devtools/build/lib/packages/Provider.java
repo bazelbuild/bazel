@@ -106,10 +106,10 @@ public abstract class Provider extends BaseFunction {
   }
 
   @Override
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, @Nullable Environment env)
+  protected Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException {
     Location loc = ast != null ? ast.getLocation() : Location.BUILTIN;
-    return createInstanceFromSkylark(args, loc);
+    return createInstanceFromSkylark(args, env, loc);
   }
 
   /**
@@ -121,7 +121,7 @@ public abstract class Provider extends BaseFunction {
    *
    * @param args an array of argument values sorted as per the signature ({@see BaseFunction#call})
    */
-  protected abstract Info createInstanceFromSkylark(Object[] args, Location loc)
+  protected abstract Info createInstanceFromSkylark(Object[] args, Environment env, Location loc)
       throws EvalException;
 
   /** A serializable representation of {@link Provider}. */

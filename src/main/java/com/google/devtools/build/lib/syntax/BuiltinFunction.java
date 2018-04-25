@@ -368,8 +368,8 @@ public class BuiltinFunction extends BaseFunction {
     }
 
     @Override
-    public Object call(Object[] args, @Nullable FuncallExpression ast, @Nullable Environment env)
-      throws EvalException {
+    public Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
+        throws EvalException {
       throw new EvalException(null, "tried to invoke a Factory for function " + this);
     }
 

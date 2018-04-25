@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -60,14 +61,13 @@ public final class TemplateVariableInfo extends NativeInfo {
       new NativeProvider<TemplateVariableInfo>(
           TemplateVariableInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
-        protected TemplateVariableInfo createInstanceFromSkylark(Object[] args, Location loc)
-            throws EvalException {
+        protected TemplateVariableInfo createInstanceFromSkylark(
+            Object[] args, Environment env, Location loc) throws EvalException {
           Map<String, String> vars =
               SkylarkDict.castSkylarkDictOrNoneToDict(args[0], String.class, String.class, "vars");
           return new TemplateVariableInfo(ImmutableMap.copyOf(vars), location);
         }
       };
-
 
   private final ImmutableMap<String, String> variables;
 

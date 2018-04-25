@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 
@@ -56,10 +57,9 @@ public class AndroidInstrumentationInfo extends NativeInfo {
           AndroidInstrumentationInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
         protected AndroidInstrumentationInfo createInstanceFromSkylark(
-            Object[] args, Location loc) {
+            Object[] args, Environment env, Location loc) {
           return new AndroidInstrumentationInfo(
-              /*targetApk=*/ (Artifact) args[0],
-              /*instrumentationApk=*/ (Artifact) args[1]);
+              /*targetApk=*/ (Artifact) args[0], /*instrumentationApk=*/ (Artifact) args[1]);
         }
       };
 

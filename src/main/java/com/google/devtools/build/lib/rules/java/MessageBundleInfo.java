@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -48,7 +49,8 @@ public final class MessageBundleInfo extends NativeInfo {
       new NativeProvider<MessageBundleInfo>(MessageBundleInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
         @SuppressWarnings("unchecked")
-        protected MessageBundleInfo createInstanceFromSkylark(Object[] args, Location loc) {
+        protected MessageBundleInfo createInstanceFromSkylark(
+            Object[] args, Environment env, Location loc) {
           return new MessageBundleInfo(ImmutableList.copyOf((SkylarkList<Artifact>) args[0]), loc);
         }
       };

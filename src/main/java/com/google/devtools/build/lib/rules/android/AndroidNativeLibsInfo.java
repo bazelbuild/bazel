@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -50,7 +51,8 @@ public final class AndroidNativeLibsInfo extends NativeInfo {
       new NativeProvider<AndroidNativeLibsInfo>(
           AndroidNativeLibsInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
-        protected AndroidNativeLibsInfo createInstanceFromSkylark(Object[] args, Location loc) {
+        protected AndroidNativeLibsInfo createInstanceFromSkylark(
+            Object[] args, Environment env, Location loc) {
           return new AndroidNativeLibsInfo(
               /*nativeLibs=*/ ((SkylarkNestedSet) args[0]).getSet(Artifact.class));
         }

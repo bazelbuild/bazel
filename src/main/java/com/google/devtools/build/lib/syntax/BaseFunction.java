@@ -476,7 +476,7 @@ public abstract class BaseFunction implements SkylarkValue {
    * @throws InterruptedException may be thrown in the function implementations.
    */
   // Don't make it abstract, so that subclasses may be defined that @Override the outer call() only.
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, @Nullable Environment env)
+  protected Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException {
     throw new EvalException(
         (ast == null) ? Location.BUILTIN : ast.getLocation(),

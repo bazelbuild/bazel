@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import java.util.Map;
 
@@ -65,8 +66,8 @@ public class ConfigFeatureFlagProvider extends NativeInfo {
     }
 
     @Override
-    protected ConfigFeatureFlagProvider createInstanceFromSkylark(Object[] args, Location loc)
-        throws EvalException {
+    protected ConfigFeatureFlagProvider createInstanceFromSkylark(
+        Object[] args, Environment env, Location loc) throws EvalException {
 
       @SuppressWarnings("unchecked")
       Map<String, Object> kwargs = (Map<String, Object>) args[0];

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 
@@ -45,7 +46,8 @@ public final class AndroidDex2OatInfo extends NativeInfo {
   public static final NativeProvider<AndroidDex2OatInfo> PROVIDER =
       new NativeProvider<AndroidDex2OatInfo>(AndroidDex2OatInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
-        protected AndroidDex2OatInfo createInstanceFromSkylark(Object[] args, Location loc) {
+        protected AndroidDex2OatInfo createInstanceFromSkylark(
+            Object[] args, Environment env, Location loc) {
           return new AndroidDex2OatInfo(/*dex2OatEnabled=*/ (Boolean) args[0]);
         }
       };
