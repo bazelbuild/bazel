@@ -338,12 +338,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
-        "env = {'a' : 'b'}",
         "ruleContext.actions.run_shell(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
-        "  env = env,",
-        "  execution_requirements = env,",
+        "  env = {'a' : 'b'},",
+        "  execution_requirements = {'timeout' : '10', 'block-network' : 'foo'},",
         "  mnemonic = 'DummyMnemonic',",
         "  command = 'dummy_command',",
         "  progress_message = 'dummy_message')");
@@ -352,7 +351,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(action.getEnvironment()).containsExactly("a", "b");
-    assertThat(action.getExecutionInfo()).containsExactly("a", "b");
+    // We expect "timeout" to be filtered by TargetUtils.
+    assertThat(action.getExecutionInfo()).containsExactly("block-network", "foo");
   }
 
   @Test

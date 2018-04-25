@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Type;
@@ -39,6 +40,23 @@ public final class TargetUtils {
 
   // *_test / test_suite attribute that used to specify constraint keywords.
   private static final String CONSTRAINTS_ATTR = "tags";
+
+  // We don't want to pollute the execution info with random things, and we also need to reserve
+  // some internal tags that we don't allow to be set on targets. We also don't want to
+  // exhaustively enumerate all the legal values here. Right now, only a ~small set of tags is
+  // recognized by Bazel.
+  private static final Predicate<String> LEGAL_EXEC_INFO_KEYS = new Predicate<String>() {
+    @Override
+    public boolean apply(String tag) {
+      return tag.startsWith("block-")
+          || tag.startsWith("requires-")
+          || tag.startsWith("no-")
+          || tag.startsWith("supports-")
+          || tag.startsWith("disable-")
+          || tag.equals("local")
+          || tag.startsWith("cpu:");
+    }
+  };
 
   private TargetUtils() {} // Uninstantiable.
 
@@ -215,17 +233,19 @@ public final class TargetUtils {
       // some internal tags that we don't allow to be set on targets. We also don't want to
       // exhaustively enumerate all the legal values here. Right now, only a ~small set of tags is
       // recognized by Bazel.
-      if (tag.startsWith("block-")
-          || tag.startsWith("requires-")
-          || tag.startsWith("no-")
-          || tag.startsWith("supports-")
-          || tag.startsWith("disable-")
-          || tag.equals("local")
-          || tag.startsWith("cpu:")) {
+      if (LEGAL_EXEC_INFO_KEYS.apply(tag)) {
         map.put(tag, "");
       }
     }
     return ImmutableMap.copyOf(map);
+  }
+
+  /**
+   * Returns the execution info. These include execution requirement tags ('block-*', 'requires-*',
+   * 'no-*', 'supports-*', 'disable-*', 'local', and 'cpu:*') as keys with empty values.
+   */
+  public static Map<String, String> filter(Map<String, String> executionInfo) {
+    return Maps.filterKeys(executionInfo, LEGAL_EXEC_INFO_KEYS);
   }
 
   /**
