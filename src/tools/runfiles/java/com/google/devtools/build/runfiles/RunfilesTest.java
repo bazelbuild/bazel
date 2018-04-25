@@ -236,4 +236,77 @@ public final class RunfilesTest {
     assertThat(envvars.get("RUNFILES_DIR")).isEqualTo(dir.toString());
     assertThat(envvars.get("JAVA_RUNFILES")).isEqualTo(dir.toString());
   }
+
+  @Test
+  public void testDirectoryBasedRlocation() throws Exception {
+    // The DirectoryBased implementation simply joins the runfiles directory and the runfile's path
+    // on a "/". DirectoryBased does not perform any normalization, nor does it check that the path
+    // exists.
+    File dir = new File(System.getenv("TEST_TMPDIR"), "mock/runfiles");
+    assertThat(dir.mkdirs()).isTrue();
+    Runfiles r = Runfiles.createDirectoryBasedForTesting(dir.toString());
+    // Escaping for "\": once for string and once for regex.
+    assertThat(r.rlocation("arg")).matches(".*[/\\\\]mock[/\\\\]runfiles[/\\\\]arg");
+  }
+
+  @Test
+  public void testManifestBasedRlocation() throws Exception {
+    try (MockFile mf =
+        new MockFile(
+            ImmutableList.of(
+                "Foo/runfile1 C:/Actual Path\\runfile1",
+                "Foo/Bar/runfile2 D:\\the path\\run file 2.txt"))) {
+      Runfiles r = Runfiles.createManifestBasedForTesting(mf.path.toString());
+      assertThat(r.rlocation("Foo/runfile1")).isEqualTo("C:/Actual Path\\runfile1");
+      assertThat(r.rlocation("Foo/Bar/runfile2")).isEqualTo("D:\\the path\\run file 2.txt");
+      assertThat(r.rlocation("unknown")).isNull();
+    }
+  }
+
+  @Test
+  public void testDirectoryBasedCtorArgumentValidation() throws Exception {
+    try {
+      Runfiles.createDirectoryBasedForTesting(null);
+      fail();
+    } catch (IllegalArgumentException e) {
+      // expected
+    }
+
+    try {
+      Runfiles.createDirectoryBasedForTesting("");
+      fail();
+    } catch (IllegalArgumentException e) {
+      // expected
+    }
+
+    try {
+      Runfiles.createDirectoryBasedForTesting("non-existent directory is bad");
+      fail();
+    } catch (IllegalArgumentException e) {
+      // expected
+    }
+
+    Runfiles.createDirectoryBasedForTesting(System.getenv("TEST_TMPDIR"));
+  }
+
+  @Test
+  public void testManifestBasedCtorArgumentValidation() throws Exception {
+    try {
+      Runfiles.createManifestBasedForTesting(null);
+      fail();
+    } catch (IllegalArgumentException e) {
+      // expected
+    }
+
+    try {
+      Runfiles.createManifestBasedForTesting("");
+      fail();
+    } catch (IllegalArgumentException e) {
+      // expected
+    }
+
+    try (MockFile mf = new MockFile(ImmutableList.of("a b"))) {
+      Runfiles.createManifestBasedForTesting(mf.path.toString());
+    }
+  }
 }
