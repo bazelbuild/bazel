@@ -458,7 +458,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
 
     Artifact linkedProtos =
         ActionsTestUtil.getFirstArtifactEndingWith(
-            linkAction.getInputs(), "libopl_binary_BundledProtos_0.a");
+            linkAction.getInputs(), "libopl_binary_BundledProtos.a");
     CommandAction linkedProtosAction = (CommandAction) getGeneratingAction(linkedProtos);
 
     Artifact objectFile =
@@ -533,7 +533,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
 
     Artifact linkedProtos =
         ActionsTestUtil.getFirstArtifactEndingWith(
-            linkAction.getInputs(), "libopl_binary_BundledProtos_0.a");
+            linkAction.getInputs(), "libopl_binary_BundledProtos.a");
     CommandAction linkedProtosAction = (CommandAction) getGeneratingAction(linkedProtos);
     Artifact objListFile =
         ActionsTestUtil.getFirstArtifactEndingWith(linkedProtosAction.getInputs(), ".objlist");
