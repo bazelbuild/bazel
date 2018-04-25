@@ -17,6 +17,8 @@
 
 load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
+    "auto_configure_warning",
+    "auto_configure_fail",
     "escape_string",
     "get_env_var",
     "split_escaped",
@@ -384,7 +386,7 @@ def _coverage_feature(darwin):
     }
   """
 
-def _find_generic(repository_ctx, name, env_name, overriden_tools):
+def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False):
   """Find a generic C++ toolchain tool. Doesn't %-escape the result."""
 
   if name in overriden_tools:
@@ -403,9 +405,12 @@ def _find_generic(repository_ctx, name, env_name, overriden_tools):
     return result
   result = repository_ctx.which(result)
   if result == None:
-    fail(
-        ("Cannot find %s or %s%s, either correct your path or set the %s"
-         + " environment variable") % (name, env_name, env_value_with_paren, env_name))
+    msg = ("Cannot find %s or %s%s; either correct your path or set the %s"
+           + " environment variable") % (name, env_name, env_value_with_paren, env_name)
+    if warn:
+      auto_configure_warning(msg)
+    else:
+      auto_configure_fail(msg)
   return result
 
 def find_cc(repository_ctx, overriden_tools):
@@ -419,7 +424,8 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
   cc = _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
   overriden_tools = dict(overriden_tools)
   overriden_tools["gcc"] = cc
-  overriden_tools["gcov"] = _find_generic(repository_ctx, "gcov", "GCOV", overriden_tools)
+  overriden_tools["gcov"] = _find_generic(
+      repository_ctx, "gcov", "GCOV", overriden_tools, warn = True)
   if darwin:
     overriden_tools["gcc"] = "cc_wrapper.sh"
     overriden_tools["ar"] = "/usr/bin/libtool"
