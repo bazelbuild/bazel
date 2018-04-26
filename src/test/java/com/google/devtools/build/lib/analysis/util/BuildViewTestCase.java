@@ -41,6 +41,8 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
@@ -655,17 +657,65 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return skyframeExecutor.getActionGraph(reporter);
   }
 
+  /** Locates the first parameter file used by the action and returns its command line. */
+  @Nullable
+  protected final CommandLine paramFileCommandLineForAction(Action action) {
+    ParameterFileWriteAction parameterFileWriteAction = paramFileWriteActionForAction(action);
+    return parameterFileWriteAction != null ? parameterFileWriteAction.getCommandLine() : null;
+  }
+
+  /** Locates the first parameter file used by the action and returns its args. */
+  @Nullable
+  protected final Iterable<String> paramFileArgsForAction(Action action)
+      throws CommandLineExpansionException {
+    ParameterFileWriteAction parameterFileWriteAction = paramFileWriteActionForAction(action);
+    return parameterFileWriteAction != null
+        ? parameterFileWriteAction.getCommandLine().arguments()
+        : null;
+  }
+
+  /**
+   * Locates the first parameter file used by the action and returns its args.
+   *
+   * <p>If no param file is used, return the action's arguments.
+   */
+  @Nullable
+  protected final Iterable<String> paramFileArgsOrActionArgs(CommandAction action)
+      throws CommandLineExpansionException {
+    ParameterFileWriteAction parameterFileWriteAction = paramFileWriteActionForAction(action);
+    return parameterFileWriteAction != null
+        ? parameterFileWriteAction.getCommandLine().arguments()
+        : action.getArguments();
+  }
+
+  /** Locates the first parameter file used by the action and returns its contents. */
+  @Nullable
+  protected final String paramFileStringContentsForAction(Action action)
+      throws CommandLineExpansionException, IOException {
+    ParameterFileWriteAction parameterFileWriteAction = paramFileWriteActionForAction(action);
+    return parameterFileWriteAction != null ? parameterFileWriteAction.getStringContents() : null;
+  }
+
+  // TODO(b/37444705): Remove this method
+  @Deprecated
   @Nullable
   protected final ParameterFileWriteAction findParamsFileAction(SpawnAction spawnAction) {
-    for (Artifact input : spawnAction.getInputs()) {
-      Action generatingAction = getGeneratingAction(input);
-      if (generatingAction instanceof ParameterFileWriteAction) {
-        return (ParameterFileWriteAction) generatingAction;
+    return paramFileWriteActionForAction(spawnAction);
+  }
+
+  @Nullable
+  private ParameterFileWriteAction paramFileWriteActionForAction(Action action) {
+    for (Artifact input : action.getInputs()) {
+      if (!(input instanceof SpecialArtifact)) {
+        Action generatingAction = getGeneratingAction(input);
+        if (generatingAction instanceof ParameterFileWriteAction) {
+          return (ParameterFileWriteAction) generatingAction;
+        }
       }
     }
     return null;
   }
-  
+
   protected final ActionAnalysisMetadata getGeneratingActionAnalysisMetadata(Artifact artifact) {
     Preconditions.checkNotNull(artifact);
     ActionAnalysisMetadata actionAnalysisMetadata =
@@ -729,10 +779,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected final List<String> getGeneratingSpawnActionArgs(Artifact artifact)
       throws CommandLineExpansionException {
     SpawnAction a = getGeneratingSpawnAction(artifact);
-    ParameterFileWriteAction p = findParamsFileAction(a);
-    return p == null
-        ? a.getArguments()
-        : ImmutableList.copyOf(Iterables.concat(a.getArguments(), p.getContents()));
+    Iterable<String> paramFileArgs = paramFileArgsForAction(a);
+    return paramFileArgs != null
+        ? ImmutableList.copyOf(Iterables.concat(a.getArguments(), paramFileArgs))
+        : a.getArguments();
   }
 
   protected ActionsTestUtil actionsTestUtil() {

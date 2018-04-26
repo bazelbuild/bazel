@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
@@ -89,12 +90,17 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     this.hasInputArtifactToExpand = !Iterables.isEmpty(inputs);
   }
 
+  @VisibleForTesting
+  public CommandLine getCommandLine() {
+    return commandLine;
+  }
+
   /**
    * Returns the list of options written to the parameter file. Don't use this method outside tests
    * - the list is often huge, resulting in significant garbage collection overhead.
    */
   @VisibleForTesting
-  public Iterable<String> getContents() throws CommandLineExpansionException {
+  public Iterable<String> getArguments() throws CommandLineExpansionException {
     Preconditions.checkState(
         !hasInputArtifactToExpand,
         "This action contains a CommandLine with TreeArtifacts: %s, which must be expanded using "
@@ -104,6 +110,22 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   }
 
   @VisibleForTesting
+  public String getStringContents() throws CommandLineExpansionException, IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    ParameterFile.writeParameterFile(out, getArguments(), type, charset);
+    return new String(out.toByteArray(), charset);
+  }
+
+  // TODO(37444705): Remove method at end of migration.
+  @VisibleForTesting
+  @Deprecated
+  public Iterable<String> getContents() throws CommandLineExpansionException {
+    return getArguments();
+  }
+
+  // TODO(37444705): Remove method at end of migration.
+  @VisibleForTesting
+  @Deprecated
   public Iterable<String> getContents(ArtifactExpander artifactExpander)
       throws CommandLineExpansionException {
     return commandLine.arguments(artifactExpander);
