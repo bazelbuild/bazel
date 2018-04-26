@@ -232,7 +232,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcCompilationHelper compilationHelper =
         new CcCompilationHelper(
                 ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
-            .fromCommon(common, /* additionalCopts= */ImmutableList.of())
+            .fromCommon(common)
             .addSources(common.getSources())
             .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
             .setFake(fake)
