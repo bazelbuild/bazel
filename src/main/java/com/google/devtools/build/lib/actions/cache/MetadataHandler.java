@@ -58,6 +58,10 @@ public interface MetadataHandler {
    */
   void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest);
 
+  /** Injects a file that is only stored remotely. */
+  void injectRemoteFile(
+      Artifact output, byte[] digest, long size, long modifiedTime, int locationIndex);
+
   /**
    * Marks an artifact as intentionally omitted. Acknowledges that this Artifact could have existed,
    * but was intentionally not saved, most likely as an optimization.

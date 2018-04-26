@@ -467,6 +467,50 @@ public class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
+  public void injectRemoteFile(
+      Artifact output, byte[] digest, long size, long modifiedTime, int locationIndex) {
+    Preconditions.checkState(
+        executionMode.get(), "Tried to inject %s outside of execution.", output);
+    Preconditions.checkArgument(
+        locationIndex != 0 || size == 0,
+        "output = %s, size = %s, locationIndex =%s",
+        output,
+        size,
+        locationIndex);
+
+    Preconditions.checkState(injectedFiles.add(output), output);
+
+    // TODO(shahan): there are a couple of things that could reduce memory usage
+    // 1. We might be able to skip creating an entry in `outputArtifactData` and only create
+    // the `FileArtifactValue`, but there are likely downstream consumers that expect it that
+    // would need to be cleaned up.
+    // 2. Instead of creating an `additionalOutputData` entry, we could add the extra
+    // `locationIndex` to `FileStateValue`.
+    FileStateValue fileStateValue =
+        new FileStateValue.RegularFileStateValue(size, digest, /*contentsProxy=*/ null);
+    RootedPath rootedPath =
+        RootedPath.toRootedPath(output.getRoot().getRoot(), output.getRootRelativePath());
+    FileValue value = FileValue.value(rootedPath, fileStateValue, rootedPath, fileStateValue);
+    FileValue oldFsValue = outputArtifactData.putIfAbsent(output, value);
+    try {
+      checkInconsistentData(output, oldFsValue, value);
+    } catch (IOException e) {
+      // Should never happen.
+      throw new IllegalStateException("Inconsistent FileValues for " + output, e);
+    }
+
+    FileArtifactValue artifactValue =
+        new FileArtifactValue.RemoteFileArtifactValue(digest, size, modifiedTime, locationIndex);
+    FileArtifactValue oldArtifactValue = additionalOutputData.putIfAbsent(output, artifactValue);
+    try {
+      checkInconsistentData(output, oldArtifactValue, artifactValue);
+    } catch (IOException e) {
+      // Should never happen.
+      throw new IllegalStateException("Inconsistent FileArtifactValues for " + output, e);
+    }
+  }
+
+  @Override
   public void markOmitted(ActionInput output) {
     Preconditions.checkState(executionMode.get());
     if (output instanceof Artifact) {

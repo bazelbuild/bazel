@@ -238,6 +238,70 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
     }
   }
 
+  static final class RemoteFileArtifactValue extends FileArtifactValue {
+    private final byte[] digest;
+    private final long size;
+    private final long modifiedTime;
+    private final int locationIndex;
+
+    RemoteFileArtifactValue(byte[] digest, long size, long modifiedTime, int locationIndex) {
+      this.digest = digest;
+      this.size = size;
+      this.modifiedTime = modifiedTime;
+      this.locationIndex = locationIndex;
+    }
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
+    public long getSize() {
+      return size;
+    }
+
+    @Override
+    public long getModifiedTime() {
+      return modifiedTime;
+    }
+
+    @Override
+    public int getLocationIndex() {
+      return locationIndex;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof RemoteFileArtifactValue)) {
+        return false;
+      }
+      RemoteFileArtifactValue r = (RemoteFileArtifactValue) o;
+      return Arrays.equals(digest, r.digest)
+          && size == r.size
+          && modifiedTime == r.modifiedTime
+          && locationIndex == r.locationIndex;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(Arrays.hashCode(digest), size, modifiedTime, locationIndex);
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
   static FileArtifactValue create(Artifact artifact, FileValue fileValue) throws IOException {
     boolean isFile = fileValue.isFile();
     FileContentsProxy proxy = getProxyFromFileStateValue(fileValue.realFileStateValue());

@@ -59,4 +59,14 @@ public interface Metadata {
    * and should be called.
    */
   long getModifiedTime();
+
+  /**
+   * Index used to resolve remote files.
+   *
+   * <p>0 indicates that no such information is available which can mean that it's either a local
+   * file or empty.
+   */
+  default int getLocationIndex() {
+    return 0;
+  }
 }
