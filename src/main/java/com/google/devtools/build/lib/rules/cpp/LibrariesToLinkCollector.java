@@ -117,20 +117,28 @@ public class LibrariesToLinkCollector {
    */
   public static class CollectedLibrariesToLink {
     private final SequenceBuilder librariesToLink;
+    private final ImmutableSet<LinkerInput> expandedLinkerInputs;
     private final ImmutableSet<String> librarySearchDirectories;
     private final ImmutableSet<String> runtimeLibrarySearchDirectories;
 
     public CollectedLibrariesToLink(
         SequenceBuilder librariesToLink,
+        ImmutableSet<LinkerInput> expandedLinkerInputs,
         ImmutableSet<String> librarySearchDirectories,
         ImmutableSet<String> runtimeLibrarySearchDirectories) {
       this.librariesToLink = librariesToLink;
+      this.expandedLinkerInputs = expandedLinkerInputs;
       this.librarySearchDirectories = librarySearchDirectories;
       this.runtimeLibrarySearchDirectories = runtimeLibrarySearchDirectories;
     }
 
     public SequenceBuilder getLibrariesToLink() {
       return librariesToLink;
+    }
+
+    // TODO(b/78347840): Figure out how to make these Artifacts.
+    public ImmutableSet<LinkerInput> getExpandedLinkerInputs() {
+      return expandedLinkerInputs;
     }
 
     public ImmutableSet<String> getLibrarySearchDirectories() {
@@ -155,6 +163,7 @@ public class LibrariesToLinkCollector {
     ImmutableSet.Builder<String> librarySearchDirectories = ImmutableSet.builder();
     ImmutableSet.Builder<String> runtimeLibrarySearchDirectories = ImmutableSet.builder();
     ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps = ImmutableSet.builder();
+    ImmutableSet.Builder<LinkerInput> expandedLinkerInputsBuilder = ImmutableSet.builder();
     // List of command line parameters that need to be placed *outside* of
     // --whole-archive ... --no-whole-archive.
     SequenceBuilder librariesToLink = new SequenceBuilder();
@@ -193,7 +202,11 @@ public class LibrariesToLinkCollector {
     }
 
     Pair<Boolean, Boolean> includeSolibsPair =
-        addLinkerInputs(librarySearchDirectories, rpathRootsForExplicitSoDeps, librariesToLink);
+        addLinkerInputs(
+            librarySearchDirectories,
+            rpathRootsForExplicitSoDeps,
+            librariesToLink,
+            expandedLinkerInputsBuilder);
     boolean includeSolibDir = includeSolibsPair.first;
     boolean includeToolchainLibrariesSolibDir = includeSolibsPair.second;
     Preconditions.checkState(
@@ -211,6 +224,7 @@ public class LibrariesToLinkCollector {
 
     return new CollectedLibrariesToLink(
         librariesToLink,
+        expandedLinkerInputsBuilder.build(),
         librarySearchDirectories.build(),
         allRuntimeLibrarySearchDirectories.build());
   }
@@ -218,7 +232,8 @@ public class LibrariesToLinkCollector {
   private Pair<Boolean, Boolean> addLinkerInputs(
       Builder<String> librarySearchDirectories,
       Builder<String> rpathEntries,
-      SequenceBuilder librariesToLink) {
+      SequenceBuilder librariesToLink,
+      ImmutableSet.Builder<LinkerInput> expandedLinkerInputsBuilder) {
     boolean includeSolibDir = false;
     boolean includeToolchainLibrariesSolibDir = false;
     for (LinkerInput input : linkerInputs) {
@@ -242,9 +257,14 @@ public class LibrariesToLinkCollector {
             includeToolchainLibrariesSolibDir = true;
           }
         }
-        addDynamicInputLinkOptions(input, librariesToLink, librarySearchDirectories, rpathEntries);
+        addDynamicInputLinkOptions(
+            input,
+            librariesToLink,
+            expandedLinkerInputsBuilder,
+            librarySearchDirectories,
+            rpathEntries);
       } else {
-        addStaticInputLinkOptions(input, librariesToLink);
+        addStaticInputLinkOptions(input, librariesToLink, expandedLinkerInputsBuilder);
       }
     }
     return Pair.of(includeSolibDir, includeToolchainLibrariesSolibDir);
@@ -258,6 +278,7 @@ public class LibrariesToLinkCollector {
   private void addDynamicInputLinkOptions(
       LinkerInput input,
       SequenceBuilder librariesToLink,
+      ImmutableSet.Builder<LinkerInput> expandedLinkerInputsBuilder,
       ImmutableSet.Builder<String> librarySearchDirectories,
       ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps) {
     Preconditions.checkState(
@@ -267,6 +288,7 @@ public class LibrariesToLinkCollector {
         !Link.useStartEndLib(
             input, CppHelper.getArchiveType(cppConfiguration, ccToolchainProvider)));
 
+    expandedLinkerInputsBuilder.add(input);
     Artifact inputArtifact = input.getArtifact();
     PathFragment libDir = inputArtifact.getExecPath().getParentDirectory();
     if (!libDir.equals(solibDir)
@@ -309,9 +331,24 @@ public class LibrariesToLinkCollector {
    *
    * @param librariesToLink - a collection that will be exposed as a build variable.
    */
-  private void addStaticInputLinkOptions(LinkerInput input, SequenceBuilder librariesToLink) {
+  private void addStaticInputLinkOptions(
+      LinkerInput input,
+      SequenceBuilder librariesToLink,
+      ImmutableSet.Builder<LinkerInput> expandedLinkerInputsBuilder) {
     ArtifactCategory artifactCategory = input.getArtifactCategory();
-    Preconditions.checkState(artifactCategory != ArtifactCategory.DYNAMIC_LIBRARY);
+    Preconditions.checkArgument(
+        artifactCategory.equals(ArtifactCategory.OBJECT_FILE)
+            || artifactCategory.equals(ArtifactCategory.STATIC_LIBRARY)
+            || artifactCategory.equals(ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY));
+    boolean isAlwaysLinkStaticLibrary =
+        artifactCategory == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY;
+
+    // input.disableWholeArchive() should only be true for libstdc++/libc++ etc.
+    boolean inputIsWholeArchive =
+        !input.disableWholeArchive() && (isAlwaysLinkStaticLibrary || needWholeArchive);
+
+    String pathPrefix = input.isFake() ? Link.FAKE_OBJECT_PREFIX : "";
+
     // If we had any LTO artifacts, ltoMap whould be non-null. In that case,
     // we should have created a thinltoParamFile which the LTO indexing
     // step will populate with the exec paths that correspond to the LTO
@@ -335,6 +372,12 @@ public class LibrariesToLinkCollector {
             if (handledByLtoIndexing(a, allowLtoIndexing)) {
               // The LTO artifacts that should be included in the final link
               // are listed in the thinltoParamFile, generated by the LTO indexing.
+
+              // Even if this object file is being skipped for exposure as a Build variable, it's
+              // still an input to this action.
+              expandedLinkerInputsBuilder.add(
+                  LinkerInputs.simpleLinkerInput(
+                      a, ArtifactCategory.OBJECT_FILE, /* disableWholeArchive  = */ false));
               continue;
             }
             // No LTO indexing step, so use the LTO backend's generated artifact directly
@@ -342,29 +385,50 @@ public class LibrariesToLinkCollector {
             member = a;
           }
           nonLtoArchiveMembersBuilder.add(member);
+          expandedLinkerInputsBuilder.add(
+              LinkerInputs.simpleLinkerInput(
+                  member, ArtifactCategory.OBJECT_FILE, /* disableWholeArchive  = */ false));
         }
         ImmutableList<Artifact> nonLtoArchiveMembers = nonLtoArchiveMembersBuilder.build();
         if (!nonLtoArchiveMembers.isEmpty()) {
-          librariesToLink.addValue(
-              LibraryToLinkValue.forObjectFileGroup(nonLtoArchiveMembers, needWholeArchive));
+          if (inputIsWholeArchive) {
+            for (Artifact member : nonLtoArchiveMembers) {
+              if (member.isTreeArtifact()) {
+                // TODO(b/78189629): This object filegroup is expanded at action time but wrapped
+                // with --start/--end-lib. There's currently no way to force these objects to be
+                // linked in.
+                librariesToLink.addValue(
+                    LibraryToLinkValue.forObjectFileGroup(
+                        ImmutableList.<Artifact>of(member), /* isWholeArchive= */ true));
+              } else {
+                // TODO(b/78189629): These each need to be their own LibraryToLinkValue so they're
+                // not wrapped in --start/--end-lib (which lets the linker leave out objects with
+                // unreferenced code).
+                librariesToLink.addValue(
+                    LibraryToLinkValue.forObjectFile(
+                        pathPrefix + member.getExecPathString(), /* isWholeArchive= */ true));
+              }
+            }
+          } else {
+            librariesToLink.addValue(
+                LibraryToLinkValue.forObjectFileGroup(
+                    nonLtoArchiveMembers, /* isWholeArchive= */ false));
+          }
         }
       }
     } else {
-      Preconditions.checkArgument(
-          artifactCategory.equals(ArtifactCategory.OBJECT_FILE)
-              || artifactCategory.equals(ArtifactCategory.STATIC_LIBRARY)
-              || artifactCategory.equals(ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY));
-      boolean isAlwaysLinkStaticLibrary =
-          artifactCategory == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY;
-      boolean inputIsWholeArchive =
-          !input.disableWholeArchive() && (isAlwaysLinkStaticLibrary || needWholeArchive);
-
       Artifact inputArtifact = input.getArtifact();
       Artifact a;
       if (ltoMap != null && (a = ltoMap.remove(inputArtifact)) != null) {
         if (handledByLtoIndexing(a, allowLtoIndexing)) {
           // The LTO artifacts that should be included in the final link
           // are listed in the thinltoParamFile, generated by the LTO indexing.
+
+          // Even if this object file is being skipped for exposure as a Build variable, it's
+          // still an input to this action.
+          expandedLinkerInputsBuilder.add(
+              LinkerInputs.simpleLinkerInput(
+                  a, ArtifactCategory.OBJECT_FILE, /* disableWholeArchive  = */ false));
           return;
         }
         // No LTO indexing step, so use the LTO backend's generated artifact directly
@@ -372,12 +436,7 @@ public class LibrariesToLinkCollector {
         inputArtifact = a;
       }
 
-      String name;
-      if (input.isFake()) {
-        name = Link.FAKE_OBJECT_PREFIX + inputArtifact.getExecPathString();
-      } else {
-        name = inputArtifact.getExecPathString();
-      }
+      String name = pathPrefix + inputArtifact.getExecPathString();
 
       if (artifactCategory.equals(ArtifactCategory.OBJECT_FILE)) {
         if (inputArtifact.isTreeArtifact()) {
@@ -387,8 +446,10 @@ public class LibrariesToLinkCollector {
         } else {
           librariesToLink.addValue(LibraryToLinkValue.forObjectFile(name, inputIsWholeArchive));
         }
+        expandedLinkerInputsBuilder.add(input);
       } else {
         librariesToLink.addValue(LibraryToLinkValue.forStaticLibrary(name, inputIsWholeArchive));
+        expandedLinkerInputsBuilder.add(input);
       }
     }
   }
