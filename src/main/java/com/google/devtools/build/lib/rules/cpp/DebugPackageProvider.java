@@ -28,19 +28,18 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @AutoCodec
-public final class CppDebugPackageProvider implements TransitiveInfoProvider {
+public final class DebugPackageProvider implements TransitiveInfoProvider {
   private final Label targetLabel;
   private final Artifact strippedArtifact;
   private final Artifact unstrippedArtifact;
   @Nullable private final Artifact dwpArtifact;
 
   @AutoCodec.Instantiator
-  public CppDebugPackageProvider(
+  public DebugPackageProvider(
       Label targetLabel,
-      Artifact strippedArtifact,
+      @Nullable Artifact strippedArtifact,
       Artifact unstrippedArtifact,
       @Nullable Artifact dwpArtifact) {
-    Preconditions.checkNotNull(strippedArtifact);
     Preconditions.checkNotNull(unstrippedArtifact);
     this.targetLabel = targetLabel;
     this.strippedArtifact = strippedArtifact;
@@ -48,9 +47,7 @@ public final class CppDebugPackageProvider implements TransitiveInfoProvider {
     this.dwpArtifact = dwpArtifact;
   }
 
-  /**
-   * Returns the label for the cc_binary target.
-   */
+  /** Returns the label for the *_binary target. */
   public final Label getTargetLabel() {
     return targetLabel;
   }
