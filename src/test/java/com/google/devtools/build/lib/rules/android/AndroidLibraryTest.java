@@ -17,7 +17,6 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -28,12 +27,10 @@ import com.google.common.collect.Lists;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
@@ -1535,12 +1532,8 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(compileAction).isNotNull();
 
-    ParameterFileWriteAction paramsFileAction = findParamsFileAction(compileAction);
-    if (paramsFileAction == null) {
-      assertThat(compileAction.getArguments()).contains("--dataBindingInfoOut");
-    } else {
-      assertThat(paramsFileAction.getContents()).contains("--dataBindingInfoOut");
-    }
+    Iterable<String> args = paramFileArgsOrActionArgs(compileAction);
+    assertThat(args).contains("--dataBindingInfoOut");
   }
 
   @Test
@@ -1840,7 +1833,8 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     String outputPath = outputPath(action, "java/com/google/jni/libjni-native-header.jar");
     assertThat(action.getArguments())
         .contains("@" + getBinArtifact("libjni.jar-2.params", target).getExecPathString());
-    assertThat(Joiner.on(' ').join(getParamFileContents(action)))
+    Iterable<String> result = paramFileArgsForAction(action);
+    assertThat(Joiner.on(' ').join(result))
         .contains(Joiner.on(' ').join("--native_header_output", outputPath));
 
     Artifact nativeHeaderOutput =
@@ -1854,12 +1848,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     System.err.println(action.getOutputs());
     Artifact artifact = ActionsTestUtil.getFirstArtifactEndingWith(action.getOutputs(), suffix);
     return verifyNotNull(artifact, suffix).getExecPath().getPathString();
-  }
-
-  private Iterable<String> getParamFileContents(Action action)
-      throws CommandLineExpansionException {
-    Artifact paramFile = getFirstArtifactEndingWith(action.getInputs(), "-2.params");
-    return ((ParameterFileWriteAction) getGeneratingAction(paramFile)).getContents();
   }
 
   @Test

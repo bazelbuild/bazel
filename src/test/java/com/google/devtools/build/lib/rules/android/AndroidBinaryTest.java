@@ -678,9 +678,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     // --positions dexopt is supported after Proguard, even though not normally otherwise
     assertThat(
-            findParamsFileAction(
-                    getGeneratingSpawnAction(getBinArtifact("_dx/top/classes.jar", topTarget)))
-                .getContents())
+            paramFileArgsForAction(
+                getGeneratingSpawnAction(getBinArtifact("_dx/top/classes.jar", topTarget))))
         .contains("--positions=none");
   }
 
@@ -721,10 +720,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     // --positions dexopt is supported after Proguard, even though not normally otherwise
     assertThat(
-            findParamsFileAction(
-                    getGeneratingSpawnAction(
-                        getBinArtifact("_dx/top/shard3.jar.dex.zip", topTarget)))
-                .getContents())
+            paramFileArgsForAction(
+                getGeneratingSpawnAction(getBinArtifact("_dx/top/shard3.jar.dex.zip", topTarget))))
         .contains("--positions=none");
   }
 
