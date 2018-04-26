@@ -252,7 +252,7 @@ public class SpawnActionTest extends BuildViewTestCase {
             "@" + paramFile.getExecPathString())
         .inOrder();
 
-    assertThat(((ParameterFileWriteAction) getGeneratingAction(paramFile)).getContents())
+    assertThat(((ParameterFileWriteAction) getGeneratingAction(paramFile)).getArguments())
         .containsExactly("-X");
     MoreAsserts.assertContainsSublist(actionInputsToPaths(action.getSpawn().getInputFiles()),
         "pkg/exe.jar");
@@ -298,7 +298,7 @@ public class SpawnActionTest extends BuildViewTestCase {
             "MyMainClass",
             "--flagfile=" + paramFile.getExecPathString())
         .inOrder();
-    assertThat(((ParameterFileWriteAction) getGeneratingAction(paramFile)).getContents())
+    assertThat(((ParameterFileWriteAction) getGeneratingAction(paramFile)).getArguments())
         .containsExactly("-X");
     MoreAsserts.assertContainsSublist(actionInputsToPaths(action.getSpawn().getInputFiles()),
         "pkg/exe.jar");
@@ -382,8 +382,9 @@ public class SpawnActionTest extends BuildViewTestCase {
             "execArg1",
             "execArg2",
             "@" + paramFile.getExecPathString());
-    assertThat(((ParameterFileWriteAction) getGeneratingAction(paramFile)).getContents())
-        .containsExactly("arg1", "arg2", "arg3").inOrder();
+    assertThat(((ParameterFileWriteAction) getGeneratingAction(paramFile)).getArguments())
+        .containsExactly("arg1", "arg2", "arg3")
+        .inOrder();
   }
 
   @Test
