@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.MoreCollectors;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -36,8 +37,10 @@ import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Options;
@@ -59,6 +62,8 @@ import org.mockito.stubbing.Answer;
 public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
   private static class TestedStandaloneTestStrategy extends StandaloneTestStrategy {
+    TestResult postedResult = null;
+
     public TestedStandaloneTestStrategy(
         ExecutionOptions executionOptions, BinTools binTools, Path tmpDirRoot) {
       super(executionOptions, binTools, tmpDirRoot);
@@ -67,7 +72,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     @Override
     protected void postTestResult(ActionExecutionContext actionExecutionContext, TestResult result)
         throws IOException {
-      // Make postTestResult a no-op for testing purposes
+      postedResult = result;
     }
   }
 
@@ -75,13 +80,15 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
   @Mock private SpawnActionContext spawnActionContext;
 
+  private StoredEventHandler storedEvents = new StoredEventHandler();
+
   @Before
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
   }
 
   @Test
-  public void testSpawnResultsAreReturned() throws Exception {
+  public void testRunTestOnce() throws Exception {
 
     // setup a StandaloneTestStrategy
 
@@ -117,8 +124,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(actionExecutionContext.withFileOutErr(any())).thenReturn(actionExecutionContext);
     when(actionExecutionContext.getExecRoot()).thenReturn(outputBase.getRelative("execroot"));
     when(actionExecutionContext.getClientEnv()).thenReturn(ImmutableMap.of());
-    when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
-    when(actionExecutionContext.getEventBus()).thenReturn(eventBus);
+    when(actionExecutionContext.getEventHandler()).thenReturn(storedEvents);
     when(actionExecutionContext.getInputPath(any())).thenAnswer(this::getInputPathMock);
 
     SpawnResult expectedSpawnResult =
@@ -135,8 +141,274 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     List<SpawnResult> spawnResults =
         standaloneTestStrategy.exec(testRunnerAction, actionExecutionContext);
 
+    assertThat(spawnResults).containsExactly(expectedSpawnResult);
+    TestResult result = standaloneTestStrategy.postedResult;
+    assertThat(result).isNotNull();
+    assertThat(result.isCached()).isFalse();
+    assertThat(result.getTestStatusArtifact()).isEqualTo(testStatusArtifact);
+    assertThat(result.getData().getTestPassed()).isTrue();
+    assertThat(result.getData().getRemotelyCached()).isFalse();
+    assertThat(result.getData().getIsRemoteStrategy()).isFalse();
+    assertThat(result.getData().getRunDurationMillis()).isEqualTo(10);
+    assertThat(result.getData().getTestTimesList()).containsExactly(10L);
+    TestAttempt attempt =
+        storedEvents
+        .getPosts()
+        .stream()
+        .filter(TestAttempt.class::isInstance)
+        .map(TestAttempt.class::cast)
+        .collect(MoreCollectors.onlyElement());
+    assertThat(attempt.getExecutionInfo().getStrategy()).isEqualTo("test");
+    assertThat(attempt.getExecutionInfo().getHostname()).isEqualTo("");
+  }
+
+  @Test
+  public void testRunFlakyTest() throws Exception {
+
+    // setup a StandaloneTestStrategy
+
+    ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
+
+    // setup a test action
+
+    scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
+
+    scratch.file(
+        "standalone/BUILD",
+        "sh_test(",
+        "    name = \"simple_test\",",
+        "    size = \"small\",",
+        "    srcs = [\"simple_test.sh\"],",
+        "    flaky = True,",
+        ")");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//standalone:simple_test");
+    List<Artifact> testStatusArtifacts =
+        configuredTarget.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
+    Artifact testStatusArtifact = Iterables.getOnlyElement(testStatusArtifacts);
+    TestRunnerAction testRunnerAction = (TestRunnerAction) getGeneratingAction(testStatusArtifact);
+    assertThat(testRunnerAction.getTestProperties().isFlaky()).isTrue();
+    FileSystemUtils.createDirectoryAndParents(
+        testRunnerAction.getTestLog().getPath().getParentDirectory());
+
+    // setup a mock ActionExecutionContext
+
+    when(actionExecutionContext.getClock()).thenReturn(BlazeClock.instance());
+    when(actionExecutionContext.withFileOutErr(any())).thenReturn(actionExecutionContext);
+    when(actionExecutionContext.getExecRoot()).thenReturn(outputBase.getRelative("execroot"));
+    when(actionExecutionContext.getClientEnv()).thenReturn(ImmutableMap.of());
+    when(actionExecutionContext.getEventHandler()).thenReturn(storedEvents);
+    when(actionExecutionContext.getInputPath(any())).thenAnswer(this::getInputPathMock);
+
+    SpawnResult failSpawnResult =
+        new SpawnResult.Builder()
+            .setStatus(Status.NON_ZERO_EXIT)
+            .setExitCode(1)
+            .setWallTime(Duration.ofMillis(10))
+            .setRunnerName("test")
+            .build();
+    SpawnResult passSpawnResult =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setWallTime(Duration.ofMillis(15))
+            .setRunnerName("test")
+            .build();
+    when(spawnActionContext.exec(any(), any()))
+        .thenThrow(new SpawnExecException("test failed", failSpawnResult, false))
+        .thenReturn(ImmutableList.of(passSpawnResult));
+
+    when(actionExecutionContext.getSpawnActionContext(any())).thenReturn(spawnActionContext);
+
+    // actual StandaloneTestStrategy execution
+    List<SpawnResult> spawnResults =
+        standaloneTestStrategy.exec(testRunnerAction, actionExecutionContext);
+
+    assertThat(spawnResults).containsExactly(passSpawnResult);
+    TestResult result = standaloneTestStrategy.postedResult;
+    assertThat(result).isNotNull();
+    assertThat(result.isCached()).isFalse();
+    assertThat(result.getTestStatusArtifact()).isEqualTo(testStatusArtifact);
+    assertThat(result.getData().getStatus()).isEqualTo(BlazeTestStatus.FLAKY);
+    assertThat(result.getData().getTestPassed()).isTrue();
+    assertThat(result.getData().getRemotelyCached()).isFalse();
+    assertThat(result.getData().getIsRemoteStrategy()).isFalse();
+    assertThat(result.getData().getRunDurationMillis()).isEqualTo(15L);
+    assertThat(result.getData().getTestTimesList()).containsExactly(10L, 15L);
+    List<TestAttempt> attempts =
+        storedEvents
+        .getPosts()
+        .stream()
+        .filter(TestAttempt.class::isInstance)
+        .map(TestAttempt.class::cast)
+        .collect(ImmutableList.toImmutableList());
+    assertThat(attempts).hasSize(2);
+    TestAttempt failedAttempt = attempts.get(0);
+    assertThat(failedAttempt.getExecutionInfo().getStrategy()).isEqualTo("test");
+    assertThat(failedAttempt.getExecutionInfo().getHostname()).isEqualTo("");
+    assertThat(failedAttempt.getStatus()).isEqualTo(BlazeTestStatus.FAILED);
+    assertThat(failedAttempt.getExecutionInfo().getCachedRemotely()).isFalse();
+    TestAttempt okAttempt = attempts.get(1);
+    assertThat(okAttempt.getStatus()).isEqualTo(BlazeTestStatus.PASSED);
+    assertThat(okAttempt.getExecutionInfo().getStrategy()).isEqualTo("test");
+    assertThat(okAttempt.getExecutionInfo().getHostname()).isEqualTo("");
+  }
+
+  @Test
+  public void testRunTestRemotely() throws Exception {
+
+    // setup a StandaloneTestStrategy
+
+    ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
+
+    // setup a test action
+
+    scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
+
+    scratch.file(
+        "standalone/BUILD",
+        "sh_test(",
+        "    name = \"simple_test\",",
+        "    size = \"small\",",
+        "    srcs = [\"simple_test.sh\"],",
+        ")");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//standalone:simple_test");
+    List<Artifact> testStatusArtifacts =
+        configuredTarget.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
+    Artifact testStatusArtifact = Iterables.getOnlyElement(testStatusArtifacts);
+    TestRunnerAction testRunnerAction = (TestRunnerAction) getGeneratingAction(testStatusArtifact);
+    FileSystemUtils.createDirectoryAndParents(
+        testRunnerAction.getTestLog().getPath().getParentDirectory());
+
+    // setup a mock ActionExecutionContext
+
+    when(actionExecutionContext.getClock()).thenReturn(BlazeClock.instance());
+    when(actionExecutionContext.withFileOutErr(any())).thenReturn(actionExecutionContext);
+    when(actionExecutionContext.getExecRoot()).thenReturn(outputBase.getRelative("execroot"));
+    when(actionExecutionContext.getClientEnv()).thenReturn(ImmutableMap.of());
+    when(actionExecutionContext.getEventHandler()).thenReturn(storedEvents);
+    when(actionExecutionContext.getInputPath(any())).thenAnswer(this::getInputPathMock);
+
+    SpawnResult expectedSpawnResult =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setWallTime(Duration.ofMillis(10))
+            .setRunnerName("remote")
+            .setExecutorHostname("a-remote-host")
+            .build();
+    when(spawnActionContext.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
+
+    when(actionExecutionContext.getSpawnActionContext(any())).thenReturn(spawnActionContext);
+
+    // actual StandaloneTestStrategy execution
+    List<SpawnResult> spawnResults =
+        standaloneTestStrategy.exec(testRunnerAction, actionExecutionContext);
+
+    assertThat(spawnResults).containsExactly(expectedSpawnResult);
+    TestResult result = standaloneTestStrategy.postedResult;
+    assertThat(result).isNotNull();
+    assertThat(result.isCached()).isFalse();
+    assertThat(result.getTestStatusArtifact()).isEqualTo(testStatusArtifact);
+    assertThat(result.getData().getTestPassed()).isTrue();
+    assertThat(result.getData().getRemotelyCached()).isFalse();
+    assertThat(result.getData().getIsRemoteStrategy()).isTrue();
+    assertThat(result.getData().getRunDurationMillis()).isEqualTo(10);
+    assertThat(result.getData().getTestTimesList()).containsExactly(10L);
+    TestAttempt attempt =
+        storedEvents
+        .getPosts()
+        .stream()
+        .filter(TestAttempt.class::isInstance)
+        .map(TestAttempt.class::cast)
+        .collect(MoreCollectors.onlyElement());
+    assertThat(attempt.getStatus()).isEqualTo(BlazeTestStatus.PASSED);
+    assertThat(attempt.getExecutionInfo().getStrategy()).isEqualTo("remote");
+    assertThat(attempt.getExecutionInfo().getHostname()).isEqualTo("a-remote-host");
+  }
+
+  @Test
+  public void testRunRemotelyCachedTest() throws Exception {
+
+    // setup a StandaloneTestStrategy
+
+    ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
+
+    // setup a test action
+
+    scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
+
+    scratch.file(
+        "standalone/BUILD",
+        "sh_test(",
+        "    name = \"simple_test\",",
+        "    size = \"small\",",
+        "    srcs = [\"simple_test.sh\"],",
+        ")");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//standalone:simple_test");
+    List<Artifact> testStatusArtifacts =
+        configuredTarget.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
+    Artifact testStatusArtifact = Iterables.getOnlyElement(testStatusArtifacts);
+    TestRunnerAction testRunnerAction = (TestRunnerAction) getGeneratingAction(testStatusArtifact);
+    FileSystemUtils.createDirectoryAndParents(
+        testRunnerAction.getTestLog().getPath().getParentDirectory());
+
+    // setup a mock ActionExecutionContext
+
+    when(actionExecutionContext.getClock()).thenReturn(BlazeClock.instance());
+    when(actionExecutionContext.withFileOutErr(any())).thenReturn(actionExecutionContext);
+    when(actionExecutionContext.getExecRoot()).thenReturn(outputBase.getRelative("execroot"));
+    when(actionExecutionContext.getClientEnv()).thenReturn(ImmutableMap.of());
+    when(actionExecutionContext.getEventHandler()).thenReturn(storedEvents);
+    when(actionExecutionContext.getInputPath(any())).thenAnswer(this::getInputPathMock);
+
+    SpawnResult expectedSpawnResult =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setCacheHit(true)
+            .setWallTime(Duration.ofMillis(10))
+            .setRunnerName("remote cache")
+            .build();
+    when(spawnActionContext.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
+
+    when(actionExecutionContext.getSpawnActionContext(any())).thenReturn(spawnActionContext);
+
+    // actual StandaloneTestStrategy execution
+    List<SpawnResult> spawnResults =
+        standaloneTestStrategy.exec(testRunnerAction, actionExecutionContext);
+
     // check that the rigged SpawnResult was returned
     assertThat(spawnResults).containsExactly(expectedSpawnResult);
+    TestResult result = standaloneTestStrategy.postedResult;
+    assertThat(result).isNotNull();
+    assertThat(result.isCached()).isFalse();
+    assertThat(result.getTestStatusArtifact()).isEqualTo(testStatusArtifact);
+    assertThat(result.getData().getTestPassed()).isTrue();
+    assertThat(result.getData().getRemotelyCached()).isTrue();
+    assertThat(result.getData().getIsRemoteStrategy()).isFalse();
+    assertThat(result.getData().getRunDurationMillis()).isEqualTo(10);
+    assertThat(result.getData().getTestTimesList()).containsExactly(10L);
+    TestAttempt attempt =
+        storedEvents
+        .getPosts()
+        .stream()
+        .filter(TestAttempt.class::isInstance)
+        .map(TestAttempt.class::cast)
+        .collect(MoreCollectors.onlyElement());
+    assertThat(attempt.getExecutionInfo().getStrategy()).isEqualTo("remote cache");
+    assertThat(attempt.getExecutionInfo().getHostname()).isEqualTo("");
   }
 
   @Test

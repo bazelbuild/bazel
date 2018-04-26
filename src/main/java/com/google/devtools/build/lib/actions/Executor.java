@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsClassProvider;
@@ -80,7 +80,7 @@ public interface Executor {
    * An event listener to report messages to. Errors that signal a action failure should
    * use ActionExecutionException.
    */
-  EventHandler getEventHandler();
+  ExtendedEventHandler getEventHandler();
 
   /**
    * Looks up and returns an action context implementation of the given interface type.
