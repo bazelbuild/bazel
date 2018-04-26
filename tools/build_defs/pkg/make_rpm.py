@@ -212,6 +212,8 @@ class RpmBuilder(object):
         '--define',
         '_tmppath %s/TMP' % dirname,
         '--bb',
+        '--buildroot',
+        os.path.join(dirname, 'BUILDROOT'),
         self.spec_file,
     ]
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
