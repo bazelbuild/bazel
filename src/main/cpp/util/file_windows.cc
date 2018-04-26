@@ -66,7 +66,7 @@ static bool CanReadFileW(const wstring& path);
 // Returns a normalized form of the input `path`.
 //
 // `path` must be a relative or absolute Windows path, it may use "/" instead of
-// "\" but must not be an absolute MSYS path.
+// "\" but must not be a Unix-style (MSYS) path.
 // The result won't have a UNC prefix, even if `path` did.
 //
 // Normalization means removing "." references, resolving ".." references, and
@@ -371,78 +371,6 @@ pair<wstring, wstring> SplitPathW(const wstring& path) {
   return SplitPathImpl(path);
 }
 
-class MsysRoot {
- public:
-  static bool IsValid();
-  static const string& GetPath();
-  static void ResetForTesting() { instance_.initialized_ = false; }
-
- private:
-  bool initialized_;
-  bool valid_;
-  string path_;
-  static MsysRoot instance_;
-
-  static bool Get(string* path);
-
-  MsysRoot() : initialized_(false) {}
-  void InitIfNecessary();
-};
-
-MsysRoot MsysRoot::instance_;
-
-void ResetMsysRootForTesting() { MsysRoot::ResetForTesting(); }
-
-bool MsysRoot::IsValid() {
-  instance_.InitIfNecessary();
-  return instance_.valid_;
-}
-
-const string& MsysRoot::GetPath() {
-  instance_.InitIfNecessary();
-  return instance_.path_;
-}
-
-bool MsysRoot::Get(string* path) {
-  string result;
-  char value[MAX_PATH];
-  DWORD len = GetEnvironmentVariableA("BAZEL_SH", value, MAX_PATH);
-  if (len > 0) {
-    result = value;
-  } else {
-    const char* value2 = getenv("BAZEL_SH");
-    if (value2 == nullptr || value2[0] == '\0') {
-      BAZEL_LOG(ERROR) << "BAZEL_SH environment variable is not defined, "
-                          "cannot convert MSYS paths to Windows paths";
-      return false;
-    }
-    result = value2;
-  }
-
-  // BAZEL_SH is usually "c:\tools\msys64\usr\bin\bash.exe" but could also be
-  // "c:\cygwin64\bin\bash.exe", and may have forward slashes instead of
-  // backslashes. Either way, we just need to remove the "usr/bin/bash.exe" or
-  // "bin/bash.exe" suffix (we don't care about the basename being "bash.exe").
-  result = Dirname(result);
-  pair<string, string> parent(SplitPath(result));
-  pair<string, string> grandparent(SplitPath(parent.first));
-  if (AsLower(grandparent.second) == "usr" && AsLower(parent.second) == "bin") {
-    *path = grandparent.first;
-    return true;
-  } else if (AsLower(parent.second) == "bin") {
-    *path = parent.first;
-    return true;
-  }
-  return false;
-}
-
-void MsysRoot::InitIfNecessary() {
-  if (!initialized_) {
-    valid_ = Get(&path_);
-    initialized_ = true;
-  }
-}
-
 bool AsWindowsPath(const string& path, string* result, string* error) {
   if (path.empty()) {
     result->clear();
@@ -476,30 +404,13 @@ bool AsWindowsPath(const string& path, string* result, string* error) {
 
   string mutable_path = path;
   if (path[0] == '/') {
-    // This is an absolute MSYS path.
-    if (path.size() == 2 || (path.size() > 2 && path[2] == '/')) {
-      // The path is either "/x" or "/x/" or "/x/something". In all three cases
-      // "x" is the drive letter.
-      // TODO(laszlocsomor): use GetLogicalDrives to retrieve the list of drives
-      // and only apply this heuristic for the valid drives. It's possible that
-      // the user has a directory "/a" but no "A:\" drive, so in that case we
-      // should prepend the MSYS root.
-      mutable_path = path.substr(1, 1) + ":\\";
-      if (path.size() > 2) {
-        mutable_path += path.substr(3);
-      }
-    } else {
-      // The path is a normal MSYS path e.g. "/usr". Prefix it with the MSYS
-      // root.
-      if (!MsysRoot::IsValid()) {
-        if (error) {
-          *error = "MSYS root is invalid";
-        }
-        return false;
-      }
-      mutable_path = JoinPath(MsysRoot::GetPath(), path);
+    if (error) {
+      *error = "Unix-style paths are unsupported";
     }
-  } else if (path[0] == '\\') {
+    return false;
+  }
+
+  if (path[0] == '\\') {
     // This is an absolute Windows path on the current drive, e.g. "\foo\bar".
     mutable_path = string(1, GetCurrentDrive()) + ":" + path;
   }  // otherwise this is a relative path, or absolute Windows path.
@@ -512,8 +423,9 @@ bool AsWindowsPath(const string& path, string* result, string* error) {
 //
 // Returns true if conversion succeeded and sets the contents of `result` to it.
 //
-// The `path` may be absolute or relative, and may be a Windows or MSYS path.
-// In every case, the output is normalized (see NormalizeWindowsPath).
+// The input `path` may be an absolute or relative Windows path.
+//
+// The returned path is normalized (see NormalizeWindowsPath).
 //
 // If `path` had a "\\?\" prefix then the function assumes it's already Windows
 // style and converts it to wstring without any alterations.
@@ -521,11 +433,8 @@ bool AsWindowsPath(const string& path, string* result, string* error) {
 // won't have a "\\?\" prefix even if it's longer than MAX_PATH (adding the
 // prefix is the caller's responsibility).
 //
-// The function recognizes the drive letter in MSYS paths, so e.g. "/c/windows"
-// becomes "c:\windows". Prepends the MSYS root (computed from the BAZEL_SH
-// envvar) to absolute MSYS paths, so e.g. "/usr" becomes "c:\tools\msys64\usr".
-// Recognizes current-drive-relative Windows paths ("\foo") turning them into
-// absolute paths ("c:\foo").
+// The method recognizes current-drive-relative Windows paths ("\foo") turning
+// them into absolute paths ("c:\foo").
 bool AsWindowsPath(const string& path, wstring* result, string* error) {
   string normalized_win_path;
   if (!AsWindowsPath(path, &normalized_win_path, error)) {

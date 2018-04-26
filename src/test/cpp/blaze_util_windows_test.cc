@@ -157,9 +157,6 @@ TEST(BlazeUtilWindowsTest, TestUnsetEnv) {
 
 TEST(BlazeUtilWindowsTest, ConvertPathTest) {
   EXPECT_EQ("c:\\foo", ConvertPath("C:\\FOO"));
-  EXPECT_EQ("c:\\blah", ConvertPath("/c/Blah"));
-  EXPECT_EQ("c:\\", ConvertPath("/c"));
-  EXPECT_EQ("c:\\", ConvertPath("/c/"));
   EXPECT_EQ("c:\\", ConvertPath("c:/"));
   EXPECT_EQ("c:\\foo\\bar", ConvertPath("c:/../foo\\BAR\\.\\"));
   EXPECT_EQ("nul", MakeAbsolute("NUL"));
