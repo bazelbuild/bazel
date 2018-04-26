@@ -1208,44 +1208,6 @@ public class CompilationSupport {
   }
 
   /**
-   * Registers any actions necessary to link this rule and its dependencies. Automatically infers
-   * the toolchain from the configuration of this CompilationSupport - if a different toolchain is
-   * required, use the custom toolchain override.
-   *
-   * <p>Dsym bundle is generated if {@link ObjcConfiguration#generateDsym()} is set.
-   *
-   * <p>When Bazel flags {@code --compilation_mode=opt} and {@code --objc_enable_binary_stripping}
-   * are specified, additional optimizations will be performed on the linked binary: all-symbol
-   * stripping (using {@code /usr/bin/strip}) and dead-code stripping (using linker flags: {@code
-   * -dead_strip} and {@code -no_dead_strip_inits_and_terms}).
-   *
-   * @param objcProvider common information about this rule's attributes and its dependencies
-   * @param j2ObjcMappingFileProvider contains mapping files for j2objc transpilation
-   * @param j2ObjcEntryClassProvider contains j2objc entry class information for dead code removal
-   * @param extraLinkArgs any additional arguments to pass to the linker
-   * @param extraLinkInputs any additional input artifacts to pass to the link action
-   * @param dsymOutputType the file type of the dSYM bundle to be generated
-   * @return this compilation support
-   */
-  CompilationSupport registerLinkActions(
-      ObjcProvider objcProvider,
-      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
-      J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
-      ExtraLinkArgs extraLinkArgs,
-      Iterable<Artifact> extraLinkInputs,
-      DsymOutputType dsymOutputType)
-      throws InterruptedException {
-    return registerLinkActions(
-        objcProvider,
-        j2ObjcMappingFileProvider,
-        j2ObjcEntryClassProvider,
-        extraLinkArgs,
-        extraLinkInputs,
-        dsymOutputType,
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
-  }
-
-  /**
    * Returns the copts for the compile action in the current rule context (using a combination of
    * the rule's "copts" attribute as well as the current configuration copts).
    */
