@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingPatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.packages.Rule;
@@ -41,11 +40,9 @@ public class ComposingRuleTransitionFactory implements RuleTransitionFactory {
   }
 
   @Override
-  public ConfigurationTransition buildTransitionFor(Rule rule) {
-    PatchTransition transition1 =
-        (PatchTransition) Preconditions.checkNotNull(rtf1.buildTransitionFor(rule));
-    PatchTransition transition2 =
-        (PatchTransition) Preconditions.checkNotNull(rtf2.buildTransitionFor(rule));
+  public PatchTransition buildTransitionFor(Rule rule) {
+    PatchTransition transition1 = Preconditions.checkNotNull(rtf1.buildTransitionFor(rule));
+    PatchTransition transition2 = Preconditions.checkNotNull(rtf2.buildTransitionFor(rule));
 
     if (transition1 == NoTransition.INSTANCE) {
       return transition2;

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 
 /**
  * Customizable transition which accepts the rule it will be executing on.
@@ -23,10 +23,8 @@ public interface RuleTransitionFactory {
   /**
    * Generates a transition to be used when entering the given rule.
    *
-   * <p>This transition must be a PatchTransition, but that class is not accessible in this package.
-   *
    * <p>If this class determines that no transition should be performed, it should return
    * {@code NoTransition.INSTANCE}.
    */
-  ConfigurationTransition buildTransitionFor(Rule rule);
+  PatchTransition buildTransitionFor(Rule rule);
 }

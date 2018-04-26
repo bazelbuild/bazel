@@ -150,7 +150,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   @AutoCodec
   static class SetsTestFilterFromAttributeTransitionFactory implements RuleTransitionFactory {
     @Override
-    public ConfigurationTransition buildTransitionFor(Rule rule) {
+    public PatchTransition buildTransitionFor(Rule rule) {
       NonconfigurableAttributeMapper attributes = NonconfigurableAttributeMapper.of(rule);
       String value = attributes.get("sets_test_filter_to", STRING);
       if (Strings.isNullOrEmpty(value)) {
