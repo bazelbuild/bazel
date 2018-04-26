@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.escape.Escaper;
@@ -250,6 +251,10 @@ public final class HelpCommand implements BlazeCommand {
     Predicate<OptionDefinition> allOptions = option -> true;
     BiConsumer<String, OptionDefinition> visitor =
         (commandName, option) -> {
+          if (ImmutableSet.copyOf(option.getOptionMetadataTags())
+              .contains(OptionMetadataTag.INTERNAL)) {
+            return;
+          }
           BazelFlagsProto.FlagInfo.Builder info =
               flags.computeIfAbsent(option.getOptionName(), key -> createFlagInfo(option));
           info.addCommands(commandName);
