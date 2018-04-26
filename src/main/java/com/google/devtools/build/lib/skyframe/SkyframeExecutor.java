@@ -2238,7 +2238,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       EvaluationResult<TargetPatternPhaseValue> evalResult;
       eventHandler.post(new LoadingPhaseStartedEvent(packageProgress));
       evalResult =
-          buildDriver.evaluate(ImmutableList.of(key), keepGoing, /*numThreads=*/ 10, eventHandler);
+          buildDriver.evaluate(
+              ImmutableList.of(key), keepGoing, /*numThreads=*/ DEFAULT_THREAD_COUNT, eventHandler);
       if (evalResult.hasError()) {
         ErrorInfo errorInfo = evalResult.getError(key);
         TargetParsingException exc;
