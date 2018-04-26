@@ -222,13 +222,13 @@ public final class TransitionResolver {
     }
     if (transitionFactory != null) {
       PatchTransition ruleClassTransition =
-          (PatchTransition) transitionFactory.buildTransitionFor(toTarget.getAssociatedRule());
-      if (ruleClassTransition != null) {
-        if (currentTransition == NoTransition.INSTANCE) {
-          return ruleClassTransition;
-        } else {
-          return new ComposingSplitTransition(currentTransition, ruleClassTransition);
-        }
+          (PatchTransition)
+              Preconditions.checkNotNull(
+                  transitionFactory.buildTransitionFor(toTarget.getAssociatedRule()));
+      if (currentTransition == NoTransition.INSTANCE) {
+        return ruleClassTransition;
+      } else if (ruleClassTransition != NoTransition.INSTANCE) {
+        return new ComposingSplitTransition(currentTransition, ruleClassTransition);
       }
     }
     return currentTransition;

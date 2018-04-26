@@ -1172,8 +1172,7 @@ public class BuildView {
     if (factory == null) {
       return NoTransition.INSTANCE;
     }
-    ConfigurationTransition transition = factory.buildTransitionFor(rule);
-    return (transition == null) ? NoTransition.INSTANCE : transition;
+    return Preconditions.checkNotNull(factory.buildTransitionFor(rule));
   }
 
   /**
