@@ -88,6 +88,7 @@ fi
 if [[ "$COVERAGE_LEGACY_MODE" ]]; then
   export GCOV_PREFIX_STRIP=3
   export GCOV_PREFIX="${COVERAGE_DIR}"
+  export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
 fi
 
 cd "$TEST_SRCDIR/$TEST_WORKSPACE"
@@ -107,11 +108,17 @@ fi
 
 cd $ROOT
 
-# If LCOV_MERGER is not set, use the legacy, awful, C++-only method to convert
-# coverage files.
-# NB: This is here just so that we don't regress. Do not add support for new
-# coverage features here. Implement it instead properly in LcovMerger.
-if [[ "$COVERAGE_LEGACY_MODE" ]]; then
+USES_LLVM_COV=
+if stat --printf='' "${COVERAGE_DIR}"/*.profraw 2>/dev/null; then
+  USES_LLVM_COV=1
+fi
+
+if [[ "$USES_LLVM_COV" ]]; then
+  "${COVERAGE_GCOV_PATH}" merge -output "${COVERAGE_OUTPUT_FILE}" "${COVERAGE_DIR}"/*.profraw
+  exit $TEST_STATUS
+
+# If LCOV_MERGER is not set, use the legacy C++-only method to convert coverage files.
+elif [[ "$COVERAGE_LEGACY_MODE" ]]; then
   cat "${COVERAGE_MANIFEST}" | grep ".gcno$" | while read path; do
     mkdir -p "${COVERAGE_DIR}/$(dirname ${path})"
     cp "${ROOT}/${path}" "${COVERAGE_DIR}/${path}"
