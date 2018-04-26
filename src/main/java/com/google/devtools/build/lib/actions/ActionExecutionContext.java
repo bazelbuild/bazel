@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -172,7 +172,7 @@ public class ActionExecutionContext implements Closeable {
     return executor.getEventBus();
   }
 
-  public EventHandler getEventHandler() {
+  public ExtendedEventHandler getEventHandler() {
     return executor.getEventHandler();
   }
 
