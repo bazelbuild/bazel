@@ -53,14 +53,23 @@ function find_runfiles_lib() {
     unset runfiles_export_envvars
   fi
 
-  if [[ "${RUNFILES_MANIFEST_ONLY:-}" == "1" ]]; then
-    grep -m1 "^io_bazel/tools/bash/runfiles/runfiles.bash" \
-             "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-
-  elif [[ -n "${RUNFILES_DIR:-}" && -d "$RUNFILES_DIR" ]]; then
+  if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    if [[ -f "$0.runfiles_manifest" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+    elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+    elif [[ -f "$0.runfiles/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
+      export RUNFILES_DIR="$0.runfiles"
+    fi
+  fi
+  if [[ -f "${RUNFILES_DIR:-/dev/null}/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
     echo "${RUNFILES_DIR}/io_bazel/tools/bash/runfiles/runfiles.bash"
+  elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    grep -m1 "^io_bazel/tools/bash/runfiles/runfiles.bash " \
+        "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-
   else
     echo >&2 "ERROR: cannot find //tools/bash/runfiles:runfiles.bash"
-    return 1
+    exit 1
   fi
 }
 
@@ -126,20 +135,24 @@ function test_rlocation_abs_path() {
 
 function test_init_manifest_based_runfiles() {
   local tmpdir="$(mktemp -d $TEST_TMPDIR/tmp.XXXXXXXX)"
-  cat > $tmpdir/foo.runfiles_manifest << 'EOF'
-a/b c/d
-e/f g h
+  cat > $tmpdir/foo.runfiles_manifest << EOF
+a/b $tmpdir/c/d
+e/f $tmpdir/g h
 EOF
+  mkdir "${tmpdir}/c"
+  touch "${tmpdir}/c/d" "${tmpdir}/g h"
 
   export RUNFILES_DIR=
   export RUNFILES_MANIFEST_FILE=$tmpdir/foo.runfiles_manifest
-  export RUNFILES_MANIFEST_ONLY=1
   source "$runfiles_lib_path"
 
   [[ -z "$(rlocation a)" ]] || fail
-  [[ "$(rlocation a/b)" == "c/d" ]] || fail
-  [[ "$(rlocation e/f)" == "g h" ]] || fail
   [[ -z "$(rlocation c/d)" ]] || fail
+  [[ "$(rlocation a/b)" == "$tmpdir/c/d" ]] || fail
+  [[ "$(rlocation e/f)" == "$tmpdir/g h" ]] || fail
+  rm "$tmpdir/c/d" "$tmpdir/g h"
+  [[ -z "$(rlocation a/b)" ]] || fail
+  [[ -z "$(rlocation e/f)" ]] || fail
 }
 
 function test_manifest_based_envvars() {
@@ -148,14 +161,12 @@ function test_manifest_based_envvars() {
 
   export RUNFILES_DIR=
   export RUNFILES_MANIFEST_FILE=$tmpdir/foo.runfiles_manifest
-  export RUNFILES_MANIFEST_ONLY=1
   mkdir -p $tmpdir/foo.runfiles
   source "$runfiles_lib_path"
 
   runfiles_export_envvars
   [[ "${RUNFILES_DIR:-}" == "$tmpdir/foo.runfiles" ]] || fail
   [[ "${RUNFILES_MANIFEST_FILE:-}" == "$tmpdir/foo.runfiles_manifest" ]] || fail
-  [[ "${RUNFILES_MANIFEST_ONLY:-}" == 1 ]] || fail
 }
 
 function test_init_directory_based_runfiles() {
@@ -163,28 +174,31 @@ function test_init_directory_based_runfiles() {
 
   export RUNFILES_DIR=${tmpdir}/mock/runfiles
   export RUNFILES_MANIFEST_FILE=
-  export RUNFILES_MANIFEST_ONLY=
   source "$runfiles_lib_path"
 
-  mkdir -p "$RUNFILES_DIR"
-  [[ "$(rlocation a)" == */mock/runfiles/a ]] || fail
-  [[ "$(rlocation a/b)" == *mock/runfiles/a/b ]] || fail
+  mkdir -p "$RUNFILES_DIR/a"
+  touch "$RUNFILES_DIR/a/b" "$RUNFILES_DIR/c d"
+  [[ -z "$(rlocation a)" ]] || fail
+  [[ -z "$(rlocation c/d)" ]] || fail
+  [[ "$(rlocation a/b)" == "$RUNFILES_DIR/a/b" ]] || fail
+  [[ "$(rlocation "c d")" == "$RUNFILES_DIR/c d" ]] || fail
+  [[ -z "$(rlocation "c")" ]] || fail
+  rm "$RUNFILES_DIR/a/b" "$RUNFILES_DIR/c d"
+  [[ -z "$(rlocation a/b)" ]] || fail
+  [[ -z "$(rlocation "c d")" ]] || fail
 }
 
 function test_directory_based_envvars() {
   export RUNFILES_DIR=mock/runfiles
   export RUNFILES_MANIFEST_FILE=
-  export RUNFILES_MANIFEST_ONLY=
   source "$runfiles_lib_path"
 
   runfiles_export_envvars
   [[ "${RUNFILES_DIR:-}" == "mock/runfiles" ]] || fail
   [[ -z "${RUNFILES_MANIFEST_FILE:-}" ]] || fail
-  [[ -z "${RUNFILES_MANIFEST_ONLY:-}" ]] || fail
 }
 
 function main() {
-  local -r manifest_only="${RUNFILES_MANIFEST_ONLY:-}"
   local -r manifest_file="${RUNFILES_MANIFEST_FILE:-}"
   local -r dir="${RUNFILES_DIR:-}"
   local -r runfiles_lib_path=$(find_runfiles_lib)
@@ -192,7 +206,6 @@ function main() {
   local -r tests=$(declare -F | grep " -f test" | awk '{print $3}')
   local failure=0
   for t in $tests; do
-    export RUNFILES_MANIFEST_ONLY="$manifest_only"
     export RUNFILES_MANIFEST_FILE="$manifest_file"
     export RUNFILES_DIR="$dir"
     if ! ($t); then

@@ -15,12 +15,9 @@
 # This Bash script defines functions to handle sh_binary/sh_test runfiles.
 #
 # REQUIREMENTS:
-# - The RUNFILES_MANIFEST_FILE and/or the RUNFILES_DIR environment variable must
-#   be set to the absolute path of the runfiles manifest or the
-#   <rulename>.runfiles directory, respectively.
-# - If RUNFILES_MANIFEST_ONLY=1 is set, then RUNFILES_MANIFEST_FILE must be set
-#   to the absolute path of the runfiles manifest. RUNFILES_DIR may be unset in
-#   this case.
+# - At least one of RUNFILES_MANIFEST_FILE and RUNFILES_DIR environment
+#   variables must be set, to the absolute path of the runfiles manifest or the
+#   <rulename>.runfiles directory respectively.
 # - If RUNFILES_LIB_DEBUG=1 is set, the script will print errors to stderr.
 #
 # USAGE:
@@ -39,22 +36,20 @@
 #
 #      set -euo pipefail
 #      # --- begin runfiles.bash initialization ---
-#      if [[ "${RUNFILES_MANIFEST_ONLY:-}" != 1 && -z "${RUNFILES_DIR:-}" ]]; then
-#        if [[ -f "$0.runfiles_manifest" ]]; then
-#          export RUNFILES_MANIFEST_ONLY=1
-#          export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
-#        elif [[ -f "$0.runfiles/MANIFEST" ]]; then
-#          export RUNFILES_MANIFEST_ONLY=1
-#          export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-#        elif [[ -d "$0.runfiles" ]]; then
-#          export RUNFILES_DIR="$0.runfiles"
-#        fi
+#      if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+#          if [[ -f "$0.runfiles_manifest" ]]; then
+#            export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+#          elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+#            export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+#          elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+#            export RUNFILES_DIR="$0.runfiles"
+#          fi
 #      fi
-#      if [[ "${RUNFILES_MANIFEST_ONLY:-}" == 1 && -f "${RUNFILES_MANIFEST_FILE:-}" ]]; then
+#      if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+#        source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+#      elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
 #        source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
 #                  "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
-#      elif [[ -n "${RUNFILES_DIR:-}" && -d "${RUNFILES_DIR}" ]]; then
-#        source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
 #      else
 #        echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
 #        exit 1
@@ -89,28 +84,15 @@ function rlocation() {
     fi
     return 1
   else
-    if [[ "${RUNFILES_MANIFEST_ONLY:-}" == 1 ]]; then
-      if [[ -n "${RUNFILES_MANIFEST_FILE:-}" \
-            && -f "${RUNFILES_MANIFEST_FILE}" ]]; then
-        grep -m1 "^$1 " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2- \
-          || return 1
-      else
-        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-          echo >&2 "ERROR[runfiles.bash]: trying to use manifest-based" \
-                   "runfiles but RUNFILES_MANIFEST_FILE is unset or" \
-                   "non-existent" \
-                   "(RUNFILES_MANIFEST_ONLY=\"${RUNFILES_MANIFEST_ONLY:-}\"," \
-                   "RUNFILES_DIR=\"${RUNFILES_DIR:-}\")"
-        fi
-        return 1
-      fi
-    elif [[ -n "${RUNFILES_DIR:-}" && -d "${RUNFILES_DIR}" ]]; then
+    if [[ -f "${RUNFILES_DIR:-/dev/null}/$1" ]]; then
       echo "${RUNFILES_DIR}/$1"
+    elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+      local -r result=$(grep -m1 "^$1 " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
+      [[ -f "${result:-/dev/null}" ]] && echo "$result" || echo ""
     else
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-        echo >&2 "ERROR[runfiles.bash]: trying to use directory-based" \
-                 "runfiles but RUNFILES_DIR is unset or non-existent" \
-                 "(RUNFILES_MANIFEST_ONLY=\"${RUNFILES_MANIFEST_ONLY:-}\"," \
+        echo >&2 "ERROR[runfiles.bash]: cannot look up runfile \"$1\" " \
+                 "(RUNFILES_DIR=\"${RUNFILES_DIR:-}\"," \
                  "RUNFILES_MANIFEST_FILE=\"${RUNFILES_MANIFEST_FILE:-}\")"
       fi
       return 1
@@ -119,31 +101,37 @@ function rlocation() {
 }
 export -f rlocation
 
-# Exports the environment variables that subprocesses may need to use runfiles.
+# Exports the environment variables that subprocesses need in order to use
+# runfiles.
 # If a subprocess is a Bazel-built binary rule that also uses the runfiles
-# libraries under @bazel_tools//tools/bash/runfiles, then that binary needs
+# libraries under @bazel_tools//tools/<lang>/runfiles, then that binary needs
 # these envvars in order to initialize its own runfiles library.
 function runfiles_export_envvars() {
-  if [[ "${RUNFILES_MANIFEST_ONLY:-}" == 1 ]]; then
-    if [[ -z "${RUNFILES_MANIFEST_FILE:-}" \
-          && ! -f "$RUNFILES_MANIFEST_FILE" ]]; then
-      return 1
+  if [[ ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" \
+        && ! -d "${RUNFILES_DIR:-/dev/null}" ]]; then
+    return 1
+  fi
+
+  if [[ ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    if [[ -f "$RUNFILES_DIR/MANIFEST" ]]; then
+      export RUNFILES_MANIFEST_FILE="$RUNFILES_DIR/MANIFEST"
+    elif [[ -f "${RUNFILES_DIR}_manifest" ]]; then
+      export RUNFILES_MANIFEST_FILE="${RUNFILES_DIR}_manifest"
+    else
+      export RUNFILES_MANIFEST_FILE=
     fi
-    if [[ -z "${RUNFILES_DIR:-}" ]]; then
-      if [[ "$RUNFILES_MANIFEST_FILE" == */MANIFEST \
-            && -d "${RUNFILES_MANIFEST_FILE%/MANIFEST}" ]]; then
-        export RUNFILES_DIR="${RUNFILES_MANIFEST_FILE%/MANIFEST}"
-      elif [[ "$RUNFILES_MANIFEST_FILE" == *runfiles_manifest \
-            && -d "${RUNFILES_MANIFEST_FILE%_manifest}" ]]; then
-        export RUNFILES_DIR="${RUNFILES_MANIFEST_FILE%_manifest}"
-      fi
+  elif [[ ! -d "${RUNFILES_DIR:-/dev/null}" ]]; then
+    if [[ "$RUNFILES_MANIFEST_FILE" == */MANIFEST \
+          && -d "${RUNFILES_MANIFEST_FILE%/MANIFEST}" ]]; then
+      export RUNFILES_DIR="${RUNFILES_MANIFEST_FILE%/MANIFEST}"
+      export JAVA_RUNFILES="$RUNFILES_DIR"
+    elif [[ "$RUNFILES_MANIFEST_FILE" == *_manifest \
+          && -d "${RUNFILES_MANIFEST_FILE%_manifest}" ]]; then
+      export RUNFILES_DIR="${RUNFILES_MANIFEST_FILE%_manifest}"
+      export JAVA_RUNFILES="$RUNFILES_DIR"
+    else
+      export RUNFILES_DIR=
     fi
   fi
-  # No need to define anything if RUNFILES_MANIFEST_ONLY is not 1: it makes no
-  # difference whether RUNFILES_DIR is defined or not.
-
-  export RUNFILES_MANIFEST_FILE="${RUNFILES_MANIFEST_FILE:-}"
-  export RUNFILES_DIR="${RUNFILES_DIR:-}"
-  export JAVA_RUNFILES="${RUNFILES_DIR:-}"
 }
 export -f runfiles_export_envvars
