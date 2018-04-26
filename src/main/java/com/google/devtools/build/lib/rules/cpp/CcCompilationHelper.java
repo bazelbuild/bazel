@@ -327,8 +327,10 @@ public final class CcCompilationHelper {
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
-  public CcCompilationHelper fromCommon(CcCommon common) {
-    setCopts(common.getCopts());
+  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts) {
+    Preconditions.checkNotNull(additionalCopts);
+
+    setCopts(Iterables.concat(common.getCopts(), additionalCopts));
     addDefines(common.getDefines());
     addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET));
     addLooseIncludeDirs(common.getLooseIncludeDirs());
@@ -530,8 +532,8 @@ public final class CcCompilationHelper {
     return this;
   }
 
-  public CcCompilationHelper setCopts(ImmutableList<String> copts) {
-    this.copts = Preconditions.checkNotNull(copts);
+  public CcCompilationHelper setCopts(Iterable<String> copts) {
+    this.copts = ImmutableList.copyOf(copts);
     return this;
   }
 
