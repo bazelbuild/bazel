@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
@@ -1226,9 +1225,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file("lib/b.m");
     scratch.file("lib/BUILD", "objc_library(name = 'lib1', srcs = ['a.m', 'b.m'])");
     ConfiguredTarget target = getConfiguredTarget("//lib:lib1");
-    Artifact objlist = getBinArtifact("lib1-archive.objlist", target);
-    ParameterFileWriteAction action = (ParameterFileWriteAction) getGeneratingAction(objlist);
-    assertThat(action.getContents())
+    Artifact lib = getBinArtifact("liblib1.a", target);
+    Action action = getGeneratingAction(lib);
+    assertThat(paramFileArgsForAction(action))
         .containsExactlyElementsIn(
             Artifact.toExecPaths(inputsEndingWith(archiveAction("//lib:lib1"), ".o")));
   }

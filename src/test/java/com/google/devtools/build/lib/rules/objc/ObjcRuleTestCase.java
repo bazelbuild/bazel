@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -313,22 +312,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * Verifies a {@code -filelist} file's contents.
    *
    * @param originalAction the action which uses the filelist artifact
-   * @param objlistName the path suffix of the filelist artifact
    * @param inputArchives path suffixes of the expected contents of the filelist
    */
-  protected void verifyObjlist(Action originalAction, String objlistName, String... inputArchives)
-      throws Exception {
-    Artifact filelistArtifact =
-        getFirstArtifactEndingWith(originalAction.getInputs(), objlistName);
-
-    ParameterFileWriteAction fileWriteAction =
-        (ParameterFileWriteAction) getGeneratingAction(filelistArtifact);
+  protected void verifyObjlist(Action originalAction, String... inputArchives) throws Exception {
     ImmutableList.Builder<String> execPaths = ImmutableList.builder();
     for (String inputArchive : inputArchives) {
       execPaths.add(execPathEndingWith(originalAction.getInputs(), inputArchive));
     }
-
-    assertThat(fileWriteAction.getContents()).containsExactlyElementsIn(execPaths.build());
+    assertThat(paramFileArgsForAction(originalAction)).containsExactlyElementsIn(execPaths.build());
   }
 
   /**
@@ -1612,10 +1603,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     CommandAction x8664BinAction = (CommandAction) getGeneratingAction(
         getFirstArtifactEndingWith(appLipoAction.getInputs(), x8664Prefix + "x/x_bin"));
 
-    verifyObjlist(
-        i386BinAction, "x/x-linker.objlist", "package/libcclib.a");
-    verifyObjlist(
-        x8664BinAction, "x/x-linker.objlist", "package/libcclib.a");
+    verifyObjlist(i386BinAction, "package/libcclib.a");
+    verifyObjlist(x8664BinAction, "package/libcclib.a");
 
     assertThat(Artifact.toExecPaths(i386BinAction.getInputs()))
         .containsAllOf(

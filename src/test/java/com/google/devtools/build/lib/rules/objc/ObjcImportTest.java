@@ -72,7 +72,7 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     addTrivialImportLibrary();
     createBinaryTargetWriter("//bin:bin").setList("deps", "//imp:imp").write();
     CommandAction linkBinAction = linkAction("//bin:bin");
-    verifyObjlist(linkBinAction, "bin-linker.objlist", "imp/precomp_lib.a");
+    verifyObjlist(linkBinAction, "imp/precomp_lib.a");
     assertThat(Artifact.toExecPaths(linkBinAction.getInputs()))
         .contains("imp/precomp_lib.a");
   }

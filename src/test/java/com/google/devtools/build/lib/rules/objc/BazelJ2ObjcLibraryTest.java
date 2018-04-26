@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.ByteArrayOutputStream;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -439,11 +438,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     SpawnAction j2objcAction = (SpawnAction) getGeneratingAction(headers);
     assertThat(j2objcAction.getOutputs()).containsAllOf(headers, sources);
 
-    Artifact paramFile = getFirstArtifactEndingWith(j2objcAction.getInputs(), ".param.j2objc");
-    ParameterFileWriteAction paramFileAction =
-        (ParameterFileWriteAction) getGeneratingAction(paramFile);
     assertContainsSublist(
-        ImmutableList.copyOf(paramFileAction.getContents()),
+        ImmutableList.copyOf(paramFileArgsForAction(j2objcAction)),
         ImmutableList.of(
             "--output_gen_source_dir",
             sources.getExecPathString(),
@@ -677,15 +673,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")");
 
     CommandAction linkAction = linkAction("//x:test");
-    List<String> linkArgs = normalizeBashArgs(linkAction.getArguments());
     ConfiguredTarget target = getConfiguredTargetInAppleBinaryTransition("//x:test");
     String binDir =
         getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPathString();
-    Artifact fileList = getFirstArtifactEndingWith(linkAction.getInputs(), "test-linker.objlist");
-    ParameterFileWriteAction filelistWriteAction =
-        (ParameterFileWriteAction) getGeneratingAction(fileList);
-    assertThat(linkArgs).contains(fileList.getExecPathString());
-    assertThat(filelistWriteAction.getContents())
+    assertThat(paramFileArgsForAction(linkAction))
         .containsAllOf(
             binDir + "/java/c/y/libylib_j2objc.a",
             // All jre libraries mus appear after java libraries in the link order.
@@ -706,18 +697,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     Artifact archive = j2objcArchive("//java/com/google/app/test:transpile", "test");
     CommandAction archiveAction = (CommandAction) getGeneratingAction(archive);
-    Artifact archiveObjList =
-        getFirstArtifactEndingWith(archiveAction.getInputs(), "-archive.objlist");
     Artifact objectFilesFromGenJar =
         getFirstArtifactEndingWith(archiveAction.getInputs(), "source_files");
     Artifact normalObjectFile = getFirstArtifactEndingWith(archiveAction.getInputs(), "test.o");
 
-    ParameterFileWriteAction paramFileAction =
-        (ParameterFileWriteAction) getGeneratingAction(archiveObjList);
-
     // Test that the archive obj list param file contains the individual object files inside
     // the object file tree artifact.
-    assertThat(paramFileAction.getContents(DUMMY_ARTIFACT_EXPANDER))
+    assertThat(paramFileCommandLineForAction(archiveAction).arguments(DUMMY_ARTIFACT_EXPANDER))
         .containsExactly(
             objectFilesFromGenJar.getExecPathString() + "/children1",
             objectFilesFromGenJar.getExecPathString() + "/children2",
@@ -1008,9 +994,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     Artifact prunedArchive =
         getBinArtifact(
             "_j2objc_pruned/app/java/com/google/app/test/libtest_j2objc_pruned.a", appTarget);
-    Artifact paramFile =
-        getBinArtifact("_j2objc_pruned/app/java/com/google/app/test/test.param.j2objc", appTarget);
-
+    Action action = getGeneratingAction(prunedArchive);
     ConfiguredTarget javaTarget =
         getConfiguredTargetInAppleBinaryTransition("//java/com/google/app/test:test");
     Artifact inputArchive = getBinArtifact("libtest_j2objc.a", javaTarget);
@@ -1021,10 +1005,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     String execPath =
         getConfiguration(javaTarget).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
 
-    ParameterFileWriteAction paramFileAction =
-        (ParameterFileWriteAction) getGeneratingAction(paramFile);
     assertContainsSublist(
-        ImmutableList.copyOf(paramFileAction.getContents()),
+        ImmutableList.copyOf(paramFileArgsForAction(action)),
         new ImmutableList.Builder<String>()
             .add("--input_archive")
             .add(inputArchive.getExecPathString())
@@ -1052,7 +1034,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             .add(
                 TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
                     + "tools/objc/j2objc_dead_code_pruner.py")
-            .add("@" + paramFile.getExecPathString())
             .build());
     assertThat(deadCodeRemovalAction.getOutputs()).containsExactly(prunedArchive);
   }
