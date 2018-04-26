@@ -551,3 +551,12 @@ test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
 )
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":bazel_bootstrap_distfile_test",
+        ":bazel_windows_example_test",
+    ],
+    visibility = ["//src/test/shell:__pkg__"],
+)
