@@ -1209,6 +1209,12 @@ public class CcToolchainFeatures implements Serializable {
    * <p>TODO(b/32655571): Investigate cleanup once implicit iteration is not needed. Variables
    * instance could serve as a top level View used to expand all flag_groups.
    */
+  @SkylarkModule(
+    name = "variables",
+    documented = false,
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "Class encapsulating build variables."
+  )
   public abstract static class Variables {
     /** An empty variables instance. */
     public static final Variables EMPTY = new Variables.Builder().build();
@@ -2016,7 +2022,7 @@ public class CcToolchainFeatures implements Serializable {
         return this;
       }
 
-      /** @return a new {@Variables} object. */
+      /** @return a new {@link Variables} object. */
       public Variables build() {
         if (stringVariablesMap.isEmpty() && variablesMap.size() == 1) {
           return new SingleVariables(
@@ -2223,7 +2229,8 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /** @return the environment variables (key/value pairs) for the given {@code action}. */
-    ImmutableMap<String, String> getEnvironmentVariables(String action, Variables variables) {
+    public ImmutableMap<String, String> getEnvironmentVariables(
+        String action, Variables variables) {
       ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
       for (Feature feature : enabledFeatures) {
         feature.expandEnvironment(action, variables, enabledFeatureNames, envBuilder);
