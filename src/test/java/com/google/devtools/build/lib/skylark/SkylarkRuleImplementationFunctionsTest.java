@@ -2178,24 +2178,26 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testLazyArgsWithParamFile() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    evalRuleContextCode(
-        ruleContext,
-        "foo_args = ruleContext.actions.args()",
-        "foo_args.add('--foo')",
-        "foo_args.use_param_file('--file=%s', use_always=True)",
-        "output=ruleContext.actions.declare_file('out')",
-        "ruleContext.actions.run(",
-        "  inputs = depset(ruleContext.files.srcs),",
-        "  outputs = [output],",
-        "  arguments = [foo_args],",
-        "  executable = ruleContext.files.tools[0],",
-        ")");
-    List<ActionAnalysisMetadata> actions =
-        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions();
-    assertThat(actions.stream().anyMatch(a -> a instanceof ParameterFileWriteAction)).isTrue();
-    SpawnAction action =
-        (SpawnAction) actions.stream().filter(a -> a instanceof SpawnAction).findAny().get();
+    scratch.file(
+        "test/main_rule.bzl",
+        "def _impl(ctx):",
+        "  args = ctx.actions.args()",
+        "  args.add('--foo')",
+        "  args.use_param_file('--file=%s', use_always=True)",
+        "  output=ctx.actions.declare_file('out')",
+        "  ctx.actions.run_shell(",
+        "    inputs = [output],",
+        "    outputs = [output],",
+        "    arguments = [args],",
+        "    command = 'touch out',",
+        "  )",
+        "main_rule = rule(implementation = _impl)");
+    scratch.file(
+        "test/BUILD", "load('//test:main_rule.bzl', 'main_rule')", "main_rule(name='main')");
+    ConfiguredTarget ct = getConfiguredTarget("//test:main");
+    Artifact output = getBinArtifact("out", ct);
+    SpawnAction action = (SpawnAction) getGeneratingAction(output);
+    assertThat(paramFileArgsForAction(action)).containsExactly("--foo");
     // Assert that there is a file argument. Don't bother matching the exact string
     assertThat(action.getArguments().stream().anyMatch(arg -> arg.matches("--file=.*"))).isTrue();
   }
@@ -2218,7 +2220,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         actions.stream().filter(a -> a instanceof ParameterFileWriteAction).findFirst();
     assertThat(action.isPresent()).isTrue();
     ParameterFileWriteAction paramAction = (ParameterFileWriteAction) action.get();
-    assertThat(paramAction.getContents()).containsExactly("--foo");
+    assertThat(paramAction.getArguments()).containsExactly("--foo");
   }
 
   @Test
