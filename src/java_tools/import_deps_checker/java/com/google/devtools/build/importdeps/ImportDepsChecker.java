@@ -18,6 +18,9 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.ResultCollector.MissingMember;
+import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
+import com.google.devtools.build.lib.view.proto.Deps.Dependency;
+import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
 import java.io.Closeable;
 import java.io.IOError;
 import java.io.IOException;
@@ -42,10 +45,7 @@ public final class ImportDepsChecker implements Closeable {
       ImmutableList<Path> classpath,
       ImmutableList<Path> inputJars)
       throws IOException {
-    this.classCache =
-        new ClassCache(
-            bootclasspath,
-            ImmutableList.<Path>builder().addAll(classpath).addAll(inputJars).build());
+    this.classCache = new ClassCache(bootclasspath, classpath, inputJars);
     this.resultCollector = new ResultCollector();
     this.inputJars = inputJars;
   }
@@ -86,9 +86,20 @@ public final class ImportDepsChecker implements Closeable {
     return resultCollector.isEmpty();
   }
 
+  /** Emit the jdeps proto. The parameter ruleLabel is optional, indicated with the empty string. */
+  public Dependencies emitJdepsProto(String ruleLabel) {
+    Dependencies.Builder builder = Dependencies.newBuilder();
+    ImmutableList<Path> paths = classCache.collectUsedJarsInRegularClasspath();
+    paths.forEach(
+        path ->
+            builder.addDependency(
+                Dependency.newBuilder().setKind(Kind.EXPLICIT).setPath(path.toString()).build()));
+    return builder.setRuleLabel(ruleLabel).setSuccess(true).build();
+  }
+
   private static final String INDENT = "    ";
 
-  public String computeResultOutput() throws IOException {
+  public String computeResultOutput() {
     StringBuilder builder = new StringBuilder();
     ImmutableList<String> missingClasses = resultCollector.getSortedMissingClassInternalNames();
     for (String missing : missingClasses) {

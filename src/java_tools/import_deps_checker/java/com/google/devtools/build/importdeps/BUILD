@@ -25,6 +25,7 @@ java_library(
         exclude = ["Main.java"],
     ),
     deps = [
+        "//src/main/protobuf:deps_java_proto",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-tree",
@@ -46,6 +47,7 @@ java_binary(
     deps = [
         ":import_deps_checker",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:deps_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
     ],

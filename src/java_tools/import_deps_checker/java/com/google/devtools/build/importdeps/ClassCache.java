@@ -32,7 +32,9 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
@@ -48,9 +50,12 @@ public final class ClassCache implements Closeable {
   private final LazyClasspath lazyClasspath;
   private boolean isClosed;
 
-  public ClassCache(ImmutableList<Path> bootclasspath, ImmutableList<Path> regularClasspath)
+  public ClassCache(
+      ImmutableList<Path> bootclasspath,
+      ImmutableList<Path> regularClasspath,
+      ImmutableList<Path> inputJars)
       throws IOException {
-    lazyClasspath = new LazyClasspath(bootclasspath, regularClasspath);
+    lazyClasspath = new LazyClasspath(bootclasspath, regularClasspath, inputJars);
   }
 
   public AbstractClassEntryState getClassState(String internalName) {
@@ -62,6 +67,10 @@ public final class ClassCache implements Closeable {
     return entry.getState(lazyClasspath);
   }
 
+  public ImmutableList<Path> collectUsedJarsInRegularClasspath() {
+    return lazyClasspath.collectUsedJarsInRegularClasspath();
+  }
+
   @Override
   public void close() throws IOException {
     lazyClasspath.close();
@@ -71,15 +80,17 @@ public final class ClassCache implements Closeable {
   static class LazyClassEntry {
     private final String internalName;
     private final ZipFile zipFile;
+    private final Path jarPath;
 
     /**
      * The state of this class entry. If {@literal null}, then this class has not been resolved yet.
      */
     @Nullable private AbstractClassEntryState state = null;
 
-    private LazyClassEntry(String internalName, ZipFile zipFile) {
+    private LazyClassEntry(String internalName, ZipFile zipFile, Path jarPath) {
       this.internalName = internalName;
       this.zipFile = zipFile;
+      this.jarPath = jarPath;
     }
 
     ZipFile getZipFile() {
@@ -104,8 +115,12 @@ public final class ClassCache implements Closeable {
           .toString();
     }
 
+    boolean isResolved() {
+      return state != null;
+    }
+
     private void resolveIfNot(LazyClasspath lazyClasspath) {
-      if (state != null) {
+      if (isResolved()) {
         return;
       }
       resolveClassEntry(this, lazyClasspath);
@@ -190,30 +205,43 @@ public final class ClassCache implements Closeable {
   static final class LazyClasspath implements Closeable {
     private final ClassIndex bootclasspath;
     private final ClassIndex regularClasspath;
+    private final ClassIndex inputJars;
+    private final ImmutableList<ClassIndex> orderedClasspath;
+    private final Closer closer = Closer.create();
 
-    public LazyClasspath(ImmutableList<Path> bootclasspath, ImmutableList<Path> regularClasspath)
+    public LazyClasspath(
+        ImmutableList<Path> bootclasspath,
+        ImmutableList<Path> regularClasspath,
+        ImmutableList<Path> inputJars)
         throws IOException {
       this.bootclasspath = new ClassIndex("boot classpath", bootclasspath);
       this.regularClasspath = new ClassIndex("regular classpath", regularClasspath);
+      this.inputJars = new ClassIndex("input jars", inputJars);
+      this.orderedClasspath =
+          ImmutableList.of(this.bootclasspath, this.regularClasspath, this.inputJars);
+      this.orderedClasspath.forEach(closer::register);
     }
 
     public LazyClassEntry getLazyEntry(String internalName) {
-      LazyClassEntry entry = bootclasspath.getClassEntry(internalName);
-      if (entry != null) {
-        return entry;
-      }
-      return regularClasspath.getClassEntry(internalName);
+      return orderedClasspath
+          .stream()
+          .map(classIndex -> classIndex.getClassEntry(internalName))
+          .filter(Objects::nonNull)
+          .findFirst()
+          .orElse(null);
+    }
+
+    public ImmutableList<Path> collectUsedJarsInRegularClasspath() {
+      return regularClasspath.collectUsedJarFiles();
     }
 
     public void printClasspath(PrintStream stream) {
-      bootclasspath.printClasspath(stream);
-      regularClasspath.printClasspath(stream);
+      orderedClasspath.forEach(c -> c.printClasspath(stream));
     }
 
     @Override
     public void close() throws IOException {
-      bootclasspath.close();
-      regularClasspath.close();
+      closer.close();
     }
   }
 
@@ -242,6 +270,17 @@ public final class ClassCache implements Closeable {
       return classIndex.get(internalName);
     }
 
+    public ImmutableList<Path> collectUsedJarFiles() {
+      HashSet<Path> usedJars = new HashSet<>();
+      for (Map.Entry<String, LazyClassEntry> entry : classIndex.entrySet()) {
+        LazyClassEntry clazz = entry.getValue();
+        if (clazz.isResolved()) {
+          usedJars.add(clazz.jarPath);
+        }
+      }
+      return ImmutableList.sortedCopyOf(usedJars);
+    }
+
     private void printClasspath(PrintStream stream) {
       stream.println("Classpath: " + name);
       int counter = 0;
@@ -265,7 +304,8 @@ public final class ClassCache implements Closeable {
                       return; // Not a class file.
                     }
                     String internalName = name.substring(0, name.lastIndexOf('.'));
-                    result.computeIfAbsent(internalName, key -> new LazyClassEntry(key, zipFile));
+                    result.computeIfAbsent(
+                        internalName, key -> new LazyClassEntry(key, zipFile, jarPath));
                   });
         } catch (Throwable e) {
           throw new RuntimeException("Error in reading zip file " + jarPath, e);

@@ -19,6 +19,7 @@ import static com.google.common.io.MoreFiles.asCharSink;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -27,7 +28,9 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -95,6 +98,25 @@ public class Main {
     public Path output;
 
     @Option(
+        name = "jdeps_output",
+        defaultValue = "null",
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = PathConverter.class,
+        help = "Output path to save the result.")
+    public Path jdepsOutput;
+
+    @Option(
+        name = "rule_label",
+        defaultValue = "",
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "The rule label of the current target under analysis.")
+    public String ruleLabel;
+
+    @Option(
       name = "fail_on_errors",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -108,6 +130,11 @@ public class Main {
   private static final int DEPS_ERROR_EXIT_CODE = 199;
 
   public static void main(String[] args) throws IOException {
+    System.exit(checkDeps(args));
+  }
+
+  @VisibleForTesting
+  static int checkDeps(String[] args) throws IOException {
     Options options = parseCommandLineOptions(args);
 
     if (!Files.exists(options.output)) {
@@ -127,8 +154,15 @@ public class Main {
         printErrorMessage(result, options);
         asCharSink(options.output, StandardCharsets.UTF_8).write(result);
       }
+      if (options.jdepsOutput != null) {
+        Dependencies dependencies = checker.emitJdepsProto(options.ruleLabel);
+        try (OutputStream os =
+            new BufferedOutputStream(Files.newOutputStream(options.jdepsOutput))) {
+          dependencies.writeTo(os);
+        }
+      }
     }
-    System.exit(exitCode);
+    return exitCode;
   }
 
   private static void printErrorMessage(String detailedErrorMessage, Options options) {
@@ -156,6 +190,10 @@ public class Main {
     checkArgument(!options.inputJars.isEmpty(), "--input is required");
     checkArgument(options.output != null, "--output is required");
     checkArgument(!options.bootclasspath.isEmpty(), "--bootclasspath_entry is required");
+    checkArgument(
+        options.jdepsOutput == null || !Files.isDirectory(options.jdepsOutput),
+        "Invalid value of --jdeps_output: '%s'",
+        options.jdepsOutput);
     return options;
   }
 
