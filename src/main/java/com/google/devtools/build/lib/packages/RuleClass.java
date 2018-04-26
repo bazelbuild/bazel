@@ -1644,7 +1644,9 @@ public class RuleClass {
       EventHandler eventHandler)
       throws InterruptedException, CannotPrecomputeDefaultsException {
     BitSet definedAttrIndices =
-        populateDefinedRuleAttributeValues(rule, attributeValues, eventHandler);
+        populateDefinedRuleAttributeValues(rule,
+            localName -> pkgBuilder.getActualNameForRepo(localName),
+            attributeValues, eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
     populateConfigDependenciesAttribute(rule);
@@ -1662,7 +1664,8 @@ public class RuleClass {
    * on {@code eventHandler}.
    */
   private <T> BitSet populateDefinedRuleAttributeValues(
-      Rule rule, AttributeValues<T> attributeValues, EventHandler eventHandler) {
+      Rule rule, Label.RepoMapper repoMapper,
+      AttributeValues<T> attributeValues, EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
       String attributeName = attributeValues.getName(attributeAccessor);
@@ -1687,7 +1690,7 @@ public class RuleClass {
       Object nativeAttributeValue;
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
-          nativeAttributeValue = convertFromBuildLangType(rule, attr, attributeValue);
+          nativeAttributeValue = convertFromBuildLangType(rule, repoMapper, attr, attributeValue);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -1983,13 +1986,14 @@ public class RuleClass {
    * <p>Throws {@link ConversionException} if the conversion fails, or if {@code buildLangValue}
    * is a selector expression but {@code attr.isConfigurable()} is {@code false}.
    */
-  private static Object convertFromBuildLangType(Rule rule, Attribute attr, Object buildLangValue)
+  private static Object convertFromBuildLangType(Rule rule, Label.RepoMapper repoMapper,
+      Attribute attr, Object buildLangValue)
       throws ConversionException {
     Object converted = BuildType.selectableConvert(
         attr.getType(),
         buildLangValue,
         new AttributeConversionContext(attr.getName(), rule.getRuleClass()),
-        rule.getLabel());
+        new BuildType.LabelConversionContext(rule.getLabel(), repoMapper));
 
     if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
       throw new ConversionException(

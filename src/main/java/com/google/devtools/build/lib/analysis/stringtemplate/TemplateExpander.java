@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.stringtemplate;
 
+import com.google.devtools.build.lib.cmdline.Label;
+
 /**
  * Simple string template expansion. String templates consist of text interspersed with
  * <code>$(variable)</code> or <code>$(function value)</code> references, which are replaced by

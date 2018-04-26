@@ -42,7 +42,8 @@ sh_test(
     size = "large",
     srcs = ["loading_phase_tests.sh"],
     data = [":test-deps"],
-    shard_count = 4,
+#    shard_count = 4,
+    timeout = "eternal",
 )
 
 sh_test(

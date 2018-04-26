@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -1259,6 +1260,8 @@ public final class PackageFactory {
         new AstParseResult(buildFileAST, localReporterForParsing);
     return createPackageFromAst(
         workspaceName,
+        //TODO(dannark): should this be something other than an empty map???
+        ImmutableMap.of(),
         packageId,
         buildFile,
         astParseResult,
@@ -1283,6 +1286,7 @@ public final class PackageFactory {
 
   public Package.Builder createPackageFromAst(
       String workspaceName,
+      ImmutableMap<RepositoryName, RepositoryName> workspaceMappings,
       PackageIdentifier packageId,
       Path buildFile,
       AstParseResult astParseResult,
@@ -1297,6 +1301,7 @@ public final class PackageFactory {
       // evaluation errors, resulting in a diminished number of rules.
       return evaluateBuildFile(
           workspaceName,
+          workspaceMappings,
           packageId,
           astParseResult.ast,
           buildFile,
@@ -1599,6 +1604,7 @@ public final class PackageFactory {
   @VisibleForTesting // used by PackageFactoryApparatus
   public Package.Builder evaluateBuildFile(
       String workspaceName,
+      ImmutableMap<RepositoryName, RepositoryName> workspaceMappings,
       PackageIdentifier packageId,
       BuildFileAST buildFileAST,
       Path buildFilePath,
@@ -1610,8 +1616,9 @@ public final class PackageFactory {
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies)
       throws InterruptedException {
-    Package.Builder pkgBuilder = new Package.Builder(packageBuilderHelper.createFreshPackage(
-        packageId, ruleClassProvider.getRunfilesPrefix()));
+    Package.Builder pkgBuilder = new Package.Builder(
+        packageBuilderHelper.createFreshPackage(packageId, ruleClassProvider.getRunfilesPrefix()),
+        workspaceMappings);
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     try (Mutability mutability = Mutability.create("package %s", packageId)) {

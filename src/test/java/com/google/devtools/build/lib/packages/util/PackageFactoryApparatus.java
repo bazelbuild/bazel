@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -156,9 +157,18 @@ public class PackageFactoryApparatus {
         factory.newExternalPackageBuilder(
                 buildFile.getParentDirectory().getRelative("WORKSPACE"), "TESTING")
             .build();
+
+    ImmutableMap<RepositoryName, RepositoryName> mappings =
+        externalPkg.getWorkspaceMappings(packageId.getRepository());
+
     Builder resultBuilder =
         factory.evaluateBuildFile(
             externalPkg.getWorkspaceName(),
+            // in PackageFactory#createPackage (~line 1242, in the call to createPackageFromAst
+            // which in turn calls this same evaluateBuildFile method, it is passing an empty map
+            // as workspaceMappings, so maybe that's ok and what should happen here?
+             ImmutableMap.of() /* workspaceMappings */,
+//            mappings,
             packageId,
             buildFileAST,
             buildFile,

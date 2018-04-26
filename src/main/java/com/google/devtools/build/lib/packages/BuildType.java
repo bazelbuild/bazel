@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.RepoMapper;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
@@ -146,7 +147,7 @@ public final class BuildType {
    * <p>The caller is responsible for casting the returned value appropriately.
    */
   public static <T> Object selectableConvert(
-      Type type, Object x, Object what, @Nullable Label context)
+      Type type, Object x, Object what, @Nullable LabelConversionContext context)
       throws ConversionException {
     if (x instanceof com.google.devtools.build.lib.syntax.SelectorList) {
       return new SelectorList<T>(
@@ -197,6 +198,26 @@ public final class BuildType {
     }
   }
 
+  public static class LabelConversionContext {
+    private final Label label;
+    @Nullable
+    private final Label.RepoMapper repoMapper;
+
+    public LabelConversionContext(Label label, RepoMapper repoMapper) {
+      this.label = label;
+      this.repoMapper = repoMapper;
+    }
+
+    public Label getLabel() {
+      return label;
+    }
+
+    @Nullable
+    public RepoMapper getRepoMapper() {
+      return repoMapper;
+    }
+  }
+
   private static class LabelType extends Type<Label> {
     private final LabelClass labelClass;
 
@@ -240,7 +261,14 @@ public final class BuildType {
         if (x instanceof String && context == null) {
           return Label.parseAbsolute((String) x, false);
         }
-        return ((Label) context).getRelative(STRING.convert(x, what, context));
+        if (context instanceof Label) {
+          // todo(dslomov): DO NOT SUBMIT, temporary
+          return ((Label) context).getRelative(STRING.convert(x, what, context));
+        }  else {
+          LabelConversionContext labelConversionContext = (LabelConversionContext) context;
+          return labelConversionContext.getLabel()
+              .getRelative(STRING.convert(x, what, context), labelConversionContext.getRepoMapper());
+        }
       } catch (LabelSyntaxException e) {
         throw new ConversionException("invalid label '" + x + "' in "
             + what + ": " + e.getMessage());
@@ -429,7 +457,12 @@ public final class BuildType {
       }
       try {
         // Enforce value is relative to the context.
-        Label currentRule = (Label) context;
+        Label currentRule;
+        if (context instanceof Label) {
+          currentRule = (Label) context;
+        } else {
+          currentRule = ((LabelConversionContext) context).getLabel();
+        }
         Label result = currentRule.getRelative(value);
         if (!result.getPackageIdentifier().equals(currentRule.getPackageIdentifier())) {
           throw new ConversionException("label '" + value + "' is not in the current package");
@@ -453,7 +486,7 @@ public final class BuildType {
     private final List<Selector<T>> elements;
 
     @VisibleForTesting
-    SelectorList(List<Object> x, Object what, @Nullable Label context,
+    SelectorList(List<Object> x, Object what, @Nullable LabelConversionContext context,
         Type<T> originalType) throws ConversionException {
       if (x.size() > 1 && originalType.concat(ImmutableList.<T>of()) == null) {
         throw new ConversionException(
@@ -554,7 +587,7 @@ public final class BuildType {
     /**
      * Creates a new Selector using the default error message when no conditions match.
      */
-    Selector(ImmutableMap<?, ?> x, Object what, @Nullable Label context, Type<T> originalType)
+    Selector(ImmutableMap<?, ?> x, Object what, @Nullable LabelConversionContext context, Type<T> originalType)
         throws ConversionException {
       this(x, what, context, originalType, "");
     }
@@ -562,7 +595,7 @@ public final class BuildType {
     /**
      * Creates a new Selector with a custom error message for when no conditions match.
      */
-    Selector(ImmutableMap<?, ?> x, Object what, @Nullable Label context, Type<T> originalType,
+    Selector(ImmutableMap<?, ?> x, Object what, @Nullable LabelConversionContext context, Type<T> originalType,
         String noMatchError) throws ConversionException {
       this.originalType = originalType;
       LinkedHashMap<Label, T> result = Maps.newLinkedHashMapWithExpectedSize(x.size());

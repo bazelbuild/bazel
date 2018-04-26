@@ -25,6 +25,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
 import com.google.devtools.build.lib.events.Event;
@@ -52,6 +53,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
@@ -70,6 +72,13 @@ import javax.annotation.Nullable;
  */
 @SuppressWarnings("JavaLangClash")
 public class Package {
+
+  public ImmutableMap<RepositoryName, RepositoryName> getWorkspaceMappings(RepositoryName repository) {
+    ImmutableMap<RepositoryName, RepositoryName> map = workspaceAssignments
+        .get(repository);
+    return map != null ? map : ImmutableMap.of();
+  }
+
   /**
    * Common superclass for all name-conflict exceptions.
    */
@@ -179,6 +188,8 @@ public class Package {
   // distribs() declarations encountered during package parsing:
   private License defaultLicense;
   private Set<License.DistributionType> defaultDistributionSet;
+
+  private ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>> workspaceAssignments;
 
 
   /**
@@ -331,6 +342,16 @@ public class Package {
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.features = ImmutableSortedSet.copyOf(builder.features);
+
+    ImmutableMap.Builder<RepositoryName,  ImmutableMap<RepositoryName, RepositoryName>> workspaceAssignmentBuilder = ImmutableMap.builder();
+    for (Entry<RepositoryName, HashMap<RepositoryName, RepositoryName>> assignment
+        : builder.workspaceAssignments.entrySet()) {
+      workspaceAssignmentBuilder.put(
+          assignment.getKey(),
+          ImmutableMap.copyOf(assignment.getValue()));
+    }
+    this.workspaceAssignments = workspaceAssignmentBuilder.build();
+
     this.events = ImmutableList.copyOf(builder.events);
     this.posts = ImmutableList.copyOf(builder.posts);
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
@@ -669,16 +690,44 @@ public class Package {
   public static Builder newExternalPackageBuilder(Builder.Helper helper, Path workspacePath,
       String runfilesPrefix) {
     Builder b = new Builder(helper.createFreshPackage(
-        Label.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix));
+        Label.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix), ImmutableMap.of());
     b.setFilename(workspacePath);
     return b;
   }
+
 
   /**
    * A builder for {@link Package} objects. Only intended to be used by {@link PackageFactory} and
    * {@link com.google.devtools.build.lib.skyframe.PackageFunction}.
    */
   public static class Builder {
+
+    private final HashMap<RepositoryName, HashMap<RepositoryName, RepositoryName>> workspaceAssignments
+        = new HashMap<>();
+
+    public void addWorkspaceAssignment(RepositoryName within, RepositoryName local, RepositoryName actual) {
+      HashMap<RepositoryName, RepositoryName> assignments = workspaceAssignments.get(within);
+      if (assignments == null) {
+        assignments = new HashMap<>();
+        workspaceAssignments.put(within, assignments);
+      }
+      assignments.put(local, actual);
+    }
+
+    public RepositoryName getActualNameForRepo(RepositoryName localName) {
+      RepositoryName actualName = workspaceMappings.get(localName);
+      return actualName != null ? actualName : localName;
+    }
+
+    public void addWorkspaceMappings(Package aPackage) {
+      ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>> workspaceAssignments = aPackage.workspaceAssignments;
+      for (Entry<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>> repositoryName : workspaceAssignments.entrySet()) {
+        for (Entry<RepositoryName, RepositoryName> repositoryNameRepositoryNameEntry : repositoryName
+            .getValue().entrySet()) {
+          addWorkspaceAssignment(repositoryName.getKey(), repositoryNameRepositoryNameEntry.getKey(), repositoryNameRepositoryNameEntry.getValue());
+        }
+      }
+    }
 
     public interface Helper {
       /**
@@ -726,6 +775,7 @@ public class Package {
      * and {@link Package#finishInit} for details.
      */
     protected Package pkg;
+    private ImmutableMap<RepositoryName, RepositoryName> workspaceMappings;
 
     private Path filename = null;
     private Label buildFileLabel = null;
@@ -779,15 +829,16 @@ public class Package {
       }
     };
 
-    protected Builder(Package pkg) {
+    protected Builder(Package pkg, ImmutableMap<RepositoryName, RepositoryName> workspaceMappings) {
       this.pkg = pkg;
+      this.workspaceMappings = workspaceMappings;
       if (pkg.getName().startsWith("javatests/")) {
         setDefaultTestonly(true);
       }
     }
 
     public Builder(Helper helper, PackageIdentifier id, String runfilesPrefix) {
-      this(helper.createFreshPackage(id, runfilesPrefix));
+      this(helper.createFreshPackage(id, runfilesPrefix), ImmutableMap.of());
     }
 
     protected PackageIdentifier getPackageIdentifier() {

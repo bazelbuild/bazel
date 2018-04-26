@@ -1257,6 +1257,7 @@ public class BuildView {
             env,
             (Rule) target,
             ImmutableList.of(),
+            null,
             targetConfig,
             configurations.getHostConfiguration(),
             ruleClassProvider.getLipoDataTransition(),

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -44,12 +45,16 @@ import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.FunctionSignature.Shape;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
 import java.util.HashMap;
@@ -274,6 +279,7 @@ public class WorkspaceFactory {
     }
     builder.addRegisteredExecutionPlatforms(aPackage.getRegisteredExecutionPlatforms());
     builder.addRegisteredToolchains(aPackage.getRegisteredToolchains());
+    builder.addWorkspaceMappings(aPackage);
     for (Rule rule : aPackage.getTargets(Rule.class)) {
       try {
         // The old rule references another Package instance and we wan't to keep the invariant that
@@ -354,6 +360,7 @@ public class WorkspaceFactory {
           }
         }
       };
+
 
   private static BuiltinFunction newBindFunction(final RuleFactory ruleFactory) {
     return new BuiltinFunction(
@@ -483,11 +490,26 @@ public class WorkspaceFactory {
                     + kwargs.get("name")
                     + "')");
           }
+          SkylarkDict args = (SkylarkDict) kwargs;
+          if (kwargs.containsKey("assignments")) {
+            Map<String, String> map = (Map<String, String>) kwargs.get("assignments");
+            String externalRepoName = (String) kwargs.get("name");
+            for (Map.Entry e : map.entrySet()) {
+              builder.addWorkspaceAssignment(
+                      RepositoryName.create("@" + externalRepoName),
+                      RepositoryName.create((String) e.getKey()),
+                      RepositoryName.create((String) e.getValue())
+              );
+
+            }
+            args.remove("assignments", location, env.mutability());
+          }
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
+
           Rule rule =
               WorkspaceFactoryHelper.createAndAddRepositoryRule(
-                  builder, ruleClass, bindRuleClass, kwargs, ast);
+                  builder, ruleClass, bindRuleClass, args, ast);
           if (!isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
                 ast.getLocation(), rule + "'s name field must be a legal workspace name");
