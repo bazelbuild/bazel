@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
@@ -1288,19 +1289,26 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .addExecPath("--output", outputZip)
             .add("--no_duplicates") // safety: expect distinct entry names in all inputs
             .build();
+    // Must use params file as otherwise expanding the input tree artifact doesn't work
+    Artifact paramFile =
+        ruleContext.getDerivedArtifact(
+            ParameterFile.derivePath(outputZip.getRootRelativePath()), outputZip.getRoot());
+    ruleContext.registerAction(
+        new ParameterFileWriteAction(
+            ruleContext.getActionOwner(),
+            ImmutableList.of(inputTree),
+            paramFile,
+            args,
+            ParameterFile.ParameterFileType.SHELL_QUOTED,
+            ISO_8859_1));
     ruleContext.registerAction(
         singleJarSpawnActionBuilder(ruleContext)
             .setMnemonic("MergeDexZips")
             .setProgressMessage("Merging dex shards for %s", ruleContext.getLabel())
             .addInput(inputTree)
+            .addInput(paramFile)
             .addOutput(outputZip)
-            // Must use params file as otherwise expanding the input tree artifact doesn't work
-            .addCommandLine(
-                args,
-                ParamFileInfo.builder(ParameterFile.ParameterFileType.SHELL_QUOTED)
-                    .setCharset(ISO_8859_1)
-                    .setUseAlways(true)
-                    .build())
+            .addCommandLine(CustomCommandLine.builder().addPrefixedExecPath("@", paramFile).build())
             .build(ruleContext));
   }
 
