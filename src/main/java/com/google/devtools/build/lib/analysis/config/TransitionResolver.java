@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingSplitTransition;
@@ -157,9 +156,10 @@ public final class TransitionResolver {
   /**
    * Composes two transitions together efficiently.
    */
-  @VisibleForTesting
   public static ConfigurationTransition composeTransitions(ConfigurationTransition transition1,
       ConfigurationTransition transition2) {
+    Preconditions.checkNotNull(transition1);
+    Preconditions.checkNotNull(transition2);
     if (isFinal(transition1) || transition2 == NoTransition.INSTANCE) {
       return transition1;
     } else if (isFinal(transition2) || transition1 == NoTransition.INSTANCE) {
@@ -170,6 +170,28 @@ public final class TransitionResolver {
       return transition2;
     } else {
       return new ComposingSplitTransition(transition1, transition2);
+    }
+  }
+
+  /** Composes two patch transitions together efficiently. */
+  public static PatchTransition composePatchTransitions(
+      PatchTransition transition1, PatchTransition transition2) {
+    // composeTransitions knows all the tricks for composing transitions, so call into that rather
+    // than reimplementing it here. It will return one of the following:
+    // * one of the two input transitions (which is a PatchTransition by this method's signature,
+    //   and needs only be cast)
+    // -or-
+    // * a new ComposingSplitTransition of (transition1, transition2) - which consists only of
+    //   PatchTransitions and can thus be converted to a ComposingPatchTransition with asPatch.
+    ConfigurationTransition composed = composeTransitions(transition1, transition2);
+    if (composed instanceof ComposingSplitTransition) {
+      return ((ComposingSplitTransition) composed).asPatch();
+    } else if (composed instanceof PatchTransition) {
+      return (PatchTransition) composed;
+    } else {
+      throw new AssertionError(
+          "composeTransitions returned something other than a ComposingSplitTransition or "
+              + "one of the input PatchTransitions");
     }
   }
 
@@ -191,9 +213,7 @@ public final class TransitionResolver {
         "cannot apply splits after null transitions (null transitions are expected to be final)");
     Preconditions.checkState(currentTransition != HostTransition.INSTANCE,
         "cannot apply splits after host transitions (host transitions are expected to be final)");
-    return currentTransition == NoTransition.INSTANCE
-        ? split
-        : new ComposingSplitTransition(currentTransition, split);
+    return composeTransitions(currentTransition, split);
   }
 
   /**
@@ -221,14 +241,8 @@ public final class TransitionResolver {
       return currentTransition;
     }
     if (transitionFactory != null) {
-      PatchTransition ruleClassTransition =
-          Preconditions.checkNotNull(
-              transitionFactory.buildTransitionFor(toTarget.getAssociatedRule()));
-      if (currentTransition == NoTransition.INSTANCE) {
-        return ruleClassTransition;
-      } else if (ruleClassTransition != NoTransition.INSTANCE) {
-        return new ComposingSplitTransition(currentTransition, ruleClassTransition);
-      }
+      return composeTransitions(
+          currentTransition, transitionFactory.buildTransitionFor(toTarget.getAssociatedRule()));
     }
     return currentTransition;
   }

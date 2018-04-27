@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config.transitions;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -27,13 +28,23 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 public class ComposingPatchTransition implements PatchTransition {
   private final ComposingSplitTransition delegate;
 
+  /**
+   * Creates a {@link ComposingPatchTransition} that applies the sequence: {@code fromOptions ->
+   * transition1 -> transition2 -> toOptions }.
+   *
+   * <p>Note that it's possible to create silly transitions with this constructor (e.g., if one or
+   * both of the transitions is NoTransition). Use composePatchTransitions instead, which checks for
+   * these states and avoids instantiation appropriately.
+   *
+   * @see TransitionResolver#composePatchTransitions
+   */
   public ComposingPatchTransition(PatchTransition transition1, PatchTransition transition2) {
     this(new ComposingSplitTransition(transition1, transition2));
   }
 
   @AutoCodec.Instantiator
-  @AutoCodec.VisibleForSerialization
   ComposingPatchTransition(ComposingSplitTransition delegate) {
+    Preconditions.checkArgument(delegate.isPatchOnly());
     this.delegate = delegate;
   }
 
