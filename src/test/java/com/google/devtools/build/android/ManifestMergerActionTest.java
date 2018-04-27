@@ -224,15 +224,16 @@ public class ManifestMergerActionTest {
             + " </manifest>");
 
     // binary manifest merging
-    args = generateArgs(
-        binaryManifest,
-        ImmutableMap.of(libFooOutput, "libFoo", libBarOutput, "libBar"),
-        false, /* library */
-        ImmutableMap.of(
-            "applicationId", "com.google.android.app",
-            "foo", "this \\\\: is \"a, \"bad string"),
-        "", /* customPackage */
-        binaryOutput);
+    args =
+        generateArgs(
+            binaryManifest,
+            ImmutableMap.of(libFooOutput, "libFoo", libBarOutput, "libBar"),
+            /* library= */ false,
+            ImmutableMap.of(
+                "applicationId", "com.google.android.app",
+                "foo", "this \\\\: is \"a, \"bad string"),
+            /* customPackage= */ "",
+            binaryOutput);
     ManifestMergerAction.main(args.toArray(new String[0]));
     assertThat(Joiner.on(" ")
         .join(Files.readAllLines(binaryOutput, UTF_8))

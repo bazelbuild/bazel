@@ -620,7 +620,7 @@ public final class PathFragment
    * these are always normalized and will throw uplevel references away.
    */
   public static boolean isNormalized(String path) {
-    return isNormalizedImpl(path, true /* lookForSameLevelReferences */);
+    return isNormalizedImpl(path, /* lookForSameLevelReferences= */ true);
   }
 
   /**
@@ -630,7 +630,7 @@ public final class PathFragment
    * these are always normalized and will throw uplevel references away.
    */
   public static boolean containsUplevelReferences(String path) {
-    return !isNormalizedImpl(path, false /* lookForSameLevelReferences */);
+    return !isNormalizedImpl(path, /* lookForSameLevelReferences= */ false);
   }
 
   private enum NormalizedImplState {

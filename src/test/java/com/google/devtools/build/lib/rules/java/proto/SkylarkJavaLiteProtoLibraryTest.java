@@ -387,9 +387,9 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "custom_rule(name = 'custom', dep = ':lite_pb2')");
     update(
         ImmutableList.of("//proto:custom"),
-        false /* keepGoing */,
-        1 /* loadingPhaseThreads */,
-        true /* doAnalysis */,
+        /* keepGoing= */ false,
+        /* loadingPhaseThreads= */ 1,
+        /* doAnalysis= */ true,
         new EventBus());
     // Implicitly check that `update()` above didn't throw an exception. This implicitly checks that
     // ctx.attr.dep.java.{transitive_deps, outputs}, above, is defined.
@@ -409,9 +409,9 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "java_lite_proto_library(name = 'lite_pb2', deps = [':proto'])");
     update(
         ImmutableList.of("//proto:lite_pb2"),
-        false /* keepGoing */,
-        1 /* loadingPhaseThreads */,
-        true /* doAnalysis */,
+        /* keepGoing= */ false,
+        /* loadingPhaseThreads= */ 1,
+        /* doAnalysis= */ true,
         new EventBus());
   }
 

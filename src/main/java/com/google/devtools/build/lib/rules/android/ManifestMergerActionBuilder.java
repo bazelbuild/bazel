@@ -108,7 +108,7 @@ public class ManifestMergerActionBuilder {
       builder.add(
           "--mergeeManifests",
           mapToDictionaryString(
-              mergeeManifests, Artifact::getExecPathString, null /* valueConverter */));
+              mergeeManifests, Artifact::getExecPathString, /* valueConverter= */ null));
       inputs.addAll(mergeeManifests.keySet());
     }
 

@@ -74,7 +74,7 @@ public class JavacTurbineCompiler {
                     fm,
                     diagnostic -> diagnostics.add(formatDiagnostic(diagnostic)),
                     request.javacOptions(),
-                    ImmutableList.of() /*classes*/,
+                    /* classes= */ ImmutableList.of(),
                     fm.getJavaFileObjectsFromPaths(request.sources()),
                     context);
 

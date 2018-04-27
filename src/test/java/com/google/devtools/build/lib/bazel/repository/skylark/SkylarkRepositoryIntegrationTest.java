@@ -284,7 +284,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testCycleErrorInWorkspaceFileWithExternalRepo() throws Exception {
-    try (OutputStream output = scratch.resolve("WORKSPACE").getOutputStream(true /* append */)) {
+    try (OutputStream output = scratch.resolve("WORKSPACE").getOutputStream(/* append= */ true)) {
       output.write((
           "\nload('//foo:bar.bzl', 'foobar')"
               + "\ngit_repository(name = 'git_repo')").getBytes(StandardCharsets.UTF_8));

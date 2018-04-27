@@ -299,7 +299,7 @@ public class AndroidResourceProcessor {
             variantType,
             customPackageForR,
             androidManifest,
-            true /* shouldZipDataBindingInfo */);
+            /* shouldZipDataBindingInfo= */ true);
 
     final Path assetsDir = primaryData.getAssetDir();
     if (publicResourcesOut != null) {
@@ -593,7 +593,7 @@ public class AndroidResourceProcessor {
       // Loop on all the package name, merge all the symbols to write, and write.
       for (String packageName : libSymbolMap.keySet()) {
         Collection<ResourceSymbols> symbols = libSymbolMap.get(packageName);
-        fullSymbolValues.writeSourcesTo(sourceOut, packageName, symbols, true /* finalFields */);
+        fullSymbolValues.writeSourcesTo(sourceOut, packageName, symbols, /* finalFields= */ true);
       }
     }
   }

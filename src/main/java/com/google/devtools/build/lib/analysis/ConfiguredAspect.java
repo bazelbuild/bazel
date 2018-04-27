@@ -247,7 +247,7 @@ public final class ConfiguredAspect {
 
       addProvider(
           createExtraActionProvider(
-              ImmutableSet.<ActionAnalysisMetadata>of() /* actionsWithoutExtraAction */,
+              /* actionsWithoutExtraAction= */ ImmutableSet.<ActionAnalysisMetadata>of(),
               ruleContext));
 
       return new ConfiguredAspect(descriptor, providers.build());

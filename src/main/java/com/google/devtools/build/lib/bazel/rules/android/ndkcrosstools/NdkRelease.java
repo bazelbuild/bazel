@@ -59,7 +59,7 @@ public class NdkRelease {
     } else {
       return new NdkRelease(
           revision, // raw revision
-          true, // isValid
+          /* isValid= */ true,
           Integer.parseInt(revisionParsed[0]), // major revision
           revisionParsed[1], // minor revision
           null, // release candidate
@@ -90,8 +90,8 @@ public class NdkRelease {
           isValid,
           Integer.parseInt(matcher.group("Mrev")), /* major revision */
           matcher.group("mrev"), /* minor revision */
-          matcher.group("rc"), /* releaseCandidate */
-          matcher.group("s4") != null /* is64Bit */);
+          /* releaseCandidate= */ matcher.group("rc"),
+          /* is64Bit= */ matcher.group("s4") != null);
     } else {
       return new NdkRelease(
           revisionString,

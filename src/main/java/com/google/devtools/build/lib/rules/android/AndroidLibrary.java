@@ -195,11 +195,11 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             javaSemantics,
             androidSemantics,
             resourceApk,
-            false /* addCoverageSupport */,
-            true /* collectJavaCompilationArgs */,
-            false /* isBinary */,
-            null /* excludedRuntimeArtifacts */,
-            false /* generateExtensionRegistry */);
+            /* addCoverageSupport= */ false,
+            /* collectJavaCompilationArgs= */ true,
+            /* isBinary= */ false,
+            /* excludedRuntimeArtifacts= */ null,
+            /* generateExtensionRegistry= */ false);
     if (javaTargetAttributes == null) {
       return null;
     }

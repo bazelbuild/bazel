@@ -147,9 +147,15 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     Artifact unstrippedLauncher = null;
     if (stripAsDefault) {
       unstrippedDeployArchiveBuilder = new DeployArchiveBuilder(semantics, ruleContext);
-      unstrippedLauncher = semantics.getLauncher(ruleContext, common,
-          unstrippedDeployArchiveBuilder, runfilesBuilder, jvmFlags, attributesBuilder,
-          false  /* shouldStrip */);
+      unstrippedLauncher =
+          semantics.getLauncher(
+              ruleContext,
+              common,
+              unstrippedDeployArchiveBuilder,
+              runfilesBuilder,
+              jvmFlags,
+              attributesBuilder,
+              /* shouldStrip= */ false);
     }
 
     JavaCompilationArtifacts.Builder javaArtifactsBuilder = new JavaCompilationArtifacts.Builder();

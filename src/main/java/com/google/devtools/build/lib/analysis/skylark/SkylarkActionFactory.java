@@ -1134,16 +1134,16 @@ public class SkylarkActionFactory implements SkylarkValue {
         }
         addVectorArg(
             value,
-            null /* argName */,
+            /* argName= */ null,
             mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
-            null /* mapEach */,
+            /* mapEach= */ null,
             format != Runtime.NONE ? (String) format : null,
             beforeEach != Runtime.NONE ? (String) beforeEach : null,
             joinWith != Runtime.NONE ? (String) joinWith : null,
-            null /* formatJoined */,
-            false /* omitIfEmpty */,
-            false /* uniquify */,
-            null /* terminateWith */,
+            /* formatJoined= */ null,
+            /* omitIfEmpty= */ false,
+            /* uniquify= */ false,
+            /* terminateWith= */ null,
             loc);
 
       } else {
@@ -1337,12 +1337,12 @@ public class SkylarkActionFactory implements SkylarkValue {
       addVectorArg(
           values,
           argName,
-          null /* mapAll */,
+          /* mapAll= */ null,
           mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
           formatEach != Runtime.NONE ? (String) formatEach : null,
           beforeEach != Runtime.NONE ? (String) beforeEach : null,
-          null /* joinWith */,
-          null /* formatJoined */,
+          /* joinWith= */ null,
+          /* formatJoined= */ null,
           omitIfEmpty,
           uniquify,
           terminateWith != Runtime.NONE ? (String) terminateWith : null,
@@ -1481,15 +1481,15 @@ public class SkylarkActionFactory implements SkylarkValue {
       addVectorArg(
           values,
           argName,
-          null /* mapAll */,
+          /* mapAll= */ null,
           mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
           formatEach != Runtime.NONE ? (String) formatEach : null,
-          null /* beforeEach */,
+          /* beforeEach= */ null,
           joinWith,
           formatJoined != Runtime.NONE ? (String) formatJoined : null,
           omitIfEmpty,
           uniquify,
-          null /* terminateWith */,
+          /* terminateWith= */ null,
           loc);
       return Runtime.NONE;
     }

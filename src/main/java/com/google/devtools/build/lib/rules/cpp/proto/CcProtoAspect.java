@@ -347,7 +347,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           ruleContext.getLabel(),
           outputs,
           "C++",
-          true /* allowServices */);
+          /* allowServices= */ true);
     }
 
     private ProtoLangToolchainProvider getProtoToolchainProvider() {

@@ -81,13 +81,11 @@ public class BuildFileModificationTest extends FoundationTestCase {
             analysisMock.getProductName());
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
-            analysisMock
-                .getPackageFactoryBuilderForTesting(directories)
-                .build(ruleClassProvider),
+            analysisMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider),
             fileSystem,
             directories,
             actionKeyContext,
-            null, /* workspaceStatusActionFactory */
+            /* workspaceStatusActionFactory= */ null,
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableList.<DiffAwareness.Factory>of(),
             analysisMock.getSkyFunctions(directories),

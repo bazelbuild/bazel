@@ -475,13 +475,11 @@ public class IncrementalLoadingTest {
       ConfiguredRuleClassProvider ruleClassProvider = loadingMock.createRuleClassProvider();
       skyframeExecutor =
           SequencedSkyframeExecutor.create(
-              loadingMock
-                  .getPackageFactoryBuilderForTesting(directories)
-                  .build(ruleClassProvider),
+              loadingMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider),
               fs,
               directories,
               actionKeyContext,
-              null, /* workspaceStatusActionFactory */
+              /* workspaceStatusActionFactory= */ null,
               loadingMock.createRuleClassProvider().getBuildInfoFactories(),
               ImmutableList.of(new ManualDiffAwarenessFactory()),
               ImmutableMap.<SkyFunctionName, SkyFunction>of(),

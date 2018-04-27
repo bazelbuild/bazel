@@ -104,7 +104,7 @@ public class PackageCacheTest extends FoundationTestCase {
             fileSystem,
             directories,
             actionKeyContext,
-            null, /* workspaceStatusActionFactory */
+            /* workspaceStatusActionFactory= */ null,
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableList.<DiffAwareness.Factory>of(),
             analysisMock.getSkyFunctions(directories),

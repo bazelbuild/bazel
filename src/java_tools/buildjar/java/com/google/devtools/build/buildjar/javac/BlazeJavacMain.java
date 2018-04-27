@@ -98,7 +98,7 @@ public class BlazeJavacMain {
                   fileManager,
                   diagnostics,
                   javacArguments,
-                  ImmutableList.of() /*classes*/,
+                  /* classes= */ ImmutableList.of(),
                   fileManager.getJavaFileObjectsFromPaths(arguments.sourceFiles()),
                   context);
       if (arguments.processors() != null) {

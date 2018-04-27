@@ -278,9 +278,9 @@ public class AndroidResourceMergingAction {
                 .processManifest(
                     packageType,
                     options.packageForR,
-                    null, /* applicationId */
-                    -1, /* versionCode */
-                    null, /* versionName */
+                    /* applicationId= */ null,
+                    /* versionCode= */ -1,
+                    /* versionName= */ null,
                     mergedData,
                     processedManifest);
         AndroidResourceOutputs.copyManifestToOutput(processedData, options.manifestOutput);
@@ -311,7 +311,7 @@ public class AndroidResourceMergingAction {
         // For now, try compressing the library resources that we pass to the validator. This takes
         // extra CPU resources to pack and unpack (~2x), but can reduce the zip size (~4x).
         ResourcesZip.from(resourcesDir, mergedData.getAssetDir())
-            .writeTo(options.resourcesOutput, true /* compress */);
+            .writeTo(options.resourcesOutput, /* compress= */ true);
         logger.fine(
             String.format(
                 "Create resources.zip finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));

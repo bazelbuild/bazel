@@ -62,28 +62,28 @@ public class ProtoCompileActionBuilderTest {
     ProtoLangToolchainProvider toolchainNoPlugin =
         ProtoLangToolchainProvider.create(
             "--java_out=param1,param2:$(OUT)",
-            null /* pluginExecutable */,
-            mock(TransitiveInfoCollection.class) /* runtime */,
-            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* blacklistedProtos */);
+            /* pluginExecutable= */ null,
+            /* runtime= */ mock(TransitiveInfoCollection.class),
+            /* blacklistedProtos= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER));
 
     ProtoLangToolchainProvider toolchainWithPlugin =
         ProtoLangToolchainProvider.create(
             "--$(PLUGIN_OUT)=param3,param4:$(OUT)",
             plugin,
-            mock(TransitiveInfoCollection.class) /* runtime */,
-            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* blacklistedProtos */);
+            /* runtime= */ mock(TransitiveInfoCollection.class),
+            /* blacklistedProtos= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER));
 
     SupportData supportData =
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.of(artifact("//:dont-care", "source_file.proto")),
-            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
+            /* protosInDirectDeps= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             NestedSetBuilder.create(
                 STABLE_ORDER,
                 artifact("//:dont-care", "import1.proto"),
                 artifact("//:dont-care", "import2.proto")),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
-            true /* hasProtoSources */);
+            /* hasProtoSources= */ true);
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -117,10 +117,10 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.of(derivedArtifact("//:dont-care", "source_file.proto")),
-            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
-            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* transitiveImports */,
+            /* protosInDirectDeps= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
+            /* transitiveImports= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
-            true /* hasProtoSources */);
+            /* hasProtoSources= */ true);
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -141,9 +141,9 @@ public class ProtoCompileActionBuilderTest {
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.create(
             "--java_out=param1,param2:$(OUT)",
-            null /* pluginExecutable */,
-            mock(TransitiveInfoCollection.class) /* runtime */,
-            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* blacklistedProtos */);
+            /* pluginExecutable= */ null,
+            /* runtime= */ mock(TransitiveInfoCollection.class),
+            /* blacklistedProtos= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER));
 
     SupportData supportData =
         SupportData.create(
@@ -155,7 +155,7 @@ public class ProtoCompileActionBuilderTest {
                 artifact("//:dont-care", "import1.proto"),
                 artifact("//:dont-care", "import2.proto")),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
-            true /* hasProtoSources */);
+            /* hasProtoSources= */ true);
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -186,10 +186,10 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
-            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
+            /* protosInDirectDeps= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
-            true /* hasProtoSources */);
+            /* hasProtoSources= */ true);
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -222,18 +222,18 @@ public class ProtoCompileActionBuilderTest {
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.create(
             "--java_out=param1,param2:$(OUT)",
-            null /* pluginExecutable */,
-            mock(TransitiveInfoCollection.class) /* runtime */,
-            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* blacklistedProtos */);
+            /* pluginExecutable= */ null,
+            /* runtime= */ mock(TransitiveInfoCollection.class),
+            /* blacklistedProtos= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER));
 
     SupportData supportData =
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
-            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
+            /* protosInDirectDeps= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
-            true /* hasProtoSources */);
+            /* hasProtoSources= */ true);
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -261,24 +261,24 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
-            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
+            /* protosInDirectDeps= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
-            true /* hasProtoSources */);
+            /* hasProtoSources= */ true);
 
     ProtoLangToolchainProvider toolchain1 =
         ProtoLangToolchainProvider.create(
             "dontcare",
-            null /* pluginExecutable */,
-            mock(TransitiveInfoCollection.class) /* runtime */,
-            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* blacklistedProtos */);
+            /* pluginExecutable= */ null,
+            /* runtime= */ mock(TransitiveInfoCollection.class),
+            /* blacklistedProtos= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER));
 
     ProtoLangToolchainProvider toolchain2 =
         ProtoLangToolchainProvider.create(
             "dontcare",
-            null /* pluginExecutable */,
-            mock(TransitiveInfoCollection.class) /* runtime */,
-            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* blacklistedProtos */);
+            /* pluginExecutable= */ null,
+            /* runtime= */ mock(TransitiveInfoCollection.class),
+            /* blacklistedProtos= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER));
 
     try {
       createCommandLineFromToolchains(

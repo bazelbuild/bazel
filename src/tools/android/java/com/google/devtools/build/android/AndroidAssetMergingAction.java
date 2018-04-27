@@ -148,7 +148,7 @@ public class AndroidAssetMergingAction extends AbstractBusyBoxAction {
         "The asset merging action should not produce non-asset merge results!");
 
     ResourcesZip.from(ignored, mergedData.getAssetDir())
-        .writeTo(options.assetsOutput, true /* compress */);
+        .writeTo(options.assetsOutput, /* compress= */ true);
     logCompletion("Create assets zip");
   }
 

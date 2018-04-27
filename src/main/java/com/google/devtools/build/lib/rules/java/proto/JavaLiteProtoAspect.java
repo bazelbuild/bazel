@@ -240,7 +240,8 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
           ruleContext,
           ImmutableList.of(
               new ProtoCompileActionBuilder.ToolchainInvocation(
-                  "javalite", aspectCommon.getProtoToolchainProvider(),
+                  "javalite",
+                  aspectCommon.getProtoToolchainProvider(),
                   sourceJar.getExecPathString())),
           supportData.getDirectProtoSources(),
           supportData.getTransitiveImports(),
@@ -249,7 +250,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
           ruleContext.getLabel(),
           ImmutableList.of(sourceJar),
           "JavaLite",
-          true /* allowServices */);
+          /* allowServices= */ true);
     }
   }
 }

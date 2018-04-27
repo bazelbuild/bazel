@@ -88,7 +88,7 @@ public class JavaProtoSkylarkCommon {
         skylarkRuleContext.getLabel(),
         ImmutableList.of(sourceJar),
         "JavaLite",
-        true /* allowServices */);
+        /* allowServices= */ true);
   }
 
   @SkylarkCallable(

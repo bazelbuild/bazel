@@ -374,8 +374,7 @@ public class ParsedAndroidDataTest {
                     DataResourceXml.createWithNoNamespace(
                         otherRootValuesPath.overwrite(rootValuesPath),
                         SimpleXmlResourceValue.createWithValue(
-                            SimpleXmlResourceValue.Type.STRING, "way out")) // value
-                    ),
+                            SimpleXmlResourceValue.Type.STRING, /* value= */ "way out"))),
                 ImmutableMap.<DataKey, DataResource>of(
                     idSomeId, // key
                     DataResourceXml.createWithNoNamespace(

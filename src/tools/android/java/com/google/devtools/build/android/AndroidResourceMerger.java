@@ -162,7 +162,7 @@ public class AndroidResourceMerger {
           cruncher,
           type,
           symbolsOut,
-          null /* rclassWriter */,
+          /* rclassWriter= */ null,
           AndroidParsedDataDeserializer.withFilteredResources(filteredResources),
           throwOnResourceConflict,
           executorService);

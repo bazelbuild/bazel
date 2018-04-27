@@ -643,9 +643,9 @@ public class SpawnActionTest extends BuildViewTestCase {
 
     update(
         ImmutableList.of("//a:a"),
-        false /* keepGoing */,
-        1 /* loadingPhaseThreads */,
-        true /* doAnalysis */,
+        /* keepGoing= */ false,
+        /* loadingPhaseThreads= */ 1,
+        /* doAnalysis= */ true,
         new EventBus());
 
     Artifact artifact = getOnlyElement(getFilesToBuild(getConfiguredTarget("//a:a")));

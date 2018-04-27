@@ -224,7 +224,7 @@ public class ResourceLinker {
       }
 
       profiler.startTask("sourcejar");
-      AndroidResourceOutputs.createSrcJar(javaSourceDirectory, sourceJar, true /* staticIds */);
+      AndroidResourceOutputs.createSrcJar(javaSourceDirectory, sourceJar, /* staticIds= */ true);
       profiler.recordEndOf("sourcejar");
       return StaticLibrary.from(outPath, rTxt, ImmutableList.of(), sourceJar);
     } catch (IOException e) {
