@@ -910,6 +910,16 @@ public class BuildConfiguration {
       NOTRIM,
     }
 
+    @Option(
+        name = "experimental_use_late_bound_option_defaults",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "Allow using late bound option defaults. The purpose of this option is to help with "
+                + "removal of late bound option defaults.")
+    public boolean useLateBoundOptionDefaults;
+
     /**
      * Converter for --experimental_dynamic_configs.
      */
@@ -1310,7 +1320,8 @@ public class BuildConfiguration {
 
     this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
 
-    this.transitiveOptionDetails = computeOptionsMap(buildOptions, fragments.values());
+    this.transitiveOptionDetails =
+        computeOptionsMap(buildOptions, fragments.values(), options.useLateBoundOptionDefaults);
 
     ImmutableMap.Builder<String, String> globalMakeEnvBuilder = ImmutableMap.builder();
     for (Fragment fragment : fragments.values()) {
@@ -1410,12 +1421,14 @@ public class BuildConfiguration {
 
   /** Computes and returns the {@link TransitiveOptionDetails} for this configuration. */
   private static TransitiveOptionDetails computeOptionsMap(
-      BuildOptions buildOptions, Iterable<Fragment> fragments) {
+      BuildOptions buildOptions, Iterable<Fragment> fragments, boolean useLateBoundOptionDefaults) {
     // Collect from our fragments "alternative defaults" for options where the default
     // should be something other than what's specified in Option.defaultValue.
     Map<String, Object> lateBoundDefaults = Maps.newHashMap();
-    for (Fragment fragment : fragments) {
-      lateBoundDefaults.putAll(fragment.lateBoundOptionDefaults());
+    if (useLateBoundOptionDefaults) {
+      for (Fragment fragment : fragments) {
+        lateBoundDefaults.putAll(fragment.lateBoundOptionDefaults());
+      }
     }
 
     return TransitiveOptionDetails.forOptionsWithDefaults(

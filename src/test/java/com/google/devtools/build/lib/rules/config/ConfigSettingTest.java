@@ -266,6 +266,19 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
   }
 
+  /** Tests disallowing {@link BuildConfiguration.Fragment#lateBoundOptionDefaults} */
+  @Test
+  public void disallowLateBoundOptionDefaults() throws Exception {
+    useConfiguration("--experimental_use_late_bound_option_defaults=false");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = { 'opt_with_default': 'overridden' }",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+  }
+
   /**
    * Tests matching on multi-value attributes with key=value entries (e.g. --define).
    */
