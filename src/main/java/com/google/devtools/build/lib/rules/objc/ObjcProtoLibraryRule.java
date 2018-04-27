@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -99,6 +100,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
                 PROTOBUF_WELL_KNOWN_TYPES,
                 ImmutableList.of(env.getToolsLabel("//tools/objc:protobuf_well_known_types"))))
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
+        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .build();
   }
 
