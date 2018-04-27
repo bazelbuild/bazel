@@ -66,6 +66,7 @@ public class ObjectCodecRegistry {
       ImmutableList<Object> referenceConstants,
       ImmutableList<Object> valueConstants,
       ImmutableSortedSet<String> classNames,
+      ImmutableList<String> blacklistedClassNamePrefixes,
       boolean allowDefaultCodec) {
     this.allowDefaultCodec = allowDefaultCodec;
 
@@ -104,8 +105,12 @@ public class ObjectCodecRegistry {
                 ImmutableMap.toImmutableMap(
                     Map.Entry::getKey, e -> ImmutableMap.copyOf(e.getValue())));
     this.valueConstants = valueConstants;
-    this.classNames = classNames.asList();
-    this.dynamicCodecs = createDynamicCodecs(classNames, nextTag);
+    this.classNames =
+        classNames
+            .stream()
+            .filter((str) -> isAllowed(str, blacklistedClassNamePrefixes))
+            .collect(ImmutableList.toImmutableList());
+    this.dynamicCodecs = createDynamicCodecs(this.classNames, nextTag);
   }
 
   public CodecDescriptor getCodecDescriptorForObject(Object obj)
@@ -286,6 +291,8 @@ public class ObjectCodecRegistry {
     private final ImmutableList.Builder<Object> referenceConstantsBuilder = ImmutableList.builder();
     private final ImmutableList.Builder<Object> valueConstantsBuilder = ImmutableList.builder();
     private final ImmutableSortedSet.Builder<String> classNames = ImmutableSortedSet.naturalOrder();
+    private final ImmutableList.Builder<String> blacklistedClassNamePrefixes =
+        ImmutableList.builder();
     private boolean allowDefaultCodec = true;
 
     /**
@@ -350,12 +357,18 @@ public class ObjectCodecRegistry {
       return this;
     }
 
+    public Builder blacklistClassNamePrefix(String classNamePrefix) {
+      blacklistedClassNamePrefixes.add(classNamePrefix);
+      return this;
+    }
+
     public ObjectCodecRegistry build() {
       return new ObjectCodecRegistry(
           ImmutableSet.copyOf(codecs.values()),
           referenceConstantsBuilder.build(),
           valueConstantsBuilder.build(),
           classNames.build(),
+          blacklistedClassNamePrefixes.build(),
           allowDefaultCodec);
     }
   }
@@ -379,7 +392,7 @@ public class ObjectCodecRegistry {
   }
 
   private static IdentityHashMap<String, Supplier<CodecDescriptor>> createDynamicCodecs(
-      ImmutableSortedSet<String> classNames, int nextTag) {
+      ImmutableList<String> classNames, int nextTag) {
     IdentityHashMap<String, Supplier<CodecDescriptor>> dynamicCodecs =
         new IdentityHashMap<>(classNames.size());
     for (String className : classNames) {
@@ -388,6 +401,16 @@ public class ObjectCodecRegistry {
           className, Suppliers.memoize(() -> createDynamicCodecDescriptor(tag, className)));
     }
     return dynamicCodecs;
+  }
+
+  private static boolean isAllowed(
+      String className, ImmutableList<String> blacklistedClassNamePefixes) {
+    for (String blacklistedClassNamePrefix : blacklistedClassNamePefixes) {
+      if (className.startsWith(blacklistedClassNamePrefix)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /** For enums, this method must only be called for the declaring class. */

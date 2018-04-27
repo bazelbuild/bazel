@@ -147,6 +147,28 @@ public class ObjectCodecRegistryTest {
     assertThat(underTest.maybeGetTagForConstant("cab".substring(1))).isNotNull();
   }
 
+  private static ObjectCodecRegistry.Builder builderWithThisClass() {
+    return ObjectCodecRegistry.newBuilder().addClassName(ObjectCodecRegistryTest.class.getName());
+  }
+
+  @Test
+  public void blacklistingPrefix() throws NoCodecException {
+    ObjectCodecRegistry underTest = builderWithThisClass().build();
+    CodecDescriptor descriptor = underTest.getCodecDescriptorForObject(this);
+    assertThat(descriptor).isNotNull();
+    assertThat(descriptor.getCodec()).isInstanceOf(DynamicCodec.class);
+    ObjectCodecRegistry underTestWithBlacklist =
+        builderWithThisClass()
+            .blacklistClassNamePrefix(this.getClass().getPackage().getName())
+            .build();
+    assertThrows(
+        NoCodecException.class, () -> underTestWithBlacklist.getCodecDescriptorForObject(this));
+    ObjectCodecRegistry underTestWithWideBlacklist =
+        builderWithThisClass().blacklistClassNamePrefix("com").build();
+    assertThrows(
+        NoCodecException.class, () -> underTestWithWideBlacklist.getCodecDescriptorForObject(this));
+  }
+
   @Test
   public void testGetBuilder() throws NoCodecException {
     SingletonCodec<String> codec1 = SingletonCodec.of("value1", "mnemonic1");
