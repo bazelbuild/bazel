@@ -100,6 +100,7 @@ public final class CcImportRule implements RuleDefinition {
                 .cfg(env.getLipoDataTransition())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .dontCheckConstraints())
+        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .build();
   }
 
