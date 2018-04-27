@@ -838,7 +838,7 @@ public class CppLinkActionBuilder {
     }
 
     Map<Artifact, Artifact> ltoMapping = new HashMap<>();
-
+    ;
     if (isFinalLinkOfLtoBuild()) {
       for (LtoBackendArtifacts a : allLtoArtifacts) {
         ltoMapping.put(a.getBitcodeFile(), a.getObjectFile());
@@ -846,8 +846,15 @@ public class CppLinkActionBuilder {
     }
     Iterable<Artifact> objectArtifacts =
         getArtifactsPossiblyLtoMapped(objectFileInputs, ltoMapping);
-    ImmutableSet<Artifact> linkstampObjectArtifacts =
+    Iterable<Artifact> linkstampObjectArtifacts =
         getArtifactsPossiblyLtoMapped(linkstampObjectFileInputs, ltoMapping);
+    Iterable<Artifact> expandedInputs =
+        getArtifactsPossiblyLtoMapped(
+            Link.mergeInputsDependencies(
+                uniqueLibraries,
+                needWholeArchive,
+                CppHelper.getArchiveType(cppConfiguration, toolchain)),
+            ltoMapping);
 
     ImmutableSet<Artifact> combinedObjectArtifacts =
         ImmutableSet.<Artifact>builder()
@@ -921,12 +928,16 @@ public class CppLinkActionBuilder {
               symbolCounts);
     }
 
-    // Linker inputs without any start/end lib expansions.
-    final Iterable<LinkerInput> nonExpandedLinkerInputs =
+    final Iterable<LinkerInput> linkerInputs =
         IterablesChain.<LinkerInput>builder()
             .add(objectFileInputs)
             .add(linkstampObjectFileInputs)
-            .add(ImmutableIterable.from(uniqueLibraries))
+            .add(
+                ImmutableIterable.from(
+                    Link.mergeInputsCmdLine(
+                        uniqueLibraries,
+                        needWholeArchive,
+                        CppHelper.getArchiveType(cppConfiguration, toolchain))))
             .add(
                 // Adding toolchain libraries without whole archive no-matter-what. People don't
                 // want to include whole libstdc++ in their binary ever.
@@ -971,21 +982,10 @@ public class CppLinkActionBuilder {
             featureConfiguration,
             thinltoParamFile,
             allowLtoIndexing,
-            nonExpandedLinkerInputs,
+            linkerInputs,
             needWholeArchive);
     CollectedLibrariesToLink collectedLibrariesToLink =
         librariesToLinkCollector.collectLibrariesToLink();
-
-    ImmutableSet<Artifact> expandedLinkerArtifacts =
-        getArtifactsPossiblyLtoMapped(
-            collectedLibrariesToLink.getExpandedLinkerInputs(), ltoMapping);
-
-    // Remove the linkstamp objects from inputs so that createLinkstampCompileAction doesn't cause a
-    // circular dependency.
-    Set<Artifact> expandedLinkerArtifactsNoLinkstamps =
-        new LinkedHashSet<Artifact>(expandedLinkerArtifacts);
-    expandedLinkerArtifactsNoLinkstamps.removeAll(linkstampObjectArtifacts);
-
     Variables variables =
         LinkBuildVariables.setupVariables(
             this,
@@ -1041,7 +1041,7 @@ public class CppLinkActionBuilder {
 
     LinkCommandLine.Builder linkCommandLineBuilder =
         new LinkCommandLine.Builder(ruleContext)
-            .setLinkerInputs(collectedLibrariesToLink.getExpandedLinkerInputs())
+            .setLinkerInputs(linkerInputs)
             .setLinkTargetType(linkType)
             .setLinkStaticness(linkStaticness)
             .setToolchainLibrariesSolibDir(
@@ -1107,7 +1107,7 @@ public class CppLinkActionBuilder {
             .add(ImmutableList.copyOf(objectArtifacts))
             .add(ImmutableList.copyOf(nonCodeInputs))
             .add(dependencyInputsBuilder.build())
-            .add(ImmutableSet.copyOf(expandedLinkerArtifactsNoLinkstamps));
+            .add(ImmutableIterable.from(expandedInputs));
 
     if (thinltoParamFile != null && !isLtoIndexing) {
       inputsBuilder.add(ImmutableList.of(thinltoParamFile));
@@ -1116,8 +1116,9 @@ public class CppLinkActionBuilder {
       inputsBuilder.add(ImmutableList.of(linkCommandLine.getParamFile()));
       // Pass along tree artifacts, so they can be properly expanded.
       ImmutableSet<Artifact> paramFileActionInputs =
-          expandedLinkerArtifacts
+          ImmutableSet.<LinkerInput>copyOf(linkerInputs)
               .stream()
+              .map(LinkerInput::getArtifact)
               .filter(a -> a.isTreeArtifact())
               .collect(ImmutableSet.toImmutableSet());
 
@@ -1206,7 +1207,7 @@ public class CppLinkActionBuilder {
     return !isLtoIndexing && allLtoArtifacts != null;
   }
 
-  private ImmutableSet<Artifact> getArtifactsPossiblyLtoMapped(
+  private Iterable<Artifact> getArtifactsPossiblyLtoMapped(
       Iterable<LinkerInput> inputs, Map<Artifact, Artifact> ltoMapping) {
     Preconditions.checkNotNull(ltoMapping);
     ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
