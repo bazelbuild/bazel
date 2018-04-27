@@ -462,10 +462,12 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "        srcs=[':src'], tools=[':tool'], outs=['out'],",
         "        cmd='$(location :tool)')");
 
+    ConfiguredTarget parentTarget = getConfiguredTarget("//config");
+
     Iterable<ConfiguredTarget> prereqs =
         Iterables.filter(
             Iterables.filter(
-                getDirectPrerequisites(getConfiguredTarget("//config")),
+                getDirectPrerequisites(parentTarget),
                 CC_CONFIGURED_TARGET_FILTER),
             JAVA_CONFIGURED_TARGET_FILTER);
 
@@ -481,7 +483,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
       }
       switch (name) {
         case "src":
-          assertConfigurationsEqual(getTargetConfiguration(), getConfiguration(prereq));
+          assertConfigurationsEqual(getConfiguration(parentTarget), getConfiguration(prereq));
           foundSrc = true;
           break;
         case "tool":
