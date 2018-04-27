@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
@@ -80,11 +81,12 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
 
   private final CppSemantics cppSemantics;
   private final LabelLateBoundDefault<?> ccToolchainAttrValue;
+  private final Label ccToolchainType;
 
-  protected CcProtoAspect(
-      AspectLegalCppSemantics cppSemantics, LabelLateBoundDefault<?> ccToolchainAttrValue) {
+  protected CcProtoAspect(AspectLegalCppSemantics cppSemantics, RuleDefinitionEnvironment env) {
     this.cppSemantics = cppSemantics;
-    this.ccToolchainAttrValue = ccToolchainAttrValue;
+    this.ccToolchainAttrValue = CppRuleClasses.ccToolchainAttribute(env);
+    this.ccToolchainType = CppRuleClasses.ccToolchainTypeAttribute(env);
   }
 
   @Override
@@ -113,6 +115,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
             .propagateAlongAttribute("deps")
             .requiresConfigurationFragments(CppConfiguration.class, ProtoConfiguration.class)
             .requireProviders(ProtoSupportDataProvider.class)
+            .addRequiredToolchains(ccToolchainType)
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)
                     .mandatoryNativeProviders(ImmutableList.of(ProtoLangToolchainProvider.class))

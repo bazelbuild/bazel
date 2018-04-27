@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -84,8 +86,6 @@ import java.util.stream.Collectors;
 public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "J2ObjcAspect";
 
-  private final String toolsRepository;
-
   private static final ExtraCompileArgs EXTRA_COMPILE_ARGS = new ExtraCompileArgs(
       "-fno-strict-overflow");
 
@@ -94,10 +94,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ProtoConfiguration.class,
         Label.parseAbsoluteUnchecked(defaultValue),
         (rule, attributes, protoConfig) -> protoConfig.protoToolchainForJ2objc());
-  }
-
-  public J2ObjcAspect(String toolsRepository) {
-    this.toolsRepository = toolsRepository;
   }
 
   private static final ImmutableList<Attribute> JAVA_DEPENDENT_ATTRIBUTES =
@@ -117,6 +113,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
           J2ObjcConfiguration.class,
           null,
           (rule, attributes, j2objcConfig) -> j2objcConfig.deadCodeReport());
+
+  private final String toolsRepository;
+  private final Label ccToolchainType;
+
+  public J2ObjcAspect(RuleDefinitionEnvironment env) {
+    this.toolsRepository = checkNotNull(env.getToolsRepository());
+    this.ccToolchainType = CppRuleClasses.ccToolchainTypeAttribute(env);
+  }
 
   /** Returns whether this aspect should generate J2ObjC protos from this proto rule */
   protected boolean shouldAttachToProtoRule(RuleContext ruleContext) {
@@ -144,6 +148,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             J2ObjcConfiguration.class,
             ObjcConfiguration.class,
             ProtoConfiguration.class)
+        .addRequiredToolchains(ccToolchainType)
         .add(
             attr("$j2objc", LABEL)
                 .cfg(HostTransition.INSTANCE)
