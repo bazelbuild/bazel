@@ -19,13 +19,11 @@ function print_message_and_exit() {
   echo $1 >&2; exit 1;
 }
 
-CURRENT_SCRIPT=${BASH_SOURCE[0]}
-# Go to the directory where the script is running
-cd "$(dirname ${CURRENT_SCRIPT})" \
-  || print_message_and_exit "Unable to access $(dirname ${CURRENT_SCRIPT})"
+if ! type rlocation >&/dev/null; then
+  print_message_and_exit "ERROR[integration_test_setup.sh]: rlocation is not defined, you must source runfiles.bash"
+fi
 
-DIR=$(pwd)
 # Load the unit test framework
-source "$DIR/unittest.bash" || print_message_and_exit "unittest.bash not found!"
+source "$(rlocation "io_bazel/src/test/shell/unittest.bash")" || print_message_and_exit "unittest.bash not found!"
 # Load the test environment
-source "$DIR/testenv.sh" || print_message_and_exit "testenv.sh not found!"
+source "$(rlocation "io_bazel/src/test/shell/testenv.sh")" || print_message_and_exit "testenv.sh not found!"

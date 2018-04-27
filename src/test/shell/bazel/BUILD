@@ -23,9 +23,11 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = [
+        ":doc-srcs",
         "remote_helpers.sh",
         "testing_server.py",
         ":langtools-copy",
+        "//:WORKSPACE",
         "//examples:srcs",
         "//src:bazel",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
@@ -355,6 +357,12 @@ sh_test(
     name = "location_test",
     srcs = ["location_test.sh"],
     data = [":test-deps"],
+    deps = [
+        # TODO(laszlocsomor): Change this to @bazel_tools//tools/bash/runfiles
+        # after Bazel is released and this target exists, and remove the
+        # visibility from //tools/bash/runfiles:runfiles_lib
+        "//tools/bash/runfiles:runfiles_lib",
+    ],
 )
 
 sh_test(
