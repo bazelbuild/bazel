@@ -59,6 +59,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -121,7 +122,6 @@ import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1152,13 +1152,13 @@ public class CompilationSupport {
         CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder executableLinkAction =
         new CppLinkActionBuilder(
-                ruleContext,
-                binaryToLink,
-                toolchain,
-                fdoSupport,
-                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
-                createObjcCppSemantics(
-                    objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
+            ruleContext,
+            binaryToLink,
+            toolchain,
+            fdoSupport,
+            getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
+            createObjcCppSemantics(
+                objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
             .setMnemonic("ObjcLink")
             .addActionInputs(bazelBuiltLibraries)
             .addActionInputs(objcProvider.getCcLibraries())
@@ -1319,13 +1319,13 @@ public class CompilationSupport {
             .build();
     CppLinkAction fullyLinkAction =
         new CppLinkActionBuilder(
-                ruleContext,
-                outputArchive,
-                ccToolchain,
-                fdoSupport,
-                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
-                createObjcCppSemantics(
-                    objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
+            ruleContext,
+            outputArchive,
+            ccToolchain,
+            fdoSupport,
+            getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
+            createObjcCppSemantics(
+                objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
             .addActionInputs(objcProvider.getObjcLibraries())
             .addActionInputs(objcProvider.getCcLibraries())
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())
@@ -1478,13 +1478,6 @@ public class CompilationSupport {
         j2ObjcMappingFileProvider.getArchiveSourceMappingFiles();
 
     for (Artifact j2objcArchive : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY)) {
-      PathFragment paramFilePath =
-          FileSystemUtils.replaceExtension(
-              j2objcArchive.getOwner().toPathFragment(), ".param.j2objc");
-      Artifact paramFile =
-          ruleContext.getUniqueDirectoryArtifact(
-              "_j2objc_pruned", paramFilePath,
-              buildConfiguration.getBinDirectory(ruleContext.getRule().getRepository()));
       Artifact prunedJ2ObjcArchive = intermediateArtifacts.j2objcPrunedArchive(j2objcArchive);
       Artifact dummyArchive =
           Iterables.getOnlyElement(
@@ -1511,13 +1504,6 @@ public class CompilationSupport {
               .build();
 
       ruleContext.registerAction(
-          new ParameterFileWriteAction(
-              ruleContext.getActionOwner(),
-              paramFile,
-              commandLine,
-              ParameterFile.ParameterFileType.UNQUOTED,
-              ISO_8859_1));
-      ruleContext.registerAction(
           ObjcRuleClasses.spawnAppleEnvActionBuilder(
                   XcodeConfigProvider.fromRuleContext(ruleContext),
                   appleConfiguration.getSingleArchPlatform())
@@ -1525,14 +1511,17 @@ public class CompilationSupport {
               .setExecutable(pruner)
               .addInput(dummyArchive)
               .addInput(pruner)
-              .addInput(paramFile)
               .addInput(j2objcArchive)
               .addInput(xcrunwrapper(ruleContext).getExecutable())
               .addTransitiveInputs(j2ObjcDependencyMappingFiles)
               .addTransitiveInputs(j2ObjcHeaderMappingFiles)
               .addTransitiveInputs(j2ObjcArchiveSourceMappingFiles)
               .addCommandLine(
-                  CustomCommandLine.builder().addFormatted("@%s", paramFile.getExecPath()).build())
+                  commandLine,
+                  ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED)
+                      .setCharset(ISO_8859_1)
+                      .setUseAlways(true)
+                      .build())
               .addOutput(prunedJ2ObjcArchive)
               .build(ruleContext));
     }
