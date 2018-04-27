@@ -29,6 +29,11 @@ class ZipFilterEntryFilter implements ZipEntryFilter {
   private final Multimap<String, Long> entriesToOmit;
   private final Map<String, Long> inputEntries;
   private final HashMismatchCheckMode hashMismatchCheckMode;
+  private boolean sawErrors = false;
+
+  public boolean sawErrors() {
+    return sawErrors;
+  }
 
   /**
    * Creates a new filter.
@@ -62,11 +67,12 @@ class ZipFilterEntryFilter implements ZipEntryFilter {
           callback.skip();
         } else {
           if (hashMismatchCheckMode == HashMismatchCheckMode.ERROR) {
-            throw new IllegalStateException(
-                String.format(
-                    "Requested to filter entries of name "
-                        + "'%s'; name matches but the hash does not. Aborting",
-                    filename));
+            System.out.printf(
+                "\u001b[31mERROR:\u001b[0m Requested to filter entries of name "
+                    + "'%s'; name matches but the hash does not.\n",
+                filename);
+            sawErrors = true;
+            callback.skip();
           } else {
             System.out.printf(
                 "\u001b[35mWARNING:\u001b[0m Requested to filter entries of name "
@@ -80,4 +86,5 @@ class ZipFilterEntryFilter implements ZipEntryFilter {
       callback.copy(null);
     }
   }
+
 }
