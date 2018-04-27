@@ -366,7 +366,9 @@ public final class ConfiguredTargetFactory {
         // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
         return SkylarkRuleConfiguredTargetUtil.buildRule(
             ruleContext,
+            rule.getRuleClassObject().getAdvertisedProviders(),
             rule.getRuleClassObject().getConfiguredTargetFunction(),
+            rule.getLocation(),
             env.getSkylarkSemantics());
       } else {
         RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext, ActionConflictException>

@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -532,7 +533,18 @@ public class SkylarkRuleClassFunctions {
         legacyNamed = true,
         defaultValue = "''",
         doc = "A description of the rule that can be extracted by documentation generating tools."
-      )
+      ),
+      @Param(
+        name = "provides",
+        type = SkylarkList.class,
+        named = true,
+        positional = false,
+        defaultValue = "[]",
+        doc =
+            "A list of providers this rule is guaranteed to provide. "
+                + "It is an error if a provider is listed here and the rule "
+                + "implementation function does not return it."
+      ),
     },
     useAst = true,
     useEnvironment = true
@@ -546,11 +558,12 @@ public class SkylarkRuleClassFunctions {
       Object implicitOutputs,
       Boolean executable,
       Boolean outputToGenfiles,
-      SkylarkList fragments,
-      SkylarkList hostFragments,
+      SkylarkList<?> fragments,
+      SkylarkList<?> hostFragments,
       Boolean skylarkTestable,
       SkylarkList<String> toolchains,
       String doc,
+      SkylarkList<?> providesArg,
       FuncallExpression ast,
       Environment funcallEnv)
       throws EvalException, ConversionException {
@@ -616,6 +629,21 @@ public class SkylarkRuleClassFunctions {
         funcallEnv.getGlobals().getTransitiveLabel(),
         funcallEnv.getTransitiveContentHashCode());
     builder.addRequiredToolchains(collectToolchainLabels(toolchains, ast));
+
+    for (Object o : providesArg) {
+      if (!SkylarkAttr.isProvider(o)) {
+        throw new EvalException(
+            ast.getLocation(),
+            String.format(
+                "Illegal argument: element in 'provides' is of unexpected type. "
+                    + "Should be list of providers, but got item of type %s.",
+                EvalUtils.getDataTypeName(o, true)));
+      }
+    }
+    for (SkylarkProviderIdentifier skylarkProvider :
+        SkylarkAttr.getSkylarkProviderIdentifiers(providesArg, ast.getLocation())) {
+      builder.advertiseSkylarkProvider(skylarkProvider);
+    }
 
     return new SkylarkRuleFunction(builder, type, attributes, ast.getLocation());
   }
@@ -863,7 +891,7 @@ public class SkylarkRuleClassFunctions {
             ast.getLocation(),
             String.format(
                 "Illegal argument: element in 'provides' is of unexpected type. "
-                    + "Should be list of providers, but got %s. ",
+                    + "Should be list of providers, but got item of type %s. ",
                 EvalUtils.getDataTypeName(o, true)));
       }
     }

@@ -1314,6 +1314,123 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testAdvertisedProviders() throws Exception {
+    scratch.file(
+        "test/foo.bzl",
+        "FooInfo = provider()",
+        "BarInfo = provider()",
+        "def _impl(ctx):",
+        "    foo = FooInfo()",
+        "    bar = BarInfo()",
+        "    return [foo, bar]",
+        "foo_rule = rule(",
+        "    implementation = _impl,",
+        "    provides = [FooInfo, BarInfo]",
+        ")");
+    scratch.file(
+        "test/bar.bzl",
+        "load(':foo.bzl', 'FooInfo')",
+        "def _impl(ctx):",
+        "    dep = ctx.attr.deps[0]",
+        "    proxy = dep[FooInfo]", // The goal is to test this object
+        "    return struct(proxy = proxy)", // so we return it here
+        "bar_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {",
+        "       'deps': attr.label_list(allow_files=True),",
+        "    }",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':foo.bzl', 'foo_rule')",
+        "load(':bar.bzl', 'bar_rule')",
+        "foo_rule(name = 'dep_rule')",
+        "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
+    Object provider = configuredTarget.get("proxy");
+    assertThat(provider).isInstanceOf(Info.class);
+    assertThat(((Info) provider).getProvider().getKey())
+        .isEqualTo(new SkylarkKey(Label.parseAbsolute("//test:foo.bzl"), "FooInfo"));
+  }
+
+  @Test
+  public void testLacksAdvertisedDeclaredProvider() throws Exception {
+    scratch.file(
+        "test/foo.bzl",
+        "FooInfo = provider()",
+        "def _impl(ctx):",
+        "    default = DefaultInfo(",
+        "        runfiles=ctx.runfiles(ctx.files.runs),",
+        "    )",
+        "    return struct(providers=[default])",
+        "foo_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {",
+        "       'runs': attr.label_list(allow_files=True),",
+        "    },",
+        "    provides = [FooInfo, DefaultInfo]",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':foo.bzl', 'foo_rule')",
+        "foo_rule(name = 'my_rule', runs = ['run.file', 'run2.file'])");
+
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("rule advertised the 'FooInfo' provider, "
+            + "but this provider was not among those returned");
+  }
+
+  @Test
+  public void testLacksAdvertisedNativeProvider() throws Exception {
+    scratch.file(
+        "test/foo.bzl",
+        "FooInfo = provider()",
+        "def _impl(ctx):",
+        "    MyFooInfo = FooInfo()",
+        "    return struct(providers=[MyFooInfo])",
+        "foo_rule = rule(",
+        "    implementation = _impl,",
+        "    provides = [FooInfo, JavaInfo]",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':foo.bzl', 'foo_rule')",
+        "foo_rule(name = 'my_rule')");
+
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("rule advertised the 'JavaInfo' provider, "
+            + "but this provider was not among those returned");
+  }
+
+  @Test
+  public void testBadlySpecifiedProvides() throws Exception {
+    scratch.file(
+        "test/foo.bzl",
+        "def _impl(ctx):",
+        "    return struct()",
+        "foo_rule = rule(",
+        "    implementation = _impl,",
+        "    provides = [1]",
+        ")");
+    scratch.file("test/BUILD", "load(':foo.bzl', 'foo_rule')", "foo_rule(name = 'my_rule')");
+
+
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "element in 'provides' is of unexpected type. "
+                + "Should be list of providers, but got item of type int");
+  }
+
+  @Test
   public void testSingleDeclaredProvider() throws Exception {
     scratch.file(
         "test/foo.bzl",

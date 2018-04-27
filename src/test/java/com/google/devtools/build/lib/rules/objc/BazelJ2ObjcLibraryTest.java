@@ -884,6 +884,59 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             "java/com/google/dummy/_j2objc/dummy/java/com/google/dummy/dummy.m"));
   }
 
+  // Tests that a j2objc library can acquire java library information from a skylark rule target.
+  @Test
+  public void testJ2ObjcLibraryDepThroughSkylarkRule() throws Exception {
+    scratch.file("examples/inner.java");
+    scratch.file("examples/outer.java");
+    scratch.file(
+        "examples/fake_rule.bzl",
+        "def _fake_rule_impl(ctx):",
+        "  myProvider = ctx.attr.deps[0][JavaInfo]",
+        "  return struct(providers = [myProvider])",
+        "",
+        "fake_rule = rule(",
+        "  implementation = _fake_rule_impl,",
+        "  attrs = {'deps': attr.label_list()},",
+        "  provides = [JavaInfo],",
+        ")");
+    scratch.file(
+        "examples/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "load('//examples:fake_rule.bzl', 'fake_rule')",
+        "java_library(",
+        "    name = 'inner',",
+        "    srcs = ['inner.java'])",
+        "",
+        "fake_rule(",
+        "    name = 'propagator',",
+        "    deps = [':inner'])",
+        "",
+        "java_library(",
+        "    name = 'outer',",
+        "    srcs = ['outer.java'],",
+        "    deps = [':propagator'])",
+        "",
+        "j2objc_library(",
+        "    name = 'transpile',",
+        "    deps = [",
+        "        ':outer',",
+        "    ])",
+        "",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.m'],",
+        "    deps = [':transpile'])");
+
+    ConfiguredTarget objcTarget = getConfiguredTarget("//examples:lib");
+
+    ObjcProvider provider = objcTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+
+    // The only way that //examples:lib can see inner's archive is through the skylark rule.
+    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
+        .contains("examples/libinner_j2objc.a");
+  }
+
   @Test
   public void testJ2ObjcTranspiledHeaderInCompilationAction() throws Exception {
     scratch.file("app/lib.m");
