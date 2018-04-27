@@ -134,6 +134,7 @@ public class ImportDepsCheckerTest extends AbstractClassCacheTest {
 
     args.add("--output");
     args.add(Files.createTempFile("temp_output", ".txt").toString());
+    args.add("--checking_mode=silence");
     Main.checkDeps(args.toArray(new String[0]));
 
     try (InputStream inputStream = Files.newInputStream(jdepsFile)) {

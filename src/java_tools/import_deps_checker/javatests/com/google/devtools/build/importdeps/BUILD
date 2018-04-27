@@ -131,8 +131,8 @@ create_golden_test(
 
 create_golden_test(
     name = "warn_on_bootclasspath_missing_golden_test",
+    checking_mode = "warning",
     expect_errors = False,
-    fail_on_errors = False,
     golden_output_file = "golden_bootclasspath_missing.txt",
     golden_stderr_file = "golden_bootclasspath_missing.stderr.warningtxt",
     has_bootclasspath = False,
@@ -143,9 +143,22 @@ create_golden_test(
 )
 
 create_golden_test(
+    name = "silent_on_bootclasspath_missing_golden_test",
+    checking_mode = "silence",
+    expect_errors = False,
+    golden_output_file = "golden_complete_classpath.txt",
+    golden_stderr_file = "golden_complete_classpath.stderr.txt",
+    has_bootclasspath = False,
+    import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
+    missing_jar = None,
+    rt_jar = "@local_jdk//:jre/lib/rt.jar",
+    testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
+)
+
+create_golden_test(
     name = "library_exception_missing_golden_test",
+    checking_mode = "error",
     expect_errors = True,
-    fail_on_errors = True,
     golden_output_file = "golden_library_exception_missing.txt",
     golden_stderr_file = "golden_library_exception_missing.stderr.txt",
     has_bootclasspath = True,
@@ -157,8 +170,8 @@ create_golden_test(
 
 create_golden_test(
     name = "library_annotation_missing_golden_test",
+    checking_mode = "error",
     expect_errors = True,
-    fail_on_errors = True,
     golden_output_file = "golden_library_annotation_missing.txt",
     golden_stderr_file = "golden_library_annotation_missing.stderr.txt",
     has_bootclasspath = True,
@@ -170,8 +183,8 @@ create_golden_test(
 
 create_golden_test(
     name = "library_missing_golden_test",
+    checking_mode = "error",
     expect_errors = True,
-    fail_on_errors = True,
     golden_output_file = "golden_library_missing.txt",
     golden_stderr_file = "golden_library_missing.stderr.txt",
     has_bootclasspath = True,
@@ -183,8 +196,8 @@ create_golden_test(
 
 create_golden_test(
     name = "library_interface_missing_golden_test",
+    checking_mode = "error",
     expect_errors = True,
-    fail_on_errors = True,
     golden_output_file = "golden_library_interface_missing.txt",
     golden_stderr_file = "golden_library_interface_missing.stderr.txt",
     has_bootclasspath = True,
@@ -196,8 +209,8 @@ create_golden_test(
 
 create_golden_test(
     name = "library_members_missing_golden_test",
+    checking_mode = "error",
     expect_errors = True,
-    fail_on_errors = True,
     golden_output_file = "golden_library_members_missing.txt",
     golden_stderr_file = "golden_library_members_missing.stderr.txt",
     has_bootclasspath = True,
@@ -210,8 +223,8 @@ create_golden_test(
 
 create_golden_test(
     name = "complete_classpath_golden_test",
+    checking_mode = "error",
     expect_errors = False,
-    fail_on_errors = True,
     golden_output_file = "golden_complete_classpath.txt",
     golden_stderr_file = "golden_complete_classpath.stderr.txt",
     has_bootclasspath = True,
@@ -246,7 +259,7 @@ sh_test(
         "$(location golden_string_annotation_value_test.stderr.txt)",
         "199",
         "$(location //third_party/bazel/src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker)",
-        "--fail_on_errors",
+        "--checking_mode=error",
         "--bootclasspath_entry",
         "$(location :libempty.jar)",
         "--classpath_entry",

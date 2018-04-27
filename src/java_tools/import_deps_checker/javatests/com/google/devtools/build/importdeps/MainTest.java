@@ -38,7 +38,14 @@ public final class MainTest {
             IllegalArgumentException.class,
             () ->
                 Main.parseCommandLineOptions(
-                    new String[] {"--classpath_entry", lib.toString(), "--input", in.toString()}));
+                    new String[] {
+                      "--bootclasspath_entry",
+                      lib.toString(),
+                      "--classpath_entry",
+                      lib.toString(),
+                      "--input",
+                      in.toString()
+                    }));
     assertThat(thrown).hasMessageThat().contains("--output");
   }
 }
