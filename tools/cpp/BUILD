@@ -360,7 +360,17 @@ filegroup(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//tools/cpp/runfiles:srcs",
+    ],
+)
+
+filegroup(
+    name = "embedded_tools",
+    srcs = glob(["**"]) + [
+        "//tools/cpp/runfiles:embedded_tools",
+    ],
+    visibility = ["//tools:__pkg__"],
 )
 
 filegroup(
