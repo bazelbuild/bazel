@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 
 /**
@@ -88,6 +89,7 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
         .add(
             attr("$jacocorunner", LABEL).value(env.getToolsLabel(
                 "//tools/jdk:JacocoCoverage")))
+        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .build();
   }
 
