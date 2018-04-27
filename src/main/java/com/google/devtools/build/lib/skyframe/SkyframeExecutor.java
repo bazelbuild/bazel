@@ -131,6 +131,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompl
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -834,9 +835,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
-  private void setSkylarkSemantics(SkylarkSemanticsOptions skylarkSemanticsOptions) {
-    PrecomputedValue.SKYLARK_SEMANTICS.set(
-        injectable(), skylarkSemanticsOptions.toSkylarkSemantics());
+  protected void setSkylarkSemantics(SkylarkSemantics skylarkSemantics) {
+    PrecomputedValue.SKYLARK_SEMANTICS.set(injectable(), skylarkSemantics);
   }
 
   public void injectExtraPrecomputedValues(
@@ -1110,7 +1110,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.clientEnv.set(clientEnv);
     setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
     setDefaultVisibility(packageCacheOptions.defaultVisibility);
-    setSkylarkSemantics(skylarkSemanticsOptions);
+    setSkylarkSemantics(skylarkSemanticsOptions.toSkylarkSemantics());
     setupDefaultPackage(defaultsPackageContents);
     setPackageLocator(pkgLocator);
 
