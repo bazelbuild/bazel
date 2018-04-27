@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
@@ -72,7 +73,6 @@ import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
@@ -1149,30 +1149,20 @@ public class BuildView {
     return result;
   }
 
-  private ConfigurationTransition getTopLevelTransitionForTarget(Label label,
-      ExtendedEventHandler handler) {
-    Rule rule;
+  private ConfigurationTransition getTopLevelTransitionForTarget(
+      Label label, BuildConfiguration config, ExtendedEventHandler handler) {
+    Target target;
     try {
-      rule = skyframeExecutor
-          .getPackageManager()
-          .getTarget(handler, label)
-          .getAssociatedRule();
+      target = skyframeExecutor.getPackageManager().getTarget(handler, label);
     } catch (NoSuchPackageException | NoSuchTargetException e) {
       return NoTransition.INSTANCE;
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new AssertionError("Configuration of " + label + " interrupted");
     }
-    if (rule == null) {
-      return NoTransition.INSTANCE;
-    }
-    RuleTransitionFactory factory = rule
-        .getRuleClassObject()
-        .getTransitionFactory();
-    if (factory == null) {
-      return NoTransition.INSTANCE;
-    }
-    return Preconditions.checkNotNull(factory.buildTransitionFor(rule));
+    return TransitionResolver.evaluateTopLevelTransition(
+        new TargetAndConfiguration(target, config),
+        ruleClassProvider.getTrimmingTransitionFactory());
   }
 
   /**
@@ -1185,8 +1175,8 @@ public class BuildView {
   @VisibleForTesting
   public ConfiguredTarget getConfiguredTargetForTesting(
       ExtendedEventHandler eventHandler, Label label, BuildConfiguration config) {
-    return skyframeExecutor.getConfiguredTargetForTesting(eventHandler, label, config,
-        getTopLevelTransitionForTarget(label, eventHandler));
+    return skyframeExecutor.getConfiguredTargetForTesting(
+        eventHandler, label, config, getTopLevelTransitionForTarget(label, config, eventHandler));
   }
 
   @VisibleForTesting
