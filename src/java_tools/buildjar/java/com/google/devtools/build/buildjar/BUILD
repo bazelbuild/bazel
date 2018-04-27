@@ -167,25 +167,6 @@ bootstrap_java_library(
     tags = ["manual"],
 )
 
-bootstrap_java_binary(
-    name = "bootstrap",
-    srcs = glob(
-        ["**/*.java"],
-        exclude = [
-            "JarOwner.java",
-            "VanillaJavaBuilder.java",
-            "javac/testing/**",
-        ],
-    ),
-    main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
-    tags = ["manual"],
-    deps = [
-        ":skylark-deps",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:bootstrap_plugins",
-    ],
-)
-
 bootstrap_java_library(
     name = "bootstrap_JarOwner",
     srcs = ["JarOwner.java"],

@@ -49,13 +49,6 @@ filegroup(
 )
 
 filegroup(
-    name = "bootstrap_deploy.jar",
-    srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_deploy.jar"],
-    tags = ["manual"],
-    visibility = ["//visibility:public"],
-)
-
-filegroup(
     name = "bootstrap_VanillaJavaBuilder_deploy.jar",
     srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_VanillaJavaBuilder_deploy.jar"],
     tags = ["manual"],
@@ -89,7 +82,7 @@ java_toolchain(
     extclasspath = [],
     genclass = ["bootstrap_genclass_deploy.jar"],
     ijar = ["//third_party/ijar"],
-    javabuilder = ["bootstrap_deploy.jar"],
+    javabuilder = ["bootstrap_VanillaJavaBuilder_deploy.jar"],
     javac = ["//third_party/java/jdk/langtools:javac_jar"],
     jvm_opts = [
         # Prevent "Could not reserve enough space for object heap" errors on Windows.
