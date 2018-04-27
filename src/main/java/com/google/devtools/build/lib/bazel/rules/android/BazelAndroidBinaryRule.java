@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
 /**
  * Rule class definition for {@code android_binary}.
@@ -68,6 +69,7 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
         .setImplicitOutputsFunction(AndroidRuleClasses.ANDROID_BINARY_IMPLICIT_OUTPUTS)
         .cfg(
             new ConfigFeatureFlagTransitionFactory(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR))
+        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(environment))
         .build();
   }
 
