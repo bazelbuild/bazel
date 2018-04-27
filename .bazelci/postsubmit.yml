@@ -82,8 +82,8 @@ platforms:
     - "-//src/test/shell/bazel:bazel_determinism_test"
   windows:
     shell_commands:
-    - echo android_sdk_repository(name = "androidsdk") >> WORKSPACE
-    - echo android_ndk_repository(name = "androidndk") >> WORKSPACE
+    - powershell -Command \"(gc WORKSPACE) -replace '# android_sdk_repository', 'android_sdk_repository' | Out-File WORKSPACE\"
+    - powershell -Command \"(gc WORKSPACE) -replace '# android_ndk_repository', 'android_ndk_repository' | Out-File WORKSPACE\"
     build_flags:
     - "--copt=-w"
     - "--host_copt=-w"
