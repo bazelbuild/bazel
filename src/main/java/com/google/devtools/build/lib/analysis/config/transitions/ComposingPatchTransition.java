@@ -57,5 +57,16 @@ public class ComposingPatchTransition implements PatchTransition {
   public String getName() {
     return delegate.getName();
   }
+
+  @Override
+  public int hashCode() {
+    return delegate.hashCode();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    return other instanceof ComposingPatchTransition
+        && ((ComposingPatchTransition) other).delegate.equals(this.delegate);
+  }
 }
 

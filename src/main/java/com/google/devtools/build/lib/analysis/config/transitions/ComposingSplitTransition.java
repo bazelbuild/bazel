@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A configuration transition that composes two other transitions in an ordered sequence.
@@ -79,6 +80,18 @@ public class ComposingSplitTransition implements SplitTransition {
     Preconditions.checkArgument(transition instanceof PatchTransition
         || transition instanceof SplitTransition);
     return transition;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(transition1, transition2);
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    return other instanceof ComposingSplitTransition
+        && ((ComposingSplitTransition) other).transition1.equals(this.transition1)
+        && ((ComposingSplitTransition) other).transition2.equals(this.transition2);
   }
 
   /**
