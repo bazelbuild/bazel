@@ -18,7 +18,8 @@
 # - At least one of RUNFILES_MANIFEST_FILE and RUNFILES_DIR environment
 #   variables must be set, to the absolute path of the runfiles manifest or the
 #   <rulename>.runfiles directory respectively.
-# - If RUNFILES_LIB_DEBUG=1 is set, the script will print errors to stderr.
+# - If RUNFILES_LIB_DEBUG=1 is set, the script will print diagnostic messages to
+#   stderr.
 #
 # USAGE:
 # 1. Depend on this runfiles library from your build rule:
@@ -59,17 +60,23 @@
 case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*|mingw*|cygwin*)
   # matches an absolute Windows path
-  _rlocation_isabs_pattern="^[a-zA-Z]:[/\\]"
+  export _rlocation_isabs_pattern="^[a-zA-Z]:[/\\]"
   ;;
 *)
   # matches an absolute Unix path
-  _rlocation_isabs_pattern="^/[^/].*"
+  export _rlocation_isabs_pattern="^/[^/].*"
   ;;
 esac
 
 # Prints to stdout the runtime location of a data-dependency.
 function rlocation() {
+  if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+    echo >&2 "INFO[runfiles.bash]: rlocation($1): start"
+  fi
   if [[ "$1" =~ $_rlocation_isabs_pattern ]]; then
+    if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+      echo >&2 "INFO[runfiles.bash]: rlocation($1): absolute path, return"
+    fi
     # If the path is absolute, print it as-is.
     echo $1
   elif [[ "$1" == ../* || "$1" == */.. || "$1" == ./* || "$1" == */./* || "$1" == "*/." || "$1" == *//* ]]; then
@@ -85,10 +92,26 @@ function rlocation() {
     return 1
   else
     if [[ -f "${RUNFILES_DIR:-/dev/null}/$1" ]]; then
+      if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+        echo >&2 "INFO[runfiles.bash]: rlocation($1): found under RUNFILES_DIR ($RUNFILES_DIR), return"
+      fi
       echo "${RUNFILES_DIR}/$1"
     elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+      if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+        echo >&2 "INFO[runfiles.bash]: rlocation($1): looking in RUNFILES_MANIFEST_FILE ($RUNFILES_MANIFEST_FILE)"
+      fi
       local -r result=$(grep -m1 "^$1 " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
-      [[ -f "${result:-/dev/null}" ]] && echo "$result" || echo ""
+      if [[ -f "${result:-/dev/null}" ]]; then
+        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+          echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($result)"
+        fi
+        echo "$result"
+      else
+        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+          echo >&2 "INFO[runfiles.bash]: rlocation($1): not found in manifest"
+        fi
+        echo ""
+      fi
     else
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
         echo >&2 "ERROR[runfiles.bash]: cannot look up runfile \"$1\" " \
