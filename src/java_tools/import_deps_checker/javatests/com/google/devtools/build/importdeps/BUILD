@@ -118,8 +118,8 @@ load("//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/i
 
 create_golden_test(
     name = "bootclasspath_missing_golden_test",
+    checking_mode = "error",
     expect_errors = True,
-    fail_on_errors = True,
     golden_output_file = "golden_bootclasspath_missing.txt",
     golden_stderr_file = "golden_bootclasspath_missing.stderr.txt",
     has_bootclasspath = False,
