@@ -217,4 +217,52 @@ public class SandboxOptions extends OptionsBase {
             + "locally executed actions which use sandboxing"
   )
   public boolean collectLocalSandboxExecutionStatistics;
+
+  @Option(
+    name = "experimental_docker_image",
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EXECUTION},
+    help =
+        "Specify a Docker image name (e.g. \"ubuntu:latest\") that should be used to execute "
+            + "a sandboxed action when using the docker strategy and the action itself doesn't "
+            + "already have a container-image attribute in its remote_execution_properties in the "
+            + "platform description. The value of this flag is passed verbatim to 'docker run', so "
+            + "it supports the same syntax and mechanisms as Docker itself."
+  )
+  public String dockerImage;
+
+  @Option(
+    name = "experimental_docker_use_customized_images",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EXECUTION},
+    help =
+        "If enabled, injects the uid and gid of the current user into the Docker image before "
+            + "using it. This is required if your build / tests depend on the user having a name "
+            + "and home directory inside the container. This is on by default, but you can disable "
+            + "it in case the automatic image customization feature doesn't work in your case or "
+            + "you know that you don't need it."
+  )
+  public boolean dockerUseCustomizedImages;
+
+  @Option(
+      name = "experimental_docker_verbose",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If enabled, Bazel will print more verbose messages about the Docker sandbox strategy.")
+  public boolean dockerVerbose;
+
+  @Option(
+      name = "experimental_docker_privileged",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If enabled, Bazel will pass the --privileged flag to 'docker run' when running actions. "
+              + "This might be required by your build, but it might also result in reduced "
+              + "hermeticity.")
+  public boolean dockerPrivileged;
 }

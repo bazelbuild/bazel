@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -30,10 +31,13 @@ import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
+import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -67,6 +71,29 @@ final class SandboxActionContextProvider extends ActionContextProvider {
       contexts.add(new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
+    // This strategy uses Docker to execute spawns. It should work on all platforms that support
+    // Docker.
+    getPathToDockerClient(cmdEnv)
+        .ifPresent(
+            dockerClient -> {
+              if (DockerSandboxedSpawnRunner.isSupported(cmdEnv, dockerClient)) {
+                String defaultImage = options.getOptions(SandboxOptions.class).dockerImage;
+                boolean useCustomizedImages =
+                    options.getOptions(SandboxOptions.class).dockerUseCustomizedImages;
+                SpawnRunner spawnRunner =
+                    withFallback(
+                        cmdEnv,
+                        new DockerSandboxedSpawnRunner(
+                            cmdEnv,
+                            dockerClient,
+                            sandboxBase,
+                            defaultImage,
+                            timeoutKillDelay,
+                            useCustomizedImages));
+                contexts.add(new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+              }
+            });
+
     // This is the preferred sandboxing strategy on Linux.
     if (LinuxSandboxedSpawnRunner.isSupported(cmdEnv)) {
       SpawnRunner spawnRunner =
@@ -86,6 +113,32 @@ final class SandboxActionContextProvider extends ActionContextProvider {
     }
 
     return new SandboxActionContextProvider(contexts.build());
+  }
+
+  private static Optional<Path> getPathToDockerClient(CommandEnvironment cmdEnv) {
+    String path = cmdEnv.getClientEnv().getOrDefault("PATH", "");
+
+    Splitter pathSplitter =
+        Splitter.on(OS.getCurrent() == OS.WINDOWS ? ';' : ':').trimResults().omitEmptyStrings();
+
+    FileSystem fs = cmdEnv.getRuntime().getFileSystem();
+
+    for (String pathElement : pathSplitter.split(path)) {
+      // Sometimes the PATH contains the non-absolute entry "." - this resolves it against the
+      // current working directory.
+      pathElement = new File(pathElement).getAbsolutePath();
+      try {
+        for (Path dentry : fs.getPath(pathElement).getDirectoryEntries()) {
+          if (dentry.getBaseName().replace(".exe", "").equals("docker")) {
+            return Optional.of(dentry);
+          }
+        }
+      } catch (IOException e) {
+        continue;
+      }
+    }
+
+    return Optional.empty();
   }
 
   private static SpawnRunner withFallback(CommandEnvironment env, SpawnRunner sandboxSpawnRunner) {
