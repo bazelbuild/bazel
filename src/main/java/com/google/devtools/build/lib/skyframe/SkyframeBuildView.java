@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -146,17 +147,16 @@ public final class SkyframeBuildView {
     return factory;
   }
 
-  /**
-   * Sets the configurations. Not thread-safe. DO NOT CALL except from tests!
-   */
+  /** Sets the configurations. Not thread-safe. DO NOT CALL except from tests! */
   @VisibleForTesting
-  public void setConfigurations(BuildConfigurationCollection configurations) {
+  public void setConfigurations(
+      EventHandler eventHandler, BuildConfigurationCollection configurations) {
     // Clear all cached ConfiguredTargets on configuration change of if --discard_analysis_cache
     // was set on the previous build. In the former case, it's not required for correctness, but
     // prevents unbounded memory usage.
     if ((this.configurations != null && !configurations.equals(this.configurations))
         || skyframeAnalysisWasDiscarded) {
-      logger.info("Discarding analysis cache: configurations have changed.");
+      eventHandler.handle(Event.info("Build options have changed, discarding analysis cache."));
       skyframeExecutor.handleConfiguredTargetChange();
     }
     skyframeAnalysisWasDiscarded = false;

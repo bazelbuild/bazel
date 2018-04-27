@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
@@ -281,12 +282,11 @@ public class BuildView {
     return configuredTarget == null;
   }
 
-  /**
-   * Sets the configurations. Not thread-safe. DO NOT CALL except from tests!
-   */
+  /** Sets the configurations. Not thread-safe. DO NOT CALL except from tests! */
   @VisibleForTesting
-  public void setConfigurationsForTesting(BuildConfigurationCollection configurations) {
-    skyframeBuildView.setConfigurations(configurations);
+  public void setConfigurationsForTesting(
+      EventHandler eventHandler, BuildConfigurationCollection configurations) {
+    skyframeBuildView.setConfigurations(eventHandler, configurations);
   }
 
   public ArtifactFactory getArtifactFactory() {
@@ -478,7 +478,7 @@ public class BuildView {
     Collection<Target> targets = loadingResult.getTargets();
     eventBus.post(new AnalysisPhaseStartedEvent(targets));
 
-    skyframeBuildView.setConfigurations(configurations);
+    skyframeBuildView.setConfigurations(eventHandler, configurations);
 
     // Determine the configurations.
     List<TargetAndConfiguration> topLevelTargetsWithConfigs =

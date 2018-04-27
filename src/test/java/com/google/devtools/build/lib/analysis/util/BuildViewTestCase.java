@@ -509,7 +509,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.handleConfiguredTargetChange();
 
     view = new BuildView(directories, ruleClassProvider, skyframeExecutor, null);
-    view.setConfigurationsForTesting(masterConfig);
+    view.setConfigurationsForTesting(event -> {}, masterConfig);
 
     view.setArtifactRoots(new PackageRootsNoSymlinkCreation(Root.fromPath(rootDirectory)));
   }
