@@ -81,6 +81,9 @@ platforms:
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel:bazel_determinism_test"
   windows:
+    shell_commands:
+    - echo android_sdk_repository(name = "androidsdk") >> WORKSPACE
+    - echo android_ndk_repository(name = "androidndk") >> WORKSPACE
     build_flags:
     - "--copt=-w"
     - "--host_copt=-w"
