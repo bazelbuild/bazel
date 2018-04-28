@@ -20,6 +20,6 @@ import com.google.devtools.build.lib.rules.android.AarImport;
 /** Implementation of {@code aar_import} with Bazel semantics. */
 public class BazelAarImport extends AarImport {
   public BazelAarImport() {
-    super(BazelJavaSemantics.INSTANCE);
+    super(BazelJavaSemantics.INSTANCE, BazelAndroidMigrationSemantics.INSTANCE);
   }
 }

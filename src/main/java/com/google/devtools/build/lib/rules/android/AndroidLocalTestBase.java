@@ -78,7 +78,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     JavaSemantics javaSemantics = createJavaSemantics();
     AndroidSemantics androidSemantics = createAndroidSemantics();
-
+    createAndroidMigrationSemantics().validateRuleContext(ruleContext);
     AndroidLocalTestConfiguration androidLocalTestConfiguration =
         ruleContext.getFragment(AndroidLocalTestConfiguration.class);
 
@@ -554,6 +554,9 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
   /** Get AndroidSemantics */
   protected abstract AndroidSemantics createAndroidSemantics();
+
+  /** Get AndroidMigrationSemantics */
+  protected abstract AndroidMigrationSemantics createAndroidMigrationSemantics();
 
   /** Set test and robolectric specific jvm flags */
   protected abstract ImmutableList<String> getJvmFlags(RuleContext ruleContext, String testClass)

@@ -43,6 +43,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
 
   protected abstract AndroidSemantics createAndroidSemantics();
 
+  protected abstract AndroidMigrationSemantics createAndroidMigrationSemantics();
+
   /** Checks expected rule invariants, throws rule errors if anything is set wrong. */
   private static void validateRuleContext(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
@@ -114,6 +116,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     JavaSemantics javaSemantics = createJavaSemantics();
     AndroidSemantics androidSemantics = createAndroidSemantics();
     androidSemantics.validateAndroidLibraryRuleContext(ruleContext);
+    createAndroidMigrationSemantics().validateRuleContext(ruleContext);
     AndroidSdkProvider.verifyPresence(ruleContext);
     NestedSetBuilder<Aar> transitiveAars = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> transitiveAarArtifacts = NestedSetBuilder.stableOrder();

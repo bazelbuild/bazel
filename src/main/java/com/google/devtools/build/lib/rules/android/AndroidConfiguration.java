@@ -808,6 +808,17 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean enforceStrictDepsForBinariesUnderTest;
 
+    @Option(
+      name = "android_migration_tag_check",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+      },
+      help = "If enabled, strict usage of the Skylark migration tag is enabled for android rules."
+    )
+    public boolean checkForMigrationTag;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -888,6 +899,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
   private final boolean decoupleDataProcessing;
   private final boolean enforceStrictDepsForBinariesUnderTest;
+  private final boolean checkForMigrationTag;
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -927,6 +939,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.robolectricTestDeprecationLevel = options.robolectricTestDeprecationLevel;
     this.decoupleDataProcessing = options.decoupleDataProcessing;
     this.enforceStrictDepsForBinariesUnderTest = options.enforceStrictDepsForBinariesUnderTest;
+    this.checkForMigrationTag = options.checkForMigrationTag;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -978,7 +991,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       boolean fixedResourceNeverlinking,
       AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel,
       boolean decoupleDataProcessing,
-      boolean enforceStrictDepsForBinariesUnderTest) {
+      boolean enforceStrictDepsForBinariesUnderTest,
+      boolean checkForMigrationTag) {
     this.sdk = sdk;
     this.cpu = cpu;
     this.useIncrementalNativeLibs = useIncrementalNativeLibs;
@@ -1013,6 +1027,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.robolectricTestDeprecationLevel = robolectricTestDeprecationLevel;
     this.decoupleDataProcessing = decoupleDataProcessing;
     this.enforceStrictDepsForBinariesUnderTest = enforceStrictDepsForBinariesUnderTest;
+    this.checkForMigrationTag = checkForMigrationTag;
   }
 
   public String getCpu() {
@@ -1166,6 +1181,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean getEnforceStrictDepsForBinariesUnderTest() {
     return enforceStrictDepsForBinariesUnderTest;
+  }
+
+  public boolean checkForMigrationTag() {
+    return checkForMigrationTag;
   }
 
   @Override
