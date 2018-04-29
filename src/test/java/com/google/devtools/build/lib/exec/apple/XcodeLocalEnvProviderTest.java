@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec.apple;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -23,18 +24,19 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import java.io.IOException;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** Tests for {@link XcodeLocalEnvProvider}. */
+@RunWith(JUnit4.class)
 public class XcodeLocalEnvProviderTest {
   private final FileSystem fs = new JavaIoFileSystem();
 
   @Test
-  public void testIOSEnvironmentOnNonDarwin() throws Exception {
-    if (OS.getCurrent() == OS.DARWIN) {
-      return;
-    }
+  public void testIOSEnvironmentOnNonDarwin() {
+    assumeTrue(OS.getCurrent() == OS.DARWIN);
     try {
-      new XcodeLocalEnvProvider()
+      new XcodeLocalEnvProvider(ImmutableMap.of())
           .rewriteLocalEnv(
               ImmutableMap.<String, String>of(
                   AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, "8.4",

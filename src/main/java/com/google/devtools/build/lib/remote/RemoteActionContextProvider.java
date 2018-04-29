@@ -99,7 +99,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
         env.getOptions().getOptions(LocalExecutionOptions.class);
     LocalEnvProvider localEnvProvider =
         OS.getCurrent() == OS.DARWIN
-            ? new XcodeLocalEnvProvider(env.getRuntime().getProductName(), env.getClientEnv())
+            ? new XcodeLocalEnvProvider(env.getClientEnv())
             : (OS.getCurrent() == OS.WINDOWS
                 ? new WindowsLocalEnvProvider(env.getClientEnv())
                 : new PosixLocalEnvProvider(env.getClientEnv()));
