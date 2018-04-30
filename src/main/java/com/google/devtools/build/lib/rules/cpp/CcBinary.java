@@ -542,8 +542,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     return ruleBuilder
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .addProvider(
-            DebugPackageProvider.class,
-            new DebugPackageProvider(
+            CppDebugPackageProvider.class,
+            new CppDebugPackageProvider(
                 ruleContext.getLabel(), strippedFile, executable, explicitDwpFile))
         .setRunfilesSupport(runfilesSupport, executable)
         .addProvider(
