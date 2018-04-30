@@ -48,27 +48,8 @@ import org.eclipse.aether.resolution.ArtifactResult;
  */
 public class MavenDownloader extends HttpDownloader {
 
-  @Nullable
-  private String name;
-  @Nullable
-  private Path outputDirectory;
-
   public MavenDownloader(RepositoryCache repositoryCache) {
     super(repositoryCache);
-  }
-
-  /**
-   * Returns the name for this artifact-fetching rule.
-   */
-  public String getName() {
-    return name;
-  }
-
-  /**
-   * Returns the directory that this artifact will be downloaded to.
-   */
-  public Path getOutputDirectory() {
-    return outputDirectory;
   }
 
   /**
@@ -77,8 +58,6 @@ public class MavenDownloader extends HttpDownloader {
    */
   public JarPaths download(String name, WorkspaceAttributeMapper mapper, Path outputDirectory,
       MavenServerValue serverValue) throws IOException, EvalException {
-    this.name = name;
-    this.outputDirectory = outputDirectory;
 
     String url = serverValue.getUrl();
     Server server = serverValue.getServer();
@@ -101,7 +80,7 @@ public class MavenDownloader extends HttpDownloader {
     boolean isCaching = repositoryCache.isEnabled() && KeyType.SHA1.isValid(sha1);
 
     if (isCaching) {
-      Path downloadPath = getDownloadDestination(artifact);
+      Path downloadPath = getDownloadDestination(outputDirectory, artifact);
       Path cachedDestination = repositoryCache.get(sha1, downloadPath, KeyType.SHA1);
       if (cachedDestination != null) {
         return new JarPaths(cachedDestination, Optional.absent());
@@ -152,7 +131,7 @@ public class MavenDownloader extends HttpDownloader {
     }
   }
 
-  private Path getDownloadDestination(Artifact artifact) {
+  private Path getDownloadDestination(Path outputDirectory, Artifact artifact) {
     String groupIdPath = artifact.getGroupId().replace('.', '/');
     String artifactId = artifact.getArtifactId();
     String version = artifact.getVersion();
