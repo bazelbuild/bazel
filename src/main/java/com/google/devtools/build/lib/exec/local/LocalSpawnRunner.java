@@ -22,12 +22,15 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
@@ -239,6 +242,20 @@ public class LocalSpawnRunner implements SpawnRunner {
         stepLog(INFO, "prefetching inputs for local execution");
         setState(State.PREFETCHING_LOCAL_INPUTS);
         context.prefetchInputs();
+      }
+
+      for (ActionInput input : spawn.getInputFiles()) {
+        if (input instanceof ParamFileActionInput) {
+          VirtualActionInput virtualActionInput = (VirtualActionInput) input;
+          Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());
+          if (outputPath.exists()) {
+            outputPath.delete();
+          }
+          outputPath.getParentDirectory().createDirectoryAndParents();
+          try (OutputStream outputStream = outputPath.getOutputStream()) {
+            virtualActionInput.writeTo(outputStream);
+          }
+        }
       }
 
       stepLog(INFO, "running locally");

@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -167,7 +169,12 @@ public class CommandLines {
                   .replaceFirst("%s", paramFileExecPath.getPathString());
           arguments.addElement(paramArg);
           cmdLineLength += paramArg.length() + 1;
-          paramFiles.add(new ParamFileActionInput(paramFileExecPath, args, paramFileInfo));
+          paramFiles.add(
+              new ParamFileActionInput(
+                  paramFileExecPath,
+                  args,
+                  paramFileInfo.getFileType(),
+                  paramFileInfo.getCharset()));
         }
       }
     }
@@ -221,22 +228,27 @@ public class CommandLines {
     }
   }
 
-  static final class ParamFileActionInput implements VirtualActionInput {
+  /** An in-memory param file virtual action input. */
+  public static final class ParamFileActionInput implements VirtualActionInput {
     final PathFragment paramFileExecPath;
     final Iterable<String> arguments;
-    final ParamFileInfo paramFileInfo;
+    final ParameterFileType type;
+    final Charset charset;
 
-    ParamFileActionInput(
-        PathFragment paramFileExecPath, Iterable<String> arguments, ParamFileInfo paramFileInfo) {
+    public ParamFileActionInput(
+        PathFragment paramFileExecPath,
+        Iterable<String> arguments,
+        ParameterFileType type,
+        Charset charset) {
       this.paramFileExecPath = paramFileExecPath;
       this.arguments = arguments;
-      this.paramFileInfo = paramFileInfo;
+      this.type = type;
+      this.charset = charset;
     }
 
     @Override
     public void writeTo(OutputStream out) throws IOException {
-      ParameterFile.writeParameterFile(
-          out, arguments, paramFileInfo.getFileType(), paramFileInfo.getCharset());
+      ParameterFile.writeParameterFile(out, arguments, type, charset);
     }
 
     @Override
