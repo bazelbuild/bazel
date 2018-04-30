@@ -19,12 +19,12 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Collection;
 import java.util.Map;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
  */
 final class LocationTemplateContext implements TemplateContext {
   private final TemplateContext delegate;
-  private final ImmutableMap<String, Function<String, String>> functions;
+  private final ImmutableMap<String, LocationFunction> functions;
 
   private LocationTemplateContext(
       TemplateContext delegate,
@@ -80,7 +80,7 @@ final class LocationTemplateContext implements TemplateContext {
   @Override
   public String lookupFunction(String name, String param) throws ExpansionException {
     try {
-      Function<String, String> f = functions.get(name);
+      LocationFunction f = functions.get(name);
       if (f != null) {
         return f.apply(param);
       }
