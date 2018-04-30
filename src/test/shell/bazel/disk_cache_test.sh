@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Test the local action cache
+# Test the local disk cache
 #
 
 # Load the test setup defined in the parent directory
@@ -27,7 +27,7 @@ function test_local_action_cache() {
   local execution_file="${TEST_TMPDIR}/run.log"
   local input_file="foo.in"
   local output_file="bazel-genfiles/foo.txt"
-  local flags="--experimental_local_disk_cache_path=$cache --experimental_local_disk_cache"
+  local flags="--disk_cache=$cache"
 
   rm -rf $cache
   mkdir $cache
