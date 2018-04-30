@@ -139,6 +139,7 @@ public class RepositoryCache {
 
     FileSystemUtils.createDirectoryAndParents(targetPath.getParentDirectory());
     FileSystemUtils.copyFile(cacheValue, targetPath);
+    FileSystemUtils.touchFile(cacheValue);
 
     return targetPath;
   }
@@ -249,5 +250,4 @@ public class RepositoryCache {
   public Path getContentAddressableCachePath() {
     return contentAddressablePath;
   }
-
 }
