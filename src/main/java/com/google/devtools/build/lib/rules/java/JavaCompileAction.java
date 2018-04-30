@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -86,7 +87,6 @@ public final class JavaCompileAction extends SpawnAction {
       ActionEnvironment.create(UTF8_ENVIRONMENT);
 
   private final CommandLine javaCompileCommandLine;
-  private final CommandLine commandLine;
 
   /**
    * The directory in which generated classfiles are placed.
@@ -152,10 +152,9 @@ public final class JavaCompileAction extends SpawnAction {
    * @param tools the tools used by the action
    * @param inputs the inputs of the action
    * @param outputs the outputs of the action
-   * @param javaCompileCommandLine the command line for the java library builder - it's actually
-   *     written to the parameter file, but other parts (for example, ide_build_info) need access to
-   *     the data
-   * @param commandLine the actual invocation command line
+   * @param commandLines The invocation command line + possibly the param file command line
+   * @param commandLineLimits The command line limits
+   * @param javaCompileCommandLine The command line used by the param file
    * @param classDirectory the directory in which generated classfiles are placed
    * @param outputJar the jar file the compilation outputs will be written to
    * @param classpathEntries the compile-time classpath entries
@@ -180,9 +179,9 @@ public final class JavaCompileAction extends SpawnAction {
       NestedSet<Artifact> tools,
       NestedSet<Artifact> inputs,
       Collection<Artifact> outputs,
-      CommandLine javaCompileCommandLine,
-      CommandLine commandLine,
+      CommandLines commandLines,
       CommandLineLimits commandLineLimits,
+      CommandLine javaCompileCommandLine,
       PathFragment classDirectory,
       Artifact outputJar,
       NestedSet<Artifact> classpathEntries,
@@ -208,7 +207,7 @@ public final class JavaCompileAction extends SpawnAction {
         outputs,
         outputJar,
         LOCAL_RESOURCES,
-        CommandLines.of(commandLine),
+        commandLines,
         commandLineLimits,
         false,
         // TODO(#3320): This is missing the configuration's action environment!
@@ -220,8 +219,6 @@ public final class JavaCompileAction extends SpawnAction {
         /* executeUnconditionally= */ false,
         /* extraActionInfoSupplier= */ null);
     this.javaCompileCommandLine = javaCompileCommandLine;
-    this.commandLine = commandLine;
-
     this.classDirectory = checkNotNull(classDirectory);
     this.outputJar = outputJar;
     this.classpathEntries = classpathEntries;
@@ -352,9 +349,10 @@ public final class JavaCompileAction extends SpawnAction {
   }
 
   /** Returns the command and arguments for a java compile action. */
+  @VisibleForTesting
   public List<String> getCommand() {
     try {
-      return ImmutableList.copyOf(commandLine.arguments());
+      return ImmutableList.copyOf(commandLines.getCommandLines().get(0).commandLine.arguments());
     } catch (CommandLineExpansionException e) {
       throw new AssertionError("JavaCompileAction command line expansion cannot fail");
     }
@@ -365,7 +363,7 @@ public final class JavaCompileAction extends SpawnAction {
     try {
       StringBuilder result = new StringBuilder();
       result.append("JavaBuilder ");
-      Joiner.on(' ').appendTo(result, commandLine.arguments());
+      Joiner.on(' ').appendTo(result, javaCompileCommandLine.arguments());
       return result.toString();
     } catch (CommandLineExpansionException e) {
       return "Error expanding command line";
@@ -514,12 +512,6 @@ public final class JavaCompileAction extends SpawnAction {
         compileTimeDependencyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       }
 
-      if (paramFile == null) {
-        paramFile = artifactFactory.create(
-            ParameterFile.derivePath(outputJar.getRootRelativePath()),
-            configuration.getBinDirectory(targetLabel.getPackageIdentifier().getRepository()));
-      }
-
       Preconditions.checkState(javaExecutable != null, owner);
 
       ImmutableList.Builder<Artifact> outputsBuilder = ImmutableList.<Artifact>builder();
@@ -536,11 +528,6 @@ public final class JavaCompileAction extends SpawnAction {
         outputsBuilder.addAll(additionalOutputs);
       }
       ImmutableList<Artifact> outputs = outputsBuilder.build();
-
-      CustomCommandLine paramFileContents = buildParamFileContents(internedJcopts);
-      Action parameterFileWriteAction = new ParameterFileWriteAction(owner, paramFile,
-          paramFileContents, ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1);
-      analysisEnvironment.registerAction(parameterFileWriteAction);
 
       // The actual params-file-based command line executed for a compile action.
       CustomCommandLine.Builder javaBuilderCommandLine = CustomCommandLine.builder();
@@ -566,7 +553,6 @@ public final class JavaCompileAction extends SpawnAction {
           javaBuilderCommandLine.addExecPath("-jar", javaBuilderJar);
         }
       }
-      javaBuilderCommandLine.addFormatted("@%s", paramFile.getExecPath());
 
       if (artifactForExperimentalCoverage != null) {
         analysisEnvironment.registerAction(new LazyWritePathsFileAction(
@@ -592,21 +578,54 @@ public final class JavaCompileAction extends SpawnAction {
               .addAll(bootclasspathEntries)
               .addAll(sourcePathEntries)
               .addAll(extdirInputs)
-              .add(paramFile)
               .addTransitive(tools);
       if (artifactForExperimentalCoverage != null) {
         inputsBuilder.add(artifactForExperimentalCoverage);
       }
-      NestedSet<Artifact> inputs = inputsBuilder.build();
 
+      final CommandLines commandLines;
+      CustomCommandLine javaCompileCommandLine = buildParamFileContents(internedJcopts);
+      if (configuration.deferParamFiles()) {
+        commandLines =
+            CommandLines.builder()
+                .addCommandLine(javaBuilderCommandLine.build())
+                .addCommandLine(
+                    javaCompileCommandLine,
+                    ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED)
+                        .setCharset(ISO_8859_1)
+                        .setUseAlways(true)
+                        .build())
+                .build();
+      } else {
+        if (paramFile == null) {
+          paramFile =
+              artifactFactory.create(
+                  ParameterFile.derivePath(outputJar.getRootRelativePath()),
+                  configuration.getBinDirectory(
+                      targetLabel.getPackageIdentifier().getRepository()));
+        }
+        inputsBuilder.add(paramFile);
+        javaBuilderCommandLine.addFormatted("@%s", paramFile.getExecPath());
+        commandLines = CommandLines.of(javaBuilderCommandLine.build());
+        Action parameterFileWriteAction =
+            new ParameterFileWriteAction(
+                owner,
+                paramFile,
+                javaCompileCommandLine,
+                ParameterFile.ParameterFileType.UNQUOTED,
+                ISO_8859_1);
+        analysisEnvironment.registerAction(parameterFileWriteAction);
+      }
+
+      NestedSet<Artifact> inputs = inputsBuilder.build();
       return new JavaCompileAction(
           owner,
           tools,
           inputs,
           outputs,
-          paramFileContents,
-          javaBuilderCommandLine.build(),
+          commandLines,
           configuration.getCommandLineLimits(),
+          javaCompileCommandLine,
           classDirectory,
           outputJar,
           classpathEntries,
@@ -791,11 +810,6 @@ public final class JavaCompileAction extends SpawnAction {
         }
       }
       return first;
-    }
-
-    public Builder setParameterFile(Artifact paramFile) {
-      this.paramFile = paramFile;
-      return this;
     }
 
     public Builder setJavaExecutable(PathFragment javaExecutable) {
