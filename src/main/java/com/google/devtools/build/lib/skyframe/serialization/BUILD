@@ -15,7 +15,7 @@ java_library(
         exclude = ["SerializationConstants.java"],
     ),
     deps = [
-        ":constants",
+        "//src/main/java/com/google/devtools/build/lib:crash-utils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:registered-singleton",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:unsafe-provider",
         "//third_party:guava",

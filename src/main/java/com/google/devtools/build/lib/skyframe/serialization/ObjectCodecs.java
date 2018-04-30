@@ -47,16 +47,26 @@ public class ObjectCodecs {
   }
 
   public void serialize(Object subject, CodedOutputStream codedOut) throws SerializationException {
-    serializeImpl(subject, codedOut, /*memoize=*/ false);
+    serializeImpl(subject, codedOut, serializationContext);
   }
 
   public ByteString serializeMemoized(Object subject) throws SerializationException {
     return serializeToByteString(subject, this::serializeMemoized);
   }
 
+  public SerializationResult<ByteString> serializeMemoizedAndBlocking(Object subject)
+      throws SerializationException {
+    SerializationContext memoizingContext =
+        serializationContext.getMemoizingAndBlockingOnWriteContext();
+    ByteString byteString =
+        serializeToByteString(
+            subject, (subj, codedOut) -> serializeImpl(subj, codedOut, memoizingContext));
+    return SerializationResult.create(byteString, memoizingContext.createFutureToBlockWritingOn());
+  }
+
   public void serializeMemoized(Object subject, CodedOutputStream codedOut)
       throws SerializationException {
-    serializeImpl(subject, codedOut, /*memoize=*/ true);
+    serializeImpl(subject, codedOut, serializationContext.getMemoizingContext());
   }
 
   public Object deserialize(ByteString data) throws SerializationException {
@@ -75,14 +85,11 @@ public class ObjectCodecs {
     return deserializeImpl(codedIn, /*memoize=*/ true);
   }
 
-  private void serializeImpl(Object subject, CodedOutputStream codedOut, boolean memoize)
+  private void serializeImpl(
+      Object subject, CodedOutputStream codedOut, SerializationContext serializationContext)
       throws SerializationException {
     try {
-      if (memoize) {
-        serializationContext.getMemoizingContext().serialize(subject, codedOut);
-      } else {
-        serializationContext.serialize(subject, codedOut);
-      }
+      serializationContext.serialize(subject, codedOut);
     } catch (IOException e) {
       throw new SerializationException("Failed to serialize " + subject, e);
     }

@@ -17,37 +17,51 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Serializer;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
+import com.google.devtools.build.lib.util.BazelCrashUtils;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /**
  * Stateful class for providing additional context to a single serialization "session". This class
- * is thread-safe so long as {@link #serializer} is null. If it is not null, this class is not
- * thread-safe and should only be accessed on a single thread for serializing one object (that may
- * involve serializing other objects contained in it).
+ * is thread-safe so long as {@link #serializer} is null (which also implies that {@link
+ * #allowFuturesToBlockWritingOn) is false). If it is not null, this class is not thread-safe and
+ * should only be accessed on a single thread for serializing one object (that may involve
+ * serializing other objects contained in it).
  */
 public class SerializationContext {
   private final ObjectCodecRegistry registry;
   private final ImmutableMap<Class<?>, Object> dependencies;
   @Nullable private final Memoizer.Serializer serializer;
+  /** Initialized lazily. */
+  @Nullable private List<ListenableFuture<Void>> futuresToBlockWritingOn;
+
+  private final boolean allowFuturesToBlockWritingOn;
 
   private SerializationContext(
       ObjectCodecRegistry registry,
       ImmutableMap<Class<?>, Object> dependencies,
-      @Nullable Serializer serializer) {
+      @Nullable Serializer serializer,
+      boolean allowFuturesToBlockWritingOn) {
     this.registry = registry;
     this.dependencies = dependencies;
     this.serializer = serializer;
+    this.allowFuturesToBlockWritingOn = allowFuturesToBlockWritingOn;
   }
 
   @VisibleForTesting
   public SerializationContext(
       ObjectCodecRegistry registry, ImmutableMap<Class<?>, Object> dependencies) {
-    this(registry, dependencies, /*serializer=*/ null);
+    this(registry, dependencies, /*serializer=*/ null, /*allowFuturesToBlockWritingOn=*/ false);
   }
 
   @VisibleForTesting
@@ -92,7 +106,16 @@ public class SerializationContext {
     if (serializer != null) {
       return this;
     }
-    return getNewMemoizingContext();
+    return getNewMemoizingContext(/*allowFuturesToBlockWritingOn=*/ false);
+  }
+
+  @CheckReturnValue
+  SerializationContext getMemoizingAndBlockingOnWriteContext() {
+    Preconditions.checkState(
+        serializer == null, "Should only be called on base serializationContext");
+    Preconditions.checkState(
+        !allowFuturesToBlockWritingOn, "Should only be called on base serializationContext");
+    return getNewMemoizingContext(/*allowFuturesToBlockWritingOn=*/ true);
   }
 
   /**
@@ -100,7 +123,51 @@ public class SerializationContext {
    * getMemoizingContext, this method is not idempotent - the returned context will always be fresh.
    */
   public SerializationContext getNewMemoizingContext() {
-    return new SerializationContext(this.registry, this.dependencies, new Memoizer.Serializer());
+    return getNewMemoizingContext(/*allowFuturesToBlockWritingOn=*/ false);
+  }
+
+  private SerializationContext getNewMemoizingContext(boolean allowFuturesToBlockWritingOn) {
+    return new SerializationContext(
+        this.registry, this.dependencies, new Memoizer.Serializer(), allowFuturesToBlockWritingOn);
+  }
+
+  /**
+   * Register a {@link ListenableFuture} that must complete successfully before the serialized bytes
+   * generated using this context can be written remotely. Failure of the future implies a bug or
+   * other unrecoverable error that should crash this JVM.
+   */
+  public void addFutureToBlockWritingOn(ListenableFuture<Void> future) {
+    Preconditions.checkState(allowFuturesToBlockWritingOn, "This context cannot block on a future");
+    if (futuresToBlockWritingOn == null) {
+      futuresToBlockWritingOn = new ArrayList<>();
+    }
+    Futures.addCallback(future, crashTerminatingCallback, MoreExecutors.directExecutor());
+    futuresToBlockWritingOn.add(future);
+  }
+
+  private static final FutureCallback<Void> crashTerminatingCallback =
+      new FutureCallback<Void>() {
+        @Override
+        public void onSuccess(@Nullable Void result) {
+          // Do nothing.
+        }
+
+        @Override
+        public void onFailure(Throwable t) {
+          throw BazelCrashUtils.halt(t);
+        }
+      };
+
+  /**
+   * Creates a future that succeeds when all futures stored in this context via {@link
+   * #addFutureToBlockWritingOn} have succeeded, or null if no such futures were stored.
+   */
+  @Nullable
+  public ListenableFuture<Void> createFutureToBlockWritingOn() {
+    return futuresToBlockWritingOn != null
+        ? Futures.whenAllSucceed(futuresToBlockWritingOn)
+            .call(() -> null, MoreExecutors.directExecutor())
+        : null;
   }
 
   private boolean writeNullOrConstant(@Nullable Object object, CodedOutputStream codedOut)

@@ -252,6 +252,19 @@ java_library(
     ],
 )
 
+java_library(
+    name = "crash-utils",
+    srcs = [
+        "util/BazelCrashUtils.java",
+        "util/CustomExitCodePublisher.java",
+    ],
+    deps = [
+        ":exitcode-external",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
 # Event reporting infrastructure.
 java_library(
     name = "events",
