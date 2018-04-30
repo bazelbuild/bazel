@@ -94,10 +94,6 @@ final class JavaInfoBuildHelper {
       Object hostJavabase,
       Location location)
       throws EvalException {
-    if (sourceFiles.isEmpty() && sourceJars.isEmpty() && exports.isEmpty()) {
-      throw new EvalException(
-          null, "source_jars, sources and exports cannot be simultaneous empty");
-    }
     final Artifact sourceJar;
     if (sourceFiles.isEmpty() && sourceJars.isEmpty()) {
       sourceJar = null;

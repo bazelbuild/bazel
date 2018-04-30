@@ -599,7 +599,47 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
       assertThat(e.getMessage())
           .contains("source_jars, sources and exports cannot be simultaneous empty");
     }
+  }
 
+  @Test
+  public void testJavaInfoWithNoSources() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file("java/test/lib.jar");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  jar = 'lib.jar',",
+        ")");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  jar = ctx.file.jar",
+        "  new = JavaInfo(output_jar = jar, use_ijar = False)",
+        "  old = java_common.create_provider(",
+        "      compile_time_jars = [jar],",
+        "      transitive_compile_time_jars = [jar],",
+        "      runtime_jars = [jar],",
+        "      use_ijar = False,",
+        "  )",
+        "  java_info = java_common.merge([old, new])",
+        "  return struct(providers = [java_info])",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'jar': attr.label(allow_files = True, single_file = True),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+    JavaCompilationArgsProvider provider =
+        JavaInfo.getProvider(
+            JavaCompilationArgsProvider.class, getConfiguredTarget("//java/test:custom"));
+    assertThat(prettyArtifactNames(provider.getDirectCompileTimeJars()))
+        .containsExactly("java/test/lib.jar");
   }
 
   @Test
