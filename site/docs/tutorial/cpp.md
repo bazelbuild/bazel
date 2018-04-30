@@ -192,6 +192,21 @@ output as a graph.
 
 Then, paste the text into [GraphViz](http://www.webgraphviz.com/).
 
+On Ubuntu, you can view the graph locally by installing GraphViz and the xdot
+Dot Viewer:
+
+```
+sudo apt update && sudo apt install graphviz xdot
+```
+
+Then you can generate and view the graph by piping the text output above
+straight to xdot:
+
+```
+bazel query --nohost_deps --noimplicit_deps 'deps(//main:hello-world)' \
+  --output graph | xdot
+```
+
 As you can see, the first stage of the sample project has a single target
 that builds a single source file with no additional dependencies:
 
