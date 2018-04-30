@@ -332,9 +332,9 @@ sh_test(
 )
 
 sh_test(
-    name = "local_action_cache_test",
+    name = "disk_cache_test",
     size = "small",
-    srcs = ["local_action_cache_test.sh"],
+    srcs = ["disk_cache_test.sh"],
     data = [":test-deps"],
 )
 
