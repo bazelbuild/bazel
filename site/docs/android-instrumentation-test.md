@@ -343,7 +343,6 @@ To run tests, add these lines to your project's `tools/bazel.rc` file.
 # `bazel test //my:target --config={headless, gui, local_device}`
 
 # Headless instrumentation tests
-test:headless --spawn_strategy=local
 test:headless --test_arg=--enable_display=false
 
 # Graphical instrumentation tests. Ensure that $DISPLAY is set.
@@ -370,16 +369,23 @@ Use __only one configuration__ or tests will fail.
 
 ## Headless testing
 
-With `Xvfb`, it is possible to run headless emulators. However, due to a known
-issue between Xvfb and Bazel's sandbox, sandboxing fails with headless tests.
-Pass the flag `--spawn_strategy=local` to disable sandboxing for the testing to
-work.
+With `Xvfb`, it is possible to test with emulators without the graphical
+interface, also known as headless testing. To disable the graphical interface
+when running tests, pass the test argument `--enable_display=false` to Bazel:
+
+```
+bazel test //my/test:target --test_arg=--enable_display=false
+```
 
 ## GUI testing
 
-If the `$DISPLAY` environment variable is set, it's also possible to enable the
-graphical interface of the emulator while the test is running. Pass the variable
-to the test environment using the flag `--test_env=DISPLAY`.
+If the `$DISPLAY` environment variable is set, it's possible to enable the
+graphical interface of the emulator while the test is running. To do this, pass
+these test arguments to Bazel:
+
+```
+bazel test //my/test:target --test_arg=--enable_display --test_env=DISPLAY
+```
 
 ## Testing with a local emulator or device
 
@@ -483,6 +489,18 @@ $ tree bazel-testlogs/ui/espresso/BasicSample/BasicSampleInstrumentationTest
 4 directories, 41 files
 ```
 
+## Reading emulator logs
+
+The emulator logs for `android_device` targets are stored in the `/tmp/`
+directory with the name `emulator_xxxxx.log`, where `xxxxx` is a
+randomly-generated sequence of characters.
+
+Use this command to find the latest emulator log:
+
+```
+ls -1t /tmp/emulator_*.log | head -n 1
+```
+
 ## Testing against multiple API levels
 
 If you would like to test against multiple API levels, you can use a list
@@ -507,8 +525,6 @@ API_LEVELS = [
 
 - [Forked adb server processes are not terminated after
   tests](https://github.com/bazelbuild/bazel/issues/4853)
-- Headless mode is unstable in sandboxed mode due to Xvfb issues, use
-  `--spawn_strategy=local` as a workaround.
 - While APK building works on all platforms (Linux, macOS, Windows), testing
   only works on Linux.
 - Even with `--config=local_adb`, users still need to specify
@@ -520,7 +536,6 @@ API_LEVELS = [
 
 # Planned features
 
-- Fully sandboxed headless testing
 - Code coverage collection
 - macOS support
 - Windows support
