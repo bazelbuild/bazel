@@ -188,7 +188,6 @@ public class RemoteSpawnCacheTest {
             remoteCache,
             "build-req-id",
             "command-id",
-            false,
             reporter,
             digestUtil);
     fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
