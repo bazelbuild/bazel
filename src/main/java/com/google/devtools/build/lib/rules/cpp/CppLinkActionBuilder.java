@@ -708,18 +708,12 @@ public class CppLinkActionBuilder {
       result.addAll(
           CppHelper.getFullyStaticLinkOptions(cppConfiguration, toolchain, sharedLinkopts));
     } else if (mostlyStatic) {
-      if (!featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINKING_MODE)) {
-        result.addAll(
-            CppHelper.getMostlyStaticLinkOptions(
-                cppConfiguration,
-                toolchain,
-                sharedLinkopts,
-                featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)));
-      }
+      result.addAll(
+          CppHelper.getMostlyStaticLinkOptions(
+              cppConfiguration, toolchain, sharedLinkopts,
+              featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)));
     } else {
-      if (!featureConfiguration.isEnabled(CppRuleClasses.DYNAMIC_LINKING_MODE)) {
-        result.addAll(CppHelper.getDynamicLinkOptions(cppConfiguration, toolchain, sharedLinkopts));
-      }
+      result.addAll(CppHelper.getDynamicLinkOptions(cppConfiguration, toolchain, sharedLinkopts));
     }
 
     // Extra test-specific link options.
