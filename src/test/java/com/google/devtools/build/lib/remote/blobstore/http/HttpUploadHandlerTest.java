@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.remote.blobstore.http;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.net.HttpHeaders;
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
@@ -83,7 +85,7 @@ public class HttpUploadHandlerTest extends AbstractHttpHandlerTest {
 
   /** Test that the handler correctly supports http error codes i.e. 404 (NOT FOUND). */
   @Test
-  public void httpErrorsAreSupported() throws Exception {
+  public void httpErrorsAreSupported() {
     EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null));
     ByteArrayInputStream data = new ByteArrayInputStream(new byte[] {1, 2, 3, 4, 5});
     ChannelPromise writePromise = ch.newPromise();
@@ -105,5 +107,35 @@ public class HttpUploadHandlerTest extends AbstractHttpHandlerTest {
     assertThat(((HttpException) writePromise.cause()).response().status())
         .isEqualTo(HttpResponseStatus.FORBIDDEN);
     assertThat(ch.isOpen()).isFalse();
+  }
+
+  /**
+   * Test that the handler correctly supports http error codes i.e. 404 (NOT FOUND) with a
+   * Content-Length header.
+   */
+  @Test
+  public void httpErrorsWithContentAreSupported() {
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null));
+    ByteArrayInputStream data = new ByteArrayInputStream(new byte[] {1, 2, 3, 4, 5});
+    ChannelPromise writePromise = ch.newPromise();
+    ch.writeOneOutbound(new UploadCommand(CACHE_URI, true, "abcdef", data, 5), writePromise);
+
+    HttpRequest request = ch.readOutbound();
+    assertThat(request).isInstanceOf(HttpRequest.class);
+    HttpChunkedInput content = ch.readOutbound();
+    assertThat(content).isInstanceOf(HttpChunkedInput.class);
+
+    ByteBuf errorMsg = ByteBufUtil.writeAscii(ch.alloc(), "error message");
+    FullHttpResponse response =
+        new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, errorMsg);
+    response.headers().set(HttpHeaders.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+
+    ch.writeInbound(response);
+
+    assertThat(writePromise.isDone()).isTrue();
+    assertThat(writePromise.cause()).isInstanceOf(HttpException.class);
+    assertThat(((HttpException) writePromise.cause()).response().status())
+        .isEqualTo(HttpResponseStatus.NOT_FOUND);
+    assertThat(ch.isOpen()).isTrue();
   }
 }
