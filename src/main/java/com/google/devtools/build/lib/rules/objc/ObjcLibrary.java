@@ -101,6 +101,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
                     .build()
                     .hdrs()
                     .toCollection())
+            .addTextualHdrs(common.getTextualHdrs())
+            .addDeclaredIncludeSrcs(common.getTextualHdrs())
             .build();
 
     CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();

@@ -2032,4 +2032,19 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(Artifact.toRootRelativePaths(compileAction.getPossibleInputsForTesting()))
         .contains("objc/objc_hdr.h");
   }
+
+  @Test
+  public void testTextualHeaderPassedToCcLib() throws Exception {
+    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cc/txt_dep")
+        .setList("textual_hdrs", "hdr.h")
+        .write();
+    createLibraryTargetWriter("//objc:lib").setList("deps", "//cc/txt_dep").write();
+    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cc/lib")
+        .setList("srcs", "a.cc")
+        .setList("deps", "//objc:lib")
+        .write();
+    CommandAction compileAction = compileAction("//cc/lib", "a.o");
+    assertThat(Artifact.toRootRelativePaths(compileAction.getPossibleInputsForTesting()))
+        .contains("cc/txt_dep/hdr.h");
+  }
 }

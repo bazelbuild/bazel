@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -196,6 +197,11 @@ public final class CcCompilationContextInfo {
    */
   public NestedSet<Artifact> getDeclaredIncludeSrcs() {
     return declaredIncludeSrcs;
+  }
+
+  /** Returns headers given as textual_hdrs in this target. */
+  public ImmutableSet<Artifact> getTextualHdrs() {
+    return moduleInfo.textualHeaders;
   }
 
   /**
@@ -687,6 +693,9 @@ public final class CcCompilationContextInfo {
 
     @VisibleForTesting // productionVisibility = Visibility.PRIVATE
     public CcCompilationContextInfo build(ActionOwner owner, MiddlemanFactory middlemanFactory) {
+      Preconditions.checkState(
+          Objects.equals(moduleInfo.textualHeaders, picModuleInfo.textualHeaders),
+          "Module and PIC module's textual headers are expected to be identical");
       // We don't create middlemen in LIPO collector subtree, because some target CT
       // will do that instead.
       Artifact prerequisiteStampFile = (ruleContext != null
