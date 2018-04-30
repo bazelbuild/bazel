@@ -43,7 +43,7 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
   @Override
   protected void channelRead0(ChannelHandlerContext ctx, FullHttpResponse response) {
     if (!response.decoderResult().isSuccess()) {
-      failAndResetUserPromise(new IOException("Failed to parse the HTTP response."));
+      failAndClose(new IOException("Failed to parse the HTTP response."), ctx);
       return;
     }
     try {
@@ -85,7 +85,7 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
               if (f.isSuccess()) {
                 return;
               }
-              failAndResetUserPromise(f.cause());
+              failAndClose(f.cause(), ctx);
             });
     ctx.writeAndFlush(body)
         .addListener(
@@ -93,7 +93,7 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
               if (f.isSuccess()) {
                 return;
               }
-              failAndResetUserPromise(f.cause());
+              failAndClose(f.cause(), ctx);
             });
   }
 
@@ -112,5 +112,13 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
 
   private HttpChunkedInput buildBody(UploadCommand msg) {
     return new HttpChunkedInput(new ChunkedStream(msg.data()));
+  }
+
+  private void failAndClose(Throwable t, ChannelHandlerContext ctx) {
+    try {
+      failAndResetUserPromise(t);
+    } finally {
+      ctx.close();
+    }
   }
 }
