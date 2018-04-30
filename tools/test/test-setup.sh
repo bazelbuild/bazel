@@ -106,27 +106,27 @@ GUNIT_OUTPUT="xml:${XML_OUTPUT_FILE}"
 
 RUNFILES_MANIFEST_FILE="${TEST_SRCDIR}/MANIFEST"
 
-if [[ "${RUNFILES_MANIFEST_ONLY:-}" != "1" ]]; then
-  function rlocation() {
-    if is_absolute "$1" ; then
-      echo "$1"
-    else
-      echo "$TEST_SRCDIR/$1"
-    fi
-  }
-else
-  function rlocation() {
-    if is_absolute "$1" ; then
-      echo "$1"
-    else
-      echo "$(grep "^$1 " "${RUNFILES_MANIFEST_FILE}" | sed 's/[^ ]* //')"
-    fi
-  }
-fi
+function rlocation() {
+  if is_absolute "$1" ; then
+    # If the file path is already fully specified, simply return it.
+    echo "$1"
+  elif [[ -e "$TEST_SRCDIR/$1" ]]; then
+    # If the file exists in the $TEST_SRCDIR then just use it.
+    echo "$TEST_SRCDIR/$1"
+  elif [[ -e "$RUNFILES_MANIFEST_FILE" ]]; then
+    # If a runfiles manifest file exists then use it.
+    echo "$(grep "^$1 " "$RUNFILES_MANIFEST_FILE" | sed 's/[^ ]* //')"
+  fi
+}
 
 export -f rlocation
 export -f is_absolute
 export RUNFILES_MANIFEST_FILE
+# If the runfiles manifest exist, then test programs should use it to find
+# runfiles.
+if [[ -e "$RUNFILES_MANIFEST_FILE" ]]; then
+  export RUNFILES_MANIFEST_ONLY=1
+fi
 
 DIR="$TEST_SRCDIR"
 if [ ! -z "$TEST_WORKSPACE" ]; then

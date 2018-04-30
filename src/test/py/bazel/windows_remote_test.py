@@ -21,7 +21,9 @@ from src.test.py.bazel import test_base
 
 class WindowsRemoteTest(test_base.TestBase):
 
-  def _RunRemoteBazel(self, args, port, env_remove=None, env_add=None):
+  _worker_port = None
+
+  def _RunRemoteBazel(self, args, env_remove=None, env_add=None):
     return self.RunBazel(
         args + [
             '--spawn_strategy=remote',
@@ -29,8 +31,8 @@ class WindowsRemoteTest(test_base.TestBase):
             '--strategy=Closure=remote',
             '--genrule_strategy=remote',
             '--define=EXECUTOR=remote',
-            '--remote_executor=localhost:' + str(port),
-            '--remote_cache=localhost:' + str(port),
+            '--remote_executor=localhost:' + str(self._worker_port),
+            '--remote_cache=localhost:' + str(self._worker_port),
             '--experimental_strict_action_env=true',
             '--remote_timeout=3600',
             '--auth_enabled=false',
@@ -39,10 +41,18 @@ class WindowsRemoteTest(test_base.TestBase):
         env_remove=env_remove,
         env_add=env_add)
 
+  def setUp(self):
+    test_base.TestBase.setUp(self)
+    self._worker_port = self.StartRemoteWorker()
+
+  def tearDown(self):
+    test_base.TestBase.tearDown(self)
+    self.StopRemoteWorker()
+
   # Check that a binary built remotely is runnable locally. Among other things,
   # this means the runfiles manifest, which is not present remotely, must exist
   # locally.
-  def testBinaryRunnableLocally(self):
+  def testBinaryRunsLocally(self):
     self.ScratchFile('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'sh_binary(',
@@ -53,7 +63,7 @@ class WindowsRemoteTest(test_base.TestBase):
     ])
     self.ScratchFile(
         'foo/foo.sh', [
-            '#!/bin/bash',
+            '#!/bin/sh',
             'echo hello shell',
         ], executable=True)
     self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
@@ -63,25 +73,148 @@ class WindowsRemoteTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    port = self.StartRemoteWorker()
+    # Build.
+    exit_code, stdout, stderr = self._RunRemoteBazel(['build', '//foo:foo'])
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
 
-    try:
-      # Build.
-      exit_code, stdout, stderr = self._RunRemoteBazel(['build', '//foo:foo'],
-                                                       port)
-      print('\n'.join(stdout))
-      self.AssertExitCode(exit_code, 0, stderr)
+    # Run.
+    foo_bin = os.path.join(bazel_bin, 'foo', 'foo.exe')
+    self.assertTrue(os.path.exists(foo_bin))
+    exit_code, stdout, stderr = self.RunProgram([foo_bin])
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self.assertEqual(stdout, ['hello shell'])
 
-      # Run.
-      foo_bin = os.path.join(bazel_bin, 'foo', 'foo.exe')
-      self.assertTrue(os.path.exists(foo_bin))
-      exit_code, stdout, stderr = self.RunProgram([foo_bin])
-      self.AssertExitCode(exit_code, 0, stderr)
-      self.assertEqual(stdout, ['hello shell'])
-    finally:
-      # Always stop the worker so we obtain logs in case an assertion failed
-      # above.
-      self.StopRemoteWorker()
+  def testShTestRunsLocally(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'sh_test(',
+        '  name = "foo_test",',
+        '  srcs = ["foo_test.sh"],',
+        '  data = ["//bar:bar.txt"],',
+        ')',
+    ])
+    self.ScratchFile(
+        'foo/foo_test.sh', ['#!/bin/sh', 'echo hello test'], executable=True)
+    self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
+    self.ScratchFile('bar/bar.txt', ['hello'])
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    # Build.
+    exit_code, stdout, stderr = self._RunRemoteBazel(
+        ['build', '--test_output=all', '//foo:foo_test'])
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
+    # Test.
+    foo_test_bin = os.path.join(bazel_bin, 'foo', 'foo_test.exe')
+    self.assertTrue(os.path.exists(foo_test_bin))
+    exit_code, stdout, stderr = self.RunProgram([foo_test_bin])
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
+  # Remotely, the runfiles manifest does not exist.
+  def testShTestRunsRemotely(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'sh_test(',
+        '  name = "foo_test",',
+        '  srcs = ["foo_test.sh"],',
+        '  data = ["//bar:bar.txt"],',
+        ')',
+    ])
+    self.ScratchFile(
+        'foo/foo_test.sh', ['#!/bin/sh', 'echo hello test'], executable=True)
+    self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
+    self.ScratchFile('bar/bar.txt', ['hello'])
+
+    # Test.
+    exit_code, stdout, stderr = self._RunRemoteBazel(
+        ['test', '--test_output=all', '//foo:foo_test'])
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
+  # The Java launcher uses Rlocation which has differing behavior for local and
+  # remote.
+  def testJavaTestRunsRemotely(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'java_test(',
+        '  name = "foo_test",',
+        '  srcs = ["TestFoo.java"],',
+        '  main_class = "TestFoo",',
+        '  use_testrunner = 0,',
+        '  data = ["//bar:bar.txt"],',
+        ')',
+    ])
+    self.ScratchFile(
+        'foo/TestFoo.java', [
+            'public class TestFoo {',
+            'public static void main(String[] args) {',
+            'System.out.println("hello java test");',
+            '}',
+            '}',
+        ],
+        executable=True)
+    self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
+    self.ScratchFile('bar/bar.txt', ['hello'])
+
+    # Test.
+    exit_code, stdout, stderr = self._RunRemoteBazel(
+        ['test', '--test_output=all', '//foo:foo_test'])
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
+  # Genrules are notably different than tests because RUNFILES_DIR is not set
+  # for genrule tool launchers, so the runfiles directory is discovered based on
+  # the executable path.
+  def testGenruleWithToolRunsRemotely(self):
+    self.ScratchFile('WORKSPACE')
+    # TODO(jsharpe): Replace sh_binary with py_binary once
+    # https://github.com/bazelbuild/bazel/issues/5087 resolved.
+    self.ScratchFile('foo/BUILD', [
+        'sh_binary(',
+        '  name = "data_tool",',
+        '  srcs = ["data_tool.sh"],',
+        '  data = ["//bar:bar.txt"],',
+        ')',
+        'sh_binary(',
+        '  name = "tool",',
+        '  srcs = ["tool.sh"],',
+        '  data = [":data_tool"],',
+        ')',
+        'genrule(',
+        '  name = "genrule",',
+        '  srcs = [],',
+        '  outs = ["out.txt"],',
+        '  cmd  = "$(location :tool) > \\"$@\\"",',
+        '  tools = [":tool"],',
+        ')',
+    ])
+    self.ScratchFile(
+        'foo/tool.sh', [
+            '#!/bin/sh',
+            'echo hello tool',
+            # TODO(jsharpe): This is kind of an ugly way to call the data
+            # dependency, but the best I can find. Instead, use py_binary +
+            # Python runfiles library here once that's possible.
+            '$RUNFILES_DIR/__main__/foo/data_tool',
+        ],
+        executable=True)
+    self.ScratchFile(
+        'foo/data_tool.sh', [
+            '#!/bin/sh',
+            'echo hello data tool',
+        ],
+        executable=True)
+    self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
+    self.ScratchFile('bar/bar.txt', ['hello'])
+
+    # Build.
+    exit_code, stdout, stderr = self._RunRemoteBazel(
+        ['build', '//foo:genrule'])
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
+  # TODO(jsharpe): Add a py_test example here. Blocked on
+  # https://github.com/bazelbuild/bazel/issues/5087
 
 
 if __name__ == '__main__':

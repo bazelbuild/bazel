@@ -61,12 +61,25 @@ class TestBase(unittest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     os.chdir(self._test_cwd)
 
-  def AssertExitCode(self, actual_exit_code, expected_exit_code, stderr_lines):
+  def AssertExitCode(self,
+                     actual_exit_code,
+                     expected_exit_code,
+                     stderr_lines,
+                     stdout_lines=None):
     """Assert that `actual_exit_code` == `expected_exit_code`."""
     if actual_exit_code != expected_exit_code:
+      # If stdout was provided, include it in the output. This is mostly useful
+      # for tests.
+      stdout = '\n'.join([
+          '(start stdout)----------------------------------------',
+      ] + stdout_lines + [
+          '(end stdout)------------------------------------------',
+      ]) if stdout_lines is not None else ''
+
       self.fail('\n'.join([
           'Bazel exited with %d (expected %d), stderr:' % (actual_exit_code,
                                                            expected_exit_code),
+          stdout,
           '(start stderr)----------------------------------------',
       ] + (stderr_lines or []) + [
           '(end stderr)------------------------------------------',
