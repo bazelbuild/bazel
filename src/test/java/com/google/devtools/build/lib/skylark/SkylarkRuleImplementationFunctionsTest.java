@@ -2718,7 +2718,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     assertThat(expected).hasMessageThat()
         .contains("expected value of type 'int or function' for parameter 'default', "
-            + "in method call int(SkylarkLateBoundDefault default)");
+            + "in method call int(LateBoundDefault default)");
   }
 
   @Test

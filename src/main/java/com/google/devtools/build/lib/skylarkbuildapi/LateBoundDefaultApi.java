@@ -14,11 +14,16 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /**
  * The interface for late bound defaults in Skylark.
  */
+// TODO(cparsons): Document.
+@SkylarkModule(name = "LateBoundDefault",
+    documented = false,
+    doc = "")
 public interface LateBoundDefaultApi extends SkylarkValue {
   // TODO(cparsons): Migrate this API from the Bazel-specific implementation.
 }

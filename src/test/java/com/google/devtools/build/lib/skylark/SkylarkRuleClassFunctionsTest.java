@@ -925,7 +925,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testLabelAttrWrongDefault() throws Exception {
     checkErrorContains(
-        "expected value of type 'Label or string or SkylarkLateBoundDefault or "
+        "expected value of type 'Label or string or LateBoundDefault or "
             + "function or NoneType' for parameter 'default', in method call "
             + "label(int default) of 'attr (a language module)'",
         "attr.label(default = 123)");
