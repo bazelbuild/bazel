@@ -42,7 +42,8 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
       int threadCount,
-      DirtyTrackingProgressReceiver progressReceiver) {
+      DirtyTrackingProgressReceiver progressReceiver,
+      GraphInconsistencyReceiver graphInconsistencyReceiver) {
     super(
         graph,
         graphVersion,
@@ -53,7 +54,8 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
         errorInfoManager,
         keepGoing,
         threadCount,
-        progressReceiver);
+        progressReceiver,
+        graphInconsistencyReceiver);
   }
 
   public ParallelEvaluator(
@@ -66,6 +68,7 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
       DirtyTrackingProgressReceiver progressReceiver,
+      GraphInconsistencyReceiver graphInconsistencyReceiver,
       ForkJoinPool forkJoinPool,
       CycleDetector cycleDetector) {
     super(
@@ -78,6 +81,7 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
         errorInfoManager,
         keepGoing,
         progressReceiver,
+        graphInconsistencyReceiver,
         forkJoinPool,
         cycleDetector);
   }

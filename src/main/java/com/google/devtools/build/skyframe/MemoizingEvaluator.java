@@ -165,6 +165,7 @@ public interface MemoizingEvaluator {
         ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
         Differencer differencer,
         EvaluationProgressReceiver progressReceiver,
+        GraphInconsistencyReceiver graphInconsistencyReceiver,
         EmittedEventState emittedEventState,
         boolean keepEdges);
   }

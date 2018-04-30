@@ -70,6 +70,7 @@ public abstract class AbstractParallelEvaluator {
       boolean keepGoing,
       int threadCount,
       DirtyTrackingProgressReceiver progressReceiver,
+      GraphInconsistencyReceiver graphInconsistencyReceiver,
       CycleDetector cycleDetector) {
     this.graph = graph;
     this.cycleDetector = cycleDetector;
@@ -85,6 +86,7 @@ public abstract class AbstractParallelEvaluator {
             storedEventFilter,
             errorInfoManager,
             Evaluate::new,
+            graphInconsistencyReceiver,
             threadCount);
   }
 
@@ -98,6 +100,7 @@ public abstract class AbstractParallelEvaluator {
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
       DirtyTrackingProgressReceiver progressReceiver,
+      GraphInconsistencyReceiver graphInconsistencyReceiver,
       ForkJoinPool forkJoinPool,
       CycleDetector cycleDetector) {
     this.graph = graph;
@@ -114,6 +117,7 @@ public abstract class AbstractParallelEvaluator {
             storedEventFilter,
             errorInfoManager,
             Evaluate::new,
+            graphInconsistencyReceiver,
             Preconditions.checkNotNull(forkJoinPool));
   }
 
@@ -442,6 +446,11 @@ public abstract class AbstractParallelEvaluator {
           env.doneBuilding();
         }
 
+        if (maybeEraseNodeToRestartFromScratch(skyKey, state, value)) {
+          evaluatorContext.getVisitor().enqueueEvaluation(skyKey);
+          return;
+        }
+
         // Helper objects for all the newly requested deps that weren't known to the environment,
         // and may contain duplicate elements.
         GroupedListHelper<SkyKey> newDirectDeps = env.getNewlyRequestedDeps();
@@ -599,6 +608,25 @@ public abstract class AbstractParallelEvaluator {
     }
 
     private static final int MAX_REVERSEDEP_DUMP_LENGTH = 1000;
+  }
+
+  private boolean maybeEraseNodeToRestartFromScratch(
+      SkyKey key, NodeEntry entry, SkyValue returnedValue) {
+    if (!SkyFunction.SENTINEL_FOR_RESTART_FROM_SCRATCH.equals(returnedValue)) {
+      return false;
+    }
+    evaluatorContext
+        .getGraphInconsistencyReceiver()
+        .noteInconsistencyAndMaybeThrow(
+            key, /*otherKey=*/ null, GraphInconsistencyReceiver.Inconsistency.RESET_REQUESTED);
+    entry.resetForRestartFromScratch();
+    // TODO(mschaller): rdeps of children have to be handled here. If the graph does not keep edges,
+    // nothing has to be done, since there are no reverse deps to keep consistent. If the graph
+    // keeps edges, it's a harder problem. The reverse deps could just be removed, but in the case
+    // that this node is dirty, the deps shouldn't be removed, they should just be transformed back
+    // to "known reverse deps" from "reverse deps declared during this evaluation" (the inverse of
+    // NodeEntry#checkIfDoneForDirtyReverseDep). Such a method doesn't currently exist, but could.
+    return true;
   }
 
   void propagateEvaluatorContextCrashIfAny() {

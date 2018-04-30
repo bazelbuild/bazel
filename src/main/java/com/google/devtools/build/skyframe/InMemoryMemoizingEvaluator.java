@@ -61,6 +61,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   private Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
   private final InvalidationState deleterState = new DeletingInvalidationState();
   private final Differencer differencer;
+  private final GraphInconsistencyReceiver graphInconsistencyReceiver;
 
   // Keep edges in graph. Can be false to save memory, in which case incremental builds are
   // not possible.
@@ -83,18 +84,26 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       Map<SkyFunctionName, ? extends SkyFunction> skyFunctions,
       Differencer differencer,
       @Nullable EvaluationProgressReceiver progressReceiver) {
-    this(skyFunctions, differencer, progressReceiver, new EmittedEventState(), true);
+    this(
+        skyFunctions,
+        differencer,
+        progressReceiver,
+        GraphInconsistencyReceiver.THROWING,
+        new EmittedEventState(),
+        true);
   }
 
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, ? extends SkyFunction> skyFunctions,
       Differencer differencer,
       @Nullable EvaluationProgressReceiver progressReceiver,
+      GraphInconsistencyReceiver graphInconsistencyReceiver,
       EmittedEventState emittedEventState,
       boolean keepEdges) {
     this.skyFunctions = ImmutableMap.copyOf(skyFunctions);
     this.differencer = Preconditions.checkNotNull(differencer);
     this.progressReceiver = new DirtyTrackingProgressReceiver(progressReceiver);
+    this.graphInconsistencyReceiver = Preconditions.checkNotNull(graphInconsistencyReceiver);
     this.graph = new InMemoryGraphImpl(keepEdges);
     this.emittedEventState = emittedEventState;
     this.keepEdges = keepEdges;
@@ -179,7 +188,8 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
               ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
               keepGoing,
               numThreads,
-              progressReceiver);
+              progressReceiver,
+              graphInconsistencyReceiver);
       EvaluationResult<T> result = evaluator.eval(roots);
       return EvaluationResult.<T>builder()
           .mergeFrom(result)

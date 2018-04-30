@@ -143,7 +143,8 @@ public class EagerInvalidatorTest {
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             keepGoing,
             200,
-            new DirtyTrackingProgressReceiver(null));
+            new DirtyTrackingProgressReceiver(null),
+            GraphInconsistencyReceiver.THROWING);
     graphVersion = graphVersion.next();
     return evaluator.eval(ImmutableList.copyOf(keys));
   }

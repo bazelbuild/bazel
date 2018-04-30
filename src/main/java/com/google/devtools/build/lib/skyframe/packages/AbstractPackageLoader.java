@@ -76,6 +76,7 @@ import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
@@ -333,6 +334,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             makeFreshSkyFunctions(),
             preinjectedDifferencer,
             new EvaluationProgressReceiver.NullEvaluationProgressReceiver(),
+            GraphInconsistencyReceiver.THROWING,
             new MemoizingEvaluator.EmittedEventState(),
             /*keepEdges=*/ false));
   }

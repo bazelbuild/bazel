@@ -355,6 +355,15 @@ public interface NodeEntry extends ThinNodeEntry {
   void removeUnfinishedDeps(Set<SkyKey> unfinishedDeps);
 
   /**
+   * Erases all stored work during this evaluation from this entry, namely all temporary direct
+   * deps. The entry will be as if it had never evaluated at this version. Called after the {@link
+   * SkyFunction} for this entry returns {@link SkyFunction#SENTINEL_FOR_RESTART_FROM_SCRATCH},
+   * indicating that something went wrong in external state and the evaluation has to be restarted.
+   */
+  @ThreadSafe
+  void resetForRestartFromScratch();
+
+  /**
    * Adds the temporary direct deps given in {@code helper} and returns the set of unique deps
    * added. It is the users responsibility to ensure that there are no elements in common between
    * helper and the already existing temporary direct deps.

@@ -582,6 +582,16 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
+  public synchronized void resetForRestartFromScratch() {
+    Preconditions.checkState(!isDone(), "Reset entry can't be done: %s", this);
+    directDeps = null;
+    signaledDeps = 0;
+    if (dirtyBuildingState != null) {
+      dirtyBuildingState.resetForRestartFromScratch();
+    }
+  }
+
+  @Override
   public synchronized Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
     Preconditions.checkState(!isDone(), "add temp shouldn't be done: %s %s", helper, this);
     return getTemporaryDirectDeps().append(helper);
