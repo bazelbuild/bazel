@@ -49,7 +49,7 @@ filegroup(
         "//tools/build_rules:embedded_tools_srcs",
         "//tools/buildstamp:srcs",
         "//tools/coverage:srcs",
-        "//tools/cpp:srcs",
+        "//tools/cpp:embedded_tools",
         "//tools/genrule:srcs",
         "//tools/j2objc:srcs",
         "//tools/jdk:package-srcs",
