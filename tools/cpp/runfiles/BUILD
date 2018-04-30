@@ -9,7 +9,7 @@ filegroup(
             "*~",
         ],
     ),
-    visibility = ["//tools/cpp:__pkg__"],
+    visibility = ["//tools:__pkg__"],
 )
 
 filegroup(
@@ -18,7 +18,7 @@ filegroup(
         "BUILD.tools",
         "runfiles.cc",
     ],
-    visibility = ["//tools/cpp:__pkg__"],
+    visibility = ["//tools:__pkg__"],
 )
 
 cc_library(
