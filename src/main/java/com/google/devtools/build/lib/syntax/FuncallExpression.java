@@ -764,20 +764,23 @@ public final class FuncallExpression extends Expression {
           call.findJavaMethod(objClass, method, positionalArgs, keyWordArgs, env);
       if (javaMethod.first.isStructField()) {
         // Not a method but a callable attribute
+        Object func;
         try {
-          return callFunction(javaMethod.first.invoke(obj), env);
+          func = javaMethod.first.invoke(obj);
         } catch (IllegalAccessException e) {
           throw new EvalException(getLocation(), "method invocation failed: " + e);
         } catch (InvocationTargetException e) {
           if (e.getCause() instanceof FuncallException) {
             throw new EvalException(getLocation(), e.getCause().getMessage());
           } else if (e.getCause() != null) {
+            Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
             throw new EvalExceptionWithJavaCause(getLocation(), e.getCause());
           } else {
             // This is unlikely to happen
             throw new EvalException(getLocation(), "method invocation failed: " + e);
           }
         }
+        return callFunction(func, env);
       }
       return javaMethod.first.call(obj, javaMethod.second.toArray(), location, env);
     }
