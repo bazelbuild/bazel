@@ -32,7 +32,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -54,7 +54,8 @@ public final class DocstringUtils {
     ImmutableMap.Builder<String, StringLiteral> nameToDocstringLiteral = ImmutableMap.builder();
     Statement previousStatement = null;
     for (Statement currentStatement : ast.getStatements()) {
-      Entry<String, StringLiteral> entry = getNameAndDocstring(previousStatement, currentStatement);
+      Map.Entry<String, StringLiteral> entry =
+          getNameAndDocstring(previousStatement, currentStatement);
       if (entry != null) {
         nameToDocstringLiteral.put(entry);
       }
@@ -64,7 +65,7 @@ public final class DocstringUtils {
   }
 
   @Nullable
-  private static Entry<String, StringLiteral> getNameAndDocstring(
+  private static Map.Entry<String, StringLiteral> getNameAndDocstring(
       @Nullable Statement previousStatement, Statement currentStatement) {
     // function docstring:
     if (currentStatement instanceof FunctionDefStatement) {

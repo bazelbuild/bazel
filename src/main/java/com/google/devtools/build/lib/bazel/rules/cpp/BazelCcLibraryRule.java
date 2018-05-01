@@ -22,13 +22,12 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcLibraryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
 /** Rule definition for the cc_library rule. */
 public final class BazelCcLibraryRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         // TODO: Google cc_library overrides documentation for:
         // deps, data, linkopts, defines, srcs; override here too?

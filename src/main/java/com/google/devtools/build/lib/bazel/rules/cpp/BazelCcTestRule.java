@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcBinaryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -34,7 +33,7 @@ import com.google.devtools.build.lib.util.OS;
 /** Rule definition for cc_test rules. */
 public final class BazelCcTestRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(CppConfiguration.class)
         .setImplicitOutputsFunction(CppRuleClasses.CC_BINARY_DEBUG_PACKAGE)

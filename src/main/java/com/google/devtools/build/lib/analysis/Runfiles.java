@@ -45,7 +45,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
@@ -391,9 +390,9 @@ public final class Runfiles implements RunfilesApi {
     Map<PathFragment, Artifact> newManifest = new HashMap<>();
 
     outer:
-    for (Iterator<Entry<PathFragment, Artifact>> i = workingManifest.entrySet().iterator();
-         i.hasNext(); ) {
-      Entry<PathFragment, Artifact> entry = i.next();
+    for (Iterator<Map.Entry<PathFragment, Artifact>> i = workingManifest.entrySet().iterator();
+        i.hasNext(); ) {
+      Map.Entry<PathFragment, Artifact> entry = i.next();
       PathFragment source = entry.getKey();
       Artifact symlink = entry.getValue();
       // drop nested entries; warn if this changes anything

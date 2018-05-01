@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Discriminator;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.SelectorEntry;
-import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.SelectorEntry.Builder;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Tristate;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.LabelDictUnaryEntry;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.LabelKeyedStringDictEntry;
@@ -52,7 +51,6 @@ import com.google.devtools.build.lib.syntax.Type;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /** Common utilities for serializing {@link Attribute}s as protocol buffers. */
@@ -146,11 +144,12 @@ public class AttributeFormatter {
       // Note that the order of entries returned by selector.getEntries is stable. The map's
       // entries' order is preserved from the fact that Skylark dictionary entry order is stable
       // (it's determined by insertion order).
-      for (Entry<Label, ?> entry : selector.getEntries().entrySet()) {
+      for (Map.Entry<Label, ?> entry : selector.getEntries().entrySet()) {
         Label condition = entry.getKey();
-        Builder selectorEntryBuilder = SelectorEntry.newBuilder()
-            .setLabel(condition.toString())
-            .setIsDefaultValue(!selector.isValueSet(condition));
+        SelectorEntry.Builder selectorEntryBuilder =
+            SelectorEntry.newBuilder()
+                .setLabel(condition.toString())
+                .setIsDefaultValue(!selector.isValueSet(condition));
 
         Object conditionValue = entry.getValue();
         if (conditionValue != null) {
@@ -470,7 +469,7 @@ public class AttributeFormatter {
   private static class SelectorEntryBuilderAdapter implements AttributeValueBuilderAdapter {
     private final SelectorEntry.Builder selectorEntryBuilder;
 
-    private SelectorEntryBuilderAdapter(Builder selectorEntryBuilder) {
+    private SelectorEntryBuilderAdapter(SelectorEntry.Builder selectorEntryBuilder) {
       this.selectorEntryBuilder = Preconditions.checkNotNull(selectorEntryBuilder);
     }
 

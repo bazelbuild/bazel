@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
-import com.google.devtools.build.lib.view.test.TestStatus.TestResultData.Builder;
 import java.io.Closeable;
 import java.io.IOException;
 import java.time.Duration;
@@ -191,7 +190,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       int attempt,
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
-      Builder dataBuilder,
+      TestResultData.Builder dataBuilder,
       StandaloneTestResult result)
       throws IOException {
     ImmutableList.Builder<Pair<String, Path>> testOutputsBuilder = new ImmutableList.Builder<>();
@@ -256,7 +255,8 @@ public class StandaloneTestStrategy extends TestStrategy {
     processTestOutput(actionExecutionContext, new TestResult(action, data, false), testLog);
   }
 
-  private void processLastTestAttempt(int attempt, Builder dataBuilder, TestResultData data) {
+  private void processLastTestAttempt(
+      int attempt, TestResultData.Builder dataBuilder, TestResultData data) {
     dataBuilder.setHasCoverage(data.getHasCoverage());
     dataBuilder.setRemotelyCached(data.getRemotelyCached());
     dataBuilder.setIsRemoteStrategy(data.getIsRemoteStrategy());

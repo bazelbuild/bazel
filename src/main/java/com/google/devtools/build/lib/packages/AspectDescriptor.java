@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.protobuf.TextFormat;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -91,7 +91,7 @@ public final class AspectDescriptor {
     builder.append('[');
     ImmutableMultimap<String, String> attributes = aspectParameters.getAttributes();
     boolean first = true;
-    for (Entry<String, String> attribute : attributes.entries()) {
+    for (Map.Entry<String, String> attribute : attributes.entries()) {
       if (!first) {
         builder.append(',');
       } else {

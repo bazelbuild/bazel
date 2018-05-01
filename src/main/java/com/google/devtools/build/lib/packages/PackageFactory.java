@@ -70,7 +70,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Future;
@@ -1556,7 +1555,7 @@ public final class PackageFactory {
         .setup("repository_name", repositoryNameFunction)
         .setup("environment_group", newEnvironmentGroupFunction.apply(context));
 
-    for (Entry<String, BuiltinRuleFunction> entry : ruleFunctions.entrySet()) {
+    for (Map.Entry<String, BuiltinRuleFunction> entry : ruleFunctions.entrySet()) {
       pkgEnv.setup(entry.getKey(), entry.getValue());
     }
 

@@ -42,7 +42,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -568,7 +567,7 @@ public final class BuildType {
       LinkedHashMap<Label, T> result = Maps.newLinkedHashMapWithExpectedSize(x.size());
       ImmutableSet.Builder<Label> defaultValuesBuilder = ImmutableSet.builder();
       boolean foundDefaultCondition = false;
-      for (Entry<?, ?> entry : x.entrySet()) {
+      for (Map.Entry<?, ?> entry : x.entrySet()) {
         Label key = LABEL.convert(entry.getKey(), what, context);
         if (key.equals(DEFAULT_CONDITION_LABEL)) {
           foundDefaultCondition = true;

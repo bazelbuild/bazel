@@ -25,7 +25,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -117,14 +117,14 @@ public class Linter {
               }
             },
             content);
-    for (Entry<String, Check> entry : nameToCheck.entrySet()) {
+    for (Map.Entry<String, Check> entry : nameToCheck.entrySet()) {
       if (disabledChecks.contains(entry.getKey())) {
         continue;
       }
       issues.addAll(entry.getValue().check(ast));
     }
     if (!singleFileMode) {
-      for (Entry<String, MultiFileCheck> entry : nameToMultiFileCheck.entrySet()) {
+      for (Map.Entry<String, MultiFileCheck> entry : nameToMultiFileCheck.entrySet()) {
         if (disabledChecks.contains(entry.getKey())) {
           continue;
         }

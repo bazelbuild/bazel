@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /** Checks for usage of deprecated symbols. */
 public class DeprecationChecker extends AstVisitorWithNameResolution {
@@ -129,7 +128,7 @@ public class DeprecationChecker extends AstVisitorWithNameResolution {
         LoadStatement stmt,
         Path loadedPath,
         Map<String, DeprecatedSymbol> loadedFileInfo) {
-      for (Entry<Identifier, String> entry : stmt.getSymbolMap().entrySet()) {
+      for (Map.Entry<Identifier, String> entry : stmt.getSymbolMap().entrySet()) {
         String originalName = entry.getValue();
         String alias = entry.getKey().getName();
         DeprecatedSymbol originalDeprecation = loadedFileInfo.get(originalName);
@@ -144,7 +143,7 @@ public class DeprecationChecker extends AstVisitorWithNameResolution {
     public Map<String, DeprecatedSymbol> collectInfo(
         Path path, BuildFileAST ast, Map<String, DeprecatedSymbol> deprecationInfos) {
       Map<String, StringLiteral> docstrings = DocstringUtils.collectDocstringLiterals(ast);
-      for (Entry<String, StringLiteral> entry : docstrings.entrySet()) {
+      for (Map.Entry<String, StringLiteral> entry : docstrings.entrySet()) {
         String symbol = entry.getKey();
         StringLiteral docstring = entry.getValue();
         DocstringInfo info = DocstringUtils.parseDocstring(docstring, new ArrayList<>());

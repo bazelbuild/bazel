@@ -44,7 +44,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -138,7 +137,7 @@ public final class SpawnActionContextMaps {
    * <p>Prints out debug information about the mappings.
    */
   public void debugPrintSpawnActionContextMaps(Reporter reporter) {
-    for (Entry<String, SpawnActionContext> entry : spawnStrategyMnemonicMap.entrySet()) {
+    for (Map.Entry<String, SpawnActionContext> entry : spawnStrategyMnemonicMap.entrySet()) {
       reporter.handle(
           Event.info(
               String.format(
@@ -148,11 +147,11 @@ public final class SpawnActionContextMaps {
 
     ImmutableMap<Class<? extends ActionContext>, ActionContext> contextMap = contextMap();
     TreeMap<String, String> sortedContextMapWithSimpleNames = new TreeMap<>();
-    for (Entry<Class<? extends ActionContext>, ActionContext> entry : contextMap.entrySet()) {
+    for (Map.Entry<Class<? extends ActionContext>, ActionContext> entry : contextMap.entrySet()) {
       sortedContextMapWithSimpleNames.put(
           entry.getKey().getSimpleName(), entry.getValue().getClass().getSimpleName());
     }
-    for (Entry<String, String> entry : sortedContextMapWithSimpleNames.entrySet()) {
+    for (Map.Entry<String, String> entry : sortedContextMapWithSimpleNames.entrySet()) {
       // Skip uninteresting identity mappings of contexts.
       if (!entry.getKey().equals(entry.getValue())) {
         reporter.handle(

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -28,7 +27,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  */
 public final class BazelShLibraryRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         /* <!-- #BLAZE_RULE(sh_library).ATTRIBUTE(srcs) -->
         The list of input files.

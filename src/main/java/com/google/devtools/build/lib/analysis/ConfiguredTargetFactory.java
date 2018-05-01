@@ -77,7 +77,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -493,7 +492,7 @@ public final class ConfiguredTargetFactory {
       for (Aspect underlyingAspect : aspectPath) {
         ImmutableMap<String, Attribute> currentAttributes = underlyingAspect.getDefinition()
             .getAttributes();
-        for (Entry<String, Attribute> kv : currentAttributes.entrySet()) {
+        for (Map.Entry<String, Attribute> kv : currentAttributes.entrySet()) {
           if (!aspectAttributes.containsKey(kv.getKey())) {
             aspectAttributes.put(kv.getKey(), kv.getValue());
           }

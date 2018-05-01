@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -99,7 +98,7 @@ public class BaseRuleClasses {
    */
   public static final class TestBaseRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .requiresConfigurationFragments(TestConfiguration.class)
           .add(
@@ -255,7 +254,7 @@ public class BaseRuleClasses {
   public static final class RootRule implements RuleDefinition {
 
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
         return nameAttribute(builder).build();
     }
 
@@ -311,7 +310,7 @@ public class BaseRuleClasses {
    */
   public static final class MakeVariableExpandingRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($make_variable_expanding_rule).ATTRIBUTE(toolchains) -->
           The set of toolchains that supply <a href="${link make-variables}">"Make variables"</a>
@@ -338,7 +337,7 @@ public class BaseRuleClasses {
    */
   public static final class RuleBase implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("deps", LABEL_LIST).legacyAllowAnyFileType())
           .add(attr("data", LABEL_LIST).cfg(env.getLipoDataTransition())
@@ -363,7 +362,7 @@ public class BaseRuleClasses {
   /** A base rule for all binary rules. */
   public static final class BinaryBaseRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("args", STRING_LIST))
           .add(attr("output_licenses", LICENSE))
@@ -387,7 +386,7 @@ public class BaseRuleClasses {
   /** Rule class for rules in error. */
   public static final class ErrorRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder.publicByDefault().build();
     }
 

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -87,11 +86,11 @@ public class SpawnInputExpander {
     Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings = null;
     rootsAndMappings = runfilesSupplier.getMappings();
 
-    for (Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
+    for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
         rootsAndMappings.entrySet()) {
       PathFragment root = rootAndMappings.getKey();
       Preconditions.checkState(!root.isAbsolute(), root);
-      for (Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
+      for (Map.Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
         PathFragment location = root.getRelative(mapping.getKey());
         Artifact localArtifact = mapping.getValue();
         if (localArtifact != null) {
