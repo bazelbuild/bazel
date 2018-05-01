@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import java.util.HashMap;
-import java.util.Map.Entry;
+import java.util.Map;
 
 /**
  * A provider that holds debug outputs of an Apple binary rule.
@@ -137,7 +137,7 @@ public final class AppleDebugOutputsInfo extends NativeInfo {
     public AppleDebugOutputsInfo build() {
       ImmutableMap.Builder<String, ImmutableMap<String, Artifact>> builder = ImmutableMap.builder();
 
-      for (Entry<String, HashMap<String, Artifact>> e : outputsByArch.entrySet()) {
+      for (Map.Entry<String, HashMap<String, Artifact>> e : outputsByArch.entrySet()) {
         builder.put(e.getKey(), ImmutableMap.copyOf(e.getValue()));
       }
 

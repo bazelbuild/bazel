@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -242,7 +241,7 @@ public class ObjcRuleClasses {
    */
   public static class CoptsRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           /* <!-- #BLAZE_RULE($objc_opts_rule).ATTRIBUTE(copts) -->
           Extra flags to pass to the compiler.
@@ -273,7 +272,7 @@ public class ObjcRuleClasses {
    */
   public static class SdkFrameworksDependerRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           /* <!-- #BLAZE_RULE($objc_sdk_frameworks_depender_rule).ATTRIBUTE(sdk_frameworks) -->
           Names of SDK frameworks to link with (e.g. "AddressBook", "QuartzCore"). "UIKit" and
@@ -380,7 +379,7 @@ public class ObjcRuleClasses {
    */
   public static class ResourcesRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(strings) -->
           Files which are plists of strings, often localizable.
@@ -491,7 +490,7 @@ public class ObjcRuleClasses {
    */
   public static class ResourceToolsRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("$plmerge", LABEL).cfg(HostTransition.INSTANCE).exec()
               .value(env.getToolsLabel("//tools/objc:plmerge")))
@@ -515,7 +514,7 @@ public class ObjcRuleClasses {
    */
   public static class CrosstoolRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL).value(APPLE_TOOLCHAIN))
           .add(
@@ -540,7 +539,7 @@ public class ObjcRuleClasses {
    */
   public static class CompileDependencyRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(hdrs) -->
           The list of C, C++, Objective-C, and Objective-C++ header files published
@@ -615,7 +614,7 @@ public class ObjcRuleClasses {
         ImmutableSet.of("cc_library", "cc_inc_library");
 
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(srcs) -->
           The list of C, C++, Objective-C, and Objective-C++ source and header
@@ -752,7 +751,7 @@ public class ObjcRuleClasses {
    */
   public static class LibtoolRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr(LIBTOOL_ATTRIBUTE, LABEL).cfg(HostTransition.INSTANCE).exec()
               .value(env.getToolsLabel("//tools/objc:libtool")))
@@ -773,7 +772,7 @@ public class ObjcRuleClasses {
    */
   public static class AlwaysLinkRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($objc_alwayslink_rule).ATTRIBUTE(alwayslink) -->
           If 1, any bundle or binary that depends (directly or indirectly) on this
@@ -823,7 +822,7 @@ public class ObjcRuleClasses {
     }
 
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(
               attr("$j2objc_dead_code_pruner", LABEL)
@@ -882,7 +881,7 @@ public class ObjcRuleClasses {
     static final String MINIMUM_OS_VERSION = "minimum_os_version";
 
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($apple_platform_rule).ATTRIBUTE(platform_type) -->
           The type of platform for which to create artifacts in this rule.
@@ -950,7 +949,7 @@ public class ObjcRuleClasses {
         ImmutableSet.of("cc_library", "cc_inc_library");
 
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       MultiArchSplitTransitionProvider splitTransitionProvider =
           new MultiArchSplitTransitionProvider();
       return builder
@@ -1043,7 +1042,7 @@ public class ObjcRuleClasses {
     static final String DYLIBS_ATTR_NAME = "dylibs";
 
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($apple_dylib_depending_rule).ATTRIBUTE(dylibs) -->
           <p>A list of dynamic library targets to be linked against in this rule and included
@@ -1079,7 +1078,7 @@ public class ObjcRuleClasses {
     static final String FAMILIES_ATTR = "families";
 
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(infoplist)[DEPRECATED] -->
            The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
@@ -1166,7 +1165,7 @@ public class ObjcRuleClasses {
    */
   public static class XcrunRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("$xcrunwrapper", LABEL).cfg(HostTransition.INSTANCE).exec()
               .value(env.getToolsLabel("//tools/objc:xcrunwrapper")))

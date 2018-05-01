@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContextInfo;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContextInfo.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
@@ -123,7 +122,7 @@ public class ObjcCppSemantics implements CppSemantics {
 
   @Override
   public void setupCcCompilationContextInfo(
-      RuleContext ruleContext, Builder ccCompilationContextInfoBuilder) {
+      RuleContext ruleContext, CcCompilationContextInfo.Builder ccCompilationContextInfoBuilder) {
     // The genfiles root of each child configuration must be added to the compile action so that
     // generated headers can be resolved.
     for (PathFragment iquotePath :

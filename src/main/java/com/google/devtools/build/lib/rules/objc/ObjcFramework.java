@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.objc.ObjcCommon.Builder;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -40,7 +39,7 @@ public class ObjcFramework implements RuleConfiguredTargetFactory {
         CompilationAttributes.Builder.fromRuleContext(ruleContext).build();
 
     ObjcCommon.Builder commonBuilder =
-        new Builder(ruleContext)
+        new ObjcCommon.Builder(ruleContext)
             .addExtraSdkFrameworks(compilationAttributes.sdkFrameworks())
             .addExtraWeakSdkFrameworks(compilationAttributes.weakSdkFrameworks())
             .addExtraSdkDylibs(compilationAttributes.sdkDylibs());

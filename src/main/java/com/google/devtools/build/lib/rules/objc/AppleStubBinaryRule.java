@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 
 /** Rule definition for apple_stub_binary. */
@@ -32,7 +31,7 @@ public class AppleStubBinaryRule implements RuleDefinition {
   public static final String XCENV_BASED_PATH_ATTR = "xcenv_based_path";
 
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     MultiArchSplitTransitionProvider splitTransitionProvider =
         new MultiArchSplitTransitionProvider();
     return builder

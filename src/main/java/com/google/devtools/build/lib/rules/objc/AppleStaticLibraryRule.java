@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFact
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
@@ -58,7 +57,7 @@ public class AppleStaticLibraryRule implements RuleDefinition {
   static final String AVOID_DEPS_ATTR_NAME = "avoid_deps";
 
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     MultiArchSplitTransitionProvider splitTransitionProvider =
         new MultiArchSplitTransitionProvider();
 

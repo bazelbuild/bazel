@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Map.Entry;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -374,7 +374,7 @@ public class AppleSkylarkCommon {
     if (usesSwift) {
       resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
     }
-    for (Entry<?, ?> entry : kwargs.entrySet()) {
+    for (Map.Entry<?, ?> entry : kwargs.entrySet()) {
       Key<?> key = ObjcProvider.getSkylarkKeyForString((String) entry.getKey());
       if (key != null) {
         if (disableObjcResourceKeys && ObjcProvider.isDeprecatedResourceKey(key)) {

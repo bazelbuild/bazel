@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /**
@@ -138,7 +137,7 @@ public class HeaderThinning implements IncludeProcessing {
       throws ExecException {
     ImmutableList.Builder<Artifact> includeBuilder = ImmutableList.builder();
     ImmutableList.Builder<PathFragment> treeArtifactPathsBuilder = ImmutableList.builder();
-    for (Entry<PathFragment, Artifact> inputEntry : inputArtifactsMap.entrySet()) {
+    for (Map.Entry<PathFragment, Artifact> inputEntry : inputArtifactsMap.entrySet()) {
       if (inputEntry.getValue().isTreeArtifact()) {
         treeArtifactPathsBuilder.add(inputEntry.getKey());
       }

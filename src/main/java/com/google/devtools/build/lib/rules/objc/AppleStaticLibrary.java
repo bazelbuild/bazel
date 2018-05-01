@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.TreeMap;
 
 /**
@@ -110,7 +109,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
             ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
-    for (Entry<BuildConfiguration, CcToolchainProvider> childConfigAndToolchain :
+    for (Map.Entry<BuildConfiguration, CcToolchainProvider> childConfigAndToolchain :
         childConfigurationsAndToolchains.entrySet()) {
       BuildConfiguration childConfig = childConfigAndToolchain.getKey();
       CcToolchainProvider childToolchain = childConfigAndToolchain.getValue();
