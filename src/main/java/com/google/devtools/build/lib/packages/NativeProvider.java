@@ -42,9 +42,12 @@ import javax.annotation.Nullable;
  * To allow construction from Skylark and custom construction logic, override {@link
  * Provider#createInstanceFromSkylark(Object[], Environment, Location)} (see {@link #STRUCT} for an
  * example.
+ *
+ * @deprecated use {@link BuiltinProvider} instead.
  */
 @Immutable
-public abstract class NativeProvider<V extends Info> extends Provider {
+@Deprecated
+public abstract class NativeProvider<V extends Info> extends ProviderFromFunction {
   private final NativeKey key;
   private final String errorMessageFormatForUnknownField;
 
@@ -180,9 +183,7 @@ public abstract class NativeProvider<V extends Info> extends Provider {
   @SuppressWarnings("unchecked")
   public static NativeKey getNativeKeyFromSerializedRepresentation(Pair<String, String> serialized)
       throws ClassNotFoundException {
-    Class<? extends NativeProvider<?>> aClass =
-        (Class<? extends NativeProvider<?>>)
-            Class.forName(serialized.second).asSubclass(NativeProvider.class);
+    Class<? extends Provider> aClass = Class.forName(serialized.second).asSubclass(Provider.class);
     return new NativeKey(serialized.first, aClass);
   }
 
@@ -193,12 +194,13 @@ public abstract class NativeProvider<V extends Info> extends Provider {
    */
   @AutoCodec
   @Immutable
+  // TODO(cparsons): Move this class, as NativeProvider is deprecated.
   public static final class NativeKey extends Key {
     private final String name;
-    private final Class<? extends NativeProvider<?>> aClass;
+    private final Class<? extends Provider> aClass;
 
     @VisibleForSerialization
-    NativeKey(String name, Class<? extends NativeProvider<?>> aClass) {
+    NativeKey(String name, Class<? extends Provider> aClass) {
       this.name = name;
       this.aClass = aClass;
     }

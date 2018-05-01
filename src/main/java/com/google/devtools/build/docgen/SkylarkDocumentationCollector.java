@@ -37,6 +37,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /**
  * A helper class that collects Skylark module documentation.
@@ -125,6 +126,10 @@ final class SkylarkDocumentationCollector {
 
     while (!toProcess.isEmpty()) {
       Class<?> c = toProcess.removeFirst();
+      if (done.contains(c)) {
+        continue;
+      }
+
       SkylarkModuleDoc module = getSkylarkModuleDoc(c, modules);
       done.add(c);
 
@@ -132,19 +137,55 @@ final class SkylarkDocumentationCollector {
         ImmutableMap<Method, SkylarkCallable> methods =
             FuncallExpression.collectSkylarkMethodsWithAnnotation(c);
         for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
-          module.addMethod(
-              new SkylarkJavaMethodDoc(module.getName(), entry.getKey(), entry.getValue()));
-        }
+          if (entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
+            collectConstructor(modules, module.getName(), entry.getKey(), entry.getValue());
+          } else {
+            module.addMethod(
+                new SkylarkJavaMethodDoc(module.getName(), entry.getKey(), entry.getValue()));
+          }
 
-        for (Map.Entry<Method, SkylarkCallable> method : methods.entrySet()) {
-          Class<?> returnClass = method.getKey().getReturnType();
-          if (returnClass.isAnnotationPresent(SkylarkModule.class)
-              && !done.contains(returnClass)) {
+          Class<?> returnClass = entry.getKey().getReturnType();
+          if (returnClass.isAnnotationPresent(SkylarkModule.class)) {
             toProcess.addLast(returnClass);
+          } else {
+            Map.Entry<Method, SkylarkCallable> selfCallConstructor =
+                getSelfCallConstructorMethod(returnClass);
+            if (selfCallConstructor != null) {
+              // If the class to be processed is not annotated with @SkylarkModule, then its
+              // @SkylarkCallable methods are not processed, as it does not have its own
+              // documentation page. However, if it is a callable object (has a selfCall method)
+              // that is also a constructor for another type, we still want to ensure that method
+              // is documented.
+              // This is used for builtin providers, which typically are not marked @SkylarkModule,
+              // but which have selfCall constructors for their corresponding Info class.
+
+              // For example, the "mymodule" module may return a callable object at mymodule.foo
+              // which constructs instances of the Bar class. The type returned by mymodule.foo
+              // may have no documentation, but mymodule.foo should be documented as a
+              // constructor of Bar objects.
+              collectConstructor(modules, module.getName(),
+                  selfCallConstructor.getKey(), selfCallConstructor.getValue());
+            }
           }
         }
       }
     }
+  }
+
+  @Nullable
+  private static Map.Entry<Method, SkylarkCallable> getSelfCallConstructorMethod(
+      Class<?> objectClass) {
+    ImmutableMap<Method, SkylarkCallable> methods =
+        FuncallExpression.collectSkylarkMethodsWithAnnotation(objectClass);
+    for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
+      if (entry.getValue().selfCall()
+          && entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
+        // It's illegal, and checked by the interpreter, for there to be more than one method
+        // annotated with selfCall. Thus, it's valid to return on the first find.
+        return entry;
+      }
+    }
+    return null;
   }
 
   private static void collectBuiltinDoc(Map<String, SkylarkModuleDoc> modules, Field[] fields) {
@@ -168,15 +209,19 @@ final class SkylarkDocumentationCollector {
         FuncallExpression.collectSkylarkMethodsWithAnnotation(moduleClass);
     for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
       if (entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
-        SkylarkConstructor constructorAnnotation =
-            entry.getKey().getAnnotation(SkylarkConstructor.class);
-        Class<?> objectClass = constructorAnnotation.objectType();
-        SkylarkModuleDoc module = getSkylarkModuleDoc(objectClass, modules);
-        module.addMethod(
-              new SkylarkJavaMethodDoc("", entry.getKey(), entry.getValue()));
+        collectConstructor(modules, "", entry.getKey(), entry.getValue());
       } else {
         topLevelModuleDoc.addMethod(new SkylarkJavaMethodDoc("", entry.getKey(), entry.getValue()));
       }
     }
+  }
+
+  private static void collectConstructor(Map<String, SkylarkModuleDoc> modules,
+      String originatingModuleName, Method method, SkylarkCallable callable) {
+    SkylarkConstructor constructorAnnotation =
+        Preconditions.checkNotNull(method.getAnnotation(SkylarkConstructor.class));
+    Class<?> objectClass = constructorAnnotation.objectType();
+    SkylarkModuleDoc module = getSkylarkModuleDoc(objectClass, modules);
+    module.setConstructor(new SkylarkJavaMethodDoc(originatingModuleName, method, callable));
   }
 }

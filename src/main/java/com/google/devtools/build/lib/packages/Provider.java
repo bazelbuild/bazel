@@ -16,14 +16,8 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.SkylarkType;
-import javax.annotation.Nullable;
 
 /**
  * Declared Provider (a constructor for {@link Info}).
@@ -63,35 +57,19 @@ import javax.annotation.Nullable;
           + "<a href=\"globals.html#provider\">provider</a> function."
 )
 @Immutable
-public abstract class Provider extends BaseFunction {
-
-  /**
-   * Constructs a provider.
-   *
-   * @param name provider name; should be null iff the subclass overrides {@link #getName}
-   * @param signature the signature for calling this provider as a Skylark function (to construct an
-   *     instance of the provider)
-   * @param location the location of this provider's Skylark definition. Use {@link
-   *     Location#BUILTIN} if it is a native provider.
-   */
-  protected Provider(
-      @Nullable String name,
-      FunctionSignature.WithValues<Object, SkylarkType> signature,
-      Location location) {
-    super(name, signature, location);
-  }
+public interface Provider extends SkylarkValue {
 
   /**
    * Has this {@link Provider} been exported? All native providers are always exported. Skylark
    * providers are exported if they are assigned to top-level name in a Skylark module.
    */
-  public abstract boolean isExported();
+  boolean isExported();
 
   /** Returns a serializable representation of this {@link Provider}. */
-  public abstract Key getKey();
+  Key getKey();
 
   /** Returns a name of this {@link Provider} that should be used in error messages. */
-  public abstract String getPrintableName();
+  String getPrintableName();
 
   /**
    * Returns an error message format string for instances to use for their {@link
@@ -99,30 +77,14 @@ public abstract class Provider extends BaseFunction {
    *
    * <p>The format string must contain one {@code '%s'} placeholder for the field name.
    */
-  public abstract String getErrorMessageFormatForUnknownField();
-
-  public SkylarkProviderIdentifier id() {
-    return SkylarkProviderIdentifier.forKey(getKey());
-  }
-
-  @Override
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
-      throws EvalException, InterruptedException {
-    Location loc = ast != null ? ast.getLocation() : Location.BUILTIN;
-    return createInstanceFromSkylark(args, env, loc);
+  default String getErrorMessageFormatForUnknownField() {
+    return String.format("'%s' object has no attribute '%%s'", getPrintableName());
   }
 
   /**
-   * Override this method to provide logic that is used to instantiate a declared provider from
-   * Skylark.
-   *
-   * <p>This is a method that is called when a constructor {@code c} is invoked as<br>
-   * {@code c(arg1 = val1, arg2 = val2, ...)}.
-   *
-   * @param args an array of argument values sorted as per the signature ({@see BaseFunction#call})
+   * Returns the location at which provider was defined.
    */
-  protected abstract Info createInstanceFromSkylark(Object[] args, Environment env, Location loc)
-      throws EvalException;
+  Location getLocation();
 
   /** A serializable representation of {@link Provider}. */
   public abstract static class Key {}

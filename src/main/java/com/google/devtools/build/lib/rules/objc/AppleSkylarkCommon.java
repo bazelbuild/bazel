@@ -254,7 +254,7 @@ public class AppleSkylarkCommon {
             + "</pre>",
     structField = true
   )
-  public Provider getAppleStaticLibraryProvider() {
+  public AppleStaticLibraryInfo.Provider getAppleStaticLibraryProvider() {
     return AppleStaticLibraryInfo.SKYLARK_CONSTRUCTOR;
   }
 

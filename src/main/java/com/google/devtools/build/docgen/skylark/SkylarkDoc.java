@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -69,8 +70,8 @@ abstract class SkylarkDoc {
       return "<a class=\"anchor\" href=\"" + TOP_LEVEL_ID + ".html#None\">None</a>";
     } else if (type.equals(NestedSet.class)) {
       return "<a class=\"anchor\" href=\"depset.html\">depset</a>";
-    } else if (type.isAnnotationPresent(SkylarkModule.class)) {
-      SkylarkModule module = type.getAnnotation(SkylarkModule.class);
+    } else if (SkylarkInterfaceUtils.getSkylarkModule(type) != null) {
+      SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(type);
       if (module.documented()) {
         return String.format("<a class=\"anchor\" href=\"%1$s.html\">%1$s</a>",
                              module.name());

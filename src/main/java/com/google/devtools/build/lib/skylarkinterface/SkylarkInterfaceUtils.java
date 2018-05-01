@@ -95,15 +95,16 @@ public class SkylarkInterfaceUtils {
    * Returns the {@link SkylarkCallable} annotation for the given method, if it exists, and
    * null otherwise. The first annotation of an overridden version of the method that is found
    * will be returned, starting with {@code classObj} and following its base classes and
-   * interfaces recursively, skipping any annotation inside a class not marked
+   * interfaces recursively. This skips any method annotated inside a class that is not
+   * marked {@link SkylarkModule} or is not a subclass of a class or interface marked
    * {@link SkylarkModule}.
    */
   @Nullable
   public static SkylarkCallable getSkylarkCallable(Class<?> classObj, Method method) {
     try {
       Method superMethod = classObj.getMethod(method.getName(), method.getParameterTypes());
-      boolean classAnnotatedForCallables = classObj.isAnnotationPresent(SkylarkModule.class)
-          || classObj.isAnnotationPresent(SkylarkGlobalLibrary.class);
+      boolean classAnnotatedForCallables = getParentWithSkylarkModule(classObj) != null
+          || hasSkylarkGlobalLibrary(classObj);
       if (classAnnotatedForCallables
           && superMethod.isAnnotationPresent(SkylarkCallable.class)) {
         return superMethod.getAnnotation(SkylarkCallable.class);

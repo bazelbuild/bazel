@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.LIPO;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -482,7 +483,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testAppleStaticLibraryProvider() throws Exception {
+  public void testAppleStaticLibraryInfo() throws Exception {
     RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
     ConfiguredTarget binTarget = getConfiguredTarget("//x:x");
     AppleStaticLibraryInfo provider =
@@ -653,5 +654,80 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     assertThat(compileArgs1).contains("FLAG_2_ON");
     assertThat(compileArgs2).contains("FLAG_1_ON");
     assertThat(compileArgs2).contains("FLAG_2_ON");
+  }
+
+  @Test
+  public void testAppleStaticLibraryProvider() throws Exception {
+    RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def skylark_static_lib_impl(ctx):",
+        "   dep_provider = ctx.attr.proxy[apple_common.AppleStaticLibrary]",
+        "   my_provider = apple_common.AppleStaticLibrary(archive = dep_provider.archive,",
+        "       objc = dep_provider.objc)",
+        "   return struct(",
+        "      providers = [my_provider]",
+        "   )",
+        "",
+        "skylark_static_lib = rule(",
+        "  implementation = skylark_static_lib_impl,",
+        "  attrs = {'proxy': attr.label()},",
+        ")");
+
+    scratch.file(
+        "examples/apple_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'skylark_static_lib')",
+        "skylark_static_lib(",
+        "   name='my_target',",
+        "   proxy='//x:x'",
+        ")");
+
+    ConfiguredTarget binTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+
+    AppleStaticLibraryInfo provider =
+        binTarget.get(AppleStaticLibraryInfo.SKYLARK_CONSTRUCTOR);
+    assertThat(provider).isNotNull();
+    assertThat(provider.getMultiArchArchive()).isNotNull();
+    assertThat(provider.getDepsObjcProvider()).isNotNull();
+    assertThat(provider.getMultiArchArchive()).isEqualTo(
+        Iterables.getOnlyElement(
+            provider.getDepsObjcProvider().get(ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES)));
+  }
+
+  @Test
+  public void testAppleStaticLibraryProvider_invalidArgs() throws Exception {
+    RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def skylark_static_lib_impl(ctx):",
+        "   dep_provider = ctx.attr.proxy[apple_common.AppleStaticLibrary]",
+        "   my_provider = apple_common.AppleStaticLibrary(archive = dep_provider.archive,",
+        "       objc = dep_provider.objc, foo = 'bar')",
+        "   return struct(",
+        "      providers = [my_provider]",
+        "   )",
+        "",
+        "skylark_static_lib = rule(",
+        "  implementation = skylark_static_lib_impl,",
+        "  attrs = {'proxy': attr.label()},",
+        ")");
+
+    scratch.file(
+        "examples/apple_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'skylark_static_lib')",
+        "skylark_static_lib(",
+        "   name='my_target',",
+        "   proxy='//x:x'",
+        ")");
+
+    AssertionError expected =
+        assertThrows(AssertionError.class, () ->
+            getConfiguredTarget("//examples/apple_skylark:my_target"));
+    assertThat(expected).hasMessageThat()
+        .contains("unexpected keyword 'foo' in call");
   }
 }

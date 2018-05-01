@@ -223,7 +223,7 @@ public class SkylarkRuleClassFunctions {
     extraKeywords = @Param(name = "kwargs", doc = "the struct attributes."),
     useLocation = true
   )
-  private static final Provider struct = NativeProvider.STRUCT;
+  private static final NativeProvider<?> struct = NativeProvider.STRUCT;
 
   @SkylarkSignature(
     name = "DefaultInfo",
@@ -257,7 +257,7 @@ public class SkylarkRuleClassFunctions {
             + "</ul>"
             + "See the <a href='../rules.$DOC_EXT'>rules</a> page for more information."
   )
-  private static final Provider defaultInfo = DefaultInfo.PROVIDER;
+  private static final NativeProvider<?> defaultInfo = DefaultInfo.PROVIDER;
 
   @SkylarkSignature(
     name = "OutputGroupInfo",
@@ -270,7 +270,7 @@ public class SkylarkRuleClassFunctions {
             + "See <a href=\"../rules.$DOC_EXT#requesting-output-files\">Requesting output files"
             + "</a> for more information."
   )
-  private static final Provider outputGroupInfo = OutputGroupInfo.SKYLARK_CONSTRUCTOR;
+  private static final NativeProvider<?> outputGroupInfo = OutputGroupInfo.SKYLARK_CONSTRUCTOR;
 
   // TODO(bazel-team): Move to a "testing" namespace module. Normally we'd pass an objectType
   // to @SkylarkSignature to do this, but that doesn't work here because we're exposing an already-
@@ -292,7 +292,7 @@ public class SkylarkRuleClassFunctions {
             + " that have <a href=\"globals.html#rule._skylark_testable\">_skylark_testable</a> "
             + "set to <code>True</code>."
   )
-  private static final Provider actions = ActionsProvider.SKYLARK_CONSTRUCTOR;
+  private static final NativeProvider<?> actions = ActionsProvider.SKYLARK_CONSTRUCTOR;
 
   @SkylarkCallable(
     name = "provider",

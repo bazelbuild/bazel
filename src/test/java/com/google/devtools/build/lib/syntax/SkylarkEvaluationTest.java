@@ -485,10 +485,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     public Boolean isEmptyInterface(String str) {
       return str.isEmpty();
     }
-    @SkylarkCallable(documented = false)
-    public Boolean isEmptyClassNotAnnotated(String str) {
-      return str.isEmpty();
-    }
   }
 
   @SkylarkModule(name = "MockClassObject", documented = false, doc = "")
@@ -1185,15 +1181,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testNoJavaCallsWithoutSkylark() throws Exception {
     new SkylarkTest().testIfExactError("type 'int' has no method to_string()", "s = 3.to_string()");
-  }
-
-  @Test
-  public void testNoJavaCallsIfClassNotAnnotated() throws Exception {
-    new SkylarkTest()
-        .update("mock", new MockSubClass())
-        .testIfExactError(
-            "type 'Mock' has no method is_empty_class_not_annotated(string)",
-            "b = mock.is_empty_class_not_annotated('a')");
   }
 
   @Test

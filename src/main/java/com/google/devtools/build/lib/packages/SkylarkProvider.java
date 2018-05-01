@@ -45,7 +45,7 @@ import javax.annotation.Nullable;
  * pre-exported provider directly. Exported providers use only their key for {@link #equals} and
  * {@link #hashCode}.
  */
-public class SkylarkProvider extends Provider implements SkylarkExportable {
+public class SkylarkProvider extends ProviderFromFunction implements SkylarkExportable {
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SCHEMALESS_SIGNATURE =
       FunctionSignature.WithValues.create(FunctionSignature.KWARGS);

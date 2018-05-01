@@ -201,14 +201,4 @@ public class SkylarkInterfaceUtilsTest {
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockInterfaceB2#qux");
   }
-
-  @Test
-  public void testGetSkylarkCallableIgnoreNonModules() throws Exception {
-    // Don't return SkylarkCallable annotations in classes and interfaces
-    // not marked @SkylarkModule.
-    Method method = MockClassD.class.getMethod("foo");
-    SkylarkCallable ann = SkylarkInterfaceUtils.getSkylarkCallable(method);
-    assertThat(ann).isNotNull();
-    assertThat(ann.doc()).isEqualTo("MockClassC#foo");
-  }
 }
