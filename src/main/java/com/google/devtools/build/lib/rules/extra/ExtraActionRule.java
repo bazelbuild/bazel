@@ -24,14 +24,13 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 
 /**
  * Rule definition for extra_action rule.
  */
 public final class ExtraActionRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     /*<!-- #BLAZE_RULE(extra_action).NAME -->
     You may refer to this rule by <code>label</code> in the <code>extra_actions</code> argument
     of <a href="${link action_listener}"><code> action_listener</code></a> rules.

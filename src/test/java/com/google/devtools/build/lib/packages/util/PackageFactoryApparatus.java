@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.GlobCache;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.LegacyGlobber;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -156,7 +155,7 @@ public class PackageFactoryApparatus {
         factory.newExternalPackageBuilder(
                 buildFile.getParentDirectory().getRelative("WORKSPACE"), "TESTING")
             .build();
-    Builder resultBuilder =
+    Package.Builder resultBuilder =
         factory.evaluateBuildFile(
             externalPkg.getWorkspaceName(),
             packageId,

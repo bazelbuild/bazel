@@ -48,7 +48,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Map.Entry;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -532,7 +531,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       ExtraActionInfo.AspectDescriptor.Builder builder =
           ExtraActionInfo.AspectDescriptor.newBuilder()
             .setAspectName(aspectDescriptor.getAspectClass().getName());
-      for (Entry<String, Collection<String>> entry :
+      for (Map.Entry<String, Collection<String>> entry :
           aspectDescriptor.getParameters().getAttributes().asMap().entrySet()) {
           builder.putAspectParameters(
             entry.getKey(),

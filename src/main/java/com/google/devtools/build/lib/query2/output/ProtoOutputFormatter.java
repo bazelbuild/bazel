@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnord
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.GeneratedFile;
-import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult.Builder;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.syntax.Type;
 import java.io.IOException;
@@ -61,7 +61,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -122,7 +121,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       final OutputStream out, final QueryOptions options) {
     return new OutputFormatterCallback<Target>() {
 
-      private Builder queryResult;
+      private QueryResult.Builder queryResult;
 
       @Override
       public void start() {
@@ -200,7 +199,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           aspectResolver.computeAspectDependencies(target, dependencyFilter);
       // Add information about additional attributes from aspects.
       List<Build.Attribute> attributes = new ArrayList<>(aspectsDependencies.asMap().size());
-      for (Entry<Attribute, Collection<Label>> entry : aspectsDependencies.asMap().entrySet()) {
+      for (Map.Entry<Attribute, Collection<Label>> entry : aspectsDependencies.asMap().entrySet()) {
         Attribute attribute = entry.getKey();
         Collection<Label> labels = entry.getValue();
         if (!includeAspectAttribute(attribute, labels)) {
@@ -473,7 +472,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Map<Object, Object> mergedDict = new HashMap<>();
       for (Object possibleValue : possibleValues) {
         Map<Object, Object> stringDict = (Map<Object, Object>) possibleValue;
-        for (Entry<Object, Object> entry : stringDict.entrySet()) {
+        for (Map.Entry<Object, Object> entry : stringDict.entrySet()) {
           mergedDict.put(entry.getKey(), entry.getValue());
         }
       }

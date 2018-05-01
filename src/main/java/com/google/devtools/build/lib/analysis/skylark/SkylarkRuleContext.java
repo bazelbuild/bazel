@@ -96,7 +96,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -519,8 +518,8 @@ public final class SkylarkRuleContext implements SkylarkValue {
             ruleContext.getSplitPrerequisites(attr.getName());
 
         Map<Object, Object> splitPrereqsMap = new LinkedHashMap<>();
-        for (Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> splitPrereq
-            : splitPrereqs.entrySet()) {
+        for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>>
+            splitPrereq : splitPrereqs.entrySet()) {
 
           Object value;
           if (attr.getType() == BuildType.LABEL) {

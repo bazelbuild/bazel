@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 import java.util.LinkedHashSet;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -59,7 +59,7 @@ public class PreciseAspectResolver implements AspectResolver {
     if (target instanceof Rule) {
       Multimap<Attribute, Label> transitions =
           ((Rule) target).getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
-      for (Entry<Attribute, Label> entry : transitions.entries()) {
+      for (Map.Entry<Attribute, Label> entry : transitions.entries()) {
         Target toTarget;
         try {
           toTarget = packageProvider.getTarget(eventHandler, entry.getValue());

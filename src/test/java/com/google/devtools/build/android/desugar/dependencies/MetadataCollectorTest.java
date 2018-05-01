@@ -16,11 +16,11 @@ package com.google.devtools.build.android.desugar.dependencies;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.desugar.proto.DesugarDeps;
 import com.google.devtools.build.android.desugar.proto.DesugarDeps.Dependency;
 import com.google.devtools.build.android.desugar.proto.DesugarDeps.DesugarDepsInfo;
 import com.google.devtools.build.android.desugar.proto.DesugarDeps.InterfaceDetails;
 import com.google.devtools.build.android.desugar.proto.DesugarDeps.InterfaceWithCompanion;
-import com.google.devtools.build.android.desugar.proto.DesugarDeps.Type;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -103,8 +103,8 @@ public class MetadataCollectorTest {
                 .build());
   }
 
-  private static Type wrapType(String name) {
-    return Type.newBuilder().setBinaryName(name).build();
+  private static DesugarDeps.Type wrapType(String name) {
+    return DesugarDeps.Type.newBuilder().setBinaryName(name).build();
   }
 
   private DesugarDepsInfo extractProto(MetadataCollector collector) throws Exception {

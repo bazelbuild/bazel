@@ -35,13 +35,12 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 
 /** Rule introducing a transition to set feature flags for itself and dependencies. */
 public final class FeatureFlagSetterRule implements RuleDefinition, RuleConfiguredTargetFactory {
 
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(ConfigFeatureFlagConfiguration.class)
         .cfg(new ConfigFeatureFlagTransitionFactory("flag_values"))

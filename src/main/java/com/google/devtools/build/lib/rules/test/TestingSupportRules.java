@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Builder;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 
@@ -27,7 +27,7 @@ public final class TestingSupportRules implements RuleSet {
   }
 
   @Override
-  public void init(Builder builder) {
+  public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.addSkylarkAccessibleTopLevels("testing", new SkylarkTestingModule());
   }
 

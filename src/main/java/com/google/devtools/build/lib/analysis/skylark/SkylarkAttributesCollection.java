@@ -40,7 +40,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 @SkylarkModule(
   name = "rule_attributes",
@@ -240,7 +239,7 @@ class SkylarkAttributesCollection implements SkylarkValue {
           prereqsByLabel.put(target.getLabel(), target);
         }
         ImmutableMap.Builder<String, TransitiveInfoCollection> attrValue = ImmutableMap.builder();
-        for (Entry<String, Label> entry : ((Map<String, Label>) val).entrySet()) {
+        for (Map.Entry<String, Label> entry : ((Map<String, Label>) val).entrySet()) {
           attrValue.put(entry.getKey(), prereqsByLabel.get(entry.getValue()));
         }
         attrBuilder.put(skyname, attrValue.build());

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -30,7 +29,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.regex.Matcher;
 
 /**
@@ -292,7 +290,7 @@ public class SourceFileReader {
       return line;
     }
 
-    for (Entry<String, String> variable : variables.entrySet()) {
+    for (Map.Entry<String, String> variable : variables.entrySet()) {
       line = line.replace("${" + variable.getKey() + "}", variable.getValue());
     }
     return line;

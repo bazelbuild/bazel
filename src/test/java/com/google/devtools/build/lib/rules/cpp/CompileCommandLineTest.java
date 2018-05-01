@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CompileCommandLine.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -32,10 +31,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for {@link CompileCommandLine}, for example testing the ordering of individual command
- * line flags, or that command line is emitted differently subject to the presence of certain
- * build variables. Also used to test migration logic (removing hardcoded flags and expressing
- * them using feature configuration.
+ * Tests for {@link com.google.devtools.build.lib.rules.cpp.CompileCommandLine}, for example testing
+ * the ordering of individual command line flags, or that command line is emitted differently
+ * subject to the presence of certain build variables. Also used to test migration logic (removing
+ * hardcoded flags and expressing them using feature configuration.
  */
 @RunWith(JUnit4.class)
 public class CompileCommandLineTest extends BuildViewTestCase {
@@ -136,7 +135,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
     return compileCommandLine.getArguments(/* overwrittenVariables= */ null);
   }
 
-  private Builder makeCompileCommandLineBuilder() throws Exception {
+  private CompileCommandLine.Builder makeCompileCommandLineBuilder() throws Exception {
     return CompileCommandLine.builder(
         scratchArtifact("a/FakeInput"),
         CoptsFilter.alwaysPasses(),
