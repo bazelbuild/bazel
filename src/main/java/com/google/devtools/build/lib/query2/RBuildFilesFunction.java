@@ -69,7 +69,7 @@ public class RBuildFilesFunction implements QueryFunction {
           new QueryException("rbuildfiles can only be used with SkyQueryEnvironment"));
     }
     SkyQueryEnvironment skyEnv = ((SkyQueryEnvironment) env);
-    return skyEnv.getRBuildFilesParallel(
+    return skyEnv.getRBuildFiles(
         args.stream()
             .map(argument -> PathFragment.create(argument.getWord()))
             .collect(Collectors.toList()),

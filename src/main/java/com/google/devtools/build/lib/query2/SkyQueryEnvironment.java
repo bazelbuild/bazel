@@ -93,7 +93,6 @@ import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTraversalValue;
@@ -1092,10 +1091,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         Package::getBuildFile);
   }
 
+  /**
+   * Calculates the set of packages that transitively depend on, via load statements, the specified
+   * paths. The emitted {@link Target}s are BUILD file targets.
+   */
   @ThreadSafe
-  QueryTaskFuture<Void> getRBuildFilesParallel(
-      final Collection<PathFragment> fileIdentifiers,
-      final Callback<Target> callback) {
+  QueryTaskFuture<Void> getRBuildFiles(
+      Collection<PathFragment> fileIdentifiers, Callback<Target> callback) {
     return QueryTaskFutureImpl.ofDelegate(
         safeSubmit(
             () -> {
@@ -1103,56 +1105,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
                   SkyQueryEnvironment.this, fileIdentifiers, callback);
               return null;
             }));
-  }
-
-  /**
-   * Calculates the set of {@link Package} objects, represented as source file targets, that depend
-   * on the given list of BUILD files and subincludes (other files are filtered out).
-   */
-  @ThreadSafe
-  QueryTaskFuture<Void> getRBuildFiles(
-      Collection<PathFragment> fileIdentifiers, Callback<Target> callback) {
-    try {
-      Collection<SkyKey> files = getFileStateKeysForFileFragments(fileIdentifiers);
-      Uniquifier<SkyKey> keyUniquifier =
-          new UniquifierImpl<>(SkyKeyKeyExtractor.INSTANCE, /*concurrencyLevel=*/ 1);
-      Collection<SkyKey> current = keyUniquifier.unique(graph.getSuccessfulValues(files).keySet());
-      Set<SkyKey> resultKeys = CompactHashSet.create();
-      while (!current.isEmpty()) {
-        Collection<Iterable<SkyKey>> reverseDeps = graph.getReverseDeps(current).values();
-        current = new HashSet<>();
-        for (SkyKey rdep : Iterables.concat(reverseDeps)) {
-          if (rdep.functionName().equals(SkyFunctions.PACKAGE)) {
-            resultKeys.add(rdep);
-            // Every package has a dep on the external package, so we need to include those edges
-            // too.
-            if (rdep.equals(PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER))) {
-              if (keyUniquifier.unique(rdep)) {
-                current.add(rdep);
-              }
-            }
-          } else if (!rdep.functionName().equals(SkyFunctions.PACKAGE_LOOKUP)) {
-            // Packages may depend on the existence of subpackages, but these edges aren't relevant
-            // to rbuildfiles.
-            if (keyUniquifier.unique(rdep)) {
-              current.add(rdep);
-            }
-          }
-        }
-        if (resultKeys.size() >= BATCH_CALLBACK_SIZE) {
-          for (Iterable<SkyKey> batch : Iterables.partition(resultKeys, BATCH_CALLBACK_SIZE)) {
-            getBuildFileTargetsForPackageKeysAndProcessViaCallback(batch, callback);
-          }
-          resultKeys.clear();
-        }
-      }
-      getBuildFileTargetsForPackageKeysAndProcessViaCallback(resultKeys, callback);
-      return immediateSuccessfulFuture(null);
-    } catch (QueryException e) {
-      return immediateFailedFuture(e);
-    } catch (InterruptedException e) {
-      return immediateCancelledFuture();
-    }
   }
 
   @Override
