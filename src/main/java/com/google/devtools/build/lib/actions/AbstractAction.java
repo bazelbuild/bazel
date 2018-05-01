@@ -30,11 +30,9 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -58,22 +56,7 @@ import javax.annotation.concurrent.GuardedBy;
  */
 @Immutable
 @ThreadSafe
-@SkylarkModule(
-  name = "Action",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "An action created during rule analysis."
-          + "<p>This object is visible for the purpose of testing, and may be obtained from an "
-          + "<a href=\"globals.html#Actions\">Actions</a> provider. It is normally not necessary "
-          + "to access <code>Action</code> objects or their fields within a rule's implementation "
-          + "function. You may instead want to see the "
-          + "<a href='../rules.$DOC_EXT#actions'>Rules page</a> for a general discussion of how to "
-          + "use actions when defining custom rules, or the <a href='actions.html'>API reference"
-          + "</a> for creating actions."
-          + "<p>Some fields of this object are only applicable for certain kinds of actions. "
-          + "Fields that are inapplicable are set to <code>None</code>."
-)
-public abstract class AbstractAction implements Action, SkylarkValue {
+public abstract class AbstractAction implements Action, ActionApi {
   /**
    * An arbitrary default resource set. Currently 250MB of memory, 50% CPU and 0% of total I/O.
    */
@@ -302,11 +285,6 @@ public abstract class AbstractAction implements Action, SkylarkValue {
         + getOutputs() + "]" + ")";
   }
 
-  @SkylarkCallable(
-      name = "mnemonic",
-      structField = true,
-      doc = "The mnemonic for this action."
-  )
   @Override
   public abstract String getMnemonic();
 
@@ -580,68 +558,34 @@ public abstract class AbstractAction implements Action, SkylarkValue {
     return ImmutableList.of();
   }
 
-  @SkylarkCallable(
-      name = "inputs",
-      doc = "A set of the input files of this action.",
-      structField = true)
+  @Override
   public SkylarkNestedSet getSkylarkInputs() {
     return SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.wrap(
         Order.STABLE_ORDER, getInputs()));
   }
 
-  @SkylarkCallable(
-      name = "outputs",
-      doc = "A set of the output files of this action.",
-      structField = true)
+  @Override
   public SkylarkNestedSet getSkylarkOutputs() {
     return SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.wrap(
         Order.STABLE_ORDER, getOutputs()));
   }
 
-  @SkylarkCallable(
-    name = "argv",
-    doc =
-        "For actions created by <a href=\"actions.html#run\">ctx.actions.run()</a> "
-            + "or <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>  an immutable "
-            + "list of the arguments for the command line to be executed. Note that "
-            + "for shell actions the first two arguments will be the shell path "
-            + "and <code>\"-c\"</code>.",
-    structField = true,
-    allowReturnNones = true
-  )
-  public SkylarkList<String> getSkylarkArgv() throws CommandLineExpansionException {
+  @Override
+  public SkylarkList<String> getSkylarkArgv() throws EvalException {
     return null;
   }
 
-  @SkylarkCallable(
-      name = "content",
-      doc = "For actions created by <a href=\"actions.html#write\">ctx.actions.write()</a> or "
-          + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
-          + " the contents of the file to be written.",
-      structField = true,
-      allowReturnNones = true)
+  @Override
   public String getSkylarkContent() throws IOException {
     return null;
   }
 
-  @SkylarkCallable(
-      name = "substitutions",
-      doc = "For actions created by "
-          + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
-          + " an immutable dict holding the substitution mapping.",
-      structField = true,
-      allowReturnNones = true)
+  @Override
   public SkylarkDict<String, String> getSkylarkSubstitutions() {
     return null;
   }
 
-  @SkylarkCallable(
-      name = "env",
-      structField = true,
-      doc = "The 'fixed' environment variables for this action. This includes only environment "
-          + "settings which are explicitly set by the action definition, and thus omits settings "
-          + "which are only pre-set in the execution environment."
-  )
+  @Override
   public SkylarkDict<String, String> getEnv() {
     return SkylarkDict.copyOf(null, env.getFixedEnv());
   }

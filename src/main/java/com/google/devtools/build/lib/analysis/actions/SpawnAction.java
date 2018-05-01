@@ -65,8 +65,10 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
@@ -229,8 +231,12 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   @Override
-  public SkylarkList<String> getSkylarkArgv() throws CommandLineExpansionException {
-    return SkylarkList.createImmutable(getArguments());
+  public SkylarkList<String> getSkylarkArgv() throws EvalException {
+    try {
+      return SkylarkList.createImmutable(getArguments());
+    } catch (CommandLineExpansionException exception) {
+      throw new EvalException(Location.BUILTIN, exception);
+    }
   }
 
   @Override
