@@ -133,16 +133,31 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
     }
 
     Builder<T> withRoots(Function<T, ImmutableList<PathFragment>> rootsFunction) {
-      return with(t -> rootsToString(rootsFunction.apply(t)));
+      return with(new Function<T, String>() {
+        @Override
+        public String apply(T t) {
+          return rootsToString(rootsFunction.apply(t));
+        }
+      });
     }
 
     Builder<T> withArtifact(Function<T, Artifact> artifactFunction) {
-      return with(t -> artifactFunction.apply(t).getExecPathString());
+      return with(new Function<T, String>() {
+        @Override
+        public String apply(T t) {
+          return artifactFunction.apply(t).getExecPathString();
+        }
+      });
     }
 
     Builder<T> withLabel(Function<T, Label> labelFunction) {
       // Escape labels, since they are known to contain separating characters (specifically, ':').
-      return with(t -> joinerType.escape(labelFunction.apply(t).toString()));
+      return with(new Function<T, String>() {
+        @Override
+        public String apply(T t) {
+          return joinerType.escape(labelFunction.apply(t).toString());
+        }
+      });
     }
 
     Builder<T> with(Function<T, String> stringFunction) {
