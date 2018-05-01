@@ -39,11 +39,16 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
@@ -216,7 +221,7 @@ public class ResourceCompiler {
 
     private final ListeningExecutorService executorService;
     private final Path compiledResources;
-    private final List<ListenableFuture<List<Path>>> tasks = new ArrayList<>();
+    private final Map<Path, Path> pathToProcessed = new LinkedHashMap<>();
     private final Path aapt2;
     private final Revision buildToolsVersion;
     private final boolean generatePseudoLocale;
@@ -234,6 +239,9 @@ public class ResourceCompiler {
       this.generatePseudoLocale = generatePseudoLocale;
     }
 
+    static final Pattern REGION_PATTERN =
+        Pattern.compile("(sr[_\\-]r?latn)|(es[_\\-]r?419)", Pattern.CASE_INSENSITIVE);
+
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
       // Ignore directories and "hidden" files that start with .
@@ -247,31 +255,68 @@ public class ResourceCompiler {
                         .getParent()
                         .getParent()));
 
-        String resFolder = file.getParent().getFileName().toString().toLowerCase();
+        Path maybeFixedPath =
+            file.getParent()
+                .getParent()
+                .resolve(
+                    maybeFixRegion(file.getParent().getFileName()).resolve(file.getFileName()));
 
-        // Aapt cannot interpret these regions so we rename them to get them to compile
-        String renamedResFolder =
-            resFolder
-                .replaceFirst("sr[_\\-]r?latn", "b+sr+Latn")
-                .replaceFirst("es[_\\-]r?419", "b+es+419");
-
-        if (!renamedResFolder.equals(resFolder)) {
-          file =
-              Files.copy(
-                  file,
-                  Files.createDirectories(outputDirectory.resolve(renamedResFolder))
-                      .resolve(file.getFileName()));
+        if (!(maybeFixedPath.equals(file))) {
+          if (!Files.exists(maybeFixedPath)) {
+            logger.severe(
+                String.format(
+                    "The locale identifier in %s is not supported by aapt2. Converting to %s. "
+                        + "This will be an error in the future.",
+                    file, maybeFixedPath));
+            // Only use the processed path if doesn't exist. If it exists, there are is already
+            // resources for that region.
+            pathToProcessed.put(
+                Files.copy(
+                    file,
+                    Files.createDirectories(
+                            outputDirectory.resolve(maybeFixedPath.getParent().getFileName()))
+                        .resolve(file.getFileName())),
+                outputDirectory);
+          } else {
+            logger.severe(
+                String.format(
+                    "Skipping resource compilation for %s: it has the same qualifiers as %s."
+                        + " The locale identifier is not supported by aapt2."
+                        + " This will be an error in the future.",
+                    file, maybeFixedPath));
+          }
+        } else {
+          pathToProcessed.put(file, outputDirectory);
         }
-
-        tasks.add(
-            executorService.submit(
-                new CompileTask(
-                    file, outputDirectory, aapt2, buildToolsVersion, generatePseudoLocale)));
       }
       return super.visitFile(file, attrs);
     }
 
+    /** Aapt cannot interpret these regions so we rename them to get them to compile. */
+    static Path maybeFixRegion(Path p) {
+      Matcher matcher = REGION_PATTERN.matcher(p.toString());
+      if (!matcher.find()) {
+        return p;
+      }
+      StringBuffer fixedConfiguration = new StringBuffer();
+      matcher.appendReplacement(
+          fixedConfiguration, matcher.group(2) == null ? "b+sr+Latn" : "b+es+419");
+      return p.getFileSystem().getPath(matcher.appendTail(fixedConfiguration).toString());
+    }
+
     List<Path> getCompiledArtifacts() {
+      List<ListenableFuture<List<Path>>> tasks = new ArrayList<>();
+      for (Entry<Path, Path> entry : pathToProcessed.entrySet()) {
+        tasks.add(
+            executorService.submit(
+                new CompileTask(
+                    entry.getKey(),
+                    entry.getValue(),
+                    aapt2,
+                    buildToolsVersion,
+                    generatePseudoLocale)));
+      }
+
       ImmutableList.Builder<Path> builder = ImmutableList.builder();
       List<Throwable> compilationErrors = new ArrayList<>();
       for (ListenableFuture<List<Path>> task : tasks) {
