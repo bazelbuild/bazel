@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -41,7 +40,7 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 public final class BazelJavaTestRule implements RuleDefinition {
 
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     /* <!-- #BLAZE_RULE(java_test).IMPLICIT_OUTPUTS -->
     <ul>
       <li><code><var>name</var>.jar</code>: A Java archive.</li>

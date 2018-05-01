@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.skyframe.actiongraph;
 
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
-import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer.Builder;
+import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.KeyValuePair;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import java.util.Map.Entry;
+import java.util.Map;
 
 /**
  * Cache for AspectDescriptors in the action graph.
@@ -25,7 +25,7 @@ import java.util.Map.Entry;
 public class KnownAspectDescriptors
     extends BaseCache<AspectDescriptor, AnalysisProtos.AspectDescriptor> {
 
-  KnownAspectDescriptors(Builder actionGraphBuilder) {
+  KnownAspectDescriptors(ActionGraphContainer.Builder actionGraphBuilder) {
     super(actionGraphBuilder);
   }
 
@@ -35,7 +35,7 @@ public class KnownAspectDescriptors
         AnalysisProtos.AspectDescriptor.newBuilder()
             .setId(id)
             .setName(aspectDescriptor.getAspectClass().getName());
-    for (Entry<String, String> parameter :
+    for (Map.Entry<String, String> parameter :
         aspectDescriptor.getParameters().getAttributes().entries()) {
       KeyValuePair.Builder keyValuePairBuilder = KeyValuePair.newBuilder();
       keyValuePairBuilder.setKey(parameter.getKey()).setValue(parameter.getValue());

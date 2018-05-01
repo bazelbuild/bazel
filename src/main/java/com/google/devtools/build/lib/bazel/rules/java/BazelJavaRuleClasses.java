@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.PackageNameConstraint;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
@@ -91,7 +90,7 @@ public class BazelJavaRuleClasses {
    */
   public static final class JavaBaseRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr(":jvm", LABEL)
               .value(JavaSemantics.jvmAttribute(env))
@@ -134,7 +133,7 @@ public class BazelJavaRuleClasses {
    */
   public static final class JavaRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the target.
@@ -287,7 +286,7 @@ public class BazelJavaRuleClasses {
   public static final class BaseJavaBinaryRule implements RuleDefinition {
 
     @Override
-    public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
       Label launcher = env.getLauncherLabel();
       if (launcher != null) {
         builder.add(attr("$launcher", LABEL).cfg(HostTransition.INSTANCE).value(launcher));

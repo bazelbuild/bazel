@@ -15,14 +15,14 @@ package com.google.devtools.build.lib.skyframe.actiongraph;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
-import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer.Builder;
+import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 
 /**
  * Cache for Artifacts in the action graph.
  */
 public class KnownArtifacts extends BaseCache<Artifact, AnalysisProtos.Artifact> {
 
-  KnownArtifacts(Builder actionGraphBuilder) {
+  KnownArtifacts(ActionGraphContainer.Builder actionGraphBuilder) {
     super(actionGraphBuilder);
   }
 

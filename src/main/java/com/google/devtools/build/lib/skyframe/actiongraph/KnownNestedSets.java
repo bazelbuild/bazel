@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe.actiongraph;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
-import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer.Builder;
+import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 
 /**
@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 public class KnownNestedSets extends BaseCache<Object, AnalysisProtos.DepSetOfFiles> {
   private final KnownArtifacts knownArtifacts;
 
-  KnownNestedSets(Builder actionGraphBuilder, KnownArtifacts knownArtifacts) {
+  KnownNestedSets(ActionGraphContainer.Builder actionGraphBuilder, KnownArtifacts knownArtifacts) {
     super(actionGraphBuilder);
     this.knownArtifacts = knownArtifacts;
   }

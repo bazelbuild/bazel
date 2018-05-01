@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaTargetAttributes.Builder;
+import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 
 /**
@@ -65,10 +65,13 @@ public class BazelAndroidSemantics implements AndroidSemantics {
   }
 
   @Override
-  public void addCoverageSupport(RuleContext ruleContext, AndroidCommon common,
-      JavaSemantics javaSemantics, boolean forAndroidTest, Builder attributes,
-      JavaCompilationArtifacts.Builder artifactsBuilder) {
-  }
+  public void addCoverageSupport(
+      RuleContext ruleContext,
+      AndroidCommon common,
+      JavaSemantics javaSemantics,
+      boolean forAndroidTest,
+      JavaTargetAttributes.Builder attributes,
+      JavaCompilationArtifacts.Builder artifactsBuilder) {}
 
   @Override
   public ImmutableList<String> getAttributesWithJavaRuntimeDeps(RuleContext ruleContext) {

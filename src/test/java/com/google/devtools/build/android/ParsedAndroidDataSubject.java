@@ -20,7 +20,7 @@ import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 
 /** Testing Subject for comparing ParsedAndroidData instances. */
 class ParsedAndroidDataSubject extends Subject<ParsedAndroidDataSubject, ParsedAndroidData> {
@@ -49,8 +49,8 @@ class ParsedAndroidDataSubject extends Subject<ParsedAndroidDataSubject, ParsedA
   }
 
   private <T extends DataValue> void compareDataValues(
-      Iterable<Entry<DataKey, T>> actual,
-      Iterable<Entry<DataKey, T>> expected,
+      Iterable<Map.Entry<DataKey, T>> actual,
+      Iterable<Map.Entry<DataKey, T>> expected,
       List<String> out,
       String valueType) {
     List<String> errors = new ArrayList<>();

@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Builder;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration.ShellExecutableProvider;
@@ -198,7 +197,7 @@ public class BazelRuleClassProvider {
   public static final RuleSet BAZEL_SETUP =
       new RuleSet() {
         @Override
-        public void init(Builder builder) {
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
           builder
               .setPrelude("//tools/build_rules:prelude_bazel")
               .setNativeLauncherLabel("//tools/launcher:launcher")
@@ -207,10 +206,11 @@ public class BazelRuleClassProvider {
               .setActionEnvironmentProvider(SHELL_ACTION_ENV);
 
           builder.addConfigurationOptions(ShellConfiguration.Options.class);
-          builder.addConfigurationFragment(new ShellConfiguration.Loader(
-              SHELL_EXECUTABLE,
-              ShellConfiguration.Options.class,
-              StrictActionEnvOptions.class));
+          builder.addConfigurationFragment(
+              new ShellConfiguration.Loader(
+                  SHELL_EXECUTABLE,
+                  ShellConfiguration.Options.class,
+                  StrictActionEnvOptions.class));
           builder.addUniversalConfigurationFragment(ShellConfiguration.class);
           builder.addConfigurationOptions(StrictActionEnvOptions.class);
           builder.addConfigurationOptions(BuildConfiguration.Options.class);
@@ -225,7 +225,7 @@ public class BazelRuleClassProvider {
   public static final RuleSet PROTO_RULES =
       new RuleSet() {
         @Override
-        public void init(Builder builder) {
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
           builder.addConfigurationOptions(ProtoConfiguration.Options.class);
           builder.addConfigurationFragment(new ProtoConfiguration.Loader());
           builder.addRuleDefinition(new BazelProtoLibraryRule());
@@ -241,7 +241,7 @@ public class BazelRuleClassProvider {
   public static final RuleSet CPP_PROTO_RULES =
       new RuleSet() {
         @Override
-        public void init(Builder builder) {
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
           CcProtoAspect ccProtoAspect = new BazelCcProtoAspect(BazelCppSemantics.INSTANCE, builder);
           builder.addNativeAspectClass(ccProtoAspect);
           builder.addRuleDefinition(new CcProtoLibraryRule(ccProtoAspect));
@@ -256,7 +256,7 @@ public class BazelRuleClassProvider {
   public static final RuleSet JAVA_PROTO_RULES =
       new RuleSet() {
         @Override
-        public void init(Builder builder) {
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
           LabelLateBoundDefault<?> hostJdkAttribute = JavaSemantics.hostJdkAttribute(builder);
           BazelJavaProtoAspect bazelJavaProtoAspect = new BazelJavaProtoAspect(hostJdkAttribute);
           BazelJavaLiteProtoAspect bazelJavaLiteProtoAspect =
@@ -276,7 +276,7 @@ public class BazelRuleClassProvider {
   public static final RuleSet ANDROID_RULES =
       new RuleSet() {
         @Override
-        public void init(Builder builder) {
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
 
           builder.addConfig(AndroidConfiguration.Options.class, new AndroidConfiguration.Loader());
@@ -336,7 +336,7 @@ public class BazelRuleClassProvider {
   public static final RuleSet PYTHON_RULES =
       new RuleSet() {
         @Override
-        public void init(Builder builder) {
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
           builder.addConfig(PythonOptions.class, new PythonConfigurationLoader());
           builder.addConfig(
               BazelPythonConfiguration.Options.class, new BazelPythonConfiguration.Loader());
@@ -358,7 +358,7 @@ public class BazelRuleClassProvider {
   public static final RuleSet VARIOUS_WORKSPACE_RULES =
       new RuleSet() {
         @Override
-        public void init(Builder builder) {
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
           // TODO(ulfjack): Split this up by conceptual units.
           builder.addRuleDefinition(new GitRepositoryRule());
           builder.addRuleDefinition(new HttpArchiveRule());

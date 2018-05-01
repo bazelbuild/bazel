@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -106,7 +106,7 @@ public class ActionGraphDump {
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
       ImmutableMap<String, String> fixedEnvironment = spawnAction.getEnvironment();
-      for (Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
+      for (Map.Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
         AnalysisProtos.KeyValuePair.Builder keyValuePairBuilder =
             AnalysisProtos.KeyValuePair.newBuilder();
         keyValuePairBuilder

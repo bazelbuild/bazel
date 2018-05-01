@@ -14,14 +14,14 @@
 package com.google.devtools.build.lib.skyframe.actiongraph;
 
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
-import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer.Builder;
+import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 
 /** Cache for BuildConfigurations in the action graph. */
 public class KnownConfigurations extends BaseCache<BuildEvent, AnalysisProtos.Configuration> {
 
-  KnownConfigurations(Builder actionGraphBuilder) {
+  KnownConfigurations(ActionGraphContainer.Builder actionGraphBuilder) {
     super(actionGraphBuilder);
   }
 

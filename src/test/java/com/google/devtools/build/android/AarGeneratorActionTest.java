@@ -37,7 +37,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
@@ -184,7 +183,7 @@ public class AarGeneratorActionTest {
         if (withEmptyAssets) {
           Files.createDirectories(assetDir);
         }
-        for (Entry<Path, String> entry : filesToWrite.entrySet()) {
+        for (Map.Entry<Path, String> entry : filesToWrite.entrySet()) {
           Path file = entry.getKey();
           // only write files in assets if assets has not been set to empty and same for resources
           if (!((file.startsWith(assetDir) && withEmptyAssets)
@@ -202,7 +201,7 @@ public class AarGeneratorActionTest {
       private void writeClassesJar() throws IOException {
         final ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(classes.toFile()));
 
-        for (Entry<String, String> file : classesToWrite.entrySet()) {
+        for (Map.Entry<String, String> file : classesToWrite.entrySet()) {
           ZipEntry entry = new ZipEntry(file.getKey());
           zout.putNextEntry(entry);
           zout.write(file.getValue().getBytes(UTF_8));

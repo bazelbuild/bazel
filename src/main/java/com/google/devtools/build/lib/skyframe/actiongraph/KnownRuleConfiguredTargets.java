@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe.actiongraph;
 
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
-import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer.Builder;
+import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 
@@ -26,7 +26,8 @@ public class KnownRuleConfiguredTargets
 
   private final KnownRuleClassStrings knownRuleClassStrings;
 
-  KnownRuleConfiguredTargets(Builder actionGraphBuilder,
+  KnownRuleConfiguredTargets(
+      ActionGraphContainer.Builder actionGraphBuilder,
       KnownRuleClassStrings knownRuleClassStrings) {
     super(actionGraphBuilder);
     this.knownRuleClassStrings = knownRuleClassStrings;
