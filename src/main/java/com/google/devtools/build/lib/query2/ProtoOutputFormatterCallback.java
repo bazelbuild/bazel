@@ -14,9 +14,18 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeFormatter;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.output.AspectResolver;
 import com.google.devtools.build.lib.query2.output.CqueryOptions;
@@ -26,6 +35,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult.Bu
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Map;
 
 /** Proto output formatter for cquery results. */
 public class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
@@ -33,6 +43,8 @@ public class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final AspectResolver resolver;
 
   private AnalysisProtos.CqueryResult.Builder protoResult;
+
+  private ConfiguredTarget currentTarget;
 
   ProtoOutputFormatterCallback(
       Reporter reporter,
@@ -78,7 +90,7 @@ public class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   @Override
   public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
-    ProtoOutputFormatter formatter = new ProtoOutputFormatter();
+    ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
     formatter.setOptions(options, resolver);
     for (ConfiguredTarget configuredTarget : partialResult) {
       AnalysisProtos.ConfiguredTarget.Builder builder =
@@ -88,6 +100,7 @@ public class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       // for all its work with targets, ProtoOuputFormatterCallbackTest doesn't test any of the
       // logic in this next line. If this were to change (i.e. we manipulate targets any further),
       // we will want to add relevant tests.
+      currentTarget = configuredTarget;
       builder.setTarget(
           formatter.toTargetProtoBuffer(accessor.getTargetFromConfiguredTarget(configuredTarget)));
 
@@ -98,6 +111,32 @@ public class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       }
 
       protoResult.addResults(builder.build());
+    }
+  }
+
+  private class ConfiguredProtoOutputFormatter extends ProtoOutputFormatter {
+    @Override
+    protected void addAttributes(Build.Rule.Builder rulePb, Rule rule) throws InterruptedException {
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions =
+          ((RuleConfiguredTarget) currentTarget).getConfigConditions();
+      ConfiguredAttributeMapper attributeMapper =
+          ConfiguredAttributeMapper.of(rule, configConditions);
+      Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();
+      for (Attribute attr : rule.getAttributes()) {
+        if (!shouldIncludeAttribute(rule, attr)) {
+          continue;
+        }
+        Object attributeValue = attributeMapper.get(attr.getName(), attr.getType());
+        Build.Attribute serializedAttribute =
+            AttributeFormatter.getAttributeProto(
+                attr,
+                attributeValue,
+                rule.isAttributeValueExplicitlySpecified(attr),
+                /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
+        serializedAttributes.put(attr, serializedAttribute);
+      }
+      rulePb.addAllAttribute(serializedAttributes.values());
+      postProcess(rule, rulePb, serializedAttributes);
     }
   }
 }

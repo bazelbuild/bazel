@@ -238,7 +238,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    * Sets host and target configuration using the specified options, falling back to the default
    * options for unspecified ones, and recreates the build view.
    */
-  protected final void useConfiguration(String... args) throws Exception {
+  public final void useConfiguration(String... args) throws Exception {
     optionsParser =
         OptionsParser.newOptionsParser(
             Iterables.concat(
