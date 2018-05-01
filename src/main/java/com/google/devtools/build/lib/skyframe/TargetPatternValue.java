@@ -21,11 +21,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
-import com.google.devtools.build.lib.cmdline.ResolvedTargets.Builder;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.ContainsTBDForTBDResult;
-import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
@@ -86,7 +84,7 @@ public final class TargetPatternValue implements SkyValue {
     List<String> ts = (List<String>) in.readObject();
     List<String> filteredTs = (List<String>) in.readObject();
 
-    Builder<Label> builder = ResolvedTargets.<Label>builder();
+    ResolvedTargets.Builder<Label> builder = ResolvedTargets.<Label>builder();
     for (String labelString : ts) {
       builder.add(labelFromString(labelString));
     }
@@ -163,7 +161,10 @@ public final class TargetPatternValue implements SkyValue {
     for (int i = 0; i < keys.size(); i++) {
       TargetPatternKey targetPatternKey = keys.get(i);
       if (targetPatternKey.isNegative()) {
-        if (!targetPatternKey.getParsedPattern().getType().equals(Type.TARGETS_BELOW_DIRECTORY)
+        if (!targetPatternKey
+                .getParsedPattern()
+                .getType()
+                .equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY)
             || indicesOfNegativePatternsThatNeedToBeIncluded.contains(i)) {
           builder.add(targetPatternKey);
         }
@@ -211,7 +212,7 @@ public final class TargetPatternValue implements SkyValue {
       TargetPatternKey laterTargetPatternKey = keys.get(j);
       TargetPattern laterParsedPattern = laterTargetPatternKey.getParsedPattern();
       if (laterTargetPatternKey.isNegative()
-          && laterParsedPattern.getType() == Type.TARGETS_BELOW_DIRECTORY) {
+          && laterParsedPattern.getType() == TargetPattern.Type.TARGETS_BELOW_DIRECTORY) {
         if (laterParsedPattern.containsTBDForTBD(targetPattern)
             == ContainsTBDForTBDResult.DIRECTORY_EXCLUSION_WOULD_BE_EXACT) {
           return new TargetPatternKeyWithExclusionsResult(Optional.empty(), ImmutableList.of());
@@ -310,7 +311,7 @@ public final class TargetPatternValue implements SkyValue {
         InterruptibleSupplier<? extends Iterable<PathFragment>> blacklistedPackagePrefixes)
         throws InterruptedException {
       ImmutableSet.Builder<PathFragment> blacklistedPathsBuilder = ImmutableSet.builder();
-      if (parsedPattern.getType() == Type.TARGETS_BELOW_DIRECTORY) {
+      if (parsedPattern.getType() == TargetPattern.Type.TARGETS_BELOW_DIRECTORY) {
         for (PathFragment blacklistedPackagePrefix : blacklistedPackagePrefixes.get()) {
           PackageIdentifier pkgIdForBlacklistedDirectorPrefix = PackageIdentifier.create(
               parsedPattern.getDirectoryForTargetsUnderDirectory().getRepository(),

@@ -30,7 +30,6 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -92,7 +91,7 @@ final class TestSuiteExpansionFunction implements SkyFunction {
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
     builder.mergeError(hasError);
     Map<PackageIdentifier, Package> packageMap = new HashMap<>();
-    for (Entry<SkyKey, SkyValue> entry : packages.entrySet()) {
+    for (Map.Entry<SkyKey, SkyValue> entry : packages.entrySet()) {
       packageMap.put(
           (PackageIdentifier) entry.getKey().argument(),
           ((PackageValue) entry.getValue()).getPackage());

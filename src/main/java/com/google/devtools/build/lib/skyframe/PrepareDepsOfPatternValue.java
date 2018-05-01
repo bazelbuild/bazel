@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -111,7 +112,10 @@ public class PrepareDepsOfPatternValue implements SkyValue {
             targetPatternKeysBuilder.build());
     for (TargetPatternKey targetPatternKey : combinedTargetPatternKeys) {
       if (targetPatternKey.isNegative()
-          && !targetPatternKey.getParsedPattern().getType().equals(Type.TARGETS_BELOW_DIRECTORY)) {
+          && !targetPatternKey
+              .getParsedPattern()
+              .getType()
+              .equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY)) {
         resultExceptionsBuilder.add(
             new PrepareDepsOfPatternSkyKeyException(
                 new TargetParsingException(

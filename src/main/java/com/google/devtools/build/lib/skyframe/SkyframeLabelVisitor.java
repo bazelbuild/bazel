@@ -24,7 +24,7 @@ import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -69,7 +69,7 @@ public final class SkyframeLabelVisitor implements TransitivePackageLoader {
       return true;
     }
 
-    Set<Entry<SkyKey, ErrorInfo>> errors = result.errorMap().entrySet();
+    Set<Map.Entry<SkyKey, ErrorInfo>> errors = result.errorMap().entrySet();
     if (!errorOnCycles) {
       errors =
           errors
@@ -85,7 +85,7 @@ public final class SkyframeLabelVisitor implements TransitivePackageLoader {
       // We may have multiple errors, but in non keep_going builds, we're obligated to print only
       // one of them.
       Preconditions.checkState(!errors.isEmpty(), result);
-      Entry<SkyKey, ErrorInfo> error = errors.iterator().next();
+      Map.Entry<SkyKey, ErrorInfo> error = errors.iterator().next();
       ErrorInfo errorInfo = error.getValue();
       SkyKey topLevel = error.getKey();
       Label topLevelLabel = ((TransitiveTargetKey) topLevel).getLabel();
@@ -102,7 +102,7 @@ public final class SkyframeLabelVisitor implements TransitivePackageLoader {
       return false;
     }
 
-    for (Entry<SkyKey, ErrorInfo> errorEntry : errors) {
+    for (Map.Entry<SkyKey, ErrorInfo> errorEntry : errors) {
       SkyKey key = errorEntry.getKey();
       ErrorInfo errorInfo = errorEntry.getValue();
       Preconditions.checkState(key.functionName().equals(SkyFunctions.TRANSITIVE_TARGET), errorEntry);

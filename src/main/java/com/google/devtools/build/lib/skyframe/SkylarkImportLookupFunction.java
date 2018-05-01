@@ -60,7 +60,6 @@ import com.google.devtools.build.skyframe.ValueOrException2;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -303,7 +302,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     Map<String, Extension> extensionsForImports = Maps.newHashMapWithExpectedSize(imports.size());
     ImmutableList.Builder<SkylarkFileDependency> fileDependencies =
         ImmutableList.builderWithExpectedSize(labelsForImports.size());
-    for (Entry<String, Label> importEntry : labelsForImports.entrySet()) {
+    for (Map.Entry<String, Label> importEntry : labelsForImports.entrySet()) {
       String importString = importEntry.getKey();
       Label importLabel = importEntry.getValue();
       SkyKey keyForLabel = SkylarkImportLookupValue.key(importLabel, inWorkspace);
@@ -363,9 +362,10 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     }
     try {
       // Process lookup results.
-      for (Entry<SkyKey,
-               ValueOrException2<BuildFileNotFoundException,
-                   InconsistentFilesystemException>> entry : lookupResults.entrySet()) {
+      for (Map.Entry<
+              SkyKey,
+              ValueOrException2<BuildFileNotFoundException, InconsistentFilesystemException>>
+          entry : lookupResults.entrySet()) {
         ContainingPackageLookupValue lookupValue =
             (ContainingPackageLookupValue) entry.getValue().get();
         if (!lookupValue.hasContainingPackage()) {
@@ -440,7 +440,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     if (absoluteLabels == null) {
       return null;
     }
-    for (Entry<PathFragment, Label> entry : absoluteLabels.entrySet()) {
+    for (Map.Entry<PathFragment, Label> entry : absoluteLabels.entrySet()) {
       PathFragment currPath = entry.getKey();
       Label currLabel = entry.getValue();
       for (String importString : pathToImports.build().get(currPath)) {

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -174,8 +173,8 @@ public class ProcessPackageDirectory {
     boolean followSymlinks = shouldFollowSymlinksWhenTraversing(dirListingValue.getDirents());
     List<SkyKey> childDeps = new ArrayList<>();
     for (Dirent dirent : dirListingValue.getDirents()) {
-      Type type = dirent.getType();
-      if (type != Type.DIRECTORY && (type != Type.SYMLINK || !followSymlinks)) {
+      Dirent.Type type = dirent.getType();
+      if (type != Dirent.Type.DIRECTORY && (type != Dirent.Type.SYMLINK || !followSymlinks)) {
         // Non-directories can never host packages. Symlinks to non-directories are weeded out at
         // the next level of recursion when we check if its FileValue is a directory. This is slower
         // if there are a lot of symlinks in the tree, but faster if there are only a few, which is
