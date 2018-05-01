@@ -35,11 +35,25 @@ cc_test(
         "//src/main/cpp:bazel_startup_options",
         "//src/main/cpp:blaze_util",
         "//src/main/cpp:option_processor",
+        "//src/main/cpp:workspace_layout",
+        "//src/main/cpp/util",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "rc_file_test",
+    size = "small",
+    srcs = ["rc_file_test.cc"],
+    tags = ["requires_internet"],
+    deps = [
+        "//src/main/cpp:bazel_startup_options",
+        "//src/main/cpp:blaze_util",
+        "//src/main/cpp:option_processor",
         "//src/main/cpp:rc_file",
         "//src/main/cpp:workspace_layout",
         "//src/main/cpp/util",
         "@com_google_googletest//:gtest_main",
-        "@com_googlesource_code_re2//:re2",
     ],
 )
 
