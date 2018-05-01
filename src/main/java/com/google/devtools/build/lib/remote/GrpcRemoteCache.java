@@ -196,6 +196,11 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
 
   @Override
   protected void downloadBlob(Digest digest, Path dest) throws IOException, InterruptedException {
+    if (digest.getSizeBytes() == 0) {
+      try (OutputStream stream = dest.getOutputStream()) {
+        return;
+      }
+    }
     try {
       retrier.execute(
           () -> {

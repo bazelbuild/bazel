@@ -39,7 +39,11 @@ import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
+import io.grpc.Status;
+import io.grpc.StatusException;
+import io.grpc.StatusRuntimeException;
 import java.io.IOException;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -96,6 +100,17 @@ public final class RemoteModule extends BlazeModule {
     builder.addPathToUriConverter(converter);
   }
 
+  private static final Predicate<? super Exception> RETRIABLE_EXEC_ERRORS =
+      e -> {
+        if (e instanceof CacheNotFoundException) {
+          return true;
+        }
+        if (!(e instanceof StatusException) && !(e instanceof StatusRuntimeException)) {
+          return false;
+        }
+        return Status.fromThrowable(e).getCode() == Status.Code.FAILED_PRECONDITION;
+      };
+
   @Override
   public void beforeCommand(CommandEnvironment env) {
     env.getEventBus().register(this);
@@ -139,6 +154,9 @@ public final class RemoteModule extends BlazeModule {
       RemoteRetrier retrier =
           new RemoteRetrier(
               remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
+      RemoteRetrier executeRetrier =
+          new RemoteRetrier(
+              remoteOptions, RemoteModule.RETRIABLE_EXEC_ERRORS, Retrier.ALLOW_ALL_CALLS);
       // TODO(davido): The naming is wrong here. "Remote"-prefix in RemoteActionCache class has no
       // meaning.
       final AbstractRemoteActionCache cache;
@@ -186,7 +204,7 @@ public final class RemoteModule extends BlazeModule {
       }
 
       actionContextProvider =
-          new RemoteActionContextProvider(env, cache, executor, digestUtil, logDir);
+          new RemoteActionContextProvider(env, cache, executor, executeRetrier, digestUtil, logDir);
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       env.getBlazeModuleEnvironment().exit(new AbruptExitException(

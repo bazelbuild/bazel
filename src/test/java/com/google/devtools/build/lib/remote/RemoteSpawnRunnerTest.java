@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
+import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -93,6 +94,9 @@ public class RemoteSpawnRunnerTest {
   private FakeActionInputFileCache fakeFileCache;
   private FileOutErr outErr;
 
+  private RemoteOptions options;
+  private RemoteRetrier retrier;
+
   @Mock private AbstractRemoteActionCache cache;
 
   @Mock
@@ -120,6 +124,10 @@ public class RemoteSpawnRunnerTest {
     FileSystemUtils.createDirectoryAndParents(stdout.getParentDirectory());
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     outErr = new FileOutErr(stdout, stderr);
+
+    options = Options.getDefaults(RemoteOptions.class);
+    retrier =
+        new RemoteRetrier(options, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
   }
 
   @Test
@@ -129,7 +137,6 @@ public class RemoteSpawnRunnerTest {
     // It should be executed remotely, but marked non-cacheable to remote execution, so that
     // the action result is not saved in the remote cache.
 
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteAcceptCached = true;
     options.remoteLocalFallback = false;
     options.remoteUploadLocalResults = true;
@@ -145,6 +152,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
+            retrier,
             digestUtil,
             logDir);
 
@@ -188,7 +196,6 @@ public class RemoteSpawnRunnerTest {
     // Test that if a spawn is executed locally, due to the local fallback, that its result is not
     // uploaded to the remote cache. However, the artifacts should still be uploaded.
 
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteAcceptCached = true;
     options.remoteLocalFallback = true;
     options.remoteUploadLocalResults = true;
@@ -204,6 +211,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             null,
+            retrier,
             digestUtil,
             logDir);
 
@@ -242,7 +250,6 @@ public class RemoteSpawnRunnerTest {
     // Test that the outputs of a failed locally executed action are uploaded to a remote cache,
     // but the action result itself is not.
 
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteUploadLocalResults = true;
 
     RemoteSpawnRunner runner =
@@ -257,6 +264,7 @@ public class RemoteSpawnRunnerTest {
                 "command-id",
                 cache,
                 null,
+                retrier,
                 digestUtil,
                 logDir));
 
@@ -306,6 +314,7 @@ public class RemoteSpawnRunnerTest {
                 "command-id",
                 cache,
                 null,
+                retrier,
                 digestUtil,
                 logDir));
 
@@ -322,7 +331,6 @@ public class RemoteSpawnRunnerTest {
   public void printWarningIfCacheIsDown() throws Exception {
     // If we try to upload to a local cache, that is down a warning should be printed.
 
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteUploadLocalResults = true;
     options.remoteLocalFallback = true;
 
@@ -341,6 +349,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             null,
+            retrier,
             digestUtil,
             logDir);
 
@@ -383,7 +392,6 @@ public class RemoteSpawnRunnerTest {
   public void noRemoteExecutorFallbackFails() throws Exception {
     // Errors from the fallback runner should be propogated out of the remote runner.
 
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteUploadLocalResults = true;
     options.remoteLocalFallback = true;
 
@@ -398,6 +406,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             null,
+            retrier,
             digestUtil,
             logDir);
 
@@ -423,7 +432,6 @@ public class RemoteSpawnRunnerTest {
   public void remoteCacheErrorFallbackFails() throws Exception {
     // Errors from the fallback runner should be propogated out of the remote runner.
 
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteUploadLocalResults = true;
     options.remoteLocalFallback = true;
 
@@ -438,6 +446,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             null,
+            retrier,
             digestUtil,
             logDir);
 
@@ -461,7 +470,6 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   public void testLocalFallbackFailureRemoteExecutorFailure() throws Exception {
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteLocalFallback = true;
 
     RemoteSpawnRunner runner =
@@ -475,6 +483,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
+            retrier,
             digestUtil,
             logDir);
 
@@ -488,7 +497,14 @@ public class RemoteSpawnRunnerTest {
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
 
     try {
-      runner.exec(spawn, policy);
+      try {
+        runner.exec(spawn, policy);
+      } catch (RetryException e) {
+        if (e.getCause() instanceof IOException) {
+          throw (IOException) e.getCause();
+        }
+        throw e;
+      }
       fail("expected IOException to be raised");
     } catch (IOException e) {
       assertThat(e).isSameAs(err);
@@ -510,6 +526,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
+            retrier,
             digestUtil,
             logDir);
 
@@ -547,6 +564,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
+            retrier,
             digestUtil,
             logDir);
 
@@ -587,6 +605,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
+            retrier,
             digestUtil,
             logDir);
 
@@ -627,6 +646,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
+            retrier,
             digestUtil,
             logDir);
 
@@ -658,8 +678,6 @@ public class RemoteSpawnRunnerTest {
   public void cacheDownloadFailureTriggersRemoteExecution() throws Exception {
     // If downloading a cached action fails, remote execution should be tried.
 
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
             execRoot,
@@ -671,6 +689,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
+            retrier,
             digestUtil,
             logDir);
 
@@ -699,7 +718,6 @@ public class RemoteSpawnRunnerTest {
   public void testRemoteExecutionTimeout() throws Exception {
     // If remote execution times out the SpawnResult status should be TIMEOUT.
 
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteLocalFallback = false;
 
     RemoteSpawnRunner runner =
@@ -713,6 +731,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
+            retrier,
             digestUtil,
             logDir);
 
@@ -747,7 +766,6 @@ public class RemoteSpawnRunnerTest {
     // If remote execution times out the SpawnResult status should be TIMEOUT, regardess of local
     // fallback option.
 
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteLocalFallback = true;
 
     RemoteSpawnRunner runner =
@@ -761,6 +779,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
+            retrier,
             digestUtil,
             logDir);
 
@@ -793,7 +812,6 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   public void testRemoteExecutionCommandFailureDoesNotTriggerFallback() throws Exception {
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteLocalFallback = true;
 
     RemoteSpawnRunner runner =
@@ -807,6 +825,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
+            retrier,
             digestUtil,
             logDir);
 
@@ -834,7 +853,6 @@ public class RemoteSpawnRunnerTest {
     // If we get a failure due to the remote cache not working, the exit code should be
     // ExitCode.REMOTE_ERROR.
 
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteLocalFallback = false;
 
     RemoteSpawnRunner runner =
@@ -848,6 +866,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
+            retrier,
             digestUtil,
             logDir);
 
@@ -858,7 +877,14 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     try {
-      runner.exec(spawn, policy);
+      try {
+        runner.exec(spawn, policy);
+      } catch (RetryException e) {
+        if (e.getCause() instanceof SpawnExecException) {
+          throw (SpawnExecException) e.getCause();
+        }
+        throw e;
+      }
       fail("Exception expected");
     } catch (SpawnExecException e) {
       assertThat(e.getSpawnResult().exitCode())
@@ -871,7 +897,6 @@ public class RemoteSpawnRunnerTest {
     // If we get a failure due to the remote executor not working, the exit code should be
     // ExitCode.REMOTE_ERROR.
 
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteLocalFallback = false;
 
     RemoteSpawnRunner runner =
@@ -885,6 +910,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
+            retrier,
             digestUtil,
             logDir);
 
