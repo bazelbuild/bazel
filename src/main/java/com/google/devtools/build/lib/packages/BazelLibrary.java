@@ -12,20 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import java.util.List;
+import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.MethodLibrary;
+import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SelectorList;
+import com.google.devtools.build.lib.syntax.SelectorValue;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /**
  * A helper class containing additional built in functions for Bazel (BUILD files and .bzl files).
  */
 public class BazelLibrary {
 
+  // TODO(bazel-team): Move to MethodLibrary alongside other pure-Skylark builtins.
   @SkylarkSignature(
     name = "type",
     returnType = String.class,
@@ -205,21 +220,26 @@ public class BazelLibrary {
         }
       };
 
-  private static Environment.GlobalFrame createGlobals() {
-    List<BaseFunction> bazelGlobalFunctions = ImmutableList.of(select, depset, type);
-
-    try (Mutability mutability = Mutability.create("BUILD")) {
-      Environment env = Environment.builder(mutability)
-          .useDefaultSemantics()
-          .build();
-      Runtime.setupConstants(env);
-      Runtime.setupMethodEnvironment(env, MethodLibrary.defaultGlobalFunctions);
-      Runtime.setupMethodEnvironment(env, bazelGlobalFunctions);
-      return env.getGlobals();
+  /** Adds bindings for all the builtin functions of this class to the given map builder. */
+  public static void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
+    for (BaseFunction function : allFunctions) {
+      builder.put(function.getName(), function);
     }
   }
 
-  public static final Environment.GlobalFrame GLOBALS = createGlobals();
+  private static final ImmutableList<BaseFunction> allFunctions =
+      ImmutableList.of(select, depset, type);
+
+  /** A global frame containing pure Skylark builtins and some Bazel builtins. */
+  public static final GlobalFrame GLOBALS = createGlobals();
+
+  private static GlobalFrame createGlobals() {
+    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+    Runtime.addConstantsToBuilder(builder);
+    MethodLibrary.addBindingsToBuilder(builder);
+    BazelLibrary.addBindingsToBuilder(builder);
+    return GlobalFrame.createForBuiltins(builder.build());
+  }
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(BazelLibrary.class);

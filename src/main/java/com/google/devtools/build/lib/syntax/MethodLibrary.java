@@ -960,7 +960,14 @@ public class MethodLibrary {
   )
   public static final class BoolModule {}
 
-  static final List<BaseFunction> defaultGlobalFunctions =
+  /** Adds bindings for all the builtin functions of this class to the given map builder. */
+  public static void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
+    for (BaseFunction function : allFunctions) {
+      builder.put(function.getName(), function);
+    }
+  }
+
+  private static final ImmutableList<BaseFunction> allFunctions =
       ImmutableList.of(
           all, any, bool, dict, dir, fail, getattr, hasattr, hash, enumerate, int_, len, list, max,
           min, print, range, repr, reversed, sorted, str, tuple, zip);

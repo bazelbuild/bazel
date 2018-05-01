@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
@@ -137,14 +138,16 @@ public final class Runtime {
   )
   public static final String REPOSITORY_NAME = "REPOSITORY_NAME";
 
-  /**
-   * Set up a given environment for supported class methods.
-   */
-  static Environment setupConstants(Environment env) {
+  /** Adds bindings for False/True/None constants to the given map builder. */
+  public static void addConstantsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     // In Python 2.x, True and False are global values and can be redefined by the user.
-    // In Python 3.x, they are keywords. We implement them as values, for the sake of
-    // simplicity. We define them as Boolean objects.
-    return env.setup("False", FALSE).setup("True", TRUE).setup("None", NONE);
+    // In Python 3.x, they are keywords. We implement them as values. Currently they can't be
+    // redefined because builtins can't be overridden. In the future we should permit shadowing of
+    // most builtins but still prevent shadowing of these constants.
+    builder
+        .put("False", FALSE)
+        .put("True", TRUE)
+        .put("None", NONE);
   }
 
 
@@ -389,12 +392,5 @@ public final class Runtime {
   // TODO(bazel-team): Remove after all callers updated.
   public static void registerModuleGlobals(Environment env, Class<?> moduleClass) {
     setupModuleGlobals(env, moduleClass);
-  }
-
-  static void setupMethodEnvironment(
-      Environment env, Iterable<BaseFunction> functions) {
-    for (BaseFunction function : functions) {
-      env.setup(function.getName(), function);
-    }
   }
 }

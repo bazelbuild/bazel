@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.packages.BazelLibrary;
 import com.google.devtools.build.lib.packages.SkylarkNativeModule;
-import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Mutability;
