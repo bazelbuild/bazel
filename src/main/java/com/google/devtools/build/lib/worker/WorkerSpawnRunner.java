@@ -135,7 +135,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
-    Map<PathFragment, Path> inputFiles = SandboxHelpers.getInputFiles(spawn, context, execRoot);
+    Map<PathFragment, Path> inputFiles = SandboxHelpers.processInputFiles(spawn, context, execRoot);
     Set<PathFragment> outputFiles = SandboxHelpers.getOutputFiles(spawn);
 
     WorkerKey key =

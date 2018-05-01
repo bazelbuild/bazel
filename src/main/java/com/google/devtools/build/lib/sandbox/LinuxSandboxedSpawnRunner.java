@@ -174,7 +174,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               sandboxPath,
               commandLineBuilder.build(),
               environment,
-              SandboxHelpers.getInputFiles(spawn, context, execRoot),
+              SandboxHelpers.processInputFiles(spawn, context, execRoot),
               outputs,
               ImmutableSet.of());
     } else {
@@ -184,7 +184,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               sandboxExecRoot,
               commandLineBuilder.build(),
               environment,
-              SandboxHelpers.getInputFiles(spawn, context, execRoot),
+              SandboxHelpers.processInputFiles(spawn, context, execRoot),
               outputs,
               writableDirs);
     }
