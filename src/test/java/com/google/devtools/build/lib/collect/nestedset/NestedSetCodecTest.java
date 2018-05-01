@@ -42,7 +42,7 @@ public class NestedSetCodecTest {
     ObjectCodecs objectCodecs =
         new ObjectCodecs(
             AutoRegistry.get().getBuilder().setAllowDefaultCodec(true).build(), ImmutableMap.of());
-    NestedSetCodecTestUtils.checkCodec(objectCodecs);
+    NestedSetCodecTestUtils.checkCodec(objectCodecs, false);
   }
 
   @Test
@@ -55,7 +55,7 @@ public class NestedSetCodecTest {
                 .add(new NestedSetCodecWithStore<>(NestedSetStore.inMemory()))
                 .build(),
             ImmutableMap.of());
-    NestedSetCodecTestUtils.checkCodec(objectCodecs);
+    NestedSetCodecTestUtils.checkCodec(objectCodecs, true);
   }
 
   @Test

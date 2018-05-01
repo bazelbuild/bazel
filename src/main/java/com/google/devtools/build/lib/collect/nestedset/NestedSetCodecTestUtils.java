@@ -29,7 +29,8 @@ public class NestedSetCodecTestUtils {
       NestedSetBuilder.<String>stableOrder().add("e").build();
 
   /** Perform serialization/deserialization checks for several simple NestedSet examples. */
-  public static void checkCodec(ObjectCodecs objectCodecs) throws Exception {
+  public static void checkCodec(ObjectCodecs objectCodecs, boolean allowFutureBlocking)
+      throws Exception {
     new SerializationTester(
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
@@ -51,6 +52,7 @@ public class NestedSetCodecTestUtils {
                 .addTransitive(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
                 .build())
         .setObjectCodecs(objectCodecs)
+        .makeMemoizingAndAllowFutureBlocking(allowFutureBlocking)
         .setVerificationFunction(NestedSetCodecTestUtils::verifyDeserialization)
         .runTests();
   }

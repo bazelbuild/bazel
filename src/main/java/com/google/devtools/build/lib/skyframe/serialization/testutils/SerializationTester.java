@@ -62,6 +62,7 @@ public class SerializationTester {
   private final ImmutableMap.Builder<Class<?>, Object> dependenciesBuilder;
   private final ArrayList<ObjectCodec<?>> additionalCodecs = new ArrayList<>();
   private boolean memoize;
+  private boolean allowFutureBlocking;
   private ObjectCodecs objectCodecs;
 
   @SuppressWarnings("rawtypes")
@@ -97,6 +98,12 @@ public class SerializationTester {
 
   public SerializationTester makeMemoizing() {
     this.memoize = true;
+    return this;
+  }
+
+  public SerializationTester makeMemoizingAndAllowFutureBlocking(boolean allowFutureBlocking) {
+    makeMemoizing();
+    this.allowFutureBlocking = allowFutureBlocking;
     return this;
   }
 
@@ -138,10 +145,13 @@ public class SerializationTester {
     return new ObjectCodecs(registryBuilder.build(), dependencies);
   }
 
-  private ByteString serialize(Object subject, ObjectCodecs codecs)
-      throws SerializationException, IOException {
+  private ByteString serialize(Object subject, ObjectCodecs codecs) throws SerializationException {
     if (memoize) {
-      return codecs.serializeMemoized(subject);
+      if (allowFutureBlocking) {
+        return codecs.serializeMemoizedAndBlocking(subject).getObject();
+      } else {
+        return codecs.serializeMemoized(subject);
+      }
     } else {
       return codecs.serialize(subject);
     }

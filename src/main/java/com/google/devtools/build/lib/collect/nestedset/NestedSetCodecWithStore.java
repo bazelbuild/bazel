@@ -73,6 +73,7 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
       context.serialize(NestedSetSize.GROUP, codedOut);
       FingerprintComputationResult fingerprintComputationResult =
           nestedSetStore.computeFingerprintAndStore((Object[]) obj.rawChildren(), context);
+      context.addFutureToBlockWritingOn(fingerprintComputationResult.writeStatus());
       codedOut.writeByteArrayNoTag(fingerprintComputationResult.fingerprint().toByteArray());
     }
   }
