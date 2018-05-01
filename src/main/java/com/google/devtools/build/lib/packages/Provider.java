@@ -15,8 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 
 /**
@@ -33,31 +32,8 @@ import com.google.devtools.build.lib.syntax.ClassObject;
  * <p>Prefer to use {@link Key} as a serializable identifier of {@link Provider}. In particular,
  * {@link Key} should be used in all data structures exposed to Skyframe.
  */
-@SkylarkModule(
-  name = "Provider",
-  doc =
-      "A constructor for simple value objects, known as provider instances."
-          + "<br>"
-          + "This value has a dual purpose:"
-          + "  <ul>"
-          + "     <li>It is a function that can be called to construct 'struct'-like values:"
-          + "<pre class=\"language-python\">DataInfo = provider()\n"
-          + "d = DataInfo(x = 2, y = 3)\n"
-          + "print(d.x + d.y) # prints 5</pre>"
-          + "     Note: Some providers, defined internally, do not allow instance creation"
-          + "     </li>"
-          + "     <li>It is a <i>key</i> to access a provider instance on a"
-          + "        <a href=\"Target.html\">Target</a>"
-          + "<pre class=\"language-python\">DataInfo = provider()\n"
-          + "def _rule_impl(ctx)\n"
-          + "  ... ctx.attr.dep[DataInfo]</pre>"
-          + "     </li>"
-          + "  </ul>"
-          + "Create a new <code>Provider</code> using the "
-          + "<a href=\"globals.html#provider\">provider</a> function."
-)
 @Immutable
-public interface Provider extends SkylarkValue {
+public interface Provider extends ProviderApi {
 
   /**
    * Has this {@link Provider} been exported? All native providers are always exported. Skylark

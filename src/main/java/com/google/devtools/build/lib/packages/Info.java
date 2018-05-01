@@ -22,11 +22,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -44,16 +41,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** An instance (in the Skylark sense, not Java) of a {@link Provider}. */
-@SkylarkModule(
-  name = "struct",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "A generic object with fields. See the global <a href=\"globals.html#struct\"><code>struct"
-          + "</code></a> function for more details."
-          + "<p>Structs fields cannot be reassigned once the struct is created. Two structs are "
-          + "equal if they have the same fields and if corresponding field values are equal."
-)
-public abstract class Info implements ClassObject, SkylarkValue, Serializable {
+public abstract class Info implements ClassObject, StructApi, Serializable {
 
   /** The {@link Provider} that describes the type of this instance. */
   private final Provider provider;
@@ -223,26 +211,7 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
     printer.append(")");
   }
 
-  @SkylarkCallable(
-      name = "to_proto",
-      doc =
-          "Creates a text message from the struct parameter. This method only works if all "
-              + "struct elements (recursively) are strings, ints, booleans, other structs or a "
-              + "list of these types. Quotes and new lines in strings are escaped. "
-              + "Keys are iterated in the sorted order. "
-              + "Examples:<br><pre class=language-python>"
-              + "struct(key=123).to_proto()\n# key: 123\n\n"
-              + "struct(key=True).to_proto()\n# key: true\n\n"
-              + "struct(key=[1, 2, 3]).to_proto()\n# key: 1\n# key: 2\n# key: 3\n\n"
-              + "struct(key='text').to_proto()\n# key: \"text\"\n\n"
-              + "struct(key=struct(inner_key='text')).to_proto()\n"
-              + "# key {\n#   inner_key: \"text\"\n# }\n\n"
-              + "struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()\n"
-              + "# key {\n#   inner_key: 1\n# }\n# key {\n#   inner_key: 2\n# }\n\n"
-              + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()\n"
-              + "# key {\n#    inner_key {\n#     inner_inner_key: \"text\"\n#   }\n# }\n</pre>",
-      useLocation = true
-  )
+  @Override
   public String toProto(Location loc) throws EvalException {
     StringBuilder sb = new StringBuilder();
     printProtoTextMessage(this, sb, 0, loc);
@@ -321,25 +290,7 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
     return TextFormat.escapeDoubleQuotesAndBackslashes(string).replace("\n", "\\n");
   }
 
-  @SkylarkCallable(
-      name = "to_json",
-      doc =
-          "Creates a JSON string from the struct parameter. This method only works if all "
-              + "struct elements (recursively) are strings, ints, booleans, other structs or a "
-              + "list of these types. Quotes and new lines in strings are escaped. "
-              + "Examples:<br><pre class=language-python>"
-              + "struct(key=123).to_json()\n# {\"key\":123}\n\n"
-              + "struct(key=True).to_json()\n# {\"key\":true}\n\n"
-              + "struct(key=[1, 2, 3]).to_json()\n# {\"key\":[1,2,3]}\n\n"
-              + "struct(key='text').to_json()\n# {\"key\":\"text\"}\n\n"
-              + "struct(key=struct(inner_key='text')).to_json()\n"
-              + "# {\"key\":{\"inner_key\":\"text\"}}\n\n"
-              + "struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()\n"
-              + "# {\"key\":[{\"inner_key\":1},{\"inner_key\":2}]}\n\n"
-              + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()\n"
-              + "# {\"key\":{\"inner_key\":{\"inner_inner_key\":\"text\"}}}\n</pre>",
-      useLocation = true
-  )
+  @Override
   public String toJson(Location loc) throws EvalException {
     StringBuilder sb = new StringBuilder();
     printJson(this, sb, loc, "struct field", null);
