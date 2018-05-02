@@ -386,21 +386,11 @@ final class JavaInfoBuildHelper {
     JavaCompilationArgs javaCompilationArgs =
         javaCompilationArgsBuilder.addTransitiveRuntimeJars(runtimeJars).build();
 
-    JavaCompilationArgs.Builder recursiveJavaCompilationArgs = JavaCompilationArgs.builder();
-    if (transitiveCompileTimeJars.isEmpty()) {
-      recursiveJavaCompilationArgs.addTransitiveCompileTimeJars(
-          javaCompilationArgs.getCompileTimeJars());
-      recursiveJavaCompilationArgs.addTransitiveFullCompileTimeJars(
-          javaCompilationArgs.getFullCompileTimeJars());
-    } else {
-      recursiveJavaCompilationArgs.addTransitiveCompileTimeJars(transitiveCompileTimeJars);
-    }
-
-    if (transitiveRuntimeJars.isEmpty()) {
-      recursiveJavaCompilationArgs.addTransitiveRuntimeJars(runtimeJars);
-    } else {
-      recursiveJavaCompilationArgs.addTransitiveRuntimeJars(transitiveRuntimeJars);
-    }
+    JavaCompilationArgs.Builder recursiveJavaCompilationArgs =
+        JavaCompilationArgs.builder()
+            .addTransitiveArgs(javaCompilationArgs, ClasspathType.BOTH)
+            .addTransitiveCompileTimeJars(transitiveCompileTimeJars)
+            .addTransitiveRuntimeJars(transitiveRuntimeJars);
 
     JavaInfo javaInfo =
         JavaInfo.Builder.create()

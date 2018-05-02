@@ -881,11 +881,11 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     SkylarkNestedSet transitiveCompileTimeJars = info.getTransitiveCompileTimeJars();
     assertThat(prettyArtifactNames(transitiveCompileTimeJars.getSet(Artifact.class)))
-        .containsExactly("foo/libc.jar");
+        .containsExactly("foo/liba.jar", "foo/libc.jar");
 
     SkylarkNestedSet transitiveRuntimeJars = info.getTransitiveRuntimeJars();
     assertThat(prettyArtifactNames(transitiveRuntimeJars.getSet(Artifact.class)))
-        .containsExactly("foo/libd.jar");
+        .containsExactly("foo/libd.jar", "foo/libb.jar");
   }
 
   @Test
@@ -968,9 +968,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     List<String> transitiveCompileTimeJars =
         prettyArtifactNames(provider.getTransitiveCompileTimeJars());
-    assertThat(transitiveCompileTimeJars).containsExactly("foo/libc.jar");
+    assertThat(transitiveCompileTimeJars).containsExactly("foo/liba.jar", "foo/libc.jar");
     List<String> transitiveRuntimeJars = prettyArtifactNames(provider.getRuntimeJars());
-    assertThat(transitiveRuntimeJars).containsExactly("foo/libd.jar");
+    assertThat(transitiveRuntimeJars).containsExactly("foo/libd.jar", "foo/libb.jar");
 
     JavaSourceJarsProvider sourcesProvider =
         JavaInfo.getProvider(JavaSourceJarsProvider.class, target);
