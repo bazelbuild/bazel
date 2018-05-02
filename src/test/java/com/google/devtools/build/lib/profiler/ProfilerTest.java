@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.InputStream;
@@ -215,16 +216,60 @@ public class ProfilerTest extends FoundationTestCase {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime());
 
+    // Add some fast tasks - these shouldn't show up in the slowest.
+    for (int i = 0; i < ProfilerTask.VFS_STAT.slowestInstancesCount; i++) {
+      profiler.logSimpleTask(
+          /*startTimeNanos=*/ 1,
+          /*stopTimeNanos=*/ ProfilerTask.VFS_STAT.minDuration + 10,
+          ProfilerTask.VFS_STAT,
+          "stat");
+    }
+
+    // Add some slow tasks we expect to show up in the slowest.
     List<Long> expectedSlowestDurations = new ArrayList<>();
     for (int i = 0; i < ProfilerTask.VFS_STAT.slowestInstancesCount; i++) {
-      long fakeDuration = i + 1000;
-      profiler.logSimpleTask(1, fakeDuration + 1, ProfilerTask.VFS_STAT, "stat");
+      long fakeDuration = ProfilerTask.VFS_STAT.minDuration + i + 10_000;
+      profiler.logSimpleTask(
+          /*startTimeNanos=*/ 1,
+          /*stopTimeNanos=*/ fakeDuration + 1,
+          ProfilerTask.VFS_STAT,
+          "stat");
       expectedSlowestDurations.add(fakeDuration);
     }
 
-    // Sprinkle in a whole bunch of fast tasks.
-    for (int i = 0; i < 100; i++) {
-      profiler.logSimpleTask(1, i + 1, ProfilerTask.VFS_STAT, "stat" + i);
+    // Sprinkle in a whole bunch of fast tasks from different thread ids - necessary because
+    // internally aggregation is sharded across several aggregators, sharded by thread id.
+    // It's possible all these threads wind up in the same shard, we'll take our chances.
+    ImmutableList.Builder<Thread> threadsBuilder = ImmutableList.builder();
+    try {
+      for (int i = 0; i < 32; i++) {
+        Thread thread = new Thread() {
+          @Override
+          public void run() {
+            for (int j = 0; j < 100; j++) {
+              profiler.logSimpleTask(
+                  /*startTimeNanos=*/ 1,
+                  /*stopTimeNanos=*/ ProfilerTask.VFS_STAT.minDuration + j + 1,
+                  ProfilerTask.VFS_STAT,
+                  "stat");
+            }
+          }
+        };
+        threadsBuilder.add(thread);
+        thread.start();
+      }
+    } finally {
+      threadsBuilder.build().forEach(
+          t -> {
+            try {
+              t.join(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+            } catch (InterruptedException e) {
+              t.interrupt();
+              // This'll go ahead and interrupt all the others. The thread we just interrupted is
+              // lightweight enough that it's reasonable to assume it'll exit.
+              Thread.currentThread().interrupt();
+            }
+          });
     }
 
     ImmutableList<SlowTask> slowTasks = ImmutableList.copyOf(profiler.getSlowestTasks());
