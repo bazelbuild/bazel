@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -45,6 +46,13 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
   public JavaInfoSkylarkApiTest(boolean legacyJavaInfoConstructor) {
     this.legacyJavaInfoConstructor = legacyJavaInfoConstructor;
+  }
+
+  @Before
+  public void setIncompatibleFlag() throws Exception {
+    if (legacyJavaInfoConstructor) {
+      setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
+    }
   }
 
   @Test
@@ -673,6 +681,32 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
         "foo",
         "my_skylark_rule",
         "Cannot use deprecated arguments at the same time",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'my_skylark_rule')");
+  }
+
+  @Test
+  public void testIncompatibleDisallowLegacyJavaInfo() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_legacy_javainfo");
+    ImmutableList.Builder<String> lines = ImmutableList.builder();
+    lines.add(
+        "result = provider()",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('output_jar')",
+        "  source_jar = ctx.actions.declare_file('source_jar')",
+        "  javaInfo = JavaInfo(",
+        "    output_jar = output_jar,",
+        "    source_jars = [source_jar],", // No longer allowed
+        "  )",
+        "  return [result(property = javaInfo)]",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+    scratch.file("foo/extension.bzl", lines.build().toArray(new String[] {}));
+    checkError(
+        "foo",
+        "my_skylark_rule",
+        "Cannot use deprecated argument when --incompatible_disallow_legacy_javainfo is set. ",
         "load(':extension.bzl', 'my_rule')",
         "my_rule(name = 'my_skylark_rule')");
   }

@@ -326,6 +326,14 @@ public final class JavaInfo extends NativeInfo {
                   || javaToolchain != null
                   || hostJavabase != null;
           if (hasLegacyArg) {
+            if (env.getSemantics().incompatibleDisallowLegacyJavaInfo()) {
+              throw new EvalException(
+                  loc,
+                  "Cannot use deprecated argument when "
+                      + "--incompatible_disallow_legacy_javainfo is set. "
+                      + "Deprecated arguments are 'actions', 'sources', 'source_jars', "
+                      + "'use_ijar', 'java_toolchain', 'host_javabase'.");
+            }
             boolean hasNewArg = compileJar != null || sourceJar != null;
             if (hasNewArg) {
               throw new EvalException(

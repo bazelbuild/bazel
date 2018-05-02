@@ -44,6 +44,7 @@ guarded behind flags in the current release:
 *   [Disable objc provider resources](#disable-objc-provider-resources)
 *   [Remove native git repository](#remove-native-git-repository)
 *   [Remove native http archive](#remove-native-http-archive)
+*   [New-style JavaInfo constructor](#new-style-java_info)
 
 
 ### Dictionary concatenation
@@ -265,5 +266,75 @@ should be used instead.
 *   Flag: `--incompatible_remove_native_http_archive`
 *   Default: `false`
 
+### New-style JavaInfo constructor
+
+When set, `java_common.create_provider` and certain arguments to `JavaInfo` are deprecated. The
+deprecated arguments are: `actions`, `sources`, `source_jars`, `use_ijar`, `java_toolchain`,
+and `host_javabase`.
+
+Example migration from `create_provider`:
+
+```python
+# Before
+provider = java_common.create_provider(
+    ctx.actions,
+    compile_time_jars = [output_jar],
+    use_ijar = True,
+    java_toolchain = ctx.attr._java_toolchain,
+    transitive_compile_time_jars = transitive_compile_time,
+    transitive_runtime_jars = transitive_runtime_jars,
+)
+
+# After
+compile_jar = java_common.run_ijar(
+    ctx.actions,
+    jar = output_jar,
+    target_label = ctx.label,
+    java_toolchain = ctx.attr._java_toolchain,
+)
+provider = JavaInfo(
+    output_jar = output_jar,
+    compile_jar = compile_jar,
+    deps = deps,
+    runtime_deps = runtime_deps,
+)
+```
+
+Example migration from deprecated `JavaInfo` arguments:
+
+```python
+# Before
+provider = JavaInfo(
+  output_jar = my_jar,
+  use_ijar = True,
+  sources = my_sources,
+  deps = my_compile_deps,
+  runtime_deps = my_runtime_deps,
+  actions = ctx.actions,
+  java_toolchain = my_java_toolchain,
+  host_javabase = my_host_javabase,
+)
+
+# After
+my_ijar = java_common.run_ijar(
+  ctx.actions,
+  jar = my_jar,
+  target_label = ctx.label,
+  java_toolchain, my_java_toolchain,
+)
+my_source_jar = java_common.pack_sources(
+  ctx.actions,
+  sources = my_sources,
+  java_toolchain = my_java_toolchain,
+  host_javabase = my_host_javabase,
+)
+provider = JavaInfo(
+  output_jar = my_jar,
+  compile_jar = my_ijar,
+  source_jar = my_source_jar,
+  deps = my_compile_deps,
+  runtime_deps = my_runtime_deps,
+)
+```
 
 <!-- Add new options here -->
