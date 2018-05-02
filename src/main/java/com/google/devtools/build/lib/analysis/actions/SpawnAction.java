@@ -224,6 +224,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     return primaryOutput;
   }
 
+  @VisibleForTesting
+  public CommandLines getCommandLines() {
+    return commandLines;
+  }
+
   @Override
   @VisibleForTesting
   public List<String> getArguments() throws CommandLineExpansionException {

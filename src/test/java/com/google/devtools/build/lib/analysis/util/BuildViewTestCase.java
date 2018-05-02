@@ -44,9 +44,12 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
+import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -660,6 +663,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /** Locates the first parameter file used by the action and returns its command line. */
   @Nullable
   protected final CommandLine paramFileCommandLineForAction(Action action) {
+    if (action instanceof SpawnAction) {
+      CommandLines commandLines = ((SpawnAction) action).getCommandLines();
+      for (CommandLineAndParamFileInfo pair : commandLines.getCommandLines()) {
+        if (pair.paramFileInfo != null) {
+          return pair.commandLine;
+        }
+      }
+    }
     ParameterFileWriteAction parameterFileWriteAction = paramFileWriteActionForAction(action);
     return parameterFileWriteAction != null ? parameterFileWriteAction.getCommandLine() : null;
   }
@@ -668,10 +679,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Nullable
   protected final Iterable<String> paramFileArgsForAction(Action action)
       throws CommandLineExpansionException {
-    ParameterFileWriteAction parameterFileWriteAction = paramFileWriteActionForAction(action);
-    return parameterFileWriteAction != null
-        ? parameterFileWriteAction.getCommandLine().arguments()
-        : null;
+    CommandLine commandLine = paramFileCommandLineForAction(action);
+    return commandLine != null ? commandLine.arguments() : null;
   }
 
   /**
@@ -682,25 +691,30 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Nullable
   protected final Iterable<String> paramFileArgsOrActionArgs(CommandAction action)
       throws CommandLineExpansionException {
-    ParameterFileWriteAction parameterFileWriteAction = paramFileWriteActionForAction(action);
-    return parameterFileWriteAction != null
-        ? parameterFileWriteAction.getCommandLine().arguments()
-        : action.getArguments();
+    CommandLine commandLine = paramFileCommandLineForAction(action);
+    return commandLine != null ? commandLine.arguments() : action.getArguments();
   }
 
   /** Locates the first parameter file used by the action and returns its contents. */
   @Nullable
   protected final String paramFileStringContentsForAction(Action action)
       throws CommandLineExpansionException, IOException {
+    if (action instanceof SpawnAction) {
+      CommandLines commandLines = ((SpawnAction) action).getCommandLines();
+      for (CommandLineAndParamFileInfo pair : commandLines.getCommandLines()) {
+        if (pair.paramFileInfo != null) {
+          ByteArrayOutputStream out = new ByteArrayOutputStream();
+          ParameterFile.writeParameterFile(
+              out,
+              pair.commandLine.arguments(),
+              pair.paramFileInfo.getFileType(),
+              pair.paramFileInfo.getCharset());
+          return new String(out.toByteArray(), pair.paramFileInfo.getCharset());
+        }
+      }
+    }
     ParameterFileWriteAction parameterFileWriteAction = paramFileWriteActionForAction(action);
     return parameterFileWriteAction != null ? parameterFileWriteAction.getStringContents() : null;
-  }
-
-  // TODO(b/37444705): Remove this method
-  @Deprecated
-  @Nullable
-  protected final ParameterFileWriteAction findParamsFileAction(SpawnAction spawnAction) {
-    return paramFileWriteActionForAction(spawnAction);
   }
 
   @Nullable
