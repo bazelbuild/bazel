@@ -331,10 +331,11 @@ public class CppHelper {
       Boolean sharedLib) {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
-          toolchain.getMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode()));
+          toolchain.getLegacyMostlyStaticLinkFlags(
+              config.getCompilationMode(), config.getLipoMode()));
     } else {
       return toolchain
-          .getFullyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
+          .getLegacyFullyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
           .evaluate();
     }
   }
@@ -355,12 +356,13 @@ public class CppHelper {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
           shouldStaticallyLinkCppRuntimes
-              ? toolchain.getMostlyStaticSharedLinkFlags(
+              ? toolchain.getLegacyMostlyStaticSharedLinkFlags(
                   config.getCompilationMode(), config.getLipoMode())
-              : toolchain.getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()));
+              : toolchain.getLegacyDynamicLinkFlags(
+                  config.getCompilationMode(), config.getLipoMode()));
     } else {
       return toolchain
-          .getMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
+          .getLegacyMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
           .evaluate();
     }
   }
@@ -379,10 +381,10 @@ public class CppHelper {
       Boolean sharedLib) {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
-          toolchain.getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()));
+          toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()));
     } else {
       return toolchain
-          .getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode())
+          .getLegacyDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode())
           .evaluate();
     }
   }

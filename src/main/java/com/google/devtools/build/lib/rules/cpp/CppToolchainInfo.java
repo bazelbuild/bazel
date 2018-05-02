@@ -76,10 +76,10 @@ public final class CppToolchainInfo {
   private final String targetLibc;
   private final String hostSystemName;
   private final FlagList dynamicLibraryLinkFlags;
-  private final ImmutableList<String> commonLinkOptions;
-  private final ImmutableListMultimap<LinkingMode, String> linkOptionsFromLinkingMode;
-  private final ImmutableListMultimap<LipoMode, String> linkOptionsFromLipoMode;
-  private final ImmutableListMultimap<CompilationMode, String> linkOptionsFromCompilationMode;
+  private final ImmutableList<String> legacyLinkOptions;
+  private final ImmutableListMultimap<LinkingMode, String> legacyLinkOptionsFromLinkingMode;
+  private final ImmutableListMultimap<LipoMode, String> legacyLinkOptionsFromLipoMode;
+  private final ImmutableListMultimap<CompilationMode, String> legacyLinkOptionsFromCompilationMode;
   private final ImmutableList<String> testOnlyLinkFlags;
   private final ImmutableList<String> ldOptionsForEmbedding;
   private final ImmutableList<String> objCopyOptionsForEmbedding;
@@ -241,10 +241,10 @@ public final class CppToolchainInfo {
       String targetLibc,
       String hostSystemName,
       FlagList dynamicLibraryLinkFlags,
-      ImmutableList<String> commonLinkOptions,
-      ImmutableListMultimap<LinkingMode, String> linkOptionsFromLinkingMode,
-      ImmutableListMultimap<LipoMode, String> linkOptionsFromLipoMode,
-      ImmutableListMultimap<CompilationMode, String> linkOptionsFromCompilationMode,
+      ImmutableList<String> legacyLinkOptions,
+      ImmutableListMultimap<LinkingMode, String> legacyLinkOptionsFromLinkingMode,
+      ImmutableListMultimap<LipoMode, String> legacyLinkOptionsFromLipoMode,
+      ImmutableListMultimap<CompilationMode, String> legacyLinkOptionsFromCompilationMode,
       ImmutableList<String> testOnlyLinkFlags,
       ImmutableList<String> ldOptionsForEmbedding,
       ImmutableList<String> objCopyOptionsForEmbedding,
@@ -286,10 +286,10 @@ public final class CppToolchainInfo {
     this.targetLibc = targetLibc;
     this.hostSystemName = hostSystemName;
     this.dynamicLibraryLinkFlags = dynamicLibraryLinkFlags;
-    this.commonLinkOptions = commonLinkOptions;
-    this.linkOptionsFromLinkingMode = linkOptionsFromLinkingMode;
-    this.linkOptionsFromLipoMode = linkOptionsFromLipoMode;
-    this.linkOptionsFromCompilationMode = linkOptionsFromCompilationMode;
+    this.legacyLinkOptions = legacyLinkOptions;
+    this.legacyLinkOptionsFromLinkingMode = legacyLinkOptionsFromLinkingMode;
+    this.legacyLinkOptionsFromLipoMode = legacyLinkOptionsFromLipoMode;
+    this.legacyLinkOptionsFromCompilationMode = legacyLinkOptionsFromCompilationMode;
     this.testOnlyLinkFlags = testOnlyLinkFlags;
     this.ldOptionsForEmbedding = ldOptionsForEmbedding;
     this.objCopyOptionsForEmbedding = objCopyOptionsForEmbedding;
@@ -445,16 +445,22 @@ public final class CppToolchainInfo {
         .build();
   }
 
-  ImmutableList<String> configureLinkerOptions(
-      CompilationMode compilationMode,
-      LipoMode lipoMode,
-      LinkingMode linkingMode) {
-    List<String> result = new ArrayList<>();
-    result.addAll(commonLinkOptions);
+  /** @see CcToolchainProvider#getLegacyLinkOptions(). */
+  public ImmutableList<String> getLegacyLinkOptions() {
+    return legacyLinkOptions;
+  }
 
-    result.addAll(linkOptionsFromCompilationMode.get(compilationMode));
-    result.addAll(linkOptionsFromLipoMode.get(lipoMode));
-    result.addAll(linkOptionsFromLinkingMode.get(linkingMode));
+  /**
+   * @see CcToolchainProvider#configureAllLegacyLinkOptions(CompilationMode, LipoMode, LinkingMode).
+   */
+  ImmutableList<String> configureAllLegacyLinkOptions(
+      CompilationMode compilationMode, LipoMode lipoMode, LinkingMode linkingMode) {
+    List<String> result = new ArrayList<>();
+    result.addAll(legacyLinkOptions);
+
+    result.addAll(legacyLinkOptionsFromCompilationMode.get(compilationMode));
+    result.addAll(legacyLinkOptionsFromLipoMode.get(lipoMode));
+    result.addAll(legacyLinkOptionsFromLinkingMode.get(linkingMode));
     return ImmutableList.copyOf(result);
   }
 

@@ -535,10 +535,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     // Only test a couple of compilation/lipo/linking mode combinations
     // (but test each mode at least once.)
     assertThat(
-            ccProviderA.configureLinkerOptions(
-                CompilationMode.FASTBUILD,
-                LipoMode.OFF,
-                LinkingMode.FULLY_STATIC))
+            ccProviderA.configureAllLegacyLinkOptions(
+                CompilationMode.FASTBUILD, LipoMode.OFF, LinkingMode.FULLY_STATIC))
         .containsExactly(
             "linker-flag-A-1",
             "linker-flag-A-2",
@@ -548,27 +546,21 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             "fully-static-flag-A-2")
         .inOrder();
     assertThat(
-            ccProviderA.configureLinkerOptions(
-                CompilationMode.DBG,
-                LipoMode.OFF,
-                LinkingMode.DYNAMIC))
+            ccProviderA.configureAllLegacyLinkOptions(
+                CompilationMode.DBG, LipoMode.OFF, LinkingMode.DYNAMIC))
         .containsExactly(
             "linker-flag-A-1", "linker-flag-A-2", "linker-dbg-flag-A-1", "linker-dbg-flag-A-2")
         .inOrder();
     assertThat(
-            ccProviderA.configureLinkerOptions(
-                CompilationMode.OPT,
-                LipoMode.OFF,
-                LinkingMode.FULLY_STATIC))
+            ccProviderA.configureAllLegacyLinkOptions(
+                CompilationMode.OPT, LipoMode.OFF, LinkingMode.FULLY_STATIC))
         .containsExactly(
             "linker-flag-A-1", "linker-flag-A-2", "fully-static-flag-A-1", "fully-static-flag-A-2")
         .inOrder();
 
     assertThat(
-            ccProviderA.configureLinkerOptions(
-                CompilationMode.OPT,
-                LipoMode.BINARY,
-                LinkingMode.FULLY_STATIC))
+            ccProviderA.configureAllLegacyLinkOptions(
+                CompilationMode.OPT, LipoMode.BINARY, LinkingMode.FULLY_STATIC))
         .containsExactly(
             "linker-flag-A-1", "linker-flag-A-2", "fully-static-flag-A-1", "fully-static-flag-A-2")
         .inOrder();
@@ -636,22 +628,16 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProviderC.getUnfilteredCompilerOptions()).isEmpty();
     assertThat(CppHelper.getDynamicLinkOptions(toolchainC, ccProviderC, true)).isEmpty();
     assertThat(
-            ccProviderC.configureLinkerOptions(
-                CompilationMode.FASTBUILD,
-                LipoMode.OFF,
-                LinkingMode.FULLY_STATIC))
+            ccProviderC.configureAllLegacyLinkOptions(
+                CompilationMode.FASTBUILD, LipoMode.OFF, LinkingMode.FULLY_STATIC))
         .isEmpty();
     assertThat(
-            ccProviderC.configureLinkerOptions(
-                CompilationMode.DBG,
-                LipoMode.OFF,
-                LinkingMode.DYNAMIC))
+            ccProviderC.configureAllLegacyLinkOptions(
+                CompilationMode.DBG, LipoMode.OFF, LinkingMode.DYNAMIC))
         .isEmpty();
     assertThat(
-            ccProviderC.configureLinkerOptions(
-                CompilationMode.OPT,
-                LipoMode.OFF,
-                LinkingMode.FULLY_STATIC))
+            ccProviderC.configureAllLegacyLinkOptions(
+                CompilationMode.OPT, LipoMode.OFF, LinkingMode.FULLY_STATIC))
         .isEmpty();
     assertThat(ccProviderC.getObjCopyOptionsForEmbedding()).isEmpty();
     assertThat(ccProviderC.getLdOptionsForEmbedding()).isEmpty();
@@ -678,10 +664,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     CcToolchainProvider ccProviderB = getCcToolchainProvider(toolchainB);
     assertThat(toolchainB.getToolchainIdentifier()).isEqualTo("toolchain-identifier-B");
     assertThat(
-            ccProviderB.configureLinkerOptions(
-                CompilationMode.DBG,
-                lipoMode,
-                LinkingMode.DYNAMIC))
+            ccProviderB.configureAllLegacyLinkOptions(
+                CompilationMode.DBG, lipoMode, LinkingMode.DYNAMIC))
         .containsExactly(
             "linker-flag-B-1",
             "linker-flag-B-2",
