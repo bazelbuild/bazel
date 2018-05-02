@@ -259,7 +259,7 @@ def _coverage_feature(use_llvm_format):
     link_flags = flags("-fprofile-instr-generate")
   else:
     compile_flags = flags("-fprofile-arcs", "-ftest-coverage")
-    link_flags = flags("-lgcov")
+    link_flags = flags("--coverage")
   return feature(
     "coverage",
     [

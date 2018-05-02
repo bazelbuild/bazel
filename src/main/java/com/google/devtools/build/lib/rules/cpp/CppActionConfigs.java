@@ -591,7 +591,6 @@ public class CppActionConfigs {
                     "    flag_group {",
                     "      iterate_over: 'runtime_library_search_directories'",
                     "      flag_group {",
-
                     ifTrue(
                         supportsEmbeddedRuntimes,
                         "    expand_if_all_available: 'is_cc_test_link_action'",
@@ -936,7 +935,7 @@ public class CppActionConfigs {
                     "    action: 'c++-link-nodeps-dynamic-library'",
                     "    action: 'c++-link-executable'",
                     "    flag_group {",
-                    "      flag: '-lgcov'",
+                    "      flag: '--coverage'",
                     "    }",
                     "  }",
                     "  requires {",
