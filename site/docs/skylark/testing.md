@@ -279,7 +279,7 @@ example that validates that the output of `myrule` from above is `"abc"`.
 
 `//mypkg/myrule_validator.sh`:
 
-```shell
+```bash
 if [ "$(cat $1)" = "abc" ]; then
   echo "Passed"
   exit 0
@@ -320,7 +320,7 @@ substitutions) instead of numeric ones (for arguments).
 
 `//mypkg/myrule_validator.sh.template`:
 
-```shell
+```bash
 if [ "$(cat %TARGET%)" = "abc" ]; then
   echo "Passed"
   exit 0
