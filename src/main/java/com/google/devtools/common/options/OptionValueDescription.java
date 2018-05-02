@@ -22,7 +22,7 @@ import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -276,8 +276,8 @@ public abstract class OptionValueDescription {
           .asMap()
           .entrySet()
           .stream()
-          .sorted(Comparator.comparing(Entry::getKey))
-          .map(Entry::getValue)
+          .sorted(Comparator.comparing(Map.Entry::getKey))
+          .map(Map.Entry::getValue)
           .flatMap(Collection::stream)
           .map(ParsedOptionDescription::getSource)
           .distinct()
@@ -292,8 +292,8 @@ public abstract class OptionValueDescription {
           .asMap()
           .entrySet()
           .stream()
-          .sorted(Comparator.comparing(Entry::getKey))
-          .map(Entry::getValue)
+          .sorted(Comparator.comparing(Map.Entry::getKey))
+          .map(Map.Entry::getValue)
           .flatMap(Collection::stream)
           .collect(Collectors.toList());
     }
@@ -320,8 +320,8 @@ public abstract class OptionValueDescription {
           .asMap()
           .entrySet()
           .stream()
-          .sorted(Comparator.comparing(Entry::getKey))
-          .map(Entry::getValue)
+          .sorted(Comparator.comparing(Map.Entry::getKey))
+          .map(Map.Entry::getValue)
           .flatMap(Collection::stream)
           // Only provide the options that aren't implied elsewhere.
           .filter(optionDesc -> optionDesc.getImplicitDependent() == null)

@@ -20,7 +20,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 
 /**
  * Options related to worker processes.
@@ -85,17 +85,16 @@ public class WorkerOptions extends OptionsBase {
   public boolean workerVerbose;
 
   @Option(
-    name = "worker_extra_flag",
-    converter = Converters.AssignmentConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Extra command-flags that will be passed to worker processes in addition to "
-            + "--persistent_worker, keyed by mnemonic (e.g. --worker_extra_flag=Javac=--debug.",
-    allowMultiple = true
-  )
-  public List<Entry<String, String>> workerExtraFlags;
+      name = "worker_extra_flag",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Extra command-flags that will be passed to worker processes in addition to "
+              + "--persistent_worker, keyed by mnemonic (e.g. --worker_extra_flag=Javac=--debug.",
+      allowMultiple = true)
+  public List<Map.Entry<String, String>> workerExtraFlags;
 
   @Option(
     name = "worker_sandboxing",

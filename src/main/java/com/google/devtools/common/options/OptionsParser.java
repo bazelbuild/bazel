@@ -33,7 +33,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -299,7 +298,7 @@ public class OptionsParser implements OptionsProvider {
         getOptionsSortedByCategory();
     ImmutableMap<OptionDocumentationCategory, String> optionCategoryDescriptions =
         OptionFilterDescriptions.getOptionCategoriesEnumDescription(productName);
-    for (Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
+    for (Map.Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
         optionsByCategory.entrySet()) {
       String categoryDescription = optionCategoryDescriptions.get(e.getKey());
       List<OptionDefinition> categorizedOptionList = e.getValue();
@@ -463,7 +462,7 @@ public class OptionsParser implements OptionsProvider {
     ImmutableMap<OptionDocumentationCategory, String> optionCategoryDescriptions =
         OptionFilterDescriptions.getOptionCategoriesEnumDescription(productName);
 
-    for (Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
+    for (Map.Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
         optionsByCategory.entrySet()) {
       desc.append("<dl>");
       String categoryDescription = optionCategoryDescriptions.get(e.getKey());

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.events.Event;
@@ -80,7 +79,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -450,7 +448,7 @@ public class ConfiguredTargetQueryEnvironment
       eventHandler.handle(Event.warn("Targets were missing from graph: " + missingTargets));
     }
     ThreadSafeMutableSet<ConfiguredTarget> result = createThreadSafeMutableSet();
-    for (Entry<SkyKey, Collection<ConfiguredTarget>> entry : directDeps.entrySet()) {
+    for (Map.Entry<SkyKey, Collection<ConfiguredTarget>> entry : directDeps.entrySet()) {
       result.addAll(filterFwdDeps(targetsByKey.get(entry.getKey()), entry.getValue()));
     }
     return result;
@@ -636,7 +634,7 @@ public class ConfiguredTargetQueryEnvironment
       if (TargetPattern.defaultParser()
           .parse(pattern)
           .getType()
-          .equals(Type.TARGETS_BELOW_DIRECTORY)) {
+          .equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY)) {
         // TODO(bazel-team): allow recursive patterns if the pattern is present in the graph? We
         // could do a mini-eval here to update the graph to contain the necessary nodes for
         // GraphBackedRecursivePackageProvider, since all the package loading and directory

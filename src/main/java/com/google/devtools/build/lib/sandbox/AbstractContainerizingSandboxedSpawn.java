@@ -24,7 +24,6 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 /**
@@ -114,7 +113,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
 
   protected void createInputs(Map<PathFragment, Path> inputs) throws IOException {
     // All input files are relative to the execroot.
-    for (Entry<PathFragment, Path> entry : inputs.entrySet()) {
+    for (Map.Entry<PathFragment, Path> entry : inputs.entrySet()) {
       Path key = sandboxExecRoot.getRelative(entry.getKey());
       // A null value means that we're supposed to create an empty file as the input.
       if (entry.getValue() != null) {

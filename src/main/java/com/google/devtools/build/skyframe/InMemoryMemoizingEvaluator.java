@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -118,9 +117,9 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
     valuesToDelete.addAll(
         Maps.filterEntries(
                 graph.getAllValues(),
-                new Predicate<Entry<SkyKey, ? extends NodeEntry>>() {
+                new Predicate<Map.Entry<SkyKey, ? extends NodeEntry>>() {
                   @Override
-                  public boolean apply(Entry<SkyKey, ? extends NodeEntry> input) {
+                  public boolean apply(Map.Entry<SkyKey, ? extends NodeEntry> input) {
                     Preconditions.checkNotNull(input.getKey(), "Null SkyKey in entry: %s", input);
                     return input.getValue().isDirty() || deletePredicate.apply(input.getKey());
                   }
@@ -206,9 +205,9 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
    * graph.
    */
   private void pruneInjectedValues(Map<SkyKey, SkyValue> valuesToInject) {
-    for (Iterator<Entry<SkyKey, SkyValue>> it = valuesToInject.entrySet().iterator();
-        it.hasNext();) {
-      Entry<SkyKey, SkyValue> entry = it.next();
+    for (Iterator<Map.Entry<SkyKey, SkyValue>> it = valuesToInject.entrySet().iterator();
+        it.hasNext(); ) {
+      Map.Entry<SkyKey, SkyValue> entry = it.next();
       SkyKey key = entry.getKey();
       SkyValue newValue = entry.getValue();
       NodeEntry prevEntry = graph.get(null, Reason.OTHER, key);
@@ -353,7 +352,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
             }
           };
 
-      for (Entry<SkyKey, ? extends NodeEntry> mapPair : graph.getAllValues().entrySet()) {
+      for (Map.Entry<SkyKey, ? extends NodeEntry> mapPair : graph.getAllValues().entrySet()) {
         SkyKey key = mapPair.getKey();
         NodeEntry entry = mapPair.getValue();
         if (entry.isDone()) {

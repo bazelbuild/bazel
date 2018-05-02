@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkPaths;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.Builder;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationMode;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationModeFlags;
 import java.util.List;
@@ -38,7 +37,7 @@ final class ArmCrosstools {
     this.clangVersion = clangVersion;
   }
 
-  ImmutableList<Builder> createCrosstools() {
+  ImmutableList<CToolchain.Builder> createCrosstools() {
     return ImmutableList.<CToolchain.Builder>builder()
         .add(createAarch64ClangToolchain())
         .addAll(createArmeabiClangToolchain())
@@ -106,8 +105,8 @@ final class ArmCrosstools {
     return toolchain;
   }
 
-  private List<Builder> createArmeabiClangToolchain() {
-    ImmutableList<Builder> toolchains =
+  private List<CToolchain.Builder> createArmeabiClangToolchain() {
+    ImmutableList<CToolchain.Builder> toolchains =
         ImmutableList.of(
             createBaseArmeabiClangToolchain()
                 .setToolchainIdentifier("arm-linux-androideabi-clang" + clangVersion)

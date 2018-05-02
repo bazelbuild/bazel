@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -168,7 +167,7 @@ public class AppleToolchain {
     }
 
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(
               attr(XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, LABEL)

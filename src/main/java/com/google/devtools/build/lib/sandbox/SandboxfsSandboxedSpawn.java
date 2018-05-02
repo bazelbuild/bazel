@@ -26,7 +26,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
@@ -182,7 +181,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     // FUSE file system (which sandboxfs is) requires root privileges.
     Path emptyFile = null;
 
-    for (Entry<PathFragment, Path> entry : inputs.entrySet()) {
+    for (Map.Entry<PathFragment, Path> entry : inputs.entrySet()) {
       PathFragment target;
       if (entry.getValue() == null) {
         if (emptyFile == null) {

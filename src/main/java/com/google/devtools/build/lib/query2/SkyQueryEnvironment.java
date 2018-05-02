@@ -112,7 +112,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.RejectedExecutionException;
@@ -868,10 +867,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
     // First, look for errors in the successfully evaluated TransitiveTraversalValues. They may
     // have encountered errors that they were able to recover from.
-    Set<Entry<SkyKey, SkyValue>> successfulEntries =
+    Set<Map.Entry<SkyKey, SkyValue>> successfulEntries =
         graph.getSuccessfulValues(transitiveTraversalKeys).entrySet();
     ImmutableSet.Builder<SkyKey> successfulKeysBuilder = ImmutableSet.builder();
-    for (Entry<SkyKey, SkyValue> successfulEntry : successfulEntries) {
+    for (Map.Entry<SkyKey, SkyValue> successfulEntry : successfulEntries) {
       successfulKeysBuilder.add(successfulEntry.getKey());
       TransitiveTraversalValue value = (TransitiveTraversalValue) successfulEntry.getValue();
       String firstErrorMessage = value.getFirstErrorMessage();
@@ -884,7 +883,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // Next, look for errors from the unsuccessfully evaluated TransitiveTraversal skyfunctions.
     Iterable<SkyKey> unsuccessfulKeys =
         Iterables.filter(transitiveTraversalKeys, Predicates.not(Predicates.in(successfulKeys)));
-    Set<Entry<SkyKey, Exception>> errorEntries =
+    Set<Map.Entry<SkyKey, Exception>> errorEntries =
         graph.getMissingAndExceptions(unsuccessfulKeys).entrySet();
     for (Map.Entry<SkyKey, Exception> entry : errorEntries) {
       if (entry.getValue() == null) {
@@ -1026,7 +1025,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     while (!currentToOriginal.isEmpty()) {
       Multimap<SkyKey, PathFragment> packageLookupKeysToOriginal = ArrayListMultimap.create();
       Multimap<SkyKey, PathFragment> packageLookupKeysToCurrent = ArrayListMultimap.create();
-      for (Entry<PathFragment, PathFragment> entry : currentToOriginal.entries()) {
+      for (Map.Entry<PathFragment, PathFragment> entry : currentToOriginal.entries()) {
         PathFragment current = entry.getKey();
         PathFragment original = entry.getValue();
         for (SkyKey packageLookupKey : getPkgLookupKeysForFile(original, current)) {

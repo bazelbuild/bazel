@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.query2.output.AspectResolver;
 import com.google.devtools.build.lib.query2.output.CqueryOptions;
 import com.google.devtools.build.lib.query2.output.ProtoOutputFormatter;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
-import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult.Builder;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -71,7 +71,7 @@ public class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         // Documentation promises that setting this flag to false means we convert directly
         // to the build.proto format. This is hard to test in integration testing due to the way
         // proto output is turned readable (codex). So change the following code with caution.
-        Builder queryResult = Build.QueryResult.newBuilder();
+        QueryResult.Builder queryResult = Build.QueryResult.newBuilder();
         protoResult.getResultsList().forEach(ct -> queryResult.addTarget(ct.getTarget()));
         queryResult.build().writeTo(printStream);
       }

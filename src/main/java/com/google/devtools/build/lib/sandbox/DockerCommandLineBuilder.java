@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.UUID;
 
 final class DockerCommandLineBuilder {
@@ -130,7 +129,7 @@ final class DockerCommandLineBuilder {
     if (privileged) {
       dockerCmdLine.add("--privileged");
     }
-    for (Entry<String, String> env : environmentVariables.entrySet()) {
+    for (Map.Entry<String, String> env : environmentVariables.entrySet()) {
       dockerCmdLine.add("-e", env.getKey() + "=" + env.getValue());
     }
     PathFragment execRootInsideDocker =

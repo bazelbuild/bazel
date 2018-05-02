@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import java.util.Collection;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -401,7 +401,7 @@ final class LabelVisitor {
       ImmutableMultimap<Attribute, Label> labelsFromAspects =
           AspectDefinition.visitAspectsIfRequired(from, attribute, to, edgeFilter);
       // Create an edge from target to the attribute value.
-      for (Entry<Attribute, Label> entry : labelsFromAspects.entries()) {
+      for (Map.Entry<Attribute, Label> entry : labelsFromAspects.entries()) {
         enqueueTarget(from, entry.getKey(), entry.getValue(), depth, count);
       }
     }

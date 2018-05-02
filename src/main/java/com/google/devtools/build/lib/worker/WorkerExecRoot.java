@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 /** Creates and manages the contents of a working directory of a persistent worker. */
@@ -77,7 +76,7 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
   @Override
   protected void createInputs(Map<PathFragment, Path> inputs) throws IOException {
     // All input files are relative to the execroot.
-    for (Entry<PathFragment, Path> entry : inputs.entrySet()) {
+    for (Map.Entry<PathFragment, Path> entry : inputs.entrySet()) {
       Path key = workDir.getRelative(entry.getKey());
       FileStatus keyStat = key.statNullable(Symlinks.NOFOLLOW);
       if (keyStat != null) {
