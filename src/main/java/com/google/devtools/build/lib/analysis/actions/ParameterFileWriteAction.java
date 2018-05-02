@@ -116,21 +116,6 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     return new String(out.toByteArray(), charset);
   }
 
-  // TODO(37444705): Remove method at end of migration.
-  @VisibleForTesting
-  @Deprecated
-  public Iterable<String> getContents() throws CommandLineExpansionException {
-    return getArguments();
-  }
-
-  // TODO(37444705): Remove method at end of migration.
-  @VisibleForTesting
-  @Deprecated
-  public Iterable<String> getContents(ArtifactExpander artifactExpander)
-      throws CommandLineExpansionException {
-    return commandLine.arguments(artifactExpander);
-  }
-
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws ExecException {
