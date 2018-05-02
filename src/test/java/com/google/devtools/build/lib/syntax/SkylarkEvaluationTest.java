@@ -74,6 +74,17 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     }
   };
 
+  @SkylarkSignature(
+      name = "interrupted_function",
+      returnType = Runtime.NoneType.class,
+      documented = false
+  )
+  static BuiltinFunction interruptedFunction = new BuiltinFunction("interrupted_function") {
+    public Runtime.NoneType invoke() throws InterruptedException {
+      throw new InterruptedException();
+    }
+  };
+
   @SkylarkModule(name = "Mock", doc = "")
   static class NativeInfoMock extends NativeInfo {
 
@@ -1270,10 +1281,19 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testCallingInterruptingStructField() throws Exception {
+  public void testCallingInterruptedStructField() throws Exception {
     update("mock", new Mock());
     assertThrows(
         InterruptedException.class, () -> eval("mock.interrupted_struct_field()"));
+  }
+
+  @Test
+  public void testCallingInterruptedFunction() throws Exception {
+    interruptedFunction.configure(
+        getClass().getDeclaredField("interruptedFunction").getAnnotation(SkylarkSignature.class));
+    update("interrupted_function", interruptedFunction);
+    assertThrows(
+        InterruptedException.class, () -> eval("interrupted_function()"));
   }
 
   @Test
