@@ -179,10 +179,8 @@ public class BuiltinFunction extends BaseFunction {
       } else if (e instanceof IllegalArgumentException) {
         throw new EvalException(loc, "illegal argument in call to " + getName(), e);
       }
-      // TODO(bazel-team): replace with Throwables.throwIfInstanceOf once Guava 20 is released.
-      Throwables.propagateIfInstanceOf(e, InterruptedException.class);
-      // TODO(bazel-team): replace with Throwables.throwIfUnchecked once Guava 20 is released.
-      Throwables.propagateIfPossible(e);
+      Throwables.throwIfInstanceOf(e, InterruptedException.class);
+      Throwables.throwIfUnchecked(e);
       throw badCallException(loc, e, args);
     } catch (IllegalArgumentException e) {
       // Either this was thrown by Java itself, or it's a bug
