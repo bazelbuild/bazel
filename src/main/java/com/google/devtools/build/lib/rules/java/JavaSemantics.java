@@ -116,7 +116,7 @@ public interface JavaSemantics {
   /** The java_toolchain.compatible_javacopts key for testonly compilations. */
   public static final String TESTONLY_JAVACOPTS_KEY = "testonly";
 
-  LabelLateBoundDefault<?> JAVA_TOOLCHAIN =
+  LabelLateBoundDefault<JavaConfiguration> JAVA_TOOLCHAIN =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           Label.parseAbsoluteUnchecked(JAVA_TOOLCHAIN_LABEL),
@@ -136,7 +136,7 @@ public interface JavaSemantics {
       OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
 
   /** Implementation for the :jvm attribute. */
-  static LabelLateBoundDefault<?> jvmAttribute(RuleDefinitionEnvironment env) {
+  static LabelLateBoundDefault<JavaConfiguration> jvmAttribute(RuleDefinitionEnvironment env) {
     return LabelLateBoundDefault.fromTargetConfiguration(
         JavaConfiguration.class,
         env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL),
@@ -144,7 +144,7 @@ public interface JavaSemantics {
   }
 
   /** Implementation for the :host_jdk attribute. */
-  static LabelLateBoundDefault<?> hostJdkAttribute(RuleDefinitionEnvironment env) {
+  static LabelLateBoundDefault<JavaConfiguration> hostJdkAttribute(RuleDefinitionEnvironment env) {
     return LabelLateBoundDefault.fromHostConfiguration(
         JavaConfiguration.class,
         env.getToolsLabel(JavaImplicitAttributes.HOST_JDK_LABEL),
@@ -155,7 +155,7 @@ public interface JavaSemantics {
    * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
    * default, so it returns null for the configuration-independent default value.
    */
-  LabelLateBoundDefault<?> JAVA_LAUNCHER =
+  LabelLateBoundDefault<JavaConfiguration> JAVA_LAUNCHER =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           null,
@@ -178,25 +178,25 @@ public interface JavaSemantics {
             return javaConfig.getJavaLauncherLabel();
           });
 
-  LabelListLateBoundDefault<?> JAVA_PLUGINS =
+  LabelListLateBoundDefault<JavaConfiguration> JAVA_PLUGINS =
       LabelListLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           (rule, attributes, javaConfig) -> ImmutableList.copyOf(javaConfig.getPlugins()));
 
   /** Implementation for the :proguard attribute. */
-  LabelLateBoundDefault<?> PROGUARD =
+  LabelLateBoundDefault<JavaConfiguration> PROGUARD =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           null,
           (rule, attributes, javaConfig) -> javaConfig.getProguardBinary());
 
-  LabelListLateBoundDefault<?> EXTRA_PROGUARD_SPECS =
+  LabelListLateBoundDefault<JavaConfiguration> EXTRA_PROGUARD_SPECS =
       LabelListLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           (rule, attributes, javaConfig) ->
               ImmutableList.copyOf(javaConfig.getExtraProguardSpecs()));
 
-  LabelListLateBoundDefault<?> BYTECODE_OPTIMIZERS =
+  LabelListLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZERS =
       LabelListLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           (rule, attributes, javaConfig) -> {

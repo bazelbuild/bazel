@@ -979,10 +979,11 @@ public class RuleClass {
       return this;
     }
 
-    private void addAttribute(Attribute attribute) {
+    public Builder addAttribute(Attribute attribute) {
       Preconditions.checkState(!attributes.containsKey(attribute.getName()),
           "An attribute with the name '%s' already exists.", attribute.getName());
       attributes.put(attribute.getName(), attribute);
+      return this;
     }
 
     private void overrideAttribute(Attribute attribute) {
