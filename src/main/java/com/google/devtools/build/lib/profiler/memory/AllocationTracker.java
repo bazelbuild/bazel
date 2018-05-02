@@ -66,8 +66,7 @@ public class AllocationTracker implements Sampler {
     }
   }
 
-  private final Map<Object, AllocationSample> allocations =
-      new MapMaker().weakKeys().concurrencyLevel(1).makeMap();
+  private final Map<Object, AllocationSample> allocations = new MapMaker().weakKeys().makeMap();
   private final int samplePeriod;
   private final int sampleVariance;
   private boolean enabled = true;
