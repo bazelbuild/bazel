@@ -138,6 +138,27 @@ class Runfiles {
   // need to use runfiles.
   virtual std::vector<std::pair<std::string, std::string> > EnvVars() const = 0;
 
+  // Computes the path of the runfiles manifest and the runfiles directory.
+  //
+  // If the method finds both a valid manifest and valid directory according to
+  // `is_runfiles_manifest` and `is_runfiles_directory`, then the method sets
+  // the corresponding values to `out_manifest` and `out_directory` and returns
+  // true.
+  //
+  // If the method only finds a valid manifest or a valid directory, but not
+  // both, then it sets the corresponding output variable (`out_manifest` or
+  // `out_directory`) to the value while clearing the other output variable. The
+  // method still returns true in this case.
+  //
+  // If the method cannot find either a valid manifest or valid directory, it
+  // clears both output variables and returns false.
+  static bool PathsFrom(
+      const std::string& argv0,
+      std::function<std::string(std::string)> env_lookup,
+      std::function<bool(const std::string&)> is_runfiles_manifest,
+      std::function<bool(const std::string&)> is_runfiles_directory,
+      std::string* out_manifest, std::string* out_directory);
+
  protected:
   Runfiles() {}
 

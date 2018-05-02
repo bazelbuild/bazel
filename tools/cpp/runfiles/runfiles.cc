@@ -348,6 +348,60 @@ Runfiles* Runfiles::CreateDirectoryBased(const string& directory_path,
   return new DirectoryBased(directory_path);
 }
 
+bool Runfiles::PathsFrom(const string& argv0,
+                         function<string(string)> env_lookup,
+                         function<bool(const string&)> is_runfiles_manifest,
+                         function<bool(const string&)> is_runfiles_directory,
+                         string* out_manifest, string* out_directory) {
+  out_manifest->clear();
+  out_directory->clear();
+  string mf = env_lookup("RUNFILES_MANIFEST_FILE");
+  string dir = env_lookup("RUNFILES_DIR");
+
+  bool mfValid = is_runfiles_manifest(mf);
+  bool dirValid = is_runfiles_directory(dir);
+
+  if (!mfValid && !dirValid) {
+    mf = argv0 + ".runfiles/MANIFEST";
+    dir = argv0 + ".runfiles";
+    mfValid = is_runfiles_manifest(mf);
+    dirValid = is_runfiles_directory(dir);
+    if (!mfValid) {
+      mf = argv0 + ".runfiles_manifest";
+      mfValid = is_runfiles_manifest(mf);
+    }
+  }
+
+  if (!mfValid && !dirValid) {
+    return false;
+  }
+
+  if (!mfValid) {
+    mf = dir + "/MANIFEST";
+    mfValid = is_runfiles_manifest(mf);
+    if (!mfValid) {
+      mf = dir + "_manifest";
+      mfValid = is_runfiles_manifest(mf);
+    }
+  }
+
+  if (!dirValid) {
+    static const size_t kSubstrLen = 9;  // "_manifest" or "/MANIFEST"
+    dir = mf.substr(0, mf.size() - kSubstrLen);
+    dirValid = is_runfiles_directory(dir);
+  }
+
+  if (mfValid) {
+    *out_manifest = mf;
+  }
+
+  if (dirValid) {
+    *out_directory = dir;
+  }
+
+  return true;
+}
+
 }  // namespace runfiles
 }  // namespace cpp
 }  // namespace tools
