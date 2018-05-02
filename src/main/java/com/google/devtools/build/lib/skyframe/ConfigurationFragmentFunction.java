@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -101,11 +100,6 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
 
     ConfigurationBuilderEnvironment(PackageProviderForConfigurations packageProvider) {
       this.packageProvider = packageProvider;
-    }
-
-    @Override
-    public ExtendedEventHandler getEventHandler() {
-      return packageProvider.getEventHandler();
     }
 
     @Override

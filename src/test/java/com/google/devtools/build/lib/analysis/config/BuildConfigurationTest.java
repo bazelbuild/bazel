@@ -373,7 +373,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     return new ConfigurationFragmentFactory() {
       @Override
       public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
-          throws InvalidConfigurationException, InterruptedException {
+          throws InterruptedException {
         try {
           env.getTarget(Label.parseAbsoluteUnchecked(label));
         } catch (NoSuchPackageException e) {

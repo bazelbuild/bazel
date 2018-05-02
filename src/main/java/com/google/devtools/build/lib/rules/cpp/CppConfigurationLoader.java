@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
@@ -151,7 +150,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         try {
           fdoProfileLabel = Label.parseAbsolute(cppOptions.getFdoOptimize());
         } catch (LabelSyntaxException e) {
-          env.getEventHandler().handle(Event.error(e.getMessage()));
           throw new InvalidConfigurationException(e);
         }
       } else {

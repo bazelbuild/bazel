@@ -17,10 +17,8 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -66,9 +64,7 @@ public class TestConfigFragments {
     }
 
     @Override
-    public BuildConfiguration.Fragment create(
-        ConfigurationEnvironment env, BuildOptions buildOptions)
-        throws InvalidConfigurationException {
+    public BuildConfiguration.Fragment create(BuildOptions buildOptions) {
       return fragment;
     }
 

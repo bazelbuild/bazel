@@ -21,10 +21,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
@@ -70,8 +68,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   private static class LateBoundTestOptionsLoader implements ConfigurationFragmentFactory {
     @Override
-    public BuildConfiguration.Fragment create(ConfigurationEnvironment env,
-        BuildOptions buildOptions) throws InvalidConfigurationException {
+    public BuildConfiguration.Fragment create(BuildOptions buildOptions) {
       return new LateBoundTestOptionsFragment();
     }
 
@@ -107,8 +104,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   private static class InternalTestOptionsLoader implements ConfigurationFragmentFactory {
     @Override
-    public BuildConfiguration.Fragment create(ConfigurationEnvironment env,
-        BuildOptions buildOptions) throws InvalidConfigurationException {
+    public BuildConfiguration.Fragment create(BuildOptions buildOptions) {
       return new InternalTestOptionsFragment();
     }
 
