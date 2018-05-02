@@ -28,6 +28,7 @@ make builds significantly faster.
     * [Delete content from the remote cache](#delete-content-from-the-remote-cache)
 * [Known Issues](#known-issues)
 * [External Links](#external-links)
+* [Disk cache](#disk-cache)
 * [Bazel remote execution (in development)](#bazel-remote-execution-in-development)
 
 ## Remote caching overview
@@ -306,14 +307,36 @@ You may want to delete content from the cache to:
 * Create a clean cache after a cache was poisoned
 * Reduce the amount of storage used by deleting old outputs
 
+## Disk cache
+
+Bazel can use a directory on the file system as a remote cache. This is
+useful for sharing build artifacts when switching branches and/or working
+on multiple workspaces of the same project, such as multiple checkouts. Since
+Bazel does not garbage-collect the directory, so you might want to automate a
+periodic cleanup of this directory. Enable disk cache as follows:
+
+```
+build --disk_cache=/path/to/build/cache
+```
+
+You can pass a user-specific path to the `--disk_cache` flag using the `~` alias
+(Bazel will substitute the current user's home directory). This comes in handy
+when enabling disk cache for all developers of a project via the project's
+checked in `.bazelrc` file.
+
+To enable cache hits across different workspaces, use the following flag:
+
+```
+build --experimental_strict_action_env
+```
+
 ## Known issues
 
-**Input file modification during a Build**
+**Input file modification during a build**
 
 When an input file is modified during a build, Bazel might upload invalid
 results to the remote cache. We are working on a solution for this problem.
-See [issue #3360] for updates. Avoid this problem by not editing source
-files during a build.
+See [issue #3360] for updates. Avoid modifying source files during a build.
 
 
 **Environment variables leaking into an action**

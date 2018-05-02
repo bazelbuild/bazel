@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStore;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
@@ -34,8 +35,7 @@ public final class SimpleBlobStoreFactory {
 
   private SimpleBlobStoreFactory() {}
 
-  public static SimpleBlobStore createRest(RemoteOptions options, Credentials creds)
-      throws IOException {
+  public static SimpleBlobStore createRest(RemoteOptions options, Credentials creds) {
     try {
       return new HttpBlobStore(
           URI.create(options.remoteHttpCache),
@@ -46,10 +46,13 @@ public final class SimpleBlobStoreFactory {
     }
   }
 
-  public static SimpleBlobStore createLocalDisk(RemoteOptions options, Path workingDirectory)
+  public static SimpleBlobStore createDiskCache(Path workingDirectory, PathFragment diskCachePath)
       throws IOException {
-    return new OnDiskBlobStore(
-        workingDirectory.getRelative(checkNotNull(options.experimentalLocalDiskCachePath)));
+    Path cacheDir = workingDirectory.getRelative(checkNotNull(diskCachePath));
+    if (!cacheDir.exists()) {
+      cacheDir.createDirectoryAndParents();
+    }
+    return new OnDiskBlobStore(cacheDir);
   }
 
   public static SimpleBlobStore create(
@@ -58,8 +61,8 @@ public final class SimpleBlobStoreFactory {
     if (isRestUrlOptions(options)) {
       return createRest(options, creds);
     }
-    if (workingDirectory != null && isLocalDiskCache(options)) {
-      return createLocalDisk(options, workingDirectory);
+    if (workingDirectory != null && isDiskCache(options)) {
+      return createDiskCache(workingDirectory, options.diskCache);
     }
     throw new IllegalArgumentException(
         "Unrecognized concurrent map RemoteOptions: must specify "
@@ -67,11 +70,11 @@ public final class SimpleBlobStoreFactory {
   }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    return isRestUrlOptions(options) || isLocalDiskCache(options);
+    return isRestUrlOptions(options) || isDiskCache(options);
   }
 
-  public static boolean isLocalDiskCache(RemoteOptions options) {
-    return options.experimentalLocalDiskCache;
+  public static boolean isDiskCache(RemoteOptions options) {
+    return options.diskCache != null;
   }
 
   private static boolean isRestUrlOptions(RemoteOptions options) {
