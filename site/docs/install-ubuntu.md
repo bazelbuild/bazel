@@ -30,7 +30,7 @@ also be installed for Bazel to work.
 
 ### Step 1: Install required packages
 
-First, install the prerequisites: `zip`, `g++`, `zlipb1g-dev`, `unzip`, and `python`.
+First, install the prerequisites: `pkg-config`, `zip`, `g++`, `zlib1g-dev`, `unzip`, and `python`.
 
 ```bash
 sudo apt-get install pkg-config zip g++ zlib1g-dev unzip python
