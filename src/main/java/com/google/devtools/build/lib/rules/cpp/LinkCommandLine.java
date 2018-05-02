@@ -49,7 +49,7 @@ public final class LinkCommandLine extends CommandLine {
   // The feature config can be null for tests.
   @Nullable private final FeatureConfiguration featureConfiguration;
   private final ImmutableList<Artifact> buildInfoHeaderArtifacts;
-  private final Iterable<LinkerInput> linkerInputs;
+  private final Iterable<Artifact> linkerInputArtifacts;
   private final LinkTargetType linkTargetType;
   private final LinkStaticness linkStaticness;
   private final ImmutableList<String> linkopts;
@@ -64,7 +64,7 @@ public final class LinkCommandLine extends CommandLine {
       String actionName,
       String forcedToolPath,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
-      Iterable<LinkerInput> linkerInputs,
+      Iterable<Artifact> linkerInputArtifacts,
       LinkTargetType linkTargetType,
       LinkStaticness linkStaticness,
       ImmutableList<String> linkopts,
@@ -80,7 +80,7 @@ public final class LinkCommandLine extends CommandLine {
     this.variables = variables;
     this.featureConfiguration = featureConfiguration;
     this.buildInfoHeaderArtifacts = Preconditions.checkNotNull(buildInfoHeaderArtifacts);
-    this.linkerInputs = Preconditions.checkNotNull(linkerInputs);
+    this.linkerInputArtifacts = Preconditions.checkNotNull(linkerInputArtifacts);
     this.linkTargetType = Preconditions.checkNotNull(linkTargetType);
     this.linkStaticness = Preconditions.checkNotNull(linkStaticness);
     this.linkopts = linkopts;
@@ -101,8 +101,8 @@ public final class LinkCommandLine extends CommandLine {
   }
 
   /** Returns the (ordered, immutable) list of paths to the linker's input files. */
-  public Iterable<LinkerInput> getLinkerInputs() {
-    return linkerInputs;
+  public Iterable<Artifact> getLinkerInputArtifacts() {
+    return linkerInputArtifacts;
   }
 
   /**
@@ -414,7 +414,7 @@ public final class LinkCommandLine extends CommandLine {
     private final RuleContext ruleContext;
     private String forcedToolPath;
     private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
-    private Iterable<LinkerInput> linkerInputs = ImmutableList.of();
+    private Iterable<Artifact> linkerInputArtifacts = ImmutableList.of();
     @Nullable private LinkTargetType linkTargetType;
     private LinkStaticness linkStaticness = LinkStaticness.FULLY_STATIC;
     private ImmutableList<String> linkopts = ImmutableList.of();
@@ -452,7 +452,7 @@ public final class LinkCommandLine extends CommandLine {
           actionName,
           forcedToolPath,
           buildInfoHeaderArtifacts,
-          linkerInputs,
+          linkerInputArtifacts,
           linkTargetType,
           linkStaticness,
           linkopts,
@@ -489,12 +489,12 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     /**
-     * Sets a list of linker inputs. These get turned into linker options depending on the
+     * Sets a list of linker input artifacts. These get turned into linker options depending on the
      * staticness and the target type. This call makes an immutable copy of the inputs, if the
      * provided Iterable isn't already immutable (see {@link CollectionUtils#makeImmutable}).
      */
-    public Builder setLinkerInputs(Iterable<LinkerInput> linkerInputs) {
-      this.linkerInputs = CollectionUtils.makeImmutable(linkerInputs);
+    public Builder setLinkerInputArtifacts(Iterable<Artifact> linkerInputArtifacts) {
+      this.linkerInputArtifacts = CollectionUtils.makeImmutable(linkerInputArtifacts);
       return this;
     }
 

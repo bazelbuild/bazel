@@ -1038,9 +1038,15 @@ public class CppLinkActionBuilder {
           !needWholeArchive, "the need whole archive flag must be false for static links");
     }
 
+    ImmutableSet<Artifact> linkerInputArtifacts =
+        ImmutableSet.<LinkerInput>copyOf(linkerInputs)
+            .stream()
+            .map(LinkerInput::getArtifact)
+            .collect(ImmutableSet.toImmutableSet());
+
     LinkCommandLine.Builder linkCommandLineBuilder =
         new LinkCommandLine.Builder(ruleContext)
-            .setLinkerInputs(linkerInputs)
+            .setLinkerInputArtifacts(linkerInputArtifacts)
             .setLinkTargetType(linkType)
             .setLinkStaticness(linkStaticness)
             .setToolchainLibrariesSolibDir(
@@ -1177,6 +1183,13 @@ public class CppLinkActionBuilder {
 
     inputsBuilder.add(linkstampObjectArtifacts);
 
+    ImmutableSet<Artifact> fakeLinkerInputArtifacts =
+        ImmutableSet.<LinkerInput>copyOf(linkerInputs)
+            .stream()
+            .filter(linkerInput -> linkerInput.isFake())
+            .map(LinkerInput::getArtifact)
+            .collect(ImmutableSet.toImmutableSet());
+
     return new CppLinkAction(
         getOwner(),
         mnemonic,
@@ -1186,6 +1199,7 @@ public class CppLinkActionBuilder {
         output,
         interfaceOutputLibrary,
         fake,
+        fakeLinkerInputArtifacts,
         isLtoIndexing,
         linkstampMap
             .keySet()

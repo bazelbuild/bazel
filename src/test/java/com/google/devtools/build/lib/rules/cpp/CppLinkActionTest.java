@@ -467,7 +467,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(resources.getIoUsage())
         .isAtLeast(CppLinkAction.MIN_STATIC_LINK_RESOURCES.getIoUsage());
 
-    final int linkSize = Iterables.size(linkAction.getLinkCommandLine().getLinkerInputs());
+    final int linkSize = Iterables.size(linkAction.getLinkCommandLine().getLinkerInputArtifacts());
     ResourceSet scaledSet = ResourceSet.createWithRamCpuIo(
         CppLinkAction.LINK_RESOURCES_PER_INPUT.getMemoryMb() * linkSize,
         CppLinkAction.LINK_RESOURCES_PER_INPUT.getCpuUsage() * linkSize,

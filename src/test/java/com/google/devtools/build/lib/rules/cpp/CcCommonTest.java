@@ -204,7 +204,7 @@ public class CcCommonTest extends BuildViewTestCase {
   private Iterable<Artifact> getLinkerInputs(ConfiguredTarget target) {
     Artifact executable = getExecutable(target);
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(executable);
-    return LinkerInputs.toLibraryArtifacts(linkAction.getLinkCommandLine().getLinkerInputs());
+    return linkAction.getLinkCommandLine().getLinkerInputArtifacts();
   }
 
   @Test
