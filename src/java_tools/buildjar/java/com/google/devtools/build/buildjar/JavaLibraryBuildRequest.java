@@ -32,7 +32,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** All the information needed to perform a single Java library build operation. */
@@ -161,7 +161,7 @@ public final class JavaLibraryBuildRequest {
     this.tempDir = asPath(firstNonNull(optionsParser.getTempDir(), "_tmp"));
     this.outputJar = asPath(optionsParser.getOutputJar());
     this.nativeHeaderOutput = asPath(optionsParser.getNativeHeaderOutput());
-    for (Entry<String, List<String>> entry : optionsParser.getPostProcessors().entrySet()) {
+    for (Map.Entry<String, List<String>> entry : optionsParser.getPostProcessors().entrySet()) {
       switch (entry.getKey()) {
         case "jacoco":
           this.jacocoInstrumentationProcessor =
