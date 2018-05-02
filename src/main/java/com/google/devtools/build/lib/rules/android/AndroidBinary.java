@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -539,7 +538,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               AndroidRuleClasses.INSTRUMENTATION_TEST_CHECK_RESULTS);
 
       SpawnAction.Builder checkAction =
-          new Builder()
+          new SpawnAction.Builder()
               .setExecutable(checker)
               .addInput(targetManifest)
               .addInput(instrumentationManifest)

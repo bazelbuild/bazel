@@ -30,10 +30,8 @@ import com.android.aapt.ConfigurationOuterClass.Configuration.UiModeNight;
 import com.android.aapt.ConfigurationOuterClass.Configuration.UiModeType;
 import com.android.aapt.Resources;
 import com.android.aapt.Resources.ConfigValue;
-import com.android.aapt.Resources.Entry;
 import com.android.aapt.Resources.Package;
 import com.android.aapt.Resources.ResourceTable;
-import com.android.aapt.Resources.Type;
 import com.android.aapt.Resources.Value;
 import com.android.aapt.Resources.Visibility.Level;
 import com.android.ide.common.resources.configuration.CountryCodeQualifier;
@@ -269,7 +267,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           resolver.resolveFor(resourceTablePackage.getPackageName());
       String packageName = resourceTablePackage.getPackageName();
 
-      for (Type resourceFormatType : resourceTablePackage.getTypeList()) {
+      for (Resources.Type resourceFormatType : resourceTablePackage.getTypeList()) {
         ResourceType resourceType = ResourceType.getEnum(resourceFormatType.getName());
 
         for (Resources.Entry resource : resourceFormatType.getEntryList()) {
@@ -390,7 +388,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
       ReferenceResolver packageResolver,
       String packageName,
       ResourceType resourceType,
-      Entry resource,
+      Resources.Entry resource,
       List<String> qualifiers) {
     final FullyQualifiedName fqn =
         FullyQualifiedName.of(

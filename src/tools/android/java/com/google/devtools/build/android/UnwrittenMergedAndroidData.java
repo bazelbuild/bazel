@@ -22,7 +22,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -137,7 +137,7 @@ public class UnwrittenMergedAndroidData {
   }
 
   public void serializeTo(AndroidDataSerializer serializer) {
-    for (Entry<DataKey, DataAsset> entry : primary.iterateAssetEntries()) {
+    for (Map.Entry<DataKey, DataAsset> entry : primary.iterateAssetEntries()) {
       serializer.queueForSerialization(entry.getKey(), entry.getValue());
     }
     primary.serializeAssetsTo(serializer);

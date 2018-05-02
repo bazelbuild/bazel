@@ -24,7 +24,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
@@ -89,7 +88,7 @@ public class AndroidDataSerializer {
       DataSourceTable sourceTable,
       byte[] sourceTableBytes)
       throws IOException {
-    Set<Entry<DataKey, DataValue>> entries = map.entrySet();
+    Set<Map.Entry<DataKey, DataValue>> entries = map.entrySet();
     int[] orderedValueSizes = new int[entries.size()];
     int valueSizeIndex = 0;
     // Serialize all the values in sorted order to a intermediate buffer, so that the keys

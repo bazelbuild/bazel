@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
@@ -367,7 +366,7 @@ public final class AndroidRuleClasses {
   /** Definition of the {@code android_sdk} rule. */
   public static final class AndroidSdkRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           .requiresConfigurationFragments(JavaConfiguration.class, AndroidConfiguration.class)
           .setUndocumented()
@@ -1071,7 +1070,7 @@ public final class AndroidRuleClasses {
     }
 
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       builder
           .setUndocumented()
           .add(

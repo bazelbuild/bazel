@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -504,7 +503,7 @@ public class AndroidResourcesProcessorBuilder {
       StampedAndroidManifest primaryManifest,
       List<Artifact> outs,
       NestedSetBuilder<Artifact> inputs,
-      Builder builder) {
+      CustomCommandLine.Builder builder) {
 
     // Add data
     builder.add(

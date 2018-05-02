@@ -26,7 +26,6 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -301,7 +300,7 @@ class AndroidDataMerger {
     }
 
     // overwriting resources
-    for (Entry<DataKey, DataResource> entry : parsedPrimary.iterateOverwritableEntries()) {
+    for (Map.Entry<DataKey, DataResource> entry : parsedPrimary.iterateOverwritableEntries()) {
       if (direct.containsOverwritable(entry.getKey())) {
         primaryConsumers.overwritingConsumer.accept(
             entry.getKey(), entry.getValue().overwrite(direct.getOverwritable(entry.getKey())));
@@ -338,7 +337,7 @@ class AndroidDataMerger {
     }
 
     // combining resources
-    for (Entry<DataKey, DataResource> entry : parsedPrimary.iterateCombiningEntries()) {
+    for (Map.Entry<DataKey, DataResource> entry : parsedPrimary.iterateCombiningEntries()) {
       primaryConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
     }
     for (Map.Entry<DataKey, DataResource> entry : direct.iterateCombiningEntries()) {
@@ -359,7 +358,7 @@ class AndroidDataMerger {
     }
 
     // assets
-    for (Entry<DataKey, DataAsset> entry : parsedPrimary.iterateAssetEntries()) {
+    for (Map.Entry<DataKey, DataAsset> entry : parsedPrimary.iterateAssetEntries()) {
       if (direct.containsAsset(entry.getKey())) {
         primaryConsumers.assetConsumer.accept(
             entry.getKey(), entry.getValue().overwrite(direct.getAsset(entry.getKey())));

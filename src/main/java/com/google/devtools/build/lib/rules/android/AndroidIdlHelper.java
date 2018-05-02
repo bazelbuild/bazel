@@ -39,7 +39,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -299,7 +298,7 @@ public class AndroidIdlHelper {
       preprocessedArgs.add("-p" + idlPreprocessed.getExecPathString());
     }
 
-    for (Entry<Artifact, Artifact> entry : translatedIdlSources.entrySet()) {
+    for (Map.Entry<Artifact, Artifact> entry : translatedIdlSources.entrySet()) {
       createAndroidIdlAction(
           ruleContext,
           entry.getKey(),

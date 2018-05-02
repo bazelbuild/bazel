@@ -61,7 +61,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
@@ -557,7 +556,7 @@ public class AndroidResourceProcessor {
     ListeningExecutorService executorService =
         MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(numThreads));
     try (Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
-      for (Entry<String, ListenableFuture<ResourceSymbols>> entry :
+      for (Map.Entry<String, ListenableFuture<ResourceSymbols>> entry :
           ResourceSymbols.loadFrom(libraries, executorService, appPackageName).entries()) {
         libMap.put(entry.getKey(), entry.getValue().get());
       }

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -30,7 +29,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 public class AndroidInstrumentationTestRule implements RuleDefinition {
 
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         /* <!-- #BLAZE_RULE(android_instrumentation_test).ATTRIBUTE(test_app) -->
          The <a href="${link android_binary}">android_binary</a> target containing the test classes.

@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -437,7 +436,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       Set<String> incrementalDexopts,
       Artifact dexArchive) {
     CustomCommandLine args =
-        new Builder()
+        new CustomCommandLine.Builder()
             .addExecPath("--input_jar", jar)
             .addExecPath("--output_zip", dexArchive)
             .addAll(ImmutableList.copyOf(incrementalDexopts))

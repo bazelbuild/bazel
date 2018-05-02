@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -35,7 +34,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 public class AndroidLocalTestBaseRule implements RuleDefinition {
 
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .requiresConfigurationFragments(
             JavaConfiguration.class, AndroidLocalTestConfiguration.class)
