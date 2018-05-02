@@ -132,6 +132,28 @@ public final class ResourceDependencies {
         transitiveRTxt.build());
   }
 
+  static ResourceDependencies wrapManifestInfo(Label label, AndroidManifestInfo manifestInfo) {
+    return new ResourceDependencies(
+        false,
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.create(
+            Order.NAIVE_LINK_ORDER,
+            ResourceContainer.builder()
+                .setManifest(manifestInfo.getManifest())
+                .setJavaPackage(manifestInfo.getPackage())
+                .setManifestExported(manifestInfo.exportsManifest())
+                .setLabel(label)
+                .build()),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, manifestInfo.getManifest()),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
+  }
+
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)

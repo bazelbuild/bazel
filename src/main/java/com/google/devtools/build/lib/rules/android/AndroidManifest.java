@@ -116,7 +116,7 @@ public class AndroidManifest {
   }
 
   /** Gets the default Java package */
-  private static String getDefaultPackage(RuleContext ruleContext) {
+  static String getDefaultPackage(RuleContext ruleContext) {
     PathFragment dummyJar = ruleContext.getPackageDirectory().getChild("Dummy.jar");
     return getJavaPackageFromPath(ruleContext, dummyJar);
   }
