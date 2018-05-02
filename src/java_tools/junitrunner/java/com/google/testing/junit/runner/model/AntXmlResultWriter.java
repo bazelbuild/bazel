@@ -19,7 +19,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
@@ -100,7 +100,7 @@ public final class AntXmlResultWriter implements XmlResultWriter {
 
   private void writeTestSuiteProperties(XmlWriter writer, TestResult result) throws IOException {
     writer.startElement(JUNIT_ATTR_TESTSUITE_PROPERTIES);
-    for (Entry<String, String> entry : result.getProperties().entrySet()) {
+    for (Map.Entry<String, String> entry : result.getProperties().entrySet()) {
       writer.startElement(JUNIT_ELEMENT_PROPERTY);
       writer.writeAttribute(JUNIT_ATTR_PROPERTY_NAME, entry.getKey());
       writer.writeAttribute(JUNIT_ATTR_PROPERTY_VALUE, entry.getValue());

@@ -22,7 +22,6 @@ import java.io.Serializable;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -235,7 +234,7 @@ public class ImmutableSortedKeyMapTest {
       Object... alternatingKeysAndValues) {
     assertThat(alternatingKeysAndValues.length / 2).isEqualTo(map.size());
     int i = 0;
-    for (Entry<K, V> entry : map.entrySet()) {
+    for (Map.Entry<K, V> entry : map.entrySet()) {
       assertThat(entry.getKey()).isEqualTo(alternatingKeysAndValues[i++]);
       assertThat(entry.getValue()).isEqualTo(alternatingKeysAndValues[i++]);
     }

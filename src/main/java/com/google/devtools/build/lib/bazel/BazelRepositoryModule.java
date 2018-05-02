@@ -89,7 +89,6 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -205,7 +204,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-    for (Entry<String, RepositoryFunction> handler : repositoryHandlers.entrySet()) {
+    for (Map.Entry<String, RepositoryFunction> handler : repositoryHandlers.entrySet()) {
       RuleDefinition ruleDefinition;
       try {
         ruleDefinition =

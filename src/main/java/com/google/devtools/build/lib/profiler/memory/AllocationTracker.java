@@ -32,7 +32,6 @@ import com.google.monitoring.runtime.instrumentation.Sampler;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Line;
 import com.google.perftools.profiles.ProfileProto.Profile;
-import com.google.perftools.profiles.ProfileProto.Profile.Builder;
 import com.google.perftools.profiles.ProfileProto.Sample;
 import com.google.perftools.profiles.ProfileProto.ValueType;
 import java.io.FileOutputStream;
@@ -342,7 +341,7 @@ public class AllocationTracker implements Sampler {
     final Map<String, Long> table = new HashMap<>();
     long index = 1; // 0 is reserved
 
-    LocationTable(Builder profile, FunctionTable functionTable) {
+    LocationTable(Profile.Builder profile, FunctionTable functionTable) {
       this.profile = profile;
       this.functionTable = functionTable;
     }

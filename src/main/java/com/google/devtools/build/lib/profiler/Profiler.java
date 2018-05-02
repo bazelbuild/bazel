@@ -36,7 +36,6 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -461,7 +460,7 @@ public final class Profiler {
         Map<String, ? extends Predicate<? super String>> vfsHeuristics =
             VfsHeuristics.vfsTypeHeuristics;
         List<RecorderAndPredicate> recorders = new ArrayList<>(vfsHeuristics.size());
-        for (Entry<String, ? extends Predicate<? super String>> e : vfsHeuristics.entrySet()) {
+        for (Map.Entry<String, ? extends Predicate<? super String>> e : vfsHeuristics.entrySet()) {
           recorders.add(new RecorderAndPredicate(
               new SingleStatRecorder(task + " " + e.getKey(), HISTOGRAM_BUCKETS), e.getValue()));
         }

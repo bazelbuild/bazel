@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -1043,7 +1043,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(compileAction.getOutputs()).containsExactly(storyboardZip);
     assertThat(compileAction.getArguments())
         .containsExactlyElementsIn(
-            new Builder()
+            new CustomCommandLine.Builder()
                 .addDynamicString(MOCK_IBTOOLWRAPPER_PATH)
                 .addExecPath(storyboardZip)
                 .addDynamicString(archiveRoot) // archive root
@@ -1064,7 +1064,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     archiveRoot = targetDevices.contains("watch") ? "ja.lproj/" : "ja.lproj/loc.storyboardc";
     assertThat(compileAction.getArguments())
         .containsExactlyElementsIn(
-            new Builder()
+            new CustomCommandLine.Builder()
                 .addDynamicString(MOCK_IBTOOLWRAPPER_PATH)
                 .addExecPath(storyboardZip)
                 .addDynamicString(archiveRoot) // archive root

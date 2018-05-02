@@ -31,7 +31,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
@@ -441,7 +440,7 @@ public abstract class Type<T> {
     @Override
     public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context)
         throws InterruptedException {
-      for (Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
+      for (Map.Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
         keyType.visitLabels(visitor, entry.getKey(), context);
         valueType.visitLabels(visitor, entry.getValue(), context);
       }
@@ -503,7 +502,7 @@ public abstract class Type<T> {
       // It's possible that #convert() calls transform non-equal keys into equal ones so we can't
       // just use ImmutableMap.Builder() here (that throws on collisions).
       LinkedHashMap<KeyT, ValueT> result = new LinkedHashMap<>();
-      for (Entry<?, ?> elem : o.entrySet()) {
+      for (Map.Entry<?, ?> elem : o.entrySet()) {
         result.put(
             keyType.convert(elem.getKey(), "dict key element", context),
             valueType.convert(elem.getValue(), "dict value element", context));

@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.util.LongArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * Extracts the execution times of user-defined and built-in Skylark functions and computes
@@ -208,7 +207,7 @@ public final class SkylarkStatistics {
       Map<String, LongArrayList> durationsMap,
       Map<String, LongArrayList> selfDurationsMap) {
     long totalTime = 0;
-    for (Entry<String, Collection<Task>> entry : functionTasks.asMap().entrySet()) {
+    for (Map.Entry<String, Collection<Task>> entry : functionTasks.asMap().entrySet()) {
       String function = entry.getKey();
       Collection<Task> tasks = entry.getValue();
       LongArrayList durations;

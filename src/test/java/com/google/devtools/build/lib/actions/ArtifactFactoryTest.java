@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -243,7 +242,7 @@ public class ArtifactFactoryTest {
     private final Map<PathFragment, Root> packageRoots = Maps.newHashMap();
 
     public void setPackageRoots(Map<PackageIdentifier, Root> packageRoots) {
-      for (Entry<PackageIdentifier, Root> packageRoot : packageRoots.entrySet()) {
+      for (Map.Entry<PackageIdentifier, Root> packageRoot : packageRoots.entrySet()) {
         this.packageRoots.put(packageRoot.getKey().getPackageFragment(), packageRoot.getValue());
       }
     }

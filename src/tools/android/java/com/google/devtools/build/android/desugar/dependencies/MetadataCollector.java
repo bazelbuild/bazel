@@ -22,7 +22,6 @@ import com.google.devtools.build.android.desugar.proto.DesugarDeps.Dependency;
 import com.google.devtools.build.android.desugar.proto.DesugarDeps.DesugarDepsInfo;
 import com.google.devtools.build.android.desugar.proto.DesugarDeps.InterfaceDetails;
 import com.google.devtools.build.android.desugar.proto.DesugarDeps.InterfaceWithCompanion;
-import com.google.devtools.build.android.desugar.proto.DesugarDeps.Type;
 import javax.annotation.Nullable;
 
 /** Dependency collector that emits collected metadata as a {@link DesugarDepsInfo} proto. */
@@ -82,7 +81,7 @@ public final class MetadataCollector implements DependencyCollector {
     return DesugarDepsInfo.getDefaultInstance().equals(result) ? null : result.toByteArray();
   }
 
-  private static Type wrapType(String internalName) {
-    return Type.newBuilder().setBinaryName(internalName).build();
+  private static DesugarDeps.Type wrapType(String internalName) {
+    return DesugarDeps.Type.newBuilder().setBinaryName(internalName).build();
   }
 }

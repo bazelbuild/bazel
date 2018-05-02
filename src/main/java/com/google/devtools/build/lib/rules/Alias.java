@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -56,7 +55,7 @@ public class Alias implements RuleConfiguredTargetFactory {
    */
   public static class AliasRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           /*<!-- #BLAZE_RULE(alias).ATTRIBUTE(actual) -->
           The target this alias refers to. It does not need to be a rule, it can also be an input

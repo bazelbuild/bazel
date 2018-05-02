@@ -26,7 +26,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -107,7 +107,7 @@ public final class OptionProcessor extends AbstractProcessor {
     builder.put(long.class, typeUtils.getPrimitiveType(TypeKind.LONG));
     primitiveTypeMap = builder.build();
 
-    for (Entry<Class<?>, Converter<?>> entry : Converters.DEFAULT_CONVERTERS.entrySet()) {
+    for (Map.Entry<Class<?>, Converter<?>> entry : Converters.DEFAULT_CONVERTERS.entrySet()) {
       Class<?> converterClass = entry.getKey();
       String typeName = converterClass.getCanonicalName();
       TypeElement typeElement = elementUtils.getTypeElement(typeName);

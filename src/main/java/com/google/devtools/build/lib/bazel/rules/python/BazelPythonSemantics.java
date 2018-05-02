@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.Runfiles.Builder;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
@@ -69,17 +69,18 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   @Override
-  public void collectRunfilesForBinary(RuleContext ruleContext, Builder builder, PyCommon common) {
+  public void collectRunfilesForBinary(
+      RuleContext ruleContext, Runfiles.Builder builder, PyCommon common) {
     addRuntime(ruleContext, builder);
   }
 
   @Override
-  public void collectDefaultRunfilesForBinary(RuleContext ruleContext, Builder builder) {
+  public void collectDefaultRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder) {
     addRuntime(ruleContext, builder);
   }
 
   @Override
-  public void collectDefaultRunfiles(RuleContext ruleContext, Builder builder) {
+  public void collectDefaultRunfiles(RuleContext ruleContext, Runfiles.Builder builder) {
     builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
   }
 
@@ -309,7 +310,7 @@ public class BazelPythonSemantics implements PythonSemantics {
             .build(ruleContext));
   }
 
-  private static void addRuntime(RuleContext ruleContext, Builder builder) {
+  private static void addRuntime(RuleContext ruleContext, Runfiles.Builder builder) {
     BazelPyRuntimeProvider provider = ruleContext.getPrerequisite(
         ":py_interpreter", Mode.TARGET, BazelPyRuntimeProvider.class);
     if (provider != null && provider.interpreter() != null) {

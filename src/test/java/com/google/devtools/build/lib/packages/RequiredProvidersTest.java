@@ -20,14 +20,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.RequiredProviders.Builder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test for {@link RequiredProviders} class
- */
+/** Test for {@link com.google.devtools.build.lib.packages.RequiredProviders} class */
 @RunWith(JUnit4.class)
 public class RequiredProvidersTest {
 
@@ -194,8 +191,8 @@ public class RequiredProvidersTest {
   @SafeVarargs
   private static boolean validateNative(
       AdvertisedProviderSet providerSet, String missing, ImmutableSet<Class<?>>... sets) {
-    Builder anyBuilder = RequiredProviders.acceptAnyBuilder();
-    Builder noneBuilder = RequiredProviders.acceptNoneBuilder();
+    RequiredProviders.Builder anyBuilder = RequiredProviders.acceptAnyBuilder();
+    RequiredProviders.Builder noneBuilder = RequiredProviders.acceptNoneBuilder();
     for (ImmutableSet<Class<?>> set : sets) {
       anyBuilder.addNativeSet(set);
       noneBuilder.addNativeSet(set);
@@ -215,8 +212,8 @@ public class RequiredProvidersTest {
       AdvertisedProviderSet providerSet,
       String missing,
       ImmutableSet<SkylarkProviderIdentifier>... sets) {
-    Builder anyBuilder = RequiredProviders.acceptAnyBuilder();
-    Builder noneBuilder = RequiredProviders.acceptNoneBuilder();
+    RequiredProviders.Builder anyBuilder = RequiredProviders.acceptAnyBuilder();
+    RequiredProviders.Builder noneBuilder = RequiredProviders.acceptNoneBuilder();
     for (ImmutableSet<SkylarkProviderIdentifier> set : sets) {
       anyBuilder.addSkylarkSet(set);
       noneBuilder.addSkylarkSet(set);

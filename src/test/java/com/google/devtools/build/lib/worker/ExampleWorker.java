@@ -32,7 +32,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -178,13 +178,13 @@ public class ExampleWorker {
     outputs.add(residueStr);
 
     if (options.printInputs) {
-      for (Entry<String, String> input : inputs.entrySet()) {
+      for (Map.Entry<String, String> input : inputs.entrySet()) {
         outputs.add("INPUT " + input.getKey() + " " + input.getValue());
       }
     }
 
     if (options.printEnv) {
-      for (Entry<String, String> entry : System.getenv().entrySet()) {
+      for (Map.Entry<String, String> entry : System.getenv().entrySet()) {
         outputs.add(entry.getKey() + "=" + entry.getValue());
       }
     }

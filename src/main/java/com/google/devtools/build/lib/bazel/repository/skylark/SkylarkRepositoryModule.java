@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
@@ -55,60 +54,55 @@ import java.util.Map;
 public class SkylarkRepositoryModule {
 
   @SkylarkSignature(
-    name = "repository_rule",
-    doc =
-        "Creates a new repository rule. Store it in a global value, so that it can be loaded and "
-            + "called from the WORKSPACE file.",
-    returnType = BaseFunction.class,
-    parameters = {
-      @Param(
-        name = "implementation",
-        type = BaseFunction.class,
-        doc =
-            "the function implementing this rule, has to have exactly one parameter: "
-                + "<code><a href=\"repository_ctx.html\">repository_ctx</a></code>. The function "
-                + "is called during loading phase for each instance of the rule."
-      ),
-      @Param(
-        name = "attrs",
-        type = SkylarkDict.class,
-        noneable = true,
-        defaultValue = "None",
-        doc =
-            "dictionary to declare all the attributes of the rule. It maps from an attribute "
-                + "name to an attribute object (see <a href=\"attr.html\">attr</a> "
-                + "module). Attributes starting with <code>_</code> are private, and can be "
-                + "used to add an implicit dependency on a label to a file (a repository "
-                + "rule cannot depend on a generated artifact). The attribute "
-                + "<code>name</code> is implicitly added and must not be specified.",
-        named = true,
-        positional = false
-      ),
-      @Param(
-        name = "local",
-        type = Boolean.class,
-        defaultValue = "False",
-        doc =
-            "Indicate that this rule fetches everything from the local system and should be "
-                + "reevaluated at every fetch.",
-        named = true,
-        positional = false
-      ),
-      @Param(
-        name = "environ",
-        type = SkylarkList.class,
-        generic1 = String.class,
-        defaultValue = "[]",
-        doc =
-            "Provides a list of environment variable that this repository rule depends on. If"
-                + " an environment variable in that list change, the repository will be refetched.",
-        named = true,
-        positional = false
-      )
-    },
-    useAst = true,
-    useEnvironment = true
-  )
+      name = "repository_rule",
+      doc =
+          "Creates a new repository rule. Store it in a global value, so that it can be loaded and "
+              + "called from the WORKSPACE file.",
+      returnType = BaseFunction.class,
+      parameters = {
+        @Param(
+            name = "implementation",
+            type = BaseFunction.class,
+            doc =
+                "the function implementing this rule, has to have exactly one parameter: "
+                    + "<code><a href=\"repository_ctx.html\">repository_ctx</a></code>. The function "
+                    + "is called during loading phase for each instance of the rule."),
+        @Param(
+            name = "attrs",
+            type = SkylarkDict.class,
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "dictionary to declare all the attributes of the rule. It maps from an attribute "
+                    + "name to an attribute object (see <a href=\"attr.html\">attr</a> "
+                    + "module). Attributes starting with <code>_</code> are private, and can be "
+                    + "used to add an implicit dependency on a label to a file (a repository "
+                    + "rule cannot depend on a generated artifact). The attribute "
+                    + "<code>name</code> is implicitly added and must not be specified.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "local",
+            type = Boolean.class,
+            defaultValue = "False",
+            doc =
+                "Indicate that this rule fetches everything from the local system and should be "
+                    + "reevaluated at every fetch.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "environ",
+            type = SkylarkList.class,
+            generic1 = String.class,
+            defaultValue = "[]",
+            doc =
+                "Provides a list of environment variable that this repository rule depends on. If"
+                    + " an environment variable in that list change, the repository will be refetched.",
+            named = true,
+            positional = false)
+      },
+      useAst = true,
+      useEnvironment = true)
   private static final BuiltinFunction repositoryRule =
       new BuiltinFunction("repository_rule") {
         @SuppressWarnings({"rawtypes", "unused"})
@@ -123,7 +117,7 @@ public class SkylarkRepositoryModule {
             throws EvalException {
           funcallEnv.checkLoadingOrWorkspacePhase("repository_rule", ast.getLocation());
           // We'll set the name later, pass the empty string for now.
-          Builder builder = new Builder("", RuleClassType.WORKSPACE, true);
+          RuleClass.Builder builder = new RuleClass.Builder("", RuleClassType.WORKSPACE, true);
 
           builder.addOrOverrideAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
           builder.addOrOverrideAttribute(
@@ -150,9 +144,9 @@ public class SkylarkRepositoryModule {
       };
 
   private static final class RepositoryRuleFunction extends BaseFunction {
-    private final Builder builder;
+    private final RuleClass.Builder builder;
 
-    public RepositoryRuleFunction(Builder builder) {
+    public RepositoryRuleFunction(RuleClass.Builder builder) {
       super("repository_rule", FunctionSignature.KWARGS);
       this.builder = builder;
     }

@@ -22,7 +22,6 @@ import com.google.common.hash.Hashing;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.common.options.EnumConverter;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -584,17 +583,17 @@ public abstract class FileSystem {
 
   protected static Dirent.Type direntFromStat(FileStatus stat) {
     if (stat == null) {
-      return Type.UNKNOWN;
+      return Dirent.Type.UNKNOWN;
     } else if (stat.isSpecialFile()) {
-        return Type.UNKNOWN;
+      return Dirent.Type.UNKNOWN;
     } else if (stat.isFile()) {
-      return Type.FILE;
+      return Dirent.Type.FILE;
     } else if (stat.isDirectory()) {
-      return Type.DIRECTORY;
+      return Dirent.Type.DIRECTORY;
     } else if (stat.isSymbolicLink()) {
-      return Type.SYMLINK;
+      return Dirent.Type.SYMLINK;
     } else {
-      return Type.UNKNOWN;
+      return Dirent.Type.UNKNOWN;
     }
   }
 

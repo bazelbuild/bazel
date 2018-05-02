@@ -20,7 +20,7 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Map.Entry;
+import java.util.Map;
 
 /**
  * A codec for {@link ImmutableMultimap}. Handles both {@link ImmutableListMultimap} and {@link
@@ -46,7 +46,7 @@ public class ImmutableMultimapCodec<K, V> implements ObjectCodec<ImmutableMultim
       throw new SerializationException("Unexpected multimap type: " + obj.getClass());
     }
     codedOut.writeInt32NoTag(obj.asMap().size());
-    for (Entry<K, Collection<V>> entry : obj.asMap().entrySet()) {
+    for (Map.Entry<K, Collection<V>> entry : obj.asMap().entrySet()) {
       context.serialize(entry.getKey(), codedOut);
       context.serialize(entry.getValue(), codedOut);
     }

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.Builder;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.util.List;
 
 /**
@@ -35,7 +35,7 @@ public final class StlImpls {
     }
 
     @Override
-    public void addStlImpl(Builder toolchain, String gccVersion) {
+    public void addStlImpl(CToolchain.Builder toolchain, String gccVersion) {
       addBaseStlImpl(toolchain, gccVersion);
       toolchain.addAllUnfilteredCxxFlag(createIncludeFlags(
           ndkPaths.createGnuLibstdcIncludePaths(gccVersion, toolchain.getTargetCpu())));
@@ -51,7 +51,7 @@ public final class StlImpls {
     }
 
     @Override
-    public void addStlImpl(Builder toolchain, String gccVersion) {
+    public void addStlImpl(CToolchain.Builder toolchain, String gccVersion) {
       addBaseStlImpl(toolchain, null);
       toolchain.addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createLibcxxIncludePaths()));
       toolchain.addLinkerFlag("-L" + ndkPaths.createLibcppLinkerPath(toolchain.getTargetCpu()));
@@ -67,7 +67,7 @@ public final class StlImpls {
     }
 
     @Override
-    public void addStlImpl(Builder toolchain, String gccVersion) {
+    public void addStlImpl(CToolchain.Builder toolchain, String gccVersion) {
       addBaseStlImpl(toolchain, null);
       toolchain.addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createStlportIncludePaths()));
     }

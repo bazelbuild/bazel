@@ -15,7 +15,6 @@
 package com.google.testing.junit.runner.junit4;
 
 import com.google.testing.junit.runner.model.TestSuiteModel;
-import com.google.testing.junit.runner.model.TestSuiteModel.Builder;
 import com.google.testing.junit.runner.util.Supplier;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -29,10 +28,11 @@ import org.junit.runner.Request;
 class JUnit4TestModelBuilder implements Supplier<TestSuiteModel> {
   private final Request request;
   private final String suiteName;
-  private final Builder builder;
+  private final TestSuiteModel.Builder builder;
 
   @Inject
-  public JUnit4TestModelBuilder(Request request, @TopLevelSuite String suiteName, Builder builder) {
+  public JUnit4TestModelBuilder(
+      Request request, @TopLevelSuite String suiteName, TestSuiteModel.Builder builder) {
     this.request = request;
     this.suiteName = suiteName;
     this.builder = builder;

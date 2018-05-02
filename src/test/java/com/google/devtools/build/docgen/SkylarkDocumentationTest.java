@@ -43,7 +43,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.junit.Before;
@@ -89,10 +88,11 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules();
     SkylarkModuleDoc topLevel =
         modules.remove(SkylarkDocumentationCollector.getTopLevelModule().name());
-    for (Entry<String, SkylarkBuiltinMethodDoc> entry : topLevel.getBuiltinMethods().entrySet()) {
+    for (Map.Entry<String, SkylarkBuiltinMethodDoc> entry :
+        topLevel.getBuiltinMethods().entrySet()) {
       docMap.put(entry.getKey(), entry.getValue().getDocumentation());
     }
-    for (Entry<String, SkylarkModuleDoc> entry : modules.entrySet()) {
+    for (Map.Entry<String, SkylarkModuleDoc> entry : modules.entrySet()) {
       docMap.put(entry.getKey(), entry.getValue().getDocumentation());
     }
 

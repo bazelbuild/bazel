@@ -25,7 +25,6 @@ import com.google.devtools.build.zip.ZipFileEntry.Compression;
 import com.google.devtools.build.zip.ZipReader;
 import com.google.devtools.build.zip.ZipUtil;
 import com.google.devtools.build.zip.ZipWriter;
-
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -36,14 +35,12 @@ import java.io.OutputStream;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.CRC32;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterInputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
-
 import javax.annotation.Nullable;
 
 /**
@@ -580,7 +577,7 @@ public class ZipCombiner implements AutoCloseable {
    * @throws IllegalStateException if this method was already called earlier
    */
   public void finish() throws IOException {
-    for (Entry<String, EntryAction> entry : actions.entrySet()) {
+    for (Map.Entry<String, EntryAction> entry : actions.entrySet()) {
       String filename = entry.getKey();
       EntryAction action = entry.getValue();
       if (action.getType() == ActionType.MERGE) {

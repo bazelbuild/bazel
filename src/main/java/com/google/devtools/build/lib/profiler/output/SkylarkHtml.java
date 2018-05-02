@@ -18,11 +18,9 @@ import com.google.common.base.StandardSystemProperty;
 import com.google.devtools.build.lib.profiler.statistics.SkylarkStatistics;
 import com.google.devtools.build.lib.profiler.statistics.TasksStatistics;
 import com.google.devtools.build.lib.util.LongArrayList;
-
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * Formats {@link SkylarkStatistics} as HTML tables and histogram charts.
@@ -165,7 +163,7 @@ public final class SkylarkHtml extends HtmlPrinter {
   private void printHistogramData(Map<String, LongArrayList> functionDurations, String category) {
     lnPrintf("'%s': {", category);
     down();
-    for (Entry<String, LongArrayList> entry : functionDurations.entrySet()) {
+    for (Map.Entry<String, LongArrayList> entry : functionDurations.entrySet()) {
       String function = entry.getKey();
       LongArrayList durations = entry.getValue();
       lnPrintf("'%s': google.visualization.arrayToDataTable(", function);
@@ -211,7 +209,7 @@ public final class SkylarkHtml extends HtmlPrinter {
       lnPrintf("%s.addColumn('number', 'relative (%%)');", tmpVar);
       lnPrintf("%s.addRows([", tmpVar);
       down();
-      for (Entry<String, TasksStatistics> entry : taskStatistics.entrySet()) {
+      for (Map.Entry<String, TasksStatistics> entry : taskStatistics.entrySet()) {
         String function = entry.getKey();
         TasksStatistics stats = entry.getValue();
         TasksStatistics selfStats = taskSelfStatistics.get(function);

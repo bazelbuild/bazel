@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp.transitions;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Builder;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 
 /** Rule set to deal with LIPO data transitions */
@@ -26,7 +26,7 @@ public final class LipoDataTransitionRuleSet implements RuleSet {
   }
 
   @Override
-  public void init(Builder builder) {
+  public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.setLipoDataTransition(DisableLipoTransition.INSTANCE);
   }
 

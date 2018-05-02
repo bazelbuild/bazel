@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolP
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -281,7 +281,7 @@ public class AndroidNdkCrosstoolsTest {
       }
 
       // Collect all the duplicate triples.
-      for (Entry<String, Collection<CToolchain>> entry : triples.build().asMap().entrySet()) {
+      for (Map.Entry<String, Collection<CToolchain>> entry : triples.build().asMap().entrySet()) {
         if (entry.getValue().size() > 1) {
           errorBuilder.append(entry.getKey() + ": " + Joiner.on(", ").join(
               Collections2.transform(entry.getValue(), new Function<CToolchain, String>() {

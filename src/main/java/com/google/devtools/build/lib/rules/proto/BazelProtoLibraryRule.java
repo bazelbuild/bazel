@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
@@ -46,7 +45,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
                   : DEFAULT_PROTO_COMPILER);
 
   @Override
-  public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
 
     return builder
         .requiresConfigurationFragments(ProtoConfiguration.class)
