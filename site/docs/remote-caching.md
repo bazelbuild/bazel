@@ -28,6 +28,7 @@ make builds significantly faster.
     * [Delete content from the remote cache](#delete-content-from-the-remote-cache)
 * [Known Issues](#known-issues)
 * [External Links](#external-links)
+* [Disk cache](#disk-cache)
 * [Bazel remote execution (in development)](#bazel-remote-execution-in-development)
 
 ## Remote caching overview
@@ -305,6 +306,30 @@ You may want to delete content from the cache to:
 
 * Create a clean cache after a cache was poisoned
 * Reduce the amount of storage used by deleting old outputs
+
+## Disk cache
+
+Bazel can use a directory on the filesystem as a remote cache. This is
+useful for sharing build artifacts when switching branches and/or working
+on multiple workspaces of the same project i.e. multiple checkouts. Bazel
+does not garbage collect the directory and thus one might want to set up a
+cron job or similar to periodically clean up the directory. The disk cache
+can be enabled with the following flags.
+
+```
+build --disk_cache=/path/to/build/cache
+```
+
+Additionally, one can pass a user specific path to the `--disk_cache` flag
+via the `~` character. Bazel will replace this with the current user's home
+directory. This comes in handy when one wants to enable the disk cache for
+all developers of a project via the project's checked in `.bazelrc` file.
+
+To have cache hits across different workspaces, the flag should be used:
+
+```
+build --experimental_strict_action_env
+```
 
 ## Known issues
 
