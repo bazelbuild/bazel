@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Builder;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsStoreImpl;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -55,7 +54,8 @@ public final class CcLinkParamsInfo {
     }
 
     @Override
-    protected void collect(Builder builder, boolean linkingStatically, boolean linkShared) {
+    protected void collect(
+        CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
       for (CcLinkParamsInfo provider : providers) {
         builder.add(provider.getCcLinkParamsStore());
       }

@@ -23,7 +23,7 @@ import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
-import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.Builder;
+import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml;
 import com.google.errorprone.annotations.Immutable;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -118,7 +118,7 @@ public class ResourcesAttribute implements XmlResourceValue {
       throws IOException {
     SerializeFormat.DataValue.Builder builder =
         XmlResourceValues.newSerializableDataValueBuilder(sourceId);
-    Builder xmlValueBuilder =
+    DataValueXml.Builder xmlValueBuilder =
         builder
             .getXmlValueBuilder()
             .putAllNamespace(namespaces.asMap())

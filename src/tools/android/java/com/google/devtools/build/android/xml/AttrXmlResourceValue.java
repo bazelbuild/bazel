@@ -44,7 +44,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.CheckReturnValue;
@@ -121,7 +120,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   }
 
   @VisibleForTesting
-  private static final class BuilderEntry implements Entry<String, ResourceXmlAttrValue> {
+  private static final class BuilderEntry implements Map.Entry<String, ResourceXmlAttrValue> {
     private final String name;
     private final ResourceXmlAttrValue value;
 
@@ -148,7 +147,8 @@ public class AttrXmlResourceValue implements XmlResourceValue {
 
   @SafeVarargs
   @VisibleForTesting
-  public static XmlResourceValue fromFormatEntries(Entry<String, ResourceXmlAttrValue>... entries) {
+  public static XmlResourceValue fromFormatEntries(
+      Map.Entry<String, ResourceXmlAttrValue>... entries) {
     return of(ImmutableMap.copyOf(Arrays.asList(entries)));
   }
 
@@ -157,7 +157,8 @@ public class AttrXmlResourceValue implements XmlResourceValue {
       throws InvalidProtocolBufferException {
     ImmutableMap.Builder<String, ResourceXmlAttrValue> formats =
         ImmutableMap.<String, AttrXmlResourceValue.ResourceXmlAttrValue>builder();
-    for (Entry<String, SerializeFormat.DataValueXml> entry : proto.getMappedXmlValue().entrySet()) {
+    for (Map.Entry<String, SerializeFormat.DataValueXml> entry :
+        proto.getMappedXmlValue().entrySet()) {
       switch (entry.getKey()) {
         case FLAGS:
           formats.put(
@@ -413,7 +414,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     xmlValueBuilder
         .setType(SerializeFormat.DataValueXml.XmlType.ATTR)
         .putAllNamespace(namespaces.asMap());
-    for (Entry<String, ResourceXmlAttrValue> entry : formats.entrySet()) {
+    for (Map.Entry<String, ResourceXmlAttrValue> entry : formats.entrySet()) {
       xmlValueBuilder.putMappedXmlValue(
           entry.getKey(), entry.getValue().appendTo(builder.getXmlValueBuilder()));
     }
@@ -450,7 +451,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @VisibleForTesting
-    public static Entry<String, ResourceXmlAttrValue> asEntryOf(String... keyThenValue) {
+    public static Map.Entry<String, ResourceXmlAttrValue> asEntryOf(String... keyThenValue) {
       Preconditions.checkArgument(keyThenValue.length > 0);
       Preconditions.checkArgument(keyThenValue.length % 2 == 0);
       ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
@@ -490,7 +491,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
 
     @Override
     public ValuesResourceDefinition writeTo(ValuesResourceDefinition writer) {
-      for (Entry<String, String> entry : values.entrySet()) {
+      for (Map.Entry<String, String> entry : values.entrySet()) {
         writer =
             writer
                 .startTag("enum")
@@ -528,7 +529,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @VisibleForTesting
-    public static Entry<String, ResourceXmlAttrValue> asEntryOf(String... keyThenValue) {
+    public static Map.Entry<String, ResourceXmlAttrValue> asEntryOf(String... keyThenValue) {
       ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       Preconditions.checkArgument(keyThenValue.length > 0);
       Preconditions.checkArgument(keyThenValue.length % 2 == 0);
@@ -564,7 +565,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
 
     @Override
     public ValuesResourceDefinition writeTo(ValuesResourceDefinition writer) {
-      for (Entry<String, String> entry : values.entrySet()) {
+      for (Map.Entry<String, String> entry : values.entrySet()) {
         writer =
             writer
                 .startTag("flag")

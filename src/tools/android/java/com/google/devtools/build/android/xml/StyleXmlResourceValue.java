@@ -31,7 +31,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -55,11 +54,11 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public class StyleXmlResourceValue implements XmlResourceValue {
-  public static final Function<Entry<String, String>, String> ENTRY_TO_ITEM =
-      new Function<Entry<String, String>, String>() {
+  public static final Function<Map.Entry<String, String>, String> ENTRY_TO_ITEM =
+      new Function<Map.Entry<String, String>, String>() {
         @Nullable
         @Override
-        public String apply(Entry<String, String> input) {
+        public String apply(Map.Entry<String, String> input) {
           return String.format("<item name='%s'>%s</item>", input.getKey(), input.getValue());
         }
       };
@@ -135,7 +134,7 @@ public class StyleXmlResourceValue implements XmlResourceValue {
             .setTo(parent)
             .closeTag()
             .addCharactersOf("\n");
-    for (Entry<String, String> entry : values.entrySet()) {
+    for (Map.Entry<String, String> entry : values.entrySet()) {
       definition =
           definition
               .startItemTag()

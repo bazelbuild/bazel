@@ -32,7 +32,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
 import javax.xml.namespace.QName;
@@ -88,7 +87,7 @@ public class PluralXmlResourceValue implements XmlResourceValue {
             .addAttributesFrom(attributes.entrySet())
             .closeTag();
 
-    for (Entry<String, String> plural : values.entrySet()) {
+    for (Map.Entry<String, String> plural : values.entrySet()) {
       definition =
           definition
               .startItemTag()

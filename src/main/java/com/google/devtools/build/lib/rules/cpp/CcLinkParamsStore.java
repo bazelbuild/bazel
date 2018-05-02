@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Builder;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -23,8 +22,9 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 /**
  * A cache of C link parameters.
  *
- * <p>The cache holds instances of {@link CcLinkParams} for combinations of linkingStatically and
- * linkShared. If a requested value is not available in the cache, it is computed and then stored.
+ * <p>The cache holds instances of {@link com.google.devtools.build.lib.rules.cpp.CcLinkParams} for
+ * combinations of linkingStatically and linkShared. If a requested value is not available in the
+ * cache, it is computed and then stored.
  *
  * <p>Typically this class is used on targets that may be linked in as C libraries as in the
  * following example:
@@ -59,9 +59,11 @@ public abstract class CcLinkParamsStore {
   }
 
   /**
-   * Returns {@link CcLinkParams} for a combination of parameters.
+   * Returns {@link com.google.devtools.build.lib.rules.cpp.CcLinkParams} for a combination of
+   * parameters.
    *
-   * <p>The {@link CcLinkParams} instance is computed lazily and cached.
+   * <p>The {@link com.google.devtools.build.lib.rules.cpp.CcLinkParams} instance is computed lazily
+   * and cached.
    */
   public synchronized CcLinkParams get(boolean linkingStatically, boolean linkShared) {
     CcLinkParams result = lookup(linkingStatically, linkShared);
@@ -116,7 +118,8 @@ public abstract class CcLinkParamsStore {
         new CcLinkParamsStore_EmptyCcLinkParamsStore_AutoCodec();
 
     @Override
-    protected void collect(Builder builder, boolean linkingStatically, boolean linkShared) {}
+    protected void collect(
+        CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {}
   }
 
   /** An empty CcLinkParamStore. */
@@ -150,7 +153,8 @@ public abstract class CcLinkParamsStore {
     }
 
     @Override
-    protected void collect(Builder builder, boolean linkingStatically, boolean linkShared) {}
+    protected void collect(
+        CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {}
   }
 }
 

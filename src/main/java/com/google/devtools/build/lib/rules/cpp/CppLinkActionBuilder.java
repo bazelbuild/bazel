@@ -61,7 +61,6 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Matcher;
 import javax.annotation.Nullable;
@@ -1147,7 +1146,7 @@ public class CppLinkActionBuilder {
     }
 
     if (!isLtoIndexing) {
-      for (Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
+      for (Map.Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
         analysisEnvironment.registerAction(
             CppLinkstampCompileHelper.createLinkstampCompileAction(
                 ruleContext,

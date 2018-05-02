@@ -78,7 +78,6 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -787,7 +786,7 @@ public class CppCompileAction extends AbstractAction
       info.addAllSourcesAndHeaders(
           Artifact.toExecPaths(ccCompilationContextInfo.getDeclaredIncludeSrcs()));
     }
-    for (Entry<String, String> envVariable : getEnvironment().entrySet()) {
+    for (Map.Entry<String, String> envVariable : getEnvironment().entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
               .setName(envVariable.getKey())

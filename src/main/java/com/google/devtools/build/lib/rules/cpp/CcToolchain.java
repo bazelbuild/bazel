@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
@@ -873,7 +872,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
    *
    * <p>This method is meant to be overridden by subclasses of CcToolchain.
    */
-  protected void addBuildVariables(RuleContext ruleContext, Builder variables)
+  protected void addBuildVariables(RuleContext ruleContext, Variables.Builder variables)
       throws RuleErrorException {
     // To be overridden in subclasses.
   }

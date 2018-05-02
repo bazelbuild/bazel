@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.ComputedSubstitution;
@@ -462,10 +461,8 @@ public interface JavaSemantics {
       boolean shouldStrip)
       throws InterruptedException;
 
-  /**
-   * Add extra dependencies for runfiles of a Java binary.
-   */
-  void addDependenciesForRunfiles(RuleContext ruleContext, Builder builder);
+  /** Add extra dependencies for runfiles of a Java binary. */
+  void addDependenciesForRunfiles(RuleContext ruleContext, Runfiles.Builder builder);
 
   /**
    * Add a source artifact to a {@link JavaTargetAttributes.Builder}. It is called when a source
