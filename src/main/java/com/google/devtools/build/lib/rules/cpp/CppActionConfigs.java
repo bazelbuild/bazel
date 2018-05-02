@@ -936,7 +936,7 @@ public class CppActionConfigs {
                     "    action: 'c++-link-nodeps-dynamic-library'",
                     "    action: 'c++-link-executable'",
                     "    flag_group {",
-                    "      flag: '-lgcov'",
+                    "      flag: '--coverage'",
                     "    }",
                     "  }",
                     "  requires {",
