@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -340,10 +341,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    *
    * <p>This method is final, as it is merely a shorthand use of the generic way to obtain a spawn,
    * which also depends on the client environment. Subclasses that which to override the way to get
-   * a spawn should override {@link #getSpawn()} instead.
+   * a spawn should override the other GetSpawn() methods instead.
    */
   public final Spawn getSpawn() throws CommandLineExpansionException {
-    return new ActionSpawn(commandLines.allArguments(), null, ImmutableList.of());
+    return new ActionSpawn(
+        commandLines.allArguments(), null, ImmutableList.of(), ImmutableMap.of());
   }
 
   /**
@@ -353,17 +355,23 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   public Spawn getSpawn(ActionExecutionContext actionExecutionContext)
       throws CommandLineExpansionException {
     return getSpawn(
-        actionExecutionContext.getArtifactExpander(), actionExecutionContext.getClientEnv());
+        actionExecutionContext.getArtifactExpander(),
+        actionExecutionContext.getClientEnv(),
+        actionExecutionContext.getInputFilesetMappings());
   }
 
-  Spawn getSpawn(ArtifactExpander artifactExpander, Map<String, String> clientEnv)
+  Spawn getSpawn(
+      ArtifactExpander artifactExpander,
+      Map<String, String> clientEnv,
+      Map<PathFragment, ImmutableList<FilesetOutputSymlink>> filesetMappings)
       throws CommandLineExpansionException {
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(artifactExpander, getPrimaryOutput().getExecPath(), commandLineLimits);
     return new ActionSpawn(
         ImmutableList.copyOf(expandedCommandLines.arguments()),
         clientEnv,
-        expandedCommandLines.getParamFiles());
+        expandedCommandLines.getParamFiles(),
+        filesetMappings);
   }
 
   @Override
@@ -497,7 +505,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   private class ActionSpawn extends BaseSpawn {
 
     private final ImmutableList<ActionInput> inputs;
-    private final ImmutableList<Artifact> filesets;
+    private final Map<PathFragment, ImmutableList<FilesetOutputSymlink>> filesetMappings;
     private final ImmutableMap<String, String> effectiveEnvironment;
 
     /**
@@ -509,7 +517,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private ActionSpawn(
         ImmutableList<String> arguments,
         Map<String, String> clientEnv,
-        Iterable<? extends ActionInput> additionalInputs) {
+        Iterable<? extends ActionInput> additionalInputs,
+        Map<PathFragment, ImmutableList<FilesetOutputSymlink>> filesetMappings) {
       super(
           arguments,
           ImmutableMap.<String, String>of(),
@@ -518,18 +527,15 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           SpawnAction.this,
           resourceSet);
       ImmutableList.Builder<ActionInput> inputs = ImmutableList.builder();
-      ImmutableList.Builder<Artifact> filesets = ImmutableList.builder();
       ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
       for (Artifact input : getInputs()) {
-        if (input.isFileset()) {
-          filesets.add(input);
-        } else if (!manifests.contains(input)) {
+        if (!input.isFileset() && !manifests.contains(input)) {
           inputs.add(input);
         }
       }
       inputs.addAll(additionalInputs);
-      this.filesets = filesets.build();
       this.inputs = inputs.build();
+      this.filesetMappings = filesetMappings;
       LinkedHashMap<String, String> env = new LinkedHashMap<>(SpawnAction.this.getEnvironment());
       if (clientEnv != null) {
         for (String var : SpawnAction.this.getClientEnvironmentVariables()) {
@@ -550,8 +556,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
 
     @Override
-    public ImmutableList<Artifact> getFilesetManifests() {
-      return filesets;
+    public ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> getFilesetMappings() {
+      return ImmutableMap.copyOf(filesetMappings);
     }
 
     @Override

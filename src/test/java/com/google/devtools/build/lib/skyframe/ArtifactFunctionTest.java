@@ -376,9 +376,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         throw new IllegalStateException(e);
       }
       return new ActionExecutionValue(
-          artifactData,
-          treeArtifactData,
-          additionalOutputData);
+          artifactData, treeArtifactData, additionalOutputData, /*outputSymlinks=*/ null);
     }
 
     @Override

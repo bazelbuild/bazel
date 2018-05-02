@@ -2090,6 +2090,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           /*metadataHandler=*/ null,
           actionLogBufferPathGenerator.generate(),
           clientEnv,
+          ImmutableMap.of(),
           artifactExpander);
     }
   }

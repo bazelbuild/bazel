@@ -143,6 +143,7 @@ public final class ActionsTestUtil {
         metadataHandler,
         fileOutErr,
         ImmutableMap.copyOf(clientEnv),
+        ImmutableMap.of(),
         actionGraph == null
             ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph));
@@ -176,6 +177,7 @@ public final class ActionsTestUtil {
         new ActionKeyContext(),
         null,
         null,
+        ImmutableMap.of(),
         ImmutableMap.of(),
         createDummyArtifactExpander());
   }

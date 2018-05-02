@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Map;
 
@@ -27,6 +30,9 @@ public interface ActionExecutionContextFactory {
    * Returns an action execution context. This involves creating a new FileOutErr, and it is the
    * caller's responsibility to close that, e.g. by calling {@link ActionExecutionContext#close}.
    */
-  ActionExecutionContext getContext(ActionInputFileCache graphFileCache,
-      MetadataHandler metadataHandler, Map<Artifact, Collection<Artifact>> expandedInputs);
+  ActionExecutionContext getContext(
+      ActionInputFileCache graphFileCache,
+      MetadataHandler metadataHandler,
+      Map<Artifact, Collection<Artifact>> expandedInputs,
+      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings);
 }

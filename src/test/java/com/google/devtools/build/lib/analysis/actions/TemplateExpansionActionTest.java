@@ -191,6 +191,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         null,
         new FileOutErr(),
         ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         null);
   }
 

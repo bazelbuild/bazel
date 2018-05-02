@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.OptionsClassProvider;
@@ -47,9 +49,13 @@ public class ActionExecutionContext implements Closeable {
   private final MetadataHandler metadataHandler;
   private final FileOutErr fileOutErr;
   private final ImmutableMap<String, String> clientEnv;
+  private final ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>>
+      inputFilesetMappings;
   private final ArtifactExpander artifactExpander;
   @Nullable
   private final Environment env;
+
+  @Nullable private ImmutableList<FilesetOutputSymlink> outputSymlinks;
 
   private ActionExecutionContext(
       Executor executor,
@@ -59,6 +65,7 @@ public class ActionExecutionContext implements Closeable {
       MetadataHandler metadataHandler,
       FileOutErr fileOutErr,
       Map<String, String> clientEnv,
+      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings,
       @Nullable ArtifactExpander artifactExpander,
       @Nullable SkyFunction.Environment env) {
     this.actionInputFileCache = actionInputFileCache;
@@ -67,6 +74,7 @@ public class ActionExecutionContext implements Closeable {
     this.metadataHandler = metadataHandler;
     this.fileOutErr = fileOutErr;
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
+    this.inputFilesetMappings = inputFilesetMappings;
     this.executor = executor;
     this.artifactExpander = artifactExpander;
     this.env = env;
@@ -80,6 +88,7 @@ public class ActionExecutionContext implements Closeable {
       MetadataHandler metadataHandler,
       FileOutErr fileOutErr,
       Map<String, String> clientEnv,
+      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings,
       ArtifactExpander artifactExpander) {
     this(
         executor,
@@ -89,6 +98,7 @@ public class ActionExecutionContext implements Closeable {
         metadataHandler,
         fileOutErr,
         clientEnv,
+        inputFilesetMappings,
         artifactExpander,
         null);
   }
@@ -110,6 +120,7 @@ public class ActionExecutionContext implements Closeable {
         metadataHandler,
         fileOutErr,
         clientEnv,
+        ImmutableMap.of(),
         null,
         env);
   }
@@ -174,6 +185,24 @@ public class ActionExecutionContext implements Closeable {
 
   public ExtendedEventHandler getEventHandler() {
     return executor.getEventHandler();
+  }
+
+  public ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> getInputFilesetMappings() {
+    return inputFilesetMappings;
+  }
+
+  @Nullable
+  public ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
+    return outputSymlinks;
+  }
+
+  public void setOutputSymlinks(ImmutableList<FilesetOutputSymlink> outputSymlinks) {
+    Preconditions.checkState(
+        this.outputSymlinks == null,
+        "Unexpected reassignment of the outputSymlinks of a Fileset from\n:%s to:\n%s",
+        this.outputSymlinks,
+        outputSymlinks);
+    this.outputSymlinks = outputSymlinks;
   }
 
   /**
@@ -259,6 +288,7 @@ public class ActionExecutionContext implements Closeable {
         metadataHandler,
         fileOutErr,
         clientEnv,
+        inputFilesetMappings,
         artifactExpander,
         env);
   }

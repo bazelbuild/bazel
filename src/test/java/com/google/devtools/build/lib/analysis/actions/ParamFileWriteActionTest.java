@@ -178,6 +178,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         null,
         new FileOutErr(),
         ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         artifactExpander);
   }
 

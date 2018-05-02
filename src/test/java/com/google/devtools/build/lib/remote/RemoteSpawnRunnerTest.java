@@ -968,7 +968,7 @@ public class RemoteSpawnRunnerTest {
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
       return new SpawnInputExpander(execRoot, /*strict*/ false)
-          .getInputMapping(spawn, artifactExpander, fakeFileCache, "workspace");
+          .getInputMapping(spawn, artifactExpander, fakeFileCache);
     }
 
     @Override

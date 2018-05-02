@@ -55,9 +55,9 @@ public class SpawnGccStrategy implements CppCompileActionContext {
             ImmutableMap.copyOf(action.getEnvironment()),
             ImmutableMap.copyOf(action.getExecutionInfo()),
             EmptyRunfilesSupplier.INSTANCE,
+            ImmutableMap.of(),
             ImmutableList.copyOf(inputs),
             /* tools= */ ImmutableList.of(),
-            /* filesetManifests= */ ImmutableList.of(),
             action.getOutputs().asList(),
             action.estimateResourceConsumptionLocal());
 

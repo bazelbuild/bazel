@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -43,11 +44,6 @@ public interface Spawn {
   RunfilesSupplier getRunfilesSupplier();
 
   /**
-   * Returns artifacts for filesets, so they can be scheduled on remote execution.
-   */
-  ImmutableList<Artifact> getFilesetManifests();
-
-  /**
    * Returns the command (the first element) and its arguments.
    */
   ImmutableList<String> getArguments();
@@ -57,6 +53,12 @@ public interface Spawn {
    * If null, the environment is inherited from the parent process.
    */
   ImmutableMap<String, String> getEnvironment();
+
+  /**
+   * Map of the execpath at which we expect the Fileset symlink trees, to a list of
+   * FilesetOutputSymlinks which contains the details of the Symlink trees.
+   */
+  ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> getFilesetMappings();
 
   /**
    * Returns the list of files that are required to execute this spawn (e.g. the compiler binary),

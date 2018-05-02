@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.createDirectoryA
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
@@ -55,6 +56,7 @@ import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -481,8 +483,10 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
    */
   @Override
   public ActionExecutionContext getContext(
-      ActionInputFileCache graphFileCache, MetadataHandler metadataHandler,
-      Map<Artifact, Collection<Artifact>> expandedInputs) {
+      ActionInputFileCache graphFileCache,
+      MetadataHandler metadataHandler,
+      Map<Artifact, Collection<Artifact>> expandedInputs,
+      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings) {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate();
     return new ActionExecutionContext(
         executorEngine,
@@ -492,6 +496,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
         metadataHandler,
         fileOutErr,
         clientEnv,
+        inputFilesetMappings,
         new ArtifactExpanderImpl(expandedInputs));
   }
 
@@ -706,10 +711,18 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
             "%s %s", actionExecutionContext.getMetadataHandler(), metadataHandler);
         prepareScheduleExecuteAndCompleteAction(
             eventHandler, action, actionExecutionContext, actionStartTime, actionLookupData);
+        Preconditions.checkState(
+            actionExecutionContext.getOutputSymlinks() == null
+                || action instanceof SkyframeAwareAction,
+            "Unexpected to find outputSymlinks set"
+                + " in an action which is not a SkyframeAwareAction. Action: %s\n symlinks:%s",
+            action,
+            actionExecutionContext.getOutputSymlinks());
         return new ActionExecutionValue(
             metadataHandler.getOutputArtifactData(),
             metadataHandler.getOutputTreeArtifactData(),
-            metadataHandler.getAdditionalOutputData());
+            metadataHandler.getAdditionalOutputData(),
+            actionExecutionContext.getOutputSymlinks());
       } finally {
         profiler.completeTask(ProfilerTask.ACTION);
       }

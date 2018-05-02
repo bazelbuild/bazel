@@ -191,7 +191,9 @@ public class SpawnActionTest extends BuildViewTestCase {
             "/bin/java", "-Xverify:none", "-jvmarg", "-cp", "pkg/exe.jar", "MyMainClass", "-X")
         .inOrder();
 
-    Spawn spawn = action.getSpawn((artifact, outputs) -> outputs.add(artifact), ImmutableMap.of());
+    Spawn spawn =
+        action.getSpawn(
+            (artifact, outputs) -> outputs.add(artifact), ImmutableMap.of(), ImmutableMap.of());
     String paramFileName = output.getExecPathString() + "-0.params";
     // The spawn's primary arguments should reference the param file
     assertThat(spawn.getArguments())

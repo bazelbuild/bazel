@@ -54,10 +54,10 @@ public final class SpawnBuilder {
         ImmutableList.copyOf(args),
         ImmutableMap.copyOf(environment),
         ImmutableMap.copyOf(executionInfo),
-        /*runfilesSupplier=*/EmptyRunfilesSupplier.INSTANCE, 
+        /*runfilesSupplier=*/ EmptyRunfilesSupplier.INSTANCE,
+        ImmutableMap.of(),
         ImmutableList.copyOf(inputs),
-        /*tools=*/ImmutableList.<Artifact>of(),
-        /*filesetManifests=*/ImmutableList.<Artifact>of(),
+        /*tools=*/ ImmutableList.<Artifact>of(),
         ImmutableList.copyOf(outputs),
         ResourceSet.ZERO);
   }

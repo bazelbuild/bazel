@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
-import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -233,11 +232,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
       if (lazyInputMapping == null) {
-        lazyInputMapping = spawnInputExpander.getInputMapping(
-            spawn,
-            actionExecutionContext.getArtifactExpander(),
-            actionExecutionContext.getActionInputFileCache(),
-            actionExecutionContext.getContext(FilesetActionContext.class));
+        lazyInputMapping =
+            spawnInputExpander.getInputMapping(
+                spawn,
+                actionExecutionContext.getArtifactExpander(),
+                actionExecutionContext.getActionInputFileCache());
       }
       return lazyInputMapping;
     }
