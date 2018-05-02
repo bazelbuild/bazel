@@ -89,12 +89,10 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     JavaTargetAttributes.Builder attributesBuilder = javaCommon.initCommon();
 
     final ResourceApk resourceApk;
-    final Artifact unprocessedManifest;
 
     if (AndroidResources.decoupleDataProcessing(ruleContext)) {
       StampedAndroidManifest manifest =
           StampedAndroidManifest.from(ruleContext, androidSemantics).mergeWithDeps(ruleContext);
-      unprocessedManifest = manifest.getManifest();
 
       resourceApk =
           ProcessedAndroidData.processLocalTestDataFrom(ruleContext, manifest)
@@ -106,7 +104,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
       ApplicationManifest applicationManifest =
           getApplicationManifest(ruleContext, androidSemantics, resourceDependencies);
-      unprocessedManifest = applicationManifest.getManifest();
 
       // Create the final merged R class
       resourceApk =
@@ -145,7 +142,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         Template.forResource(AndroidLocalTestBase.class, "robolectric_properties_template.txt");
     List<Substitution> substitutions = new ArrayList<>();
     substitutions.add(
-        Substitution.of("%android_merged_manifest%", unprocessedManifest.getRunfilesPathString()));
+        Substitution.of(
+            "%android_merged_manifest%", resourceApk.getManifest().getRunfilesPathString()));
     substitutions.add(
         Substitution.of("%android_merged_resources%", "jar:file:" + resourcesLocation + "!/res"));
     substitutions.add(
@@ -308,7 +306,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             ruleContext,
             javaCommon,
             filesToBuild,
-            unprocessedManifest,
+            resourceApk.getManifest(),
             resourceApk.getResourceJavaClassJar(),
             resourceApk.getValidatedResources().getMergedResources(),
             generateBinaryResources ? resourceApk : null);

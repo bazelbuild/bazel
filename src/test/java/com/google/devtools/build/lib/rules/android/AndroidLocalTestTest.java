@@ -67,7 +67,7 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
     Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact manifest =
         ActionsTestUtil.getFirstArtifactEndingWith(
-            runfilesArtifacts, "dummyTest_generated/dummyTest/AndroidManifest.xml");
+            runfilesArtifacts, "dummyTest_processed_manifest/AndroidManifest.xml");
     assertThat(manifest).isNotNull();
   }
 
