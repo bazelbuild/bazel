@@ -1831,8 +1831,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     FileConfiguredTarget target = getFileConfiguredTarget("//java/com/google/jni:libjni.jar");
     SpawnAction action = (SpawnAction) getGeneratingAction(target.getArtifact());
     String outputPath = outputPath(action, "java/com/google/jni/libjni-native-header.jar");
-    assertThat(action.getArguments())
-        .contains("@" + getBinArtifact("libjni.jar-2.params", target).getExecPathString());
     Iterable<String> result = paramFileArgsForAction(action);
     assertThat(Joiner.on(' ').join(result))
         .contains(Joiner.on(' ').join("--native_header_output", outputPath));
