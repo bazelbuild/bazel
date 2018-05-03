@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnCache;
+import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -91,6 +92,12 @@ final class RemoteSpawnCache implements SpawnCache {
   @Override
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException {
+    boolean checkCache = options.remoteAcceptCached && Spawns.mayBeCached(spawn);
+
+    if (checkCache) {
+      context.report(ProgressStatus.CHECKING_CACHE, "remote-cache");
+    }
+
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
     TreeNodeRepository repository =
         new TreeNodeRepository(execRoot, context.getActionInputFileCache(), digestUtil);
@@ -106,42 +113,42 @@ final class RemoteSpawnCache implements SpawnCache {
             spawn.getExecutionPlatform(),
             context.getTimeout(),
             Spawns.mayBeCached(spawn));
-
     // Look up action cache, and reuse the action output if it is found.
     final ActionKey actionKey = digestUtil.computeActionKey(action);
+
     Context withMetadata =
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
-    // Metadata will be available in context.current() until we detach.
-    // This is done via a thread-local variable.
-    Context previous = withMetadata.attach();
-    try {
-      ActionResult result =
-          this.options.remoteAcceptCached && Spawns.mayBeCached(spawn)
-              ? remoteCache.getCachedActionResult(actionKey)
-              : null;
-      if (result != null) {
-        // We don't cache failed actions, so we know the outputs exist.
-        // For now, download all outputs locally; in the future, we can reuse the digests to
-        // just update the TreeNodeRepository and continue the build.
-        remoteCache.download(result, execRoot, context.getFileOutErr());
-        SpawnResult spawnResult =
-            new SpawnResult.Builder()
-                .setStatus(Status.SUCCESS)
-                .setExitCode(result.getExitCode())
-                .setCacheHit(true)
-                .setRunnerName("remote cache hit")
-                .build();
-        return SpawnCache.success(spawnResult);
+
+    if (checkCache) {
+      // Metadata will be available in context.current() until we detach.
+      // This is done via a thread-local variable.
+      Context previous = withMetadata.attach();
+      try {
+        ActionResult result = remoteCache.getCachedActionResult(actionKey);
+        if (result != null) {
+          // We don't cache failed actions, so we know the outputs exist.
+          // For now, download all outputs locally; in the future, we can reuse the digests to
+          // just update the TreeNodeRepository and continue the build.
+          remoteCache.download(result, execRoot, context.getFileOutErr());
+          SpawnResult spawnResult =
+              new SpawnResult.Builder()
+                  .setStatus(Status.SUCCESS)
+                  .setExitCode(result.getExitCode())
+                  .setCacheHit(true)
+                  .setRunnerName("remote cache hit")
+                  .build();
+          return SpawnCache.success(spawnResult);
+        }
+      } catch (CacheNotFoundException e) {
+        // There's a cache miss. Fall back to local execution.
+      } catch (IOException e) {
+        // There's an IO error. Fall back to local execution.
+        reportOnce(
+            Event.warn(
+                "Some artifacts failed to be downloaded from the remote cache: " + e.getMessage()));
+      } finally {
+        withMetadata.detach(previous);
       }
-    } catch (CacheNotFoundException e) {
-      // There's a cache miss. Fall back to local execution.
-    } catch (IOException e) {
-      // There's an IO error. Fall back to local execution.
-      reportOnce(
-          Event.warn(
-              "Some artifacts failed to be downloaded from the remote cache: " + e.getMessage()));
-    } finally {
-      withMetadata.detach(previous);
     }
     if (options.remoteUploadLocalResults) {
       return new CacheHandle() {

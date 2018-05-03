@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
@@ -61,7 +62,9 @@ import com.google.devtools.remoteexecution.v1test.Command;
 import com.google.devtools.remoteexecution.v1test.RequestMetadata;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.SortedMap;
 import org.junit.Before;
 import org.junit.Test;
@@ -92,6 +95,7 @@ public class RemoteSpawnCacheTest {
   @Mock private AbstractRemoteActionCache remoteCache;
   private RemoteSpawnCache cache;
   private FileOutErr outErr;
+  private final List<Pair<ProgressStatus, String>> progressUpdates = new ArrayList();
 
   private StoredEventHandler eventHandler = new StoredEventHandler();
 
@@ -146,7 +150,7 @@ public class RemoteSpawnCacheTest {
 
         @Override
         public void report(ProgressStatus state, String name) {
-          // TODO(ulfjack): Test that the right calls are made.
+          progressUpdates.add(Pair.of(state, name));
         }
       };
 
@@ -242,6 +246,8 @@ public class RemoteSpawnCacheTest {
     // We expect the CachedLocalSpawnRunner to _not_ write to outErr at all.
     assertThat(outErr.hasRecordedOutput()).isFalse();
     assertThat(outErr.hasRecordedStderr()).isFalse();
+    assertThat(progressUpdates)
+        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }
 
   @Test
@@ -270,6 +276,8 @@ public class RemoteSpawnCacheTest {
     entry.store(result, outputFiles);
     verify(remoteCache)
         .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(true));
+    assertThat(progressUpdates)
+        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }
 
   @Test
@@ -299,6 +307,7 @@ public class RemoteSpawnCacheTest {
     entry.store(result, outputFiles);
     verify(remoteCache)
         .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(false));
+    assertThat(progressUpdates).containsExactly();
   }
 
   @Test
@@ -318,6 +327,8 @@ public class RemoteSpawnCacheTest {
     entry.store(result, outputFiles);
     verify(remoteCache)
         .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(false));
+    assertThat(progressUpdates)
+        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }
 
   @Test
@@ -345,5 +356,7 @@ public class RemoteSpawnCacheTest {
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
     assertThat(evt.getMessage()).contains("fail");
     assertThat(evt.getMessage()).contains("upload");
+    assertThat(progressUpdates)
+        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }
 }

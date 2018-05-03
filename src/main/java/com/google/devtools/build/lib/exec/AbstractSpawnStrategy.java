@@ -252,6 +252,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       EventBus eventBus = actionExecutionContext.getEventBus();
       switch (state) {
         case EXECUTING:
+        case CHECKING_CACHE:
           eventBus.post(ActionStatusMessage.runningStrategy(action, name));
           break;
         case SCHEDULING:
