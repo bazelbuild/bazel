@@ -13,10 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.NestedSetStorageEndpoint;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
+import com.google.protobuf.ByteString;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -56,6 +63,94 @@ public class NestedSetCodecTest {
                 .build(),
             ImmutableMap.of());
     NestedSetCodecTestUtils.checkCodec(objectCodecs, true);
+  }
+
+  /**
+   * Tests that serialization of a {@code NestedSet<NestedSet<String>>} waits on the writes of the
+   * inner NestedSets.
+   */
+  @Test
+  public void testNestedNestedSetSerialization() throws Exception {
+    NestedSetStorageEndpoint mockStorage = Mockito.mock(NestedSetStorageEndpoint.class);
+    SettableFuture<Void> innerWrite = SettableFuture.create();
+    SettableFuture<Void> outerWrite = SettableFuture.create();
+    Mockito.when(mockStorage.put(Mockito.any(), Mockito.any()))
+        // The write of the inner NestedSet {"a", "b"}
+        .thenReturn(innerWrite)
+        // The write of the inner NestedSet {"c", "d"}
+        .thenReturn(innerWrite)
+        // The write of the outer NestedSet {{"a", "b"}, {"c", "d"}}
+        .thenReturn(outerWrite);
+    NestedSetStore nestedSetStore = new NestedSetStore(mockStorage);
+    ObjectCodecs objectCodecs =
+        new ObjectCodecs(
+            AutoRegistry.get()
+                .getBuilder()
+                .setAllowDefaultCodec(true)
+                .add(new NestedSetCodecWithStore<>(nestedSetStore))
+                .build(),
+            ImmutableMap.of());
+
+    NestedSet<NestedSet<String>> nestedNestedSet =
+        NestedSetBuilder.create(
+            Order.STABLE_ORDER,
+            NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b"),
+            NestedSetBuilder.create(Order.STABLE_ORDER, "c", "d"));
+
+    SerializationResult<ByteString> result =
+        objectCodecs.serializeMemoizedAndBlocking(nestedNestedSet);
+    outerWrite.set(null);
+    assertThat(result.getFutureToBlockWritesOn().isDone()).isFalse();
+    innerWrite.set(null);
+    assertThat(result.getFutureToBlockWritesOn().isDone()).isTrue();
+  }
+
+  @Test
+  public void testNestedNestedSetsWithCommonDependencyWaitOnSameInnerFuture() throws Exception {
+    NestedSetStorageEndpoint mockStorage = Mockito.mock(NestedSetStorageEndpoint.class);
+    SettableFuture<Void> sharedInnerWrite = SettableFuture.create();
+    SettableFuture<Void> outerWrite = SettableFuture.create();
+    Mockito.when(mockStorage.put(Mockito.any(), Mockito.any()))
+        // The write of the shared inner NestedSet {"a", "b"}
+        .thenReturn(sharedInnerWrite)
+        // The write of the inner NestedSet {"c", "d"}
+        .thenReturn(Futures.immediateFuture(null))
+        // The write of the outer NestedSet {{"a", "b"}, {"c", "d"}}
+        .thenReturn(outerWrite)
+        // The write of the inner NestedSet {"e", "f"}
+        .thenReturn(Futures.immediateFuture(null));
+    NestedSetStore nestedSetStore = new NestedSetStore(mockStorage);
+    ObjectCodecs objectCodecs =
+        new ObjectCodecs(
+            AutoRegistry.get()
+                .getBuilder()
+                .setAllowDefaultCodec(true)
+                .add(new NestedSetCodecWithStore<>(nestedSetStore))
+                .build(),
+            ImmutableMap.of());
+
+    NestedSet<String> sharedInnerNestedSet = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
+    NestedSet<NestedSet<String>> nestedNestedSet1 =
+        NestedSetBuilder.create(
+            Order.STABLE_ORDER,
+            sharedInnerNestedSet,
+            NestedSetBuilder.create(Order.STABLE_ORDER, "c", "d"));
+    NestedSet<NestedSet<String>> nestedNestedSet2 =
+        NestedSetBuilder.create(
+            Order.STABLE_ORDER,
+            sharedInnerNestedSet,
+            NestedSetBuilder.create(Order.STABLE_ORDER, "e", "f"));
+
+    SerializationResult<ByteString> result1 =
+        objectCodecs.serializeMemoizedAndBlocking(nestedNestedSet1);
+    SerializationResult<ByteString> result2 =
+        objectCodecs.serializeMemoizedAndBlocking(nestedNestedSet2);
+    outerWrite.set(null);
+    assertThat(result1.getFutureToBlockWritesOn().isDone()).isFalse();
+    assertThat(result2.getFutureToBlockWritesOn().isDone()).isFalse();
+    sharedInnerWrite.set(null);
+    assertThat(result1.getFutureToBlockWritesOn().isDone()).isTrue();
+    assertThat(result2.getFutureToBlockWritesOn().isDone()).isTrue();
   }
 
   @Test

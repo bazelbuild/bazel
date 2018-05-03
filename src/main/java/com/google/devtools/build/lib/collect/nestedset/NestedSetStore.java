@@ -207,6 +207,13 @@ public class NestedSetStore {
         ByteString.copyFrom(Hashing.md5().hashBytes(serializedBytes).asBytes());
     futureBuilder.add(nestedSetStorageEndpoint.put(fingerprint, serializedBytes));
 
+    // If this is a NestedSet<NestedSet>, serialization of the contents will itself have writes.
+    ListenableFuture<Void> innerWriteFutures =
+        newSerializationContext.createFutureToBlockWritingOn();
+    if (innerWriteFutures != null) {
+      futureBuilder.add(innerWriteFutures);
+    }
+
     ListenableFuture<Void> writeFuture =
         Futures.whenAllComplete(futureBuilder.build())
             .call(() -> null, MoreExecutors.directExecutor());

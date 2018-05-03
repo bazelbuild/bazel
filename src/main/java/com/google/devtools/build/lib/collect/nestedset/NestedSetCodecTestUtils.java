@@ -15,10 +15,13 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Objects;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import java.io.IOException;
 
@@ -27,6 +30,33 @@ public class NestedSetCodecTestUtils {
 
   private static final NestedSet<String> SHARED_NESTED_SET =
       NestedSetBuilder.<String>stableOrder().add("e").build();
+
+  @AutoCodec
+  static class HasNestedSet {
+    private final NestedSet<String> nestedSetField;
+
+    @VisibleForSerialization
+    HasNestedSet(NestedSet<String> nestedSetField) {
+      this.nestedSetField = nestedSetField;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      HasNestedSet that = (HasNestedSet) o;
+      return Objects.equal(nestedSetField.rawChildren(), that.nestedSetField.rawChildren());
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(nestedSetField);
+    }
+  }
 
   /** Perform serialization/deserialization checks for several simple NestedSet examples. */
   public static void checkCodec(ObjectCodecs objectCodecs, boolean allowFutureBlocking)
@@ -50,7 +80,10 @@ public class NestedSetCodecTestUtils {
                         .addTransitive(SHARED_NESTED_SET)
                         .build())
                 .addTransitive(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
-                .build())
+                .build(),
+            NestedSetBuilder.create(
+                Order.STABLE_ORDER,
+                new HasNestedSet(NestedSetBuilder.create(Order.STABLE_ORDER, "a"))))
         .setObjectCodecs(objectCodecs)
         .makeMemoizingAndAllowFutureBlocking(allowFutureBlocking)
         .setVerificationFunction(NestedSetCodecTestUtils::verifyDeserialization)

@@ -123,7 +123,7 @@ public class SerializationContext {
    * getMemoizingContext, this method is not idempotent - the returned context will always be fresh.
    */
   public SerializationContext getNewMemoizingContext() {
-    return getNewMemoizingContext(/*allowFuturesToBlockWritingOn=*/ false);
+    return getNewMemoizingContext(allowFuturesToBlockWritingOn);
   }
 
   private SerializationContext getNewMemoizingContext(boolean allowFuturesToBlockWritingOn) {
