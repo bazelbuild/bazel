@@ -98,4 +98,8 @@ public class AndroidManifestInfo extends NativeInfo {
   public boolean exportsManifest() {
     return exportsManifest;
   }
+
+  public StampedAndroidManifest asStampedManifest() {
+    return new StampedAndroidManifest(manifest, pkg, exportsManifest);
+  }
 }

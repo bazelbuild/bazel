@@ -131,10 +131,18 @@ public class AndroidResources {
       return empty();
     }
 
-    ImmutableList<Artifact> resources =
-        getResources(ruleContext.getPrerequisites(resourcesAttr, Mode.TARGET, FileProvider.class));
+    return from(
+        ruleContext,
+        ruleContext.getPrerequisites(resourcesAttr, Mode.TARGET, FileProvider.class),
+        resourcesAttr);
+  }
 
-    return forResources(ruleContext, resources, resourcesAttr);
+  static AndroidResources from(
+      RuleErrorConsumer errorConsumer,
+      Iterable<FileProvider> resourcesTargets,
+      String resourcesAttr)
+      throws RuleErrorException {
+    return forResources(errorConsumer, getResources(resourcesTargets), resourcesAttr);
   }
 
   /** Returns an {@link AndroidResources} for a list of resource artifacts. */

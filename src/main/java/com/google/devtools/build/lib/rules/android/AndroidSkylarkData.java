@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** Skylark-visible methods for working with Android data (manifests, resources, and assets). */
@@ -171,6 +174,78 @@ public class AndroidSkylarkData {
           .merge(
               ctx.getRuleContext(),
               AssetDependencies.fromProviders(deps.getImmutableList(), neverlink))
+          .toProvider();
+    } catch (RuleErrorException e) {
+      throw new EvalException(Location.BUILTIN, e);
+    }
+  }
+
+  /**
+   * Skylark API for merging android_library resources
+   *
+   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
+   *
+   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
+   *     instead. See b/79159379
+   */
+  @SkylarkCallable(
+      name = "merge_resources",
+      mandatoryPositionals = 2, // context, manifest
+      parameters = {
+        @Param(
+            name = "resources",
+            positional = false,
+            defaultValue = "[]",
+            type = SkylarkList.class,
+            generic1 = FileProvider.class,
+            named = true,
+            doc = "Providers of this target's resources"),
+        @Param(
+            name = "deps",
+            positional = false,
+            defaultValue = "[]",
+            type = SkylarkList.class,
+            generic1 = AndroidResourcesInfo.class,
+            named = true,
+            doc =
+                "Targets containing raw resources from dependencies. These resources will be merged"
+                    + " together with each other and this target's resources."),
+        @Param(
+            name = "neverlink",
+            positional = false,
+            defaultValue = "False",
+            type = Boolean.class,
+            named = true,
+            doc =
+                "Defaults to False. If passed as True, these resources will not be inherited by"
+                    + " targets that depend on this one."),
+      },
+      doc =
+          "Merges this target's resources together with resources inherited from dependencies. The"
+              + " passed manifest provider is used to get Android package information and to"
+              + " validate that all resources it refers to are available. Note that this method"
+              + " might do additional processing to this manifest, so in the future, you may want"
+              + " to use the manifest contained in this method's output instead of this one.")
+  public AndroidResourcesInfo mergeResources(
+      SkylarkRuleContext ctx,
+      AndroidManifestInfo manifest,
+      SkylarkList<ConfiguredTarget> resources,
+      SkylarkList<AndroidResourcesInfo> deps,
+      boolean neverlink)
+      throws EvalException, InterruptedException {
+
+    ImmutableList<FileProvider> fileProviders =
+        resources
+            .stream()
+            .map(target -> target.getProvider(FileProvider.class))
+            .filter(Objects::nonNull)
+            .collect(ImmutableList.toImmutableList());
+
+    try {
+      return AndroidResources.from(ctx.getRuleContext(), fileProviders, "resources")
+          .parse(ctx.getRuleContext(), manifest.asStampedManifest())
+          .merge(ctx.getRuleContext(), ResourceDependencies.fromProviders(deps, neverlink))
+          .validate(ctx.getRuleContext())
           .toProvider();
     } catch (RuleErrorException e) {
       throw new EvalException(Location.BUILTIN, e);

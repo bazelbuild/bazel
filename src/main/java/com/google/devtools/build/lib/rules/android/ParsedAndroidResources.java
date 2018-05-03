@@ -125,7 +125,12 @@ public class ParsedAndroidResources extends AndroidResources
   /** Merges this target's resources with resources from dependencies. */
   public MergedAndroidResources merge(RuleContext ruleContext, boolean neverlink)
       throws InterruptedException, RuleErrorException {
-    return MergedAndroidResources.mergeFrom(ruleContext, this, neverlink);
+    return merge(ruleContext, ResourceDependencies.fromRuleDeps(ruleContext, neverlink));
+  }
+
+  MergedAndroidResources merge(RuleContext ruleContext, ResourceDependencies resourceDeps)
+      throws InterruptedException, RuleErrorException {
+    return MergedAndroidResources.mergeFrom(ruleContext, this, resourceDeps);
   }
 
   @Override
