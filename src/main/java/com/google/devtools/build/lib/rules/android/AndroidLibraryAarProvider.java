@@ -14,9 +14,14 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import javax.annotation.Nullable;
 
@@ -46,8 +51,34 @@ public abstract class AndroidLibraryAarProvider implements TransitiveInfoProvide
   @AutoValue
   @Immutable
   public abstract static class Aar {
-    public static Aar create(Artifact aar, Artifact manifest) {
+    @VisibleForTesting
+    static Aar create(Artifact aar, Artifact manifest) {
       return new AutoValue_AndroidLibraryAarProvider_Aar(aar, manifest);
+    }
+
+    static Aar makeAar(
+        RuleContext ruleContext,
+        ResourceApk resourceApk,
+        ImmutableList<Artifact> localProguardSpecs)
+        throws InterruptedException {
+      Artifact classesJar =
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
+      Artifact aarOut =
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_AAR);
+
+      new AarGeneratorBuilder(ruleContext)
+          .withPrimaryResources(resourceApk.getPrimaryResources())
+          .withPrimaryAssets(resourceApk.getPrimaryAssets())
+          .withManifest(resourceApk.getManifest())
+          .withRtxt(resourceApk.getRTxt())
+          .withClasses(classesJar)
+          .setAAROut(aarOut)
+          .setProguardSpecs(localProguardSpecs)
+          .setThrowOnResourceConflict(
+              AndroidCommon.getAndroidConfig(ruleContext).throwOnResourceConflict())
+          .build(ruleContext);
+
+      return Aar.create(aarOut, resourceApk.getManifest());
     }
 
     public abstract Artifact getAar();
@@ -55,6 +86,34 @@ public abstract class AndroidLibraryAarProvider implements TransitiveInfoProvide
     public abstract Artifact getManifest();
 
     Aar() {}
+
+    public AndroidLibraryAarProvider toProvider(
+        RuleContext ruleContext, boolean definesLocalResources) {
+      return toProvider(
+          AndroidCommon.getTransitivePrerequisites(
+              ruleContext, Mode.TARGET, AndroidLibraryAarProvider.class),
+          definesLocalResources);
+    }
+
+    public AndroidLibraryAarProvider toProvider(
+        Iterable<AndroidLibraryAarProvider> depProviders, boolean definesLocalResources) {
+      NestedSetBuilder<Aar> aarBuilder = NestedSetBuilder.naiveLinkOrder();
+      NestedSetBuilder<Artifact> artifactBuilder = NestedSetBuilder.naiveLinkOrder();
+
+      for (AndroidLibraryAarProvider depProvider : depProviders) {
+        aarBuilder.addTransitive(depProvider.getTransitiveAars());
+        artifactBuilder.addTransitive(depProvider.getTransitiveAarArtifacts());
+      }
+
+      if (!definesLocalResources) {
+        return AndroidLibraryAarProvider.create(null, aarBuilder.build(), artifactBuilder.build());
+      }
+
+      aarBuilder.add(this);
+      artifactBuilder.add(getAar()).add(getManifest());
+
+      return AndroidLibraryAarProvider.create(this, aarBuilder.build(), artifactBuilder.build());
+    }
   }
 
   AndroidLibraryAarProvider() {}

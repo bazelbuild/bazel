@@ -118,9 +118,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     androidSemantics.validateAndroidLibraryRuleContext(ruleContext);
     createAndroidMigrationSemantics().validateRuleContext(ruleContext);
     AndroidSdkProvider.verifyPresence(ruleContext);
-    NestedSetBuilder<Aar> transitiveAars = NestedSetBuilder.naiveLinkOrder();
-    NestedSetBuilder<Artifact> transitiveAarArtifacts = NestedSetBuilder.stableOrder();
-    collectTransitiveAars(ruleContext, transitiveAars, transitiveAarArtifacts);
 
     NestedSetBuilder<Artifact> proguardConfigsbuilder = NestedSetBuilder.stableOrder();
     ProguardLibrary proguardLibrary = new ProguardLibrary(ruleContext);
@@ -207,33 +204,13 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    Artifact classesJar =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
-    Artifact aarOut = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_AAR);
-
-    final Aar aar;
-    if (definesLocalResources) {
-      aar = Aar.create(aarOut, resourceApk.getManifest());
-      addAarToProvider(aar, transitiveAars, transitiveAarArtifacts);
-    } else {
-      aar = null;
-    }
-
-    new AarGeneratorBuilder(ruleContext)
-        .withPrimaryResources(resourceApk.getPrimaryResources())
-        .withPrimaryAssets(resourceApk.getPrimaryAssets())
-        .withManifest(resourceApk.getManifest())
-        .withRtxt(resourceApk.getRTxt())
-        .withClasses(classesJar)
-        .setAAROut(aarOut)
-        .setProguardSpecs(proguardLibrary.collectLocalProguardSpecs())
-        .setThrowOnResourceConflict(androidConfig.throwOnResourceConflict())
-        .build(ruleContext);
+    final Aar aar =
+        Aar.makeAar(ruleContext, resourceApk, proguardLibrary.collectLocalProguardSpecs());
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     androidCommon.addTransitiveInfoProviders(
         builder,
-        aarOut,
+        aar.getAar(),
         resourceApk,
         null,
         ImmutableList.<Artifact>of(),
@@ -263,38 +240,11 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             AndroidLibraryResourceClassJarProvider.create(transitiveResourcesJars.build()));
 
     if (!JavaCommon.isNeverLink(ruleContext)) {
-      builder.add(
-          AndroidLibraryAarProvider.class,
-          AndroidLibraryAarProvider.create(
-              aar, transitiveAars.build(), transitiveAarArtifacts.build()));
+      builder.addProvider(
+          AndroidLibraryAarProvider.class, aar.toProvider(ruleContext, definesLocalResources));
     }
 
     return builder.build();
-  }
-
-  private void addAarToProvider(
-      Aar aar,
-      NestedSetBuilder<Aar> transitiveAars,
-      NestedSetBuilder<Artifact> transitiveAarArtifacts) {
-    transitiveAars.add(aar);
-    if (aar.getAar() != null) {
-      transitiveAarArtifacts.add(aar.getAar());
-    }
-    if (aar.getManifest() != null) {
-      transitiveAarArtifacts.add(aar.getManifest());
-    }
-  }
-
-  private void collectTransitiveAars(
-      RuleContext ruleContext,
-      NestedSetBuilder<Aar> transitiveAars,
-      NestedSetBuilder<Artifact> transitiveAarArtifacts) {
-    for (AndroidLibraryAarProvider library :
-        AndroidCommon.getTransitivePrerequisites(
-            ruleContext, Mode.TARGET, AndroidLibraryAarProvider.class)) {
-      transitiveAars.addTransitive(library.getTransitiveAars());
-      transitiveAarArtifacts.addTransitive(library.getTransitiveAarArtifacts());
-    }
   }
 
   private NestedSetBuilder<Artifact> collectTransitiveResourceJars(RuleContext ruleContext) {
