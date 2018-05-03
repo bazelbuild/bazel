@@ -173,9 +173,16 @@ class RpmBuilder(object):
     self.rpmbuild_path = FindRpmbuild()
     self.rpm_path = None
 
-  def AddFiles(self, files):
-    """Add a set of files to the current RPM."""
-    self.files += files
+  def AddFiles(self, paths, root=""):
+    """Add a set of files to the current RPM.
+    If an item in paths is a directory, its files are recursively added.
+    """
+    for path in paths:
+        full_path = os.path.join(root, path)
+        if os.path.isdir(full_path):
+            self.AddFiles(os.listdir(full_path), full_path)
+        else:
+            self.files.append(full_path)
 
   def SetupWorkdir(self, spec_file, original_dir):
     """Create the needed structure in the workdir."""
