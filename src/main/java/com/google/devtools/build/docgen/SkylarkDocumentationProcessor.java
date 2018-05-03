@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -53,7 +53,9 @@ public final class SkylarkDocumentationProcessor {
         SkylarkDocumentationCollector.getTopLevelModule().name());
     writePage(outputDir, topLevelModule);
 
-    Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesByCategory = new HashMap<>();
+    // Use a LinkedHashMap to preserve ordering of categories, as the output iterates over
+    // this map's entry set to determine category ordering.
+    Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesByCategory = new LinkedHashMap<>();
     for (SkylarkModuleCategory c : SkylarkModuleCategory.values()) {
       modulesByCategory.put(c, new ArrayList<SkylarkModuleDoc>());
     }
