@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.android.aapt2;
 
+import com.android.SdkConstants;
 import com.android.builder.core.VariantType;
 import com.android.repository.Revision;
 import com.google.common.base.Preconditions;
@@ -194,7 +195,8 @@ public class ResourceCompiler {
         Namespaces namespaces = Namespaces.from(qName);
         String attributeName = namespaceUri.isEmpty() ? localPart : prefix + ":" + localPart;
 
-        Factory fqnFactory = Factory.fromDirectoryName(type);
+        final String[] dirNameAndQualifiers = type.split(SdkConstants.RES_QUALIFIER_SEP);
+        Factory fqnFactory = Factory.fromDirectoryName(dirNameAndQualifiers);
         FullyQualifiedName fqn =
             fqnFactory.create(VirtualType.RESOURCES_ATTRIBUTE, qName.toString());
         ResourcesAttribute resourceAttribute =
