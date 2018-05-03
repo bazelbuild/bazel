@@ -27,6 +27,7 @@ import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
+import com.google.devtools.build.android.FullyQualifiedName.Qualifiers;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
@@ -298,17 +299,16 @@ public class ParsedAndroidData {
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
         throws IOException {
-      final String[] dirNameAndQualifiers =
-          dir.getFileName().toString().split(SdkConstants.RES_QUALIFIER_SEP);
-      folderType = ResourceFolderType.getTypeByName(dirNameAndQualifiers[0]);
-      if (folderType == null) {
-        return FileVisitResult.CONTINUE;
-      }
       try {
-        fqnFactory = FullyQualifiedName.Factory.fromDirectoryName(dirNameAndQualifiers);
+        final Qualifiers qualifiers = Qualifiers.parseFrom(dir.getFileName().toString());
+        folderType = qualifiers.asFolderType();
+        if (folderType == null) {
+          return FileVisitResult.CONTINUE;
+        }
+        fqnFactory = FullyQualifiedName.Factory.using(qualifiers);
         return FileVisitResult.CONTINUE;
       } catch (IllegalArgumentException e) {
-        logger.warning(
+        logger.severe(
             String.format("%s is an invalid resource directory due to %s", dir, e.getMessage()));
         return FileVisitResult.SKIP_SUBTREE;
       }
