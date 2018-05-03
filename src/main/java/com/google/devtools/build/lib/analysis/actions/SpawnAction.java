@@ -19,9 +19,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -65,7 +63,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -80,7 +77,6 @@ import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -564,48 +560,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     @SuppressWarnings("unchecked")
     public Iterable<? extends ActionInput> getInputFiles() {
       return inputs;
-    }
-  }
-
-  /**
-   * Remove Fileset directories in inputs list. Instead, these are included as manifests in
-   * getEnvironment().
-   */
-  private static class FilesetAndManifestFilteringIterable<E> implements Iterable<E> {
-
-    private final Iterable<E> inputs;
-    private final ImmutableSet<Artifact> exclude;
-
-    FilesetAndManifestFilteringIterable(
-        Iterable<E> inputs, ImmutableList<Artifact> filesets, ImmutableList<Artifact> manifests) {
-      this.inputs = inputs;
-      this.exclude = ImmutableSet.<Artifact>builder().addAll(filesets).addAll(manifests).build();
-    }
-
-    @Override
-    public Iterator<E> iterator() {
-      return Iterators.filter(inputs.iterator(), (e) -> !exclude.contains(e));
-    }
-  }
-
-  /**
-   * The same as {@link FilesetAndManifestFilteringIterable} but retains the information that this
-   * the input files are stored as NestedSets.
-   */
-  private static class FilesetAndManifestFilteringNestedSetView<E> extends NestedSetView<E>
-      implements Iterable<E> {
-
-    private final FilesetAndManifestFilteringIterable<E> filteredInputs;
-
-    FilesetAndManifestFilteringNestedSetView(
-        NestedSet<E> set, ImmutableList<Artifact> filesets, ImmutableList<Artifact> manifests) {
-      super(set);
-      this.filteredInputs = new FilesetAndManifestFilteringIterable<E>(set, filesets, manifests);
-    }
-
-    @Override
-    public Iterator<E> iterator() {
-      return filteredInputs.iterator();
     }
   }
 
