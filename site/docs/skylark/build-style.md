@@ -143,16 +143,28 @@ dependencies of several targets into a variable reduces maintainability, makes
 it impossible for tools to change the dependencies of a target and can lead to
 unused dependencies.
 
-
 ## Globs
-
-Do not use recursive globs (e.g., `glob(["**/*.java"])`). Recursive globs
-make BUILD files difficult to read, as they skip subdirectories containing
-BUILD files. Non-recursive globs are generally acceptable, see
-language-specific advice below for details.
 
 Indicate "no targets" with `[]`. Do not use a glob that matches nothing: it
 is more error-prone and less obvious than an empty list.
+
+### Recursive
+
+Do not use recursive globs (for example, `glob(["**/*.java"])`).
+
+Recursive globs make BUILD files difficult to reason about because they skip
+subdirectories containing BUILD files.
+
+Recursive globs are generally less efficient than having a BUILD file per
+directory with a dependency graph defined between them as this enables better
+forge caching and parallelism.
+
+We recommend authoring a BUILD file per directory and defining a dependency
+graph between them instead.
+
+### Non-recursive
+
+Non-recursive globs are generally acceptable.
 
 ## Other conventions
 
