@@ -151,17 +151,20 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
                     + "This most likely indicates that SDK version [%s] for platform [%s] is "
                     + "unsupported for the target version of xcode.\n"
                     + "%s\n"
-                    + "Stderr: %s",
+                    + "stdout: %s"
+                    + "stderr: %s",
                 terminationStatus.getExitCode(),
                 sdkVersion,
                 appleSdkPlatform,
                 terminationStatus.toString(),
+                new String(e.getResult().getStdout(), StandardCharsets.UTF_8),
                 new String(e.getResult().getStderr(), StandardCharsets.UTF_8)));
       }
       String message =
           String.format(
-              "xcrun failed.\n%s\n%s",
+              "xcrun failed.\n" + "%s\n" + "stdout: %s\n" + "stderr: %s",
               e.getResult().getTerminationStatus(),
+              new String(e.getResult().getStdout(), StandardCharsets.UTF_8),
               new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
       throw new IOException(message, e);
     } catch (CommandException e) {
@@ -220,13 +223,10 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
    */
   private static String queryDeveloperDir(Path execRoot, DottedVersion version)
       throws IOException {
+    String xcodeLocatorPath = execRoot.getRelative("_bin/xcode-locator").getPathString();
     try {
       CommandResult xcodeLocatorResult =
-          new Command(
-                  new String[] {
-                    execRoot.getRelative("_bin/xcode-locator").getPathString(), version.toString()
-                  })
-              .execute();
+          new Command(new String[] {xcodeLocatorPath, version.toString()}).execute();
 
       return new String(xcodeLocatorResult.getStdout(), StandardCharsets.UTF_8).trim();
     } catch (AbnormalTerminationException e) {
@@ -236,20 +236,27 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
       if (e.getResult().getTerminationStatus().exited()) {
         message =
             String.format(
-                "xcode-locator failed with code %s.\n"
+                "Running '%s %s' failed with code %s.\n"
                     + "This most likely indicates that xcode version %s is not available on the "
                     + "host machine.\n"
                     + "%s\n"
+                    + "stdout: %s\n"
                     + "stderr: %s",
+                xcodeLocatorPath,
+                version,
                 terminationStatus.getExitCode(),
                 version,
                 terminationStatus.toString(),
+                new String(e.getResult().getStdout(), StandardCharsets.UTF_8),
                 new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
       } else {
         message =
             String.format(
-                "xcode-locator failed. %s\nstderr: %s",
+                "Running '%s %s' failed.\n" + "%s\n" + "stdout: %s\n" + "stderr: %s",
+                xcodeLocatorPath,
+                version,
                 e.getResult().getTerminationStatus(),
+                new String(e.getResult().getStdout(), StandardCharsets.UTF_8),
                 new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
       }
       throw new IOException(message, e);
