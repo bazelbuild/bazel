@@ -46,7 +46,6 @@ public class MergedAndroidAssets extends ParsedAndroidAssets {
 
     builder
         .addOutput("--assetsOutput", mergedAssets)
-        .addInput("--androidJar", AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar())
         .addInput(
             "--primaryData",
             AndroidDataConverter.MERGABLE_DATA_CONVERTER.map(parsed),

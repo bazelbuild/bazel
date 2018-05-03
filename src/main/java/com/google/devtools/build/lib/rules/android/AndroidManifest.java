@@ -78,19 +78,39 @@ public class AndroidManifest {
   }
 
   /**
+   * Stamps the manifest with values from the "manifest_values" attributes.
+   *
+   * <p>If no manifest values are specified, the manifest will remain unstamped.
+   */
+  public StampedAndroidManifest stampWithManifestValues(RuleContext ruleContext) {
+    return mergeWithDeps(ruleContext, ResourceDependencies.empty());
+  }
+
+  /**
    * Merges the manifest with any dependent manifests.
    *
-   * <p>The resulting manifest will be stamped, even if no merging was done.
+   * <p>The manifest will also be stamped with any manifest values specified in the target's
+   * attributes
+   *
+   * <p>If there is no merging to be done and no manifest values are specified, the manifest will
+   * remain unstamped.
    */
   public StampedAndroidManifest mergeWithDeps(RuleContext ruleContext) {
-    return ApplicationManifest.maybeMergeWith(
-            ruleContext,
-            manifest,
-            ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
-            ApplicationManifest.getManifestValues(ruleContext))
-        .map(merged -> new StampedAndroidManifest(merged, pkg, exported))
-        // If we don't merge, we still need to guarantee the manifest is stamped correctly
-        .orElseGet(() -> stamp(ruleContext));
+    return mergeWithDeps(
+        ruleContext, ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false));
+  }
+
+  private StampedAndroidManifest mergeWithDeps(
+      RuleContext ruleContext, ResourceDependencies resourceDeps) {
+    Artifact newManifest =
+        ApplicationManifest.maybeMergeWith(
+                ruleContext,
+                manifest,
+                resourceDeps,
+                ApplicationManifest.getManifestValues(ruleContext))
+            .orElse(manifest);
+
+    return new StampedAndroidManifest(newManifest, pkg, exported);
   }
 
   public Artifact getManifest() {

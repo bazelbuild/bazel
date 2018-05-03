@@ -161,7 +161,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         MergedAndroidAssets assets =
             AndroidAssets.from(ruleContext).process(ruleContext, isNeverLink);
 
-        resourceApk = ResourceApk.of(resources, assets);
+        resourceApk = ResourceApk.of(resources, assets, null, null);
       } else {
         ApplicationManifest applicationManifest =
             androidSemantics

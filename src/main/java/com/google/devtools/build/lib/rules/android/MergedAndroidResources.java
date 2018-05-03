@@ -39,12 +39,12 @@ public class MergedAndroidResources extends ParsedAndroidResources {
 
   public static MergedAndroidResources mergeFrom(
       RuleContext ruleContext, ParsedAndroidResources parsed, boolean neverlink)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
 
     AndroidConfiguration androidConfiguration = AndroidCommon.getAndroidConfig(ruleContext);
 
     boolean useCompiledMerge =
-        androidConfiguration.getAndroidAaptVersion().equals(AndroidAaptVersion.AAPT2)
+        AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) == AndroidAaptVersion.AAPT2
             && androidConfiguration.skipParsingAction();
 
     Preconditions.checkState(
@@ -141,7 +141,8 @@ public class MergedAndroidResources extends ParsedAndroidResources {
    * <p>See {@link ValidatedAndroidResources#validateFrom(RuleContext, MergedAndroidResources)}.
    * This method is a convenience method for calling that one.
    */
-  public ValidatedAndroidResources validate(RuleContext ruleContext) throws InterruptedException {
+  public ValidatedAndroidResources validate(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException {
     return ValidatedAndroidResources.validateFrom(ruleContext, this);
   }
 

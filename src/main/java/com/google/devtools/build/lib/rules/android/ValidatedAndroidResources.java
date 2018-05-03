@@ -55,8 +55,8 @@ public class ValidatedAndroidResources extends MergedAndroidResources
    * </ul>
    */
   public static ValidatedAndroidResources validateFrom(
-      RuleContext ruleContext, MergedAndroidResources merged) throws InterruptedException {
-    AndroidConfiguration config = AndroidCommon.getAndroidConfig(ruleContext);
+      RuleContext ruleContext, MergedAndroidResources merged)
+      throws InterruptedException, RuleErrorException {
     AndroidResourceValidatorActionBuilder builder =
         new AndroidResourceValidatorActionBuilder(ruleContext)
             .setJavaPackage(merged.getJavaPackage())
@@ -72,7 +72,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
                 ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_APK))
             .withDependencies(merged.getResourceDependencies());
 
-    if (config.getAndroidAaptVersion() == AndroidAaptVersion.AAPT2) {
+    if (AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) == AndroidAaptVersion.AAPT2) {
       builder
           .setCompiledSymbols(merged.getCompiledSymbols())
           .setAapt2RTxtOut(
@@ -169,13 +169,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
         .map(
             merged ->
                 ValidatedAndroidResources.of(
-                    merged,
-                    rTxt,
-                    sourceJar,
-                    apk,
-                    aapt2RTxt,
-                    aapt2SourceJar,
-                    staticLibrary));
+                    merged, rTxt, sourceJar, apk, aapt2RTxt, aapt2SourceJar, staticLibrary));
   }
 
   @Override
@@ -196,12 +190,6 @@ public class ValidatedAndroidResources extends MergedAndroidResources
   @Override
   public int hashCode() {
     return Objects.hash(
-        super.hashCode(),
-        rTxt,
-        sourceJar,
-        apk,
-        aapt2RTxt,
-        aapt2SourceJar,
-        staticLibrary);
+        super.hashCode(), rTxt, sourceJar, apk, aapt2RTxt, aapt2SourceJar, staticLibrary);
   }
 }

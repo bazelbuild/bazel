@@ -430,7 +430,9 @@ public class AndroidResourcesTest extends ResourceTestBase {
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR),
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
             /* dataBindingInfoZip = */ null,
-            ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false));
+            ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
+            null,
+            null);
 
     ValidatedAndroidData validated =
         processedData.generateRClass(ruleContext).getValidatedResources();
@@ -440,6 +442,18 @@ public class AndroidResourcesTest extends ResourceTestBase {
         ruleContext,
         /* inputs = */ ImmutableList.of(rTxt, manifest.getManifest()),
         /* outputs = */ ImmutableList.of(validated.getJavaClassJar()));
+  }
+
+  @Test
+  public void testProcessBinaryDataGeneratesProguardOutput() throws Exception {
+    RuleContext ruleContext = getRuleContext("android_binary", "manifest='AndroidManifest.xml',");
+
+    ResourceApk resourceApk =
+        ProcessedAndroidData.processBinaryDataFrom(ruleContext, getManifest(), false)
+            .generateRClass(ruleContext);
+
+    assertThat(resourceApk.getResourceProguardConfig()).isNotNull();
+    assertThat(resourceApk.getMainDexProguardConfig()).isNotNull();
   }
 
   /**
@@ -484,13 +498,21 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
   /** Gets a dummy rule context object by creating a dummy target. */
   private RuleContext getRuleContext(boolean useDataBinding) throws Exception {
+    return getRuleContext("android_library", useDataBinding ? "  enable_data_binding = True" : "");
+  }
+
+  /** Gets a dummy rule context object by creating a dummy target. */
+  private RuleContext getRuleContext(String kind, String... additionalLines) throws Exception {
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "java/foo",
             "target",
-            "android_library(name = 'target',",
-            useDataBinding ? "  enable_data_binding = True" : "",
-            ")");
+            ImmutableList.<String>builder()
+                .add(kind + "(name = 'target',")
+                .add(additionalLines)
+                .add(")")
+                .build()
+                .toArray(new String[0]));
     return getRuleContextForActionTesting(target);
   }
 }

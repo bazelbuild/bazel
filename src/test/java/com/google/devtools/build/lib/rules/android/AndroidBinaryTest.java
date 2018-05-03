@@ -1062,7 +1062,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "java/com/google/android/neversayneveragain/libb1.jar_desugared.jar");
     assertThat(
             resourceInputPaths(
-                "java/com/google/android/neversayneveragain", getResourceContainer(b1)))
+                "java/com/google/android/neversayneveragain", getValidatedData(b1)))
         .doesNotContain("res/values/resource.xml");
 
     ConfiguredTarget b2 = getConfiguredTarget("//java/com/google/android/neversayneveragain:b2");
@@ -1079,7 +1079,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "java/com/google/android/neversayneveragain/libb2.jar_desugared.jar");
     assertThat(
         resourceInputPaths(
-            "java/com/google/android/neversayneveragain", getResourceContainer(b2)))
+            "java/com/google/android/neversayneveragain", getValidatedData(b2)))
         .doesNotContain("res/values/resource.xml");
 
     ConfiguredTarget b3 = getConfiguredTarget("//java/com/google/android/neversayneveragain:b3");
@@ -1096,7 +1096,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .doesNotContain("java/com/google/android/neversayneveragain/libl2.jar_desugared.jar");
     assertThat(
         resourceInputPaths(
-            "java/com/google/android/neversayneveragain", getResourceContainer(b3)))
+            "java/com/google/android/neversayneveragain", getValidatedData(b3)))
         .contains("res/values/resource.xml");
   }
 
@@ -1189,7 +1189,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     // Ensure that the args are present
     ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android:b");
-    List<String> args = resourceArguments(getResourceContainer(binary));
+    List<String> args = resourceArguments(getValidatedData(binary));
     assertThat(flagValue("--resourceConfigs", args)).contains("en,fr");
   }
 
@@ -1243,7 +1243,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "  aapt_version = 'aapt2',",
             "  densities = ['hdpi, , ', 'xhdpi'],",
             "  resource_files = ['" + Joiner.on("', '").join(resources) + "'])");
-    ResourceContainer directResources = getResourceContainer(binary, /* transitive= */ false);
+    ValidatedAndroidData directResources = getValidatedData(binary, /* transitive= */ false);
 
     // Validate that the AndroidResourceProvider for this binary contains all values.
     assertThat(resourceContentsPaths(dir, directResources)).containsExactlyElementsIn(resources);
@@ -1592,7 +1592,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
                 .getOutputDirectoryName())
         .isNull();
 
-    ResourceContainer directResources = getResourceContainer(binary, /* transitive= */ false);
+    ValidatedAndroidData directResources = getValidatedData(binary, /* transitive= */ false);
 
     // Validate that the AndroidResourceProvider for this binary contains only the filtered values.
     assertThat(resourceContentsPaths(dir, directResources))
@@ -1649,8 +1649,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "  deps = [':lib'],",
             "  resource_configuration_filters = ['en'])");
 
-    ResourceContainer directResources = getResourceContainer(binary, /* transitive= */ false);
-    ResourceContainer transitiveResources = getResourceContainer(binary, /* transitive= */ true);
+    ValidatedAndroidData directResources = getValidatedData(binary, /* transitive= */ false);
+    ValidatedAndroidData transitiveResources = getValidatedData(binary, /* transitive= */ true);
 
     assertThat(resourceContentsPaths(dir, directResources)).isEmpty();
 
@@ -1698,7 +1698,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "    'multiple/res/drawable-en-mdpi/foo.png'],",
             ")");
 
-    ResourceContainer directResources = getResourceContainer(binary, /* transitive= */ false);
+    ValidatedAndroidData directResources = getValidatedData(binary, /* transitive= */ false);
 
     // All of the resources are transitive
     assertThat(resourceContentsPaths(dir, directResources)).isEmpty();
@@ -1752,7 +1752,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "  ])");
 
     List<String> resourceProcessingArgs =
-        getGeneratingSpawnActionArgs(getResourceContainer(binary).getRTxt());
+        getGeneratingSpawnActionArgs(getValidatedData(binary).getRTxt());
 
     assertThat(
             Iterables.filter(
@@ -1784,7 +1784,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "  manifest = 'AndroidManifest.xml')");
 
     List<String> resourceProcessingArgs =
-        getGeneratingSpawnActionArgs(getResourceContainer(binary).getRTxt());
+        getGeneratingSpawnActionArgs(getValidatedData(binary).getRTxt());
 
     assertThat(resourceProcessingArgs).containsAllOf("--resourceConfigs", "ar-rXB,en,en-rXA");
   }
@@ -1801,7 +1801,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     useConfiguration("--experimental_android_throw_on_resource_conflict");
     ConfiguredTarget binary = getConfiguredTarget("//java/r/android:r");
 
-    List<String> resourceProcessingArgs = resourceArguments(getResourceContainer(binary));
+    List<String> resourceProcessingArgs = resourceArguments(getValidatedData(binary));
     assertThat(resourceProcessingArgs).contains("--throwOnResourceConflict");
   }
 
@@ -1813,7 +1813,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
    * @return the paths to all artifacts from the input that are contained within the given
    *     directory, relative to that directory.
    */
-  private List<String> resourceContentsPaths(String dir, ResourceContainer resource) {
+  private List<String> resourceContentsPaths(String dir, ValidatedAndroidData resource) {
     return pathsToArtifacts(dir, resource.getArtifacts());
   }
 
@@ -1826,7 +1826,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
    * @return the paths to all artifacts used as inputs to resource processing that are contained
    *     within the given directory, relative to that directory.
    */
-  private List<String> resourceInputPaths(String dir, ResourceContainer resource) {
+  private List<String> resourceInputPaths(String dir, ValidatedAndroidData resource) {
     return pathsToArtifacts(dir, resourceGeneratingAction(resource).getInputs());
   }
 
@@ -3250,7 +3250,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  nocompress_extensions = ['.apk', '.so'],",
         ")");
     ConfiguredTarget binary = getConfiguredTarget("//java/r/android:r");
-    ResourceContainer resource = getResourceContainer(binary);
+    ValidatedAndroidData resource = getValidatedData(binary);
     List<String> args = resourceArguments(resource);
     Artifact inputManifest =
         getFirstArtifactEndingWith(
@@ -4211,7 +4211,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget b = getDirectPrerequisite(a, "//java/b:b");
 
     List<String> resourceProcessingArgs =
-        getGeneratingSpawnActionArgs(getResourceContainer(a).getRTxt());
+        getGeneratingSpawnActionArgs(getValidatedData(a).getRTxt());
 
     assertThat(resourceProcessingArgs).contains("AAPT2_PACKAGE");
     String directData =
@@ -4222,7 +4222,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(resourceProcessingArgs).contains("--useCompiledResourcesForMerge");
 
     List<String> resourceMergingArgs =
-        getGeneratingSpawnActionArgs(getResourceContainer(b).getJavaClassJar());
+        getGeneratingSpawnActionArgs(getValidatedData(b).getJavaClassJar());
 
     assertThat(resourceMergingArgs).contains("MERGE_COMPILED");
   }
@@ -4255,7 +4255,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget b = getDirectPrerequisite(a, "//java/b:b");
 
     List<String> resourceProcessingArgs =
-        getGeneratingSpawnActionArgs(getResourceContainer(a).getRTxt());
+        getGeneratingSpawnActionArgs(getValidatedData(a).getRTxt());
 
     assertThat(resourceProcessingArgs).contains("PACKAGE");
     String directData =
@@ -4265,7 +4265,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(directData).contains("merged.bin");
 
     List<String> compiledResourceMergingArgs =
-        getGeneratingSpawnActionArgs(getResourceContainer(b).getJavaClassJar());
+        getGeneratingSpawnActionArgs(getValidatedData(b).getJavaClassJar());
 
     assertThat(compiledResourceMergingArgs).contains("MERGE_COMPILED");
 

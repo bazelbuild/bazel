@@ -74,7 +74,11 @@ public final class ResourceApk {
         mainDexProguardConfig);
   }
 
-  public static ResourceApk of(ValidatedAndroidResources resources, MergedAndroidAssets assets) {
+  public static ResourceApk of(
+      ValidatedAndroidResources resources,
+      MergedAndroidAssets assets,
+      @Nullable Artifact resourceProguardConfig,
+      @Nullable Artifact mainDexProguardConfig) {
     return new ResourceApk(
         resources.getApk(),
         resources.getJavaSourceJar(),
@@ -86,8 +90,8 @@ public final class ResourceApk {
         assets,
         resources.getManifest(),
         resources.getRTxt(),
-        null,
-        null);
+        resourceProguardConfig,
+        mainDexProguardConfig);
   }
 
   private ResourceApk(
@@ -239,9 +243,12 @@ public final class ResourceApk {
       AndroidAssetsInfo assetsInfo = merged.toProvider();
       builder.addNativeDeclaredProvider(assetsInfo);
 
-      // Asset merging output isn't consumed by anything. Require it to be run by top-level targets
-      // so we can validate there are no asset merging conflicts.
-      builder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, assetsInfo.getValidationResult());
+      if (assetsInfo.getValidationResult() != null) {
+        // Asset merging output isn't consumed by anything. Require it to be run by top-level
+        // targets
+        // so we can validate there are no asset merging conflicts.
+        builder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, assetsInfo.getValidationResult());
+      }
 
     } else if (primaryAssets == null) {
       builder.addNativeDeclaredProvider(assetDeps.toInfo(label));

@@ -36,7 +36,7 @@ public class ParsedAndroidResources extends AndroidResources
       throws RuleErrorException, InterruptedException {
 
     boolean isAapt2 =
-        AndroidAaptVersion.chooseTargetAaptVersion(ruleContext).equals(AndroidAaptVersion.AAPT2);
+        AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) == AndroidAaptVersion.AAPT2;
 
     AndroidResourceParsingActionBuilder builder =
         new AndroidResourceParsingActionBuilder(ruleContext);
@@ -124,7 +124,7 @@ public class ParsedAndroidResources extends AndroidResources
 
   /** Merges this target's resources with resources from dependencies. */
   public MergedAndroidResources merge(RuleContext ruleContext, boolean neverlink)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     return MergedAndroidResources.mergeFrom(ruleContext, this, neverlink);
   }
 

@@ -99,7 +99,7 @@ public class AndroidAssets {
         ImmutableList.of(assetsDir), ImmutableList.of(assetsDir.getExecPath().getChild("assets")));
   }
 
-  static AndroidAssets empty() {
+  public static AndroidAssets empty() {
     return new AndroidAssets(ImmutableList.of(), ImmutableList.of());
   }
 
