@@ -20,8 +20,16 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import javax.annotation.Nullable;
 
 /** Provides information about transitive Android assets. */
+@SkylarkModule(
+    name = "AndroidAssetsInfo",
+    doc = "Information about the Android assets provided by a rule.",
+    category = SkylarkModuleCategory.PROVIDER)
 public class AndroidAssetsInfo extends NativeInfo {
 
   private static final String SKYLARK_NAME = "AndroidAssetsInfo";
@@ -30,6 +38,7 @@ public class AndroidAssetsInfo extends NativeInfo {
       new NativeProvider<AndroidAssetsInfo>(AndroidAssetsInfo.class, SKYLARK_NAME) {};
 
   private final Label label;
+  @Nullable private final Artifact validationResult;
   private final NestedSet<ParsedAndroidAssets> directParsedAssets;
   private final NestedSet<ParsedAndroidAssets> transitiveParsedAssets;
   private final NestedSet<Artifact> transitiveAssets;
@@ -38,6 +47,7 @@ public class AndroidAssetsInfo extends NativeInfo {
   static AndroidAssetsInfo empty(Label label) {
     return new AndroidAssetsInfo(
         label,
+        null,
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
@@ -46,22 +56,30 @@ public class AndroidAssetsInfo extends NativeInfo {
 
   public static AndroidAssetsInfo of(
       Label label,
+      @Nullable Artifact validationResult,
       NestedSet<ParsedAndroidAssets> directParsedAssets,
       NestedSet<ParsedAndroidAssets> transitiveParsedAssets,
       NestedSet<Artifact> transitiveAssets,
       NestedSet<Artifact> transitiveSymbols) {
     return new AndroidAssetsInfo(
-        label, directParsedAssets, transitiveParsedAssets, transitiveAssets, transitiveSymbols);
+        label,
+        validationResult,
+        directParsedAssets,
+        transitiveParsedAssets,
+        transitiveAssets,
+        transitiveSymbols);
   }
 
   private AndroidAssetsInfo(
       Label label,
+      @Nullable Artifact validationResult,
       NestedSet<ParsedAndroidAssets> directParsedAssets,
       NestedSet<ParsedAndroidAssets> transitiveParsedAssets,
       NestedSet<Artifact> transitiveAssets,
       NestedSet<Artifact> transitiveSymbols) {
     super(PROVIDER);
     this.label = label;
+    this.validationResult = validationResult;
     this.directParsedAssets = directParsedAssets;
     this.transitiveParsedAssets = transitiveParsedAssets;
     this.transitiveAssets = transitiveAssets;
@@ -70,6 +88,22 @@ public class AndroidAssetsInfo extends NativeInfo {
 
   public Label getLabel() {
     return label;
+  }
+
+  @SkylarkCallable(
+      name = "validation_result",
+      structField = true,
+      allowReturnNones = true,
+      doc =
+          "If not None, represents the output of asset merging and validation for this target. The"
+              + " action to merge and validate assets is not run be default; to force it, add this"
+              + " artifact to your target's outputs. The validation action is somewhat expensive -"
+              + " in native code, this artifact is added to the top-level output group (so"
+              + " validation is only done if the target is requested on the command line). The"
+              + " contents of this artifact are subject to change and should not be relied upon.")
+  @Nullable
+  public Artifact getValidationResult() {
+    return validationResult;
   }
 
   public NestedSet<ParsedAndroidAssets> getDirectParsedAssets() {

@@ -79,9 +79,7 @@ public class MergedAndroidAssets extends ParsedAndroidAssets {
   }
 
   AndroidAssetsInfo toProvider() {
-    // Create a new object to avoid passing around unwanted merge information to the provider
-    ParsedAndroidAssets parsed = new ParsedAndroidAssets(this);
-    return assetDependencies.toInfo(parsed);
+    return assetDependencies.toInfo(this);
   }
 
   public Artifact getMergedAssets() {

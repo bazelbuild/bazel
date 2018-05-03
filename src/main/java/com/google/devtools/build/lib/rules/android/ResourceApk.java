@@ -236,11 +236,12 @@ public final class ResourceApk {
     // that only properly merged resources are passed into this object.
     if (primaryAssets instanceof MergedAndroidAssets) {
       MergedAndroidAssets merged = (MergedAndroidAssets) primaryAssets;
-      builder.addNativeDeclaredProvider(merged.toProvider());
+      AndroidAssetsInfo assetsInfo = merged.toProvider();
+      builder.addNativeDeclaredProvider(assetsInfo);
 
       // Asset merging output isn't consumed by anything. Require it to be run by top-level targets
       // so we can validate there are no asset merging conflicts.
-      builder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, merged.getMergedAssets());
+      builder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, assetsInfo.getValidationResult());
 
     } else if (primaryAssets == null) {
       builder.addNativeDeclaredProvider(assetDeps.toInfo(label));
