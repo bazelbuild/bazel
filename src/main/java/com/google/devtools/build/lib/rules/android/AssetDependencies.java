@@ -39,14 +39,19 @@ public class AssetDependencies {
   private final NestedSet<Artifact> transitiveSymbols;
 
   static AssetDependencies fromRuleDeps(RuleContext ruleContext, boolean neverlink) {
+    return fromProviders(
+        AndroidCommon.getTransitivePrerequisites(
+            ruleContext, Mode.TARGET, AndroidAssetsInfo.PROVIDER),
+        neverlink);
+  }
+
+  static AssetDependencies fromProviders(Iterable<AndroidAssetsInfo> providers, boolean neverlink) {
     NestedSetBuilder<ParsedAndroidAssets> direct = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<ParsedAndroidAssets> transitive = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> assets = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> symbols = NestedSetBuilder.naiveLinkOrder();
 
-    for (AndroidAssetsInfo info :
-        AndroidCommon.getTransitivePrerequisites(
-            ruleContext, Mode.TARGET, AndroidAssetsInfo.PROVIDER)) {
+    for (AndroidAssetsInfo info : providers) {
       direct.addTransitive(info.getDirectParsedAssets());
       transitive.addTransitive(info.getTransitiveParsedAssets());
       assets.addTransitive(info.getAssets());

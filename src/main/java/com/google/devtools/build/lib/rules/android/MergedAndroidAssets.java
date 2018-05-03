@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -25,13 +24,6 @@ public class MergedAndroidAssets extends ParsedAndroidAssets {
   private final Artifact mergedAssets;
   private final AssetDependencies assetDependencies;
 
-  public static MergedAndroidAssets mergeFrom(
-      RuleContext ruleContext, ParsedAndroidAssets parsed, boolean neverlink)
-      throws InterruptedException {
-    return mergeFrom(ruleContext, parsed, AssetDependencies.fromRuleDeps(ruleContext, neverlink));
-  }
-
-  @VisibleForTesting
   static MergedAndroidAssets mergeFrom(
       RuleContext ruleContext, ParsedAndroidAssets parsed, AssetDependencies deps)
       throws InterruptedException {
