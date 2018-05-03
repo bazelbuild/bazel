@@ -15,8 +15,9 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.MapMaker;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -30,7 +31,6 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
@@ -92,18 +92,18 @@ public class NestedSetStore {
 
   /** An in-memory cache for fingerprint <-> NestedSet associations. */
   private static class NestedSetCache {
-    private final Map<ByteString, Object[]> fingerprintToContents =
-        new MapMaker()
+    private final Cache<ByteString, Object[]> fingerprintToContents =
+        CacheBuilder.newBuilder()
             .concurrencyLevel(SerializationConstants.DESERIALIZATION_POOL_SIZE)
             .weakValues()
-            .makeMap();
+            .build();
 
     /** Object/Object[] contents to fingerprint. Maintained for fast fingerprinting. */
-    private final Map<Object[], FingerprintComputationResult> contentsToFingerprint =
-        new MapMaker()
+    private final Cache<Object[], FingerprintComputationResult> contentsToFingerprint =
+        CacheBuilder.newBuilder()
             .concurrencyLevel(SerializationConstants.DESERIALIZATION_POOL_SIZE)
             .weakKeys()
-            .makeMap();
+            .build();
 
     /**
      * Returns the NestedSet contents associated with the given fingerprint. Returns null if the
@@ -111,7 +111,7 @@ public class NestedSetStore {
      */
     @Nullable
     public Object[] contentsForFingerprint(ByteString fingerprint) {
-      return fingerprintToContents.get(fingerprint);
+      return fingerprintToContents.getIfPresent(fingerprint);
     }
 
     /**
@@ -120,7 +120,7 @@ public class NestedSetStore {
      */
     @Nullable
     public FingerprintComputationResult fingerprintForContents(Object[] contents) {
-      return contentsToFingerprint.get(contents);
+      return contentsToFingerprint.getIfPresent(contents);
     }
 
     /** Associates the provided fingerprint and NestedSet contents. */
