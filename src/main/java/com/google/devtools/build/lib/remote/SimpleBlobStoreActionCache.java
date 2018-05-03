@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -55,8 +56,9 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
 
   private final SimpleBlobStore blobStore;
 
-  public SimpleBlobStoreActionCache(SimpleBlobStore blobStore, DigestUtil digestUtil) {
-    super(digestUtil);
+  public SimpleBlobStoreActionCache(
+      RemoteOptions options, SimpleBlobStore blobStore, DigestUtil digestUtil) {
+    super(options, digestUtil);
     this.blobStore = blobStore;
   }
 
@@ -114,7 +116,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
       Collection<Path> files,
       FileOutErr outErr,
       boolean uploadAction)
-      throws IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
     upload(result, execRoot, files);
     if (outErr.getErrorPath().exists()) {
@@ -131,8 +133,9 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   }
 
   public void upload(ActionResult.Builder result, Path execRoot, Collection<Path> files)
-      throws IOException, InterruptedException {
-    UploadManifest manifest = new UploadManifest(result, execRoot);
+      throws ExecException, IOException, InterruptedException {
+    UploadManifest manifest =
+        new UploadManifest(digestUtil, result, execRoot, options.allowSymlinkUpload);
     manifest.addFiles(files);
 
     for (Map.Entry<Digest, Path> entry : manifest.getDigestToFile().entrySet()) {

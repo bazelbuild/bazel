@@ -127,6 +127,56 @@ EOF
   fi
 }
 
+function test_refuse_to_upload_symlink() {
+    cat > BUILD <<'EOF'
+genrule(
+    name = 'make-link',
+    outs = ['l', 't'],
+    cmd = 'touch $(location t) && ln -s t $(location l)',
+)
+EOF
+    bazel build \
+          --genrule_strategy=remote \
+          --noremote_allow_symlink_upload \
+          --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
+          //:make-link &> $TEST_log \
+          && fail "should have failed" || true
+    expect_log "/l is a symbolic link"
+
+    bazel build \
+          --experimental_remote_spawn_cache \
+          --noremote_allow_symlink_upload \
+          --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
+          //:make-link &> $TEST_log \
+          && fail "should have failed" || true
+    expect_log "/l is a symbolic link"
+}
+
+function test_refuse_to_upload_symlink_in_directory() {
+    cat > BUILD <<'EOF'
+genrule(
+    name = 'make-link',
+    outs = ['dir'],
+    cmd = 'mkdir $(location dir) && touch $(location dir)/t && ln -s t $(location dir)/l',
+)
+EOF
+    bazel build \
+          --genrule_strategy=remote \
+          --noremote_allow_symlink_upload \
+          --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
+          //:make-link &> $TEST_log \
+          && fail "should have failed" || true
+    expect_log "dir/l is a symbolic link"
+
+    bazel build \
+          --experimental_remote_spawn_cache \
+          --noremote_allow_symlink_upload \
+          --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
+          //:make-link &> $TEST_log \
+          && fail "should have failed" || true
+    expect_log "dir/l is a symbolic link"
+}
+
 function set_directory_artifact_testfixtures() {
   mkdir -p a
   cat > a/BUILD <<'EOF'

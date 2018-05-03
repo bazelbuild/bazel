@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
@@ -65,7 +66,6 @@ import java.util.concurrent.TimeUnit;
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
 public class GrpcRemoteCache extends AbstractRemoteActionCache {
-  private final RemoteOptions options;
   private final CallCredentials credentials;
   private final Channel channel;
   private final RemoteRetrier retrier;
@@ -80,8 +80,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       RemoteOptions options,
       RemoteRetrier retrier,
       DigestUtil digestUtil) {
-    super(digestUtil);
-    this.options = options;
+    super(options, digestUtil);
     this.credentials = credentials;
     this.channel = channel;
     this.retrier = retrier;
@@ -240,7 +239,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       Collection<Path> files,
       FileOutErr outErr,
       boolean uploadAction)
-      throws IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
     upload(execRoot, files, outErr, result);
     if (!uploadAction) {
@@ -266,8 +265,9 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   }
 
   void upload(Path execRoot, Collection<Path> files, FileOutErr outErr, ActionResult.Builder result)
-      throws IOException, InterruptedException {
-    UploadManifest manifest = new UploadManifest(result, execRoot);
+      throws ExecException, IOException, InterruptedException {
+    UploadManifest manifest =
+        new UploadManifest(digestUtil, result, execRoot, options.allowSymlinkUpload);
     manifest.addFiles(files);
 
     List<Chunker> filesToUpload = new ArrayList<>();
