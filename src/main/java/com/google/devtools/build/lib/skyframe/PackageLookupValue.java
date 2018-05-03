@@ -27,6 +27,7 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nullable;
 
 /**
  * A value that represents a package lookup result.
@@ -70,8 +71,13 @@ public abstract class PackageLookupValue implements SkyValue {
   protected PackageLookupValue() {
   }
 
+  public static PackageLookupValue success(
+      RepositoryValue repository, Root root, BuildFileName buildFileName) {
+    return new SuccessfulPackageLookupValue(repository, root, buildFileName);
+  }
+
   public static PackageLookupValue success(Root root, BuildFileName buildFileName) {
-    return new SuccessfulPackageLookupValue(root, buildFileName);
+    return new SuccessfulPackageLookupValue(null, root, buildFileName);
   }
 
   public static PackageLookupValue invalidPackageName(String errorMsg) {
@@ -151,14 +157,33 @@ public abstract class PackageLookupValue implements SkyValue {
   @AutoCodec
   public static class SuccessfulPackageLookupValue extends PackageLookupValue {
 
+    /**
+     * The repository value the meaning of the path depends on (e.g., an external repository
+     * controlling a symbolic link the path goes trough). Can be {@code null}, if does not depend
+     * on such a repository; will always be {@code null} for packages in the main repository.
+     */
+    @Nullable private final RepositoryValue repository;
     private final Root root;
     private final BuildFileName buildFileName;
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
-    SuccessfulPackageLookupValue(Root root, BuildFileName buildFileName) {
+    SuccessfulPackageLookupValue(
+        @Nullable RepositoryValue repository, Root root, BuildFileName buildFileName) {
+      this.repository = repository;
       this.root = root;
       this.buildFileName = buildFileName;
+    }
+
+    SuccessfulPackageLookupValue(Root root, BuildFileName buildFileName) {
+      this.repository = null;
+      this.root = root;
+      this.buildFileName = buildFileName;
+    }
+
+    @Nullable
+    public RepositoryValue repository() {
+      return repository;
     }
 
     @Override
@@ -192,12 +217,14 @@ public abstract class PackageLookupValue implements SkyValue {
         return false;
       }
       SuccessfulPackageLookupValue other = (SuccessfulPackageLookupValue) obj;
-      return root.equals(other.root) && buildFileName == other.buildFileName;
+      return root.equals(other.root)
+          && buildFileName == other.buildFileName
+          && Objects.equal(repository, other.repository);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(root.hashCode(), buildFileName.hashCode());
+      return Objects.hashCode(root.hashCode(), buildFileName.hashCode(), repository);
     }
   }
 
