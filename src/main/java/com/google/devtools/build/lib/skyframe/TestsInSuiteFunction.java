@@ -53,8 +53,13 @@ final class TestsInSuiteFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
     TestsInSuiteKey expansion = (TestsInSuiteKey) key.argument();
-    ResolvedTargets<Target> result =
-        computeTestsInSuite(env, expansion.getTestSuite(), expansion.isStrict());
+    SkyKey packageKey = PackageValue.key(expansion.getTestSuiteLabel().getPackageIdentifier());
+    PackageValue pkg = (PackageValue) env.getValue(packageKey);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    Rule testSuite = pkg.getPackage().getRule(expansion.getTestSuiteLabel().getName());
+    ResolvedTargets<Target> result = computeTestsInSuite(env, testSuite, expansion.isStrict());
     if (env.valuesMissing()) {
       return null;
     }
