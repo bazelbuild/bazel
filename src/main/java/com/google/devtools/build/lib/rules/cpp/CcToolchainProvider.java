@@ -811,6 +811,33 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return toolchainInfo.getLegacyLinkOptions();
   }
 
+  /**
+   * Return all flags coming from {@code compiler_flag} crosstool fields excluding flags coming from
+   * --copt options and copts attribute.
+   */
+  public ImmutableList<String> getLegacyCompileOptions() {
+    ImmutableList.Builder<String> coptsBuilder =
+        ImmutableList.<String>builder()
+            .addAll(getToolchainCompilerFlags())
+            .addAll(getCFlagsByCompilationMode().get(cppConfiguration.getCompilationMode()))
+            .addAll(getLipoCFlags().get(cppConfiguration.getLipoMode()));
+
+    if (cppConfiguration.isOmitfp()) {
+      coptsBuilder.add("-fomit-frame-pointer");
+      coptsBuilder.add("-fasynchronous-unwind-tables");
+      coptsBuilder.add("-DNO_FRAME_POINTER");
+    }
+
+    return coptsBuilder.build();
+  }
+
+  public ImmutableList<String> getLegacyCompileOptionsWithCopts() {
+    return ImmutableList.<String>builder()
+        .addAll(getLegacyCompileOptions())
+        .addAll(cppConfiguration.getCopts())
+        .build();
+  }
+
   /** Return all possible {@code linker_flag} flags from the crosstool. */
   ImmutableList<String> configureAllLegacyLinkOptions(
       CompilationMode compilationMode, LipoMode lipoMode, LinkingMode linkingMode) {
@@ -854,15 +881,16 @@ public final class CcToolchainProvider extends ToolchainInfo {
               + "in addition to the ones returned by this method"
   )
   public ImmutableList<String> getCompilerOptions() {
-    return CppHelper.getCompilerOptions(cppConfiguration, this);
+    return getLegacyCompileOptionsWithCopts();
   }
 
   /**
    * WARNING: This method is only added to allow incremental migration of existing users. Please do
    * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
    *
-   * Returns the list of additional C-specific options to use for compiling C. These should be go on
-   * the command line after the common options returned by {@link CppHelper#getCompilerOptions}.
+   * <p>Returns the list of additional C-specific options to use for compiling C. These should be go
+   * on the command line after the common options returned by {@link
+   * CcToolchainProvider#getLegacyCompileOptionsWithCopts()}.
    */
   @SkylarkCallable(
       name = "c_options",
@@ -878,19 +906,29 @@ public final class CcToolchainProvider extends ToolchainInfo {
    * WARNING: This method is only added to allow incremental migration of existing users. Please do
    * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
    *
-   * Returns the list of additional C++-specific options to use for compiling C++. These should be
-   * on the command line after the common options returned by {@link #getCompilerOptions}.
+   * <p>Returns the list of additional C++-specific options to use for compiling C++. These should
+   * be on the command line after the common options returned by {@link #getCompilerOptions}.
    */
   @SkylarkCallable(
       name = "cxx_options",
       doc =
           "Returns the list of additional C++-specific options to use for compiling C++. "
               + "These should be go on the command line after the common options returned by "
-              + "<code>compiler_options</code>"
-  )
+              + "<code>compiler_options</code>")
   @Deprecated
-  public ImmutableList<String> getCxxOptions() {
-    return CppHelper.getCxxOptions(cppConfiguration, this);
+  public ImmutableList<String> getCxxOptionsWithCopts() {
+    return ImmutableList.<String>builder()
+        .addAll(getLegacyCxxOptions())
+        .addAll(cppConfiguration.getCxxopts())
+        .build();
+  }
+
+  public ImmutableList<String> getLegacyCxxOptions() {
+    return ImmutableList.<String>builder()
+        .addAll(getToolchainCxxFlags())
+        .addAll(getCxxFlagsByCompilationMode().get(cppConfiguration.getCompilationMode()))
+        .addAll(getLipoCxxFlags().get(cppConfiguration.getLipoMode()))
+        .build();
   }
 
   /**

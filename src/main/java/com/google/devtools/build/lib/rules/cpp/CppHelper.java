@@ -246,78 +246,6 @@ public class CppHelper {
   }
 
   /**
-   * Returns the default options to use for compiling C, C++, and assembler, excluding those
-   * specified on the command line. This is just the options that should be used for all three
-   * languages. There may be additional C-specific or C++-specific options that should be used, in
-   * addition to the ones returned by this method.
-   */
-  // TODO(b/70784100): Figure out if these methods can be moved to CcToolchainProvider.
-  public static ImmutableList<String> getCrosstoolCompilerOptions(
-      CppConfiguration config, CcToolchainProvider toolchain) {
-    ImmutableList.Builder<String> coptsBuilder =
-        ImmutableList.<String>builder()
-            .addAll(toolchain.getToolchainCompilerFlags())
-            .addAll(toolchain.getCFlagsByCompilationMode().get(config.getCompilationMode()))
-            .addAll(toolchain.getLipoCFlags().get(config.getLipoMode()));
-
-    if (config.isOmitfp()) {
-      coptsBuilder.add("-fomit-frame-pointer");
-      coptsBuilder.add("-fasynchronous-unwind-tables");
-      coptsBuilder.add("-DNO_FRAME_POINTER");
-    }
-
-    FlagList compilerFlags =
-        new FlagList(
-            coptsBuilder.build(),
-            ImmutableList.of());
-
-    return compilerFlags.evaluate();
-  }
-
-  /**
-   * Returns the default options to use for compiling C, C++, and assembler. This is just the
-   * options that should be used for all three languages. There may be additional C-specific or
-   * C++-specific options that should be used, in addition to the ones returned by this method.
-   */
-  public static ImmutableList<String> getCompilerOptions(
-      CppConfiguration config, CcToolchainProvider toolchain) {
-    return ImmutableList.<String>builder()
-        .addAll(getCrosstoolCompilerOptions(config, toolchain))
-        .addAll(config.getCopts())
-        .build();
-  }
-
-  /**
-   * Returns the list of additional C++-specific options to use for compiling C++, excluding those
-   * specified on the command line. These should be go on the command line after the common options
-   * returned by {@link #getCompilerOptions}.
-   */
-  public static ImmutableList<String> getCrosstoolCxxOptions(
-      CppConfiguration config, CcToolchainProvider toolchain) {
-    ImmutableList.Builder<String> cxxOptsBuilder =
-        ImmutableList.<String>builder()
-            .addAll(toolchain.getToolchainCxxFlags())
-            .addAll(toolchain.getCxxFlagsByCompilationMode().get(config.getCompilationMode()))
-            .addAll(toolchain.getLipoCxxFlags().get(config.getLipoMode()));
-
-    FlagList cxxFlags = new FlagList(cxxOptsBuilder.build(), ImmutableList.of());
-
-    return cxxFlags.evaluate();
-  }
-
-  /**
-   * Returns the list of additional C++-specific options to use for compiling C++. These should be
-   * go on the command line after the common options returned by {@link #getCompilerOptions}.
-   */
-  public static ImmutableList<String> getCxxOptions(
-      CppConfiguration config, CcToolchainProvider toolchain) {
-    return ImmutableList.<String>builder()
-        .addAll(getCrosstoolCxxOptions(config, toolchain))
-        .addAll(config.getCxxopts())
-        .build();
-  }
-
-  /**
    * Returns the immutable list of linker options for fully statically linked outputs. Does not
    * include command-line options passed via --linkopt or --linkopts.
    *
@@ -1043,12 +971,6 @@ public class CppHelper {
 
     return ruleContext.getTreeArtifact(
         objectDir.getRelative(outputName), sourceTreeArtifact.getRoot());
-  }
-
-  /** Returns the corresponding compiled TreeArtifact given the source TreeArtifact. */
-  public static Artifact getCompileOutputTreeArtifact(
-      RuleContext ruleContext, Artifact sourceTreeArtifact, String outputName) {
-    return getCompileOutputTreeArtifact(ruleContext, sourceTreeArtifact, outputName, false);
   }
 
   static String getArtifactNameForCategory(

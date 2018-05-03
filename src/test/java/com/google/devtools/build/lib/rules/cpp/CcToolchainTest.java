@@ -511,8 +511,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(lib));
 
     assertDoesNotContainSublist(
-        CppHelper.getCompilerOptions(
-            getConfiguration(lib).getFragment(CppConfiguration.class), toolchain),
+        toolchain.getLegacyCompileOptionsWithCopts(),
         "--param",
         "df-double-quote-threshold-factor=0");
   }
@@ -520,25 +519,20 @@ public class CcToolchainTest extends BuildViewTestCase {
   @Test
   public void testMergesDefaultCoptsWithUserProvidedOnes() throws Exception {
     writeDummyCcToolchain();
-    scratch.file("lib/BUILD", "cc_library(", "   name = 'lib',", "   srcs = ['a.cc'],", ")");
+    scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
 
     ConfiguredTarget lib = getConfiguredTarget("//lib");
     CcToolchainProvider toolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(lib));
 
     List<String> expected = new ArrayList<>();
-    expected.addAll(
-        CppHelper.getCompilerOptions(
-            getConfiguration(lib).getFragment(CppConfiguration.class), toolchain));
+    expected.addAll(toolchain.getLegacyCompileOptionsWithCopts());
     expected.add("-Dfoo");
 
     useConfiguration("--copt", "-Dfoo");
     lib = getConfiguredTarget("//lib");
     toolchain = CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(lib));
-    assertThat(
-            ImmutableList.copyOf(
-                CppHelper.getCompilerOptions(
-                    getConfiguration(lib).getFragment(CppConfiguration.class), toolchain)))
+    assertThat(ImmutableList.copyOf(toolchain.getLegacyCompileOptionsWithCopts()))
         .isEqualTo(ImmutableList.copyOf(expected));
   }
 

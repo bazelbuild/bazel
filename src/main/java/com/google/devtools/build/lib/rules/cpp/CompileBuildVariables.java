@@ -19,10 +19,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -102,7 +104,7 @@ public enum CompileBuildVariables {
     this.variableName = variableName;
   }
 
-  public static Variables setupVariables(
+  public static Variables setupVariablesOrReportRuleError(
       RuleContext ruleContext,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchainProvider,
@@ -121,6 +123,50 @@ public enum CompileBuildVariables {
       String dotdFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables) {
+    try {
+      return setupVariablesOrThrowEvalException(
+          featureConfiguration,
+          ccToolchainProvider,
+          sourceFile,
+          outputFile,
+          gcnoFile,
+          dwoFile,
+          ltoIndexingFile,
+          ccCompilationContextInfo,
+          includes,
+          userCompileFlags,
+          cppModuleMap,
+          usePic,
+          realOutputFilePath,
+          fdoStamp,
+          dotdFileExecPath,
+          variablesExtensions,
+          additionalBuildVariables);
+    } catch (EvalException e) {
+      ruleContext.ruleError(e.getMessage());
+      return Variables.EMPTY;
+    }
+  }
+
+  public static Variables setupVariablesOrThrowEvalException(
+      FeatureConfiguration featureConfiguration,
+      CcToolchainProvider ccToolchainProvider,
+      Artifact sourceFile,
+      Artifact outputFile,
+      Artifact gcnoFile,
+      Artifact dwoFile,
+      Artifact ltoIndexingFile,
+      CcCompilationContextInfo ccCompilationContextInfo,
+      ImmutableList<String> includes,
+      ImmutableList<String> userCompileFlags,
+      CppModuleMap cppModuleMap,
+      boolean usePic,
+      PathFragment realOutputFilePath,
+      String fdoStamp,
+      String dotdFileExecPath,
+      ImmutableList<VariablesExtension> variablesExtensions,
+      ImmutableMap<String, String> additionalBuildVariables)
+      throws EvalException {
     Variables.Builder buildVariables =
         new Variables.Builder(ccToolchainProvider.getBuildVariables());
 
@@ -132,8 +178,7 @@ public enum CompileBuildVariables {
     String sourceFilename = sourceFile.getExecPathString();
     buildVariables.addLazyStringSequenceVariable(
         LEGACY_COMPILE_FLAGS.getVariableName(),
-        getLegacyCompileFlagsSupplier(
-            ruleContext.getFragment(CppConfiguration.class), ccToolchainProvider, sourceFilename));
+        getLegacyCompileFlagsSupplier(ccToolchainProvider, sourceFilename));
 
     if (!CppFileTypes.OBJC_SOURCE.matches(sourceFilename)
         && !CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)) {
@@ -212,7 +257,7 @@ public enum CompileBuildVariables {
 
     if (usePic) {
       if (!featureConfiguration.isEnabled(CppRuleClasses.PIC)) {
-        ruleContext.ruleError(CcCommon.PIC_CONFIGURATION_ERROR);
+        throw new EvalException(Location.BUILTIN, CcCommon.PIC_CONFIGURATION_ERROR);
       }
       buildVariables.addStringVariable(PIC.getVariableName(), "");
     }
@@ -256,15 +301,15 @@ public enum CompileBuildVariables {
    * to arguments (to prevent accidental capture of enclosing instance which could regress memory).
    */
   private static Supplier<ImmutableList<String>> getLegacyCompileFlagsSupplier(
-      CppConfiguration cppConfiguration, CcToolchainProvider toolchain, String sourceFilename) {
+      CcToolchainProvider toolchain, String sourceFilename) {
     return () -> {
       ImmutableList.Builder<String> legacyCompileFlags = ImmutableList.builder();
-      legacyCompileFlags.addAll(CppHelper.getCrosstoolCompilerOptions(cppConfiguration, toolchain));
+      legacyCompileFlags.addAll(toolchain.getLegacyCompileOptions());
       if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
           || CppFileTypes.CPP_HEADER.matches(sourceFilename)
           || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
           || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
-        legacyCompileFlags.addAll(CppHelper.getCrosstoolCxxOptions(cppConfiguration, toolchain));
+        legacyCompileFlags.addAll(toolchain.getLegacyCxxOptions());
       }
       return legacyCompileFlags.build();
     };

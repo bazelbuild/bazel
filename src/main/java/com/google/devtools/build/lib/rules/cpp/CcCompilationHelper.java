@@ -1519,7 +1519,7 @@ public final class CcCompilationHelper {
                   featureConfiguration,
                   fdoSupport));
     }
-    return CompileBuildVariables.setupVariables(
+    return CompileBuildVariables.setupVariablesOrReportRuleError(
         ruleContext,
         featureConfiguration,
         ccToolchain,

@@ -546,7 +546,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * options that should be used for all three languages. There may be additional C-specific or
    * C++-specific options that should be used, in addition to the ones returned by this method.
    *
-   * <p>Deprecated: Use {@link CppHelper#getCompilerOptions}
+   * <p>Deprecated: Use {@link CcToolchainProvider#getLegacyCompileOptionsWithCopts()}
    */
   // TODO(b/64384912): Migrate skylark callers and remove.
   @SkylarkCallable(
@@ -582,7 +582,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the list of additional C++-specific options to use for compiling C++. These should be
    * on the command line after the common options returned by {@link #getCompilerOptions}.
    *
-   * <p>Deprecated: Use {@link CppHelper#getCxxOptions}
+   * <p>Deprecated: Use {@link CcToolchainProvider#getCxxOptionsWithCopts}
    */
   // TODO(b/64384912): Migrate skylark callers and remove.
   @SkylarkCallable(
