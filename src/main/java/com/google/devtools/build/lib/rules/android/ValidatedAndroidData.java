@@ -59,4 +59,7 @@ public interface ValidatedAndroidData extends CompiledMergableAndroidData {
    */
   @Deprecated
   Artifact getMergedResources();
+
+  ProcessedAndroidManifest getProcessedManifest();
 }
+

@@ -234,7 +234,7 @@ public class AndroidResourcesProcessorBuilder {
     return ResourceApk.fromTransitiveResources(
         resourceDependencies,
         assetDependencies,
-        manifestOut == null ? manifest.getManifest() : manifestOut,
+        manifest.withProcessedManifest(manifestOut == null ? manifest.getManifest() : manifestOut),
         rTxtOut);
   }
 

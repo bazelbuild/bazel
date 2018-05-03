@@ -69,6 +69,11 @@ public abstract class ResourceContainer implements ValidatedAndroidData {
   @Nullable
   public abstract Artifact getApk();
 
+  @Override
+  public ProcessedAndroidManifest getProcessedManifest() {
+    return new ProcessedAndroidManifest(getManifest(), getJavaPackage(), isManifestExported());
+  }
+
   @SkylarkCallable(
     name = "manifest",
     doc = "Returns the manifest for the target.",

@@ -131,6 +131,10 @@ public class MergedAndroidResources extends ParsedAndroidResources {
     return manifest;
   }
 
+  public ProcessedAndroidManifest getProcessedManifest() {
+    return manifest;
+  }
+
   public ResourceDependencies getResourceDependencies() {
     return resourceDependencies;
   }

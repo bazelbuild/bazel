@@ -272,10 +272,16 @@ public final class ResourceDependencies {
    */
   public AndroidResourcesInfo toInfo(ValidatedAndroidData newDirectResource) {
     if (neverlink) {
-      return ResourceDependencies.empty().toInfo(newDirectResource.getLabel());
+      return ResourceDependencies.empty()
+          .toInfo(
+              newDirectResource.getLabel(),
+              newDirectResource.getProcessedManifest(),
+              newDirectResource.getRTxt());
     }
     return new AndroidResourcesInfo(
         newDirectResource.getLabel(),
+        newDirectResource.getProcessedManifest(),
+        newDirectResource.getRTxt(),
         NestedSetBuilder.<ValidatedAndroidData>naiveLinkOrder()
             .addTransitive(transitiveResourceContainers)
             .addTransitive(directResourceContainers)
@@ -307,12 +313,15 @@ public final class ResourceDependencies {
    * @param label The label of the library exporting this provider.
    * @return A provider with the current resources and label.
    */
-  public AndroidResourcesInfo toInfo(Label label) {
+  public AndroidResourcesInfo toInfo(
+      Label label, ProcessedAndroidManifest manifest, Artifact rTxt) {
     if (neverlink) {
-      return ResourceDependencies.empty().toInfo(label);
+      return ResourceDependencies.empty().toInfo(label, manifest, rTxt);
     }
     return new AndroidResourcesInfo(
         label,
+        manifest,
+        rTxt,
         transitiveResourceContainers,
         directResourceContainers,
         transitiveResources,

@@ -40,6 +40,94 @@ import javax.annotation.Nullable;
 public class AndroidSkylarkData {
 
   /**
+   * Skylark API for getting a asset provider for android_library targets that don't specify assets.
+   *
+   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
+   *
+   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
+   *     instead. See b/79159379
+   */
+  @SkylarkCallable(
+      name = "assets_from_deps",
+      mandatoryPositionals = 1, // context
+      parameters = {
+        @Param(
+            name = "deps",
+            defaultValue = "[]",
+            type = SkylarkList.class,
+            generic1 = AndroidAssetsInfo.class,
+            positional = false,
+            named = true,
+            doc = "Dependencies to inherit assets from"),
+        @Param(
+            name = "neverlink",
+            defaultValue = "False",
+            type = Boolean.class,
+            positional = false,
+            named = true,
+            doc =
+                "Defaults to False. If true, assets will not be exposed to targets that depend on"
+                    + " them.")
+      },
+      doc =
+          "Creates an AndroidAssetsInfo from this target's asset dependencies, ignoring local"
+              + " assets. No processing will be done. This method is deprecated and exposed only"
+              + " for backwards-compatibility with existing Native behavior.")
+  public static AndroidAssetsInfo assetsFromDeps(
+      SkylarkRuleContext ctx, SkylarkList<AndroidAssetsInfo> deps, boolean neverlink)
+      throws EvalException {
+    return AssetDependencies.fromProviders(deps, neverlink).toInfo(ctx.getLabel());
+  }
+
+  /**
+   * Skylark API for getting a resource provider for android_library targets that don't specify
+   * resources.
+   *
+   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
+   *
+   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
+   *     instead. See b/79159379
+   */
+  @SkylarkCallable(
+      name = "resources_from_deps",
+      mandatoryPositionals = 1, // context
+      parameters = {
+        @Param(
+            name = "deps",
+            defaultValue = "[]",
+            type = SkylarkList.class,
+            generic1 = AndroidResourcesInfo.class,
+            positional = false,
+            named = true,
+            doc = "Dependencies to inherit resources from"),
+        @Param(
+            name = "neverlink",
+            defaultValue = "False",
+            type = Boolean.class,
+            positional = false,
+            named = true,
+            doc =
+                "Defaults to False. If true, resources will not be exposed to targets that depend"
+                    + " on them.")
+      },
+      doc =
+          "Creates an AndroidResourcesInfo from this target's resource dependencies, ignoring local"
+              + " resources. Only processing of deps will be done. This method is deprecated and"
+              + " exposed only for backwards-compatibility with existing Native behavior. An empty"
+              + " manifest will be generated and included in the provider - this path should not"
+              + " be used when an explicit manifest is specified.")
+  public static AndroidResourcesInfo resourcesFromDeps(
+      SkylarkRuleContext ctx, SkylarkList<AndroidResourcesInfo> deps, boolean neverlink)
+      throws EvalException, InterruptedException {
+    return ResourceApk.processFromTransitiveLibraryData(
+            ctx.getRuleContext(),
+            ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
+            AssetDependencies.empty(),
+            StampedAndroidManifest.createEmpty(ctx.getRuleContext(), /* exported = */ false))
+        .toResourceInfo(ctx.getLabel());
+  }
+
+  /**
    * Skylark API for stamping an Android manifest
    *
    * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
