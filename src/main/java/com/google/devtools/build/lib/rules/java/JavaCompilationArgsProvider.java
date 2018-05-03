@@ -96,6 +96,11 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
     return getRecursiveJavaCompilationArgs().getCompileTimeJars();
   }
 
+  /** Returns recursively collected, non-interface compile-time jars. */
+  public NestedSet<Artifact> getFullTransitiveCompileTimeJars() {
+    return getRecursiveJavaCompilationArgs().getFullCompileTimeJars();
+  }
+
   /** Returns recursively collected runtime jars. */
   public NestedSet<Artifact> getRuntimeJars() {
     return getRecursiveJavaCompilationArgs().getRuntimeJars();
