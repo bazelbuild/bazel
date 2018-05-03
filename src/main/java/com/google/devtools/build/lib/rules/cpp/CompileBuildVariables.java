@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -113,7 +114,6 @@ public enum CompileBuildVariables {
       Artifact gcnoFile,
       Artifact dwoFile,
       Artifact ltoIndexingFile,
-      CcCompilationContextInfo ccCompilationContextInfo,
       ImmutableList<String> includes,
       ImmutableList<String> userCompileFlags,
       CppModuleMap cppModuleMap,
@@ -122,7 +122,12 @@ public enum CompileBuildVariables {
       String fdoStamp,
       String dotdFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
-      ImmutableMap<String, String> additionalBuildVariables) {
+      ImmutableMap<String, String> additionalBuildVariables,
+      Iterable<Artifact> directModuleMaps,
+      Collection<PathFragment> includeDirs,
+      Collection<PathFragment> quoteIncludeDirs,
+      Collection<PathFragment> systemIncludeDirs,
+      Iterable<String> defines) {
     try {
       return setupVariablesOrThrowEvalException(
           featureConfiguration,
@@ -132,7 +137,6 @@ public enum CompileBuildVariables {
           gcnoFile,
           dwoFile,
           ltoIndexingFile,
-          ccCompilationContextInfo,
           includes,
           userCompileFlags,
           cppModuleMap,
@@ -141,7 +145,12 @@ public enum CompileBuildVariables {
           fdoStamp,
           dotdFileExecPath,
           variablesExtensions,
-          additionalBuildVariables);
+          additionalBuildVariables,
+          directModuleMaps,
+          includeDirs,
+          quoteIncludeDirs,
+          systemIncludeDirs,
+          defines);
     } catch (EvalException e) {
       ruleContext.ruleError(e.getMessage());
       return Variables.EMPTY;
@@ -156,7 +165,6 @@ public enum CompileBuildVariables {
       Artifact gcnoFile,
       Artifact dwoFile,
       Artifact ltoIndexingFile,
-      CcCompilationContextInfo ccCompilationContextInfo,
       ImmutableList<String> includes,
       ImmutableList<String> userCompileFlags,
       CppModuleMap cppModuleMap,
@@ -165,8 +173,18 @@ public enum CompileBuildVariables {
       String fdoStamp,
       String dotdFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
-      ImmutableMap<String, String> additionalBuildVariables)
+      ImmutableMap<String, String> additionalBuildVariables,
+      Iterable<Artifact> directModuleMaps,
+      Iterable<PathFragment> includeDirs,
+      Iterable<PathFragment> quoteIncludeDirs,
+      Iterable<PathFragment> systemIncludeDirs,
+      Iterable<String> defines)
       throws EvalException {
+    Preconditions.checkNotNull(directModuleMaps);
+    Preconditions.checkNotNull(includeDirs);
+    Preconditions.checkNotNull(quoteIncludeDirs);
+    Preconditions.checkNotNull(systemIncludeDirs);
+    Preconditions.checkNotNull(defines);
     Variables.Builder buildVariables =
         new Variables.Builder(ccToolchainProvider.getBuildVariables());
 
@@ -214,7 +232,7 @@ public enum CompileBuildVariables {
       buildVariables.addStringVariable(
           MODULE_MAP_FILE.getVariableName(), cppModuleMap.getArtifact().getExecPathString());
       StringSequenceBuilder sequence = new StringSequenceBuilder();
-      for (Artifact artifact : ccCompilationContextInfo.getDirectModuleMaps()) {
+      for (Artifact artifact : directModuleMaps) {
         sequence.addValue(artifact.getExecPathString());
       }
       buildVariables.addCustomBuiltVariable(DEPENDENT_MODULE_MAP_FILES.getVariableName(), sequence);
@@ -225,14 +243,11 @@ public enum CompileBuildVariables {
     }
     if (featureConfiguration.isEnabled(CppRuleClasses.INCLUDE_PATHS)) {
       buildVariables.addStringSequenceVariable(
-          INCLUDE_PATHS.getVariableName(),
-          getSafePathStrings(ccCompilationContextInfo.getIncludeDirs()));
+          INCLUDE_PATHS.getVariableName(), getSafePathStrings(includeDirs));
       buildVariables.addStringSequenceVariable(
-          QUOTE_INCLUDE_PATHS.getVariableName(),
-          getSafePathStrings(ccCompilationContextInfo.getQuoteIncludeDirs()));
+          QUOTE_INCLUDE_PATHS.getVariableName(), getSafePathStrings(quoteIncludeDirs));
       buildVariables.addStringSequenceVariable(
-          SYSTEM_INCLUDE_PATHS.getVariableName(),
-          getSafePathStrings(ccCompilationContextInfo.getSystemIncludeDirs()));
+          SYSTEM_INCLUDE_PATHS.getVariableName(), getSafePathStrings(systemIncludeDirs));
     }
 
     if (!includes.isEmpty()) {
@@ -240,19 +255,19 @@ public enum CompileBuildVariables {
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESSOR_DEFINES)) {
-      ImmutableList<String> defines;
+      Iterable<String> allDefines;
       if (fdoStamp != null) {
         // Stamp FDO builds with FDO subtype string
-        defines =
+        allDefines =
             ImmutableList.<String>builder()
-                .addAll(ccCompilationContextInfo.getDefines())
+                .addAll(defines)
                 .add(CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoStamp + "\"")
                 .build();
       } else {
-        defines = ccCompilationContextInfo.getDefines();
+        allDefines = defines;
       }
 
-      buildVariables.addStringSequenceVariable(PREPROCESSOR_DEFINES.getVariableName(), defines);
+      buildVariables.addStringSequenceVariable(PREPROCESSOR_DEFINES.getVariableName(), allDefines);
     }
 
     if (usePic) {
@@ -286,7 +301,7 @@ public enum CompileBuildVariables {
   }
 
   /** Get the safe path strings for a list of paths to use in the build variables. */
-  private static ImmutableSet<String> getSafePathStrings(Collection<PathFragment> paths) {
+  private static ImmutableSet<String> getSafePathStrings(Iterable<PathFragment> paths) {
     ImmutableSet.Builder<String> result = ImmutableSet.builder();
     for (PathFragment path : paths) {
       result.add(path.getSafePathString());

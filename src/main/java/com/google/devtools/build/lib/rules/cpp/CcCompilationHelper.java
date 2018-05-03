@@ -1528,7 +1528,6 @@ public final class CcCompilationHelper {
         gcnoFile,
         dwoFile,
         ltoIndexingFile,
-        ccCompilationContextInfo,
         ImmutableList.of(),
         userCompileFlags.build(),
         cppModuleMap,
@@ -1537,7 +1536,12 @@ public final class CcCompilationHelper {
         CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
         dotdFileExecPath,
         ImmutableList.copyOf(variablesExtensions),
-        allAdditionalBuildVariables.build());
+        allAdditionalBuildVariables.build(),
+        ccCompilationContextInfo.getDirectModuleMaps(),
+        ccCompilationContextInfo.getIncludeDirs(),
+        ccCompilationContextInfo.getQuoteIncludeDirs(),
+        ccCompilationContextInfo.getSystemIncludeDirs(),
+        ccCompilationContextInfo.getDefines());
   }
 
   /**

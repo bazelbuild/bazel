@@ -142,18 +142,6 @@ public class CppLinkstampCompileHelper {
     // TODO(b/34761650): Remove all this hardcoding by separating a full blown compile action.
     Preconditions.checkArgument(
         featureConfiguration.actionIsConfigured(CppCompileAction.LINKSTAMP_COMPILE));
-    CcCompilationContextInfo ccCompilationContextInfo =
-        new CcCompilationContextInfo.Builder(ruleContext)
-            .addIncludeDir(PathFragment.create("."))
-            .addDefines(
-                computeAllLinkstampDefines(
-                    labelReplacement,
-                    outputReplacement,
-                    additionalLinkstampDefines,
-                    cppConfiguration,
-                    fdoBuildStamp,
-                    codeCoverageEnabled))
-            .build();
 
     return CompileBuildVariables.setupVariablesOrReportRuleError(
         ruleContext,
@@ -164,7 +152,6 @@ public class CppLinkstampCompileHelper {
         /* gcnoFile= */ null,
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
-        ccCompilationContextInfo,
         buildInfoHeaderArtifacts
             .stream()
             .map(Artifact::getExecPathString)
@@ -176,6 +163,17 @@ public class CppLinkstampCompileHelper {
         fdoBuildStamp,
         /* dotdFileExecPath= */ null,
         /* variablesExtensions= */ ImmutableList.of(),
-        /* additionalBuildVariables= */ ImmutableMap.of());
+        /* additionalBuildVariables= */ ImmutableMap.of(),
+        /* directModuleMaps= */ ImmutableList.of(),
+        /* includeDirs= */ ImmutableList.of(PathFragment.create(".")),
+        /* quoteIncludeDirs= */ ImmutableList.of(),
+        /* systemIncludeDirs= */ ImmutableList.of(),
+        computeAllLinkstampDefines(
+            labelReplacement,
+            outputReplacement,
+            additionalLinkstampDefines,
+            cppConfiguration,
+            fdoBuildStamp,
+            codeCoverageEnabled));
   }
 }
