@@ -272,7 +272,7 @@ public final class RemoteWorker {
         new RemoteWorker(
             fs,
             remoteWorkerOptions,
-            new SimpleBlobStoreActionCache(blobStore, digestUtil),
+            new SimpleBlobStoreActionCache(remoteOptions, blobStore, digestUtil),
             sandboxPath,
             digestUtil);
 
