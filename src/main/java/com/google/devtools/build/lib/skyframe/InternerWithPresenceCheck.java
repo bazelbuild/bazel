@@ -16,11 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.Interner;
-import com.google.common.collect.MapMaker;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
-
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-
 import javax.annotation.Nullable;
 
 /**
@@ -28,8 +25,7 @@ import javax.annotation.Nullable;
  * given sample object via {@link #getCanonical}.
  */
 public class InternerWithPresenceCheck<T> implements Interner<T> {
-  private final ConcurrentMap<T, T> map =
-      new MapMaker().concurrencyLevel(BlazeInterners.concurrencyLevel()).makeMap();
+  private final ConcurrentMap<T, T> map = new ConcurrentHashMap<>();
 
   @Override
   public T intern(T sample) {

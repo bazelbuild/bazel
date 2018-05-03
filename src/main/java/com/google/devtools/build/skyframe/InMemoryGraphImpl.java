@@ -18,12 +18,12 @@ import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
 
@@ -35,8 +35,7 @@ import javax.annotation.Nullable;
  */
 public class InMemoryGraphImpl implements InMemoryGraph {
 
-  protected final ConcurrentMap<SkyKey, InMemoryNodeEntry> nodeMap =
-      new MapMaker().initialCapacity(1024).concurrencyLevel(200).makeMap();
+  protected final ConcurrentMap<SkyKey, InMemoryNodeEntry> nodeMap = new ConcurrentHashMap<>(1024);
   private final boolean keepEdges;
 
   InMemoryGraphImpl() {

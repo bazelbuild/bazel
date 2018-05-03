@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.MutableMap;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
@@ -28,6 +27,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -155,7 +155,8 @@ public final class QueryUtil {
         int concurrencyLevel) {
       this.extractor = extractor;
       this.elementClass = elementClass;
-      this.map = new MapMaker().concurrencyLevel(concurrencyLevel).makeMap();
+      this.map =
+          new ConcurrentHashMap<>(/*initialCapacity=*/ concurrencyLevel, /*loadFactor=*/ 0.75f);
     }
 
     @Override
@@ -228,8 +229,10 @@ public final class QueryUtil {
 
     public UniquifierImpl(KeyExtractor<T, K> extractor, int concurrencyLevel) {
       this.extractor = extractor;
-      this.alreadySeen = Collections.newSetFromMap(
-          new MapMaker().concurrencyLevel(concurrencyLevel).<K, Boolean>makeMap());
+      this.alreadySeen =
+          Collections.newSetFromMap(
+              new ConcurrentHashMap<>(
+                  /*initialCapacity=*/ concurrencyLevel, /*loadFactor=*/ 0.75f));
     }
 
     @Override
@@ -261,7 +264,8 @@ public final class QueryUtil {
 
     public MinDepthUniquifierImpl(KeyExtractor<T, K> extractor, int concurrencyLevel) {
       this.extractor = extractor;
-      this.alreadySeenAtDepth = new MapMaker().concurrencyLevel(concurrencyLevel).makeMap();
+      this.alreadySeenAtDepth =
+          new ConcurrentHashMap<>(/*initialCapacity=*/ concurrencyLevel, /*loadFactor=*/ 0.75f);
     }
 
     @Override
