@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
-import com.google.devtools.build.lib.exec.FilesetActionContextImpl;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
@@ -69,7 +68,6 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -136,7 +134,6 @@ public class ExecutionTool {
     for (BlazeModule module : runtime.getBlazeModules()) {
       module.executorInit(env, request, builder);
     }
-    builder.addActionContextProvider(new FilesetActionContextImpl.Provider(env.getWorkspaceName()));
     builder.addActionContext(new SymlinkTreeStrategy(
                 env.getOutputService(), env.getBlazeWorkspace().getBinTools()));
     // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
@@ -145,7 +142,6 @@ public class ExecutionTool {
     builder.addActionContextConsumer(
         b -> {
           b.strategyByContextMap()
-              .put(FilesetActionContext.class, "")
               .put(WorkspaceStatusAction.Context.class, "")
               .put(SymlinkTreeActionContext.class, "");
         });
