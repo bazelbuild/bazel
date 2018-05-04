@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
+import com.google.devtools.build.lib.rules.android.ResourceApk.ProcessedTransitiveData;
 import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.ToArg;
 import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.ToArg.Includes;
 import com.google.devtools.build.lib.util.OS;
@@ -227,11 +228,11 @@ public class AndroidResourcesProcessorBuilder {
    * @return a {@link ResourceApk} containing the processed resource, asset, and manifest
    *     information.
    */
-  public ResourceApk buildWithoutLocalResources(StampedAndroidManifest manifest) {
+  public ProcessedTransitiveData buildWithoutLocalResources(StampedAndroidManifest manifest) {
 
     build(AndroidResources.empty(), AndroidAssets.empty(), manifest);
 
-    return ResourceApk.fromTransitiveResources(
+    return new ProcessedTransitiveData(
         resourceDependencies,
         assetDependencies,
         manifest.withProcessedManifest(manifestOut == null ? manifest.getManifest() : manifestOut),

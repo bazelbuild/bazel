@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarProvider.Aar;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -187,7 +188,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
               ruleContext,
               resourceDeps,
               assetDeps,
-              StampedAndroidManifest.createEmpty(ruleContext, /* exported = */ false));
+              StampedAndroidManifest.createEmpty(ruleContext, /* exported = */ false),
+              AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
     }
 
     JavaTargetAttributes javaTargetAttributes =

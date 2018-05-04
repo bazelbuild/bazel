@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import javax.annotation.Nullable;
 
 /**
@@ -48,6 +50,7 @@ public final class ResourceApk {
   // The non-binary XML version of AndroidManifest.xml
   private final ProcessedAndroidManifest manifest;
   private final Artifact rTxt;
+  private final Artifact rClassJar;
   @Nullable private final Artifact resourceProguardConfig;
   @Nullable private final Artifact mainDexProguardConfig;
 
@@ -71,6 +74,7 @@ public final class ResourceApk {
         resourceContainer.getAndroidAssets(),
         resourceContainer.getProcessedManifest(),
         resourceContainer.getRTxt(),
+        resourceContainer.getJavaClassJar(),
         resourceProguardConfig,
         mainDexProguardConfig);
   }
@@ -91,6 +95,7 @@ public final class ResourceApk {
         assets,
         resources.getProcessedManifest(),
         resources.getRTxt(),
+        resources.getClassJar(),
         resourceProguardConfig,
         mainDexProguardConfig);
   }
@@ -106,6 +111,7 @@ public final class ResourceApk {
       AndroidAssets primaryAssets,
       ProcessedAndroidManifest manifest,
       Artifact rTxt,
+      Artifact rClassJar,
       @Nullable Artifact resourceProguardConfig,
       @Nullable Artifact mainDexProguardConfig) {
     this.resourceApk = resourceApk;
@@ -118,6 +124,7 @@ public final class ResourceApk {
     this.primaryAssets = primaryAssets;
     this.manifest = manifest;
     this.rTxt = rTxt;
+    this.rClassJar = rClassJar;
     this.resourceProguardConfig = resourceProguardConfig;
     this.mainDexProguardConfig = mainDexProguardConfig;
   }
@@ -134,6 +141,7 @@ public final class ResourceApk {
         primaryAssets,
         manifest,
         rTxt,
+        rClassJar,
         resourceProguardConfig,
         mainDexProguardConfig);
   }
@@ -175,7 +183,8 @@ public final class ResourceApk {
       ResourceDependencies resourceDeps,
       AssetDependencies assetDeps,
       ProcessedAndroidManifest manifest,
-      Artifact rTxt) {
+      Artifact rTxt,
+      Artifact rClassJar) {
     return new ResourceApk(
         null,
         null,
@@ -187,6 +196,7 @@ public final class ResourceApk {
         AndroidAssets.empty(),
         manifest,
         rTxt,
+        rClassJar,
         null,
         null);
   }
@@ -219,7 +229,7 @@ public final class ResourceApk {
    */
   AndroidResourcesInfo toResourceInfo(Label label) {
     if (validatedResources == null) {
-      return resourceDeps.toInfo(label, manifest, rTxt);
+      return resourceDeps.toInfo(label, manifest, rTxt, rClassJar);
     }
     return resourceDeps.toInfo(validatedResources);
   }
@@ -270,8 +280,9 @@ public final class ResourceApk {
       RuleContext ruleContext,
       ResourceDependencies resourceDeps,
       AssetDependencies assetDeps,
-      StampedAndroidManifest manifest)
-      throws InterruptedException {
+      StampedAndroidManifest manifest,
+      AndroidAaptVersion aaptVersion)
+      throws InterruptedException, RuleErrorException {
 
     return new AndroidResourcesProcessorBuilder(ruleContext)
         .setLibrary(true)
@@ -286,6 +297,55 @@ public final class ResourceApk {
         .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
         .setThrowOnResourceConflict(
             AndroidCommon.getAndroidConfig(ruleContext).throwOnResourceConflict())
-        .buildWithoutLocalResources(manifest);
+        .buildWithoutLocalResources(manifest)
+        .generateRClass(ruleContext, aaptVersion);
+  }
+
+  /**
+   * Intermediate class representing processed data from transitive deps of a library, without a
+   * generated R class
+   */
+  static final class ProcessedTransitiveData {
+    private final ResourceDependencies resourceDeps;
+    private final AssetDependencies assetDeps;
+    private final ProcessedAndroidManifest manifest;
+    private final Artifact rTxt;
+
+    ProcessedTransitiveData(
+        ResourceDependencies resourceDeps,
+        AssetDependencies assetDeps,
+        ProcessedAndroidManifest manifest,
+        Artifact rTxt) {
+      this.resourceDeps = resourceDeps;
+      this.assetDeps = assetDeps;
+      this.manifest = manifest;
+      this.rTxt = rTxt;
+    }
+
+    public ResourceApk generateRClass(RuleContext ruleContext, AndroidAaptVersion aaptVersion)
+        throws InterruptedException {
+      return new RClassGeneratorActionBuilder(ruleContext)
+          .targetAaptVersion(aaptVersion)
+          .withDependencies(resourceDeps)
+          .setClassJarOut(
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
+          .build(this);
+    }
+
+    public ResourceDependencies getResourceDeps() {
+      return resourceDeps;
+    }
+
+    public AssetDependencies getAssetDeps() {
+      return assetDeps;
+    }
+
+    public ProcessedAndroidManifest getManifest() {
+      return manifest;
+    }
+
+    public Artifact getRTxt() {
+      return rTxt;
+    }
   }
 }

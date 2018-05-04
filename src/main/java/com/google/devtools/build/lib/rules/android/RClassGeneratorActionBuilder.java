@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
+import com.google.devtools.build.lib.rules.android.ResourceApk.ProcessedTransitiveData;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -74,6 +75,17 @@ public class RClassGeneratorActionBuilder {
     build(data.getRTxt(), data.getManifest());
 
     return data.withValidatedResources(classJarOut);
+  }
+
+  public ResourceApk build(ProcessedTransitiveData data) {
+    build(data.getRTxt(), data.getManifest());
+
+    return ResourceApk.fromTransitiveResources(
+        data.getResourceDeps(),
+        data.getAssetDeps(),
+        data.getManifest(),
+        data.getRTxt(),
+        classJarOut);
   }
 
   private void build(Artifact rTxt, ProcessedAndroidManifest manifest) {
