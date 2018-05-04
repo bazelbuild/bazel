@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -87,7 +88,10 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
         // means the rule might get restarted for legitimate reasons.
       }
 
-      // This has side-effect, we don't care about the output.
+      // This rule is mainly executed for its side effect. Nevertheless, the return value is
+      // of importance, as it provides information on how the call has to be modified to be a
+      // reproducible rule.
+      //
       // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make
       // it possible to return null and not block but it doesn't seem to be easy with Skylark
       // structure as it is.
@@ -101,6 +105,8 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
         env.getListener()
             .handle(Event.info("Repository rule '" + rule.getName() + "' returned: " + retValue));
       }
+      env.getListener()
+          .post(new RepositoryResolvedEvent(rule, skylarkRepositoryContext.getAttr(), retValue));
     } catch (EvalException e) {
       if (e.getCause() instanceof RepositoryMissingDependencyException) {
         // A dependency is missing, cleanup and returns null

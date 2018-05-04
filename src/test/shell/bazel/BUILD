@@ -386,6 +386,13 @@ sh_test(
 )
 
 sh_test(
+    name = "workspace_resolved_test",
+    size = "medium",
+    srcs = ["workspace_resolved_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "cc_integration_test",
     size = "medium",
     srcs = ["cc_integration_test.sh"],
