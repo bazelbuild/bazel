@@ -11,6 +11,9 @@ java_import(
     name = "checker_framework_dataflow",
     jars = ["dataflow-2.5.0.jar"],
     srcjar = "dataflow-2.5.0-sources.jar",
+    deps = [
+        "//third_party/checker_framework_javacutil",
+    ],
 )
 
 filegroup(
