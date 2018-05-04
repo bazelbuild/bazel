@@ -121,11 +121,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     this.ccToolchainType = CppRuleClasses.ccToolchainTypeAttribute(env);
   }
 
-  /** Returns whether this aspect should generate J2ObjC protos from this proto rule */
-  protected boolean shouldAttachToProtoRule(RuleContext ruleContext) {
-    return true;
-  }
-
   /** Returns whether this aspect allows proto services to be generated from this proto rule */
   protected boolean shouldAllowProtoServices(RuleContext ruleContext) {
     return true;
@@ -222,11 +217,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       throws InterruptedException {
     ConfiguredTarget base = ctadBase.getConfiguredTarget();
     if (isProtoRule(base)) {
-      if (shouldAttachToProtoRule(ruleContext)) {
-        return proto(base, ruleContext, parameters);
-      } else {
-        return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
-      }
+      return proto(base, ruleContext, parameters);
     } else {
       return java(base, ruleContext, parameters);
     }

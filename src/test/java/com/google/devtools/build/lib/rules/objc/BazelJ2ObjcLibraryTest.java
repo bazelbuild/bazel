@@ -63,17 +63,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
-  protected String j2ObjcCompatibleProtoLibrary(String... lines) {
-    StringBuilder builder = new StringBuilder();
-    builder.append("proto_library(");
-    for (String line : lines) {
-      builder.append(line);
-      builder.append('\n');
-    }
-    builder.append(")\n");
-    return builder.toString();
-  }
-
   /**
    * Gets the target with the given label, using the apple_binary multi-arch split transition with
    * the default version of iOS as the platform.
@@ -116,21 +105,24 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   @Test
   public void testJ2ObjCInformationExportedWithGeneratedJavaSources() throws Exception {
     scratch.file("java/com/google/test/in.txt");
-    scratch.file("java/com/google/test/BUILD",
+    scratch.file(
+        "java/com/google/test/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "genrule(",
         "    name = 'dummy_gen',",
         "    srcs = ['in.txt'],",
         "    outs = ['test.java'],",
-        "    cmd = 'dummy')",
+        "    cmd = 'dummy'",
+        ")",
         "",
         "java_library(",
         "    name = 'test',",
-        "    srcs = [':test.java'])",
-        "",
+        "    srcs = [':test.java']",
+        ")",
         "j2objc_library(",
         "    name = 'transpile',",
-        "    deps = ['test'])");
+        "    deps = ['test'],",
+        ")");
 
     ConfiguredTarget target = getConfiguredTarget("//java/com/google/test:transpile");
     ObjcProvider provider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
@@ -164,16 +156,23 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file(
         "java/com/google/dummy/test/proto/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        j2ObjcCompatibleProtoLibrary("    name = 'test_proto',", "    srcs = ['test.proto'],"),
-        "",
+        "proto_library(",
+        "    name = 'test_proto',",
+        "    srcs = ['test.proto'],",
+        ")",
+        "java_proto_library(",
+        "    name = 'test_java_proto',",
+        "    deps = [':test_proto'],",
+        ")",
         "java_library(",
         "    name = 'test',",
         "    srcs = ['test.java'],",
-        "    deps = [':test_proto'])",
-        "",
+        "    deps = [':test_java_proto']",
+        ")",
         "j2objc_library(",
         "    name = 'transpile',",
-        "    deps = ['test'])");
+        "    deps = ['test']",
+        ")");
 
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test/proto:transpile");
@@ -196,9 +195,12 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testJ2ObjcHeaderMapExportedInJavaLibrary() throws Exception {
-    scratch.file("java/com/google/transpile/BUILD",
-        "java_library(name = 'dummy',",
-        "    srcs = ['dummy.java'])");
+    scratch.file(
+        "java/com/google/transpile/BUILD",
+        "java_library(",
+        "    name = 'dummy',",
+        "    srcs = ['dummy.java']",
+        ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
     J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
@@ -210,12 +212,18 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testDepsJ2ObjcHeaderMapExportedInJavaLibraryWithNoSourceFile() throws Exception {
-    scratch.file("java/com/google/transpile/BUILD",
-        "java_library(name = 'dummy',",
-        "    exports = ['//java/com/google/dep:dep'])");
-    scratch.file("java/com/google/dep/BUILD",
-        "java_library(name = 'dep',",
-        "    srcs = ['dummy.java'])");
+    scratch.file(
+        "java/com/google/transpile/BUILD",
+        "java_library(",
+        "    name = 'dummy',",
+        "    exports = ['//java/com/google/dep:dep'],",
+        ")");
+    scratch.file(
+        "java/com/google/dep/BUILD",
+        "java_library(",
+        "    name = 'dep',",
+        "    srcs = ['dummy.java'],",
+        ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
     J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
@@ -232,12 +240,19 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file(
         "java/com/google/dummy/test/proto/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        j2ObjcCompatibleProtoLibrary("    name = 'test_proto',", "    srcs = ['test.proto'],"),
-        "",
+        "proto_library(",
+        "    name = 'test_proto',",
+        "    srcs = ['test.proto'],",
+        ")",
+        "java_proto_library(",
+        "    name = 'test_java_proto',",
+        "    deps = [':test_proto'],",
+        ")",
         "java_library(",
         "    name = 'test',",
         "    srcs = ['test.java'],",
-        "    deps = [':test_proto'])");
+        "    deps = [':test_java_proto']",
+        ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget(
         "//java/com/google/dummy/test/proto:test");
@@ -254,16 +269,19 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJavaProtoLibraryWithProtoLibrary() throws Exception {
     scratch.file(
         "x/BUILD",
-        j2ObjcCompatibleProtoLibrary("    name = 'test_proto',", "    srcs = ['test.proto'],"),
-        "",
+        "proto_library(",
+        "    name = 'test_proto',",
+        "    srcs = ['test.proto'],",
+        ")",
         "java_proto_library(",
         "    name = 'test_java_proto',",
-        "    deps = [':test_proto'])",
-        "",
+        "    deps = [':test_proto'],",
+        ")",
         "java_library(",
         "    name = 'test',",
         "    srcs = ['test.java'],",
-        "    deps = [':test_java_proto'])");
+        "    deps = [':test_java_proto']",
+        ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//x:test");
     ConfiguredTarget test = getConfiguredTarget("//x:test_proto", getAppleCrosstoolConfiguration());
@@ -285,7 +303,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file(
         "/bla/foo/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        j2ObjcCompatibleProtoLibrary("    name = 'test_proto',", "    srcs = ['test.proto'],"),
+        "proto_library(",
+        "    name = 'test_proto',",
+        "    srcs = ['test.proto'],",
+        ")",
         "java_proto_library(",
         "    name = 'test_java_proto',",
         "    deps = [':test_proto'])",
@@ -327,8 +348,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testJ2ObjcInfoExportedInJavaImport() throws Exception {
-    scratch.file("java/com/google/transpile/BUILD",
-        "java_import(name = 'dummy',",
+    scratch.file(
+        "java/com/google/transpile/BUILD",
+        "java_import(",
+        "    name = 'dummy',",
         "    jars = ['dummy.jar'],",
         "    srcjar = 'dummy.srcjar',",
         ")");
@@ -402,8 +425,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     useConfiguration("--ios_cpu=i386", "--ios_minimum_os=1.0");
     scratch.file("java/com/google/transpile/dummy.java");
     scratch.file("java/com/google/transpile/dummyjar.srcjar");
-    scratch.file("java/com/google/transpile/BUILD",
-        "java_library(name = 'dummy',",
+    scratch.file(
+        "java/com/google/transpile/BUILD",
+        "java_library(",
+        "    name = 'dummy',",
         "    srcs = ['dummy.java', 'dummyjar.srcjar'],",
         ")");
 
@@ -449,13 +474,16 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testJ2ObjcHeaderMappingAction() throws Exception {
-    scratch.file("java/com/google/transpile/BUILD",
-        "java_library(name = 'lib1',",
+    scratch.file(
+        "java/com/google/transpile/BUILD",
+        "java_library(",
+        "    name = 'lib1',",
         "    srcs = ['libOne.java', 'jar.srcjar'],",
         "    deps = [':lib2']",
         ")",
         "",
-        "java_library(name = 'lib2',",
+        "java_library(",
+        "    name = 'lib2',",
         "    srcs = ['libTwo.java'],",
         ")");
 
@@ -529,16 +557,18 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   protected void addSimpleJ2ObjcLibraryWithEntryClasses() throws Exception {
     scratch.file("java/com/google/app/test/test.java");
-    scratch.file("java/com/google/app/test/BUILD",
+    scratch.file(
+        "java/com/google/app/test/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "java_library(",
         "    name = 'test',",
-        "    srcs = ['test.java'])",
-        "",
+        "    srcs = ['test.java'],",
+        ")",
         "j2objc_library(",
         "    name = 'transpile',",
         "    entry_classes = ['com.google.app.test.test'],",
-        "    deps = ['test'])");
+        "    deps = ['test'],",
+        ")");
   }
 
   protected void addSimpleJ2ObjcLibraryWithJavaPlugin() throws Exception {
@@ -550,16 +580,17 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "java_library(",
         "    name = 'test',",
         "    srcs = ['test.java'],",
-        "    plugins = [':plugin'])",
-        "",
+        "    plugins = [':plugin'],",
+        ")",
         "java_plugin(",
         "    name = 'plugin',",
         "    processor_class = 'com.google.process.stuff',",
-        "    srcs = ['plugin.java'])",
-        "",
+        "    srcs = ['plugin.java'],",
+        ")",
         "j2objc_library(",
         "    name = 'transpile',",
-        "    deps = [':test'])");
+        "    deps = [':test']",
+        ")");
   }
 
   protected Artifact j2objcArchive(String j2objcLibraryTarget, String javaTargetName)
@@ -579,7 +610,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "objc_library(",
         "    name = 'lib',",
         "    srcs = ['lib.m'],",
-        "    deps = ['//java/com/google/dummy/test:transpile'])");
+        "    deps = ['//java/com/google/dummy/test:transpile'],",
+        ")");
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//app:lib");
 
@@ -610,20 +642,24 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "app/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "",
-        "java_library(name = 'dummyOne',",
-        "    srcs = ['dummyOne.java'])",
-        "java_library(name = 'dummyTwo',",
+        "java_library(",
+        "    name = 'dummyOne',",
+        "    srcs = ['dummyOne.java'],",
+        ")",
+        "java_library(",
+        "    name = 'dummyTwo',",
         "    srcs = ['dummyTwo.java'],",
-        "    runtime_deps = [':dummyOne'])",
-        "",
+        "    runtime_deps = [':dummyOne'],",
+        ")",
         "j2objc_library(",
         "    name = 'transpile',",
-        "    deps = [':dummyTwo'])",
-        "",
+        "    deps = [':dummyTwo'],",
+        ")",
         "objc_library(",
         "    name = 'lib',",
         "    srcs = ['lib.m'],",
-        "    deps = ['//app:transpile'])");
+        "    deps = ['//app:transpile'],",
+        ")");
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//app:lib");
 
@@ -660,7 +696,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    deps = [ '//java/c/y:ylib' ],",
         "    jre_deps = [ '"
             + TestConstants.TOOLS_REPOSITORY
-            + "//third_party/java/j2objc:jre_io_lib' ])",
+            + "//third_party/java/j2objc:jre_io_lib' ],",
+        ")",
         "apple_binary(",
         "    name = 'test',",
         "    platform_type = 'ios',",
@@ -714,10 +751,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJ2ObjCCustomModuleMap() throws Exception {
     useConfiguration("--experimental_objc_enable_module_maps");
     scratch.file("java/com/google/transpile/dummy.java");
-    scratch.file("java/com/google/transpile/BUILD",
+    scratch.file(
+        "java/com/google/transpile/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "java_library(name = 'dummy',",
-        "    srcs = ['dummy.java'])");
+        "java_library(",
+        "    name = 'dummy',",
+        "    srcs = ['dummy.java'],",
+        ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
 
@@ -857,7 +897,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "package(default_visibility=['//visibility:public'])",
         "java_library(",
         "    name = 'dummy',",
-        "    srcs = ['dummy.java'])",
+        "    srcs = ['dummy.java'],",
+        ")",
         "",
         "j2objc_library(",
         "    name = 'transpile',",
@@ -908,27 +949,28 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "load('//examples:fake_rule.bzl', 'fake_rule')",
         "java_library(",
         "    name = 'inner',",
-        "    srcs = ['inner.java'])",
-        "",
+        "    srcs = ['inner.java'],",
+        ")",
         "fake_rule(",
         "    name = 'propagator',",
-        "    deps = [':inner'])",
-        "",
+        "    deps = [':inner'],",
+        ")",
         "java_library(",
         "    name = 'outer',",
         "    srcs = ['outer.java'],",
-        "    deps = [':propagator'])",
-        "",
+        "    deps = [':propagator'],",
+        ")",
         "j2objc_library(",
         "    name = 'transpile',",
         "    deps = [",
         "        ':outer',",
-        "    ])",
-        "",
+        "    ],",
+        ")",
         "objc_library(",
         "    name = 'lib',",
         "    srcs = ['lib.m'],",
-        "    deps = [':transpile'])");
+        "    deps = [':transpile'],",
+        ")");
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//examples:lib");
 
@@ -948,7 +990,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "objc_library(",
         "    name = 'lib',",
         "    srcs = ['lib.m'],",
-        "    deps = ['//java/com/google/dummy/test:transpile'])");
+        "    deps = ['//java/com/google/dummy/test:transpile'],",
+        ")");
 
     checkObjcCompileActions(
         getBinArtifact("liblib.a", getConfiguredTarget("//app:lib")),
@@ -959,7 +1002,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testProtoToolchainForJ2ObjcFlag() throws Exception {
-    useConfiguration("--proto_toolchain_for_j2objc=//tools/j2objc:alt_j2objc_proto_toolchain");
+    useConfiguration(
+        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
+        "--proto_toolchain_for_j2objc=//tools/j2objc:alt_j2objc_proto_toolchain");
 
     scratch.file("tools/j2objc/proto_plugin_binary");
     scratch.file("tools/j2objc/alt_proto_runtime.h");
@@ -989,9 +1034,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    runtime = ':alt_proto_runtime',",
         "    blacklisted_protos = [':blacklisted_protos'],",
         ")",
-        j2ObjcCompatibleProtoLibrary(
-            "   name = 'blacklisted_proto_library',",
-            "   srcs = ['some_blacklisted_proto.proto'],"),
+        "proto_library(",
+        "   name = 'blacklisted_proto_library',",
+        "   srcs = ['some_blacklisted_proto.proto'],",
+        ")",
         "objc_library(",
         "    name = 'alt_proto_runtime',",
         "    hdrs = ['alt_proto_runtime.h'],",
@@ -1007,15 +1053,19 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file(
         "java/com/google/dummy/test/proto/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        j2ObjcCompatibleProtoLibrary(
-            "    name = 'test_proto',",
-            "    srcs = ['test.proto'],",
-            "    deps = ['//tools/j2objc:blacklisted_proto_library'],"),
-        "",
+        "proto_library(",
+        "    name = 'test_proto',",
+        "    srcs = ['test.proto'],",
+        "    deps = ['//tools/j2objc:blacklisted_proto_library'],",
+        ")",
+        "java_proto_library(",
+        "    name = 'test_java_proto',",
+        "    deps = [':test_proto'],",
+        ")",
         "java_library(",
         "    name = 'test',",
         "    srcs = ['test.java'],",
-        "    deps = [':test_proto'])",
+        "    deps = [':test_java_proto'])",
         "",
         "j2objc_library(",
         "    name = 'transpile',",
@@ -1199,16 +1249,26 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file(
         "java/com/google/transpile/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "java_library(name = 'dummy1',",
-        "    srcs = ['dummy.java'])",
-        "java_library(name = 'dummy2',",
-        "    srcs = ['dummy.java'])",
-        "java_library(name = 'dummy3',",
-        "    srcs = ['dummy.java'], deps = [':dummy2'])",
-        "j2objc_library(name = 'lib1',",
-        "    deps = [':dummy1'])",
-        "j2objc_library(name = 'lib2',",
-        "    deps = [':lib1', ':dummy3'])");
+        "java_library(",
+        "    name = 'dummy1',",
+        "    srcs = ['dummy.java'],",
+        ")",
+        "java_library(",
+        "    name = 'dummy2',",
+        "    srcs = ['dummy.java'],",
+        ")",
+        "java_library(",
+        "    name = 'dummy3',",
+        "    srcs = ['dummy.java'], deps = [':dummy2'],",
+        ")",
+        "j2objc_library(",
+        "    name = 'lib1',",
+        "    deps = [':dummy1'],",
+        ")",
+        "j2objc_library(",
+        "    name = 'lib2',",
+        "    deps = [':lib1', ':dummy3'],",
+        ")");
 
     // Bazel doesn't give us a way to test the aspect directly on the java_library targets, so we
     // can only test propagation through the j2objc_libraries that attach the aspect.
