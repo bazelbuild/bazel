@@ -225,6 +225,21 @@ public class ExecutionOptions extends OptionsBase {
   public ResourceSet availableResources;
 
   @Option(
+    name = "experimental_local_memory_estimate",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Estimate the actual memory available online. "
+            + "By default, Blaze assumes most actions use a fixed amount of memory, and counts "
+            + "that against the total available system memory, regardless of how much memory is "
+            + "actually available.  This option enables online estimation of how much memory is "
+            + "available at any given time, and thus does not require accurate estimation of how "
+            + "much memory a given action will take."
+  )
+  public boolean localMemoryEstimate;
+
+  @Option(
     name = "local_test_jobs",
     defaultValue = "0",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
