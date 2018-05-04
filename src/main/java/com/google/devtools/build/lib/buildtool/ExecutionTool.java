@@ -136,8 +136,7 @@ public class ExecutionTool {
     for (BlazeModule module : runtime.getBlazeModules()) {
       module.executorInit(env, request, builder);
     }
-    builder.addActionContextProvider(
-        new FilesetActionContextImpl.Provider(env.getReporter(), env.getWorkspaceName()));
+    builder.addActionContextProvider(new FilesetActionContextImpl.Provider(env.getWorkspaceName()));
     builder.addActionContext(new SymlinkTreeStrategy(
                 env.getOutputService(), env.getBlazeWorkspace().getBinTools()));
     // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead

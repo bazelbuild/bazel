@@ -14,18 +14,11 @@
 package com.google.devtools.build.lib.rules.fileset;
 
 import com.google.devtools.build.lib.actions.ActionContext;
-import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * Action context for fileset collection actions.
  */
 public interface FilesetActionContext extends ActionContext {
-
-  /**
-   * Returns a thread pool for fileset symlink tree creation.
-   */
-  ThreadPoolExecutor getFilesetPool();
-
   /**
    * Returns the name of the workspace the build is run in.
    */

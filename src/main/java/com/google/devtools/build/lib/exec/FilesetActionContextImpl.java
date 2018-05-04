@@ -14,14 +14,9 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Context for Fileset manifest actions. It currently only provides a ThreadPoolExecutor.
@@ -38,46 +33,21 @@ public final class FilesetActionContextImpl implements FilesetActionContext {
    */
   public static class Provider extends ActionContextProvider {
     private FilesetActionContextImpl impl;
-    private final Reporter reporter;
-    private final ThreadPoolExecutor filesetPool;
 
-    public Provider(Reporter reporter, String workspaceName) {
-      this.reporter = reporter;
-      this.filesetPool = newFilesetPool(100);
-      this.impl = new FilesetActionContextImpl(filesetPool, workspaceName);
-    }
-
-    private static ThreadPoolExecutor newFilesetPool(int threads) {
-      ThreadPoolExecutor pool = new ThreadPoolExecutor(threads, threads, 3L, TimeUnit.SECONDS,
-                                                       new LinkedBlockingQueue<Runnable>());
-      // Do not consume threads when not in use.
-      pool.allowCoreThreadTimeOut(true);
-      pool.setThreadFactory(new ThreadFactoryBuilder().setNameFormat("Fileset worker %d").build());
-      return pool;
+    public Provider(String workspaceName) {
+      this.impl = new FilesetActionContextImpl(workspaceName);
     }
 
     @Override
     public Iterable<? extends ActionContext> getActionContexts() {
       return ImmutableList.of(impl);
     }
-
-    @Override
-    public void executionPhaseEnding() {
-      BlazeExecutor.shutdownHelperPool(reporter, filesetPool, "Fileset");
-    }
   }
 
-  private final ThreadPoolExecutor filesetPool;
   private final String workspaceName;
 
-  private FilesetActionContextImpl(ThreadPoolExecutor filesetPool, String workspaceName) {
-    this.filesetPool = filesetPool;
+  private FilesetActionContextImpl(String workspaceName) {
     this.workspaceName = workspaceName;
-  }
-
-  @Override
-  public ThreadPoolExecutor getFilesetPool() {
-    return filesetPool;
   }
 
   @Override

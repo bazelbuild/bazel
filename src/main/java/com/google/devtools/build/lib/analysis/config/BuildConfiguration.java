@@ -1746,10 +1746,6 @@ public class BuildConfiguration {
     return options.legacyExternalRunfiles;
   }
 
-  public boolean getSkyframeNativeFileset() {
-    return true;
-  }
-
   /**
    * Returns user-specified test environment variables and their values, as set by the --test_env
    * options.
