@@ -1218,7 +1218,8 @@ void ForEachDirectoryEntry(const string &path,
     if (kDot != metadata.cFileName && kDotDot != metadata.cFileName) {
       wstring wname = wpath + metadata.cFileName;
       string name(WstringToCstring(/* omit prefix */ 4 + wname.c_str()).get());
-      bool is_dir = (metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+      bool is_dir = ((metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+                 && !(metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) != 0;
       consume->Consume(name, is_dir);
     }
   } while (::FindNextFileW(handle, &metadata));
