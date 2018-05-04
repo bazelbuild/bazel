@@ -5,69 +5,40 @@ title: Installing Bazel on Windows
 
 # <a name="windows"></a>Installing Bazel on Windows
 
-Supported Windows platforms:
+### Prerequisites
 
-*   64 bit Windows 7 or higher, or equivalent Windows Server versions.
+*   64 bit Windows 7 or newer, or <a href="https://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx">equivalent Windows Server versions</a>
 
-_Check
-<a href="https://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx">Microsoft's
-Operating System Version table</a> to see if your OS is supported._
-
-### 1. Install prerequisites (if not already installed)
-
-*   Python 2.7 or later.
-
-    Use the Windows-native Python version. Do not use Python that comes with the
-    MSYS2 shell or that you installed in MSYS using Pacman because it doesn't
-    work with Bazel.
-
-*   [MSYS2 shell](https://msys2.github.io/).
-
-    You also need to set the `BAZEL_SH` environment variable to point to
-    `bash.exe`. For example in the Windows Command Prompt (`cmd.exe`):
-
-    ```
-    set BAZEL_SH=C:\tools\msys64\usr\bin\bash.exe
-    ```
-
-    **Note**: do not use quotes (") around the path like you would on Unixes.
-    Windows doesn't need them and it may confuse Bazel.
-
-*   Several MSYS2 packages.
-
-    Run the following command in the MSYS2 shell to install them:
-
-    ```bash
-    pacman -Syuu git curl zip unzip
-    ```
+*   [MSYS2 shell](https://msys2.github.io/)
 
 *   [Microsoft Visual C++ Redistributable for Visual Studio 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
 
-    This may already be installed on your system.
+    These are common DLLs that Bazel needs. You may already have them installed.
 
-### 2. Install Bazel on Windows using one of the following methods:
+### Getting Bazel
 
-*   [Download the binary (recommended)](#download-the-binary-recommended)
-*   [Install using Chocolatey](#install-using-chocolatey)
-*   [Compile Bazel from source](install-compile-source.html)
+Download Bazel for Windows from our
+[GitHub releases page](https://github.com/bazelbuild/bazel/releases).
+Look for `bazel-<version>-windows-x86_64.exe`, e.g. `bazel-0.13.0-windows-x86_64.exe`.
 
-#### Download the binary (recommended)
+**Tip:** For convenience, rename the downloaded binary to `bazel.exe` and move it to a directory
+that's on your `%PATH%` or add its directory to your `%PATH%`. This way you can run Bazel by
+typing `bazel` in any directory, without typing out the full path.
 
-Go to Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases)
-and download the Windows binary<sup>1</sup>: `bazel-<version>-installer-windows-x86_64.sh`.
+**Note:** Bazel includes an embedded JDK so you don't need to install one separately. If you want
+to download Bazel without an embedded JDK, look for `bazel-<version>-without-jdk-windows-x86_64.exe`
+on the release page. To use it, you must install JDK 8 separately (older or newer versions are not
+supported), and set the `JAVA_HOME` environment variable, e.g.:
+```
+set JAVA_HOME=c:\Program Files\Java\jdk1.8.0_171
+```
+Pay attention not to use quotes (") around the path (like you would on Unixes).
 
-For convenience, move the binary to a directory that's on your `%PATH%`. This
-way you can run Bazel by typing `bazel` in any directory, without typing out the
-full path. That said, you may put the binary anywhere on your filesystem.
+### Other ways to get Bazel
 
-After you download the binary, you'll need additional
-software and some setup in your environment to run Bazel. For details, see the
-[Windows requirements](windows.html).
-
-**Note:** Bazel includes an embedded JDK, which can be used even if a JDK is already
-installed. `bazel-<version>-without-jdk-installer-linux-x86_64.sh` is a version of the installer
-without an embedded JDK. Only use this installer if you already have JDK 8 installed. Later JDK
-versions are not supported.
+You can also get Bazel by:
+*   [Installing Bazel using Chocolatey](#install-using-chocolatey)
+*   [Compiling Bazel from source](install-compile-source.html)
 
 #### Install using Chocolatey
 
@@ -78,7 +49,7 @@ package manager:
 choco install bazel
 ```
 
-This command will install the latest available version of Bazel and most of
+This command will install the latest available version of Bazel and
 its dependencies, such as the MSYS2 shell. This will not install Visual C++
 though.
 
