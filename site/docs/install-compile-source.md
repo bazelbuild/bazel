@@ -50,8 +50,8 @@ Ensure you have installed:
     *not* supported.
 
 *   **Python**. Versions 2 and 3 are supported. You *must* install the
-    Windows-native version (downloadable from https://www.python.org). Versions
-    installed via pacman in MSYS2 will not work.
+    Windows-native version (downloadable from [https://www.python.org](https://www.python.org)).
+    Versions installed via pacman in MSYS2 will not work.
 
 ### 2.  Download and unpack Bazel's distribution archive
 
