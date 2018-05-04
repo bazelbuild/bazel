@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
@@ -47,10 +46,8 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CTool
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -58,7 +55,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.ExecutionException;
@@ -107,7 +103,7 @@ public class CcToolchainFeatures implements Serializable {
       "Toolchain must provide artifact_name_pattern for category %s";
 
   /** Error message thrown when a toolchain enables two features that provide the same string. */
-  @VisibleForTesting static final String COLLIDING_PROVIDES_ERROR =
+  public static final String COLLIDING_PROVIDES_ERROR =
       "Symbol %s is provided by all of the following features: %s";
 
   /**
@@ -890,12 +886,12 @@ public class CcToolchainFeatures implements Serializable {
   }
 
   /**
-   * An interface for classes representing crosstool messages that can activate eachother
-   * using 'requires' and 'implies' semantics.
+   * An interface for classes representing crosstool messages that can activate each other using
+   * 'requires' and 'implies' semantics.
    *
    * <p>Currently there are two types of CrosstoolActivatable: Feature and ActionConfig.
    */
-  private interface CrosstoolSelectable {
+  interface CrosstoolSelectable {
 
     /**
      * Returns the name of this selectable.
@@ -1117,7 +1113,7 @@ public class CcToolchainFeatures implements Serializable {
     /**
      * Returns the name of the blaze action this action config applies to.
      */
-    private String getActionName() {
+    String getActionName() {
       return actionName;
     }
 
@@ -2537,7 +2533,17 @@ public class CcToolchainFeatures implements Serializable {
       throws CollidingProvidesException {
     // Command line flags will be output in the order in which they are specified in the toolchain
     // configuration.
-    return new FeatureSelection(requestedSelectables).run();
+    return new FeatureSelection(
+            requestedSelectables,
+            selectablesByName,
+            selectables,
+            provides,
+            implies,
+            impliedBy,
+            requires,
+            requiredBy,
+            actionConfigsByActionName)
+        .run();
   }
 
   public ImmutableList<String> getDefaultFeaturesAndActionConfigs() {
@@ -2602,199 +2608,5 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
     return false;
-  }
-
-  /**
-   * Implements the feature selection algorithm.
-   *
-   * <p>Feature selection is done by first enabling all features reachable by an 'implies' edge, and
-   * then iteratively pruning features that have unmet requirements.
-   */
-  private class FeatureSelection {
-    
-    /**
-     * The selectables Bazel would like to enable; either because they are supported and generally
-     * useful, or because the user required them (for example through the command line).
-     */
-    private final ImmutableSet<CrosstoolSelectable> requestedSelectables;
-    
-    /**
-     * The currently enabled selectable; during feature selection, we first put all selectables
-     * reachable via an 'implies' edge into the enabled selectable set, and than prune that set
-     * from selectables that have unmet requirements.
-     */
-    private final Set<CrosstoolSelectable> enabled = new HashSet<>();
-
-    private FeatureSelection(ImmutableSet<String> requestedFeatures) {
-      ImmutableSet.Builder<CrosstoolSelectable> builder = ImmutableSet.builder();
-      for (String name : requestedFeatures) {
-        if (selectablesByName.containsKey(name)) {
-          builder.add(selectablesByName.get(name));
-        }
-      }
-      this.requestedSelectables = builder.build();
-    }
-
-    /**
-     * @return a {@code FeatureConfiguration} that reflects the set of activated features and action
-     *     configs.
-     */
-    private FeatureConfiguration run() throws CollidingProvidesException {
-      for (CrosstoolSelectable selectable : requestedSelectables) {
-        enableAllImpliedBy(selectable);
-      }
-
-      disableUnsupportedActivatables();
-      ImmutableList.Builder<CrosstoolSelectable> enabledActivatablesInOrderBuilder =
-          ImmutableList.builder();
-      for (CrosstoolSelectable selectable : selectables) {
-        if (enabled.contains(selectable)) {
-          enabledActivatablesInOrderBuilder.add(selectable);
-        }
-      }
-
-      ImmutableList<CrosstoolSelectable> enabledActivatablesInOrder =
-          enabledActivatablesInOrderBuilder.build();
-      ImmutableList<Feature> enabledFeaturesInOrder =
-          enabledActivatablesInOrder
-              .stream()
-              .filter(a -> a instanceof Feature)
-              .map(f -> (Feature) f)
-              .collect(ImmutableList.toImmutableList());
-      Iterable<ActionConfig> enabledActionConfigsInOrder =
-          Iterables.filter(enabledActivatablesInOrder, ActionConfig.class);
-
-      for (String provided : provides.keys()) {
-        List<String> conflicts = new ArrayList<>();
-        for (CrosstoolSelectable selectableProvidingString : provides.get(provided)) {
-          if (enabledActivatablesInOrder.contains(selectableProvidingString)) {
-            conflicts.add(selectableProvidingString.getName());
-          }
-        }
-
-        if (conflicts.size() > 1) {
-          throw new CollidingProvidesException(String.format(COLLIDING_PROVIDES_ERROR,
-              provided, Joiner.on(" ").join(conflicts)));
-        }
-      }
-
-      ImmutableSet.Builder<String> enabledActionConfigNames = ImmutableSet.builder();
-      for (ActionConfig actionConfig : enabledActionConfigsInOrder) {
-        enabledActionConfigNames.add(actionConfig.actionName);
-      }
-
-      return new FeatureConfiguration(
-          enabledFeaturesInOrder, enabledActionConfigNames.build(), actionConfigsByActionName);
-    }
-
-    /**
-     * Transitively and unconditionally enable all selectables implied by the given selectable
-     * and the selectable itself to the enabled selectable set.
-     */
-    private void enableAllImpliedBy(CrosstoolSelectable selectable) {
-      if (enabled.contains(selectable)) {
-        return;
-      }
-      enabled.add(selectable);
-      for (CrosstoolSelectable implied : implies.get(selectable)) {
-        enableAllImpliedBy(implied);
-      }
-    }
-    
-    /**
-     * Remove all unsupported features from the enabled feature set.
-     */
-    private void disableUnsupportedActivatables() {
-      Queue<CrosstoolSelectable> check = new ArrayDeque<>(enabled);
-      while (!check.isEmpty()) {
-        checkActivatable(check.poll());
-      }
-    }
-
-    /**
-     * Check if the given selectable is still satisfied within the set of currently enabled
-     * selectables.
-     *
-     * <p>If it is not, remove the selectable from the set of enabled selectables, and re-check
-     * all selectables that may now also become disabled.
-     */
-    private void checkActivatable(CrosstoolSelectable selectable) {
-      if (!enabled.contains(selectable) || isSatisfied(selectable)) {
-        return;
-      }
-      enabled.remove(selectable);
-
-      // Once we disable a selectable, we have to re-check all selectables that can be affected
-      // by that removal.
-      // 1. A selectable that implied the current selectable is now going to be disabled.
-      for (CrosstoolSelectable impliesCurrent : impliedBy.get(selectable)) {
-        checkActivatable(impliesCurrent);
-      }
-      // 2. A selectable that required the current selectable may now be disabled, depending on
-      // whether the requirement was optional.
-      for (CrosstoolSelectable requiresCurrent : requiredBy.get(selectable)) {
-        checkActivatable(requiresCurrent);
-      }
-      // 3. A selectable that this selectable implied may now be disabled if no other selectables
-      // also implies it.
-      for (CrosstoolSelectable implied : implies.get(selectable)) {
-        checkActivatable(implied);
-      }
-    }
-
-    /**
-     * @return whether all requirements of the selectable are met in the set of currently enabled
-     * selectables.
-     */
-    private boolean isSatisfied(CrosstoolSelectable selectable) {
-      return (requestedSelectables.contains(selectable)
-              || isImpliedByEnabledActivatable(selectable))
-          && allImplicationsEnabled(selectable)
-          && allRequirementsMet(selectable);
-    }
-    
-    /**
-     * @return whether a currently enabled selectable implies the given selectable.
-     */
-    private boolean isImpliedByEnabledActivatable(CrosstoolSelectable selectable) {
-      return !Collections.disjoint(impliedBy.get(selectable), enabled);
-    }
-        
-    /**
-     * @return whether all implications of the given feature are enabled.
-     */
-    private boolean allImplicationsEnabled(CrosstoolSelectable selectable) {
-      for (CrosstoolSelectable implied : implies.get(selectable)) {
-        if (!enabled.contains(implied)) {
-          return false;
-        }
-      }
-      return true;
-    }
-    
-    /**
-     * @return whether all requirements are enabled.
-     *
-     * <p>This implies that for any of the selectable sets all of the specified selectable
-     *   are enabled.
-     */
-    private boolean allRequirementsMet(CrosstoolSelectable feature) {
-      if (!requires.containsKey(feature)) {
-        return true;
-      }
-      for (ImmutableSet<CrosstoolSelectable> requiresAllOf : requires.get(feature)) {
-        boolean requirementMet = true;
-        for (CrosstoolSelectable required : requiresAllOf) {
-          if (!enabled.contains(required)) {
-            requirementMet = false;
-            break;
-          }
-        }
-        if (requirementMet) {
-          return true;
-        }
-      }
-      return false;
-    }
   }
 }
