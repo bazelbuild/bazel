@@ -175,6 +175,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   private final FlagList unfilteredCompilerFlags;
   private final ImmutableList<String> cOptions;
 
+  private final FlagList fullyStaticLinkFlags;
   private final FlagList mostlyStaticLinkFlags;
   private final FlagList mostlyStaticSharedLinkFlags;
   private final FlagList dynamicLinkFlags;
@@ -258,6 +259,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
         ImmutableList.copyOf(cppOptions.conlyoptList),
         new FlagList(
             cppToolchainInfo.configureAllLegacyLinkOptions(
+                compilationMode, cppOptions.getLipoMode(), LinkingMode.FULLY_STATIC),
+            ImmutableList.of()),
+        new FlagList(
+            cppToolchainInfo.configureAllLegacyLinkOptions(
                 compilationMode, cppOptions.getLipoMode(), LinkingMode.MOSTLY_STATIC),
             ImmutableList.of()),
         new FlagList(
@@ -302,6 +307,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
       FlagList cxxFlags,
       FlagList unfilteredCompilerFlags,
       ImmutableList<String> cOptions,
+      FlagList fullyStaticLinkFlags,
       FlagList mostlyStaticLinkFlags,
       FlagList mostlyStaticSharedLinkFlags,
       FlagList dynamicLinkFlags,
@@ -333,6 +339,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     this.cxxFlags = cxxFlags;
     this.unfilteredCompilerFlags = unfilteredCompilerFlags;
     this.cOptions = cOptions;
+    this.fullyStaticLinkFlags = fullyStaticLinkFlags;
     this.mostlyStaticLinkFlags = mostlyStaticLinkFlags;
     this.mostlyStaticSharedLinkFlags = mostlyStaticSharedLinkFlags;
     this.dynamicLinkFlags = dynamicLinkFlags;
@@ -706,9 +713,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   )
   @Deprecated
   public ImmutableList<String> getFullyStaticLinkOptions(
-      Iterable<String> featuresNotUsedAnymore, boolean sharedLib) {
-    Preconditions.checkArgument(sharedLib);
-    return getSharedLibraryLinkOptions(mostlyStaticLinkFlags);
+      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) {
+    if (sharedLib) {
+      return getSharedLibraryLinkOptions(mostlyStaticLinkFlags);
+    } else {
+      return fullyStaticLinkFlags.evaluate();
+    }
   }
 
   /**

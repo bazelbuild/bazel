@@ -254,7 +254,9 @@ public class CppHelper {
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
   public static ImmutableList<String> getFullyStaticLinkOptions(
-      CppConfiguration config, CcToolchainProvider toolchain, boolean sharedLib) {
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      Boolean sharedLib) {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
           toolchain.getLegacyMostlyStaticLinkFlags(
