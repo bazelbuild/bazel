@@ -151,13 +151,20 @@ public class TreeNodeRepositoryTest {
     ActionInput fooH = ActionInputHelper.fromPath("/exec/root/a/foo/foo.h");
     scratch.file("/exec/root/a/foo/foo.cc", "2");
     ActionInput fooCc = ActionInputHelper.fromPath("/exec/root/a/foo/foo.cc");
+
     Artifact bar = new Artifact(scratch.file("/exec/root/a/bar.txt"), rootDir);
     TreeNodeRepository repo = createTestTreeNodeRepository();
 
-    TreeNode root = buildFromActionInputs(repo, foo, bar);
+    Artifact aClient = new Artifact(scratch.dir("/exec/root/a-client"), rootDir);
+    scratch.file("/exec/root/a-client/baz.txt", "3");
+    ActionInput baz = ActionInputHelper.fromPath("/exec/root/a-client/baz.txt");
+
+    TreeNode root = buildFromActionInputs(repo, foo, aClient, bar);
     TreeNode aNode = root.getChildEntries().get(0).getChild();
     TreeNode fooNode = aNode.getChildEntries().get(1).getChild(); // foo > bar in sort order!
     TreeNode barNode = aNode.getChildEntries().get(0).getChild();
+    TreeNode aClientNode = root.getChildEntries().get(1).getChild(); // a-client > a in sort order
+    TreeNode bazNode = aClientNode.getChildEntries().get(0).getChild();
 
     TreeNode fooHNode =
         fooNode.getChildEntries().get(1).getChild(); // foo.h > foo.cc in sort order!
@@ -170,18 +177,30 @@ public class TreeNodeRepositoryTest {
     Digest fooDigest = repo.getMerkleDigest(fooNode);
     Digest fooHDigest = repo.getMerkleDigest(fooHNode);
     Digest fooCcDigest = repo.getMerkleDigest(fooCcNode);
+    Digest aClientDigest = repo.getMerkleDigest(aClientNode);
+    Digest bazDigest = repo.getMerkleDigest(bazNode);
     Digest barDigest = repo.getMerkleDigest(barNode);
     assertThat(digests)
-        .containsExactly(rootDigest, aDigest, barDigest, fooDigest, fooHDigest, fooCcDigest);
+        .containsExactly(
+          rootDigest,
+          aDigest,
+          barDigest,
+          fooDigest,
+          fooCcDigest,
+          fooHDigest,
+          aClientDigest,
+          bazDigest);
 
     ArrayList<Directory> directories = new ArrayList<>();
     ArrayList<ActionInput> actionInputs = new ArrayList<>();
     repo.getDataFromDigests(digests, actionInputs, directories);
-    assertThat(actionInputs).containsExactly(bar, fooH, fooCc);
-    assertThat(directories).hasSize(3); // root, root/a and root/a/foo
+    assertThat(actionInputs).containsExactly(bar, fooH, fooCc, baz);
+    assertThat(directories).hasSize(4); // root, root/a, root/a/foo, and root/a-client
     Directory rootDirectory = directories.get(0);
     assertThat(rootDirectory.getDirectories(0).getName()).isEqualTo("a");
     assertThat(rootDirectory.getDirectories(0).getDigest()).isEqualTo(aDigest);
+    assertThat(rootDirectory.getDirectories(1).getName()).isEqualTo("a-client");
+    assertThat(rootDirectory.getDirectories(1).getDigest()).isEqualTo(aClientDigest);
     Directory aDirectory = directories.get(1);
     assertThat(aDirectory.getFiles(0).getName()).isEqualTo("bar.txt");
     assertThat(aDirectory.getFiles(0).getDigest()).isEqualTo(barDigest);
@@ -192,5 +211,8 @@ public class TreeNodeRepositoryTest {
     assertThat(fooDirectory.getFiles(0).getDigest()).isEqualTo(fooCcDigest);
     assertThat(fooDirectory.getFiles(1).getName()).isEqualTo("foo.h");
     assertThat(fooDirectory.getFiles(1).getDigest()).isEqualTo(fooHDigest);
+    Directory aClientDirectory = directories.get(3);
+    assertThat(aClientDirectory.getFiles(0).getName()).isEqualTo("baz.txt");
+    assertThat(aClientDirectory.getFiles(0).getDigest()).isEqualTo(bazDigest);
   }
 }

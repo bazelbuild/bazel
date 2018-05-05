@@ -42,6 +42,7 @@ import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -123,6 +124,8 @@ public final class TreeNodeRepository {
       public int hashCode() {
         return Objects.hash(segment, child);
       }
+
+      public static Comparator<ChildEntry> segmentOrder = Comparator.comparing(ChildEntry::getSegment);
     }
 
     // Should only be called by the TreeNodeRepository.
@@ -344,6 +347,7 @@ public final class TreeNodeRepository {
         }
       }
     }
+    Collections.sort(entries, TreeNode.ChildEntry.segmentOrder);
     return interner.intern(new TreeNode(entries, null));
   }
 
