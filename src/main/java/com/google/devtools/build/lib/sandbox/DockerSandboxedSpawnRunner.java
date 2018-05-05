@@ -292,6 +292,12 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return baseImage;
     }
 
+    // We only need to create a customized image, if we're running on Linux, as Docker on macOS
+    // and Windows doesn't map users from the host into the container anyway.
+    if (OS.getCurrent() != OS.LINUX) {
+      return baseImage;
+    }
+
     return imageMap.computeIfAbsent(
         baseImage,
         (image) -> {
