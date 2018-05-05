@@ -19,6 +19,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -29,12 +30,14 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -229,7 +232,9 @@ public class AarImportTest extends BuildViewTestCase {
             "--classpath_entry",
             "--input",
             "--output",
-            "--fail_on_errors");
+            "--checking_mode=error",
+            "--rule_label",
+            "--jdeps_output");
     ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/bar/classes_and_libs_merged.jar");
     ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/java/baz-ijar.jar");
     ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/classes_and_libs_merged.jar");
@@ -270,7 +275,9 @@ public class AarImportTest extends BuildViewTestCase {
             "--classpath_entry",
             "--input",
             "--output",
-            "--fail_on_errors");
+            "--checking_mode=error",
+            "--rule_label",
+            "--jdeps_output");
     ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/bar/classes_and_libs_merged.jar");
     ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/java/baz-ijar.jar");
     ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/classes_and_libs_merged.jar");
@@ -302,7 +309,9 @@ public class AarImportTest extends BuildViewTestCase {
             "--classpath_entry",
             "--input",
             "--output",
-            "--fail_on_errors");
+            "--checking_mode=error",
+            "--rule_label",
+            "--jdeps_output");
     ensureArgumentsHaveClassEntryOptionWithSuffix(
         arguments, "/intermediate/classes_and_libs_merged.jar");
     assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
@@ -338,7 +347,9 @@ public class AarImportTest extends BuildViewTestCase {
             "--classpath_entry",
             "--input",
             "--output",
-            "--fail_on_errors");
+            "--checking_mode=error",
+            "--rule_label",
+            "--jdeps_output");
     ensureArgumentsHaveClassEntryOptionWithSuffix(
         arguments, "/intermediate/classes_and_libs_merged.jar");
     assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
@@ -347,33 +358,42 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testDepsCheckerActionExistsForLevelWarning_NotDecoupled() throws Exception {
+    checkDepsCheckerActionExistsForLevel_NotDecoupled(ImportDepsCheckingLevel.WARNING, "warning");
+  }
+
+  @Test
+  public void testDepsCheckerActionExistsForLevelWarning() throws Exception {
+    checkDepsCheckerActionExistsForLevel(ImportDepsCheckingLevel.WARNING, "warning");
+  }
+
+  @Test
+  public void testDepsCheckerActionExistsForLevelOff_NotDecoupled() throws Exception {
+    checkDepsCheckerActionExistsForLevel_NotDecoupled(ImportDepsCheckingLevel.OFF, "silence");
+  }
+
+  @Test
+  public void testDepsCheckerActionExistsForLevelOff() throws Exception {
+    checkDepsCheckerActionExistsForLevel(ImportDepsCheckingLevel.OFF, "silence");
+  }
+
+  private void checkDepsCheckerActionExistsForLevel_NotDecoupled(
+      ImportDepsCheckingLevel level, String expectedCheckingMode) throws Exception {
     useConfiguration(
-        "--experimental_import_deps_checking=WARNING", "--noandroid_decouple_data_processing");
+        "--experimental_import_deps_checking=" + level.name(),
+        "--noandroid_decouple_data_processing");
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
     OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
     NestedSet<Artifact> outputGroup =
         outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     Artifact artifact = Iterables.getOnlyElement(outputGroup);
-
-    assertThat(artifact.isTreeArtifact()).isFalse();
-    assertThat(artifact.getExecPathString())
-        .endsWith("_aar/bar/aar_import_deps_checker_result.txt");
-
-    SpawnAction checkerAction = getGeneratingSpawnAction(artifact);
-    List<String> arguments = checkerAction.getArguments();
-    assertThat(arguments)
-        .containsAllOf(
-            "--bootclasspath_entry",
-            "--classpath_entry",
-            "--input",
-            "--output",
-            "--nofail_on_errors");
+    checkDepsCheckerOutputArtifact(artifact, expectedCheckingMode);
   }
 
-  @Test
-  public void testDepsCheckerActionExistsForLevelWarning() throws Exception {
+  private void checkDepsCheckerActionExistsForLevel(
+      ImportDepsCheckingLevel level, String expectedCheckingMode) throws Exception {
     useConfiguration(
-        "--experimental_import_deps_checking=WARNING", "--android_decouple_data_processing");
+        "--experimental_import_deps_checking=" + level.name(),
+        "--android_decouple_data_processing");
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
     OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
     NestedSet<Artifact> outputGroup =
@@ -387,7 +407,11 @@ public class AarImportTest extends BuildViewTestCase {
 
     // Get the other artifact from the output group
     Artifact artifact = ActionsTestUtil.getFirstArtifactEndingWith(outputGroup, ".txt");
+    checkDepsCheckerOutputArtifact(artifact, expectedCheckingMode);
+  }
 
+  private void checkDepsCheckerOutputArtifact(Artifact artifact, String expectedCheckingMode)
+      throws CommandLineExpansionException {
     assertThat(artifact.isTreeArtifact()).isFalse();
     assertThat(artifact.getExecPathString())
         .endsWith("_aar/bar/aar_import_deps_checker_result.txt");
@@ -400,7 +424,9 @@ public class AarImportTest extends BuildViewTestCase {
             "--classpath_entry",
             "--input",
             "--output",
-            "--nofail_on_errors");
+            "--rule_label",
+            "--jdeps_output",
+            "--checking_mode=" + expectedCheckingMode);
   }
 
   /**
@@ -425,32 +451,6 @@ public class AarImportTest extends BuildViewTestCase {
             + arguments
             + ", and the expected class entry suffix is "
             + suffix);
-  }
-
-  @Test
-  public void testDepsCheckerActionNotExistsForLevelOff_NotDecoupled() throws Exception {
-    useConfiguration(
-        "--experimental_import_deps_checking=OFF", "--noandroid_decouple_data_processing");
-    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
-    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
-    NestedSet<Artifact> outputGroup =
-        outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(outputGroup).isEmpty();
-  }
-
-  @Test
-  public void testDepsCheckerActionNotExistsForLevelOff() throws Exception {
-    useConfiguration(
-        "--experimental_import_deps_checking=OFF", "--android_decouple_data_processing");
-    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
-    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
-
-    // The deps checker action should not exist, but we should still create an action for asset
-    // merging
-    NestedSet<Artifact> outputGroup =
-        outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(outputGroup).hasSize(1);
-    assertThat(outputGroup.toList().get(0).getFilename()).isEqualTo("assets.zip");
   }
 
   @Test
@@ -592,6 +592,21 @@ public class AarImportTest extends BuildViewTestCase {
             "bin a/_aar/foo/classes_and_libs_merged.jar",
             "bin a/_aar/baz/classes_and_libs_merged.jar",
             "src java/baz.jar");
+    List<Artifact> compileTimeJavaDependencyArtifacts =
+        provider.getCompileTimeJavaDependencyArtifacts().toList();
+    assertThat(compileTimeJavaDependencyArtifacts).hasSize(2);
+    assertThat(
+            compileTimeJavaDependencyArtifacts
+                .stream()
+                .filter(artifact -> artifact.getExecPathString().endsWith("/_aar/foo/jdeps.proto"))
+                .collect(Collectors.toList()))
+        .hasSize(1);
+    assertThat(
+            compileTimeJavaDependencyArtifacts
+                .stream()
+                .filter(artifact -> artifact.getExecPathString().endsWith("/_aar/bar/jdeps.proto"))
+                .collect(Collectors.toList()))
+        .hasSize(1);
   }
 
   @Test

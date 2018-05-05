@@ -162,6 +162,37 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .addCompileTimeJarAsFullJar(mergedJar)
             .build());
 
+
+
+    JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
+    NestedSet<Artifact> deps =
+        getCompileTimeJarsFromCollection(
+            targets,
+            javaConfig.getImportDepsCheckingLevel() == ImportDepsCheckingLevel.STRICT_ERROR);
+      NestedSet<Artifact> bootclasspath = getBootclasspath(ruleContext);
+    Artifact depsCheckerResult =
+        createAarArtifact(ruleContext, "aar_import_deps_checker_result.txt");
+    Artifact jdepsArtifact = createAarArtifact(ruleContext, "jdeps.proto");
+    ImportDepsCheckActionBuilder.newBuilder()
+        .bootcalsspath(bootclasspath)
+        .declareDeps(deps)
+        .checkJars(NestedSetBuilder.<Artifact>stableOrder().add(mergedJar).build())
+        .outputArtifiact(depsCheckerResult)
+        .importDepsCheckingLevel(javaConfig.getImportDepsCheckingLevel())
+        .jdepsOutputArtifact(jdepsArtifact)
+        .ruleLabel(ruleContext.getLabel().getName())
+        .buildAndRegister(ruleContext);
+    NestedSet<Artifact> compileTimeDependencyArtifacts =
+        common.collectCompileTimeDependencyArtifacts(jdepsArtifact);
+
+    // We pass depsCheckerResult to create the action of extracting ANDROID_MANIFEST. Note that
+    // this action does not need depsCheckerResult. The only reason is that we need to check the
+    // dependencies of this aar_import, and we need to put its result on the build graph so that the
+    // dependency checking action is called.
+    ruleContext.registerAction(
+        createSingleFileExtractorActions(
+            ruleContext, aar, ANDROID_MANIFEST, depsCheckerResult, androidManifestArtifact));
+
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         JavaCompilationArgsProvider.create(
             common.collectJavaCompilationArgs(
@@ -171,32 +202,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
             common.collectJavaCompilationArgs(
                 /* recursive = */ true,
                 JavaCommon.isNeverLink(ruleContext),
-                /* srcLessDepsExport = */ false));
-
-    Artifact depsCheckerResult = null;
-    JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
-    if (javaConfig.getImportDepsCheckingLevel() != ImportDepsCheckingLevel.OFF) {
-      NestedSet<Artifact> deps =
-          getCompileTimeJarsFromCollection(
-              targets,
-              javaConfig.getImportDepsCheckingLevel() == ImportDepsCheckingLevel.STRICT_ERROR);
-      NestedSet<Artifact> bootclasspath = getBootclasspath(ruleContext);
-      depsCheckerResult = createAarArtifact(ruleContext, "aar_import_deps_checker_result.txt");
-      ImportDepsCheckActionBuilder.newBuilder()
-          .bootcalsspath(bootclasspath)
-          .declareDeps(deps)
-          .checkJars(NestedSetBuilder.<Artifact>stableOrder().add(mergedJar).build())
-          .outputArtifiact(depsCheckerResult)
-          .importDepsCheckingLevel(javaConfig.getImportDepsCheckingLevel())
-          .buildAndRegister(ruleContext);
-    }
-    // We pass depsCheckerResult to create the action of extracting ANDROID_MANIFEST. Note that
-    // this action does not need depsCheckerResult. The only reason is that we need to check the
-    // dependencies of this aar_import, and we need to put its result on the build graph so that the
-    // dependency checking action is called.
-    ruleContext.registerAction(
-        createSingleFileExtractorActions(
-            ruleContext, aar, ANDROID_MANIFEST, depsCheckerResult, androidManifestArtifact));
+                /* srcLessDepsExport = */ false),
+            compileTimeDependencyArtifacts);
 
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
