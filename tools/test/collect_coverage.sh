@@ -109,7 +109,7 @@ fi
 cd $ROOT
 
 USES_LLVM_COV=
-if stat --printf='' "${COVERAGE_DIR}"/*.profraw 2>/dev/null; then
+if stat "${COVERAGE_DIR}"/*.profraw >/dev/null 2>&1; then
   USES_LLVM_COV=1
 fi
 
