@@ -38,6 +38,7 @@ import com.google.devtools.remoteexecution.v1test.Tree;
 import io.grpc.Context;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,6 +52,8 @@ public class SimpleBlobStoreActionCacheTest {
   private FileSystem fs;
   private Path execRoot;
   private FakeActionInputFileCache fakeFileCache;
+  private Context withEmptyMetadata;
+  private Context prevContext;
 
   @Before
   public final void setUp() throws Exception {
@@ -64,10 +67,15 @@ public class SimpleBlobStoreActionCacheTest {
     Path stderr = fs.getPath("/tmp/stderr");
     FileSystemUtils.createDirectoryAndParents(stdout.getParentDirectory());
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
-    Context withEmptyMetadata =
+    withEmptyMetadata =
         TracingMetadataUtils.contextWithMetadata(
             "none", "none", DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()));
-    withEmptyMetadata.attach();
+    prevContext = withEmptyMetadata.attach();
+  }
+
+  @After
+  public void tearDown() {
+    withEmptyMetadata.detach(prevContext);
   }
 
   private SimpleBlobStoreActionCache newClient() {
