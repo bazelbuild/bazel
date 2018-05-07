@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -109,16 +108,7 @@ public class AndroidSkylarkData {
             named = true,
             doc =
                 "Defaults to False. If true, resources will not be exposed to targets that depend"
-                    + " on them."),
-        @Param(
-            name = "aapt_version",
-            positional = false,
-            defaultValue = "'auto'",
-            type = String.class,
-            named = true,
-            doc =
-                "The version of aapt to use. Defaults to 'auto'. 'aapt' and 'aapt2' are also"
-                    + " supported."),
+                    + " on them.")
       },
       doc =
           "Creates an AndroidResourcesInfo from this target's resource dependencies, ignoring local"
@@ -127,22 +117,14 @@ public class AndroidSkylarkData {
               + " manifest will be generated and included in the provider - this path should not"
               + " be used when an explicit manifest is specified.")
   public static AndroidResourcesInfo resourcesFromDeps(
-      SkylarkRuleContext ctx,
-      SkylarkList<AndroidResourcesInfo> deps,
-      boolean neverlink,
-      String aaptVersionString)
+      SkylarkRuleContext ctx, SkylarkList<AndroidResourcesInfo> deps, boolean neverlink)
       throws EvalException, InterruptedException {
-    try {
-      return ResourceApk.processFromTransitiveLibraryData(
-              ctx.getRuleContext(),
-              ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
-              AssetDependencies.empty(),
-              StampedAndroidManifest.createEmpty(ctx.getRuleContext(), /* exported = */ false),
-              AndroidAaptVersion.chooseTargetAaptVersion(ctx.getRuleContext(), aaptVersionString))
-          .toResourceInfo(ctx.getLabel());
-    } catch (RuleErrorException e) {
-      throw new EvalException(Location.BUILTIN, e);
-    }
+    return ResourceApk.processFromTransitiveLibraryData(
+            ctx.getRuleContext(),
+            ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
+            AssetDependencies.empty(),
+            StampedAndroidManifest.createEmpty(ctx.getRuleContext(), /* exported = */ false))
+        .toResourceInfo(ctx.getLabel());
   }
 
   /**

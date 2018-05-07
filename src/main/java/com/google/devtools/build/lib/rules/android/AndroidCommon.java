@@ -398,7 +398,7 @@ public class AndroidCommon {
       JavaCompilationArtifacts.Builder artifactsBuilder,
       JavaTargetAttributes.Builder attributes,
       NestedSetBuilder<Artifact> filesBuilder)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
 
     // The resource class JAR should already have been generated.
     Preconditions.checkArgument(

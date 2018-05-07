@@ -276,14 +276,12 @@ public final class ResourceDependencies {
           .toInfo(
               newDirectResource.getLabel(),
               newDirectResource.getProcessedManifest(),
-              newDirectResource.getRTxt(),
-              newDirectResource.getJavaClassJar());
+              newDirectResource.getRTxt());
     }
     return new AndroidResourcesInfo(
         newDirectResource.getLabel(),
         newDirectResource.getProcessedManifest(),
         newDirectResource.getRTxt(),
-        newDirectResource.getJavaClassJar(),
         NestedSetBuilder.<ValidatedAndroidData>naiveLinkOrder()
             .addTransitive(transitiveResourceContainers)
             .addTransitive(directResourceContainers)
@@ -316,15 +314,14 @@ public final class ResourceDependencies {
    * @return A provider with the current resources and label.
    */
   public AndroidResourcesInfo toInfo(
-      Label label, ProcessedAndroidManifest manifest, Artifact rTxt, Artifact rClassJar) {
+      Label label, ProcessedAndroidManifest manifest, Artifact rTxt) {
     if (neverlink) {
-      return ResourceDependencies.empty().toInfo(label, manifest, rTxt, rClassJar);
+      return ResourceDependencies.empty().toInfo(label, manifest, rTxt);
     }
     return new AndroidResourcesInfo(
         label,
         manifest,
         rTxt,
-        rClassJar,
         transitiveResourceContainers,
         directResourceContainers,
         transitiveResources,

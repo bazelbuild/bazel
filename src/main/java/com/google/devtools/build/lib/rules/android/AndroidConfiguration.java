@@ -230,39 +230,27 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         throws RuleErrorException {
       if (ruleContext.isLegalFragment(AndroidConfiguration.class)) {
         boolean hasAapt2 = AndroidSdkProvider.fromRuleContext(ruleContext).getAapt2() != null;
+        AndroidAaptVersion flag =
+            ruleContext.getFragment(AndroidConfiguration.class).getAndroidAaptVersion();
 
         if (ruleContext.getRule().isAttrDefined("aapt_version", STRING)) {
           // On rules that can choose a version, test attribute then flag choose the aapt version
           // target.
-          return chooseTargetAaptVersion(
-              ruleContext, ruleContext.attributes().get("aapt_version", STRING));
+          AndroidAaptVersion version =
+              fromString(ruleContext.attributes().get("aapt_version", STRING));
+          // version is null if the value is "auto"
+          version = version == AndroidAaptVersion.AUTO ? flag : version;
+
+          if (version == AAPT2 && !hasAapt2) {
+            ruleContext.throwWithRuleError(
+                "aapt2 processing requested but not available on the android_sdk");
+            return null;
+          }
+          return version == AndroidAaptVersion.AUTO ? AAPT : version;
         } else {
           // On rules can't choose, assume aapt2 if aapt2 is present in the sdk.
           return hasAapt2 ? AAPT2 : AAPT;
         }
-      }
-      return null;
-    }
-
-    @Nullable
-    public static AndroidAaptVersion chooseTargetAaptVersion(
-        RuleContext ruleContext, @Nullable String versionString) throws RuleErrorException {
-
-      if (ruleContext.isLegalFragment(AndroidConfiguration.class)) {
-        boolean hasAapt2 = AndroidSdkProvider.fromRuleContext(ruleContext).getAapt2() != null;
-        AndroidAaptVersion flag =
-            ruleContext.getFragment(AndroidConfiguration.class).getAndroidAaptVersion();
-
-        AndroidAaptVersion version = fromString(versionString);
-        // version is null if the value is "auto"
-        version = version == AndroidAaptVersion.AUTO ? flag : version;
-
-        if (version == AAPT2 && !hasAapt2) {
-          ruleContext.throwWithRuleError(
-              "aapt2 processing requested but not available on the android_sdk");
-          return null;
-        }
-        return version == AndroidAaptVersion.AUTO ? AAPT : version;
       }
       return null;
     }
