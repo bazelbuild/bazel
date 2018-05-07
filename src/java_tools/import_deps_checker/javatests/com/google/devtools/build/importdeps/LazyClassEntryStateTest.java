@@ -22,6 +22,7 @@ import com.google.devtools.build.importdeps.AbstractClassEntryState.ExistingStat
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.MissingState;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
+import java.nio.file.Paths;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,7 +35,7 @@ public class LazyClassEntryStateTest {
   public static final ImmutableSet<MemberInfo> METHOD_LIST =
       ImmutableSet.of(MemberInfo.create("hashCode", "()I"));
   public static final ClassInfo LIST_CLASS_INFO =
-      ClassInfo.create(LIST_CLASS_NAME, ImmutableList.of(), METHOD_LIST);
+      ClassInfo.create(LIST_CLASS_NAME, Paths.get("a"), true, ImmutableList.of(), METHOD_LIST);
 
   @Test
   public void testExistingState() {

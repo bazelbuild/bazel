@@ -15,7 +15,7 @@
 
 def create_golden_test(name, golden_output_file, golden_stderr_file, expect_errors, checking_mode,
                        has_bootclasspath, testdata_pkg, import_deps_checker, rt_jar,
-                       missing_jar = None, replacing_jar = None):
+                       missing_jar = None, replacing_jar = None, direct_jars = []):
   '''Create a golden test for the dependency checker.'''
   all_dep_jars = [
       "testdata_client",
@@ -57,10 +57,17 @@ def create_golden_test(name, golden_output_file, golden_stderr_file, expect_erro
     args.append("--classpath_entry")
     args.append("$(location %s:%s)" % (testdata_pkg, dep))
 
+  for dep in direct_jars:
+    args.append("--directdep")
+    args.append("$(location %s:%s)" % (testdata_pkg, dep))
+
   args = args + [
       "--input",
       "$(location %s:testdata_client)" % testdata_pkg,
       ]
+
+  args.append("--rule_label=:%s" % name)
+
   native.sh_test(
       name=name,
       srcs = ["golden_test.sh"],

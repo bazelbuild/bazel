@@ -21,6 +21,7 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
+import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,6 +32,7 @@ public class ResultCollector {
   private final HashSet<String> missingClasss = new HashSet<>();
   private final HashMap<String, IncompleteState> incompleteClasses = new HashMap<>();
   private final HashSet<MissingMember> missingMembers = new HashSet<>();
+  private final HashSet<Path> indirectDeps = new HashSet<>();
 
   public ResultCollector() {}
 
@@ -56,11 +58,18 @@ public class ResultCollector {
 
   /** Returns {@literal true} if there is NO dependency issue, {@literal false} otherwise. */
   public boolean isEmpty() {
-    return missingClasss.isEmpty() && incompleteClasses.isEmpty() && missingMembers.isEmpty();
+    return missingClasss.isEmpty()
+        && incompleteClasses.isEmpty()
+        && missingMembers.isEmpty()
+        && indirectDeps.isEmpty();
   }
 
   public void addMissingMember(String owner, MemberInfo member) {
     missingMembers.add(MissingMember.create(owner, member));
+  }
+
+  public void addIndirectDep(Path indirectDep) {
+    indirectDeps.add(indirectDep);
   }
 
   public ImmutableList<String> getSortedMissingClassInternalNames() {
@@ -74,6 +83,10 @@ public class ResultCollector {
 
   public ImmutableList<MissingMember> getSortedMissingMembers() {
     return ImmutableList.sortedCopyOf(missingMembers);
+  }
+
+  public ImmutableList<Path> getSortedIndirectDeps() {
+    return ImmutableList.sortedCopyOf(indirectDeps);
   }
 
   /**

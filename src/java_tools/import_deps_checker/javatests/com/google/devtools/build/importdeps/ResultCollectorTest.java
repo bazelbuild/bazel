@@ -22,6 +22,8 @@ import com.google.devtools.build.importdeps.AbstractClassEntryState.MissingState
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
 import com.google.devtools.build.importdeps.ResultCollector.MissingMember;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,6 +45,8 @@ public class ResultCollectorTest {
     assertThat(collector.getSortedMissingClassInternalNames()).isEmpty();
     assertThat(collector.getSortedMissingMembers()).isEmpty();
     assertThat(collector.getSortedIncompleteClasses()).isEmpty();
+    assertThat(collector.getSortedIndirectDeps()).isEmpty();
+    assertThat(collector.isEmpty()).isTrue();
   }
 
   @Test
@@ -55,6 +59,7 @@ public class ResultCollectorTest {
     assertThat(collector.getSortedMissingMembers())
         .containsExactly(MissingMember.create("java/lang/Object", "field", "I"));
     assertThat(collector.getSortedMissingClassInternalNames()).containsExactly("java.lang.String");
+    assertThat(collector.isEmpty()).isFalse();
   }
 
   @Test
@@ -62,11 +67,15 @@ public class ResultCollectorTest {
     collector.addMissingOrIncompleteClass(
         "java/lang/String",
         IncompleteState.create(
-            ClassInfo.create("java/lang/String", ImmutableList.of(), ImmutableSet.of()),
+            ClassInfo.create(
+                "java/lang/String", Paths.get("a"), true, ImmutableList.of(), ImmutableSet.of()),
             ImmutableList.of("java/lang/Object")));
     assertThat(collector.getSortedIncompleteClasses()).hasSize(1);
     assertThat(collector.getSortedIncompleteClasses().get(0).classInfo().get())
-        .isEqualTo(ClassInfo.create("java/lang/String", ImmutableList.of(), ImmutableSet.of()));
+        .isEqualTo(
+            ClassInfo.create(
+                "java/lang/String", Paths.get("a"), true, ImmutableList.of(), ImmutableSet.of()));
+    assertThat(collector.isEmpty()).isFalse();
   }
 
   @Test
@@ -78,6 +87,17 @@ public class ResultCollectorTest {
     assertThat(collector.getSortedMissingClassInternalNames())
         .containsExactly("java.lang.String", "java.lang.Integer", "java.lang.Object");
     assertThat(collector.getSortedMissingMembers()).isEmpty();
+  }
+
+  @Test
+  public void testIndirectDeps() {
+    Path a = Paths.get("a");
+    Path b = Paths.get("b");
+    collector.addIndirectDep(b);
+    collector.addIndirectDep(a);
+    collector.addIndirectDep(b);
+    assertThat(collector.getSortedIndirectDeps()).containsExactly(a, b).inOrder();
+    assertThat(collector.isEmpty()).isFalse();
   }
 
   @Test

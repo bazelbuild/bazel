@@ -20,6 +20,7 @@ import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import java.nio.file.Path;
 
 /**
  * Representation of a class. It maintains the internal name, declared members, as well as the super
@@ -30,12 +31,18 @@ public abstract class ClassInfo {
 
   public static ClassInfo create(
       String internalName,
+      Path jarPath,
+      boolean directDep,
       ImmutableList<ClassInfo> superClasses,
       ImmutableSet<MemberInfo> declaredMembers) {
-    return new AutoValue_ClassInfo(internalName, superClasses, declaredMembers);
+    return new AutoValue_ClassInfo(internalName, jarPath, directDep, superClasses, declaredMembers);
   }
 
   public abstract String internalName();
+
+  public abstract Path jarPath();
+
+  public abstract boolean directDep();
 
   /**
    * Returns all the available super classes. There may be more super classes (super class or
