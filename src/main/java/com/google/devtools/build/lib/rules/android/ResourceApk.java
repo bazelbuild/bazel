@@ -219,7 +219,7 @@ public final class ResourceApk {
    */
   AndroidResourcesInfo toResourceInfo(Label label) {
     if (validatedResources == null) {
-      return resourceDeps.toInfo(label, manifest, rTxt);
+      return resourceDeps.toInfo(label, manifest, rTxt, resourceJavaClassJar);
     }
     return resourceDeps.toInfo(validatedResources);
   }
