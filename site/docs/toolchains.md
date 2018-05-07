@@ -34,13 +34,13 @@ platform and a toolchain type-to-toolchain map. Toolchain resolution works as fo
 
 1. Collect all available execution platforms, including the host. This is an ordered list.
    - Execution platforms are collected from the following sources:
-     1. Any extra execution platforms given on the command line via the `--extra_execution_platforms` flag.
-     2. Any execution platforms in the `WORKSPACE` file, via the `register_execution_platforms` function.
+     1. Any extra execution platforms given on the command line via the [--extra_execution_platforms](https://docs.bazel.build/versions/master/command-line-reference.html#flag--extra_execution_platforms) flag.
+     2. Any execution platforms in the `WORKSPACE` file, via the [register_execution_platforms](https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_execution_platforms) function.
      3. The host platform.
 2. Collect all available toolchains. This is also an ordered list.
    - Toolchains are collected from the following sources:
-     1. Any extra toolchains given on the command line via the `--extra_toolchains` flag.
-     2. Any toolchains in the `WORKSPACE` file, via the `register_toolchains` function.
+     1. Any extra toolchains given on the command line via the [--extra_toolchains](https://docs.bazel.build/versions/master/command-line-reference.html#flag--extra_toolchains)` flag.
+     2. Any toolchains in the `WORKSPACE` file, via the [register_toolchains](https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_toolchains) function.
 3. For each toolchain type and execution platform, select the first toolchain that matches the execution platform and target platform.
 4. With the full set of toolchains and execution platforms for each type, select the first execution platform that can satisfy all toolchain types.
 
