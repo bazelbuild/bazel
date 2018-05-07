@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
@@ -186,7 +186,7 @@ public final class LinkCommandLine extends CommandLine {
       List<String> args,
       LinkTargetType linkTargetType) {
     Preconditions.checkNotNull(paramFile);
-    if (linkTargetType.staticness() == Staticness.STATIC) {
+    if (linkTargetType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER) {
       // Ar link commands can also generate huge command lines.
       List<String> paramFileArgs = new ArrayList<>();
       List<String> commandlineArgs = new ArrayList<>();
@@ -430,8 +430,8 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     public LinkCommandLine build() {
-      
-      if (linkTargetType.staticness() == Staticness.STATIC) {
+
+      if (linkTargetType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER) {
         Preconditions.checkArgument(
             buildInfoHeaderArtifacts.isEmpty(),
             "build info headers may only be present on dynamic library or executable links");
@@ -475,11 +475,11 @@ public final class LinkCommandLine extends CommandLine {
       this.featureConfiguration = featureConfiguration;
       return this;
     }
-    
+
     /**
      * Sets the type of the link. It is an error to try to set this to {@link
      * LinkTargetType#INTERFACE_DYNAMIC_LIBRARY}. Note that all the static target types (see {@link
-     * LinkTargetType#staticness}) are equivalent, and there is no check that the output
+     * LinkTargetType#linkerOrArchiver}) are equivalent, and there is no check that the output
      * artifact matches the target type extension.
      */
     public Builder setLinkTargetType(LinkTargetType linkTargetType) {
@@ -502,7 +502,7 @@ public final class LinkCommandLine extends CommandLine {
      * Sets the linker options. These are passed to the linker in addition to the other linker
      * options like linker inputs, symbol count options, etc. The {@link #build} method throws an
      * exception if the linker options are non-empty for a static link (see {@link
-     * LinkTargetType#staticness()}).
+     * LinkTargetType#linkerOrArchiver()}).
      */
     public Builder setLinkopts(ImmutableList<String> linkopts) {
       this.linkopts = linkopts;
@@ -511,7 +511,7 @@ public final class LinkCommandLine extends CommandLine {
 
     /**
      * Sets how static the link is supposed to be. For static target types (see {@link
-     * LinkTargetType#staticness()}}), the {@link #build} method throws an exception if this
+     * LinkTargetType#linkerOrArchiver()}}), the {@link #build} method throws an exception if this
      * is not {@link LinkStaticness#FULLY_STATIC}. The default setting is {@link
      * LinkStaticness#FULLY_STATIC}.
      */
@@ -523,7 +523,7 @@ public final class LinkCommandLine extends CommandLine {
     /**
      * The build info header artifacts are generated header files that are used for link stamping.
      * The {@link #build} method throws an exception if the build info header artifacts are
-     * non-empty for a static link (see {@link LinkTargetType#staticness()}}).
+     * non-empty for a static link (see {@link LinkTargetType#linkerOrArchiver()}}).
      */
     public Builder setBuildInfoHeaderArtifacts(ImmutableList<Artifact> buildInfoHeaderArtifacts) {
       this.buildInfoHeaderArtifacts = buildInfoHeaderArtifacts;
@@ -533,7 +533,7 @@ public final class LinkCommandLine extends CommandLine {
     /**
      * Whether the resulting library is intended to be used as a native library from another
      * programming language. This influences the rpath. The {@link #build} method throws an
-     * exception if this is true for a static link (see {@link LinkTargetType#staticness()}}).
+     * exception if this is true for a static link (see {@link LinkTargetType#linkerOrArchiver()}}).
      */
     public Builder setNativeDeps(boolean nativeDeps) {
       this.nativeDeps = nativeDeps;

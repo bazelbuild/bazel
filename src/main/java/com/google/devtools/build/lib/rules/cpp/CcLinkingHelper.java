@@ -46,8 +46,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.Picness;
-import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -337,7 +337,7 @@ public final class CcLinkingHelper {
    */
   public CcLinkingHelper setStaticLinkType(LinkTargetType linkType) {
     Preconditions.checkNotNull(linkType);
-    Preconditions.checkState(linkType.staticness() == Staticness.STATIC);
+    Preconditions.checkState(linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER);
     this.linkType = linkType;
     return this;
   }
@@ -464,7 +464,7 @@ public final class CcLinkingHelper {
       //
       // An additional pre-existing issue is that the header check tokens are dropped if we don't
       // generate any link actions, effectively disabling header checking in some cases.
-      if (linkType.staticness() == Staticness.STATIC) {
+      if (linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER) {
         // TODO(bazel-team): This can't create the link action for a cc_binary yet.
         ccLinkingOutputs = createCcLinkActions(ccOutputs, nonCodeLinkerInputs);
       }
@@ -715,7 +715,7 @@ public final class CcLinkingHelper {
     // For now only handle static links. Note that the dynamic library link below ignores linkType.
     // TODO(bazel-team): Either support non-static links or move this check to setStaticLinkType().
     Preconditions.checkState(
-        linkType.staticness() == Staticness.STATIC, "can only handle static links");
+        linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER, "can only handle static links");
 
     CcLinkingOutputs.Builder result = new CcLinkingOutputs.Builder();
     if (cppConfiguration.isLipoContextCollector()) {

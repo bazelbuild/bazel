@@ -50,7 +50,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Var
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
@@ -508,7 +508,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .setLinkType(type)
             .setCrosstoolInputs(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
             .setLinkStaticness(
-                type.staticness() == Staticness.STATIC
+                type.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
                     ? LinkStaticness.FULLY_STATIC
                     : LinkStaticness.MOSTLY_STATIC);
     return builder;
