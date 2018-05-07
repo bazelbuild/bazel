@@ -53,8 +53,13 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
           && !response.status().equals(HttpResponseStatus.CREATED)
           && !response.status().equals(HttpResponseStatus.NO_CONTENT)) {
         // Supporting more than OK status to be compatible with nginx webdav.
-        failAndResetUserPromise(
-            new HttpException(response, "Upload failed with status: " + response.status(), null));
+        String errorMsg = response.status().toString();
+        if (response.content().readableBytes() > 0) {
+          byte[] data = new byte[response.content().readableBytes()];
+          response.content().readBytes(data);
+          errorMsg += "\n" + new String(data, HttpUtil.getCharset(response));
+        }
+        failAndResetUserPromise(new HttpException(response, errorMsg, null));
       } else {
         succeedAndResetUserPromise();
       }
