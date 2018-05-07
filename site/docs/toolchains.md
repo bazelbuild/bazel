@@ -6,6 +6,7 @@ title: Toolchains
 # Toolchains
 
 - [Overview](#overview)
+- [Toolchain Resolution](#toolchain-resolution)
 - [Defining a toolchain](#defining-a-toolchain)
    - [Creating a toolchain rule](#creating-a-toolchain-rule)
    - [Creating a toolchain definition](#creating-a-toolchain-definition)
@@ -25,26 +26,33 @@ toolchain most appropriate to that build. It does so by matching the
 [constraints](platforms.html#defining-a-platform) specified in the project's
 `BUILD` file(s) with the constraints specified in the toolchain definition.
 
-**Note:** Some Bazel rules do not yet support toolchain resolution.
+## Toolchain Resolution
 
-When a target requests a toolchain, Bazel checks the list of registered
-toolchains and creates a dependency from the target to the first matching
-toolchain it finds. To find a matching toolchain, Bazel does the following:
+Toolchain resolution is the process of examining the target platform, required
+toolchain types, and available execution platforms, to choose the correct
+execution platform and toolchains for that configured target. Toolchain
+resolution proceeds by the following algorithm:
 
-1.  Looks through the registered toolchains, first from the `--extra_toolchains`
-    flag, then from the `register_toolchains` calls in the project's `WORKSPACE`
-    file.
+Inputs: The types of toolchain required (there can be zero, one, or more), the target platform
+1. Collect all available execution platforms, including the host. This is an ordered list.
+   - Execution platforms are collected from the following sources:
+     1. Any extra execution platforms given on the command line via the `--extra_execution_platforms` flag.
+     2. Any execution platforms in the `WORKSPACE` file, via the `register_execution_platforms` function.
+     3. The host platform.
+2. Collect all available toolchains. This is also an ordered list.
+   - Toolchains are collected from the following sources:
+     1. Any extra toolchains given on the command line via the `--extra_toolchains` flag.
+     2. Any toolchains in the `WORKSPACE` file, via the `register_toolchains` function.
+3. For each toolchain type and execution platform, select the first toolchain that matches the execution platform and target platform.
+4. With the full set of toolchains and execution platforms for each type, select the first execution platform that can satisfy all toolchain types.
+Outputs: A single execution platform and a map of toolchain types to toolchains.
 
-2.  For each registered toolchain, Bazel performs the following checks:
-
-    a. Does the toolchain match the requested toolchain type? If not, skip it.
-
-    b. Do the toolchain's execution and target constraints match the constraints
-       stated in the project's execution and target platforms? If yes, the
-       toolchain is a match.
+The effect is that execution platforms listed first are preferred, and toolchains listed first are preferred. Also, every configured target has the same execution platform for all actions that target generates.
 
 Because Bazel always selects the first matching toolchain, order the toolchains
 by preference if you expect the possibility of multiple matches.
+
+**Note:** Some Bazel rules do not yet support toolchain resolution.
 
 ## Defining a toolchain
 
