@@ -18,34 +18,81 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
  * A target that can provide the aar artifact of Android libraries and all the manifests that are
  * merged into the main aar manifest.
  */
-@AutoValue
+@SkylarkModule(
+    name = "AndroidLibraryAarInfo",
+    doc = "Android AARs provided by a library rule and its dependencies",
+    category = SkylarkModuleCategory.PROVIDER)
 @Immutable
-public abstract class AndroidLibraryAarProvider implements TransitiveInfoProvider {
+public class AndroidLibraryAarInfo extends NativeInfo {
+  private static final String SKYLARK_NAME = "AndroidLibraryAarInfo";
+  public static final NativeProvider<AndroidLibraryAarInfo> PROVIDER =
+      new NativeProvider<AndroidLibraryAarInfo>(AndroidLibraryAarInfo.class, SKYLARK_NAME) {};
 
-  public static AndroidLibraryAarProvider create(
+  @Nullable private final Aar aar;
+  private final NestedSet<Aar> transitiveAars;
+  private final NestedSet<Artifact> transitiveAarArtifacts;
+
+  private AndroidLibraryAarInfo(
       @Nullable Aar aar,
       NestedSet<Aar> transitiveAars,
       NestedSet<Artifact> transitiveAarArtifacts) {
-    return new AutoValue_AndroidLibraryAarProvider(aar, transitiveAars, transitiveAarArtifacts);
+    super(PROVIDER);
+    this.aar = aar;
+    this.transitiveAars = transitiveAars;
+    this.transitiveAarArtifacts = transitiveAarArtifacts;
+  }
+
+  public static AndroidLibraryAarInfo create(
+      @Nullable Aar aar,
+      NestedSet<Aar> transitiveAars,
+      NestedSet<Artifact> transitiveAarArtifacts) {
+    return new AndroidLibraryAarInfo(aar, transitiveAars, transitiveAarArtifacts);
   }
 
   @Nullable
-  public abstract Aar getAar();
+  public Aar getAar() {
+    return aar;
+  }
 
-  public abstract NestedSet<Aar> getTransitiveAars();
+  public NestedSet<Aar> getTransitiveAars() {
+    return transitiveAars;
+  }
 
-  public abstract NestedSet<Artifact> getTransitiveAarArtifacts();
+  public NestedSet<Artifact> getTransitiveAarArtifacts() {
+    return transitiveAarArtifacts;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(aar, transitiveAars, transitiveAarArtifacts);
+  }
+
+  @Override
+  public boolean equals(Object object) {
+    if (!(object instanceof AndroidLibraryAarInfo)) {
+      return false;
+    }
+
+    AndroidLibraryAarInfo other = (AndroidLibraryAarInfo) object;
+    return Objects.equals(aar, other.aar)
+        && transitiveAars.equals(other.transitiveAars)
+        && transitiveAarArtifacts.equals(other.transitiveAarArtifacts);
+  }
 
   /** The .aar file and associated AndroidManifest.xml contributed by a single target. */
   @AutoValue
@@ -53,7 +100,7 @@ public abstract class AndroidLibraryAarProvider implements TransitiveInfoProvide
   public abstract static class Aar {
     @VisibleForTesting
     static Aar create(Artifact aar, Artifact manifest) {
-      return new AutoValue_AndroidLibraryAarProvider_Aar(aar, manifest);
+      return new AutoValue_AndroidLibraryAarInfo_Aar(aar, manifest);
     }
 
     static Aar makeAar(
@@ -87,34 +134,31 @@ public abstract class AndroidLibraryAarProvider implements TransitiveInfoProvide
 
     Aar() {}
 
-    public AndroidLibraryAarProvider toProvider(
+    public AndroidLibraryAarInfo toProvider(
         RuleContext ruleContext, boolean definesLocalResources) {
       return toProvider(
-          AndroidCommon.getTransitivePrerequisites(
-              ruleContext, Mode.TARGET, AndroidLibraryAarProvider.class),
+          AndroidCommon.getTransitivePrerequisites(ruleContext, Mode.TARGET, PROVIDER),
           definesLocalResources);
     }
 
-    public AndroidLibraryAarProvider toProvider(
-        Iterable<AndroidLibraryAarProvider> depProviders, boolean definesLocalResources) {
+    public AndroidLibraryAarInfo toProvider(
+        Iterable<AndroidLibraryAarInfo> depProviders, boolean definesLocalResources) {
       NestedSetBuilder<Aar> aarBuilder = NestedSetBuilder.naiveLinkOrder();
       NestedSetBuilder<Artifact> artifactBuilder = NestedSetBuilder.naiveLinkOrder();
 
-      for (AndroidLibraryAarProvider depProvider : depProviders) {
+      for (AndroidLibraryAarInfo depProvider : depProviders) {
         aarBuilder.addTransitive(depProvider.getTransitiveAars());
         artifactBuilder.addTransitive(depProvider.getTransitiveAarArtifacts());
       }
 
       if (!definesLocalResources) {
-        return AndroidLibraryAarProvider.create(null, aarBuilder.build(), artifactBuilder.build());
+        return AndroidLibraryAarInfo.create(null, aarBuilder.build(), artifactBuilder.build());
       }
 
       aarBuilder.add(this);
       artifactBuilder.add(getAar()).add(getManifest());
 
-      return AndroidLibraryAarProvider.create(this, aarBuilder.build(), artifactBuilder.build());
+      return AndroidLibraryAarInfo.create(this, aarBuilder.build(), artifactBuilder.build());
     }
   }
-
-  AndroidLibraryAarProvider() {}
 }

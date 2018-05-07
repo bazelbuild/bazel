@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.rules.android.AndroidLibraryAarProvider.Aar;
+import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
@@ -240,8 +240,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             AndroidLibraryResourceClassJarProvider.create(transitiveResourcesJars.build()));
 
     if (!JavaCommon.isNeverLink(ruleContext)) {
-      builder.addProvider(
-          AndroidLibraryAarProvider.class, aar.toProvider(ruleContext, definesLocalResources));
+      builder.addNativeDeclaredProvider(aar.toProvider(ruleContext, definesLocalResources));
     }
 
     return builder.build();
