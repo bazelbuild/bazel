@@ -1,0 +1,3 @@
+Important changes:
+
+  - Remote Execution: Fixes a regression that produces directories with unsorted file/directory lists
