@@ -28,12 +28,10 @@ toolchain most appropriate to that build. It does so by matching the
 
 ## Toolchain Resolution
 
-Toolchain resolution is the process of examining the target platform, required
-toolchain types, and available execution platforms, to choose the correct
-execution platform and toolchains for that configured target. Toolchain
-resolution proceeds by the following algorithm:
+Inputs to the resolution mechanism include the required toolchain types (including
+none) and the target platform. The resolution mechanism outputs a single execution
+platform and a toolchain type-to-toolchain map. Toolchain resolution works as follows:
 
-Inputs: The types of toolchain required (there can be zero, one, or more), the target platform
 1. Collect all available execution platforms, including the host. This is an ordered list.
    - Execution platforms are collected from the following sources:
      1. Any extra execution platforms given on the command line via the `--extra_execution_platforms` flag.
@@ -45,9 +43,9 @@ Inputs: The types of toolchain required (there can be zero, one, or more), the t
      2. Any toolchains in the `WORKSPACE` file, via the `register_toolchains` function.
 3. For each toolchain type and execution platform, select the first toolchain that matches the execution platform and target platform.
 4. With the full set of toolchains and execution platforms for each type, select the first execution platform that can satisfy all toolchain types.
-Outputs: A single execution platform and a map of toolchain types to toolchains.
 
-The effect is that execution platforms listed first are preferred, and toolchains listed first are preferred. Also, every configured target has the same execution platform for all actions that target generates.
+Execution platforms listed first are preferred, and toolchains listed first are preferred.
+Every configured target has the same execution platform for all actions that target generates.
 
 Because Bazel always selects the first matching toolchain, order the toolchains
 by preference if you expect the possibility of multiple matches.
