@@ -238,14 +238,17 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .setCreateNetworkNamespace(!(allowNetwork || Spawns.requiresNetwork(spawn)))
         .setCommandId(commandId)
         .setUuid(uuid);
+
     // If uid / gid are -1, we are on an operating system that doesn't require us to set them on the
     // Docker invocation. If they're 0, it means we are running as root and don't need to set them.
     if (uid > 0) {
       cmdLine.setUid(uid);
     }
+
     if (gid > 0) {
       cmdLine.setGid(gid);
     }
+
     if (!timeout.isZero()) {
       cmdLine.setTimeout(timeout);
     }
