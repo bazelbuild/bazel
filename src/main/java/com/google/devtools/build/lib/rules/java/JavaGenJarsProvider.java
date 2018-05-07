@@ -20,20 +20,14 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaAnnotationProcessingApi;
 import javax.annotation.Nullable;
 
 /** The collection of gen jars from the transitive closure. */
 @Immutable
-@SkylarkModule(
-  name = "java_annotation_processing",
-  category = SkylarkModuleCategory.NONE,
-  doc = "Information about jars that are a result of annotation processing for a Java rule."
-)
 @AutoCodec
-public final class JavaGenJarsProvider implements TransitiveInfoProvider {
+public final class JavaGenJarsProvider
+    implements TransitiveInfoProvider, JavaAnnotationProcessingApi<Artifact> {
 
   private final boolean usesAnnotationProcessing;
   @Nullable
@@ -64,74 +58,39 @@ public final class JavaGenJarsProvider implements TransitiveInfoProvider {
     this.transitiveGenSourceJars = transitiveGenSourceJars;
   }
 
-  @SkylarkCallable(
-    name = "enabled",
-    structField = true,
-    doc = "Returns true if the Java rule uses annotation processing."
-  )
+  @Override
   public boolean usesAnnotationProcessing() {
     return usesAnnotationProcessing;
   }
 
-  @SkylarkCallable(
-    name = "class_jar",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns a jar File that is a result of annotation processing for this rule."
-  )
+  @Override
   @Nullable
   public Artifact getGenClassJar() {
     return genClassJar;
   }
 
-  @SkylarkCallable(
-    name = "source_jar",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns a source archive resulting from annotation processing of this rule."
-  )
+  @Override
   @Nullable
   public Artifact getGenSourceJar() {
     return genSourceJar;
   }
 
-  @SkylarkCallable(
-    name = "transitive_class_jars",
-    structField = true,
-    doc =
-        "Returns a transitive set of class file jars resulting from annotation "
-            + "processing of this rule and its dependencies."
-  )
+  @Override
   public NestedSet<Artifact> getTransitiveGenClassJars() {
     return transitiveGenClassJars;
   }
 
-  @SkylarkCallable(
-    name = "transitive_source_jars",
-    structField = true,
-    doc =
-        "Returns a transitive set of source archives resulting from annotation processing "
-            + "of this rule and its dependencies."
-  )
+  @Override
   public NestedSet<Artifact> getTransitiveGenSourceJars() {
     return transitiveGenSourceJars;
   }
 
-  @SkylarkCallable(
-    name = "processor_classpath",
-    structField = true,
-    doc = "Returns a classpath of annotation processors applied to this rule."
-  )
+  @Override
   public NestedSet<Artifact> getProcessorClasspath() {
     return processorClasspath;
   }
 
-  @SkylarkCallable(
-    name = "processor_classnames",
-    structField = true,
-    doc =
-      "Returns class names of annotation processors applied to this rule."
-  )
+  @Override
   public ImmutableList<String> getProcessorClassNames() {
     return processorClassNames;
   }
