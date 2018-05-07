@@ -1959,6 +1959,50 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testUseRClassGeneratorMultipleDeps() throws Exception {
+    scratch.file(
+        "java/r/android/BUILD",
+        "android_library(name = 'lib1',",
+        "                manifest = 'AndroidManifest.xml',",
+        "                resource_files = glob(['res1/**']),",
+        "                )",
+        "android_library(name = 'lib2',",
+        "                manifest = 'AndroidManifest.xml',",
+        "                resource_files = glob(['res2/**']),",
+        "                )",
+        "android_binary(name = 'r',",
+        "               manifest = 'AndroidManifest.xml',",
+        "               resource_files = glob(['res/**']),",
+        "               deps = [':lib1', ':lib2'],",
+        "               )");
+    ConfiguredTargetAndData binary = getConfiguredTargetAndData("//java/r/android:r");
+    Artifact jar = getResourceClassJar(binary);
+    assertThat(getGeneratingAction(jar).getMnemonic()).isEqualTo("RClassGenerator");
+    List<String> args = getGeneratingSpawnActionArgs(jar);
+
+    AndroidResourcesInfo resourcesInfo =
+        binary.getConfiguredTarget().get(AndroidResourcesInfo.PROVIDER);
+    assertThat(resourcesInfo.getTransitiveAndroidResources()).hasSize(2);
+    ValidatedAndroidData firstDep = resourcesInfo.getTransitiveAndroidResources().toList().get(0);
+    ValidatedAndroidData secondDep = resourcesInfo.getTransitiveAndroidResources().toList().get(1);
+
+    assertThat(args)
+        .containsAllOf(
+            "--primaryRTxt",
+            "--primaryManifest",
+            "--library",
+            firstDep.getRTxt().getExecPathString()
+                + ","
+                + firstDep.getManifest().getExecPathString(),
+            "--library",
+            secondDep.getRTxt().getExecPathString()
+                + ","
+                + secondDep.getManifest().getExecPathString(),
+            "--classJarOutput")
+        .inOrder();
+  }
+
+  @Test
   public void testNoCrunchBinaryOnly() throws Exception {
     scratch.file("java/r/android/BUILD",
         "android_binary(name = 'r',",
