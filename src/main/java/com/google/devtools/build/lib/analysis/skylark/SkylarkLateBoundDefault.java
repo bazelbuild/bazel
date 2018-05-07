@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.LateBoundDefaultApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import java.lang.reflect.InvocationTargetException;
@@ -192,27 +193,31 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
                   ImmutableMap.Builder<String, SkylarkLateBoundDefault<?>> lateBoundDefaultMap =
                       new ImmutableMap.Builder<>();
                   Class<?> fragmentClass = key.fragmentClass;
-                  String fragmentName = SkylarkModule.Resolver.resolveName(fragmentClass);
-                  for (Method method : fragmentClass.getMethods()) {
-                    if (method.isAnnotationPresent(SkylarkConfigurationField.class)) {
-                      // TODO(b/68817606): Use annotation processors to verify these constraints.
-                      Preconditions.checkArgument(
-                          method.getReturnType() == Label.class,
-                          String.format("Method %s must have return type 'Label'", method));
-                      Preconditions.checkArgument(
-                          method.getParameterTypes().length == 0,
-                          String.format("Method %s must not accept arguments", method));
+                  SkylarkModule fragmentModule =
+                      SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
 
-                      SkylarkConfigurationField configField =
-                          method.getAnnotation(SkylarkConfigurationField.class);
-                      lateBoundDefaultMap.put(
-                          configField.name(),
-                          new SkylarkLateBoundDefault<>(
-                              configField,
-                              fragmentClass,
-                              fragmentName,
-                              method,
-                              key.toolsRepository));
+                  if (fragmentModule != null) {
+                    for (Method method : fragmentClass.getMethods()) {
+                      if (method.isAnnotationPresent(SkylarkConfigurationField.class)) {
+                        // TODO(b/68817606): Use annotation processors to verify these constraints.
+                        Preconditions.checkArgument(
+                            method.getReturnType() == Label.class,
+                            String.format("Method %s must have return type 'Label'", method));
+                        Preconditions.checkArgument(
+                            method.getParameterTypes().length == 0,
+                            String.format("Method %s must not accept arguments", method));
+
+                        SkylarkConfigurationField configField =
+                            method.getAnnotation(SkylarkConfigurationField.class);
+                        lateBoundDefaultMap.put(
+                            configField.name(),
+                            new SkylarkLateBoundDefault<>(
+                                configField,
+                                fragmentClass,
+                                fragmentModule.name(),
+                                method,
+                                key.toolsRepository));
+                      }
                     }
                   }
                   return lateBoundDefaultMap.build();

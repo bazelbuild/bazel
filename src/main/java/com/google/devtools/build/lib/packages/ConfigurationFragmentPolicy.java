@@ -21,6 +21,7 @@ import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import java.util.Collection;
 import java.util.Set;
@@ -236,8 +237,11 @@ public final class ConfigurationFragmentPolicy {
    */
   private boolean hasLegalFragmentName(
       Class<?> configurationFragment, ConfigurationTransition transition) {
-    return requiredConfigurationFragmentNames
-        .containsEntry(transition, SkylarkModule.Resolver.resolveName(configurationFragment));
+    SkylarkModule fragmentModule = SkylarkInterfaceUtils.getSkylarkModule(configurationFragment);
+
+    return fragmentModule != null
+        ? requiredConfigurationFragmentNames.containsEntry(transition, fragmentModule.name())
+        : false;
   }
 
   /**
@@ -245,8 +249,11 @@ public final class ConfigurationFragmentPolicy {
    * configuration.
    */
   private boolean hasLegalFragmentName(Class<?> configurationFragment) {
-    return requiredConfigurationFragmentNames.containsValue(
-        SkylarkModule.Resolver.resolveName(configurationFragment));
+    SkylarkModule fragmentModule = SkylarkInterfaceUtils.getSkylarkModule(configurationFragment);
+
+    return fragmentModule != null
+        ? requiredConfigurationFragmentNames.containsValue(fragmentModule.name())
+        : false;
   }
 
   /**

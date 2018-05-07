@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.skylark.annotations.processor.optiontestsources;
 
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -22,12 +23,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 /**
  * A test case of SkylarkConfigurationFieldProcessorTest.
  */
-@SkylarkModule(
-    name = "module_name",
-    doc = "A fake configuration fragment for a test.",
-    category = SkylarkModuleCategory.BUILTIN  // Not a configuration fragment!
-)
-public class NonConfigurationFragment {
+public class GoldenConfigurationFieldThroughApi
+    extends BuildConfiguration.Fragment implements ApiInterface {
 
   /**
    * Returns the label of the xcode_config rule to use for resolving the host system xcode version.
@@ -41,4 +38,12 @@ public class NonConfigurationFragment {
   public Label getXcodeConfigLabel() {
     return null;
   }
+}
+
+@SkylarkModule(
+    name = "module_name",
+    doc = "A fake configuration fragment for a test.",
+    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
+)
+interface ApiInterface {
 }

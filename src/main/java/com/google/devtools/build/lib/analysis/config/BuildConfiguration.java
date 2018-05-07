@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.OS;
@@ -1395,15 +1396,13 @@ public class BuildConfiguration {
     return options;
   }
 
-
-
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfSkylarkVisibleFragments() {
     ImmutableMap.Builder<String, Class<? extends Fragment>> builder = ImmutableMap.builder();
 
     for (Class<? extends Fragment> fragmentClass : fragments.keySet()) {
-      String name = SkylarkModule.Resolver.resolveName(fragmentClass);
-      if (name != null) {
-        builder.put(name, fragmentClass);
+      SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
+      if (module != null) {
+        builder.put(module.name(), fragmentClass);
       }
     }
     return builder.build();
