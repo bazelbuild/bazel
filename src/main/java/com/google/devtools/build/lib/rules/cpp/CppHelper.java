@@ -518,7 +518,13 @@ public class CppHelper {
     ResolvedToolchainProviders providers =
         (ResolvedToolchainProviders)
             ruleContext.getToolchainContext().getResolvedToolchainProviders();
-    return (CcToolchainProvider) providers.getForToolchainType(toolchainType);
+    ToolchainInfo toolchainInfo = providers.getForToolchainType(toolchainType);
+    if (toolchainInfo instanceof CcToolchainProvider) {
+      return (CcToolchainProvider) toolchainInfo;
+    }
+
+    ruleContext.ruleError("The selected C++ toolchain is not a cc_toolchain rule");
+    return CcToolchainProvider.EMPTY_TOOLCHAIN_IS_ERROR;
   }
 
   private static CcToolchainProvider getToolchainFromCrosstoolTop(
