@@ -155,6 +155,10 @@ public final class ResourceApk {
     return primaryAssets;
   }
 
+  public ProcessedAndroidManifest getProcessedManifest() {
+    return manifest;
+  }
+
   public Artifact getManifest() {
     return manifest.getManifest();
   }

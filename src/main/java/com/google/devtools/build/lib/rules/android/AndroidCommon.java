@@ -783,6 +783,10 @@ public class AndroidCommon {
     return jarsProducedForRuntime;
   }
 
+  public Artifact getClassJar() {
+    return classJar;
+  }
+
   public Artifact getInstrumentedJar() {
     return javaCommon.getJavaCompilationArtifacts().getInstrumentedJar();
   }

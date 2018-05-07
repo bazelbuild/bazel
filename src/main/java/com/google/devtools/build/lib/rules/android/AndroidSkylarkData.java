@@ -18,8 +18,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -338,6 +341,124 @@ public class AndroidSkylarkData {
     } catch (RuleErrorException e) {
       throw new EvalException(Location.BUILTIN, e);
     }
+  }
+
+  /**
+   * Skylark API for building an Aar for an android_library
+   *
+   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
+   *
+   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
+   *     instead. See b/79159379
+   */
+  @SkylarkCallable(
+      name = "make_aar",
+      mandatoryPositionals = 4, // context, resource info, asset info, and library class jar
+      parameters = {
+        @Param(
+            name = "proguard_specs",
+            type = SkylarkList.class,
+            generic1 = ConfiguredTarget.class,
+            defaultValue = "[]",
+            positional = false,
+            named = true,
+            doc =
+                "Files to be used as Proguard specification for this target, which will be"
+                    + " inherited in the top-level target"),
+        @Param(
+            name = "deps",
+            type = SkylarkList.class,
+            generic1 = AndroidLibraryAarInfo.class,
+            defaultValue = "[]",
+            positional = false,
+            named = true,
+            doc = "Dependant AAR providers used to build this AAR."),
+        @Param(
+            name = "neverlink",
+            type = Boolean.class,
+            defaultValue = "False",
+            positional = false,
+            named = true,
+            doc =
+                "Defaults to False. If true, this target's Aar will not be generated or propagated"
+                    + " to targets that depend upon it."),
+      },
+      doc =
+          "Builds an AAR and corresponding provider for this target. The resource and asset"
+              + " providers from this same target must both be passed, as must the class JAR output"
+              + " of building the Android Java library.")
+  public AndroidLibraryAarInfo makeAar(
+      SkylarkRuleContext ctx,
+      AndroidResourcesInfo resourcesInfo,
+      AndroidAssetsInfo assetsInfo,
+      Artifact libraryClassJar,
+      SkylarkList<ConfiguredTarget> proguardSpecs,
+      SkylarkList<AndroidLibraryAarInfo> deps,
+      boolean neverlink)
+      throws EvalException, InterruptedException {
+    if (neverlink) {
+      return AndroidLibraryAarInfo.create(
+          null,
+          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
+    }
+
+    // Get the target's local resources, if defined, from the provider
+    boolean definesLocalResources = resourcesInfo.getDirectAndroidResources().isSingleton();
+    AndroidResources resources = AndroidResources.empty();
+    if (definesLocalResources) {
+      ValidatedAndroidData validatedAndroidData =
+          resourcesInfo.getDirectAndroidResources().toList().get(0);
+      if (validatedAndroidData.getLabel().equals(ctx.getLabel())) {
+        // TODO(b/77574966): Remove this cast once we get rid of ResourceContainer and can guarantee
+        // that only properly processed resources are passed into this object.
+        if (!(validatedAndroidData instanceof ValidatedAndroidResources)) {
+          throw new EvalException(
+              Location.BUILTIN, "Old data processing pipeline does not support the Skylark API");
+        }
+        resources = (ValidatedAndroidResources) validatedAndroidData;
+      } else {
+        definesLocalResources = false;
+      }
+    }
+
+    // Get the target's local assets, if defined, from the provider
+    boolean definesLocalAssets = assetsInfo.getDirectParsedAssets().isSingleton();
+    AndroidAssets assets = AndroidAssets.empty();
+    if (definesLocalAssets) {
+      ParsedAndroidAssets parsed = assetsInfo.getDirectParsedAssets().toList().get(0);
+      if (parsed.getLabel().equals(ctx.getLabel())) {
+        assets = parsed;
+      } else {
+        definesLocalAssets = false;
+      }
+    }
+
+    if (definesLocalResources != definesLocalAssets) {
+      throw new EvalException(
+          Location.BUILTIN,
+          "Must define either both or none of assets and resources. Use the merge_assets and"
+              + " merge_resources methods to define them, or assets_from_deps and"
+              + " resources_from_deps to inherit without defining them.");
+    }
+
+    ImmutableList.Builder<Artifact> proguardSpecBuilder = ImmutableList.builder();
+    for (ConfiguredTarget target : proguardSpecs) {
+      FileProvider fileProvider = target.getProvider(FileProvider.class);
+      if (fileProvider != null) {
+        proguardSpecBuilder.addAll(fileProvider.getFilesToBuild());
+      }
+    }
+
+    return Aar.makeAar(
+            ctx.getRuleContext(),
+            resources,
+            assets,
+            resourcesInfo.getManifest(),
+            resourcesInfo.getRTxt(),
+            libraryClassJar,
+            proguardSpecBuilder.build())
+        .toProvider(deps, definesLocalResources);
   }
 
   /** Checks if a "Noneable" object passed by Skylark is "None", which Java should treat as null. */

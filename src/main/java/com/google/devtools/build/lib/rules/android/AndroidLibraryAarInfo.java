@@ -106,26 +106,44 @@ public class AndroidLibraryAarInfo extends NativeInfo {
     static Aar makeAar(
         RuleContext ruleContext,
         ResourceApk resourceApk,
+        ImmutableList<Artifact> localProguardSpecs,
+        Artifact libraryClassJar)
+        throws InterruptedException {
+      return makeAar(
+          ruleContext,
+          resourceApk.getPrimaryResources(),
+          resourceApk.getPrimaryAssets(),
+          resourceApk.getProcessedManifest(),
+          resourceApk.getRTxt(),
+          libraryClassJar,
+          localProguardSpecs);
+    }
+
+    static Aar makeAar(
+        RuleContext ruleContext,
+        AndroidResources primaryResources,
+        AndroidAssets primaryAssets,
+        ProcessedAndroidManifest manifest,
+        Artifact rTxt,
+        Artifact libraryClassJar,
         ImmutableList<Artifact> localProguardSpecs)
         throws InterruptedException {
-      Artifact classesJar =
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
       Artifact aarOut =
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_AAR);
 
       new AarGeneratorBuilder(ruleContext)
-          .withPrimaryResources(resourceApk.getPrimaryResources())
-          .withPrimaryAssets(resourceApk.getPrimaryAssets())
-          .withManifest(resourceApk.getManifest())
-          .withRtxt(resourceApk.getRTxt())
-          .withClasses(classesJar)
+          .withPrimaryResources(primaryResources)
+          .withPrimaryAssets(primaryAssets)
+          .withManifest(manifest.getManifest())
+          .withRtxt(rTxt)
+          .withClasses(libraryClassJar)
           .setAAROut(aarOut)
           .setProguardSpecs(localProguardSpecs)
           .setThrowOnResourceConflict(
               AndroidCommon.getAndroidConfig(ruleContext).throwOnResourceConflict())
           .build(ruleContext);
 
-      return Aar.create(aarOut, resourceApk.getManifest());
+      return Aar.create(aarOut, manifest.getManifest());
     }
 
     public abstract Artifact getAar();
