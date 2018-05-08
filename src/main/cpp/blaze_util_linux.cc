@@ -14,7 +14,12 @@
 
 #include <errno.h>  // errno, ENAMETOOLONG
 #include <limits.h>
+#include <features.h>
+#if !defined(__GLIBC__) || __GLIBC_PREREQ(2, 9)
 #include <linux/magic.h>
+#else
+#define NFS_SUPER_MAGIC 0x6969
+#endif
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
