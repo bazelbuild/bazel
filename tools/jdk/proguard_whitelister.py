@@ -37,7 +37,8 @@ class ProguardConfigValidator(object):
   """Validates a proguard config."""
 
   # Must be a tuple for str.startswith()
-  _VALID_ARGS = ('keep', 'assumenosideeffects', 'adaptresourcefilecontents')
+  _VALID_ARGS = ('keep', 'assumenosideeffects', 'adaptresourcefilecontents',
+                 'if')
 
   def __init__(self, config_path, outconfig_path):
     self._config_path = config_path
