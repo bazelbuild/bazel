@@ -486,7 +486,8 @@ public class FullyQualifiedName implements DataKey {
   /** Represents the configuration qualifiers in a resource directory. */
   public static class Qualifiers {
 
-    private static final Qualifiers EMPTY_QUALIFIERS = new Qualifiers(null, ImmutableList.of());
+    private static final Qualifiers EMPTY_QUALIFIERS =
+        new Qualifiers(null, ImmutableList.of(), false);
 
     // Qualifiers are reasonably expensive to create, so cache them on directory names.
     private static final ConcurrentMap<String, Qualifiers> qualifierCache =
@@ -495,10 +496,13 @@ public class FullyQualifiedName implements DataKey {
     public static final String INVALID_QUALIFIERS = "%s contains invalid qualifiers.";
     private final ResourceFolderType folderType;
     private final ImmutableList<String> qualifiers;
+    private boolean defaultLocale;
 
-    private Qualifiers(ResourceFolderType folderType, ImmutableList<String> qualifiers) {
+    private Qualifiers(
+        ResourceFolderType folderType, ImmutableList<String> qualifiers, boolean defaultLocale) {
       this.folderType = folderType;
       this.qualifiers = qualifiers;
+      this.defaultLocale = defaultLocale;
     }
 
     public static Qualifiers parseFrom(String directoryName) {
@@ -559,7 +563,7 @@ public class FullyQualifiedName implements DataKey {
       for (int i = 0; i < FolderConfiguration.getQualifierCount(); ++i) {
         addIfNotNull(config.getQualifier(i), builder);
       }
-      return new Qualifiers(folderType, builder.build());
+      return new Qualifiers(folderType, builder.build(), config.getLocaleQualifier() == null);
     }
 
     private static void addIfNotNull(
@@ -578,9 +582,15 @@ public class FullyQualifiedName implements DataKey {
       return folderType;
     }
 
+    /** Creates a Qualifiers assuming that they are in the values directory. */
     @VisibleForTesting
-    public static Qualifiers fromList(List<String> qualifiers) {
-      return new Qualifiers(null, ImmutableList.copyOf(qualifiers));
+    public static Qualifiers forValuesFolderFrom(List<String> qualifiers) {
+      return Qualifiers.getQualifiers(
+          ImmutableList.builder().add("values").addAll(qualifiers).build().toArray(new String[0]));
+    }
+
+    public boolean containDefaultLocale() {
+      return defaultLocale;
     }
   }
 
@@ -636,7 +646,7 @@ public class FullyQualifiedName implements DataKey {
 
     @VisibleForTesting
     public static Factory from(List<String> qualifiers, String pkg) {
-      return using(Qualifiers.fromList(qualifiers), pkg);
+      return using(Qualifiers.forValuesFolderFrom(qualifiers), pkg);
     }
 
     @VisibleForTesting

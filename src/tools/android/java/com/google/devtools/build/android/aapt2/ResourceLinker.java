@@ -40,6 +40,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -182,7 +183,10 @@ public class ResourceLinker {
               .thenAdd("--no-version-vectors")
               .when(outputAsProto)
               .thenAdd("--proto-format")
-              .addParameterableRepeated("-R", compiledResourcesToPaths(compiled), workingDirectory)
+              .addParameterableRepeated(
+                  "-R",
+                  compiledResourcesToPaths(compiled, s -> s.endsWith(".flat")),
+                  workingDirectory)
               .addRepeated("-I", pathsToLinkAgainst)
               .add("--auto-add-overlay")
               .add("-o", outPath)
@@ -232,19 +236,20 @@ public class ResourceLinker {
     }
   }
 
-  private List<String> compiledResourcesToPaths(CompiledResources compiled) throws IOException {
+  private List<String> compiledResourcesToPaths(
+      CompiledResources compiled, Predicate<String> shouldKeep) throws IOException {
     // Using sequential streams to maintain the overlay order for aapt2.
     return Stream.concat(include.stream(), Stream.of(compiled))
         .sequential()
         .map(CompiledResources::getZip)
-        .map(z -> executorService.submit(() -> filterZip(z)))
+        .map(z -> executorService.submit(() -> filterZip(z, shouldKeep)))
         .map(rethrowLinkError(Future::get))
         // the process will always take as long as the longest Future
         .map(Path::toString)
         .collect(toList());
   }
 
-  private Path filterZip(Path path) throws IOException {
+  private Path filterZip(Path path, Predicate<String> shouldKeep) throws IOException {
     Path outPath =
         workingDirectory
             .resolve("filtered")
@@ -262,7 +267,7 @@ public class ResourceLinker {
       final ZipOut zipOut = new ZipOut(outChannel, outPath.toString());
       zipIn.scanEntries(
           (in, header, dirEntry, data) -> {
-            if (header.getFilename().endsWith(".flat")) {
+            if (shouldKeep.test(header.getFilename())) {
               zipOut.nextEntry(dirEntry);
               zipOut.write(header);
               zipOut.write(data);
@@ -331,7 +336,10 @@ public class ResourceLinker {
                           compiled.getAssetsStrings().stream())
                       .collect(toList()))
               .addRepeated("-I", StaticLibrary.toPathStrings(linkAgainst))
-              .addParameterableRepeated("-R", compiledResourcesToPaths(compiled), workingDirectory)
+              .addParameterableRepeated(
+                  "-R",
+                  compiledResourcesToPaths(compiled, s -> s.endsWith(".flat")),
+                  workingDirectory)
               // Never compress apks.
               .add("-0", "apk")
               // Add custom no-compress extensions.
