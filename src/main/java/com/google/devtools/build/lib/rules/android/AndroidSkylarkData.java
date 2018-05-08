@@ -21,13 +21,18 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
+import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -312,12 +317,15 @@ public class AndroidSkylarkData {
                     + " targets that depend on this one."),
       },
       doc =
-          "Merges this target's resources together with resources inherited from dependencies. The"
-              + " passed manifest provider is used to get Android package information and to"
-              + " validate that all resources it refers to are available. Note that this method"
-              + " might do additional processing to this manifest, so in the future, you may want"
-              + " to use the manifest contained in this method's output instead of this one.")
-  public AndroidResourcesInfo mergeResources(
+          "Merges this target's resources together with resources inherited from dependencies."
+              + " Returns a dict of provider type to actual info, with elements for"
+              + " AndroidResourcesInfo (various resource information) and JavaInfo (wrapping the"
+              + " R.class jar, for use in Java compilation). The passed manifest provider is used"
+              + " to get Android package information and to validate that all resources it refers"
+              + " to are available. Note that this method might do additional processing to this"
+              + " manifest, so in the future, you may want to use the manifest contained in this"
+              + " method's output instead of this one.")
+  public SkylarkDict<NativeProvider<?>, NativeInfo> mergeResources(
       SkylarkRuleContext ctx,
       AndroidManifestInfo manifest,
       SkylarkList<ConfiguredTarget> resources,
@@ -333,11 +341,30 @@ public class AndroidSkylarkData {
             .collect(ImmutableList.toImmutableList());
 
     try {
-      return AndroidResources.from(ctx.getRuleContext(), fileProviders, "resources")
-          .parse(ctx.getRuleContext(), manifest.asStampedManifest())
-          .merge(ctx.getRuleContext(), ResourceDependencies.fromProviders(deps, neverlink))
-          .validate(ctx.getRuleContext())
-          .toProvider();
+      ValidatedAndroidResources validated =
+          AndroidResources.from(ctx.getRuleContext(), fileProviders, "resources")
+              .parse(ctx.getRuleContext(), manifest.asStampedManifest())
+              .merge(ctx.getRuleContext(), ResourceDependencies.fromProviders(deps, neverlink))
+              .validate(ctx.getRuleContext());
+
+      JavaInfo javaInfo =
+          JavaInfo.Builder.create()
+              .setNeverlink(true)
+              .addProvider(
+                  JavaCompilationInfoProvider.class,
+                  new JavaCompilationInfoProvider.Builder()
+                      .setCompilationClasspath(
+                          NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, validated.getClassJar()))
+                      .build())
+              .build();
+
+      return SkylarkDict.of(
+          /* env = */ null,
+          AndroidResourcesInfo.PROVIDER,
+          validated.toProvider(),
+          JavaInfo.PROVIDER,
+          javaInfo);
+
     } catch (RuleErrorException e) {
       throw new EvalException(Location.BUILTIN, e);
     }
