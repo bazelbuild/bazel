@@ -44,9 +44,9 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.Picness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -788,7 +788,7 @@ public final class CcLinkingHelper {
             .addLtoBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
             .setUsePicForLtoBackendActions(usePicForBinaries)
             .setLinkType(linkType)
-            .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+            .setLinkingMode(LinkingMode.LEGACY_FULLY_STATIC)
             .addActionInputs(linkActionInputs)
             .setLibraryIdentifier(libraryIdentifier)
             .addVariablesExtensions(variablesExtensions)
@@ -817,7 +817,7 @@ public final class CcLinkingHelper {
                 .addLtoBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
                 .setUsePicForLtoBackendActions(true)
                 .setLinkType(picLinkType)
-                .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+                .setLinkingMode(LinkingMode.LEGACY_FULLY_STATIC)
                 .addActionInputs(linkActionInputs)
                 .setLibraryIdentifier(libraryIdentifier)
                 .addVariablesExtensions(variablesExtensions)
@@ -880,7 +880,7 @@ public final class CcLinkingHelper {
             .addNonCodeInputs(ccOutputs.getHeaderTokenFiles())
             .addLtoBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
             .setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
-            .setLinkStaticness(LinkStaticness.DYNAMIC)
+            .setLinkingMode(LinkingMode.DYNAMIC)
             .addActionInputs(linkActionInputs)
             .setLibraryIdentifier(mainLibraryIdentifier)
             .addLinkopts(linkopts)

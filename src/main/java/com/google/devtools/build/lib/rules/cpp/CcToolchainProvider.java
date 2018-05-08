@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -774,14 +775,14 @@ public final class CcToolchainProvider extends ToolchainInfo {
   /** Returns linker flags for fully statically linked outputs. */
   FlagList getLegacyFullyStaticLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
     return new FlagList(
-        configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.FULLY_STATIC),
+        configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.LEGACY_FULLY_STATIC),
         ImmutableList.<String>of());
   }
 
   /** Returns linker flags for mostly static linked outputs. */
   FlagList getLegacyMostlyStaticLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
     return new FlagList(
-        configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.MOSTLY_STATIC),
+        configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.STATIC),
         ImmutableList.<String>of());
   }
 
@@ -790,7 +791,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
       CompilationMode compilationMode, LipoMode lipoMode) {
     return new FlagList(
         configureAllLegacyLinkOptions(
-            compilationMode, lipoMode, LinkingMode.MOSTLY_STATIC_LIBRARIES),
+            compilationMode, lipoMode, LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES),
         ImmutableList.<String>of());
   }
 

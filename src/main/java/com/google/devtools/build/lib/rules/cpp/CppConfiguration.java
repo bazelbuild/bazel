@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
 import com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader.CrosstoolFile;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.transitions.ContextCollectorOwnerTransition;
 import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -259,15 +260,17 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
         ImmutableList.copyOf(cppOptions.conlyoptList),
         new FlagList(
             cppToolchainInfo.configureAllLegacyLinkOptions(
-                compilationMode, cppOptions.getLipoMode(), LinkingMode.FULLY_STATIC),
+                compilationMode, cppOptions.getLipoMode(), LinkingMode.LEGACY_FULLY_STATIC),
             ImmutableList.of()),
         new FlagList(
             cppToolchainInfo.configureAllLegacyLinkOptions(
-                compilationMode, cppOptions.getLipoMode(), LinkingMode.MOSTLY_STATIC),
+                compilationMode, cppOptions.getLipoMode(), LinkingMode.STATIC),
             ImmutableList.of()),
         new FlagList(
             cppToolchainInfo.configureAllLegacyLinkOptions(
-                compilationMode, cppOptions.getLipoMode(), LinkingMode.MOSTLY_STATIC_LIBRARIES),
+                compilationMode,
+                cppOptions.getLipoMode(),
+                LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES),
             ImmutableList.of()),
         new FlagList(
             cppToolchainInfo.configureAllLegacyLinkOptions(
@@ -360,7 +363,19 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
 
   @VisibleForTesting
   static LinkingMode importLinkingMode(CrosstoolConfig.LinkingMode mode) {
-    return LinkingMode.valueOf(mode.name());
+    switch (mode.name()) {
+      case "FULLY_STATIC":
+        return LinkingMode.LEGACY_FULLY_STATIC;
+      case "MOSTLY_STATIC_LIBRARIES":
+        return LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES;
+      case "MOSTLY_STATIC":
+        return LinkingMode.STATIC;
+      case "DYNAMIC":
+        return LinkingMode.DYNAMIC;
+      default:
+        throw new IllegalArgumentException(
+            String.format("Linking mode '%s' not known.", mode.name()));
+    }
   }
 
   /** Returns the {@link CppToolchainInfo} used by this configuration. */

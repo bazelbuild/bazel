@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -536,7 +537,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     // (but test each mode at least once.)
     assertThat(
             ccProviderA.configureAllLegacyLinkOptions(
-                CompilationMode.FASTBUILD, LipoMode.OFF, LinkingMode.FULLY_STATIC))
+                CompilationMode.FASTBUILD, LipoMode.OFF, LinkingMode.LEGACY_FULLY_STATIC))
         .containsExactly(
             "linker-flag-A-1",
             "linker-flag-A-2",
@@ -553,14 +554,14 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         .inOrder();
     assertThat(
             ccProviderA.configureAllLegacyLinkOptions(
-                CompilationMode.OPT, LipoMode.OFF, LinkingMode.FULLY_STATIC))
+                CompilationMode.OPT, LipoMode.OFF, LinkingMode.LEGACY_FULLY_STATIC))
         .containsExactly(
             "linker-flag-A-1", "linker-flag-A-2", "fully-static-flag-A-1", "fully-static-flag-A-2")
         .inOrder();
 
     assertThat(
             ccProviderA.configureAllLegacyLinkOptions(
-                CompilationMode.OPT, LipoMode.BINARY, LinkingMode.FULLY_STATIC))
+                CompilationMode.OPT, LipoMode.BINARY, LinkingMode.LEGACY_FULLY_STATIC))
         .containsExactly(
             "linker-flag-A-1", "linker-flag-A-2", "fully-static-flag-A-1", "fully-static-flag-A-2")
         .inOrder();
@@ -629,7 +630,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(CppHelper.getDynamicLinkOptions(toolchainC, ccProviderC, true)).isEmpty();
     assertThat(
             ccProviderC.configureAllLegacyLinkOptions(
-                CompilationMode.FASTBUILD, LipoMode.OFF, LinkingMode.FULLY_STATIC))
+                CompilationMode.FASTBUILD, LipoMode.OFF, LinkingMode.LEGACY_FULLY_STATIC))
         .isEmpty();
     assertThat(
             ccProviderC.configureAllLegacyLinkOptions(
@@ -637,7 +638,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         .isEmpty();
     assertThat(
             ccProviderC.configureAllLegacyLinkOptions(
-                CompilationMode.OPT, LipoMode.OFF, LinkingMode.FULLY_STATIC))
+                CompilationMode.OPT, LipoMode.OFF, LinkingMode.LEGACY_FULLY_STATIC))
         .isEmpty();
     assertThat(ccProviderC.getObjCopyOptionsForEmbedding()).isEmpty();
     assertThat(ccProviderC.getLdOptionsForEmbedding()).isEmpty();

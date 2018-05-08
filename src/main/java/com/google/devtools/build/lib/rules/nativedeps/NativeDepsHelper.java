@@ -41,8 +41,8 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
 import com.google.devtools.build.lib.rules.cpp.Link;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -264,7 +264,7 @@ public abstract class NativeDepsHelper {
         .setCrosstoolInputs(toolchain.getLink())
         .addLibraries(linkerInputs)
         .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
-        .setLinkStaticness(LinkStaticness.MOSTLY_STATIC)
+        .setLinkingMode(LinkingMode.STATIC)
         .setLibraryIdentifier(libraryIdentifier)
         .addLinkopts(linkopts)
         .setNativeDeps(true)

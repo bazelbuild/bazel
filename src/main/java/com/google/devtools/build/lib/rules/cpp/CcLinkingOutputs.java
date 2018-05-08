@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
@@ -95,35 +95,34 @@ public class CcLinkingOutputs {
   }
 
   /**
-   * Add the ".a", ".pic.a" and/or ".so" files in appropriate order of preference depending on the
-   * link preferences.
-   *
-   * <p>This method tries to simulate a search path for adding static and dynamic libraries,
-   * allowing either to be preferred over the other depending on the link {@link LinkStaticness}.
-   *
-   * TODO(bazel-team): (2009) we should preserve the relative ordering of first and second
-   * choice libraries.  E.g. if srcs=['foo.a','bar.so','baz.a'] then we should link them in the
-   * same order. Currently we link entries from the first choice list before those from the
-   * second choice list, i.e. in the order {@code ['bar.so', 'foo.a', 'baz.a']}.
-   *
-   * @param linkingStatically whether to prefer static over dynamic libraries. Should be
-   *        <code>true</code> for binaries that are linked in fully static or mostly static mode.
-   * @param preferPic whether to prefer pic over non pic libraries (usually used when linking
-   *        shared)
-   */
-  public List<LibraryToLink> getPreferredLibraries(
-      boolean linkingStatically, boolean preferPic) {
-    return getPreferredLibraries(linkingStatically, preferPic, false);
-  }
-
-  /**
    * Returns the shared libraries that are linked against and therefore also need to be in the
    * runfiles.
    */
   public Iterable<Artifact> getLibrariesForRunfiles(boolean linkingStatically) {
     List<LibraryToLink> libraries =
-        getPreferredLibraries(linkingStatically, /*preferPic*/false, true);
+        getPreferredLibraries(linkingStatically, /*preferPic*/ false, true);
     return PrecompiledFiles.getSharedLibrariesFrom(LinkerInputs.toLibraryArtifacts(libraries));
+  }
+
+  /**
+   * Add the ".a", ".pic.a" and/or ".so" files in appropriate order of preference depending on the
+   * link preferences.
+   *
+   * <p>This method tries to simulate a search path for adding static and dynamic libraries,
+   * allowing either to be preferred over the other depending on the link {@link LinkingMode}.
+   *
+   * <p>TODO(bazel-team): (2009) we should preserve the relative ordering of first and second choice
+   * libraries. E.g. if srcs=['foo.a','bar.so','baz.a'] then we should link them in the same order.
+   * Currently we link entries from the first choice list before those from the second choice list,
+   * i.e. in the order {@code ['bar.so', 'foo.a', 'baz.a']}.
+   *
+   * @param linkingStatically whether to prefer static over dynamic libraries. Should be <code>true
+   *     </code> for binaries that are linked in fully static or mostly static mode.
+   * @param preferPic whether to prefer pic over non pic libraries (usually used when linking
+   *     shared)
+   */
+  public List<LibraryToLink> getPreferredLibraries(boolean linkingStatically, boolean preferPic) {
+    return getPreferredLibraries(linkingStatically, preferPic, false);
   }
 
   /**

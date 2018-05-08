@@ -113,8 +113,8 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.NoProcessing;
 import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
@@ -1152,13 +1152,13 @@ public class CompilationSupport {
         CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder executableLinkAction =
         new CppLinkActionBuilder(
-            ruleContext,
-            binaryToLink,
-            toolchain,
-            fdoSupport,
-            getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
-            createObjcCppSemantics(
-                objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
+                ruleContext,
+                binaryToLink,
+                toolchain,
+                fdoSupport,
+                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
+                createObjcCppSemantics(
+                    objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
             .setMnemonic("ObjcLink")
             .addActionInputs(bazelBuiltLibraries)
             .addActionInputs(objcProvider.getCcLibraries())
@@ -1171,7 +1171,7 @@ public class CompilationSupport {
             .addActionInputs(extraLinkInputs)
             .addActionInput(inputFileList)
             .setLinkType(linkType)
-            .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+            .setLinkingMode(LinkingMode.LEGACY_FULLY_STATIC)
             .addLinkopts(ImmutableList.copyOf(extraLinkArgs));
 
     if (objcConfiguration.generateDsym()) {
@@ -1319,19 +1319,19 @@ public class CompilationSupport {
             .build();
     CppLinkAction fullyLinkAction =
         new CppLinkActionBuilder(
-            ruleContext,
-            outputArchive,
-            ccToolchain,
-            fdoSupport,
-            getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
-            createObjcCppSemantics(
-                objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
+                ruleContext,
+                outputArchive,
+                ccToolchain,
+                fdoSupport,
+                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
+                createObjcCppSemantics(
+                    objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
             .addActionInputs(objcProvider.getObjcLibraries())
             .addActionInputs(objcProvider.getCcLibraries())
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())
             .setCrosstoolInputs(ccToolchain.getLink())
             .setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)
-            .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+            .setLinkingMode(LinkingMode.LEGACY_FULLY_STATIC)
             .setLibraryIdentifier(libraryIdentifier)
             .addVariablesExtension(extension)
             .build();
