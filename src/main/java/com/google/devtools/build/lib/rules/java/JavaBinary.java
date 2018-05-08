@@ -139,8 +139,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     // TODO(b/64384912): Remove in favor of CcToolchainProvider
     boolean stripAsDefault =
-        CppHelper.useFission(cppConfiguration, ccToolchain)
-            && cppConfiguration.getCompilationMode() == CompilationMode.OPT;
+        ccToolchain.useFission() && cppConfiguration.getCompilationMode() == CompilationMode.OPT;
     DeployArchiveBuilder unstrippedDeployArchiveBuilder = null;
     if (stripAsDefault) {
       unstrippedDeployArchiveBuilder = new DeployArchiveBuilder(semantics, ruleContext);

@@ -180,101 +180,65 @@ public class CcToolchainTest extends BuildViewTestCase {
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
-    assertThat(
-            CppHelper.useFission(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isFalse();
+    assertThat(toolchainProvider.useFission()).isFalse();
 
     // Mode-specific settings.
     useConfiguration("-c", "dbg", "--fission=dbg");
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.useFission(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isTrue();
+    assertThat(toolchainProvider.useFission()).isTrue();
 
     useConfiguration("-c", "dbg", "--fission=opt");
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.useFission(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isFalse();
+    assertThat(toolchainProvider.useFission()).isFalse();
 
     useConfiguration("-c", "dbg", "--fission=opt,dbg");
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.useFission(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isTrue();
+    assertThat(toolchainProvider.useFission()).isTrue();
 
     useConfiguration("-c", "fastbuild", "--fission=opt,dbg");
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.useFission(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isFalse();
+    assertThat(toolchainProvider.useFission()).isFalse();
 
     useConfiguration("-c", "fastbuild", "--fission=opt,dbg");
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.useFission(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isFalse();
+    assertThat(toolchainProvider.useFission()).isFalse();
 
     // Universally enabled
     useConfiguration("-c", "dbg", "--fission=yes");
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.useFission(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isTrue();
+    assertThat(toolchainProvider.useFission()).isTrue();
 
     useConfiguration("-c", "opt", "--fission=yes");
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.useFission(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isTrue();
+    assertThat(toolchainProvider.useFission()).isTrue();
 
     useConfiguration("-c", "fastbuild", "--fission=yes");
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.useFission(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isTrue();
+    assertThat(toolchainProvider.useFission()).isTrue();
 
     // Universally disabled
     useConfiguration("-c", "dbg", "--fission=no");
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.useFission(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isFalse();
+    assertThat(toolchainProvider.useFission()).isFalse();
 
     useConfiguration("-c", "opt", "--fission=no");
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.useFission(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isFalse();
+    assertThat(toolchainProvider.useFission()).isFalse();
 
     useConfiguration("-c", "fastbuild", "--fission=no");
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.useFission(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isFalse();
+    assertThat(toolchainProvider.useFission()).isFalse();
   }
 
   @Test

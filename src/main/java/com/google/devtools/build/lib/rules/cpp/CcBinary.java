@@ -429,7 +429,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             ccCompilationOutputs,
             linkingMode,
-            CppHelper.useFission(cppConfiguration, ccToolchain),
+            ccToolchain.useFission(),
             usePic,
             ltoBackendArtifacts);
     Artifact dwpFile =
@@ -438,14 +438,14 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     // The debug package should include the dwp file only if it was explicitly requested.
     Artifact explicitDwpFile = dwpFile;
-    if (!CppHelper.useFission(cppConfiguration, ccToolchain)) {
+    if (!ccToolchain.useFission()) {
       explicitDwpFile = null;
     } else {
       // For cc_test rules, include the dwp in the runfiles if Fission is enabled and the test was
       // built statically.
       if (TargetUtils.isTestRule(ruleContext.getRule())
           && linkingMode != Link.LinkingMode.DYNAMIC
-          && CppHelper.useFission(cppConfiguration, ccToolchain)
+          && ccToolchain.useFission()
           && cppConfiguration.buildTestDwpIsActivated()) {
         filesToBuild = NestedSetBuilder.fromNestedSet(filesToBuild).add(dwpFile).build();
       }
