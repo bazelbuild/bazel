@@ -78,11 +78,13 @@ def _jvm_import_external(repository_ctx):
   if (repository_ctx.attr.neverlink and
       repository_ctx.attr.generated_linkable_rule_name):
     lines.extend(_serialize_given_rule_import(
+        repository_ctx.attr.rule_name,
         repository_ctx.attr.generated_linkable_rule_name,
         path,
         srcpath,
         repository_ctx.attr,
-        [p for p in _PASS_PROPS if p != "neverlink"]))
+        [p for p in _PASS_PROPS if p != "neverlink"],
+        repository_ctx.attr.additional_rule_attrs))
   extra = repository_ctx.attr.extra_build_file_content
   if extra:
     lines.append(extra)
