@@ -24,12 +24,20 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollDomainSocketChannel;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.kqueue.KQueue;
+import io.netty.channel.kqueue.KQueueDomainSocketChannel;
+import io.netty.channel.kqueue.KQueueEventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.pool.ChannelPoolHandler;
 import io.netty.channel.pool.FixedChannelPool;
 import io.netty.channel.pool.SimpleChannelPool;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.channel.unix.DomainSocketAddress;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpObjectAggregator;
@@ -53,11 +61,14 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -92,7 +103,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
   private static final Pattern INVALID_TOKEN_ERROR =
       Pattern.compile("\\s*error\\s*=\\s*\"?invalid_token\"?");
 
-  private final NioEventLoopGroup eventLoop = new NioEventLoopGroup(2 /* number of threads */);
+  private final EventLoopGroup eventLoop;
   private final ChannelPool channelPool;
   private final URI uri;
   private final int timeoutMillis;
@@ -105,8 +116,43 @@ public final class HttpBlobStore implements SimpleBlobStore {
   @GuardedBy("credentialsLock")
   private long lastRefreshTime;
 
-  @SuppressWarnings("FutureReturnValueIgnored")
-  public HttpBlobStore(
+  public static HttpBlobStore create(URI uri, int timeoutMillis,
+      int remoteMaxConnections, @Nullable final Credentials creds)
+      throws Exception {
+    return new HttpBlobStore(
+        new InetSocketAddress(uri.getHost(), uri.getPort()),
+        NioEventLoopGroup::new,
+        NioSocketChannel.class,
+        uri, timeoutMillis, remoteMaxConnections, creds);
+  }
+
+  public static HttpBlobStore create(
+      DomainSocketAddress domainSocketAddress,
+      URI uri, int timeoutMillis, int remoteMaxConnections, @Nullable final Credentials creds)
+      throws Exception {
+
+      if (KQueue.isAvailable()) {
+        return new HttpBlobStore(
+            domainSocketAddress,
+            KQueueEventLoopGroup::new,
+            KQueueDomainSocketChannel.class,
+            uri, timeoutMillis, remoteMaxConnections, creds);
+      }
+      else if (Epoll.isAvailable()) {
+        return new HttpBlobStore(
+            domainSocketAddress,
+            EpollEventLoopGroup::new,
+            EpollDomainSocketChannel.class,
+            uri, timeoutMillis, remoteMaxConnections, creds);
+      }
+      else
+        throw new Exception("Unix domain sockets are unsupported on this platform");
+  }
+
+  private HttpBlobStore(
+      SocketAddress socketAddress,
+      Function<Integer, EventLoopGroup> newEventLoopGroup,
+      Class<? extends Channel> channelClass,
       URI uri, int timeoutMillis, int remoteMaxConnections, @Nullable final Credentials creds)
       throws Exception {
     boolean useTls = uri.getScheme().equals("https");
@@ -132,12 +178,15 @@ public final class HttpBlobStore implements SimpleBlobStore {
     } else {
       sslCtx = null;
     }
+
+    this.eventLoop = newEventLoopGroup.apply(2);
     Bootstrap clientBootstrap =
         new Bootstrap()
-            .channel(NioSocketChannel.class)
+            .channel(channelClass)
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, timeoutMillis)
             .group(eventLoop)
-            .remoteAddress(uri.getHost(), uri.getPort());
+            .remoteAddress(socketAddress);
+
     ChannelPoolHandler channelPoolHandler =
         new ChannelPoolHandler() {
           @Override

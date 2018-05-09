@@ -36,6 +36,17 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteHttpCache;
 
   @Option(
+      name = "remote_cache_proxy",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Connect to the remote cache through a proxy. Currently this flag can only be used to "
+              + "configure a Unix domain socket (unix:/path/to/socket) for the HTTP cache."
+  )
+  public String remoteCacheProxy;
+
+  @Option(
       name = "remote_max_connections",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
