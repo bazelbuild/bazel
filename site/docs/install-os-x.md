@@ -46,10 +46,10 @@ Next, download the Bazel binary installer named `bazel-<version>-installer-darwi
 
 Run the Bazel installer as follows:
 
-<pre>
+```
 chmod +x bazel-<version>-installer-darwin-x86_64.sh
 ./bazel-<version>-installer-darwin-x86_64.sh --user
-</pre>
+```
 
 The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and
 sets the `.bazelrc` path to `$HOME/.bazelrc`. Use the `--help` command to see
