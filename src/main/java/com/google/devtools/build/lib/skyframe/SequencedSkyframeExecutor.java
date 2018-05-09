@@ -103,6 +103,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -151,7 +152,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions,
-      MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
+      MutableArtifactFactorySupplier mutableArtifactFactorySupplier,
+      BooleanSupplier usesActionFileSystem) {
     super(
         evaluatorSupplier,
         pkgFactory,
@@ -170,7 +172,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         /*shouldUnblockCpuWorkWhenFetchingDeps=*/ false,
         defaultBuildOptions,
         new PackageProgressReceiver(),
-        mutableArtifactFactorySupplier);
+        mutableArtifactFactorySupplier,
+        usesActionFileSystem);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
   }
@@ -207,7 +210,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         buildFilesByPriority,
         actionOnIOExceptionReadingBuildFile,
         defaultBuildOptions,
-        new MutableArtifactFactorySupplier());
+        new MutableArtifactFactorySupplier(),
+        /*usesActionFileSystem=*/ () -> false);
   }
 
   public static SequencedSkyframeExecutor create(
@@ -226,7 +230,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions,
-      MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
+      MutableArtifactFactorySupplier mutableArtifactFactorySupplier,
+      BooleanSupplier usesActionFileSystem) {
     SequencedSkyframeExecutor skyframeExecutor =
         new SequencedSkyframeExecutor(
             InMemoryMemoizingEvaluator.SUPPLIER,
@@ -245,7 +250,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             buildFilesByPriority,
             actionOnIOExceptionReadingBuildFile,
             defaultBuildOptions,
-            mutableArtifactFactorySupplier);
+            mutableArtifactFactorySupplier,
+            usesActionFileSystem);
     skyframeExecutor.init();
     return skyframeExecutor;
   }

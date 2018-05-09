@@ -2091,7 +2091,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           actionLogBufferPathGenerator.generate(),
           clientEnv,
           ImmutableMap.of(),
-          artifactExpander);
+          artifactExpander,
+          /*actionFileSystem=*/ null);
     }
   }
 }

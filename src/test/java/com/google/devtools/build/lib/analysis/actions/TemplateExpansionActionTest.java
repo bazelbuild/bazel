@@ -192,7 +192,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         new FileOutErr(),
         ImmutableMap.<String, String>of(),
         ImmutableMap.of(),
-        null);
+        null,
+        /*actionFileSystem=*/ null);
   }
 
   private void executeTemplateExpansion(String expected) throws Exception {

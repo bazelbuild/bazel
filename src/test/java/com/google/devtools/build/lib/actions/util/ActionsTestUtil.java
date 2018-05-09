@@ -146,7 +146,8 @@ public final class ActionsTestUtil {
         ImmutableMap.of(),
         actionGraph == null
             ? createDummyArtifactExpander()
-            : ActionInputHelper.actionGraphArtifactExpander(actionGraph));
+            : ActionInputHelper.actionGraphArtifactExpander(actionGraph),
+        /*actionFileSystem=*/ null);
   }
 
   public static ActionExecutionContext createContextForInputDiscovery(
@@ -165,7 +166,8 @@ public final class ActionsTestUtil {
         fileOutErr,
         ImmutableMap.of(),
         new BlockingSkyFunctionEnvironment(
-            buildDriver, executor == null ? null : executor.getEventHandler()));
+            buildDriver, executor == null ? null : executor.getEventHandler()),
+        /*actionFileSystem=*/ null);
   }
 
   public static ActionExecutionContext createContext(ExtendedEventHandler eventHandler) {
@@ -179,7 +181,8 @@ public final class ActionsTestUtil {
         null,
         ImmutableMap.of(),
         ImmutableMap.of(),
-        createDummyArtifactExpander());
+        createDummyArtifactExpander(),
+        /*actionFileSystem=*/ null);
   }
 
   private static ArtifactExpander createDummyArtifactExpander() {

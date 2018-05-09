@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionContextFactory;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -104,6 +103,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -111,7 +111,7 @@ import javax.annotation.Nullable;
  * Action executor: takes care of preparing an action for execution, executing it, validating that
  * all output artifacts were created, error reporting, etc.
  */
-public final class SkyframeActionExecutor implements ActionExecutionContextFactory {
+public final class SkyframeActionExecutor {
   private static final Logger logger = Logger.getLogger(SkyframeActionExecutor.class.getName());
 
   // Used to prevent check-then-act races in #createOutputDirectories. See the comment there for
@@ -157,12 +157,15 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
 
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
   private OutputService outputService;
+  private final BooleanSupplier usesActionFileSystem;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
-      AtomicReference<ActionExecutionStatusReporter> statusReporterRef) {
+      AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
+      BooleanSupplier usesActionFileSystem) {
     this.actionKeyContext = actionKeyContext;
     this.statusReporterRef = statusReporterRef;
+    this.usesActionFileSystem = usesActionFileSystem;
   }
 
   /**
@@ -356,6 +359,10 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     this.clientEnv = clientEnv;
   }
 
+  public boolean usesActionFileSystem() {
+    return usesActionFileSystem.getAsBoolean();
+  }
+
   void executionOver() {
     this.reporter = null;
     // This transitively holds a bunch of heavy objects, so it's important to clear it at the
@@ -481,23 +488,24 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
    * pass the returned context to {@link #executeAction}, and any other method that needs to execute
    * tasks related to that action.
    */
-  @Override
   public ActionExecutionContext getContext(
       ActionInputFileCache graphFileCache,
       MetadataHandler metadataHandler,
       Map<Artifact, Collection<Artifact>> expandedInputs,
-      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings) {
+      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings,
+      @Nullable ActionFileSystem actionFileSystem) {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate();
     return new ActionExecutionContext(
         executorEngine,
-        new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
+        createFileCache(graphFileCache, actionFileSystem),
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
         fileOutErr,
         clientEnv,
         inputFilesetMappings,
-        new ArtifactExpanderImpl(expandedInputs));
+        new ArtifactExpanderImpl(expandedInputs),
+        actionFileSystem);
   }
 
   /**
@@ -606,18 +614,21 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
       Action action,
       PerActionFileCache graphFileCache,
       MetadataHandler metadataHandler,
-      Environment env)
+      Environment env,
+      @Nullable ActionFileSystem actionFileSystem)
       throws ActionExecutionException, InterruptedException {
+    ActionInputFileCache cache;
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
-            new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
+            createFileCache(graphFileCache, actionFileSystem),
             actionInputPrefetcher,
             actionKeyContext,
             metadataHandler,
             actionLogBufferPathGenerator.generate(),
             clientEnv,
-            env);
+            env,
+            actionFileSystem);
     try {
       actionExecutionContext.getEventBus().post(ActionStatusMessage.analysisStrategy(action));
       return action.discoverInputs(actionExecutionContext);
@@ -629,6 +640,14 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
           actionExecutionContext.getFileOutErr(),
           ErrorTiming.BEFORE_EXECUTION);
     }
+  }
+
+  private ActionInputFileCache createFileCache(
+      ActionInputFileCache graphFileCache, @Nullable ActionFileSystem actionFileSystem) {
+    if (actionFileSystem != null) {
+      return actionFileSystem;
+    }
+    return new DelegatingPairFileCache(graphFileCache, perBuildFileCache);
   }
 
   /**

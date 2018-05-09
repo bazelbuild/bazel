@@ -971,7 +971,7 @@ public class CppCompileAction extends AbstractAction
       }
     }
     // Still not found: see if it is in a subdir of a declared package.
-    Root root = input.getRoot().getRoot();
+    Root root = actionExecutionContext.getRoot(input);
     for (Path dir = actionExecutionContext.getInputPath(input).getParentDirectory(); ; ) {
       if (dir.getRelative(BUILD_PATH_FRAGMENT).exists()) {
         return false;  // Bad: this is a sub-package, not a subdir of a declared package.

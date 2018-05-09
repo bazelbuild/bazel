@@ -167,7 +167,7 @@ public class ActionMetadataHandler implements MetadataHandler {
       return null;
     }
 
-    return Preconditions.checkNotNull(inputArtifactData.get(input), input);
+    return inputArtifactData.get(input);
   }
 
   @Override
@@ -478,36 +478,31 @@ public class ActionMetadataHandler implements MetadataHandler {
         size,
         locationIndex);
 
-    Preconditions.checkState(injectedFiles.add(output), output);
-
     // TODO(shahan): there are a couple of things that could reduce memory usage
     // 1. We might be able to skip creating an entry in `outputArtifactData` and only create
     // the `FileArtifactValue`, but there are likely downstream consumers that expect it that
     // would need to be cleaned up.
     // 2. Instead of creating an `additionalOutputData` entry, we could add the extra
     // `locationIndex` to `FileStateValue`.
-    FileStateValue fileStateValue =
-        new FileStateValue.RegularFileStateValue(size, digest, /*contentsProxy=*/ null);
-    RootedPath rootedPath =
-        RootedPath.toRootedPath(output.getRoot().getRoot(), output.getRootRelativePath());
-    FileValue value = FileValue.value(rootedPath, fileStateValue, rootedPath, fileStateValue);
-    FileValue oldFsValue = outputArtifactData.putIfAbsent(output, value);
     try {
-      checkInconsistentData(output, oldFsValue, value);
+      injectOutputData(
+          output,
+          new FileArtifactValue.RemoteFileArtifactValue(digest, size, modifiedTime, locationIndex));
     } catch (IOException e) {
-      // Should never happen.
-      throw new IllegalStateException("Inconsistent FileValues for " + output, e);
+      throw new IllegalStateException(e); // Should never happen.
     }
+  }
 
-    FileArtifactValue artifactValue =
-        new FileArtifactValue.RemoteFileArtifactValue(digest, size, modifiedTime, locationIndex);
+  public void injectOutputData(Artifact output, FileArtifactValue artifactValue)
+      throws IOException {
+    Preconditions.checkState(injectedFiles.add(output), output);
+    // While `artifactValue` carries the important information, the control flow of `getMetadata`
+    // requires an entry in `outputArtifactData` to access `additionalOutputData`, so a
+    // `PLACEHOLDER` is added to `outputArtifactData`.
+    FileValue oldFileValue = outputArtifactData.putIfAbsent(output, FileValue.PLACEHOLDER);
+    checkInconsistentData(output, oldFileValue, FileValue.PLACEHOLDER);
     FileArtifactValue oldArtifactValue = additionalOutputData.putIfAbsent(output, artifactValue);
-    try {
-      checkInconsistentData(output, oldArtifactValue, artifactValue);
-    } catch (IOException e) {
-      // Should never happen.
-      throw new IllegalStateException("Inconsistent FileArtifactValues for " + output, e);
-    }
+    checkInconsistentData(output, oldArtifactValue, artifactValue);
   }
 
   @Override
