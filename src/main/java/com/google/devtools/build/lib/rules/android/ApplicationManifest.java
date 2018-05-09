@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -126,9 +127,44 @@ public final class ApplicationManifest {
     return stubManifest;
   }
 
-  public static ApplicationManifest fromRule(RuleContext ruleContext) throws RuleErrorException {
+  public static Artifact getManifestFromAttributes(RuleContext ruleContext) {
+    return ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET);
+  }
+
+  /**
+   * Gets the manifest specified in the "manifest" attribute, renaming it if needed.
+   *
+   * <p>Unlike {@link AndroidSemantics#getManifestForRule(RuleContext)}, this method will not
+   * perform AndroidSemantics-specific manifest processing. This method will do the same work
+   * regardless of the AndroidSemantics implementation being used; that method may do different work
+   * depending on the implementation.
+   */
+  public static ApplicationManifest renamedFromRule(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException {
     return fromExplicitManifest(
-        ruleContext, ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET));
+        ruleContext, renameManifestIfNeeded(ruleContext, getManifestFromAttributes(ruleContext)));
+  }
+
+  static Artifact renameManifestIfNeeded(RuleContext ruleContext, Artifact manifest)
+      throws InterruptedException {
+    if (manifest.getFilename().equals("AndroidManifest.xml")) {
+      return manifest;
+    } else {
+      /*
+       * If the manifest file is not named AndroidManifest.xml, we create a symlink named
+       * AndroidManifest.xml to it. aapt requires the manifest to be named as such.
+       */
+      Artifact manifestSymlink =
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMLINKED_MANIFEST);
+      SymlinkAction symlinkAction =
+          new SymlinkAction(
+              ruleContext.getActionOwner(),
+              manifest,
+              manifestSymlink,
+              "Renaming Android manifest for " + ruleContext.getLabel());
+      ruleContext.registerAction(symlinkAction);
+      return manifestSymlink;
+    }
   }
 
   public static ApplicationManifest fromExplicitManifest(RuleContext ruleContext, Artifact manifest)

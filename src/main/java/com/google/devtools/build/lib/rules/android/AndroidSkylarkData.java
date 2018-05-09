@@ -47,7 +47,9 @@ import javax.annotation.Nullable;
     doc =
         "Utilities for working with Android data (manifests, resources, and assets). "
             + "This API is non-final and subject to change without warning; do not rely on it.")
-public class AndroidSkylarkData {
+public abstract class AndroidSkylarkData {
+
+  public abstract AndroidSemantics getAndroidSemantics();
 
   /**
    * Skylark API for getting a asset provider for android_library targets that don't specify assets.
@@ -201,7 +203,8 @@ public class AndroidSkylarkData {
       },
       doc = "Stamps a manifest with package information.")
   public AndroidManifestInfo stampAndroidManifest(
-      SkylarkRuleContext ctx, Object manifest, Object customPackage, boolean exported) {
+      SkylarkRuleContext ctx, Object manifest, Object customPackage, boolean exported)
+      throws InterruptedException {
     String pkg = fromNoneable(customPackage, String.class);
     if (pkg == null) {
       pkg = AndroidManifest.getDefaultPackage(ctx.getRuleContext());
@@ -212,7 +215,11 @@ public class AndroidSkylarkData {
       return StampedAndroidManifest.createEmpty(ctx.getRuleContext(), pkg, exported).toProvider();
     }
 
-    return new AndroidManifest(primaryManifest, pkg, exported)
+    // If needed, rename the manifest to "AndroidManifest.xml", which aapt expects.
+    Artifact renamedManifest =
+        getAndroidSemantics().renameManifest(ctx.getRuleContext(), primaryManifest);
+
+    return new AndroidManifest(renamedManifest, pkg, exported)
         .stamp(ctx.getRuleContext())
         .toProvider();
   }

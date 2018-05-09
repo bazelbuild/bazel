@@ -45,6 +45,26 @@ public class AndroidManifest {
    */
   public static AndroidManifest from(RuleContext ruleContext, AndroidSemantics androidSemantics)
       throws RuleErrorException, InterruptedException {
+    return innerFrom(ruleContext, androidSemantics);
+  }
+
+  /**
+   * Gets the manifest for this rule.
+   *
+   * <p>If no manifest is specified in the rule's attributes, an empty manifest will be generated.
+   *
+   * <p>Unlike {@link #from(RuleContext, AndroidSemantics)}, the AndroidSemantics-specific manifest
+   * processing methods will not be applied in this method. The manifest returned by this method
+   * will be the same regardless of the AndroidSemantics being used.
+   */
+  public static AndroidManifest from(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException {
+    return innerFrom(ruleContext, null);
+  }
+
+  private static AndroidManifest innerFrom(
+      RuleContext ruleContext, @Nullable AndroidSemantics androidSemantics)
+      throws RuleErrorException, InterruptedException {
     if (!AndroidResources.definesAndroidResources(ruleContext.attributes())) {
       // Generate a dummy manifest
       return StampedAndroidManifest.createEmpty(ruleContext, /* exported = */ false);
@@ -52,8 +72,17 @@ public class AndroidManifest {
 
     AndroidResources.validateRuleContext(ruleContext);
 
+    Artifact rawManifest = ApplicationManifest.getManifestFromAttributes(ruleContext);
+
+    Artifact renamedManifest;
+    if (androidSemantics != null) {
+      renamedManifest = androidSemantics.renameManifest(ruleContext, rawManifest);
+    } else {
+      renamedManifest = ApplicationManifest.renameManifestIfNeeded(ruleContext, rawManifest);
+    }
+
     return new AndroidManifest(
-        androidSemantics.getManifestForRule(ruleContext).getManifest(),
+        renamedManifest,
         getAndroidPackage(ruleContext),
         AndroidCommon.getExportsManifest(ruleContext));
   }
