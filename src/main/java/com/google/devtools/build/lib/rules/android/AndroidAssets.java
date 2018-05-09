@@ -61,12 +61,13 @@ public class AndroidAssets {
     }
   }
 
-  /** Collects this rule's android assets. */
+  /** Collects this rule's android assets, based on rule attributes. */
   public static AndroidAssets from(RuleContext ruleContext) throws RuleErrorException {
     return from(ruleContext, getAssetTargets(ruleContext), getAssetDir(ruleContext));
   }
 
-  static AndroidAssets from(
+  /** Collects Android assets from the specified values */
+  public static AndroidAssets from(
       RuleErrorConsumer errorConsumer,
       @Nullable Iterable<? extends TransitiveInfoCollection> assetTargets,
       @Nullable PathFragment assetsDir)

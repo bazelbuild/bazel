@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -21,6 +20,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -91,8 +91,11 @@ public class AndroidManifest {
     this(manifest, other.pkg, other.exported);
   }
 
-  @VisibleForTesting
-  AndroidManifest(Artifact manifest, @Nullable String pkg, boolean exported) {
+  /**
+   * Creates a manifest wrapper without doing any processing. From within a rule, use {@link
+   * #from(RuleContext, AndroidSemantics)} instead.
+   */
+  public AndroidManifest(Artifact manifest, @Nullable String pkg, boolean exported) {
     this.manifest = manifest;
     this.pkg = pkg;
     this.exported = exported;
@@ -112,11 +115,15 @@ public class AndroidManifest {
    * <p>If no manifest values are specified, the manifest will remain unstamped.
    */
   public StampedAndroidManifest stampWithManifestValues(RuleContext ruleContext) {
-    return mergeWithDeps(ruleContext, ResourceDependencies.empty());
+    return mergeWithDeps(
+        ruleContext,
+        ResourceDependencies.empty(),
+        ApplicationManifest.getManifestValues(ruleContext),
+        ApplicationManifest.useLegacyMerging(ruleContext));
   }
 
   /**
-   * Merges the manifest with any dependent manifests.
+   * Merges the manifest with any dependent manifests, extracted from rule attributes.
    *
    * <p>The manifest will also be stamped with any manifest values specified in the target's
    * attributes
@@ -126,17 +133,20 @@ public class AndroidManifest {
    */
   public StampedAndroidManifest mergeWithDeps(RuleContext ruleContext) {
     return mergeWithDeps(
-        ruleContext, ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false));
+        ruleContext,
+        ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
+        ApplicationManifest.getManifestValues(ruleContext),
+        ApplicationManifest.useLegacyMerging(ruleContext));
   }
 
-  private StampedAndroidManifest mergeWithDeps(
-      RuleContext ruleContext, ResourceDependencies resourceDeps) {
+  public StampedAndroidManifest mergeWithDeps(
+      RuleContext ruleContext,
+      ResourceDependencies resourceDeps,
+      Map<String, String> manifestValues,
+      boolean useLegacyMerger) {
     Artifact newManifest =
         ApplicationManifest.maybeMergeWith(
-                ruleContext,
-                manifest,
-                resourceDeps,
-                ApplicationManifest.getManifestValues(ruleContext))
+            ruleContext, manifest, resourceDeps, manifestValues, useLegacyMerger, pkg)
             .orElse(manifest);
 
     return new StampedAndroidManifest(newManifest, pkg, exported);
@@ -165,7 +175,7 @@ public class AndroidManifest {
   }
 
   /** Gets the default Java package */
-  static String getDefaultPackage(RuleContext ruleContext) {
+  public static String getDefaultPackage(RuleContext ruleContext) {
     PathFragment dummyJar = ruleContext.getPackageDirectory().getChild("Dummy.jar");
     return getJavaPackageFromPath(ruleContext, dummyJar);
   }

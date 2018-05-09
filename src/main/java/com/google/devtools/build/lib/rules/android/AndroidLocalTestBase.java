@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -93,9 +94,14 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       StampedAndroidManifest manifest =
           AndroidManifest.from(ruleContext).mergeWithDeps(ruleContext);
 
+      AndroidAaptVersion aaptVersion = AndroidAaptVersion.chooseTargetAaptVersion(ruleContext);
       resourceApk =
-          ProcessedAndroidData.processLocalTestDataFrom(ruleContext, manifest)
-              .generateRClass(ruleContext);
+          ProcessedAndroidData.processLocalTestDataFrom(
+                  ruleContext,
+                  manifest,
+                  ApplicationManifest.getManifestValues(ruleContext),
+                  aaptVersion)
+              .generateRClass(ruleContext, aaptVersion);
     } else {
       // Create the final merged manifest
       ResourceDependencies resourceDependencies =

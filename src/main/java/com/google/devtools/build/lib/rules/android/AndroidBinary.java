@@ -202,13 +202,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       applicationManifest =
           ApplicationManifest.fromExplicitManifest(ruleContext, manifest.getManifest());
 
+      AndroidAaptVersion aaptVersion = AndroidAaptVersion.chooseTargetAaptVersion(ruleContext);
       resourceApk =
           ProcessedAndroidData.processBinaryDataFrom(
                   ruleContext,
                   manifest,
                   /* conditionalKeepRules = */ shouldShrinkResourceCycles(
-                      ruleContext, shrinkResources))
-              .generateRClass(ruleContext);
+                      ruleContext, shrinkResources),
+                  applicationManifest.getManifestValues(),
+                  aaptVersion)
+              .generateRClass(ruleContext, aaptVersion);
     } else {
       applicationManifest =
           androidSemantics.getManifestForRule(ruleContext).mergeWith(ruleContext, resourceDeps);

@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -448,7 +449,9 @@ public class AndroidResourcesTest extends ResourceTestBase {
             null);
 
     ValidatedAndroidData validated =
-        processedData.generateRClass(ruleContext).getValidatedResources();
+        processedData
+            .generateRClass(ruleContext, AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
+            .getValidatedResources();
 
     // An action to generate the R.class file should be registered.
     assertActionArtifacts(
@@ -462,8 +465,9 @@ public class AndroidResourcesTest extends ResourceTestBase {
     RuleContext ruleContext = getRuleContext("android_binary", "manifest='AndroidManifest.xml',");
 
     ResourceApk resourceApk =
-        ProcessedAndroidData.processBinaryDataFrom(ruleContext, getManifest(), false)
-            .generateRClass(ruleContext);
+        ProcessedAndroidData.processBinaryDataFrom(
+                ruleContext, getManifest(), false, ImmutableMap.of(), AndroidAaptVersion.AUTO)
+            .generateRClass(ruleContext, AndroidAaptVersion.AUTO);
 
     assertThat(resourceApk.getResourceProguardConfig()).isNotNull();
     assertThat(resourceApk.getMainDexProguardConfig()).isNotNull();

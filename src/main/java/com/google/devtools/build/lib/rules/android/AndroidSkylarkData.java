@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
@@ -396,16 +397,7 @@ public abstract class AndroidSkylarkData {
                   aaptVersion)
               .validate(ctx.getRuleContext(), aaptVersion);
 
-      JavaInfo javaInfo =
-          JavaInfo.Builder.create()
-              .setNeverlink(true)
-              .addProvider(
-                  JavaCompilationInfoProvider.class,
-                  new JavaCompilationInfoProvider.Builder()
-                      .setCompilationClasspath(
-                          NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, validated.getClassJar()))
-                      .build())
-              .build();
+      JavaInfo javaInfo = getJavaInfoForRClassJar(validated.getClassJar());
 
       return SkylarkDict.of(
           /* env = */ null,
@@ -742,8 +734,35 @@ public abstract class AndroidSkylarkData {
             .build());
   }
 
+  public static SkylarkDict<NativeProvider<?>, NativeInfo> getNativeInfosFrom(
+      ResourceApk resourceApk, Label label) {
+    ImmutableMap.Builder<NativeProvider<?>, NativeInfo> builder = ImmutableMap.builder();
+
+    builder.put(AndroidResourcesInfo.PROVIDER, resourceApk.toResourceInfo(label));
+
+    resourceApk
+        .toAssetsInfo(label)
+        .ifPresent(info -> builder.put(AndroidAssetsInfo.PROVIDER, info));
+    resourceApk.toManifestInfo().ifPresent(info -> builder.put(AndroidManifestInfo.PROVIDER, info));
+
+    builder.put(JavaInfo.PROVIDER, getJavaInfoForRClassJar(resourceApk.getResourceJavaClassJar()));
+
+    return SkylarkDict.copyOf(/* env = */ null, builder.build());
+  }
+
+  private static JavaInfo getJavaInfoForRClassJar(Artifact rClassJar) {
+    return JavaInfo.Builder.create()
+        .setNeverlink(true)
+        .addProvider(
+            JavaCompilationInfoProvider.class,
+            new JavaCompilationInfoProvider.Builder()
+                .setCompilationClasspath(NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, rClassJar))
+                .build())
+        .build();
+  }
+
   /** Checks if a "Noneable" object passed by Skylark is "None", which Java should treat as null. */
-  private static boolean isNone(Object object) {
+  public static boolean isNone(Object object) {
     return object == Runtime.NONE;
   }
 
@@ -760,7 +779,7 @@ public abstract class AndroidSkylarkData {
    * @return {@code null}, if the noneable argument was None, or the cast object, otherwise.
    */
   @Nullable
-  private static <T> T fromNoneable(Object object, Class<T> clazz) {
+  public static <T> T fromNoneable(Object object, Class<T> clazz) {
     if (isNone(object)) {
       return null;
     }
@@ -768,7 +787,7 @@ public abstract class AndroidSkylarkData {
     return clazz.cast(object);
   }
 
-  private static <T> T fromNoneableOrDefault(Object object, Class<T> clazz, T defaultValue) {
+  public static <T> T fromNoneableOrDefault(Object object, Class<T> clazz, T defaultValue) {
     T value = fromNoneable(object, clazz);
     if (value == null) {
       return defaultValue;
@@ -784,7 +803,7 @@ public abstract class AndroidSkylarkData {
    * casts it to a list with the appropriate generic.
    */
   @Nullable
-  private static <T> List<T> listFromNoneable(Object object, Class<T> clazz) throws EvalException {
+  public static <T> List<T> listFromNoneable(Object object, Class<T> clazz) throws EvalException {
     SkylarkList<?> asList = fromNoneable(object, SkylarkList.class);
     if (asList == null) {
       return null;
@@ -803,7 +822,7 @@ public abstract class AndroidSkylarkData {
     return SkylarkList.createImmutable(value);
   }
 
-  private static <T extends NativeInfo> SkylarkList<T> getProviders(
+  public static <T extends NativeInfo> SkylarkList<T> getProviders(
       SkylarkList<ConfiguredTarget> targets, NativeProvider<T> provider) {
     return SkylarkList.createImmutable(
         targets

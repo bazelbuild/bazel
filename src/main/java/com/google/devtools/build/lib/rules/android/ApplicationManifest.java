@@ -192,7 +192,7 @@ public final class ApplicationManifest {
    *
    * @return an artifact for the generated manifest
    */
-  static Artifact generateManifest(RuleContext ruleContext, String manifestPackage) {
+  public static Artifact generateManifest(RuleContext ruleContext, String manifestPackage) {
     Artifact generatedManifest =
         ruleContext.getUniqueDirectoryArtifact(
             ruleContext.getRule().getName() + "_generated",
@@ -216,17 +216,33 @@ public final class ApplicationManifest {
     return generatedManifest;
   }
 
+  /** Gets a map of manifest values from this rule's 'manifest_values' attribute */
   static ImmutableMap<String, String> getManifestValues(RuleContext context) {
+    return getManifestValues(
+        context,
+        context.attributes().isAttributeValueExplicitlySpecified("manifest_values")
+            ? context.attributes().get("manifest_values", Type.STRING_DICT)
+            : null);
+  }
+
+  /** Gets and expands an expanded map of manifest values from some raw map of manifest values. */
+  static ImmutableMap<String, String> getManifestValues(
+      RuleContext ruleContext, @Nullable Map<String, String> rawMap) {
     Map<String, String> manifestValues = new TreeMap<>();
-    if (context.attributes().isAttributeValueExplicitlySpecified("manifest_values")) {
-      manifestValues.putAll(context.attributes().get("manifest_values", Type.STRING_DICT));
+    if (rawMap != null) {
+      manifestValues.putAll(rawMap);
     }
 
     for (String variable : manifestValues.keySet()) {
       manifestValues.put(
-          variable, context.getExpander().expand("manifest_values", manifestValues.get(variable)));
+          variable,
+          ruleContext.getExpander().expand("manifest_values", manifestValues.get(variable)));
     }
     return ImmutableMap.copyOf(manifestValues);
+  }
+
+  public ImmutableMap<String, String> getManifestValues() {
+    return manifestValues;
   }
 
   private final Artifact manifest;
@@ -241,7 +257,13 @@ public final class ApplicationManifest {
   }
 
   public ApplicationManifest mergeWith(RuleContext ruleContext, ResourceDependencies resourceDeps) {
-    return maybeMergeWith(ruleContext, manifest, resourceDeps, manifestValues)
+    return maybeMergeWith(
+            ruleContext,
+            manifest,
+            resourceDeps,
+            manifestValues,
+            useLegacyMerging(ruleContext),
+            AndroidCommon.getJavaPackage(ruleContext))
         .map(merged -> new ApplicationManifest(ruleContext, merged, targetAaptVersion))
         .orElse(this);
   }
@@ -250,11 +272,14 @@ public final class ApplicationManifest {
       RuleContext ruleContext,
       Artifact primaryManifest,
       ResourceDependencies resourceDeps,
-      Map<String, String> manifestValues) {
+      Map<String, String> manifestValues,
+      boolean useLegacyMerging,
+      String customPackage) {
     Map<Artifact, Label> mergeeManifests = getMergeeManifests(resourceDeps.getResourceContainers());
 
-    if (useLegacyMerging(ruleContext)) {
+    if (useLegacyMerging) {
       if (!mergeeManifests.isEmpty()) {
+
         Artifact outputManifest =
             ruleContext.getUniqueDirectoryArtifact(
                 ruleContext.getRule().getName() + "_merged",
@@ -285,7 +310,7 @@ public final class ApplicationManifest {
             .setMergeeManifests(mergeeManifests)
             .setLibrary(false)
             .setManifestValues(manifestValues)
-            .setCustomPackage(AndroidCommon.getJavaPackage(ruleContext))
+            .setCustomPackage(customPackage)
             .setManifestOutput(outputManifest)
             .setLogOut(mergeLog)
             .build(ruleContext);
@@ -295,24 +320,30 @@ public final class ApplicationManifest {
     return Optional.empty();
   }
 
-  private static boolean useLegacyMerging(RuleContext ruleContext) {
-    boolean legacy = false;
-    if (ruleContext.isLegalFragment(AndroidConfiguration.class)
-        && ruleContext.getRule().isAttrDefined("manifest_merger", STRING)) {
-      AndroidManifestMerger merger =
-          AndroidManifestMerger.fromString(ruleContext.attributes().get("manifest_merger", STRING));
-      if (merger == null) {
-        merger = ruleContext.getFragment(AndroidConfiguration.class).getManifestMerger();
-      }
-      if (merger == AndroidManifestMerger.LEGACY) {
-        ruleContext.ruleWarning(
-            "manifest_merger 'legacy' is deprecated. Please update to 'android'.\n"
-                + "See https://developer.android.com/studio/build/manifest-merge.html for more "
-                + "information about the manifest merger.");
-      }
-      legacy = merger == AndroidManifestMerger.LEGACY;
+  /** Checks if the legacy manifest merger should be used, based on a rule attribute */
+  static boolean useLegacyMerging(RuleContext ruleContext) {
+    return ruleContext.isLegalFragment(AndroidConfiguration.class)
+        && ruleContext.getRule().isAttrDefined("manifest_merger", STRING)
+        && useLegacyMerging(ruleContext, ruleContext.attributes().get("manifest_merger", STRING));
+  }
+
+  /**
+   * Checks if the legacy manifest merger should be used, based on an optional string specifying the
+   * merger to use.
+   */
+  public static boolean useLegacyMerging(RuleContext ruleContext, @Nullable String mergerString) {
+    AndroidManifestMerger merger = AndroidManifestMerger.fromString(mergerString);
+    if (merger == null) {
+      merger = ruleContext.getFragment(AndroidConfiguration.class).getManifestMerger();
     }
-    return legacy;
+    if (merger == AndroidManifestMerger.LEGACY) {
+      ruleContext.ruleWarning(
+          "manifest_merger 'legacy' is deprecated. Please update to 'android'.\n"
+              + "See https://developer.android.com/studio/build/manifest-merge.html for more "
+              + "information about the manifest merger.");
+    }
+
+    return merger == AndroidManifestMerger.LEGACY;
   }
 
   private static Map<Artifact, Label> getMergeeManifests(

@@ -138,7 +138,7 @@ public class AndroidResources {
         resourcesAttr);
   }
 
-  static AndroidResources from(
+  public static AndroidResources from(
       RuleErrorConsumer errorConsumer,
       Iterable<FileProvider> resourcesTargets,
       String resourcesAttr)
