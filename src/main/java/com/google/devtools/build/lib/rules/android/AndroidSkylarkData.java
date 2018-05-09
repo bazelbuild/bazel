@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -529,6 +530,211 @@ public class AndroidSkylarkData {
         .toProvider(deps, definesLocalResources);
   }
 
+  /**
+   * Skylark API for doing all resource, asset, and manifest processing for an android_library
+   *
+   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
+   *
+   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
+   *     instead. See b/79159379
+   */
+  @SkylarkCallable(
+      name = "process_library_data",
+      mandatoryPositionals = 2, // ctx and libraryClassJar are required
+      parameters = {
+        @Param(
+            name = "manifest",
+            positional = false,
+            type = Artifact.class,
+            defaultValue = "None",
+            named = true,
+            noneable = true,
+            doc =
+                "If passed, the manifest to use for this target. Otherwise, a dummy manifest will"
+                    + " be generated."),
+        @Param(
+            name = "resources",
+            positional = false,
+            defaultValue = "None",
+            type = SkylarkList.class,
+            generic1 = FileProvider.class,
+            named = true,
+            noneable = true,
+            doc = "Providers of this target's resources"),
+        @Param(
+            name = "assets",
+            positional = false,
+            defaultValue = "None",
+            type = SkylarkList.class,
+            generic1 = ConfiguredTarget.class,
+            noneable = true,
+            named = true,
+            doc =
+                "Targets containing raw assets for this target. If passed, 'assets_dir' must also"
+                    + " be passed."),
+        @Param(
+            name = "assets_dir",
+            positional = false,
+            defaultValue = "None",
+            type = String.class,
+            noneable = true,
+            named = true,
+            doc =
+                "Directory the assets are contained in. Must be passed if and only if 'assets' is"
+                    + " passed. This path will be split off of the asset paths on the device."),
+        @Param(
+            name = "exports_manifest",
+            positional = false,
+            defaultValue = "None",
+            type = Boolean.class,
+            named = true,
+            noneable = true,
+            doc =
+                "Defaults to False. If passed as True, this manifest will be exported to and"
+                    + " eventually merged into targets that depend on it. Otherwise, it won't be"
+                    + " inherited."),
+        @Param(
+            name = "custom_package",
+            positional = false,
+            defaultValue = "None",
+            type = String.class,
+            noneable = true,
+            named = true,
+            doc =
+                "The Android application package to stamp the manifest with. If not provided, the"
+                    + " current Java package, derived from the location of this target's BUILD"
+                    + " file, will be used. For example, given a BUILD file in"
+                    + " 'java/com/foo/bar/BUILD', the package would be 'com.foo.bar'."),
+        @Param(
+            name = "neverlink",
+            positional = false,
+            defaultValue = "False",
+            type = Boolean.class,
+            named = true,
+            doc =
+                "Defaults to False. If passed as True, these resources and assets will not be"
+                    + " inherited by targets that depend on this one."),
+        @Param(
+            name = "enable_data_binding",
+            positional = false,
+            defaultValue = "False",
+            type = Boolean.class,
+            named = true,
+            doc =
+                "Defaults to False. If True, processes data binding expressions in layout"
+                    + " resources."),
+        @Param(
+            name = "proguard_specs",
+            type = SkylarkList.class,
+            generic1 = ConfiguredTarget.class,
+            defaultValue = "[]",
+            positional = false,
+            named = true,
+            doc =
+                "Files to be used as Proguard specification for this target, which will be"
+                    + " inherited in the top-level target"),
+        @Param(
+            name = "deps",
+            positional = false,
+            defaultValue = "[]",
+            type = SkylarkList.class,
+            generic1 = AndroidAssetsInfo.class,
+            named = true,
+            doc =
+                "Dependency targets. Providers will be extracted from these dependencies for each"
+                    + " type of data."),
+      },
+      doc =
+          "Performs full processing of data for android_library or similar rules. Returns a dict"
+              + " from provider type to providers for the target.")
+  public SkylarkDict<NativeProvider<?>, NativeInfo> processLibraryData(
+      SkylarkRuleContext ctx,
+      Artifact libraryClassJar,
+      Object manifest,
+      Object resources,
+      Object assets,
+      Object assetsDir,
+      Object exportsManifest,
+      Object customPackage,
+      boolean neverlink,
+      boolean enableDataBinding,
+      SkylarkList<ConfiguredTarget> proguardSpecs,
+      SkylarkList<ConfiguredTarget> deps)
+      throws InterruptedException, EvalException {
+
+    SkylarkList<AndroidResourcesInfo> resourceDeps =
+        getProviders(deps, AndroidResourcesInfo.PROVIDER);
+    SkylarkList<AndroidAssetsInfo> assetDeps = getProviders(deps, AndroidAssetsInfo.PROVIDER);
+
+    ImmutableMap.Builder<NativeProvider<?>, NativeInfo> infoBuilder = ImmutableMap.builder();
+
+    AndroidResourcesInfo resourcesInfo;
+    AndroidAssetsInfo assetsInfo;
+    if (isNone(manifest)
+        && isNone(resources)
+        && isNone(assets)
+        && isNone(assetsDir)
+        && isNone(exportsManifest)) {
+
+      // If none of these parameters were specified, for backwards compatibility, do not trigger
+      // data processing.
+      resourcesInfo = resourcesFromDeps(ctx, resourceDeps, neverlink, customPackage);
+      assetsInfo = assetsFromDeps(ctx, assetDeps, neverlink);
+
+      infoBuilder.put(AndroidResourcesInfo.PROVIDER, resourcesInfo);
+    } else {
+
+      AndroidManifestInfo baseManifest =
+          stampAndroidManifest(
+              ctx,
+              manifest,
+              customPackage,
+              fromNoneableOrDefault(exportsManifest, Boolean.class, false));
+
+      SkylarkDict<NativeProvider<?>, NativeInfo> resourceOutput =
+          mergeResources(
+              ctx,
+              baseManifest,
+              listFromNoneableOrEmpty(resources, ConfiguredTarget.class),
+              resourceDeps,
+              neverlink,
+              enableDataBinding);
+
+      resourcesInfo = (AndroidResourcesInfo) resourceOutput.get(AndroidResourcesInfo.PROVIDER);
+      assetsInfo = mergeAssets(ctx, assets, assetsDir, assetDeps, neverlink);
+
+      infoBuilder.putAll(resourceOutput);
+    }
+
+
+    AndroidLibraryAarInfo aarInfo =
+        makeAar(
+            ctx,
+            resourcesInfo,
+            assetsInfo,
+            libraryClassJar,
+            proguardSpecs,
+            getProviders(deps, AndroidLibraryAarInfo.PROVIDER),
+            neverlink);
+
+    // Only expose the aar provider in non-neverlinked actions
+    if (!neverlink) {
+      infoBuilder.put(AndroidLibraryAarInfo.PROVIDER, aarInfo);
+    }
+
+    // Expose the updated manifest that was changed by resource processing
+    // TODO(b/30817309): Use the base manifest once manifests are no longer changed in resource
+    // processing
+    AndroidManifestInfo manifestInfo = resourcesInfo.getManifest().toProvider();
+
+    return SkylarkDict.copyOf(
+        /* env = */ null,
+        infoBuilder
+            .put(AndroidAssetsInfo.PROVIDER, assetsInfo)
+            .put(AndroidManifestInfo.PROVIDER, manifestInfo)
+            .build());
+  }
+
   /** Checks if a "Noneable" object passed by Skylark is "None", which Java should treat as null. */
   private static boolean isNone(Object object) {
     return object == Runtime.NONE;
@@ -555,6 +761,15 @@ public class AndroidSkylarkData {
     return clazz.cast(object);
   }
 
+  private static <T> T fromNoneableOrDefault(Object object, Class<T> clazz, T defaultValue) {
+    T value = fromNoneable(object, clazz);
+    if (value == null) {
+      return defaultValue;
+    }
+
+    return value;
+  }
+
   /**
    * Converts a "Noneable" Object passed by Skylark to a List of the appropriate type.
    *
@@ -569,5 +784,25 @@ public class AndroidSkylarkData {
     }
 
     return SkylarkList.castList(asList, clazz, null);
+  }
+
+  private static <T> SkylarkList<T> listFromNoneableOrEmpty(Object object, Class<T> clazz)
+      throws EvalException {
+    List<T> value = listFromNoneable(object, clazz);
+    if (value == null) {
+      return SkylarkList.createImmutable(ImmutableList.of());
+    }
+
+    return SkylarkList.createImmutable(value);
+  }
+
+  private static <T extends NativeInfo> SkylarkList<T> getProviders(
+      SkylarkList<ConfiguredTarget> targets, NativeProvider<T> provider) {
+    return SkylarkList.createImmutable(
+        targets
+            .stream()
+            .map(target -> target.get(provider))
+            .filter(Objects::nonNull)
+            .collect(ImmutableList.toImmutableList()));
   }
 }
