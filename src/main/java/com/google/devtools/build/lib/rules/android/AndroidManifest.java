@@ -42,10 +42,14 @@ public class AndroidManifest {
    * Gets the manifest for this rule.
    *
    * <p>If no manifest is specified in the rule's attributes, an empty manifest will be generated.
+   *
+   * <p>Unlike {@link #fromAttributes(RuleContext, AndroidSemantics)}, the AndroidSemantics-specific
+   * manifest processing methods will not be applied in this method. The manifest returned by this
+   * method will be the same regardless of the AndroidSemantics being used.
    */
-  public static AndroidManifest from(RuleContext ruleContext, AndroidSemantics androidSemantics)
-      throws RuleErrorException, InterruptedException {
-    return innerFrom(ruleContext, androidSemantics);
+  public static AndroidManifest fromAttributes(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException {
+    return fromAttributes(ruleContext, null);
   }
 
   /**
@@ -53,26 +57,68 @@ public class AndroidManifest {
    *
    * <p>If no manifest is specified in the rule's attributes, an empty manifest will be generated.
    *
-   * <p>Unlike {@link #from(RuleContext, AndroidSemantics)}, the AndroidSemantics-specific manifest
-   * processing methods will not be applied in this method. The manifest returned by this method
-   * will be the same regardless of the AndroidSemantics being used.
+   * <p>If a non-null {@link AndroidSemantics} is passed, AndroidSemantics-specific manifest
+   * processing will be preformed on this manifest. Otherwise, basic manifest renaming will be
+   * performed if needed.
+   *
    */
-  public static AndroidManifest from(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
-    return innerFrom(ruleContext, null);
-  }
-
-  private static AndroidManifest innerFrom(
+  public static AndroidManifest fromAttributes(
       RuleContext ruleContext, @Nullable AndroidSemantics androidSemantics)
       throws RuleErrorException, InterruptedException {
-    if (!AndroidResources.definesAndroidResources(ruleContext.attributes())) {
-      // Generate a dummy manifest
-      return StampedAndroidManifest.createEmpty(ruleContext, /* exported = */ false);
+    Artifact rawManifest = null;
+    if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {
+      AndroidResources.validateRuleContext(ruleContext);
+      rawManifest = ApplicationManifest.getManifestFromAttributes(ruleContext);
     }
 
-    AndroidResources.validateRuleContext(ruleContext);
+    return from(
+        ruleContext,
+        rawManifest,
+        androidSemantics,
+        getAndroidPackage(ruleContext),
+        AndroidCommon.getExportsManifest(ruleContext));
+  }
 
-    Artifact rawManifest = ApplicationManifest.getManifestFromAttributes(ruleContext);
+  /**
+   * Creates an AndroidManifest object, with correct preprocessing, from explicit variables.
+   *
+   * <p>Attributes included in the RuleContext will not be used; use {@link #from(RuleContext)}
+   * instead.
+   *
+   * <p>In addition, the AndroidSemantics-specific manifest processing methods will not be applied
+   * in this method. The manifest returned by this method will be the same regardless of the
+   * AndroidSemantics being used. use {@link #from(RuleContext, AndroidSemantics)} instead if you
+   * want AndroidSemantics-specific behavior.
+   */
+  public static AndroidManifest from(
+      RuleContext ruleContext,
+      @Nullable Artifact rawManifest,
+      @Nullable String pkg,
+      boolean exportsManifest)
+      throws InterruptedException {
+    return from(ruleContext, rawManifest, null, pkg, exportsManifest);
+  }
+
+  /**
+   * Inner method to create an AndroidManifest.
+   *
+   * <p>AndroidSemantics-specific processing will be used if a non-null AndroidSemantics is passed.
+   */
+  private static AndroidManifest from(
+      RuleContext ruleContext,
+      @Nullable Artifact rawManifest,
+      @Nullable AndroidSemantics androidSemantics,
+      @Nullable String pkg,
+      boolean exportsManifest)
+      throws InterruptedException {
+    if (pkg == null) {
+      pkg = getDefaultPackage(ruleContext);
+    }
+
+    if (rawManifest == null) {
+      // Generate a dummy manifest
+      return StampedAndroidManifest.createEmpty(ruleContext, pkg, /* exported = */ false);
+    }
 
     Artifact renamedManifest;
     if (androidSemantics != null) {
@@ -81,10 +127,7 @@ public class AndroidManifest {
       renamedManifest = ApplicationManifest.renameManifestIfNeeded(ruleContext, rawManifest);
     }
 
-    return new AndroidManifest(
-        renamedManifest,
-        getAndroidPackage(ruleContext),
-        AndroidCommon.getExportsManifest(ruleContext));
+    return new AndroidManifest(renamedManifest, pkg, exportsManifest);
   }
 
   AndroidManifest(AndroidManifest other, Artifact manifest) {

@@ -371,20 +371,12 @@ public abstract class AndroidSkylarkData {
       boolean neverlink,
       boolean enableDataBinding)
       throws EvalException, InterruptedException {
-
-    ImmutableList<FileProvider> fileProviders =
-        resources
-            .stream()
-            .map(target -> target.getProvider(FileProvider.class))
-            .filter(Objects::nonNull)
-            .collect(ImmutableList.toImmutableList());
-
     try {
       AndroidAaptVersion aaptVersion =
           AndroidCommon.getAndroidConfig(ctx.getRuleContext()).getAndroidAaptVersion();
 
       ValidatedAndroidResources validated =
-          AndroidResources.from(ctx.getRuleContext(), fileProviders, "resources")
+          AndroidResources.from(ctx.getRuleContext(), getFileProviders(resources), "resources")
               .parse(
                   ctx.getRuleContext(),
                   manifest.asStampedManifest(),
@@ -511,11 +503,8 @@ public abstract class AndroidSkylarkData {
     }
 
     ImmutableList.Builder<Artifact> proguardSpecBuilder = ImmutableList.builder();
-    for (ConfiguredTarget target : proguardSpecs) {
-      FileProvider fileProvider = target.getProvider(FileProvider.class);
-      if (fileProvider != null) {
-        proguardSpecBuilder.addAll(fileProvider.getFilesToBuild());
-      }
+    for (FileProvider provider : getFileProviders(proguardSpecs)) {
+      proguardSpecBuilder.addAll(provider.getFilesToBuild());
     }
 
     return Aar.makeAar(
@@ -734,6 +723,148 @@ public abstract class AndroidSkylarkData {
             .build());
   }
 
+  /**
+   * Skylark API for processing assets, resources, and manifest for android_local_test
+   *
+   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
+   *
+   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
+   *     instead. See b/79159379
+   */
+  @SkylarkCallable(
+      name = "process_local_test_data",
+      mandatoryPositionals = 1, // context is mandatory
+      parameters = {
+        @Param(
+            name = "manifest",
+            positional = false,
+            type = Artifact.class,
+            defaultValue = "None",
+            named = true,
+            noneable = true,
+            doc =
+                "If passed, the manifest to use for this target. Otherwise, a dummy manifest will"
+                    + " be generated."),
+        @Param(
+            name = "resources",
+            positional = false,
+            defaultValue = "[]",
+            type = SkylarkList.class,
+            generic1 = FileProvider.class,
+            named = true,
+            doc = "Providers of this target's resources"),
+        @Param(
+            name = "assets",
+            positional = false,
+            defaultValue = "None",
+            type = SkylarkList.class,
+            generic1 = ConfiguredTarget.class,
+            noneable = true,
+            named = true,
+            doc =
+                "Targets containing raw assets for this target. If passed, 'assets_dir' must also"
+                    + " be passed."),
+        @Param(
+            name = "assets_dir",
+            positional = false,
+            defaultValue = "None",
+            type = String.class,
+            noneable = true,
+            named = true,
+            doc =
+                "Directory the assets are contained in. Must be passed if and only if 'assets' is"
+                    + " passed. This path will be split off of the asset paths on the device."),
+        @Param(
+            name = "custom_package",
+            positional = false,
+            defaultValue = "None",
+            type = String.class,
+            noneable = true,
+            named = true,
+            doc =
+                "The Android application package to stamp the manifest with. If not provided, the"
+                    + " current Java package, derived from the location of this target's BUILD"
+                    + " file, will be used. For example, given a BUILD file in"
+                    + " 'java/com/foo/bar/BUILD', the package would be 'com.foo.bar'."),
+        @Param(
+            name = "aapt_version",
+            positional = false,
+            defaultValue = "'auto'",
+            type = String.class,
+            named = true,
+            doc =
+                "The version of aapt to use. Defaults to 'auto'. 'aapt' and 'aapt2' are also"
+                    + " supported."),
+        @Param(
+            name = "manifest_values",
+            positional = false,
+            defaultValue = "{}",
+            type = SkylarkDict.class,
+            generic1 = String.class,
+            named = true,
+            doc = "A dictionary of values to be overridden in the manifest."),
+        @Param(
+            name = "deps",
+            positional = false,
+            defaultValue = "[]",
+            type = SkylarkList.class,
+            generic1 = AndroidAssetsInfo.class,
+            named = true,
+            doc =
+                "Dependency targets. Providers will be extracted from these dependencies for each"
+                    + " type of data."),
+      },
+      doc =
+          "Processes resources, assets, and manifests for android_local_test and returns a dict"
+              + " from provider type to the appropriate provider.")
+  public SkylarkDict<NativeProvider<?>, NativeInfo> processLocalTestData(
+      SkylarkRuleContext ctx,
+      Object manifest,
+      SkylarkList<ConfiguredTarget> resources,
+      Object assets,
+      Object assetsDir,
+      Object customPackage,
+      String aaptVersionString,
+      SkylarkDict<String, String> rawManifestValues,
+      SkylarkList<ConfiguredTarget> deps)
+      throws InterruptedException, EvalException {
+
+    AndroidManifest rawManifest =
+        AndroidManifest.from(
+            ctx.getRuleContext(),
+            fromNoneable(manifest, Artifact.class),
+            fromNoneable(customPackage, String.class),
+            /* exportsManifest = */ false);
+
+    try {
+      ResourceApk resourceApk =
+          AndroidLocalTestBase.buildResourceApk(
+              ctx.getRuleContext(),
+              rawManifest,
+              AndroidResources.from(
+                  ctx.getRuleContext(), getFileProviders(resources), "resource_files"),
+              AndroidAssets.from(
+                  ctx.getRuleContext(),
+                  listFromNoneable(assets, ConfiguredTarget.class),
+                  isNone(assetsDir)
+                      ? null
+                      : PathFragment.create(fromNoneable(assetsDir, String.class))),
+              ResourceDependencies.fromProviders(
+                  getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false),
+              AssetDependencies.fromProviders(
+                  getProviders(deps, AndroidAssetsInfo.PROVIDER), /* neverlink = */ false),
+              ApplicationManifest.getManifestValues(ctx.getRuleContext(), rawManifestValues),
+              AndroidAaptVersion.chooseTargetAaptVersion(
+                  ctx.getRuleContext(),
+                  AndroidCommon.getAndroidConfig(ctx.getRuleContext()),
+                  aaptVersionString));
+
+      return getNativeInfosFrom(resourceApk, ctx.getLabel());
+    } catch (RuleErrorException e) {
+      throw new EvalException(Location.BUILTIN, e);
+    }
+  }
+
   public static SkylarkDict<NativeProvider<?>, NativeInfo> getNativeInfosFrom(
       ResourceApk resourceApk, Label label) {
     ImmutableMap.Builder<NativeProvider<?>, NativeInfo> builder = ImmutableMap.builder();
@@ -810,6 +941,15 @@ public abstract class AndroidSkylarkData {
     }
 
     return SkylarkList.castList(asList, clazz, null);
+  }
+
+  private static ImmutableList<FileProvider> getFileProviders(
+      SkylarkList<ConfiguredTarget> targets) {
+    return targets
+        .stream()
+        .map(target -> target.getProvider(FileProvider.class))
+        .filter(Objects::nonNull)
+        .collect(ImmutableList.toImmutableList());
   }
 
   private static <T> SkylarkList<T> listFromNoneableOrEmpty(Object object, Class<T> clazz)

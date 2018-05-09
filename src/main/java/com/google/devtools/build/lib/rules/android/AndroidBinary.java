@@ -198,7 +198,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     if (AndroidResources.decoupleDataProcessing(ruleContext)) {
       StampedAndroidManifest manifest =
-          AndroidManifest.from(ruleContext, androidSemantics).mergeWithDeps(ruleContext);
+          AndroidManifest.fromAttributes(ruleContext, androidSemantics).mergeWithDeps(ruleContext);
       applicationManifest =
           ApplicationManifest.fromExplicitManifest(ruleContext, manifest.getManifest());
 
@@ -443,8 +443,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact java8LegacyDex;
       if (binaryJar.equals(jarToDex)) {
         // No Proguard: use canned Java 8 legacy .dex file
-        java8LegacyDex =
-            ruleContext.getPrerequisiteArtifact("$java8_legacy_dex", Mode.TARGET);
+        java8LegacyDex = ruleContext.getPrerequisiteArtifact("$java8_legacy_dex", Mode.TARGET);
       } else {
         // Proguard is used: build custom Java 8 legacy .dex file
         java8LegacyDex = getDxArtifact(ruleContext, "_java8_legacy.dex.zip");
@@ -479,11 +478,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               .addInput(java8LegacyDex)
               .addOutput(finalClassesDex)
               // Order matters here: we want java8LegacyDex to be the highest-numbered classesN.dex
-              .addCommandLine(CustomCommandLine.builder()
-                  .addExecPath("--input_zip", dexPostprocessingOutput.classesDexZip())
-                  .addExecPath("--input_zip", java8LegacyDex)
-                  .addExecPath("--output_zip", finalClassesDex)
-                  .build())
+              .addCommandLine(
+                  CustomCommandLine.builder()
+                      .addExecPath("--input_zip", dexPostprocessingOutput.classesDexZip())
+                      .addExecPath("--input_zip", java8LegacyDex)
+                      .addExecPath("--output_zip", finalClassesDex)
+                      .build())
               .build(ruleContext));
       finalShardDexZips =
           ImmutableList.<Artifact>builder().addAll(finalShardDexZips).add(java8LegacyDex).build();
@@ -690,8 +690,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     NestedSetBuilder<Artifact> libraryJars =
-        NestedSetBuilder.<Artifact>naiveLinkOrder()
-            .add(sdk.getAndroidJar());
+        NestedSetBuilder.<Artifact>naiveLinkOrder().add(sdk.getAndroidJar());
     if (AndroidCommon.getAndroidConfig(ruleContext).desugarJava8Libs()) {
       // Proguard sees the desugared app, so it needs legacy APIs to resolve symbols
       libraryJars.addTransitive(
