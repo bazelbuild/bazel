@@ -311,6 +311,13 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       formatter =
           OutputFormatter.getFormatter(
               OutputFormatter.getDefaultFormatters(), queryOptions.outputFormat);
+      if (formatter == null) {
+        ruleContext.ruleError(String.format(
+            "Invalid output format '%s'. Valid values are: %s",
+            queryOptions.outputFormat,
+            OutputFormatter.formatterNames(OutputFormatter.getDefaultFormatters())));
+        return null;
+      }
       // All the packages are already loaded at this point, so there is no need
       // to start up many threads. 4 are started up to make good use of multiple
       // cores.
