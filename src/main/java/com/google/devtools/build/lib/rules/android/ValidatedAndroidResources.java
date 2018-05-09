@@ -55,8 +55,8 @@ public class ValidatedAndroidResources extends MergedAndroidResources
    * </ul>
    */
   public static ValidatedAndroidResources validateFrom(
-      RuleContext ruleContext, MergedAndroidResources merged)
-      throws InterruptedException, RuleErrorException {
+      RuleContext ruleContext, MergedAndroidResources merged, AndroidAaptVersion aaptVersion)
+      throws InterruptedException {
     AndroidResourceValidatorActionBuilder builder =
         new AndroidResourceValidatorActionBuilder(ruleContext)
             .setJavaPackage(merged.getJavaPackage())
@@ -72,7 +72,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
                 ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_APK))
             .withDependencies(merged.getResourceDependencies());
 
-    if (AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) == AndroidAaptVersion.AAPT2) {
+    if (aaptVersion == AndroidAaptVersion.AAPT2) {
       builder
           .setCompiledSymbols(merged.getCompiledSymbols())
           .setAapt2RTxtOut(

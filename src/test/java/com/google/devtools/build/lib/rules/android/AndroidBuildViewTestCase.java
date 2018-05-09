@@ -405,7 +405,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
    * <p>You'll need to use a configuration pointing to it, such as "--android_sdk=//sdk:sdk", to use
    * it.
    */
-  void mockAndroidSdkWithAapt2() throws Exception {
+  public void mockAndroidSdkWithAapt2() throws Exception {
     scratch.file(
         "sdk/BUILD",
         "android_sdk(",

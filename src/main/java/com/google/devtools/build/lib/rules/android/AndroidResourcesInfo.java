@@ -25,10 +25,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /** A provider that supplies ResourceContainers from its transitive closure. */
 @SkylarkModule(
-  name = "AndroidResourcesInfo",
-  doc = "Android resources provided by a rule",
-  category = SkylarkModuleCategory.PROVIDER
-)
+    name = "AndroidResourcesInfo",
+    doc = "Android resources provided by a rule",
+    category = SkylarkModuleCategory.PROVIDER)
 @Immutable
 public class AndroidResourcesInfo extends NativeInfo {
 
@@ -113,20 +112,18 @@ public class AndroidResourcesInfo extends NativeInfo {
 
   /** Returns the transitive ResourceContainers for the label. */
   @SkylarkCallable(
-    name = "transitive_android_resources",
-    doc = "Returns the transitive android resources for the label.",
-    structField = true
-  )
+      name = "transitive_android_resources",
+      doc = "Returns the transitive android resources for the label.",
+      structField = true)
   public NestedSet<ValidatedAndroidData> getTransitiveAndroidResources() {
     return transitiveAndroidResources;
   }
 
   /** Returns the immediate ResourceContainers for the label. */
   @SkylarkCallable(
-    name = "direct_android_resources",
-    doc = "Returns the immediate android resources for the label.",
-    structField = true
-  )
+      name = "direct_android_resources",
+      doc = "Returns the immediate android resources for the label.",
+      structField = true)
   public NestedSet<ValidatedAndroidData> getDirectAndroidResources() {
     return directAndroidResources;
   }
