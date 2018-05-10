@@ -662,7 +662,8 @@ public class AndroidCommon {
       Artifact zipAlignedApk,
       Iterable<Artifact> apksUnderTest,
       NativeLibs nativeLibs,
-      boolean isNeverlink) {
+      boolean isNeverlink,
+      boolean isLibrary) {
 
     idlHelper.addTransitiveInfoProviders(builder, classJar, manifestProtoOutput);
 
@@ -708,7 +709,7 @@ public class AndroidCommon {
             .build();
 
     resourceApk.addToConfiguredTargetBuilder(
-        builder, ruleContext.getLabel(), /* includeSkylarkApiProvider = */ true);
+        builder, ruleContext.getLabel(), /* includeSkylarkApiProvider = */ true, isLibrary);
 
     return builder
         .setFilesToBuild(filesToBuild)

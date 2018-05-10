@@ -569,7 +569,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         zipAlignedApk,
         apksUnderTest,
         nativeLibs,
-        androidCommon.isNeverLink());
+        androidCommon.isNeverLink(),
+        /* isLibrary = */ false);
 
     if (dexPostprocessingOutput.proguardMap() != null) {
       builder.addProvider(

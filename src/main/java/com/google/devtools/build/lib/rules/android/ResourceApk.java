@@ -256,7 +256,10 @@ public final class ResourceApk {
   }
 
   public void addToConfiguredTargetBuilder(
-      RuleConfiguredTargetBuilder builder, Label label, boolean includeSkylarkApiProvider) {
+      RuleConfiguredTargetBuilder builder,
+      Label label,
+      boolean includeSkylarkApiProvider,
+      boolean isLibrary) {
     AndroidResourcesInfo resourceInfo = toResourceInfo(label);
     builder.addNativeDeclaredProvider(resourceInfo);
 
@@ -272,6 +275,16 @@ public final class ResourceApk {
         builder.addOutputGroup(
             OutputGroupInfo.HIDDEN_TOP_LEVEL, assetsInfo.get().getValidationResult());
       }
+    }
+
+    if (manifestInfo.isPresent() && assetsInfo.isPresent() && !isLibrary) {
+      builder.addNativeDeclaredProvider(
+          AndroidBinaryDataInfo.of(
+              resourceApk,
+              resourceProguardConfig,
+              resourceInfo,
+              assetsInfo.get(),
+              manifestInfo.get()));
     }
 
     if (includeSkylarkApiProvider) {

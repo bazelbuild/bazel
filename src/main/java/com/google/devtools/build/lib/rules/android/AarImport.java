@@ -217,7 +217,10 @@ public class AarImport implements RuleConfiguredTargetFactory {
         ruleBuilder, javaInfoBuilder, filesToBuild, /*classJar=*/ null);
 
     resourceApk.addToConfiguredTargetBuilder(
-        ruleBuilder, ruleContext.getLabel(), /* includeSkylarkApiProvider = */ false);
+        ruleBuilder,
+        ruleContext.getLabel(),
+        /* includeSkylarkApiProvider = */ false,
+        /* isLibrary = */ true);
 
     ruleBuilder
         .setFilesToBuild(filesToBuild)
