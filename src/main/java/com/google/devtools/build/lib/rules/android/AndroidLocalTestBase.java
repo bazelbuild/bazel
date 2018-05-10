@@ -117,7 +117,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
               resourceDependencies,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-              ResourceFilterFactory.fromRuleContext(ruleContext),
+              ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext),
               ImmutableList.of(), /* list of uncompressed extensions */
               false, /* crunch png */
               ProguardHelper.getProguardConfigArtifact(ruleContext, ""),

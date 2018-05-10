@@ -79,4 +79,9 @@ public class AndroidBinaryDataInfo extends NativeInfo {
   public AndroidManifestInfo getManifestInfo() {
     return manifestInfo;
   }
+
+  public AndroidBinaryDataInfo withShrunkApk(Artifact shrunkApk) {
+    return new AndroidBinaryDataInfo(
+        shrunkApk, resourceProguardConfig, resourcesInfo, assetsInfo, manifestInfo);
+  }
 }

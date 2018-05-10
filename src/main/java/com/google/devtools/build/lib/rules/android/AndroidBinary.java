@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.OneVersionCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
+import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -80,6 +81,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** An implementation for the "android_binary" rule. */
@@ -210,7 +212,15 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   /* conditionalKeepRules = */ shouldShrinkResourceCycles(
                       ruleContext, shrinkResources),
                   applicationManifest.getManifestValues(),
-                  aaptVersion)
+                  aaptVersion,
+                  AndroidResources.from(ruleContext, "resource_files"),
+                  AndroidAssets.from(ruleContext),
+                  resourceDeps,
+                  AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
+                  ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext),
+                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
+                  ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
+                  DataBinding.isEnabled(ruleContext))
               .generateRClass(ruleContext, aaptVersion);
     } else {
       applicationManifest =
@@ -231,7 +241,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
               resourceDeps,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-              ResourceFilterFactory.fromRuleContext(ruleContext),
+              ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext),
               ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
               ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
@@ -361,22 +371,18 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException {
 
     ImmutableList<Artifact> proguardSpecs =
-        ProguardHelper.collectTransitiveProguardSpecs(
-            ruleContext, ImmutableList.of(resourceApk.getResourceProguardConfig()));
-
-    boolean assumeMinSdkVersion =
-        ruleContext.getFragment(AndroidConfiguration.class).assumeMinSdkVersion();
-    if (!proguardSpecs.isEmpty() && assumeMinSdkVersion) {
-      // NB: Order here is important. We're including generated Proguard specs before the user's
-      // specs so that they can override values.
-      proguardSpecs =
-          ImmutableList.<Artifact>builder()
-              .addAll(
-                  androidSemantics.getProguardSpecsForManifest(
-                      ruleContext, applicationManifest.getManifest()))
-              .addAll(proguardSpecs)
-              .build();
-    }
+        getProguardSpecs(
+            ruleContext,
+            androidSemantics,
+            resourceApk.getResourceProguardConfig(),
+            applicationManifest.getManifest(),
+            ruleContext.attributes().has(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
+                ? ruleContext
+                    .getPrerequisiteArtifacts(ProguardHelper.PROGUARD_SPECS, Mode.TARGET)
+                    .list()
+                : ImmutableList.<Artifact>of(),
+            ruleContext.getPrerequisiteArtifacts(":extra_proguard_specs", Mode.TARGET).list(),
+            ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.class));
 
     // TODO(bazel-team): Verify that proguard spec files don't contain -printmapping directions
     // which this -printmapping command line flag will override.
@@ -763,6 +769,38 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     return new ProguardOutput(deployJarArtifact, null, null, null, null, null, null);
   }
 
+  static ImmutableList<Artifact> getProguardSpecs(
+      RuleContext ruleContext,
+      AndroidSemantics androidSemantics,
+      Artifact resourceProguardConfig,
+      Artifact mergedManifest,
+      ImmutableList<Artifact> localProguardSpecs,
+      ImmutableList<Artifact> extraProguardSpecs,
+      Iterable<ProguardSpecProvider> proguardDeps) {
+
+    ImmutableList<Artifact> proguardSpecs =
+        ProguardHelper.collectTransitiveProguardSpecs(
+            ruleContext,
+            Iterables.concat(
+                ImmutableList.of(resourceProguardConfig), extraProguardSpecs),
+            localProguardSpecs,
+            proguardDeps);
+
+    boolean assumeMinSdkVersion =
+        ruleContext.getFragment(AndroidConfiguration.class).assumeMinSdkVersion();
+    if (!proguardSpecs.isEmpty() && assumeMinSdkVersion) {
+      // NB: Order here is important. We're including generated Proguard specs before the user's
+      // specs so that they can override values.
+      proguardSpecs =
+          ImmutableList.<Artifact>builder()
+              .addAll(androidSemantics.getProguardSpecsForManifest(ruleContext, mergedManifest))
+              .addAll(proguardSpecs)
+              .build();
+    }
+
+    return proguardSpecs;
+  }
+
   /** Returns {@code true} if resource shrinking should be performed. */
   private static boolean shouldShrinkResources(RuleContext ruleContext) {
     TriState state = ruleContext.attributes().get("shrink_resources", BuildType.TRISTATE);
@@ -776,8 +814,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   /** Returns {@code true} if resource shrinking should be performed. */
-  private static boolean shouldShrinkResourceCycles(
-      RuleContext ruleContext, boolean shrinkResources) throws RuleErrorException {
+  static boolean shouldShrinkResourceCycles(RuleContext ruleContext, boolean shrinkResources)
+      throws RuleErrorException {
     boolean global =
         ruleContext.getFragment(AndroidConfiguration.class).useAndroidResourceCycleShrinking();
     if (global && !shrinkResources) {
@@ -793,37 +831,66 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ImmutableList<Artifact> proguardSpecs,
       ProguardOutput proguardOutput,
       NestedSetBuilder<Artifact> filesBuilder)
-      throws InterruptedException, RuleErrorException {
+      throws RuleErrorException, InterruptedException {
 
-    if (!proguardSpecs.isEmpty()) {
+    Optional<Artifact> maybeShrunkApk =
+        maybeShrinkResources(
+            ruleContext,
+            resourceApk.getValidatedResources(),
+            resourceApk.getResourceDependencies(),
+            proguardSpecs,
+            proguardOutput.getOutputJar(),
+            proguardOutput.getMapping(),
+            AndroidAaptVersion.chooseTargetAaptVersion(ruleContext),
+            ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext),
+            ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"));
 
-      Artifact apk =
-          new ResourceShrinkerActionBuilder(ruleContext)
-              .setResourceApkOut(
-                  ruleContext.getImplicitOutputArtifact(
-                      AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_APK))
-              .setShrunkResourcesOut(
-                  ruleContext.getImplicitOutputArtifact(
-                      AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_ZIP))
-              .setLogOut(
-                  ruleContext.getImplicitOutputArtifact(
-                      AndroidRuleClasses.ANDROID_RESOURCE_SHRINKER_LOG))
-              .withResourceFiles(
-                  ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
-              .withShrunkJar(proguardOutput.getOutputJar())
-              .withProguardMapping(proguardOutput.getMapping())
-              .withPrimary(resourceApk.getValidatedResources())
-              .withDependencies(resourceApk.getResourceDependencies())
-              .setTargetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
-              .setResourceFilterFactory(ResourceFilterFactory.fromRuleContext(ruleContext))
-              .setUncompressedExtensions(
-                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"))
-              .build();
+    if (maybeShrunkApk.isPresent()) {
       filesBuilder.add(
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCE_SHRINKER_LOG));
-      return resourceApk.withApk(apk);
+      return resourceApk.withApk(maybeShrunkApk.get());
     }
+
     return resourceApk;
+  }
+
+  static Optional<Artifact> maybeShrinkResources(
+      RuleContext ruleContext,
+      ValidatedAndroidData validatedResources,
+      ResourceDependencies resourceDeps,
+      ImmutableList<Artifact> proguardSpecs,
+      Artifact proguardOutputJar,
+      Artifact proguardMapping,
+      AndroidAaptVersion aaptVersion,
+      ResourceFilterFactory resourceFilterFactory,
+      List<String> noCompressExtensions)
+      throws InterruptedException {
+
+    if (proguardSpecs.isEmpty()) {
+      return Optional.empty();
+    }
+
+    return Optional.of(
+        new ResourceShrinkerActionBuilder(ruleContext)
+            .setResourceApkOut(
+                ruleContext.getImplicitOutputArtifact(
+                    AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_APK))
+            .setShrunkResourcesOut(
+                ruleContext.getImplicitOutputArtifact(
+                    AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_ZIP))
+            .setLogOut(
+                ruleContext.getImplicitOutputArtifact(
+                    AndroidRuleClasses.ANDROID_RESOURCE_SHRINKER_LOG))
+            .withResourceFiles(
+                ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+            .withShrunkJar(proguardOutputJar)
+            .withProguardMapping(proguardMapping)
+            .withPrimary(validatedResources)
+            .withDependencies(resourceDeps)
+            .setTargetAaptVersion(aaptVersion)
+            .setResourceFilterFactory(resourceFilterFactory)
+            .setUncompressedExtensions(noCompressExtensions)
+            .build());
   }
 
   @Immutable

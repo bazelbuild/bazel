@@ -104,7 +104,7 @@ public class AndroidManifest {
    *
    * <p>AndroidSemantics-specific processing will be used if a non-null AndroidSemantics is passed.
    */
-  private static AndroidManifest from(
+  static AndroidManifest from(
       RuleContext ruleContext,
       @Nullable Artifact rawManifest,
       @Nullable AndroidSemantics androidSemantics,

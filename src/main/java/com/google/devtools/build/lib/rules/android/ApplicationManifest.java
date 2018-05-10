@@ -528,7 +528,7 @@ public final class ApplicationManifest {
     // Filter the resources during analysis to prevent processing of dependencies on unwanted
     // resources during execution.
     ResourceFilterFactory resourceFilterFactory =
-        ResourceFilterFactory.fromRuleContext(ruleContext);
+        ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext);
     ResourceFilter resourceFilter =
         resourceFilterFactory.getResourceFilter(ruleContext, resourceDeps, resources);
     resources = resources.filterLocalResources(ruleContext, resourceFilter);

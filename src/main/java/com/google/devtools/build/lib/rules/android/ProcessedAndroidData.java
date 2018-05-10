@@ -19,9 +19,11 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
 import com.google.devtools.build.lib.syntax.Type;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -57,10 +59,17 @@ public class ProcessedAndroidData {
       StampedAndroidManifest manifest,
       boolean conditionalKeepRules,
       Map<String, String> manifestValues,
-      AndroidAaptVersion aaptVersion)
+      AndroidAaptVersion aaptVersion,
+      AndroidResources resources,
+      AndroidAssets assets,
+      ResourceDependencies resourceDeps,
+      AssetDependencies assetDeps,
+      ResourceFilterFactory resourceFilterFactory,
+      List<String> noCompressExtensions,
+      boolean crunchPng,
+      boolean dataBindingEnabled)
       throws RuleErrorException, InterruptedException {
-    if (conditionalKeepRules
-        && AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) != AndroidAaptVersion.AAPT2) {
+    if (conditionalKeepRules && aaptVersion != AndroidAaptVersion.AAPT2) {
       throw ruleContext.throwWithRuleError(
           "resource cycle shrinking can only be enabled for builds with aapt2");
     }
@@ -68,7 +77,7 @@ public class ProcessedAndroidData {
     AndroidResourcesProcessorBuilder builder =
         builderForNonIncrementalTopLevelTarget(ruleContext, manifest, manifestValues, aaptVersion)
             .setUseCompiledResourcesForMerge(
-                AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) == AndroidAaptVersion.AAPT2
+                aaptVersion == AndroidAaptVersion.AAPT2
                     && AndroidCommon.getAndroidConfig(ruleContext).skipParsingAction())
             .setManifestOut(
                 ruleContext.getImplicitOutputArtifact(
@@ -78,9 +87,7 @@ public class ProcessedAndroidData {
             .setMainDexProguardOut(AndroidBinary.createMainDexProguardSpec(ruleContext))
             .conditionalKeepRules(conditionalKeepRules)
             .setDataBindingInfoZip(
-                DataBinding.isEnabled(ruleContext)
-                    ? DataBinding.getLayoutInfoFile(ruleContext)
-                    : null)
+                dataBindingEnabled ? DataBinding.getLayoutInfoFile(ruleContext) : null)
             .setFeatureOf(
                 ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")
                     ? ruleContext
@@ -93,7 +100,17 @@ public class ProcessedAndroidData {
                         .getPrerequisite("feature_after", Mode.TARGET, ApkInfo.PROVIDER)
                         .getApk()
                     : null);
-    return buildActionForBinary(ruleContext, builder, manifest);
+    return buildActionForBinary(
+        ruleContext,
+        builder,
+        manifest,
+        resources,
+        assets,
+        resourceDeps,
+        assetDeps,
+        resourceFilterFactory,
+        noCompressExtensions,
+        crunchPng);
   }
 
   public static ProcessedAndroidData processIncrementalBinaryDataFrom(
@@ -108,36 +125,46 @@ public class ProcessedAndroidData {
         builderForTopLevelTarget(ruleContext, manifest, proguardPrefix, manifestValues)
             .setApkOut(apkOut);
 
-    return buildActionForBinary(ruleContext, builder, manifest);
+    return buildActionForBinary(
+        ruleContext,
+        builder,
+        manifest,
+        AndroidResources.from(ruleContext, "resource_files"),
+        AndroidAssets.from(ruleContext),
+        ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
+        AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
+        ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext),
+        ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
+        ruleContext.attributes().get("crunch_png", Type.BOOLEAN));
   }
 
   private static ProcessedAndroidData buildActionForBinary(
-      RuleContext ruleContext,
+      RuleErrorConsumer errorConsumer,
       AndroidResourcesProcessorBuilder builder,
-      StampedAndroidManifest manifest)
+      StampedAndroidManifest manifest,
+      AndroidResources resources,
+      AndroidAssets assets,
+      ResourceDependencies resourceDeps,
+      AssetDependencies assetDeps,
+      ResourceFilterFactory resourceFilterFactory,
+      List<String> noCompressExtensions,
+      boolean crunchPng)
       throws RuleErrorException {
 
-    AndroidResources resources = AndroidResources.from(ruleContext, "resource_files");
-    ResourceDependencies resourceDeps =
-        ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false);
-    ResourceFilterFactory resourceFilterFactory =
-        ResourceFilterFactory.fromRuleContext(ruleContext);
-
     ResourceFilter resourceFilter =
-        resourceFilterFactory.getResourceFilter(ruleContext, resourceDeps, resources);
+        resourceFilterFactory.getResourceFilter(errorConsumer, resourceDeps, resources);
 
     // Filter unwanted resources out
-    resources = resources.filterLocalResources(ruleContext, resourceFilter);
-    resourceDeps = resourceDeps.filter(ruleContext, resourceFilter);
+    resources = resources.filterLocalResources(errorConsumer, resourceFilter);
+    resourceDeps = resourceDeps.filter(errorConsumer, resourceFilter);
 
     return builder
         .setResourceFilterFactory(resourceFilterFactory)
-        .setUncompressedExtensions(
-            ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"))
-        .setCrunchPng(ruleContext.attributes().get("crunch_png", Type.BOOLEAN))
+        .setUncompressedExtensions(noCompressExtensions)
+        .setCrunchPng(crunchPng)
         .withResourceDependencies(resourceDeps)
-        .withAssetDependencies(AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false))
-        .build(resources, AndroidAssets.from(ruleContext), manifest);
+        .withAssetDependencies(assetDeps)
+        .build(resources, assets, manifest);
   }
 
   /** Processes Android data (assets, resources, and manifest) for android_local_test targets. */

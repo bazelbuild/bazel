@@ -466,7 +466,19 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
     ResourceApk resourceApk =
         ProcessedAndroidData.processBinaryDataFrom(
-                ruleContext, getManifest(), false, ImmutableMap.of(), AndroidAaptVersion.AUTO)
+                ruleContext,
+                getManifest(),
+                false,
+                ImmutableMap.of(),
+                AndroidAaptVersion.AUTO,
+                AndroidResources.empty(),
+                AndroidAssets.empty(),
+                ResourceDependencies.empty(),
+                AssetDependencies.empty(),
+                ResourceFilterFactory.empty(),
+                ImmutableList.of(),
+                false,
+                false)
             .generateRClass(ruleContext, AndroidAaptVersion.AUTO);
 
     assertThat(resourceApk.getResourceProguardConfig()).isNotNull();
