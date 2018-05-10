@@ -97,7 +97,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     final ResourceApk resourceApk;
     if (AndroidResources.decoupleDataProcessing(ruleContext)) {
       StampedAndroidManifest manifest =
-          AndroidManifest.forAarImport(ruleContext, androidManifestArtifact);
+          AndroidManifest.forAarImport(androidManifestArtifact);
 
       boolean neverlink = JavaCommon.isNeverLink(ruleContext);
       ValidatedAndroidResources validatedResources =

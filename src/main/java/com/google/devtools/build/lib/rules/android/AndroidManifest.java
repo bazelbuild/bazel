@@ -34,7 +34,7 @@ public class AndroidManifest {
   @Nullable private final String pkg;
   private final boolean exported;
 
-  public static StampedAndroidManifest forAarImport(RuleContext ruleContext, Artifact manifest) {
+  public static StampedAndroidManifest forAarImport(Artifact manifest) {
     return new StampedAndroidManifest(manifest, /* pkg = */ null, /* exported = */ true);
   }
 

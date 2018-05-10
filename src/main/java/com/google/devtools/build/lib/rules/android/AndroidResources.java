@@ -421,6 +421,16 @@ public class AndroidResources {
     AndroidAaptVersion aaptVersion = AndroidAaptVersion.chooseTargetAaptVersion(ruleContext);
     ResourceDependencies resourceDeps = ResourceDependencies.fromRuleDeps(ruleContext, neverlink);
 
+    return process(ruleContext, manifest, resourceDeps, enableDataBinding, aaptVersion);
+  }
+
+  ValidatedAndroidResources process(
+      RuleContext ruleContext,
+      StampedAndroidManifest manifest,
+      ResourceDependencies resourceDeps,
+      boolean enableDataBinding,
+      AndroidAaptVersion aaptVersion)
+      throws InterruptedException {
     return parse(ruleContext, manifest, enableDataBinding, aaptVersion)
         .merge(ruleContext, resourceDeps, enableDataBinding, aaptVersion)
         .validate(ruleContext, aaptVersion);
