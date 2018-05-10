@@ -18,9 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -89,12 +87,6 @@ public class AndroidResourceOutputs {
     }
 
     protected void addEntry(String rawName, byte[] content, int storageMethod) throws IOException {
-      addEntry(rawName, content, storageMethod, null);
-    }
-
-    protected void addEntry(
-        String rawName, byte[] content, int storageMethod, @Nullable String comment)
-        throws IOException {
       // Fix the path for windows.
       String relativeName = rawName.replace('\\', '/');
       // Make sure the zip entry is not absolute.
@@ -107,9 +99,6 @@ public class AndroidResourceOutputs {
       CRC32 crc32 = new CRC32();
       crc32.update(content);
       entry.setCrc(crc32.getValue());
-      if (!Strings.isNullOrEmpty(comment)) {
-        entry.setComment(comment);
-      }
 
       zip.putNextEntry(entry);
       zip.write(content);
@@ -117,8 +106,8 @@ public class AndroidResourceOutputs {
     }
 
     protected void addEntry(ZipEntry entry, byte[] content) throws IOException {
-      // Create a new ZipEntry because there are occasional discrepancies
-      // between the metadata and written content.
+      //Create a new ZipEntry because there are occasional discrepancies
+      //between the metadata and written content.
       ZipEntry newEntry = new ZipEntry(entry.getName());
       zip.putNextEntry(newEntry);
       zip.write(content);
@@ -423,7 +412,6 @@ public class AndroidResourceOutputs {
     try (ZipBuilder builder = ZipBuilder.createFor(archiveOut)) {
       for (Path artifact : compiledArtifacts) {
         Path relativeName = artifact;
-
         // remove compiled resources prefix
         if (artifact.startsWith(compiledRoot)) {
           relativeName = compiledRoot.relativize(relativeName);
@@ -436,11 +424,7 @@ public class AndroidResourceOutputs {
                   relativeName.getNameCount());
         }
 
-        builder.addEntry(
-            relativeName.toString(),
-            Files.readAllBytes(artifact),
-            ZipEntry.STORED,
-            ResourceCompiler.getCompiledType(relativeName.toString()).asComment());
+        builder.addEntry(relativeName.toString(), Files.readAllBytes(artifact), ZipEntry.STORED);
       }
     }
     return archiveOut;

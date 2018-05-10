@@ -14,12 +14,10 @@
 package com.google.devtools.build.android;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
-import com.google.devtools.build.android.aapt2.ResourceCompiler.CompiledType;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -47,14 +45,6 @@ import org.xml.sax.SAXException;
 /** A testing utility that allows assertions against Paths. */
 public class PathsSubject extends Subject<PathsSubject, Path> {
 
-  private static final String PATH_NORMALIZER =
-      String.format(
-          "(%s)/(.*/)(javatests)",
-          Arrays.stream(CompiledType.values())
-              .map(CompiledType::asPrefix)
-              .map(p -> String.format("(?:%s)", p))
-              .collect(joining("|")));
-
   PathsSubject(FailureMetadata failureMetadata, @Nullable Path subject) {
     super(failureMetadata, subject);
   }
@@ -78,25 +68,8 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
             new ZipFile(actual().toFile())
                 .stream()
                 .map(ZipEntry::getName)
-                .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
                 .collect(Collectors.toSet()))
         .containsAllIn(Arrays.asList(paths));
-  }
-
-
-  void containsExactlyArchivedFilesIn(String... paths) throws IOException {
-    if (actual() == null) {
-      fail("should not be null.");
-    }
-    exists();
-
-    assertThat(
-        new ZipFile(actual().toFile())
-            .stream()
-            .map(ZipEntry::getName)
-            .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
-            .collect(Collectors.toSet()))
-        .containsExactly(paths);
   }
 
   void containsNoArchivedFilesIn(String... paths) throws IOException {
@@ -108,7 +81,6 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
             new ZipFile(actual().toFile())
                 .stream()
                 .map(ZipEntry::getName)
-                .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
                 .collect(Collectors.toSet()))
         .containsNoneIn(Arrays.asList(paths));
   }

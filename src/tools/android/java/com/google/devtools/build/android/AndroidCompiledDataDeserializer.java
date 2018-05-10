@@ -302,7 +302,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
               String source = sourcePool.get(sourceIndex);
               DataSource dataSource = DataSource.of(Paths.get(source));
 
-              Value resourceValue = configValue.getValue();
+              Value resourceValue = resource.getConfigValue(0).getValue();
 
               DataResource dataResource =
                   resourceValue.getItem().hasFile()

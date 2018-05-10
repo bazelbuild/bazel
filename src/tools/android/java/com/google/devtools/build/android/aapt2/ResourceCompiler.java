@@ -40,7 +40,6 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -61,43 +60,6 @@ import javax.xml.stream.events.XMLEvent;
 
 /** Invokes aapt2 to compile resources. */
 public class ResourceCompiler {
-
-  /** Types of compiled resources. */
-  public enum CompiledType {
-    NORMAL(null),
-    GENERATED("generated"),
-    DEFAULT("default");
-
-    private final String prefix;
-
-    CompiledType(String prefix) {
-      this.prefix = prefix;
-    }
-
-    boolean prefixes(String filename) {
-      return prefix != null && filename.startsWith(prefix);
-    }
-
-    public String asPrefix() {
-      return prefix;
-    }
-
-    public String asComment() {
-      return prefix;
-    }
-
-    public String prefix(String path) {
-      return prefix + "/" + path;
-    }
-  }
-
-  public static CompiledType getCompiledType(String fileName) {
-    return Arrays.stream(CompiledType.values())
-        .filter(t -> t.prefixes(fileName))
-        .findFirst()
-        .orElse(CompiledType.NORMAL);
-  }
-
   static class CompileError extends Aapt2Exception {
 
     protected CompileError(Throwable e) {
@@ -143,28 +105,19 @@ public class ResourceCompiler {
     @Override
     public List<Path> call() throws Exception {
       final String directoryName = file.getParent().getFileName().toString();
-      final Qualifiers qualifiers = Qualifiers.parseFrom(directoryName);
-      final String filename = interpolateAapt2Filename(qualifiers, file.getFileName().toString());
+      Qualifiers qualifiers = Qualifiers.parseFrom(directoryName);
+      String filename = interpolateAapt2Filename(qualifiers, file.getFileName().toString());
 
-      final List<Path> results = new ArrayList<>();
+      List<Path> results = new ArrayList<>();
+      compile(directoryName, filename, results, compiledResourcesOut, file, false);
       if (qualifiers.asFolderType().equals(ResourceFolderType.VALUES)) {
         extractAttributes(directoryName, filename, results);
-      }
 
-      if (qualifiers.containDefaultLocale()
-          && qualifiers.asFolderType().equals(ResourceFolderType.VALUES)) {
-        compile(
-            directoryName,
-            filename,
-            results,
-            compiledResourcesOut.resolve(CompiledType.DEFAULT.asPrefix()),
-            file,
-            false);
-        // aapt2 only generates pseudo locales for the default locale.
-        generatedResourcesOut.ifPresent(
-            out -> compile(directoryName, filename, results, out, file, true));
-      } else {
-        compile(directoryName, filename, results, compiledResourcesOut, file, false);
+        if (qualifiers.containDefaultLocale()) {
+          // aapt2 only generates pseudo locales for the default locale.
+          generatedResourcesOut.ifPresent(
+              out -> compile(directoryName, filename, results, out, file, true));
+        }
       }
       return results;
     }
@@ -409,33 +362,17 @@ public class ResourceCompiler {
                     generatedResourcesOut)));
       }
 
-      ImmutableList.Builder<Path> compiled = ImmutableList.builder();
-      ImmutableList.Builder<Path> generated = ImmutableList.builder();
+      ImmutableList.Builder<Path> builder = ImmutableList.builder();
       List<Throwable> compilationErrors = new ArrayList<>();
       for (ListenableFuture<List<Path>> task : tasks) {
         try {
-          // Split the generated and non-generated resources into different collections.
-          // This allows the generated files to be placed first in the compile order,
-          // ensuring that the generated locale (en-XA and ar-XB) can be overwritten by
-          // user provided versions for those locales, as aapt2 will take the last value for
-          // a configuration when linking.
-          task.get()
-              .forEach(
-                  path -> {
-                    if (generatedResourcesOut.map(path::startsWith).orElse(false)) {
-                      generated.add(path);
-                    } else {
-                      compiled.add(path);
-                    }
-                  });
+          builder.addAll(task.get());
         } catch (InterruptedException | ExecutionException e) {
-          compilationErrors.add(e.getCause() != null ? e.getCause() : e);
+          compilationErrors.add(Optional.ofNullable(e.getCause()).orElse(e));
         }
       }
-      generated.addAll(compiled.build());
       if (compilationErrors.isEmpty()) {
-        // ensure that the generated files are before the normal files.
-        return generated.build();
+        return builder.build();
       }
       throw CompileError.of(compilationErrors);
     }
@@ -456,7 +393,7 @@ public class ResourceCompiler {
             aapt2,
             buildToolsVersion,
             generatePseudoLocale
-                ? Optional.of(compiledResources.resolve(CompiledType.GENERATED.asPrefix()))
+                ? Optional.of(compiledResources.resolve("generated"))
                 : Optional.empty()));
   }
 
