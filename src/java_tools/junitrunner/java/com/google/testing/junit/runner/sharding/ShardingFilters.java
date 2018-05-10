@@ -20,6 +20,7 @@ import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
 import java.util.Collection;
+import java.util.Locale;
 
 import javax.inject.Inject;
 
@@ -97,7 +98,7 @@ public class ShardingFilters {
     }
     ShardingFilterFactory shardingFilterFactory;
     try {
-      shardingFilterFactory = ShardingStrategy.valueOf(strategy.toUpperCase());
+      shardingFilterFactory = ShardingStrategy.valueOf(strategy.toUpperCase(Locale.ENGLISH));
     } catch (IllegalArgumentException e) {
       try {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();

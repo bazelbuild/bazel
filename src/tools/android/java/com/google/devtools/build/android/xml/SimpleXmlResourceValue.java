@@ -33,6 +33,7 @@ import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -283,7 +284,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     }
 
     return of(
-        Type.valueOf(resourceType.toString().toUpperCase()),
+        Type.valueOf(resourceType.toString().toUpperCase(Locale.ENGLISH)),
         ImmutableMap.of(),
         stringValue);
   }

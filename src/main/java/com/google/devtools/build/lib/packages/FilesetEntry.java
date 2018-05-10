@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -98,7 +99,7 @@ public final class FilesetEntry implements SkylarkValue {
     DEREFERENCE;
 
     public static SymlinkBehavior parse(String value) throws IllegalArgumentException {
-      return valueOf(value.toUpperCase());
+      return valueOf(value.toUpperCase(Locale.ENGLISH));
     }
 
     @Override
