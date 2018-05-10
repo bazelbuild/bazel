@@ -175,6 +175,7 @@ public class Aapt2ResourcePackagingAction {
               .conditionalKeepRules(aaptConfigOptions.conditionalKeepRules == TriState.YES)
               .filterToDensity(options.densities)
               .debug(aaptConfigOptions.debug)
+              .includeGeneratedLocales(aaptConfigOptions.generatePseudoLocale)
               .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
               .link(compiled)
               .copyPackageTo(options.packagePath)
