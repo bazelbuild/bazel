@@ -39,7 +39,6 @@ function set_up() {
 startup --host_jvm_args=-Dbazel.windows_unix_root=C:/fake/msys
 
 startup --batch
-build --cpu=x64_windows_msvc
 EOF
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
@@ -127,6 +126,23 @@ function test_java() {
   assert_build_output ./bazel-bin/${java_pkg}/hello-world ${java_pkg}:hello-world
   assert_build_output ./bazel-bin/${java_pkg}/hello-resources ${java_pkg}:hello-resources
   assert_binary_run_from_subdir "bazel-bin/${java_pkg}/hello-world foo" "Hello foo"
+}
+
+function delete_drive_Z() {
+  subst Z: /D || true
+}
+
+function test_java_with_jar_under_different_drive() {
+  mkdir "$TEST_TMPDIR/drive_z"
+  # Make sure drive Z exist
+  subst Z: $(cygpath -w "$TEST_TMPDIR\\drive_z") || true
+  # Make sure we delete drive Z after running the test
+  trap delete_drive_Z EXIT
+
+  local java_pkg=examples/java-native/src/main/java/com/example/myproject
+  bazel --output_user_root=Z:/tmp build ${java_pkg}:hello-world
+
+  assert_binary_run_from_subdir "bazel-bin/${java_pkg}/hello-world --classpath_limit=0" "Hello world"
 }
 
 function test_java_test() {
