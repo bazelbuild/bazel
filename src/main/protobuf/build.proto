@@ -331,7 +331,8 @@ message Rule {
   optional string skylark_environment_hash_code = 12;
 }
 
-// A pairing of attribute name and a Skylark aspect that is applied to that attribute.
+// A pairing of attribute name and a Skylark aspect that is applied to that
+// attribute.
 message AttributeAspect {
   required string attribute_name = 1;
   required SkylarkAspect aspect = 2;
