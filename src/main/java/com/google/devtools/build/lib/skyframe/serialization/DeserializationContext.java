@@ -120,4 +120,8 @@ public class DeserializationContext {
   public DeserializationContext getNewMemoizingContext() {
     return new DeserializationContext(this.registry, this.dependencies, new Deserializer());
   }
+
+  public DeserializationContext getNewNonMemoizingContext() {
+    return new DeserializationContext(this.registry, this.dependencies, null);
+  }
 }

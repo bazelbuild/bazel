@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.Options;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.junit.Test;
@@ -452,6 +453,9 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
                 "--define",
                 "#a=pounda"))
         .addDependency(FileSystem.class, getScratch().getFileSystem())
+        .addDependency(
+            IdentityHashMap.class,
+            new IdentityHashMap<BuildOptions.OptionsDiffForReconstruction, byte[]>())
         .setVerificationFunction(BuildConfigurationTest::verifyDeserialized)
         .runTests();
   }

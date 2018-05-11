@@ -27,6 +27,10 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -36,6 +40,10 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -43,6 +51,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -424,11 +433,11 @@ public final class BuildOptions implements Cloneable, Serializable {
     if (diff.areSame()) {
       return OptionsDiffForReconstruction.getEmpty(first.fingerprint, second.computeChecksum());
     }
-    HashMap<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions =
-        new HashMap<>(diff.differingOptions.keySet().size());
+    LinkedHashMap<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions =
+        new LinkedHashMap<>(diff.differingOptions.keySet().size());
     for (Class<? extends FragmentOptions> clazz : diff.differingOptions.keySet()) {
       Collection<OptionDefinition> fields = diff.differingOptions.get(clazz);
-      HashMap<String, Object> valueMap = new HashMap<>(fields.size());
+      LinkedHashMap<String, Object> valueMap = new LinkedHashMap<>(fields.size());
       for (OptionDefinition optionDefinition : fields) {
         Object secondValue;
         try {
@@ -543,7 +552,6 @@ public final class BuildOptions implements Cloneable, Serializable {
    * another: the full fragments of the second one, the fragment classes of the first that should be
    * omitted, and the values of any fields that should be changed.
    */
-  @AutoCodec
   public static class OptionsDiffForReconstruction {
     private final Map<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions;
     private final ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses;
@@ -551,7 +559,6 @@ public final class BuildOptions implements Cloneable, Serializable {
     private final byte[] baseFingerprint;
     private final String checksum;
 
-    @AutoCodec.VisibleForSerialization
     OptionsDiffForReconstruction(
         Map<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions,
         ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses,
@@ -613,7 +620,9 @@ public final class BuildOptions implements Cloneable, Serializable {
       OptionsDiffForReconstruction that = (OptionsDiffForReconstruction) o;
       return differingOptions.equals(that.differingOptions)
           && extraFirstFragmentClasses.equals(that.extraFirstFragmentClasses)
-          && this.extraSecondFragments.equals(that.extraSecondFragments);
+          && this.extraSecondFragments.equals(that.extraSecondFragments)
+          && Arrays.equals(this.baseFingerprint, that.baseFingerprint)
+          && this.checksum.equals(that.checksum);
     }
 
     @Override
@@ -626,7 +635,91 @@ public final class BuildOptions implements Cloneable, Serializable {
 
     @Override
     public int hashCode() {
-      return Objects.hash(differingOptions, extraFirstFragmentClasses, extraSecondFragments);
+      return Objects.hash(
+          differingOptions,
+          extraFirstFragmentClasses,
+          extraSecondFragments,
+          Arrays.hashCode(baseFingerprint),
+          checksum);
+    }
+  }
+
+  /**
+   * Hand-rolled Codec so we can cache the byte representation of a {@link
+   * BuildOptions.OptionsDiffForReconstruction} object because serialization is expensive.
+   */
+  @VisibleForTesting
+  static class OptionsDiffForReconstructionCodec
+      implements ObjectCodec<OptionsDiffForReconstruction> {
+
+    @Override
+    public void serialize(
+        SerializationContext context,
+        BuildOptions.OptionsDiffForReconstruction input,
+        CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context = context.getNewNonMemoizingContext();
+      // We get this cache from our context because there can be different ObjectCodecRegistry's for
+      // SkyKeys and SkyValues.
+      @SuppressWarnings("unchecked")
+      IdentityHashMap<OptionsDiffForReconstruction, byte[]> cache =
+          context.getDependency(IdentityHashMap.class);
+      if (cache.containsKey(input)) {
+        byte[] rawBytes = cache.get(input);
+        codedOut.writeInt32NoTag(rawBytes.length);
+        codedOut.writeRawBytes(cache.get(input));
+      } else {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(byteArrayOutputStream);
+        context.serialize(input.differingOptions, codedOutputStream);
+        context.serialize(input.extraFirstFragmentClasses, codedOutputStream);
+        context.serialize(input.extraSecondFragments, codedOutputStream);
+        if (input.baseFingerprint != null) {
+          codedOutputStream.writeBoolNoTag(true);
+          codedOutputStream.writeInt32NoTag(input.baseFingerprint.length);
+          codedOutputStream.writeRawBytes(input.baseFingerprint);
+        } else {
+          codedOutputStream.writeBoolNoTag(false);
+        }
+        context.serialize(input.checksum, codedOutputStream);
+        codedOutputStream.flush();
+        byteArrayOutputStream.flush();
+        byte[] serializedBytes = byteArrayOutputStream.toByteArray();
+        cache.put(input, serializedBytes);
+        codedOut.writeInt32NoTag(serializedBytes.length);
+        codedOut.writeRawBytes(serializedBytes);
+        codedOut.flush();
+      }
+    }
+
+    @Override
+    public BuildOptions.OptionsDiffForReconstruction deserialize(
+        DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      byte[] serializedBytes = codedIn.readRawBytes(codedIn.readInt32());
+      CodedInputStream codedInputStream = CodedInputStream.newInstance(serializedBytes);
+      context = context.getNewNonMemoizingContext();
+      Map<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions =
+          context.deserialize(codedInputStream);
+      ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses =
+          context.deserialize(codedInputStream);
+      ImmutableList<FragmentOptions> extraSecondFragments = context.deserialize(codedInputStream);
+      byte[] baseFingerprint = null;
+      if (codedInputStream.readBool()) {
+        baseFingerprint = codedInputStream.readRawBytes(codedInputStream.readInt32());
+      }
+      String checksum = context.deserialize(codedInputStream);
+      return new OptionsDiffForReconstruction(
+          differingOptions,
+          extraFirstFragmentClasses,
+          extraSecondFragments,
+          baseFingerprint,
+          checksum);
+    }
+
+    @Override
+    public Class<BuildOptions.OptionsDiffForReconstruction> getEncodedClass() {
+      return BuildOptions.OptionsDiffForReconstruction.class;
     }
   }
 }
