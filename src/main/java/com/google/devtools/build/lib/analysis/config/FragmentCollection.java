@@ -18,26 +18,13 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.skylarkbuildapi.FragmentCollectionApi;
 import javax.annotation.Nullable;
 
-/**
- * Represents a collection of configuration fragments in Skylark.
- */
+/** Represents a collection of configuration fragments in Skylark. */
 // Documentation can be found at ctx.fragments
 @Immutable
-@SkylarkModule(name = "fragments",
-    category = SkylarkModuleCategory.NONE,
-    doc = "Possible fields are "
-    + "<a href=\"apple.html\">apple</a>, <a href=\"cpp.html\">cpp</a>, "
-    + "<a href=\"java.html\">java</a>, <a href=\"jvm.html\">jvm</a> and "
-    + "<a href=\"objc.html\">objc</a>, <a href=\"android.html\">android</a>. "
-    + "Access a specific fragment by its field name ex:</p><code>ctx.fragments.apple</code></p>"
-    + "Note that rules have to declare their required fragments in order to access them "
-    + "(see <a href=\"../rules.md#fragments\">here</a>).")
-public class FragmentCollection implements ClassObject {
+public class FragmentCollection implements FragmentCollectionApi {
   private final RuleContext ruleContext;
   private final ConfigurationTransition transition;
 

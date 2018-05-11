@@ -51,10 +51,9 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -102,18 +101,10 @@ import javax.annotation.Nullable;
  *
  * <pre>c1.equals(c2) <=> c1==c2.</pre>
  */
-@SkylarkModule(
-  name = "configuration",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "This object holds information about the environment in which the build is running. See "
-          + "the <a href='../rules.$DOC_EXT#configurations'>Rules page</a> for more on the general "
-          + "concept of configurations."
-)
 // TODO(janakr): If overhead of fragments class names is too high, add constructor that just takes
 // fragments and gets names from them.
 @AutoCodec
-public class BuildConfiguration {
+public class BuildConfiguration implements BuildConfigurationApi {
   /**
    * Sorts fragments by class name. This produces a stable order which, e.g., facilitates consistent
    * output from buildMnemonic.
@@ -1453,8 +1444,7 @@ public class BuildConfiguration {
   }
 
   /** Returns the bin directory for this build configuration. */
-  @SkylarkCallable(name = "bin_dir", structField = true, documented = false)
-  @Deprecated
+  @Override
   public ArtifactRoot getBinDirectory() {
     return getBinDirectory(RepositoryName.MAIN);
   }
@@ -1488,8 +1478,7 @@ public class BuildConfiguration {
   }
 
   /** Returns the genfiles directory for this build configuration. */
-  @SkylarkCallable(name = "genfiles_dir", structField = true, documented = false)
-  @Deprecated
+  @Override
   public ArtifactRoot getGenfilesDirectory() {
     return getGenfilesDirectory(RepositoryName.MAIN);
   }
@@ -1538,8 +1527,7 @@ public class BuildConfiguration {
    * not match the host platform. You should only use this when invoking tools that are known to use
    * the native path separator, i.e., the path separator for the machine that they run on.
    */
-  @SkylarkCallable(name = "host_path_separator", structField = true,
-      doc = "Returns the separator for PATH environment variable, which is ':' on Unix.")
+  @Override
   public String getHostPathSeparator() {
     // TODO(bazel-team): Maybe do this in the constructor instead? This isn't serialization-safe.
     return OS.getCurrent() == OS.WINDOWS ? ";" : ":";
@@ -1578,13 +1566,6 @@ public class BuildConfiguration {
     return actionEnv;
   }
 
-  @SkylarkCallable(
-    name = "default_shell_env",
-    structField = true,
-    doc =
-        "A dictionary representing the static local shell environment. It maps variables "
-            + "to their values (strings)."
-  )
   /**
    * Return the "fixed" part of the actions' environment variables.
    *
@@ -1596,7 +1577,7 @@ public class BuildConfiguration {
    * <p>Since values of the "fixed" variables are already known at analysis phase, it is returned
    * here as a map.
    */
-  @Deprecated // Use getActionEnvironment instead.
+  @Override
   public ImmutableMap<String, String> getLocalShellEnvironment() {
     return actionEnv.getFixedEnv();
   }
@@ -1749,14 +1730,7 @@ public class BuildConfiguration {
    * Returns user-specified test environment variables and their values, as set by the --test_env
    * options.
    */
-  @Deprecated
-  @SkylarkCallable(
-    name = "test_env",
-    structField = true,
-    doc =
-        "A dictionary containing user-specified test environment variables and their values, "
-            + "as set by the --test_env options. DO NOT USE! This is not the complete environment!"
-  )
+  @Override
   public ImmutableMap<String, String> getTestEnv() {
     return testEnv.getFixedEnv();
   }
@@ -1785,11 +1759,7 @@ public class BuildConfiguration {
     return options.deferParamFiles;
   }
 
-  @SkylarkCallable(name = "coverage_enabled", structField = true,
-      doc = "A boolean that tells whether code coverage is enabled for this run. Note that this "
-          + "does not compute whether a specific rule should be instrumented for code coverage "
-          + "data collection. For that, see the <a href=\"ctx.html#coverage_instrumented\"><code>"
-          + "ctx.coverage_instrumented</code></a> function.")
+  @Override
   public boolean isCodeCoverageEnabled() {
     return options.collectCodeCoverage;
   }
