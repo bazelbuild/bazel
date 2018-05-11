@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileStateType;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -89,33 +91,38 @@ final class ActionFileSystem extends AbstractFileSystem implements ActionInputFi
       Map<Artifact, FileArtifactValue> inputData,
       Iterable<Artifact> allowedInputs,
       Iterable<Artifact> outputArtifacts) {
-    roots.add(computeExecRoot(outputArtifacts));
+    try {
+      Profiler.instance().startTask(ProfilerTask.ACTION_FS_STAGING, "staging");
+      roots.add(computeExecRoot(outputArtifacts));
 
-    // TODO(shahan): Underestimates because this doesn't account for discovered inputs. Improve
-    // this estimate using data.
-    this.reverseMap = new ConcurrentHashMap<>(inputData.size());
+      // TODO(shahan): Underestimates because this doesn't account for discovered inputs. Improve
+      // this estimate using data.
+      this.reverseMap = new ConcurrentHashMap<>(inputData.size());
 
-    HashMap<PathFragment, ArtifactAndMetadata> inputs = new HashMap<>();
-    for (Map.Entry<Artifact, FileArtifactValue> entry : inputData.entrySet()) {
-      Artifact input = entry.getKey();
-      updateRootsIfSource(input);
-      inputs.put(input.getExecPath(), new SimpleArtifactAndMetadata(input, entry.getValue()));
-      updateReverseMapIfDigestExists(entry.getValue(), entry.getKey());
+      HashMap<PathFragment, ArtifactAndMetadata> inputs = new HashMap<>();
+      for (Map.Entry<Artifact, FileArtifactValue> entry : inputData.entrySet()) {
+        Artifact input = entry.getKey();
+        updateRootsIfSource(input);
+        inputs.put(input.getExecPath(), new SimpleArtifactAndMetadata(input, entry.getValue()));
+        updateReverseMapIfDigestExists(entry.getValue(), entry.getKey());
+      }
+      for (Artifact input : allowedInputs) {
+        PathFragment execPath = input.getExecPath();
+        inputs.computeIfAbsent(execPath, unused -> new OptionalInputArtifactAndMetadata(input));
+        updateRootsIfSource(input);
+      }
+      this.inputs = inputs;
+
+      validateRoots();
+
+      this.outputs =
+          Streams.stream(outputArtifacts)
+              .collect(
+                  ImmutableMap.toImmutableMap(
+                      a -> a.getExecPath(), a -> new ArtifactAndMutableMetadata(a)));
+    } finally {
+      Profiler.instance().completeTask(ProfilerTask.ACTION_FS_STAGING);
     }
-    for (Artifact input : allowedInputs) {
-      PathFragment execPath = input.getExecPath();
-      inputs.computeIfAbsent(execPath, unused -> new OptionalInputArtifactAndMetadata(input));
-      updateRootsIfSource(input);
-    }
-    this.inputs = inputs;
-
-    validateRoots();
-
-    this.outputs =
-        Streams.stream(outputArtifacts)
-            .collect(
-                ImmutableMap.toImmutableMap(
-                    a -> a.getExecPath(), a -> new ArtifactAndMutableMetadata(a)));
   }
 
   /**
@@ -132,18 +139,23 @@ final class ActionFileSystem extends AbstractFileSystem implements ActionInputFi
 
   /** Input discovery changes the values of the input data map so it must be updated accordingly. */
   public void updateInputData(Map<Artifact, FileArtifactValue> inputData) {
-    boolean foundNewRoots = false;
-    for (Map.Entry<Artifact, FileArtifactValue> entry : inputData.entrySet()) {
-      ArtifactAndMetadata current = inputs.get(entry.getKey().getExecPath());
-      if (current == null || isUnsetOptional(current)) {
-        Artifact input = entry.getKey();
-        inputs.put(input.getExecPath(), new SimpleArtifactAndMetadata(input, entry.getValue()));
-        foundNewRoots = updateRootsIfSource(entry.getKey()) || foundNewRoots;
-        updateReverseMapIfDigestExists(entry.getValue(), entry.getKey());
+    try {
+      Profiler.instance().startTask(ProfilerTask.ACTION_FS_UPDATE, "update");
+      boolean foundNewRoots = false;
+      for (Map.Entry<Artifact, FileArtifactValue> entry : inputData.entrySet()) {
+        ArtifactAndMetadata current = inputs.get(entry.getKey().getExecPath());
+        if (current == null || isUnsetOptional(current)) {
+          Artifact input = entry.getKey();
+          inputs.put(input.getExecPath(), new SimpleArtifactAndMetadata(input, entry.getValue()));
+          foundNewRoots = updateRootsIfSource(entry.getKey()) || foundNewRoots;
+          updateReverseMapIfDigestExists(entry.getValue(), entry.getKey());
+        }
       }
-    }
-    if (foundNewRoots) {
-      validateRoots();
+      if (foundNewRoots) {
+        validateRoots();
+      }
+    } finally {
+      Profiler.instance().completeTask(ProfilerTask.ACTION_FS_UPDATE);
     }
   }
 

@@ -1620,7 +1620,7 @@ $(JAVABASE)/bin/javap -c -p -cp $< 'com.google.devtools.build.android.desugar.te
     tags = ["no_windows"],
     # Bazel 0.8.0 doesn't have this target under @bazel_tools, so we have to
     # use the one in the main repository
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
 

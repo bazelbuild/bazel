@@ -361,7 +361,7 @@ genrule(
     # Technically, this should be prefixed with @bazel_tools, but in order to
     # avoid having to wait a Bazel release which has this target under
     # @bazel_tools, we use it from the main repository. It's the same anyway.
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
     tools = ["combine_derived_java_srcs.sh"],
     visibility = ["//:__pkg__"],
 )
