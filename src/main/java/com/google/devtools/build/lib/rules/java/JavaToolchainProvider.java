@@ -76,7 +76,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
       Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
-      @Nullable Artifact headerCompiler,
+      @Nullable FilesToRunProvider headerCompiler,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
@@ -120,7 +120,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
   private final Artifact javac;
   private final NestedSet<Artifact> tools;
   private final FilesToRunProvider javaBuilder;
-  @Nullable private final Artifact headerCompiler;
+  @Nullable private final FilesToRunProvider headerCompiler;
   private final boolean forciblyDisableHeaderCompilation;
   private final Artifact singleJar;
   @Nullable private final Artifact oneVersion;
@@ -144,7 +144,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
       Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
-      @Nullable Artifact headerCompiler,
+      @Nullable FilesToRunProvider headerCompiler,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
@@ -214,9 +214,9 @@ public class JavaToolchainProvider extends ToolchainInfo {
     return javaBuilder;
   }
 
-  /** @return the {@link Artifact} of the Header Compiler deploy jar */
+  /** @return the {@link FilesToRunProvider} of the Header Compiler deploy jar */
   @Nullable
-  public Artifact getHeaderCompiler() {
+  public FilesToRunProvider getHeaderCompiler() {
     return headerCompiler;
   }
 
