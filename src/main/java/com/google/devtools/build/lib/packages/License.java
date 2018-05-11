@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /** Support for license and distribution checking. */
@@ -124,7 +125,7 @@ public final class License {
       Set<DistributionType> result = EnumSet.noneOf(DistributionType.class);
       for (String distStr : distStrings) {
         try {
-          DistributionType dist = DistributionType.valueOf(distStr.toUpperCase());
+          DistributionType dist = DistributionType.valueOf(distStr.toUpperCase(Locale.ENGLISH));
           result.add(dist);
         } catch (IllegalArgumentException e) {
           throw new LicenseParsingException("Invalid distribution type '" + distStr + "'");
@@ -216,7 +217,7 @@ public final class License {
         }
       } else {
         try {
-          licenseTypes.add(LicenseType.valueOf(str.toUpperCase()));
+          licenseTypes.add(LicenseType.valueOf(str.toUpperCase(Locale.ENGLISH)));
         } catch (IllegalArgumentException e) {
           throw new LicenseParsingException("invalid license type: '" + str + "'");
         }
