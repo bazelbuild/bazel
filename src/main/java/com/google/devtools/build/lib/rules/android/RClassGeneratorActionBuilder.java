@@ -33,6 +33,15 @@ import java.util.function.Function;
 /** Builds up the spawn action for $android_rclass_generator. */
 public class RClassGeneratorActionBuilder {
 
+  private static final AndroidDataConverter<ValidatedAndroidData> AAPT_CONVERTER =
+      AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
+          .with(chooseDepsToArg(AndroidAaptVersion.AAPT))
+          .build();
+  private static final AndroidDataConverter<ValidatedAndroidData> AAPT2_CONVERTER =
+      AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
+          .with(chooseDepsToArg(AndroidAaptVersion.AAPT2))
+          .build();
+
   private final RuleContext ruleContext;
   private ResourceDependencies dependencies;
 
@@ -98,10 +107,7 @@ public class RClassGeneratorActionBuilder {
         builder.addAll(
             VectorArg.addBefore("--library")
                 .each(dependencies.getResourceContainers())
-                .mapped(
-                    AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
-                        .with(chooseDepsToArg(version))
-                        .build()));
+                .mapped(version == AndroidAaptVersion.AAPT2 ? AAPT2_CONVERTER : AAPT_CONVERTER));
         if (version == AndroidAaptVersion.AAPT2) {
           inputs.addTransitive(dependencies.getTransitiveAapt2RTxt());
         } else {

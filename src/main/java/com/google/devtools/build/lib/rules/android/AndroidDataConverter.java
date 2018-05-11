@@ -108,6 +108,12 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
         .collect(Collectors.joining(joinerType.itemSeparator));
   }
 
+  /**
+   * Creates a builder for a new {@link AndroidDataConverter}.
+   *
+   * <p>Because of how Bazel handles these objects, call this method *only* as part of creating a
+   * static final field.
+   */
   public static <T> Builder<T> builder(JoinerType joinerType) {
     return new Builder<>(joinerType);
   }
