@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -962,7 +963,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
    * WARNING: This method is only added to allow incremental migration of existing users. Please do
    * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
    *
-   * Returns the immutable list of linker options for fully statically linked outputs. Does not
+   * <p>Returns the immutable list of linker options for fully statically linked outputs. Does not
    * include command-line options passed via --linkopt or --linkopts.
    *
    * @param sharedLib true if the output is a shared lib, false if it's an executable
@@ -972,10 +973,13 @@ public final class CcToolchainProvider extends ToolchainInfo {
       doc =
           "Returns the immutable list of linker options for fully statically linked "
               + "outputs. Does not include command-line options passed via --linkopt or "
-              + "--linkopts."
-  )
+              + "--linkopts.")
   @Deprecated
-  public ImmutableList<String> getFullyStaticLinkOptions(Boolean sharedLib) {
+  public ImmutableList<String> getFullyStaticLinkOptions(Boolean sharedLib) throws EvalException {
+    if (!sharedLib) {
+      throw new EvalException(
+          Location.BUILTIN, "fully_static_link_options is deprecated, new uses are not allowed.");
+    }
     return CppHelper.getFullyStaticLinkOptions(cppConfiguration, this, sharedLib);
   }
 

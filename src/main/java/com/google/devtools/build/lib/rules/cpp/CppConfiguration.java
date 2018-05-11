@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -176,7 +178,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   private final FlagList unfilteredCompilerFlags;
   private final ImmutableList<String> cOptions;
 
-  private final FlagList fullyStaticLinkFlags;
   private final FlagList mostlyStaticLinkFlags;
   private final FlagList mostlyStaticSharedLinkFlags;
   private final FlagList dynamicLinkFlags;
@@ -260,10 +261,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
         ImmutableList.copyOf(cppOptions.conlyoptList),
         new FlagList(
             cppToolchainInfo.configureAllLegacyLinkOptions(
-                compilationMode, cppOptions.getLipoMode(), LinkingMode.LEGACY_FULLY_STATIC),
-            ImmutableList.of()),
-        new FlagList(
-            cppToolchainInfo.configureAllLegacyLinkOptions(
                 compilationMode, cppOptions.getLipoMode(), LinkingMode.STATIC),
             ImmutableList.of()),
         new FlagList(
@@ -310,7 +307,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
       FlagList cxxFlags,
       FlagList unfilteredCompilerFlags,
       ImmutableList<String> cOptions,
-      FlagList fullyStaticLinkFlags,
       FlagList mostlyStaticLinkFlags,
       FlagList mostlyStaticSharedLinkFlags,
       FlagList dynamicLinkFlags,
@@ -342,7 +338,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     this.cxxFlags = cxxFlags;
     this.unfilteredCompilerFlags = unfilteredCompilerFlags;
     this.cOptions = cOptions;
-    this.fullyStaticLinkFlags = fullyStaticLinkFlags;
     this.mostlyStaticLinkFlags = mostlyStaticLinkFlags;
     this.mostlyStaticSharedLinkFlags = mostlyStaticSharedLinkFlags;
     this.dynamicLinkFlags = dynamicLinkFlags;
@@ -728,12 +723,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   )
   @Deprecated
   public ImmutableList<String> getFullyStaticLinkOptions(
-      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) {
-    if (sharedLib) {
-      return getSharedLibraryLinkOptions(mostlyStaticLinkFlags);
-    } else {
-      return fullyStaticLinkFlags.evaluate();
+      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) throws EvalException {
+    if (!sharedLib) {
+      throw new EvalException(
+          Location.BUILTIN, "fully_static_link_options is deprecated, new uses are not allowed.");
     }
+    return getSharedLibraryLinkOptions(mostlyStaticLinkFlags);
   }
 
   /**
