@@ -82,7 +82,7 @@ import javax.annotation.Nullable;
  * Knows about every rule Blaze supports and the associated configuration options.
  *
  * <p>This class is initialized on server startup and the set of rules, build info factories
- * and configuration options is guarantees not to change over the life time of the Blaze server.
+ * and configuration options is guaranteed not to change over the life time of the Blaze server.
  */
 public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
