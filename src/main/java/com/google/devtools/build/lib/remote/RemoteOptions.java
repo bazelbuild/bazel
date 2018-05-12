@@ -228,4 +228,14 @@ public final class RemoteOptions extends OptionsBase {
             + "otherwise cachable actions that output symlinks will fail."
   )
   public boolean allowSymlinkUpload;
+
+  @Option(
+    name = "remote_cache_validate_input_ctimes",
+    defaultValue = "true",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Whether to validate ctimes after local execution before uploading results."
+  )
+  public boolean remoteCacheValidateInputCtimes;
 }
