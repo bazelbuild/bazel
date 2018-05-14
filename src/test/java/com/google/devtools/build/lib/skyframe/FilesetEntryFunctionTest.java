@@ -96,6 +96,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
                 rootDirectory,
+                /* defaultSystemJavabase= */ null,
                 TestConstants.PRODUCT_NAME));
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();

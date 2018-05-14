@@ -86,6 +86,7 @@ public class PackageCacheTest extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase, outputBase),
             rootDirectory,
+            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     PackageFactory.BuilderForTesting packageFactoryBuilder =
         analysisMock.getPackageFactoryBuilderForTesting(directories);

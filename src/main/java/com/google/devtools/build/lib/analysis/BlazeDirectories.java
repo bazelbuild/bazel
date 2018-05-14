@@ -52,6 +52,11 @@ public final class BlazeDirectories {
   private final ServerDirectories serverDirectories;
   /** Workspace root and server CWD. */
   private final Path workspace;
+  /**
+   * The root of the user's local JDK install, to be used as the default target javabase and as a
+   * fall-back host_javabase. This is not the embedded JDK.
+   */
+  private final Path defaultSystemJavabase;
   /** The root of all build actions. */
   private final Path execRoot;
 
@@ -62,9 +67,14 @@ public final class BlazeDirectories {
   private final String productName;
 
   @AutoCodec.Instantiator
-  public BlazeDirectories(ServerDirectories serverDirectories, Path workspace, String productName) {
+  public BlazeDirectories(
+      ServerDirectories serverDirectories,
+      Path workspace,
+      Path defaultSystemJavabase,
+      String productName) {
     this.serverDirectories = serverDirectories;
     this.workspace = workspace;
+    this.defaultSystemJavabase = defaultSystemJavabase;
     this.productName = productName;
     Path outputBase = serverDirectories.getOutputBase();
     Path execRootBase = outputBase.getChild("execroot");
@@ -97,6 +107,11 @@ public final class BlazeDirectories {
   /** Returns the workspace directory, which is also the working dir of the server. */
   public Path getWorkspace() {
     return workspace;
+  }
+
+  /** Returns the root of the user's local JDK install (not the embedded JDK). */
+  public Path getLocalJavabase() {
+    return defaultSystemJavabase;
   }
 
   /** Returns if the workspace directory is a valid workspace. */

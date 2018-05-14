@@ -133,9 +133,10 @@ class StartupOptions {
       const char *arg, const char *next_arg, const std::string &rcfile,
       const char **value, bool *is_processed, std::string *error) = 0;
 
-  // Return the default path to the JDK used to run Blaze itself
-  // (must be an absolute directory).
-  virtual std::string GetDefaultHostJavabase() const;
+  // Returns the absolute path to the user's local JDK install, to be used as
+  // the default target javabase and as a fall-back host_javabase. This is not
+  // the embedded JDK.
+  virtual std::string GetSystemJavabase() const;
 
   // Returns the path to the JVM. This should be called after parsing
   // the startup options.

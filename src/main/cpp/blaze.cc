@@ -505,6 +505,7 @@ static vector<string> GetArgumentArray(
                    blaze::ConvertPath(globals->options->output_base));
   result.push_back("--workspace_directory=" +
                    blaze::ConvertPath(globals->workspace));
+  result.push_back("--default_system_javabase=" + GetSystemJavabase());
 
   if (!globals->options->server_jvm_out.empty()) {
     result.push_back("--server_jvm_out=" + globals->options->server_jvm_out);

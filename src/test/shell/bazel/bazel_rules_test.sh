@@ -323,7 +323,7 @@ function test_genrule_toolchain_dependency {
 genrule(
     name = "toolchain_check",
     outs = ["version"],
-    toolchains = ['@bazel_tools//tools/jdk:current_java_runtime'],
+    toolchains = ['@bazel_tools//tools/jdk:current_host_java_runtime'],
     cmd = "ls -al \$(JAVABASE) > \$@",
 )
 EOF

@@ -250,11 +250,10 @@ bool IsSharedLibrary(const string &filename) {
   return blaze_util::ends_with(filename, ".dll");
 }
 
-string GetDefaultHostJavabase() {
+string GetSystemJavabase() {
   string javahome(GetEnv("JAVA_HOME"));
   if (javahome.empty()) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Error: JAVA_HOME not set.";
+    return "";
   }
   return javahome;
 }

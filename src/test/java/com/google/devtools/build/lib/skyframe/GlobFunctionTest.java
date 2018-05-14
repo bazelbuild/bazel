@@ -133,7 +133,10 @@ public abstract class GlobFunctionTest {
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(root, root, root), root, TestConstants.PRODUCT_NAME);
+            new ServerDirectories(root, root, root),
+            root,
+            /* defaultSystemJavabase= */ null,
+            TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(
             pkgLocator,

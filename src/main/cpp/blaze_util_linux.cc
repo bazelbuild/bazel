@@ -146,8 +146,7 @@ bool IsSharedLibrary(const string &filename) {
 static string Which(const string &executable) {
   string path(GetEnv("PATH"));
   if (path.empty()) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Could not get PATH to find " << executable;
+    return "";
   }
 
   vector<string> pieces = blaze_util::Split(path, ':');
@@ -167,7 +166,7 @@ static string Which(const string &executable) {
   return "";
 }
 
-string GetDefaultHostJavabase() {
+string GetSystemJavabase() {
   // if JAVA_HOME is defined, then use it as default.
   string javahome = GetEnv("JAVA_HOME");
   if (!javahome.empty()) {
@@ -177,15 +176,13 @@ string GetDefaultHostJavabase() {
   // which javac
   string javac_dir = Which("javac");
   if (javac_dir.empty()) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Could not find javac";
+    return "";
   }
 
   // Resolve all symlinks.
   char resolved_path[PATH_MAX];
   if (realpath(javac_dir.c_str(), resolved_path) == NULL) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Could not resolve javac directory: " << GetLastErrorString();
+    return "";
   }
   javac_dir = resolved_path;
 

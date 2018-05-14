@@ -349,6 +349,7 @@ function run_bazel_jar() {
       --output_base=${OUTPUT_DIR}/out \
       --output_user_root=${OUTPUT_DIR}/user_root \
       --install_md5= \
+      --default_system_javabase="${JAVA_HOME}" \
       --workspace_directory="$(get_cwd)" \
       --nofatal_event_bus_exceptions \
       ${BAZEL_DIR_STARTUP_OPTIONS} \

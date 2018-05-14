@@ -65,7 +65,8 @@ class WorkspaceFactoryTestHelper {
             Mutability.create("test"),
             allowOverride,
             root,
-            root);
+            root,
+            /* defaultSystemJavabaseDir= */ null);
     Exception exception = null;
     try {
       byte[] bytes =

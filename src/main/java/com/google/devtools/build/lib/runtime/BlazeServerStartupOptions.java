@@ -177,6 +177,18 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public PathFragment workspaceDirectory;
 
   @Option(
+      name = "default_system_javabase",
+      defaultValue = "", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          "The root of the user's local JDK install, to be used as the default target javabase"
+              + " and as a fall-back host_javabase. This is not the embedded JDK.")
+  public PathFragment defaultSystemJavabase;
+
+  @Option(
     name = "max_idle_secs",
     // NOTE: default value only used for documentation, value is always passed by the client when
     // not in --batch mode.

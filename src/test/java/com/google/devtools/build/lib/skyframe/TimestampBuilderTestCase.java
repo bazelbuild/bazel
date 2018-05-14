@@ -175,6 +175,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
+            /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
         pkgLocator,

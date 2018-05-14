@@ -185,7 +185,7 @@ alias(
 
 alias(
     name = "host_jdk",
-    actual = "@local_jdk//:jdk",
+    actual = "@embedded_jdk//:jdk",
 )
 
 genrule(

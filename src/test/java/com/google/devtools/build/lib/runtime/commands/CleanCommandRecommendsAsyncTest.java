@@ -110,7 +110,11 @@ public class CleanCommandRecommendsAsyncTest {
                 })
             .build();
     BlazeDirectories directories =
-        new BlazeDirectories(serverDirectories, scratch.dir("workspace"), productName);
+        new BlazeDirectories(
+            serverDirectories,
+            scratch.dir("workspace"),
+            /* defaultSystemJavabase= */ null,
+            productName);
     runtime.initWorkspace(directories, /* binTools= */ null);
 
     BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, new CleanCommand(os));

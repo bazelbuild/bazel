@@ -78,7 +78,11 @@ public class BlazeOptionHandlerTest {
     this.runtime.overrideCommands(ImmutableList.of(new C0Command()));
 
     BlazeDirectories directories =
-        new BlazeDirectories(serverDirectories, scratch.dir("workspace"), productName);
+        new BlazeDirectories(
+            serverDirectories,
+            scratch.dir("workspace"),
+            /* defaultSystemJavabase= */ null,
+            productName);
     runtime.initWorkspace(directories, /*binTools=*/ null);
   }
 

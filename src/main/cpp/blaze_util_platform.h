@@ -84,9 +84,10 @@ std::string GetProcessCWD(int pid);
 
 bool IsSharedLibrary(const std::string& filename);
 
-// Return the default path to the JDK used to run Blaze itself
-// (must be an absolute directory).
-std::string GetDefaultHostJavabase();
+// Returns the absolute path to the user's local JDK install, to be used as
+// the default target javabase and as a fall-back host_javabase. This is not
+// the embedded JDK.
+std::string GetSystemJavabase();
 
 // Return the path to the JVM binary relative to a javabase, e.g. "bin/java".
 std::string GetJavaBinaryUnderJavabase();

@@ -55,6 +55,7 @@ public class BlazeExecutorTest {
                 fileSystem.getPath("/base"),
                 fileSystem.getPath("/root")),
             fileSystem.getPath("/workspace"),
+            /* defaultSystemJavabase= */ null,
             "mock-product-name");
     binTools = BinTools.empty(directories);
   }
