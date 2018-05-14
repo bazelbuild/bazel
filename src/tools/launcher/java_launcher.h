@@ -90,6 +90,13 @@ class JavaBinaryLauncher : public BinaryLauncherBase {
   //
   // Return the path of the classpath jar created.
   std::string CreateClasspathJar(const std::string& classpath);
+
+  // Creat a directory based on the binary path, all the junctions will be
+  // generated under this directory.
+  std::string GetJunctionBaseDir();
+
+  // Delete all the junction directory and all the junctions under it.
+  void DeleteJunctionBaseDir();
 };
 
 }  // namespace launcher
