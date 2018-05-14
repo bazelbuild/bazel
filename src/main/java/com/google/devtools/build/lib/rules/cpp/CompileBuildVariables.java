@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExt
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collection;
 
 /** Enum covering all build variables we create for all various {@link CppCompileAction}. */
 public enum CompileBuildVariables {
@@ -107,24 +108,24 @@ public enum CompileBuildVariables {
       RuleContext ruleContext,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchainProvider,
-      String sourceFile,
-      String outputFile,
-      String gcnoFile,
-      String dwoFile,
-      String ltoIndexingFile,
+      Artifact sourceFile,
+      Artifact outputFile,
+      Artifact gcnoFile,
+      Artifact dwoFile,
+      Artifact ltoIndexingFile,
       ImmutableList<String> includes,
-      Iterable<String> userCompileFlags,
+      ImmutableList<String> userCompileFlags,
       CppModuleMap cppModuleMap,
       boolean usePic,
-      PathFragment fakeOutputFile,
+      PathFragment realOutputFilePath,
       String fdoStamp,
       String dotdFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      Iterable<PathFragment> includeDirs,
-      Iterable<PathFragment> quoteIncludeDirs,
-      Iterable<PathFragment> systemIncludeDirs,
+      Collection<PathFragment> includeDirs,
+      Collection<PathFragment> quoteIncludeDirs,
+      Collection<PathFragment> systemIncludeDirs,
       Iterable<String> defines) {
     try {
       return setupVariablesOrThrowEvalException(
@@ -139,20 +140,16 @@ public enum CompileBuildVariables {
           userCompileFlags,
           cppModuleMap,
           usePic,
-          toPathString(fakeOutputFile),
+          realOutputFilePath,
           fdoStamp,
           dotdFileExecPath,
           variablesExtensions,
           additionalBuildVariables,
           directModuleMaps,
-          getSafePathStrings(includeDirs),
-          getSafePathStrings(quoteIncludeDirs),
-          getSafePathStrings(systemIncludeDirs),
-          defines,
-          /* addLegacyCxxOptions= */ CppFileTypes.CPP_SOURCE.matches(sourceFile)
-              || CppFileTypes.CPP_HEADER.matches(sourceFile)
-              || CppFileTypes.CPP_MODULE_MAP.matches(sourceFile)
-              || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFile));
+          includeDirs,
+          quoteIncludeDirs,
+          systemIncludeDirs,
+          defines);
     } catch (EvalException e) {
       ruleContext.ruleError(e.getMessage());
       return CcToolchainVariables.EMPTY;
@@ -162,28 +159,25 @@ public enum CompileBuildVariables {
   public static CcToolchainVariables setupVariablesOrThrowEvalException(
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchainProvider,
-      String sourceFile,
-      // TODO(b/76195763): Remove once blaze with cl/189769259 is released and crosstools are
-      // updated.
-      String outputFile,
-      String gcnoFile,
-      String dwoFile,
-      String ltoIndexingFile,
+      Artifact sourceFile,
+      Artifact outputFile,
+      Artifact gcnoFile,
+      Artifact dwoFile,
+      Artifact ltoIndexingFile,
       ImmutableList<String> includes,
-      Iterable<String> userCompileFlags,
+      ImmutableList<String> userCompileFlags,
       CppModuleMap cppModuleMap,
       boolean usePic,
-      String fakeOutputFile,
+      PathFragment realOutputFilePath,
       String fdoStamp,
       String dotdFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      Iterable<String> includeDirs,
-      Iterable<String> quoteIncludeDirs,
-      Iterable<String> systemIncludeDirs,
-      Iterable<String> defines,
-      boolean addLegacyCxxOptions)
+      Iterable<PathFragment> includeDirs,
+      Iterable<PathFragment> quoteIncludeDirs,
+      Iterable<PathFragment> systemIncludeDirs,
+      Iterable<String> defines)
       throws EvalException {
     Preconditions.checkNotNull(directModuleMaps);
     Preconditions.checkNotNull(includeDirs);
@@ -196,42 +190,34 @@ public enum CompileBuildVariables {
     buildVariables.addStringSequenceVariable(
         USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
 
+    buildVariables.addStringVariable(SOURCE_FILE.getVariableName(), sourceFile.getExecPathString());
+
+    String sourceFilename = sourceFile.getExecPathString();
     buildVariables.addLazyStringSequenceVariable(
         LEGACY_COMPILE_FLAGS.getVariableName(),
-        getLegacyCompileFlagsSupplier(ccToolchainProvider, addLegacyCxxOptions));
+        getLegacyCompileFlagsSupplier(ccToolchainProvider, sourceFilename));
 
-    if (sourceFile != null) {
-      buildVariables.addStringVariable(SOURCE_FILE.getVariableName(), sourceFile);
-    }
-
-    if (sourceFile == null
-        || (!CppFileTypes.OBJC_SOURCE.matches(sourceFile)
-            && !CppFileTypes.OBJCPP_SOURCE.matches(sourceFile))) {
+    if (!CppFileTypes.OBJC_SOURCE.matches(sourceFilename)
+        && !CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)) {
       buildVariables.addLazyStringSequenceVariable(
           UNFILTERED_COMPILE_FLAGS.getVariableName(),
           getUnfilteredCompileFlagsSupplier(ccToolchainProvider));
     }
 
-    String fakeOutputFileOrRealOutputFile = fakeOutputFile != null ? fakeOutputFile : outputFile;
-
-    if (outputFile != null) {
-      // TODO(b/76195763): Remove once blaze with cl/189769259 is released and crosstools are
-      // updated.
-      if (!FileType.contains(
-          PathFragment.create(outputFile),
-          CppFileTypes.ASSEMBLER,
-          CppFileTypes.PIC_ASSEMBLER,
-          CppFileTypes.PREPROCESSED_C,
-          CppFileTypes.PREPROCESSED_CPP,
-          CppFileTypes.PIC_PREPROCESSED_C,
-          CppFileTypes.PIC_PREPROCESSED_CPP)) {
-        buildVariables.addStringVariable(
-            OUTPUT_OBJECT_FILE.getVariableName(), fakeOutputFileOrRealOutputFile);
-      }
-
+    // TODO(b/76195763): Remove once blaze with cl/189769259 is released and crosstools are updated.
+    if (!FileType.contains(
+        outputFile,
+        CppFileTypes.ASSEMBLER,
+        CppFileTypes.PIC_ASSEMBLER,
+        CppFileTypes.PREPROCESSED_C,
+        CppFileTypes.PREPROCESSED_CPP,
+        CppFileTypes.PIC_PREPROCESSED_C,
+        CppFileTypes.PIC_PREPROCESSED_CPP)) {
       buildVariables.addStringVariable(
-          OUTPUT_FILE.getVariableName(), fakeOutputFileOrRealOutputFile);
+          OUTPUT_OBJECT_FILE.getVariableName(), realOutputFilePath.getSafePathString());
     }
+    buildVariables.addStringVariable(
+        OUTPUT_FILE.getVariableName(), realOutputFilePath.getSafePathString());
 
     // Set dependency_file to enable <object>.d file generation.
     if (dotdFileExecPath != null) {
@@ -255,11 +241,12 @@ public enum CompileBuildVariables {
       buildVariables.addStringSequenceVariable(MODULE_FILES.getVariableName(), ImmutableSet.of());
     }
     if (featureConfiguration.isEnabled(CppRuleClasses.INCLUDE_PATHS)) {
-      buildVariables.addStringSequenceVariable(INCLUDE_PATHS.getVariableName(), includeDirs);
       buildVariables.addStringSequenceVariable(
-          QUOTE_INCLUDE_PATHS.getVariableName(), quoteIncludeDirs);
+          INCLUDE_PATHS.getVariableName(), getSafePathStrings(includeDirs));
       buildVariables.addStringSequenceVariable(
-          SYSTEM_INCLUDE_PATHS.getVariableName(), systemIncludeDirs);
+          QUOTE_INCLUDE_PATHS.getVariableName(), getSafePathStrings(quoteIncludeDirs));
+      buildVariables.addStringSequenceVariable(
+          SYSTEM_INCLUDE_PATHS.getVariableName(), getSafePathStrings(systemIncludeDirs));
     }
 
     if (!includes.isEmpty()) {
@@ -290,16 +277,18 @@ public enum CompileBuildVariables {
     }
 
     if (gcnoFile != null) {
-      buildVariables.addStringVariable(GCOV_GCNO_FILE.getVariableName(), gcnoFile);
+      buildVariables.addStringVariable(
+          GCOV_GCNO_FILE.getVariableName(), gcnoFile.getExecPathString());
     }
 
     if (dwoFile != null) {
-      buildVariables.addStringVariable(PER_OBJECT_DEBUG_INFO_FILE.getVariableName(), dwoFile);
+      buildVariables.addStringVariable(
+          PER_OBJECT_DEBUG_INFO_FILE.getVariableName(), dwoFile.getExecPathString());
     }
 
     if (ltoIndexingFile != null) {
       buildVariables.addStringVariable(
-          LTO_INDEXING_BITCODE_FILE.getVariableName(), ltoIndexingFile);
+          LTO_INDEXING_BITCODE_FILE.getVariableName(), ltoIndexingFile.getExecPathString());
     }
 
     buildVariables.addAllStringVariables(additionalBuildVariables);
@@ -326,11 +315,14 @@ public enum CompileBuildVariables {
    * to arguments (to prevent accidental capture of enclosing instance which could regress memory).
    */
   private static Supplier<ImmutableList<String>> getLegacyCompileFlagsSupplier(
-      CcToolchainProvider toolchain, boolean addLegacyCxxOptions) {
+      CcToolchainProvider toolchain, String sourceFilename) {
     return () -> {
       ImmutableList.Builder<String> legacyCompileFlags = ImmutableList.builder();
       legacyCompileFlags.addAll(toolchain.getLegacyCompileOptions());
-      if (addLegacyCxxOptions) {
+      if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
+          || CppFileTypes.CPP_HEADER.matches(sourceFilename)
+          || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
+          || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
         legacyCompileFlags.addAll(toolchain.getLegacyCxxOptions());
       }
       return legacyCompileFlags.build();
@@ -346,14 +338,6 @@ public enum CompileBuildVariables {
   private static Supplier<ImmutableList<String>> getUnfilteredCompileFlagsSupplier(
       CcToolchainProvider ccToolchain) {
     return () -> ccToolchain.getUnfilteredCompilerOptions();
-  }
-
-  private static String toPathString(PathFragment a) {
-    if (a == null) {
-      return null;
-    }
-
-    return a.getSafePathString();
   }
 
   public String getVariableName() {

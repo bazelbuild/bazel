@@ -254,7 +254,6 @@ public class CppActionConfigs {
                     "    action: 'c++-module-codegen'",
                     "    action: 'c++-module-compile'",
                     "    flag_group {",
-                    "      expand_if_all_available: 'output_file'",
                     "      flag: '-frandom-seed=%{output_file}'",
                     "    }",
                     "  }",
