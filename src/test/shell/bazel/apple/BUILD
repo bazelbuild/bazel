@@ -23,7 +23,6 @@ filegroup(
             "//src/tools/xcode/momcwrapper",
             "//src/tools/xcode/realpath",
             "//src/tools/xcode/stdredirect:StdRedirect.dylib",
-            "//src/tools/xcode/swiftstdlibtoolwrapper",
             "//tools/osx:xcode-locator",
         ],
         "//conditions:default": [],
