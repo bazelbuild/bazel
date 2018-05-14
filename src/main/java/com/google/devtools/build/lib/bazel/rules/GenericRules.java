@@ -53,8 +53,8 @@ public class GenericRules implements RuleSet {
               .replace(
                   "%java_toolchain%",
                   isJdk8OrEarlier()
-                      ? "@bazel_tools//tools/jdk:toolchain_jdk8"
-                      : "@bazel_tools//tools/jdk:toolchain_jdk9"));
+                      ? "@bazel_tools//tools/jdk:toolchain_hostjdk8"
+                      : "@bazel_tools//tools/jdk:toolchain_hostjdk9"));
 
     } catch (IOException e) {
       throw new IllegalStateException(e);
