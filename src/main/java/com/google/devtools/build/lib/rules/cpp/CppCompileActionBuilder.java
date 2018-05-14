@@ -64,7 +64,7 @@ public class CppCompileActionBuilder {
   private PathFragment tempOutputFile;
   private DotdFile dotdFile;
   private Artifact gcnoFile;
-  private CcCompilationContextInfo ccCompilationContextInfo = CcCompilationContextInfo.EMPTY;
+  private CcCompilationContext ccCompilationContext = CcCompilationContext.EMPTY;
   private final List<String> pluginOpts = new ArrayList<>();
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
@@ -148,7 +148,7 @@ public class CppCompileActionBuilder {
     this.tempOutputFile = other.tempOutputFile;
     this.dotdFile = other.dotdFile;
     this.gcnoFile = other.gcnoFile;
-    this.ccCompilationContextInfo = other.ccCompilationContextInfo;
+    this.ccCompilationContext = other.ccCompilationContext;
     this.pluginOpts.addAll(other.pluginOpts);
     this.coptsFilter = other.coptsFilter;
     this.extraSystemIncludePrefixes = ImmutableList.copyOf(other.extraSystemIncludePrefixes);
@@ -201,8 +201,8 @@ public class CppCompileActionBuilder {
     return sourceFile;
   }
 
-  public CcCompilationContextInfo getCcCompilationContextInfo() {
-    return ccCompilationContextInfo;
+  public CcCompilationContext getCcCompilationContext() {
+    return ccCompilationContext;
   }
 
   public NestedSet<Artifact> getMandatoryInputs() {
@@ -337,7 +337,7 @@ public class CppCompileActionBuilder {
     NestedSet<Artifact> allInputs = buildAllInputs(realMandatoryInputs);
 
     NestedSetBuilder<Artifact> prunableInputBuilder = NestedSetBuilder.stableOrder();
-    prunableInputBuilder.addTransitive(ccCompilationContextInfo.getDeclaredIncludeSrcs());
+    prunableInputBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
     prunableInputBuilder.addTransitive(cppSemantics.getAdditionalPrunableIncludes());
 
     Iterable<IncludeScannable> lipoScannables = getLipoScannables(realMandatoryInputs);
@@ -380,7 +380,7 @@ public class CppCompileActionBuilder {
               tempOutputFile,
               dotdFile,
               localShellEnvironment,
-              ccCompilationContextInfo,
+              ccCompilationContext,
               coptsFilter,
               getLipoScannables(realMandatoryInputs),
               cppSemantics,
@@ -411,7 +411,7 @@ public class CppCompileActionBuilder {
               ltoIndexingFile,
               optionalSourceFile,
               localShellEnvironment,
-              ccCompilationContextInfo,
+              ccCompilationContext,
               coptsFilter,
               getLipoScannables(realMandatoryInputs),
               additionalIncludeScanningRoots.build(),
@@ -445,13 +445,11 @@ public class CppCompileActionBuilder {
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
     realMandatoryInputsBuilder.addAll(getBuiltinIncludeFiles());
-    realMandatoryInputsBuilder.addAll(
-        ccCompilationContextInfo.getTransitiveCompilationPrerequisites());
+    realMandatoryInputsBuilder.addAll(ccCompilationContext.getTransitiveCompilationPrerequisites());
     if (useHeaderModules() && !shouldPruneModules()) {
-      realMandatoryInputsBuilder.addTransitive(
-          ccCompilationContextInfo.getTransitiveModules(usePic));
+      realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getTransitiveModules(usePic));
     }
-    realMandatoryInputsBuilder.addTransitive(ccCompilationContextInfo.getAdditionalInputs());
+    realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getAdditionalInputs());
     realMandatoryInputsBuilder.add(Preconditions.checkNotNull(sourceFile));
     if (grepIncludes != null) {
       realMandatoryInputsBuilder.add(grepIncludes);
@@ -663,9 +661,9 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  public CppCompileActionBuilder setCcCompilationContextInfo(
-      CcCompilationContextInfo ccCompilationContextInfo) {
-    this.ccCompilationContextInfo = ccCompilationContextInfo;
+  public CppCompileActionBuilder setCcCompilationContext(
+      CcCompilationContext ccCompilationContext) {
+    this.ccCompilationContext = ccCompilationContext;
     return this;
   }
 

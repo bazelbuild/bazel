@@ -200,7 +200,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
 
   /**
    * If true, the ConfiguredTarget is only used to get the necessary cross-referenced {@code
-   * CcCompilationContextInfo}s, but registering build actions is disabled.
+   * CcCompilationContext}s, but registering build actions is disabled.
    */
   private final boolean lipoContextCollector;
 

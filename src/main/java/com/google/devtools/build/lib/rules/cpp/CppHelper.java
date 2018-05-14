@@ -112,28 +112,27 @@ public class CppHelper {
    * Merges the STL and toolchain contexts into context builder. The STL is automatically determined
    * using the ":stl" attribute.
    */
-  public static void mergeToolchainDependentCcCompilationContextInfo(
+  public static void mergeToolchainDependentCcCompilationContext(
       RuleContext ruleContext,
       CcToolchainProvider toolchain,
-      CcCompilationContextInfo.Builder ccCompilationContextInfoBuilder) {
+      CcCompilationContext.Builder ccCompilationContextBuilder) {
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
       TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
       if (stl != null) {
         CcCompilationInfo ccCompilationInfo = stl.get(CcCompilationInfo.PROVIDER);
-        CcCompilationContextInfo ccCompilationContextInfo =
-            ccCompilationInfo != null ? ccCompilationInfo.getCcCompilationContextInfo() : null;
-        if (ccCompilationContextInfo == null) {
+        CcCompilationContext ccCompilationContext =
+            ccCompilationInfo != null ? ccCompilationInfo.getCcCompilationContext() : null;
+        if (ccCompilationContext == null) {
           ruleContext.ruleError(
               "Unable to merge the STL '" + stl.getLabel() + "' and toolchain contexts");
           return;
         }
-        ccCompilationContextInfoBuilder.mergeDependentCcCompilationContextInfo(
-            ccCompilationContextInfo);
+        ccCompilationContextBuilder.mergeDependentCcCompilationContext(ccCompilationContext);
       }
     }
     if (toolchain != null) {
-      ccCompilationContextInfoBuilder.mergeDependentCcCompilationContextInfo(
-          toolchain.getCcCompilationContextInfo());
+      ccCompilationContextBuilder.mergeDependentCcCompilationContext(
+          toolchain.getCcCompilationContext());
     }
   }
 
@@ -652,7 +651,7 @@ public class CppHelper {
 
   /**
    * Emits a warning on the rule if there are identical linkstamp artifacts with different {@code
-   * CcCompilationContextInfo}s.
+   * CcCompilationContext}s.
    */
   public static void checkLinkstampsUnique(RuleErrorConsumer listener, CcLinkParams linkParams) {
     Map<Artifact, NestedSet<Artifact>> result = new LinkedHashMap<>();

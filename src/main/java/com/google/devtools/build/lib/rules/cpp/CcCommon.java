@@ -598,11 +598,11 @@ public final class CcCommon {
 
   /** Collects compilation prerequisite artifacts. */
   static NestedSet<Artifact> collectCompilationPrerequisites(
-      RuleContext ruleContext, CcCompilationContextInfo ccCompilationContextInfo) {
-    // TODO(bazel-team): Use ccCompilationContextInfo.getCompilationPrerequisites() instead; note
+      RuleContext ruleContext, CcCompilationContext ccCompilationContext) {
+    // TODO(bazel-team): Use ccCompilationContext.getCompilationPrerequisites() instead; note
     // that this
     // will
-    // need cleaning up the prerequisites, as the {@code CcCompilationContextInfo} currently
+    // need cleaning up the prerequisites, as the {@code CcCompilationContext} currently
     // collects them
     // transitively (to get transitive headers), but source files are not transitive compilation
     // prerequisites.
@@ -615,10 +615,10 @@ public final class CcCommon {
                 provider.getFilesToBuild(), SourceCategory.CC_AND_OBJC.getSourceTypes()));
       }
     }
-    prerequisites.addTransitive(ccCompilationContextInfo.getDeclaredIncludeSrcs());
-    prerequisites.addTransitive(ccCompilationContextInfo.getAdditionalInputs());
-    prerequisites.addTransitive(ccCompilationContextInfo.getTransitiveModules(true));
-    prerequisites.addTransitive(ccCompilationContextInfo.getTransitiveModules(false));
+    prerequisites.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
+    prerequisites.addTransitive(ccCompilationContext.getAdditionalInputs());
+    prerequisites.addTransitive(ccCompilationContext.getTransitiveModules(true));
+    prerequisites.addTransitive(ccCompilationContext.getTransitiveModules(false));
     return prerequisites.build();
   }
 
@@ -777,7 +777,7 @@ public final class CcCommon {
       unsupportedFeaturesBuilder.add(CppRuleClasses.PARSE_HEADERS);
       unsupportedFeaturesBuilder.add(CppRuleClasses.PREPROCESS_HEADERS);
     }
-    if (toolchain.getCcCompilationContextInfo().getCppModuleMap() == null) {
+    if (toolchain.getCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
     if (enableStaticLinkCppRuntimesFeature(requestedFeatures, unsupportedFeatures, toolchain)) {

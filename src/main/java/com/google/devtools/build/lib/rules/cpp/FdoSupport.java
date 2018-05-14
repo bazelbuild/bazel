@@ -116,12 +116,12 @@ import java.util.zip.ZipFile;
  *       .gcda files are added, too.
  * </ul>
  *
- * <p>If we do LIPO, the actual {@code CcCompilationContextInfo} for LIPO compilation actions is
- * pieced together from the {@code CcCompilationContextInfo} in LipoContextProvider and that of the
- * rule being compiled. (see {@link CcCompilationContextInfo#mergeForLipo}) This is so that the
- * include files for the extra LIPO sources are found and is, strictly speaking, incorrect, since it
- * also changes the declared include directories of the main source file, which in theory can result
- * in the compilation passing even though it should fail with undeclared inclusion errors.
+ * <p>If we do LIPO, the actual {@code CcCompilationContext} for LIPO compilation actions is pieced
+ * together from the {@code CcCompilationContext} in LipoContextProvider and that of the rule being
+ * compiled. (see {@link CcCompilationContext#mergeForLipo}) This is so that the include files for
+ * the extra LIPO sources are found and is, strictly speaking, incorrect, since it also changes the
+ * declared include directories of the main source file, which in theory can result in the
+ * compilation passing even though it should fail with undeclared inclusion errors.
  *
  * <p>During the actual execution of the C++ compile action, the extra sources also need to be
  * include scanned, which is the reason why they are {@link IncludeScannable} objects and not simple

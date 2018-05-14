@@ -197,7 +197,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           initializeLinkingHelper(featureConfiguration)
               .link(
                   compilationInfo.getCcCompilationOutputs(),
-                  compilationInfo.getCcCompilationContextInfo());
+                  compilationInfo.getCcCompilationContext());
 
       ccLibraryProviders =
           new TransitiveInfoProviderMapBuilder()

@@ -41,57 +41,56 @@ public final class CcCompilationInfo extends NativeInfo {
   public static final NativeProvider<CcCompilationInfo> PROVIDER =
       new NativeProvider<CcCompilationInfo>(CcCompilationInfo.class, "CcCompilationInfo") {};
 
-  private final CcCompilationContextInfo ccCompilationContextInfo;
+  private final CcCompilationContext ccCompilationContext;
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
-  CcCompilationInfo(CcCompilationContextInfo ccCompilationContextInfo) {
+  CcCompilationInfo(CcCompilationContext ccCompilationContext) {
     super(PROVIDER);
-    this.ccCompilationContextInfo = ccCompilationContextInfo;
+    this.ccCompilationContext = ccCompilationContext;
   }
 
   @SkylarkCallable(
-    name = "cc_compilation_context_info",
+    name = "cc_compilation_context",
     structField = true,
     allowReturnNones = true,
     doc = "Returns compilation information for this C++ target."
   )
-  public CcCompilationContextInfo getCcCompilationContextInfo() {
-    return ccCompilationContextInfo;
+  public CcCompilationContext getCcCompilationContext() {
+    return ccCompilationContext;
   }
 
   /** A Builder for {@link CcCompilationInfo}. */
   public static class Builder {
-    CcCompilationContextInfo ccCompilationContextInfo;
+    CcCompilationContext ccCompilationContext;
 
     public static CcCompilationInfo.Builder create() {
       return new CcCompilationInfo.Builder();
     }
 
-    public <P extends TransitiveInfoProvider> Builder setCcCompilationContextInfo(
-        CcCompilationContextInfo ccCompilationContextInfo) {
-      Preconditions.checkState(this.ccCompilationContextInfo == null);
-      this.ccCompilationContextInfo = ccCompilationContextInfo;
+    public <P extends TransitiveInfoProvider> Builder setCcCompilationContext(
+        CcCompilationContext ccCompilationContext) {
+      Preconditions.checkState(this.ccCompilationContext == null);
+      this.ccCompilationContext = ccCompilationContext;
       return this;
     }
 
     public CcCompilationInfo build() {
-      return new CcCompilationInfo(ccCompilationContextInfo);
+      return new CcCompilationInfo(ccCompilationContext);
     }
   }
 
-  public static ImmutableList<CcCompilationContextInfo> getCcCompilationContextInfos(
+  public static ImmutableList<CcCompilationContext> getCcCompilationContexts(
       Iterable<? extends TransitiveInfoCollection> deps) {
-    ImmutableList.Builder<CcCompilationContextInfo> ccCompilationContextInfosBuilder =
+    ImmutableList.Builder<CcCompilationContext> ccCompilationContextsBuilder =
         ImmutableList.builder();
     for (CcCompilationInfo ccCompilationInfo :
         AnalysisUtils.getProviders(deps, CcCompilationInfo.PROVIDER)) {
-      CcCompilationContextInfo ccCompilationContextInfo =
-          ccCompilationInfo.getCcCompilationContextInfo();
-      if (ccCompilationContextInfo != null) {
-        ccCompilationContextInfosBuilder.add(ccCompilationContextInfo);
+      CcCompilationContext ccCompilationContext = ccCompilationInfo.getCcCompilationContext();
+      if (ccCompilationContext != null) {
+        ccCompilationContextsBuilder.add(ccCompilationContext);
       }
     }
-    return ccCompilationContextInfosBuilder.build();
+    return ccCompilationContextsBuilder.build();
   }
 }

@@ -480,14 +480,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     Preconditions.checkState(
         (dynamicRuntimeLinkMiddleman == null) == dynamicRuntimeLinkSymlinks.isEmpty());
 
-    CcCompilationContextInfo.Builder ccCompilationContextInfoBuilder =
-        new CcCompilationContextInfo.Builder(ruleContext);
+    CcCompilationContext.Builder ccCompilationContextBuilder =
+        new CcCompilationContext.Builder(ruleContext);
     CppModuleMap moduleMap = createCrosstoolModuleMap(ruleContext);
     if (moduleMap != null) {
-      ccCompilationContextInfoBuilder.setCppModuleMap(moduleMap);
+      ccCompilationContextBuilder.setCppModuleMap(moduleMap);
     }
-    final CcCompilationContextInfo ccCompilationContextInfo =
-        ccCompilationContextInfoBuilder.build();
+    final CcCompilationContext ccCompilationContext = ccCompilationContextBuilder.build();
     boolean supportsParamFiles = ruleContext.attributes().get("supports_param_files", BOOLEAN);
     boolean supportsHeaderParsing =
         ruleContext.attributes().get("supports_header_parsing", BOOLEAN);
@@ -557,7 +556,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             dynamicRuntimeLinkSymlinks,
             dynamicRuntimeLinkMiddleman,
             runtimeSolibDir,
-            ccCompilationContextInfo,
+            ccCompilationContext,
             supportsParamFiles,
             supportsHeaderParsing,
             getBuildVariables(ruleContext, toolchainInfo.getDefaultSysroot()),

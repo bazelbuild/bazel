@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContextInfo;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
@@ -50,8 +50,8 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   }
 
   @Override
-  public void setupCcCompilationContextInfo(
-      RuleContext ruleContext, CcCompilationContextInfo.Builder ccCompilationContextInfoBuilder) {}
+  public void setupCcCompilationContext(
+      RuleContext ruleContext, CcCompilationContext.Builder ccCompilationContextBuilder) {}
 
   @Override
   public NestedSet<Artifact> getAdditionalPrunableIncludes() {

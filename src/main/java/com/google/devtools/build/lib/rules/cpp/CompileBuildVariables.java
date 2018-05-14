@@ -56,19 +56,19 @@ public enum CompileBuildVariables {
   /**
    * Variable for the collection of include paths.
    *
-   * @see CcCompilationContextInfo#getIncludeDirs().
+   * @see CcCompilationContext#getIncludeDirs().
    */
   INCLUDE_PATHS("include_paths"),
   /**
    * Variable for the collection of quote include paths.
    *
-   * @see CcCompilationContextInfo#getIncludeDirs().
+   * @see CcCompilationContext#getIncludeDirs().
    */
   QUOTE_INCLUDE_PATHS("quote_include_paths"),
   /**
    * Variable for the collection of system include paths.
    *
-   * @see CcCompilationContextInfo#getIncludeDirs().
+   * @see CcCompilationContext#getIncludeDirs().
    */
   SYSTEM_INCLUDE_PATHS("system_include_paths"),
   /** Variable for the module map file name. */
