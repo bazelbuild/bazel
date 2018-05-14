@@ -540,8 +540,7 @@ public final class CcLinkingHelper {
     Runfiles cppSharedRunfiles = collectCppRunfiles(ccLinkingOutputs, false);
 
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcRunfilesInfo(
-        new CcRunfilesInfo(cppStaticRunfiles, cppSharedRunfiles));
+    ccLinkingInfoBuilder.setCcRunfiles(new CcRunfiles(cppStaticRunfiles, cppSharedRunfiles));
     ccLinkingInfoBuilder.setCcExecutionDynamicLibrariesInfo(
         collectExecutionDynamicLibraryArtifacts(ccLinkingOutputs.getExecutionDynamicLibraries()));
 
@@ -628,7 +627,7 @@ public final class CcLinkingHelper {
             ruleContext.getWorkspaceName(),
             ruleContext.getConfiguration().legacyExternalRunfiles());
     builder.addTargets(deps, RunfilesProvider.DEFAULT_RUNFILES);
-    builder.addTargets(deps, CcRunfilesInfo.runfilesFunction(linkingStatically));
+    builder.addTargets(deps, CcRunfiles.runfilesFunction(linkingStatically));
     // Add the shared libraries to the runfiles.
     builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(linkingStatically));
     return builder.build();

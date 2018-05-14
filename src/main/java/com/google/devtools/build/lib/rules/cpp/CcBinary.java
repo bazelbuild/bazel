@@ -109,7 +109,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Runfiles.Builder builder = new Runfiles.Builder(
         context.getWorkspaceName(), context.getConfiguration().legacyExternalRunfiles());
     Function<TransitiveInfoCollection, Runfiles> runfilesMapping =
-        CcRunfilesInfo.runfilesFunction(linkingMode != Link.LinkingMode.DYNAMIC);
+        CcRunfiles.runfilesFunction(linkingMode != Link.LinkingMode.DYNAMIC);
     builder.addTransitiveArtifacts(filesToBuild);
     // Add the shared libraries to the runfiles. This adds any shared libraries that are in the
     // srcs of this target.

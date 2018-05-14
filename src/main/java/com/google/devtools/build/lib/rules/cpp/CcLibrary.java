@@ -81,7 +81,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // it, but instead be loaded as an extension. So we need the dynamic library for this in the
     // runfiles.
     builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(linkingStatically && !neverLink));
-    builder.add(context, CcRunfilesInfo.runfilesFunction(linkingStatically));
+    builder.add(context, CcRunfiles.runfilesFunction(linkingStatically));
 
     builder.addDataDeps(context);
 
@@ -377,7 +377,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     ccLinkingInfoBuilder.setCcLinkParamsInfo(ccLinkingInfo.getCcLinkParamsInfo());
     ccLinkingInfoBuilder.setCcExecutionDynamicLibrariesInfo(
         ccLinkingInfo.getCcExecutionDynamicLibrariesInfo());
-    ccLinkingInfoBuilder.setCcRunfilesInfo(new CcRunfilesInfo(staticRunfiles, sharedRunfiles));
+    ccLinkingInfoBuilder.setCcRunfiles(new CcRunfiles(staticRunfiles, sharedRunfiles));
 
     return ccLinkingInfoBuilder.build();
   }
