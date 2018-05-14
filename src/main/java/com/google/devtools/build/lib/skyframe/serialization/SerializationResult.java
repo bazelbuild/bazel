@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
 import javax.annotation.Nullable;
 
@@ -41,6 +43,13 @@ public abstract class SerializationResult<T> {
    * replacing the current {@link #getObject}.
    */
   public abstract <S> SerializationResult<S> with(S newObj);
+
+  /**
+   * Returns a new {@link SerializationResult} with the same object but with a new future that waits
+   * on the given future as well as the current future.
+   */
+  public abstract SerializationResult<T> withAdditionalFuture(
+      ListenableFuture<Void> additionalFuture);
 
   /**
    * Returns a {@link ListenableFuture} that, if not null, must complete successfully before {@link
@@ -77,6 +86,11 @@ public abstract class SerializationResult<T> {
     }
 
     @Override
+    public SerializationResult<T> withAdditionalFuture(ListenableFuture<Void> additionalFuture) {
+      return new ObjectWithFuture<>(getObject(), additionalFuture);
+    }
+
+    @Override
     public ListenableFuture<Void> getFutureToBlockWritesOn() {
       return null;
     }
@@ -93,6 +107,14 @@ public abstract class SerializationResult<T> {
     @Override
     public <S> SerializationResult<S> with(S newObj) {
       return new ObjectWithFuture<>(newObj, futureToBlockWritesOn);
+    }
+
+    @Override
+    public SerializationResult<T> withAdditionalFuture(ListenableFuture<Void> additionalFuture) {
+      ListenableFuture<Void> combinedFuture =
+          Futures.whenAllComplete(additionalFuture, futureToBlockWritesOn)
+              .call(() -> null, MoreExecutors.directExecutor());
+      return new ObjectWithFuture<>(getObject(), combinedFuture);
     }
 
     @Override
