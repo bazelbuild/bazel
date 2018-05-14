@@ -15,16 +15,19 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.exec.TestAttempt;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.util.Collection;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -89,6 +92,22 @@ public class TestResult {
   }
 
   /**
+   * Returns the list of locally cached test attempts. This method must only be called if {@link
+   * #isCached} returns <code>true</code>.
+   */
+  public List<TestAttempt> getCachedTestAttempts() {
+    Preconditions.checkState(isCached());
+    return ImmutableList.of(
+        TestAttempt.fromCachedTestResult(
+            testAction,
+            data,
+            1,
+            getFiles(),
+            BuildEventStreamProtos.TestResult.ExecutionInfo.getDefaultInstance(),
+            /*lastAttempt=*/ true));
+  }
+
+  /**
    * @return Coverage data artifact, if available and null otherwise.
    */
   public Path getCoverageData() {
@@ -104,10 +123,6 @@ public class TestResult {
   public Artifact getTestStatusArtifact() {
     // these artifacts are used to keep track of the number of pending and completed tests.
     return testAction.getCacheStatusArtifact();
-  }
-
-  public BuildEventStreamProtos.TestResult.ExecutionInfo getExecutionInfo() {
-    return BuildEventStreamProtos.TestResult.ExecutionInfo.getDefaultInstance();
   }
 
   /**
@@ -150,7 +165,8 @@ public class TestResult {
    * @return Collection of files created by the test, tagged by their name indicating usage (e.g.,
    *     "test.log").
    */
-  public Collection<Pair<String, Path>> getFiles() {
+  private Collection<Pair<String, Path>> getFiles() {
+    // TODO(ulfjack): Cache the set of generated files in the TestResultData.
     return testAction.getTestOutputsMapping(execRoot);
   }
 }
