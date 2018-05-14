@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.Serializable;
@@ -26,10 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 /** Command-line build options for a Blaze module. */
-@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
 public abstract class FragmentOptions extends OptionsBase implements Cloneable, Serializable {
-  public static final ObjectCodec<FragmentOptions> CODEC = new FragmentOptions_AutoCodec();
-
   /**
    * Returns the labels contributed to the defaults package by this fragment.
    *
@@ -39,19 +33,6 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
   @SuppressWarnings("unused")
   public Map<String, Set<Label>> getDefaultsLabels() {
     return ImmutableMap.of();
-  }
-
-  /**
-   * Returns the extra rules contributed to the default package by this fragment.
-   *
-   * <p>The return value should be a list of strings, which are merged into the BUILD files of the
-   * defaults package.
-   *
-   * <p><strong>WARNING;</strong> this method should only be used when absolutely necessary. Always
-   * prefer {@code getDefaultsLabels()} to this.
-   */
-  public ImmutableList<String> getDefaultsRules() {
-    return ImmutableList.of();
   }
 
   /**

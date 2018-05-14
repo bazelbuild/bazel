@@ -15,7 +15,12 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.nio.charset.Charset;
 
 /**
  * Support for parameter file generation (as used by gcc and other tools, e.g.
@@ -76,4 +81,41 @@ public class ParameterFile {
     return original.replaceName(original.getBaseName() + "-" + flavor + ".params");
   }
 
+  /** Writes an argument list to a parameter file. */
+  public static void writeParameterFile(
+      OutputStream out, Iterable<String> arguments, ParameterFileType type, Charset charset)
+      throws IOException {
+    switch (type) {
+      case SHELL_QUOTED:
+        writeContentQuoted(out, arguments, charset);
+        break;
+      case UNQUOTED:
+        writeContentUnquoted(out, arguments, charset);
+        break;
+    }
+  }
+
+  /** Writes the arguments from the list into the parameter file. */
+  private static void writeContentUnquoted(
+      OutputStream outputStream, Iterable<String> arguments, Charset charset) throws IOException {
+    OutputStreamWriter out = new OutputStreamWriter(outputStream, charset);
+    for (String line : arguments) {
+      out.write(line);
+      out.write('\n');
+    }
+    out.flush();
+  }
+
+  /**
+   * Writes the arguments from the list into the parameter file with shell quoting (if required).
+   */
+  private static void writeContentQuoted(
+      OutputStream outputStream, Iterable<String> arguments, Charset charset) throws IOException {
+    OutputStreamWriter out = new OutputStreamWriter(outputStream, charset);
+    for (String line : ShellEscaper.escapeAll(arguments)) {
+      out.write(line);
+      out.write('\n');
+    }
+    out.flush();
+  }
 }

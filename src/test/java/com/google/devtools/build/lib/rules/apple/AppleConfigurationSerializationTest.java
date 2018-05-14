@@ -17,20 +17,30 @@ package com.google.devtools.build.lib.rules.apple;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.common.options.OptionsParsingException;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for serialization of {@link AppleConfiguration}. */
 @RunWith(JUnit4.class)
-public class AppleConfigurationSerializationTest
-    extends AbstractObjectCodecTest<AppleConfiguration> {
-  public AppleConfigurationSerializationTest() {
-    super(AppleConfiguration.CODEC, subject());
+public class AppleConfigurationSerializationTest {
+
+  @Test
+  public void testCodec() throws Exception {
+    new SerializationTester(getSubjects()).runTests();
   }
 
-  private static AppleConfiguration[] subject() {
+  @Test
+  public void optionsSerialization() throws Exception {
+    new SerializationTester(
+            BuildOptions.of(ImmutableList.of(AppleCommandLineOptions.class))
+                .get(AppleCommandLineOptions.class))
+        .runTests();
+  }
+
+  private static ImmutableList<AppleConfiguration> getSubjects() {
     AppleCommandLineOptions firstOptions = new AppleCommandLineOptions();
     firstOptions.mandatoryMinimumVersion = false;
     firstOptions.iosSdkVersion = DottedVersion.fromString("2.0");
@@ -59,15 +69,12 @@ public class AppleConfigurationSerializationTest
     firstOptions.targetUsesAppleCrosstool = true;
     firstOptions.xcodeVersion = "1.0";
     try {
-      return new AppleConfiguration[] {
-        new AppleConfiguration(
-            firstOptions,
-            "iosCpuArg"),
-        AppleConfiguration.create(
-            BuildOptions.of(ImmutableList.of(AppleCommandLineOptions.class))
-                .get(AppleCommandLineOptions.class),
-            "another cpu")
-      };
+      return ImmutableList.of(
+          new AppleConfiguration(firstOptions, "iosCpuArg"),
+          AppleConfiguration.create(
+              BuildOptions.of(ImmutableList.of(AppleCommandLineOptions.class))
+                  .get(AppleCommandLineOptions.class),
+              "another cpu"));
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
     }

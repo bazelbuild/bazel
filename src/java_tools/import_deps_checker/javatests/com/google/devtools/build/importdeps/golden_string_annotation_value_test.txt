@@ -1,0 +1,8 @@
+Missing java.lang.Object
+Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.StringAnnotation
+    missing ancestor: java.lang.Object
+    resolution failure path: java.lang.Object
+===Total===
+missing=1
+incomplete=1
+missing_members=0

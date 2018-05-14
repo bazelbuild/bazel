@@ -13,44 +13,45 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.analysis.actions.ActionTemplate;
+import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
+import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 
 /**
  * Value that stores expanded actions from ActionTemplate.
  */
-public final class ActionTemplateExpansionValue extends ActionLookupValue {
+public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
   ActionTemplateExpansionValue(
-      ActionKeyContext actionKeyContext,
-      Iterable<Action> expandedActions,
-      boolean removeActionsAfterEvaluation) {
-    super(actionKeyContext, ImmutableList.copyOf(expandedActions), removeActionsAfterEvaluation);
+      GeneratingActions generatingActions, boolean removeActionsAfterEvaluation) {
+    super(generatingActions, removeActionsAfterEvaluation);
   }
 
-  private static final Interner<ActionTemplateExpansionKey> interner =
-      BlazeInterners.newWeakInterner();
-
-  static ActionTemplateExpansionKey key(ActionTemplate<?> actionTemplate) {
-    return interner.intern(new ActionTemplateExpansionKey(actionTemplate));
+  static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {
+    return ActionTemplateExpansionKey.of(actionLookupKey, actionIndex);
   }
 
+  @AutoCodec
   static final class ActionTemplateExpansionKey extends ActionLookupKey {
-    private final ActionTemplate<?> actionTemplate;
+    private static final Interner<ActionTemplateExpansionKey> interner =
+        BlazeInterners.newWeakInterner();
 
-    private ActionTemplateExpansionKey(ActionTemplate<?> actionTemplate) {
-      Preconditions.checkNotNull(
-          actionTemplate,
-          "Passed in action template cannot be null: %s",
-          actionTemplate);
-      this.actionTemplate = actionTemplate;
+    private final ActionLookupKey actionLookupKey;
+    private final int actionIndex;
+
+    private ActionTemplateExpansionKey(ActionLookupKey actionLookupKey, int actionIndex) {
+      this.actionLookupKey = actionLookupKey;
+      this.actionIndex = actionIndex;
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static ActionTemplateExpansionKey of(ActionLookupKey actionLookupKey, int actionIndex) {
+      return interner.intern(new ActionTemplateExpansionKey(actionLookupKey, actionIndex));
     }
 
     @Override
@@ -60,32 +61,45 @@ public final class ActionTemplateExpansionValue extends ActionLookupValue {
 
     @Override
     public Label getLabel() {
-      return actionTemplate.getOwner().getLabel();
+      return actionLookupKey.getLabel();
     }
 
-    /** Returns the associated {@link ActionTemplate} */
-    ActionTemplate<?> getActionTemplate() {
-      return actionTemplate;
+    ActionLookupKey getActionLookupKey() {
+      return actionLookupKey;
+    }
+
+    /**
+     * Index of the action in question in the node keyed by {@link #getActionLookupKey}. Should be
+     * passed to {@link ActionLookupValue#getAction}.
+     */
+    int getActionIndex() {
+      return actionIndex;
     }
 
     @Override
     public int hashCode() {
-      return actionTemplate.hashCode();
+      return 37 * actionLookupKey.hashCode() + actionIndex;
     }
 
     @Override
     public boolean equals(Object obj) {
-     if (this == obj) {
-       return true;
-     }
-      if (obj == null) {
-        return false;
+      if (this == obj) {
+        return true;
       }
       if (!(obj instanceof ActionTemplateExpansionKey)) {
         return false;
       }
-      ActionTemplateExpansionKey other = (ActionTemplateExpansionKey) obj;
-      return actionTemplate.equals(other.actionTemplate);
+      ActionTemplateExpansionKey that = (ActionTemplateExpansionKey) obj;
+      return this.actionIndex == that.actionIndex
+          && this.actionLookupKey.equals(that.actionLookupKey);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("actionLookupKey", actionLookupKey)
+          .add("actionIndex", actionIndex)
+          .toString();
     }
   }
 }

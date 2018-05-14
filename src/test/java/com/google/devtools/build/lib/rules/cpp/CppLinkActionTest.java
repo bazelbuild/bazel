@@ -19,8 +19,10 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -44,15 +46,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -105,11 +107,9 @@ public class CppLinkActionTest extends BuildViewTestCase {
         .getFeatureConfiguration(
             ImmutableSet.of(
                 Link.LinkTargetType.EXECUTABLE.getActionName(),
+                Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName(),
                 Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
-                Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
-                Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
-                Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
-                Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName()));
+                Link.LinkTargetType.STATIC_LIBRARY.getActionName()));
   }
 
   @Test
@@ -212,7 +212,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
         linkAction
             .getLinkCommandLine()
             .getBuildVariables()
-            .getSequenceVariable(CppLinkActionBuilder.RUNTIME_LIBRARY_SEARCH_DIRECTORIES_VARIABLE);
+            .getSequenceVariable(
+                LinkBuildVariables.RUNTIME_LIBRARY_SEARCH_DIRECTORIES.getVariableName());
     List<String> directories = new ArrayList<>();
     for (VariableValue value : runtimeLibrarySearchDirectories) {
       directories.add(value.getStringValue("runtime_library_search_directory"));
@@ -322,17 +323,17 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     featureConfiguration,
                     MockCppSemantics.INSTANCE) {};
             if (attributesToFlip.contains(NonStaticAttributes.OUTPUT_FILE)) {
-              builder.setLinkType(LinkTargetType.DYNAMIC_LIBRARY);
+              builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
               builder.setLibraryIdentifier("foo");
             } else {
               builder.setLinkType(LinkTargetType.EXECUTABLE);
             }
-            builder.setLinkStaticness(LinkStaticness.DYNAMIC);
+            builder.setLinkingMode(Link.LinkingMode.DYNAMIC);
             builder.setNativeDeps(attributesToFlip.contains(NonStaticAttributes.NATIVE_DEPS));
             builder.setUseTestOnlyFlags(
                 attributesToFlip.contains(NonStaticAttributes.USE_TEST_ONLY_FLAGS));
             builder.setFake(attributesToFlip.contains(NonStaticAttributes.FAKE));
-            builder.setRuntimeSolibDir(
+            builder.setToolchainLibrariesSolibDir(
                 attributesToFlip.contains(NonStaticAttributes.RUNTIME_SOLIB_DIR)
                     ? null
                     : PathFragment.create("so1"));
@@ -380,7 +381,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             builder.setLinkType(
                 attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
                     ? LinkTargetType.STATIC_LIBRARY
-                    : LinkTargetType.DYNAMIC_LIBRARY);
+                    : LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
             builder.setLibraryIdentifier("foo");
             return builder.build();
           }
@@ -410,7 +411,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
-    builder.setLinkType(LinkTargetType.DYNAMIC_LIBRARY);
+    builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
     builder.setInterfaceOutput(outputIfso);
@@ -465,7 +466,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(resources.getIoUsage())
         .isAtLeast(CppLinkAction.MIN_STATIC_LINK_RESOURCES.getIoUsage());
 
-    final int linkSize = Iterables.size(linkAction.getLinkCommandLine().getLinkerInputs());
+    final int linkSize = Iterables.size(linkAction.getLinkCommandLine().getLinkerInputArtifacts());
     ResourceSet scaledSet = ResourceSet.createWithRamCpuIo(
         CppLinkAction.LINK_RESOURCES_PER_INPUT.getMemoryMb() * linkSize,
         CppLinkAction.LINK_RESOURCES_PER_INPUT.getCpuUsage() * linkSize,
@@ -505,10 +506,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .addLibraries(NestedSetBuilder.wrap(Order.LINK_ORDER, libraryInputs))
             .setLinkType(type)
             .setCrosstoolInputs(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
-            .setLinkStaticness(
-                type.staticness() == Staticness.STATIC
-                    ? LinkStaticness.FULLY_STATIC
-                    : LinkStaticness.MOSTLY_STATIC);
+            .setLinkingMode(
+                type.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
+                    ? Link.LinkingMode.LEGACY_FULLY_STATIC
+                    : Link.LinkingMode.STATIC);
     return builder;
   }
 
@@ -524,10 +525,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   public Artifact getOutputArtifact(String relpath) {
     return new Artifact(
-        getTargetConfiguration()
-            .getBinDirectory(RepositoryName.MAIN)
-            .getRoot()
-            .getRelative(relpath),
         getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
         getTargetConfiguration().getBinFragment().getRelative(relpath));
   }
@@ -569,7 +566,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "feature {",
                 "   name: 'build_interface_libraries'",
                 "   flag_set {",
-                "       action: '" + LinkTargetType.DYNAMIC_LIBRARY.getActionName() + "',",
+                "       action: '" + LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName() + "',",
                 "       flag_group {",
                 "           flag: '%{generate_interface_library}'",
                 "           flag: '%{interface_library_builder_path}'",
@@ -581,7 +578,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "feature {",
                 "   name: 'dynamic_library_linker_tool'",
                 "   flag_set {",
-                "       action: 'c++-link-dynamic-library'",
+                "       action: 'c++-link-nodeps-dynamic-library'",
                 "       flag_group {",
                 "           flag: 'dynamic_library_linker_tool'",
                 "       }",
@@ -591,8 +588,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "    name: 'has_configured_linker_path'",
                 "}",
                 "action_config {",
-                "   config_name: '" + LinkTargetType.DYNAMIC_LIBRARY.getActionName() + "'",
-                "   action_name: '" + LinkTargetType.DYNAMIC_LIBRARY.getActionName() + "'",
+                "   config_name: '" + LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName() + "'",
+                "   action_name: '" + LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName() + "'",
                 "   tool {",
                 "       tool_path: 'custom/crosstool/scripts/link_dynamic_library.sh'",
                 "   }",
@@ -604,10 +601,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 ImmutableSet.of(
                     "build_interface_libraries",
                     "dynamic_library_linker_tool",
-                    LinkTargetType.DYNAMIC_LIBRARY.getActionName()));
+                    LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName()));
     CppLinkActionBuilder builder =
         createLinkBuilder(
-                LinkTargetType.DYNAMIC_LIBRARY,
+                LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
                 "foo.so",
                 ImmutableList.<Artifact>of(),
                 ImmutableList.<LibraryToLink>of(),
@@ -629,7 +626,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public void testStaticLinkWithDynamicIsError() throws Exception {
     CppLinkActionBuilder builder =
         createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
-            .setLinkStaticness(LinkStaticness.DYNAMIC)
+            .setLinkingMode(Link.LinkingMode.DYNAMIC)
             .setLibraryIdentifier("foo");
 
     assertError("static library link must be static", builder);
@@ -639,7 +636,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public void testStaticLinkWithSymbolsCountOutputIsError() throws Exception {
     CppLinkActionBuilder builder =
         createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
-            .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+            .setLinkingMode(Link.LinkingMode.LEGACY_FULLY_STATIC)
             .setLibraryIdentifier("foo")
             .setSymbolCountsOutput(scratchArtifact("dummySymbolCounts"));
 
@@ -650,7 +647,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public void testStaticLinkWithNativeDepsIsError() throws Exception {
     CppLinkActionBuilder builder =
         createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
-            .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+            .setLinkingMode(Link.LinkingMode.LEGACY_FULLY_STATIC)
             .setLibraryIdentifier("foo")
             .setNativeDeps(true);
 
@@ -661,20 +658,18 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public void testStaticLinkWithWholeArchiveIsError() throws Exception {
     CppLinkActionBuilder builder =
         createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
-            .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+            .setLinkingMode(Link.LinkingMode.LEGACY_FULLY_STATIC)
             .setLibraryIdentifier("foo")
             .setWholeArchive(true);
 
     assertError("the need whole archive flag must be false for static links", builder);
   }
 
-  private Artifact createTreeArtifact(String name) {
+  private SpecialArtifact createTreeArtifact(String name) {
     FileSystem fs = scratch.getFileSystem();
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
-    Path path = execRoot.getRelative(execPath);
     return new SpecialArtifact(
-        path,
         ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
         execPath,
         ArtifactOwner.NullArtifactOwner.INSTANCE,
@@ -691,7 +686,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testLinksTreeArtifactLibraries() throws Exception {
-    Artifact testTreeArtifact = createTreeArtifact("library_directory");
+    SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
     TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
     TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
@@ -710,9 +705,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     CppLinkActionBuilder builder =
         createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
             .setLibraryIdentifier("foo")
-            .addObjectFiles(ImmutableList.of(testTreeArtifact))
-            // Makes sure this doesn't use a params file.
-            .setFake(true);
+            .addObjectFiles(ImmutableList.of(testTreeArtifact));
 
     CppLinkAction linkAction = builder.build();
 
@@ -721,11 +714,218 @@ public class CppLinkActionTest extends BuildViewTestCase {
         ImmutableList.of(library0.getExecPathString(), library1.getExecPathString());
 
     // Should only reference the tree artifact.
-    verifyArguments(linkAction.getCommandLine(null), treeArtifactsPaths, treeFileArtifactsPaths);
+    verifyArguments(
+        linkAction.getLinkCommandLine().getRawLinkArgv(),
+        treeArtifactsPaths,
+        treeFileArtifactsPaths);
+
+    // Should only reference tree file artifacts.
+    verifyArguments(
+        linkAction.getLinkCommandLine().getRawLinkArgv(expander),
+        treeFileArtifactsPaths,
+        treeArtifactsPaths);
+  }
+
+  @Test
+  public void testLinksTreeArtifactLibraryForDeps() throws Exception {
+    // This test only makes sense if start/end lib archives are supported.
+    analysisMock.ccSupport().setupCrosstool(mockToolsConfig, "supports_start_end_lib: true");
+    useConfiguration("--start_end_lib");
+
+    SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
+
+    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+
+    ArtifactExpander expander =
+        new ArtifactExpander() {
+          @Override
+          public void expand(Artifact artifact, Collection<? super Artifact> output) {
+            if (artifact.equals(testTreeArtifact)) {
+              output.add(library0);
+              output.add(library1);
+            }
+          };
+        };
+
+    Artifact archiveFile = scratchArtifact("library.a");
+
+    CppLinkActionBuilder builder =
+        createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
+            .setLibraryIdentifier("foo")
+            .addLibrary(
+                LinkerInputs.newInputLibrary(
+                    archiveFile,
+                    ArtifactCategory.STATIC_LIBRARY,
+                    null,
+                    ImmutableList.<Artifact>of(testTreeArtifact),
+                    ImmutableMap.<Artifact, Artifact>of(),
+                    null));
+
+    CppLinkAction linkAction = builder.build();
+
+    Iterable<String> treeArtifactsPaths = ImmutableList.of(testTreeArtifact.getExecPathString());
+    Iterable<String> treeFileArtifactsPaths =
+        ImmutableList.of(library0.getExecPathString(), library1.getExecPathString());
+
+    // Should only reference the tree artifact.
+    verifyArguments(
+        linkAction.getLinkCommandLine().getRawLinkArgv(),
+        treeArtifactsPaths,
+        treeFileArtifactsPaths);
     verifyArguments(linkAction.getArguments(), treeArtifactsPaths, treeFileArtifactsPaths);
 
     // Should only reference tree file artifacts.
     verifyArguments(
-        linkAction.getCommandLine(expander), treeFileArtifactsPaths, treeArtifactsPaths);
+        linkAction.getLinkCommandLine().getRawLinkArgv(expander),
+        treeFileArtifactsPaths,
+        treeArtifactsPaths);
+  }
+
+  @Test
+  public void testStaticLinking() throws Exception {
+    ImmutableList<LinkTargetType> targetTypesToTest =
+        ImmutableList.of(
+            LinkTargetType.STATIC_LIBRARY,
+            LinkTargetType.PIC_STATIC_LIBRARY,
+            LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY,
+            LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY);
+
+    SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
+
+    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+
+    ArtifactExpander expander =
+        (artifact, output) -> {
+          if (artifact.equals(testTreeArtifact)) {
+            output.add(library0);
+            output.add(library1);
+          }
+        };
+
+    Artifact objectFile = scratchArtifact("objectFile.o");
+
+    for (LinkTargetType linkType : targetTypesToTest) {
+
+      scratch.deleteFile("dummyRuleContext/BUILD");
+      Artifact output = scratchArtifact("output." + linkType.getExtension());
+
+      CppLinkActionBuilder builder =
+          createLinkBuilder(
+                  linkType,
+                  output.getExecPathString(),
+                  ImmutableList.<Artifact>of(),
+                  ImmutableList.<LibraryToLink>of(),
+                  getMockFeatureConfiguration())
+              .setLibraryIdentifier("foo")
+              .addObjectFiles(ImmutableList.of(testTreeArtifact))
+              .addObjectFile(objectFile)
+              // Makes sure this doesn't use a params file.
+              .setFake(true);
+
+      CppLinkAction linkAction = builder.build();
+      assertThat(linkAction.getCommandLine(expander))
+          .containsAllOf(
+              library0.getExecPathString(),
+              library1.getExecPathString(),
+              objectFile.getExecPathString())
+          .inOrder();
+    }
+  }
+
+  /** Tests that -pie is removed when -shared is also present (http://b/5611891#). */
+  @Test
+  public void testPieOptionDisabledForSharedLibraries() throws Exception {
+    CppLinkAction linkAction =
+        createLinkBuilder(
+                LinkTargetType.DYNAMIC_LIBRARY,
+                "dummyRuleContext/out.so",
+                ImmutableList.of(),
+                ImmutableList.of(),
+                getMockFeatureConfiguration())
+            .setLinkingMode(Link.LinkingMode.STATIC)
+            .addLinkopts(ImmutableList.of("-pie", "-other", "-pie"))
+            .setLibraryIdentifier("foo")
+            .build();
+
+    List<String> argv = linkAction.getLinkCommandLine().getRawLinkArgv();
+    assertThat(argv).doesNotContain("-pie");
+    assertThat(argv).contains("-other");
+  }
+
+  /** Tests that -pie is removed when -shared is also present (http://b/5611891#). */
+  @Test
+  public void testPieOptionKeptForExecutables() throws Exception {
+    CppLinkAction linkAction =
+        createLinkBuilder(
+                LinkTargetType.EXECUTABLE,
+                "dummyRuleContext/out",
+                ImmutableList.of(),
+                ImmutableList.of(),
+                getMockFeatureConfiguration())
+            .setLinkingMode(Link.LinkingMode.STATIC)
+            .addLinkopts(ImmutableList.of("-pie", "-other", "-pie"))
+            .build();
+
+    List<String> argv = linkAction.getLinkCommandLine().getRawLinkArgv();
+    assertThat(argv).contains("-pie");
+    assertThat(argv).contains("-other");
+  }
+
+  @Test
+  public void testLinkoptsComeAfterLinkerInputs() throws Exception {
+    String solibPrefix = "_solib_" + CrosstoolConfigurationHelper.defaultCpu();
+    Iterable<LibraryToLink> linkerInputs =
+        LinkerInputs.opaqueLibrariesToLink(
+            ArtifactCategory.DYNAMIC_LIBRARY,
+            ImmutableList.of(
+                getOutputArtifact(solibPrefix + "/FakeLinkerInput1.so"),
+                getOutputArtifact(solibPrefix + "/FakeLinkerInput2.so"),
+                getOutputArtifact(solibPrefix + "/FakeLinkerInput3.so"),
+                getOutputArtifact(solibPrefix + "/FakeLinkerInput4.so")));
+
+    CppLinkAction linkAction =
+        createLinkBuilder(
+                LinkTargetType.EXECUTABLE,
+                "dummyRuleContext/out",
+                ImmutableList.of(),
+                ImmutableList.copyOf(linkerInputs),
+                getMockFeatureConfiguration())
+            .addLinkopts(ImmutableList.of("FakeLinkopt1", "FakeLinkopt2"))
+            .build();
+
+    List<String> argv = linkAction.getLinkCommandLine().getRawLinkArgv();
+    int lastLinkerInputIndex =
+        Ints.max(
+            argv.indexOf("FakeLinkerInput1"), argv.indexOf("FakeLinkerInput2"),
+            argv.indexOf("FakeLinkerInput3"), argv.indexOf("FakeLinkerInput4"));
+    int firstLinkoptIndex = Math.min(argv.indexOf("FakeLinkopt1"), argv.indexOf("FakeLinkopt2"));
+    assertThat(lastLinkerInputIndex).isLessThan(firstLinkoptIndex);
+  }
+
+  @Test
+  public void testLinkoptsAreOmittedForStaticLibrary() throws Exception {
+    CppLinkAction linkAction =
+        createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
+            .addLinkopt("FakeLinkopt1")
+            .setLibraryIdentifier("foo")
+            .build();
+
+    assertThat(linkAction.getLinkCommandLine().getLinkopts()).isEmpty();
+  }
+
+  @Test
+  public void testSplitExecutableLinkCommand() throws Exception {
+    CppLinkAction linkAction = createLinkBuilder(LinkTargetType.EXECUTABLE).build();
+    Pair<List<String>, List<String>> result = linkAction.getLinkCommandLine().splitCommandline();
+
+    String linkCommandLine = Joiner.on(" ").join(result.first);
+    assertThat(linkCommandLine).contains("gcc_tool");
+    assertThat(linkCommandLine).contains("-o");
+    assertThat(linkCommandLine).contains("output/path.a");
+    assertThat(linkCommandLine).contains("path.a-2.params");
+
+    assertThat(result.second).contains("-lstdc++");
   }
 }

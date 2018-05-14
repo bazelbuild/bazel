@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyT
 import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -58,9 +60,14 @@ public class HttpDownloader {
   private static final Semaphore semaphore = new Semaphore(MAX_PARALLEL_DOWNLOADS, true);
 
   protected final RepositoryCache repositoryCache;
+  private List<Path> distdir = ImmutableList.of();
 
   public HttpDownloader(RepositoryCache repositoryCache) {
     this.repositoryCache = repositoryCache;
+  }
+
+  public void setDistdir(List<Path> distdir) {
+    this.distdir = ImmutableList.copyOf(distdir);
   }
 
   /** Validates native repository rule attributes and calls the other download method. */
@@ -158,8 +165,8 @@ public class HttpDownloader {
 
     Path destination = getDownloadDestination(urls.get(0), type, output);
 
-    // Used to decide whether to cache the download at the end of this method.
-    boolean isCaching = false;
+    // Is set to true if the value should be cached by the sha256 value provided
+    boolean isCachingByProvidedSha256 = false;
 
     if (!sha256.isEmpty()) {
       try {
@@ -174,12 +181,25 @@ public class HttpDownloader {
       }
 
       if (repositoryCache.isEnabled()) {
-        isCaching = true;
+        isCachingByProvidedSha256 = true;
 
         Path cachedDestination = repositoryCache.get(sha256, destination, KeyType.SHA256);
         if (cachedDestination != null) {
           // Cache hit!
           return cachedDestination;
+        }
+      }
+
+      for (Path dir : distdir) {
+        Path candidate = dir.getRelative(destination.getBaseName());
+        if (RepositoryCache.getChecksum(KeyType.SHA256, candidate).equals(sha256)) {
+          // Found the archive in one of the distdirs, no need to download.
+          if (isCachingByProvidedSha256) {
+            repositoryCache.put(sha256, candidate, KeyType.SHA256);
+          }
+          FileSystemUtils.createDirectoryAndParents(destination.getParentDirectory());
+          FileSystemUtils.copyFile(candidate, destination);
+          return destination;
         }
       }
     }
@@ -212,8 +232,11 @@ public class HttpDownloader {
       eventHandler.post(new FetchEvent(urls.get(0).toString(), success));
     }
 
-    if (isCaching) {
+    if (isCachingByProvidedSha256) {
       repositoryCache.put(sha256, destination, KeyType.SHA256);
+    } else if (repositoryCache.isEnabled()) {
+      String newSha256 = repositoryCache.put(destination, KeyType.SHA256);
+      eventHandler.handle(Event.info("SHA256 (" + urls.get(0) + ") = " + newSha256));
     }
 
     return destination;

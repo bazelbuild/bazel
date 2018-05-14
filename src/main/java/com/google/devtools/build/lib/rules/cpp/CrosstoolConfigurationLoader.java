@@ -26,13 +26,11 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -48,6 +46,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
@@ -71,14 +70,11 @@ public class CrosstoolConfigurationLoader {
   /** A class that holds the results of reading a CROSSTOOL file. */
   @AutoCodec
   public static class CrosstoolFile {
-    public static final ObjectCodec<CrosstoolFile> CODEC =
-        new CrosstoolConfigurationLoader_CrosstoolFile_AutoCodec();
-
     private final String location;
     private final CrosstoolConfig.CrosstoolRelease proto;
     private final String md5;
 
-    @AutoCodec.Constructor
+    @AutoCodec.Instantiator
     CrosstoolFile(String location, CrosstoolConfig.CrosstoolRelease proto, String md5) {
       this.location = location;
       this.proto = proto;
@@ -208,14 +204,11 @@ public class CrosstoolConfigurationLoader {
       throws IOException, InvalidConfigurationException, InterruptedException {
     final Path path;
     try {
-      Package containingPackage = env.getTarget(crosstoolTop.getLocalTargetLabel("BUILD"))
-          .getPackage();
+      Package containingPackage = env.getTarget(crosstoolTop).getPackage();
       if (containingPackage == null) {
         return null;
       }
       path = env.getPath(containingPackage, CROSSTOOL_CONFIGURATION_FILENAME);
-    } catch (LabelSyntaxException e) {
-      throw new InvalidConfigurationException(e);
     } catch (NoSuchThingException e) {
       // Handled later
       return null;
@@ -368,9 +361,12 @@ public class CrosstoolConfigurationLoader {
     }
 
     if (selectedIdentifier == null) {
+      HashSet<String> seenCpus = new HashSet<>();
       StringBuilder cpuBuilder = new StringBuilder();
       for (CrosstoolConfig.DefaultCpuToolchain selector : release.getDefaultToolchainList()) {
-        cpuBuilder.append("  ").append(selector.getCpu()).append(",\n");
+        if (seenCpus.add(selector.getCpu())) {
+          cpuBuilder.append("  ").append(selector.getCpu()).append(",\n");
+        }
       }
       throw new InvalidConfigurationException(
           "No default_toolchain found for cpu '"

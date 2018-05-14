@@ -107,7 +107,8 @@ public class SkylarkRepositoryContext {
             val == null
                 ? Runtime.NONE
                 // Attribute values should be type safe
-                : SkylarkType.convertToSkylark(val, null));
+                : SkylarkType.convertToSkylark(val,
+                    (com.google.devtools.build.lib.syntax.Environment) null));
       }
     }
     attrObject = NativeProvider.STRUCT.create(attrBuilder.build(), "No such attribute '%s'");
@@ -420,11 +421,19 @@ public class SkylarkRepositoryContext {
   }
 
   @SkylarkCallable(
-    name = "which",
-    doc =
-        "Returns the path of the corresponding program or None "
-            + "if there is no such program in the path",
-    allowReturnNones = true
+      name = "which",
+      doc =
+          "Returns the path of the corresponding program or None "
+              + "if there is no such program in the path.",
+      allowReturnNones = true,
+      parameters = {
+          @Param(
+              name = "program",
+              type = String.class,
+              named = false,
+              doc = "Program to find in the path."
+          ),
+      }
   )
   public SkylarkPath which(String program) throws EvalException {
     if (program.contains("/") || program.contains("\\")) {
@@ -572,6 +581,9 @@ public class SkylarkRepositoryContext {
                 + " to omit the SHA-256 as remote files can change. At best omitting this field"
                 + " will make your build non-hermetic. It is optional to make development easier"
                 + " but should be set before shipping."
+                + " If provided, the repository cache will first be checked for a file with the"
+                + " given hash; a download will only be attempted, if the file was not found in the"
+                + " cache. After a successful download, the file will be added to the cache."
       ),
       @Param(
         name = "type",
@@ -751,4 +763,27 @@ public class SkylarkRepositoryContext {
     return new SkylarkPath(rootedPath.asPath());
   }
 
+  /**
+   * Try to compute the paths of all attibutes that are labels, including labels in list arguments.
+   *
+   * <p>The value is ignored, but any missing information from the environment is detected (and an
+   * exception thrown). In this way, we can enforce that all arguments are evaluated before we start
+   * potentially more expensive operations.
+   */
+  public void enforceLabelAttributes() throws EvalException, InterruptedException {
+    Info attr = getAttr();
+    for (String name : attr.getFieldNames()) {
+      Object value = attr.getValue(name);
+      if (value instanceof Label) {
+        getPathFromLabel((Label) value);
+      }
+      if (value instanceof SkylarkList) {
+        for (Object entry : (SkylarkList) value) {
+          if (entry instanceof Label) {
+            getPathFromLabel((Label) entry);
+          }
+        }
+      }
+    }
+  }
 }

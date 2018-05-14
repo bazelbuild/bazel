@@ -85,9 +85,9 @@ message BuildEventId {
   // Identifier of an event indicating that a target pattern has been expanded
   // further.
   // Messages of this shape are also used to describe parts of a pattern that
-  // have been skipped for some reason, if the actual expasion was still carried
-  // out (e.g., if keep_going is set). In this case, the pattern_skipped choice
-  // in the id field is to be made.
+  // have been skipped for some reason, if the actual expansion was still
+  // carried out (e.g., if keep_going is set). In this case, the
+  // pattern_skipped choice in the id field is to be made.
   message PatternExpandedId {
     repeated string pattern = 1;
   }
@@ -112,7 +112,7 @@ message BuildEventId {
 
   // Identifier of an event introducing a configuration.
   message ConfigurationId {
-    // Identifier of the configuraiton; users of the protocol should not make
+    // Identifier of the configuration; users of the protocol should not make
     // any assumptions about it having any structure, or equality of the
     // identifier between different streams.
     string id = 1;
@@ -123,7 +123,7 @@ message BuildEventId {
   message TargetCompletedId {
     string label = 1;
 
-    // The configuration for wich the target was built.
+    // The configuration for which the target was built.
     ConfigurationId configuration = 3;
 
     // If not empty, the id refers to the completion of the target for a given
@@ -132,7 +132,7 @@ message BuildEventId {
   }
 
   // Identifier of an event reporting that an action was completed (not all
-  // actions are reported, only the onces that can be considered important;
+  // actions are reported, only the ones that can be considered important;
   // this includes all failed actions).
   message ActionCompletedId {
     string primary_output = 1;
@@ -163,7 +163,7 @@ message BuildEventId {
   // Identifier of an event reporting on an individual test run. The label
   // identifies the test that is reported about, the remaining fields are
   // in such a way as to uniquely identify the action within a build. In fact,
-  // attempts for the same test, run, shard tripple are counted sequentially,
+  // attempts for the same test, run, shard triple are counted sequentially,
   // starting with 1.
   message TestResultId {
     string label = 1;
@@ -276,7 +276,7 @@ message Aborted {
 message BuildStarted {
   string uuid = 1;
 
-  // Start of the build in ms since the epoche.
+  // Start of the build in ms since the epoch.
   // TODO(buchgr): Use google.protobuf.TimeStamp once bazel's protoc supports
   // it.
   int64 start_time_millis = 2;
@@ -364,7 +364,7 @@ enum TestSize {
 // Payload of the event indicating that the configurations for a target have
 // been identified. As with pattern expansion the main information is in the
 // chaining part: the id will contain the target that was configured and the
-// children id will ctontain the configured targets it was configured to.
+// children id will contain the configured targets it was configured to.
 message TargetConfigured {
   // The kind of target (e.g.,  e.g. "cc_library rule", "source file",
   // "generated file") where the completion is reported.
@@ -475,6 +475,9 @@ message TargetComplete {
 
   // List of tags associated with this configured target.
   repeated string tag = 3;
+
+  // The timeout specified for test actions under this configured target.
+  int64 test_timeout_seconds = 7;
 }
 
 enum TestStatus {
@@ -504,7 +507,7 @@ message TestResult {
   // build.
   int64 test_attempt_start_millis_epoch = 6;
 
-  // Time the test took to run. For locally chached results, this is the time
+  // Time the test took to run. For locally cached results, this is the time
   // the cached invocation took when it was invoked.
   int64 test_attempt_duration_millis = 3;
 
@@ -518,7 +521,8 @@ message TestResult {
   // Message providing optional meta data on the execution of the test action,
   // if available.
   message ExecutionInfo {
-    int32 timeout_seconds = 1;
+    // Deprecated, use TargetComplete.test_timeout_seconds instead.
+    int32 timeout_seconds = 1 [deprecated = true];
 
     // Name of the strategy to execute this test action (e.g., "local",
     // "remote")
@@ -581,7 +585,7 @@ message BuildFinished {
   // module might define. The predefined exit codes are subject to change (but
   // rarely do) and are not part of the public API.
   //
-  // A build was successfull iff ExitCode.code equals 0.
+  // A build was successful iff ExitCode.code equals 0.
   message ExitCode {
     // The name of the exit code.
     string name = 1;
@@ -593,7 +597,7 @@ message BuildFinished {
   // If the build succeeded or failed.
   bool overall_success = 1 [deprecated = true];
 
-  // The overall status of the build. A build was successfull iff
+  // The overall status of the build. A build was successful iff
   // ExitCode.code equals 0.
   ExitCode exit_code = 3;
 

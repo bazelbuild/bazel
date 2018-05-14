@@ -18,7 +18,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
@@ -220,7 +219,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized Iterable<SkyKey> getDirectDeps() {
-    return getGroupedDirectDeps().toSet();
+    return getGroupedDirectDeps().getAllElementsAsIterable();
   }
 
   /**
@@ -492,7 +491,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized void forceRebuild() {
-    Preconditions.checkState(getTemporaryDirectDeps().numElements() == signaledDeps, this);
+    Preconditions.checkState(getNumTemporaryDirectDeps() == signaledDeps, this);
     getDirtyBuildingState().forceChanged();
   }
 
@@ -520,7 +519,7 @@ public class InMemoryNodeEntry implements NodeEntry {
       throws InterruptedException {
     Preconditions.checkState(!isDone(), this);
     if (!isDirty()) {
-      return Iterables.concat(getTemporaryDirectDeps());
+      return getTemporaryDirectDeps().getAllElementsAsIterable();
     } else {
       // There may be duplicates here. Make sure everything is unique.
       ImmutableSet.Builder<SkyKey> result = ImmutableSet.builder();
@@ -561,6 +560,10 @@ public class InMemoryNodeEntry implements NodeEntry {
     return (GroupedList<SkyKey>) directDeps;
   }
 
+  private synchronized int getNumTemporaryDirectDeps() {
+    return directDeps == null ? 0 : getTemporaryDirectDeps().numElements();
+  }
+
   @Override
   public synchronized boolean noDepsLastBuild() {
     return getDirtyBuildingState().noDepsLastBuild();
@@ -579,6 +582,16 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
+  public synchronized void resetForRestartFromScratch() {
+    Preconditions.checkState(!isDone(), "Reset entry can't be done: %s", this);
+    directDeps = null;
+    signaledDeps = 0;
+    if (dirtyBuildingState != null) {
+      dirtyBuildingState.resetForRestartFromScratch();
+    }
+  }
+
+  @Override
   public synchronized Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
     Preconditions.checkState(!isDone(), "add temp shouldn't be done: %s %s", helper, this);
     return getTemporaryDirectDeps().append(helper);
@@ -593,7 +606,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized boolean isReady() {
     Preconditions.checkState(!isDone(), "can't be ready if done: %s", this);
-    return isReady(getTemporaryDirectDeps().numElements());
+    return isReady(getNumTemporaryDirectDeps());
   }
 
   /** Returns whether all known children of this node have signaled that they are done. */

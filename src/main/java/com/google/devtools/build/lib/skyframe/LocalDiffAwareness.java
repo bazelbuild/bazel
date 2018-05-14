@@ -50,7 +50,6 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
     @Option(
       name = "watchfs",
       defaultValue = "false",
-      category = "server startup",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =

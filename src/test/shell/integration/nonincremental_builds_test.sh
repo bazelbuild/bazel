@@ -96,7 +96,7 @@ function test_inmemory_state_absent_after_build_with_nokeep_state() {
     "$bazel_javabase"/bin/jmap -histo:live "$server_pid" > histo.txt
 
     cat histo.txt >> "$TEST_log"
-    assert_not_contains "GenRuleAction" histo.txt
+    assert_not_contains "GenRuleAction$" histo.txt
     assert_not_contains "InMemoryNodeEntry" histo.txt
 }
 

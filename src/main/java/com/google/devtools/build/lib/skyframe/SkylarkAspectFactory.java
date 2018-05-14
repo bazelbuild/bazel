@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -50,7 +50,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
+      ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
     SkylarkRuleContext skylarkRuleContext = null;
     try (Mutability mutability = Mutability.create("aspect")) {
@@ -77,7 +77,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
             skylarkAspect
                 .getImplementation()
                 .call(
-                    /*args=*/ ImmutableList.of(base, skylarkRuleContext),
+                    /*args=*/ ImmutableList.of(ctadBase.getConfiguredTarget(), skylarkRuleContext),
                     /* kwargs= */ ImmutableMap.of(),
                     /*ast=*/ null,
                     env);
@@ -94,7 +94,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
         }
         return createAspect(aspectSkylarkObject, aspectDescriptor, ruleContext);
       } catch (EvalException e) {
-        addAspectToStackTrace(base, e);
+        addAspectToStackTrace(ctadBase.getTarget(), e);
         ruleContext.ruleError("\n" + e.print());
         return null;
       }
@@ -175,12 +175,12 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     }
   }
 
-  private void addAspectToStackTrace(ConfiguredTarget base, EvalException e) {
+  private void addAspectToStackTrace(Target base, EvalException e) {
     if (e instanceof EvalExceptionWithStackTrace) {
       ((EvalExceptionWithStackTrace) e)
           .registerPhantomFuncall(
               String.format("%s(...)", skylarkAspect.getName()),
-              base.getTarget().getAssociatedRule().getLocation(),
+              base.getAssociatedRule().getLocation(),
               skylarkAspect.getImplementation());
     }
   }

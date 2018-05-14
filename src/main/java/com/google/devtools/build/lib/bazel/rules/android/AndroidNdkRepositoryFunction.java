@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkPaths;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkRelease;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.GnuLibStdCppStlImpl;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.LibCppStlImpl;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
@@ -175,17 +177,21 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       String warningMessage =
           String.format(
               "The revision of the Android NDK referenced by android_ndk_repository rule '%s' "
-                  + "could not be determined (the revision string found is '%s'). Defaulting to "
-                  + "revision %s.",
-              ruleName, ndkRelease.rawRelease, AndroidNdkCrosstools.LATEST_KNOWN_REVISION.getKey());
+                  + "could not be determined (the revision string found is '%s'). "
+                  + "Bazel will attempt to treat the NDK as if it was r%s. This may cause "
+                  + "compilation and linkage problems. Please download a supported NDK version.\n",
+              ruleName,
+              ndkRelease.rawRelease,
+              AndroidNdkCrosstools.LATEST_KNOWN_REVISION.getKey());
       env.getListener().handle(Event.warn(warningMessage));
       ndkMajorRevision = AndroidNdkCrosstools.LATEST_KNOWN_REVISION.getValue();
     } else if (!AndroidNdkCrosstools.isKnownNDKRevision(ndkRelease)) {
       String warningMessage =
           String.format(
               "The major revision of the Android NDK referenced by android_ndk_repository rule "
-                  + "'%s' is %s. The major revisions supported by Bazel are %s. Defaulting to "
-                  + "revision %s.",
+                  + "'%s' is %s. The major revisions supported by Bazel are %s. Bazel will attempt "
+                  + "to treat the NDK as if it was r%s. This may cause compilation and linkage "
+                  + "problems. Please download a supported NDK version.\n",
               ruleName,
               ndkRelease.majorRevision,
               AndroidNdkCrosstools.KNOWN_NDK_MAJOR_REVISIONS.keySet(),
@@ -203,7 +209,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     try {
 
       String hostPlatform = AndroidNdkCrosstools.getHostPlatform(ndkRelease);
-      NdkPaths ndkPaths = new NdkPaths(ruleName, hostPlatform, apiLevel);
+      NdkPaths ndkPaths = new NdkPaths(ruleName, hostPlatform, apiLevel, ndkRelease.majorRevision);
 
       for (StlImpl stlImpl : StlImpls.get(ndkPaths)) {
         CrosstoolRelease crosstoolRelease =
@@ -215,7 +221,9 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
     }
 
-    String buildFile = createBuildFile(ruleName, crosstoolsAndStls.build());
+    String defaultCrosstool = getDefaultCrosstool(ndkRelease.majorRevision);
+
+    String buildFile = createBuildFile(ruleName, defaultCrosstool, crosstoolsAndStls.build());
     writeBuildFile(outputDirectory, buildFile);
     return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
@@ -225,12 +233,18 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     return AndroidNdkRepositoryRule.class;
   }
 
+  private static String getDefaultCrosstool(Integer majorRevision) {
+    // From NDK 17, libc++ replaces gnu-libstdc++ as the default STL.
+    return majorRevision <= 16 ? GnuLibStdCppStlImpl.NAME : LibCppStlImpl.NAME;
+  }
+
   private static PathFragment getAndroidNdkHomeEnvironmentVar(
       Path workspace, Map<String, String> env) {
     return workspace.getRelative(PathFragment.create(env.get(PATH_ENV_VAR))).asFragment();
   }
 
-  private static String createBuildFile(String ruleName, List<CrosstoolStlPair> crosstools) {
+  private static String createBuildFile(
+      String ruleName, String defaultCrosstool, List<CrosstoolStlPair> crosstools) {
 
     String buildFileTemplate = getTemplate("android_ndk_build_file_template.txt");
     String ccToolchainSuiteTemplate = getTemplate("android_ndk_cc_toolchain_suite_template.txt");
@@ -282,6 +296,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
 
     return buildFileTemplate
         .replace("%ruleName%", ruleName)
+        .replace("%defaultCrosstool%", "//:toolchain-" + defaultCrosstool)
         .replace("%ccToolchainSuites%", ccToolchainSuites)
         .replace("%ccToolchainRules%", ccToolchainRules)
         .replace("%stlFilegroups%", stlFilegroups)
@@ -327,6 +342,9 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
         toolchainFileGlobPatterns.add(NdkPaths.stripRepositoryPrefix(cxxFlag) + "/**/*");
       }
     }
+
+    // For NDK 15 and up. Unfortunately, the toolchain does not encode the NDK revision number.
+    toolchainFileGlobPatterns.add("ndk/sysroot/**/*");
 
     // If this is a clang toolchain, also add the corresponding gcc toolchain to the globs.
     int gccToolchainIndex = toolchain.getCompilerFlagList().indexOf("-gcc-toolchain");

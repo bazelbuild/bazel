@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SU
 
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
@@ -51,7 +52,8 @@ public class Filegroup implements RuleConfiguredTargetFactory {
       "Output group %s is not permitted for " + "reference in filegroups.";
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws RuleErrorException {
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     String outputGroupName = ruleContext.attributes().get("output_group", Type.STRING);
 
     if (outputGroupName.endsWith(INTERNAL_SUFFIX)) {

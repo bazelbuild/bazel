@@ -24,14 +24,13 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 
 /**
  * Rule definition for extra_action rule.
  */
 public final class ExtraActionRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     /*<!-- #BLAZE_RULE(extra_action).NAME -->
     You may refer to this rule by <code>label</code> in the <code>extra_actions</code> argument
     of <a href="${link action_listener}"><code> action_listener</code></a> rules.
@@ -144,7 +143,7 @@ public final class ExtraActionRule implements RuleDefinition {
   access to a file containing a protocol buffer as $(EXTRA_ACTION_FILE)
   with detailed information on the original action it is shadowing.
   It also has access to all the input files the original action has access to.
-  See <tt>extra_actions.proto</tt>
+  See <tt>extra_actions_base.proto</tt>
   for details on the data stored inside the protocol buffer. Each proto file
   contains an ExtraActionInfo message.
 </p>

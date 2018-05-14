@@ -16,15 +16,16 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.buildtool.CqueryBuildTool;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.query2.CommonQueryOptions;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import com.google.devtools.build.lib.query2.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.output.CqueryOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -44,7 +45,7 @@ import java.util.Set;
   name = "cquery",
   builds = true,
   inherits = {BuildCommand.class},
-  options = {CommonQueryOptions.class},
+  options = {CqueryOptions.class},
   usesConfigurationOptions = true,
   shortDescription = "Loads, analyzes, and queries the specified targets w/ configurations.",
   allowResidue = true,
@@ -56,6 +57,15 @@ public final class CqueryCommand implements BlazeCommand {
   @Override
   public void editOptions(OptionsParser optionsParser) {
     try {
+      if (!optionsParser
+          .getOptions(CqueryOptions.class)
+          .transitions
+          .equals(CqueryOptions.Transitions.NONE)) {
+        optionsParser.parse(
+            PriorityCategory.COMPUTED_DEFAULT,
+            "Option required by setting the --transitions flag",
+            ImmutableList.of("--output=transitions"));
+      }
       optionsParser.parse(
           PriorityCategory.COMPUTED_DEFAULT,
           "Options required by cquery",
@@ -66,17 +76,20 @@ public final class CqueryCommand implements BlazeCommand {
   }
 
   @Override
-  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
     if (options.getResidue().isEmpty()) {
       env.getReporter()
           .handle(
               Event.error(
                   "Missing query expression. Use the 'help cquery' command for syntax and help."));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
     String query = Joiner.on(' ').join(options.getResidue());
     HashMap<String, QueryFunction> functions = new HashMap<>();
-    for (QueryFunction queryFunction : QueryEnvironment.DEFAULT_QUERY_FUNCTIONS) {
+    for (QueryFunction queryFunction : ConfiguredTargetQueryEnvironment.FUNCTIONS) {
+      functions.put(queryFunction.getName(), queryFunction);
+    }
+    for (QueryFunction queryFunction : env.getRuntime().getQueryFunctions()) {
       functions.put(queryFunction.getName(), queryFunction);
     }
     QueryExpression expr;
@@ -85,10 +98,10 @@ public final class CqueryCommand implements BlazeCommand {
     } catch (QueryException e) {
       env.getReporter()
           .handle(Event.error("Error while parsing '" + query + "': " + e.getMessage()));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
-    List<String> topLevelTargets = options.getOptions(CommonQueryOptions.class).universeScope;
+    List<String> topLevelTargets = options.getOptions(CqueryOptions.class).universeScope;
     Set<String> targetPatternSet = new LinkedHashSet<>();
     if (topLevelTargets.isEmpty()) {
       expr.collectTargetPatterns(targetPatternSet);
@@ -104,6 +117,8 @@ public final class CqueryCommand implements BlazeCommand {
             env.getReporter().getOutErr(),
             env.getCommandId(),
             env.getCommandStartTime());
-    return new BuildTool(env).processRequest(request, null, expr).getExitCondition();
+    ExitCode exitCode =
+        new CqueryBuildTool(env, expr).processRequest(request, null).getExitCondition();
+    return BlazeCommandResult.exitCode(exitCode);
   }
 }

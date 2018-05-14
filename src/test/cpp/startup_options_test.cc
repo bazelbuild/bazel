@@ -18,9 +18,23 @@
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/workspace_layout.h"
-#include "gtest/gtest.h"
+#include "src/test/cpp/test_util.h"
+#include "googletest/include/gtest/gtest.h"
 
 namespace blaze {
+
+// Minimal StartupOptions class for testing.
+class FakeStartupOptions : public StartupOptions {
+ public:
+  FakeStartupOptions(const WorkspaceLayout *workspace_layout)
+      : StartupOptions("Bazel", workspace_layout) {}
+  blaze_exit_code::ExitCode ProcessArgExtra(
+      const char *arg, const char *next_arg, const std::string &rcfile,
+      const char **value, bool *is_processed, std::string *error) override {
+    *is_processed = false;
+    return blaze_exit_code::SUCCESS;
+  }
+};
 
 class StartupOptionsTest : public ::testing::Test {
  protected:
@@ -44,35 +58,7 @@ class StartupOptionsTest : public ::testing::Test {
 
   // Recreates startup_options_ after changes to the environment.
   void ReinitStartupOptions() {
-    startup_options_.reset(new StartupOptions(workspace_layout_.get()));
-  }
-
-  void SuccessfulIsNullaryTest(const std::string& flag_name) const {
-    EXPECT_TRUE(startup_options_->IsNullary("--" + flag_name));
-    EXPECT_TRUE(startup_options_->IsNullary("--no" + flag_name));
-
-    EXPECT_FALSE(startup_options_->IsNullary("--" + flag_name + "__invalid"));
-
-    EXPECT_DEATH(startup_options_->IsNullary("--" + flag_name + "=foo"),
-                 ("In argument '--" + flag_name + "=foo': option "
-                     "'--" + flag_name + "' does not take a value").c_str());
-
-    EXPECT_DEATH(startup_options_->IsNullary("--no" + flag_name + "=foo"),
-                 ("In argument '--no" + flag_name + "=foo': option "
-                     "'--no" + flag_name + "' does not take a value").c_str());
-
-    EXPECT_FALSE(startup_options_->IsUnary("--" + flag_name));
-    EXPECT_FALSE(startup_options_->IsUnary("--no" + flag_name));
-  }
-
-  void SuccessfulIsUnaryTest(const std::string& flag_name) const {
-    EXPECT_TRUE(startup_options_->IsUnary("--" + flag_name));
-    EXPECT_TRUE(startup_options_->IsUnary("--" + flag_name + "="));
-    EXPECT_TRUE(startup_options_->IsUnary("--" + flag_name + "=foo"));
-
-    EXPECT_FALSE(startup_options_->IsUnary("--" + flag_name + "__invalid"));
-    EXPECT_FALSE(startup_options_->IsNullary("--" + flag_name));
-    EXPECT_FALSE(startup_options_->IsNullary("--no" + flag_name));
+    startup_options_.reset(new FakeStartupOptions(workspace_layout_.get()));
   }
 
  private:
@@ -120,39 +106,6 @@ TEST_F(StartupOptionsTest, EmptyFlagsAreInvalidTest) {
   EXPECT_FALSE(startup_options_->IsNullary("--"));
   EXPECT_FALSE(startup_options_->IsUnary(""));
   EXPECT_FALSE(startup_options_->IsUnary("--"));
-}
-
-TEST_F(StartupOptionsTest, ValidStartupFlagsTest) {
-  // IMPORTANT: Before modifying this test, please contact a Bazel core team
-  // member that knows the Google-internal procedure for adding/deprecating
-  // startup flags.
-  SuccessfulIsNullaryTest("allow_configurable_attributes");
-  SuccessfulIsNullaryTest("batch");
-  SuccessfulIsNullaryTest("batch_cpu_scheduling");
-  SuccessfulIsNullaryTest("block_for_lock");
-  SuccessfulIsNullaryTest("client_debug");
-  SuccessfulIsNullaryTest("deep_execroot");
-  SuccessfulIsNullaryTest("experimental_oom_more_eagerly");
-  SuccessfulIsNullaryTest("fatal_event_bus_exceptions");
-  SuccessfulIsNullaryTest("host_jvm_debug");
-  SuccessfulIsNullaryTest("master_bazelrc");
-  SuccessfulIsNullaryTest("master_blazerc");
-  SuccessfulIsNullaryTest("watchfs");
-  SuccessfulIsNullaryTest("write_command_log");
-  SuccessfulIsUnaryTest("bazelrc");
-  SuccessfulIsUnaryTest("blazerc");
-  SuccessfulIsUnaryTest("command_port");
-  SuccessfulIsUnaryTest("connect_timeout_secs");
-  SuccessfulIsUnaryTest("experimental_oom_more_eagerly_threshold");
-  SuccessfulIsUnaryTest("host_javabase");
-  SuccessfulIsUnaryTest("host_jvm_args");
-  SuccessfulIsUnaryTest("host_jvm_profile");
-  SuccessfulIsUnaryTest("invocation_policy");
-  SuccessfulIsUnaryTest("io_nice_level");
-  SuccessfulIsUnaryTest("install_base");
-  SuccessfulIsUnaryTest("max_idle_secs");
-  SuccessfulIsUnaryTest("output_base");
-  SuccessfulIsUnaryTest("output_user_root");
 }
 
 TEST_F(StartupOptionsTest, ProcessSpaceSeparatedArgsTest) {

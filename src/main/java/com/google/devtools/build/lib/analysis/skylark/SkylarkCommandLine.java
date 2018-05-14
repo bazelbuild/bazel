@@ -16,50 +16,16 @@ package com.google.devtools.build.lib.analysis.skylark;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkCommandLineApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 
 /** A Skylark module class to create memory efficient command lines. */
-@SkylarkModule(
-  name = "cmd_helper",
-  namespace = true,
-  category = SkylarkModuleCategory.BUILTIN,
-  doc = "Deprecated. Module for creating memory efficient command lines."
-)
-public class SkylarkCommandLine {
+public class SkylarkCommandLine implements SkylarkCommandLineApi {
 
-  @SkylarkSignature(
-    name = "join_paths",
-    objectType = SkylarkCommandLine.class,
-    returnType = String.class,
-    doc =
-        "Deprecated. Creates a single command line argument joining the paths of a set "
-            + "of files on the separator string.",
-    parameters = {
-      @Param(name = "separator", type = String.class, doc = "the separator string to join on."),
-      @Param(
-        name = "files",
-        type = SkylarkNestedSet.class,
-        generic1 = Artifact.class,
-        doc = "the files to concatenate."
-      )
-    }
-  )
-  private static BuiltinFunction joinPaths =
-      new BuiltinFunction("join_paths") {
-        public String invoke(String separator, SkylarkNestedSet files) {
-          NestedSet<Artifact> artifacts = files.getSet(Artifact.class);
-          // TODO(bazel-team): lazy evaluate
-          return Artifact.joinExecPaths(separator, artifacts);
-        }
-      };
-
-  static {
-    SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkCommandLine.class);
+  @Override
+  public String joinPaths(String separator, SkylarkNestedSet files) {
+    NestedSet<Artifact> artifacts = files.getSet(Artifact.class);
+    // TODO(bazel-team): lazy evaluate
+    return Artifact.joinExecPaths(separator, artifacts);
   }
 }

@@ -29,51 +29,58 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 
 /**
- * Creates mangled symlinks in the solib directory for all shared libraries.
- * Libraries that have a potential to contain SONAME field rely on the mangled
- * symlink to the parent directory instead.
+ * Creates mangled symlinks in the solib directory for all shared libraries. Libraries that have a
+ * potential to contain SONAME field rely on the mangled symlink to the parent directory instead.
  *
- * Such symlinks are used by the linker to ensure that all rpath entries can be
- * specified relative to the $ORIGIN.
+ * <p>Such symlinks are used by the linker to ensure that all rpath entries can be specified
+ * relative to the $ORIGIN.
  */
+@AutoCodec
 @Immutable
 public final class SolibSymlinkAction extends AbstractAction {
-  private final Path target;
   private final Artifact symlink;
 
-  private SolibSymlinkAction(ActionOwner owner, Artifact library, Artifact symlink) {
-    super(owner, ImmutableList.of(library), ImmutableList.of(symlink));
+  @VisibleForSerialization
+  SolibSymlinkAction(
+      ActionOwner owner, Artifact primaryInput, Artifact primaryOutput) {
+    super(owner, ImmutableList.of(primaryInput), ImmutableList.of(primaryOutput));
 
-    Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(library.getFilename()));
-    this.symlink = Preconditions.checkNotNull(symlink);
-    this.target = library.getPath();
+    Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(primaryInput.getFilename()));
+    this.symlink = Preconditions.checkNotNull(primaryOutput);
   }
 
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
-    Path mangledPath = symlink.getPath();
+    Path mangledPath = actionExecutionContext.getInputPath(symlink);
     try {
-      mangledPath.createSymbolicLink(target);
+      mangledPath.createSymbolicLink(actionExecutionContext.getInputPath(getPrimaryInput()));
     } catch (IOException e) {
-      throw new ActionExecutionException("failed to create _solib symbolic link '"
-          + symlink.prettyPrint() + "' to target '" + target + "'", e, this, false);
+      throw new ActionExecutionException(
+          "failed to create _solib symbolic link '"
+              + symlink.prettyPrint()
+              + "' to target '"
+              + getPrimaryInput()
+              + "'",
+          e,
+          this,
+          false);
     }
     return ActionResult.EMPTY;
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addPath(symlink.getPath());
-    f.addPath(target);
-    return f.hexDigestAndReset();
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addPath(symlink.getExecPath());
+    fp.addPath(getPrimaryInput().getExecPath());
   }
 
   @Override
@@ -152,7 +159,8 @@ public final class SolibSymlinkAction extends AbstractAction {
     ArtifactRoot root = configuration.getBinDirectory(ruleContext.getRule().getRepository());
     Artifact symlink = ruleContext.getShareableArtifact(symlinkName, root);
     ruleContext.registerAction(
-        new SolibSymlinkAction(ruleContext.getActionOwner(), library, symlink));
+        new SolibSymlinkAction(
+            ruleContext.getActionOwner(), library, symlink));
     return symlink;
   }
 

@@ -14,19 +14,17 @@
 
 package com.google.devtools.build.lib.bazel.rules;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.bazel.rules.BazelStrategyModule.BazelExecutionOptions;
 import com.google.devtools.build.lib.exec.ActionContextConsumer;
+import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
-import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
+import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
+import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
 import java.util.Map;
-import java.util.TreeMap;
 
 /**
  * An object describing the {@link ActionContext} implementation that some actions require in Bazel.
@@ -39,12 +37,10 @@ public class BazelActionContextConsumer implements ActionContextConsumer {
   }
 
   @Override
-  public ImmutableMap<String, String> getSpawnActionContexts() {
-    Map<String, String> contexts = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-
+  public void populate(SpawnActionContextMaps.Builder builder) {
     // Default strategies for certain mnemonics - they can be overridden by --strategy= flags.
-    contexts.put("Javac", "worker");
-    contexts.put("Closure", "worker");
+    builder.strategyByMnemonicMap().put("Javac", "worker");
+    builder.strategyByMnemonicMap().put("Closure", "worker");
 
     for (Map.Entry<String, String> strategy : options.strategy) {
       String strategyName = strategy.getValue();
@@ -54,29 +50,25 @@ public class BazelActionContextConsumer implements ActionContextConsumer {
       if (strategyName.equals("local")) {
         strategyName = "standalone";
       }
-      contexts.put(strategy.getKey(), strategyName);
+      builder.strategyByMnemonicMap().put(strategy.getKey(), strategyName);
     }
 
     if (!options.genruleStrategy.isEmpty()) {
-      contexts.put("Genrule", options.genruleStrategy);
+      builder.strategyByMnemonicMap().put("Genrule", options.genruleStrategy);
     }
 
     // TODO(bazel-team): put this in getActionContexts (key=SpawnActionContext.class) instead
     if (!options.spawnStrategy.isEmpty()) {
-      contexts.put("", options.spawnStrategy);
+      builder.strategyByMnemonicMap().put("", options.spawnStrategy);
     }
 
-    return ImmutableMap.copyOf(contexts);
-  }
-
-  @Override
-  public Multimap<Class<? extends ActionContext>, String> getActionContexts() {
-    return ImmutableMultimap.<Class<? extends ActionContext>, String>builder()
+    builder
+        .strategyByContextMap()
         .put(CppCompileActionContext.class, "")
-        .put(IncludeScanningContext.class, "")
+        .put(CppIncludeExtractionContext.class, "")
+        .put(CppIncludeScanningContext.class, "")
         .put(FileWriteActionContext.class, "")
         .put(WriteAdbArgsActionContext.class, "")
-        .put(SpawnCache.class, "")
-        .build();
+        .put(SpawnCache.class, "");
   }
 }

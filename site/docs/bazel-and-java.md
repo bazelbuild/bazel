@@ -54,7 +54,7 @@ Follow these guidelines when creating your BUILD files:
    java_library(
        name = "directory-name",
        srcs = glob(["*.java"]),
-      deps = [...],
+       deps = [...],
    )
    ```
 *  The name of the library should be the name of the directory containing the

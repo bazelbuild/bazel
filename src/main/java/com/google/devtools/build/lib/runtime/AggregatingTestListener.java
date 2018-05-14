@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.rules.test.TestAttempt;
+import com.google.devtools.build.lib.exec.TestAttempt;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.util.Collection;
@@ -100,9 +100,11 @@ public class AggregatingTestListener {
 
         // And create an empty summary suitable for incremental analysis.
         // Also has the nice side effect of mapping labels to RuleConfiguredTargets.
-        TestSummary.Builder summary = TestSummary.newBuilder()
-            .setTarget(target)
-            .setStatus(BlazeTestStatus.NO_STATUS);
+        TestSummary.Builder summary =
+            TestSummary.newBuilder()
+                .setTarget(target)
+                .setConfiguration(event.getConfigurationForTarget(target))
+                .setStatus(BlazeTestStatus.NO_STATUS);
         TestSummary.Builder oldSummary = summaries.put(asKey(target), summary);
         Preconditions.checkState(
             oldSummary == null, "target: %s, summaries: %s %s", target, oldSummary, summary);
@@ -125,10 +127,11 @@ public class AggregatingTestListener {
     ConfiguredTargetKey targetLabel =
         ConfiguredTargetKey.of(testOwner.getLabel(), result.getTestAction().getConfiguration());
 
-    // If a test result was cached, then no attempts for that test were actually
-    // executed. Hence report that fact as a cached attempt.
+    // If a test result was cached, then post the cached attempts to the event bus.
     if (result.isCached()) {
-      eventBus.post(TestAttempt.fromCachedTestResult(result));
+      for (TestAttempt attempt : result.getCachedTestAttempts()) {
+        eventBus.post(attempt);
+      }
     }
 
     TestSummary finalTestSummary = null;
@@ -140,7 +143,7 @@ public class AggregatingTestListener {
         // This situation is likely to happen if --notest_keep_going is set with multiple targets.
         return;
       }
-     
+
       summary = analyzer.incrementalAnalyze(summary, result);
 
       // If all runs are processed, the target is finished and ready to report.
@@ -222,7 +225,7 @@ public class AggregatingTestListener {
   @AllowConcurrentEvents
   public void targetComplete(TargetCompleteEvent event) {
     if (event.failed()) {
-      targetFailure(ConfiguredTargetKey.of(event.getTarget()));
+      targetFailure(asKey(event.getTarget()));
     }
   }
 
@@ -263,6 +266,9 @@ public class AggregatingTestListener {
 
   private ConfiguredTargetKey asKey(ConfiguredTarget target) {
     return ConfiguredTargetKey.of(
-        AliasProvider.getDependencyLabel(target), target.getConfiguration());
+        // A test is never in the host configuration.
+        AliasProvider.getDependencyLabel(target),
+        target.getConfigurationKey(),
+        /*isHostConfiguration=*/ false);
   }
 }

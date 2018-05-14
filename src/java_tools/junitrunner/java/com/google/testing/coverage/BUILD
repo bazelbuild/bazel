@@ -65,7 +65,7 @@ genrule(
     outs = ["JacocoCoverage_jarjar_deploy.jar"],
     cmd = "\n".join([
         "JARJAR=\"$$(mktemp -t bazel.XXXXXXXX)\"",
-        "\"$(JAVA)\" -jar \"$(location //third_party/java/jarjar:jarjar_bin_deploy.jar)\" --rules \"$(location :JacocoCoverage.jarjar)\" --output \"$${JARJAR}\" \"$(location :JacocoCoverage_deploy.jar)\"",
+        "\"$(JAVA)\" -jar \"$(location //third_party/jarjar:jarjar_bin_deploy.jar)\" process \"$(location :JacocoCoverage.jarjar)\" \"$(location :JacocoCoverage_deploy.jar)\" \"$${JARJAR}\"",
         "\"$(JAVA)\" -jar \"$(location //src/java_tools/singlejar:SingleJar_deploy.jar)\" --normalize --sources \"$${JARJAR}\" --output \"$@\"",
         "rm -fr \"$${JARJAR}\"",
     ]),
@@ -73,7 +73,7 @@ genrule(
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
-        "//third_party/java/jarjar:jarjar_bin_deploy.jar",
+        "//third_party/jarjar:jarjar_bin_deploy.jar",
         "//tools/defaults:jdk",
     ],
 )

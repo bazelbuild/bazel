@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -126,10 +125,6 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
         "    name = 'check_lib',",
         "    defines = ['foo'],",
         ")");
-    // The particular values for include directories are slightly
-    // fragile because the build system changes. But check for at
-    // least one normal include, one system include, and one define.
-    assertThat(getApi("//pkg:check").getCcFlags())
-        .containsAllOf("-iquote .", "-isystem " + TestConstants.GCC_INCLUDE_PATH, "-Dfoo");
+    assertThat(getApi("//pkg:check").getCcFlags()).contains("-Dfoo");
   }
 }

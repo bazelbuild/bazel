@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 // Note: AutoValue v1.4-rc1 has AutoValue.CopyAnnotations which makes it work with Skylark. No need
@@ -29,6 +30,7 @@ import javax.annotation.Nullable;
  * rules.
  */
 @AutoValue
+@AutoCodec
 public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvider {
   public abstract String commandLine();
 
@@ -40,6 +42,7 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
 
   public abstract NestedSet<Artifact> blacklistedProtos();
 
+  @AutoCodec.Instantiator
   public static ProtoLangToolchainProvider create(
       String commandLine,
       FilesToRunProvider pluginExecutable,

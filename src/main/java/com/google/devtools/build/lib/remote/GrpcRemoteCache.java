@@ -25,11 +25,14 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc;
@@ -63,7 +66,6 @@ import java.util.concurrent.TimeUnit;
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
 public class GrpcRemoteCache extends AbstractRemoteActionCache {
-  private final RemoteOptions options;
   private final CallCredentials credentials;
   private final Channel channel;
   private final RemoteRetrier retrier;
@@ -78,8 +80,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       RemoteOptions options,
       RemoteRetrier retrier,
       DigestUtil digestUtil) {
-    super(digestUtil);
-    this.options = options;
+    super(options, digestUtil);
     this.credentials = credentials;
     this.channel = channel;
     this.retrier = retrier;
@@ -178,11 +179,6 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
    * allow throwing such an exception. Any caller must make sure to catch the
    * {@link StatusRuntimeException}. Note that the retrier implicitly catches it, so if this is used
    * in the context of {@link RemoteRetrier#execute}, that's perfectly safe.
-   *
-   * <p>This method also converts any NOT_FOUND code returned from the server into a
-   * {@link CacheNotFoundException}. TODO(olaola): this is not enough. NOT_FOUND can also be raised
-   * by execute, in which case the server should return the missing digest in the Status.details
-   * field. This should be part of the API.
    */
   private void readBlob(Digest digest, OutputStream stream)
       throws IOException, StatusRuntimeException {
@@ -190,30 +186,30 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     if (!options.remoteInstanceName.isEmpty()) {
       resourceName += options.remoteInstanceName + "/";
     }
-    resourceName += "blobs/" + digest.getHash() + "/" + digest.getSizeBytes();
-    try {
-      Iterator<ReadResponse> replies = bsBlockingStub()
-          .read(ReadRequest.newBuilder().setResourceName(resourceName).build());
-      while (replies.hasNext()) {
-        replies.next().getData().writeTo(stream);
-      }
-    } catch (StatusRuntimeException e) {
-      if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
-        throw new CacheNotFoundException(digest);
-      }
-      throw e;
+    resourceName += "blobs/" + digestUtil.toString(digest);
+    Iterator<ReadResponse> replies = bsBlockingStub()
+        .read(ReadRequest.newBuilder().setResourceName(resourceName).build());
+    while (replies.hasNext()) {
+      replies.next().getData().writeTo(stream);
     }
   }
 
   @Override
   protected void downloadBlob(Digest digest, Path dest) throws IOException, InterruptedException {
-    retrier.execute(
-        () -> {
-          try (OutputStream stream = dest.getOutputStream()) {
-            readBlob(digest, stream);
-          }
-          return null;
-        });
+    try {
+      retrier.execute(
+          () -> {
+            try (OutputStream stream = dest.getOutputStream()) {
+              readBlob(digest, stream);
+            }
+            return null;
+          });
+    } catch (RetryException e) {
+      if (RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)) {
+        throw new CacheNotFoundException(digest, digestUtil);
+      }
+      throw e;
+    }
   }
 
   @Override
@@ -221,12 +217,19 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     if (digest.getSizeBytes() == 0) {
       return new byte[0];
     }
-    return retrier.execute(
-        () -> {
-          ByteArrayOutputStream stream = new ByteArrayOutputStream((int) digest.getSizeBytes());
-          readBlob(digest, stream);
-          return stream.toByteArray();
-        });
+    try {
+      return retrier.execute(
+          () -> {
+            ByteArrayOutputStream stream = new ByteArrayOutputStream((int) digest.getSizeBytes());
+            readBlob(digest, stream);
+            return stream.toByteArray();
+          });
+    } catch (RetryException e) {
+      if (RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)) {
+        throw new CacheNotFoundException(digest, digestUtil);
+      }
+      throw e;
+    }
   }
 
   @Override
@@ -236,7 +239,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       Collection<Path> files,
       FileOutErr outErr,
       boolean uploadAction)
-      throws IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
     upload(execRoot, files, outErr, result);
     if (!uploadAction) {
@@ -262,8 +265,9 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   }
 
   void upload(Path execRoot, Collection<Path> files, FileOutErr outErr, ActionResult.Builder result)
-      throws IOException, InterruptedException {
-    UploadManifest manifest = new UploadManifest(result, execRoot);
+      throws ExecException, IOException, InterruptedException {
+    UploadManifest manifest =
+        new UploadManifest(digestUtil, result, execRoot, options.allowSymlinkUpload);
     manifest.addFiles(files);
 
     List<Chunker> filesToUpload = new ArrayList<>();

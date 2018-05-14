@@ -21,15 +21,12 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -83,6 +80,7 @@ import javax.annotation.Nullable;
           + "1.2.3.4."
 )
 @Immutable
+@AutoCodec
 public final class DottedVersion implements Comparable<DottedVersion>, SkylarkValue {
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
   private static final Pattern COMPONENT_PATTERN = Pattern.compile("(\\d+)(?:([a-z]+)(\\d*))?");
@@ -153,17 +151,21 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
   private final String stringRepresentation;
   private final int numOriginalComponents;
 
-  private DottedVersion(ImmutableList<Component> components, String version,
-      int numOriginalComponents) {
+  @AutoCodec.VisibleForSerialization
+  DottedVersion(
+      ImmutableList<Component> components, String stringRepresentation, int numOriginalComponents) {
     this.components = components;
-    this.stringRepresentation = version;
+    this.stringRepresentation = stringRepresentation;
     this.numOriginalComponents = numOriginalComponents;
   }
 
   @Override
-  @SkylarkCallable(name = "compare_to", 
-    doc = "Compares based on most signifigant (first) not-matching version component. "
-        + "So, for example, 1.2.3 < 1.2.4")
+  @SkylarkCallable(
+    name = "compare_to",
+    doc =
+        "Compares based on most signifigant (first) not-matching version component. "
+            + "So, for example, 1.2.3 < 1.2.4"
+  )
   public int compareTo(DottedVersion other) {
     int maxComponents = Math.max(components.size(), other.components.size());
     for (int componentIndex = 0; componentIndex < maxComponents; componentIndex++) {
@@ -180,16 +182,16 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
   /**
    * Returns the string representation of this dotted version, padded to a minimum number of
    * components if the string representation does not already contain that many components.
-   * 
+   *
    * <p>For example, a dotted version of "7.3" will return "7.3" with either one or two components
    * requested, "7.3.0" if three are requested, and "7.3.0.0" if four are requested.
-   * 
-   * <p>Trailing zero components at the end of a string representation will not be removed. For
-   * example, a dotted version of "1.0.0" will return "1.0.0" if only one or two components
-   * are requested.
    *
-   * @param numMinComponents the minimum number of dot-separated numbers that should be present
-   *     in the returned string representation
+   * <p>Trailing zero components at the end of a string representation will not be removed. For
+   * example, a dotted version of "1.0.0" will return "1.0.0" if only one or two components are
+   * requested.
+   *
+   * @param numMinComponents the minimum number of dot-separated numbers that should be present in
+   *     the returned string representation
    */
   public String toStringWithMinimumComponents(int numMinComponents) {
     ImmutableList.Builder<Component> stringComponents = ImmutableList.builder();
@@ -257,43 +259,16 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
     printer.append(stringRepresentation);
   }
 
-  public static final ObjectCodec<DottedVersion> CODEC =
-      new ObjectCodec<DottedVersion>() {
-        @Override
-        public void serialize(DottedVersion obj, CodedOutputStream codedOut) throws IOException {
-          codedOut.writeInt32NoTag(obj.components.size());
-          for (Component component : obj.components) {
-            component.serialize(codedOut);
-          }
-          codedOut.writeStringNoTag(obj.stringRepresentation);
-          codedOut.writeInt32NoTag(obj.numOriginalComponents);
-        }
-
-        @Override
-        public DottedVersion deserialize(CodedInputStream codedIn) throws IOException {
-          int numComponents = codedIn.readInt32();
-          // TODO(janakr: Presize this if/when https://github.com/google/guava/issues/196 is
-          // resolved.
-          ImmutableList.Builder<Component> components = ImmutableList.builder();
-          for (int i = 0; i < numComponents; i++) {
-            components.add(Component.deserialize(codedIn));
-          }
-          return new DottedVersion(components.build(), codedIn.readString(), codedIn.readInt32());
-        }
-
-        @Override
-        public Class<DottedVersion> getEncodedClass() {
-          return DottedVersion.class;
-        }
-      };
-
-  private static final class Component implements Comparable<Component> {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static final class Component implements Comparable<Component> {
     private final int firstNumber;
     @Nullable private final String alphaSequence;
     private final int secondNumber;
     private final String stringRepresentation;
 
-    public Component(
+    @AutoCodec.VisibleForSerialization
+    Component(
         int firstNumber,
         @Nullable String alphaSequence,
         int secondNumber,
@@ -333,26 +308,6 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
     @Override
     public String toString() {
       return stringRepresentation;
-    }
-
-    void serialize(CodedOutputStream out) throws IOException {
-      if (alphaSequence == null) {
-        out.writeBoolNoTag(false);
-      } else {
-        out.writeBoolNoTag(true);
-        out.writeStringNoTag(alphaSequence);
-      }
-      out.writeInt32NoTag(firstNumber);
-      out.writeInt32NoTag(secondNumber);
-      out.writeStringNoTag(stringRepresentation);
-    }
-
-    static Component deserialize(CodedInputStream in) throws IOException {
-      String alphaSequence = null;
-      if (in.readBool()) {
-        alphaSequence = in.readString();
-      }
-      return new Component(in.readInt32(), alphaSequence, in.readInt32(), in.readString());
     }
   }
 }

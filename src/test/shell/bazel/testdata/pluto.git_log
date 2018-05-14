@@ -1,5 +1,5 @@
-commit a367b7e7f8f362697a079b7d23935bd079058af8 (HEAD -> master, tag: 3-subdir-bare)
-Author: John Doe <john@foo.com>
+commit 8753495c2536c9e24fa764f06bf3015758461dd4 (HEAD -> master, tag: 3-subdir-bare)
+Author: John Doe <john@example.com>
 Date:   Fri Dec 29 20:33:35 2017 -0500
 
     Remove BUILD and WORKSPACE files
@@ -19,8 +19,8 @@ index 874e03f..0000000
 -    visibility = ["//visibility:public"],
 -)
 
-commit ceab34fb9b4b9370d52dd5153074089a51bfb50e (tag: 2-subdir)
-Author: John Doe <john@foo.com>
+commit dbf9236251a9ea01b7a2eb563ca8e911060fc97c (tag: 2-subdir)
+Author: John Doe <john@example.com>
 Date:   Wed Dec 27 20:54:31 2017 +0000
 
     Move pluto files into pluto subdirectory
@@ -34,8 +34,8 @@ similarity index 100%
 rename from info
 rename to pluto/info
 
-commit b87de9346bb1a4a3d4d2ab1a567b07c5d11a486a (tag: 1-build)
-Author: John Doe <john@foo.com>
+commit 52f9a3f87a2dd17ae0e5847bbae9734f09354afd (tag: 1-build)
+Author: John Doe <john@example.com>
 Date:   Thu Jul 16 04:50:53 2015 -0700
 
     Add WORKSPACE and BUILD file. Update info because Pluto is no longer a planet.
@@ -62,8 +62,8 @@ index 8f442be..36cbae4 100644
 -Pluto is a planet
 +Pluto is a dwarf planet
 
-commit 36db6be50fd9f33cf89fc5b8206f2e3714b520e3 (tag: 0-initial)
-Author: John Doe <john@foo.com>
+commit dc948ef26ccac814b7b77f38d263f09778973b57 (tag: 0-initial)
+Author: John Doe <john@example.com>
 Date:   Thu Jul 16 04:49:35 2015 -0700
 
     Initial commit.

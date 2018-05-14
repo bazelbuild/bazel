@@ -15,9 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import java.io.IOException;
 
-/**
- * A class for flow statements (e.g. break and continue)
- */
+/** A class for flow statements (e.g. break and continue) */
 public final class FlowStatement extends Statement {
   // TODO(laurentlb): This conflicts with Statement.Kind, maybe remove it?
   public enum Kind {

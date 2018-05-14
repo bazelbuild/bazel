@@ -85,7 +85,7 @@ public class DataValueFile implements DataResource, DataAsset {
   }
 
   @Override
-  public int serializeTo(DataKey key, DataSourceTable sourceTable, OutputStream output)
+  public int serializeTo(DataSourceTable sourceTable, OutputStream output)
       throws IOException {
     SerializeFormat.DataValue.Builder builder = SerializeFormat.DataValue.newBuilder();
     SerializeFormat.DataValue value = builder.setSourceId(sourceTable.getSourceId(source)).build();

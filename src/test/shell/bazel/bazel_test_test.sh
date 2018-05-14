@@ -69,7 +69,8 @@ function test_3_cpus() {
   set_up_jobcount
   # 3 CPUs, so no more than 3 tests in parallel.
   bazel test --spawn_strategy=standalone --test_output=errors \
-    --local_resources=10000,3,100  --runs_per_test=10 //dir:test
+    --local_test_jobs=0 --local_resources=10000,3,100 \
+    --runs_per_test=10 //dir:test
 }
 
 function test_3_local_jobs() {
@@ -197,7 +198,12 @@ EOF
 
   # We don't just use the local PATH, but use the test's PATH, which is more restrictive.
   PATH=$PATH:$PWD/scripts bazel --nomaster_bazelrc test //testing:t1 -s --run_under=hello \
-    --test_output=all >& $TEST_log && fail "Expected failure"
+    --test_output=all --experimental_strict_action_env >& $TEST_log && fail "Expected failure"
+
+  # With --noexperimental_strict_action_env, the local PATH is forwarded to the test.
+  PATH=$PATH:$PWD/scripts bazel test //testing:t1 -s --run_under=hello \
+    --test_output=all --noexperimental_strict_action_env >& $TEST_log || fail "Expected success"
+  expect_log 'hello script!!! testing/t1'
 
   # We need to forward the PATH to make it work.
   PATH=$PATH:$PWD/scripts bazel test //testing:t1 -s --run_under=hello \
@@ -339,6 +345,41 @@ EOF
 \?\?\?\?\?<!CDATA\[\]\]>\]\]<!\[CDATA\[>\]\]></system-out>'
 }
 
+# Tests that the test.xml and test.log are correct and the test does not
+# hang when the test launches a subprocess.
+function test_subprocess_non_timeout() {
+  mkdir -p dir
+
+  cat <<'EOF' > dir/test.sh
+echo "Pretending to sleep..."
+sleep 600 &
+echo "Finished!" >&2
+exit 0
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<'EOF' > dir/BUILD
+  sh_test(
+    name = "test",
+    timeout = "short",
+    srcs = [ "test.sh" ],
+  )
+EOF
+
+  bazel test --test_output=streamed --test_timeout=2 \
+     //dir:test &> $TEST_log || fail "expected success"
+
+  xml_log=bazel-testlogs/dir/test/test.xml
+  expect_log 'Pretending to sleep...'
+  expect_log 'Finished!'
+  [ -s "${xml_log}" ] || fail "${xml_log} was not present after test"
+  cp "${xml_log}" $TEST_log
+  expect_log_once "testcase"
+  expect_log 'Pretending to sleep...'
+  expect_log 'Finished!'
+}
+
 # Check that fallback xml output is correctly generated for sharded tests.
 function test_xml_fallback_for_sharded_test() {
   mkdir -p dir
@@ -434,6 +475,18 @@ EOF
   expect_log_once "testcase"
   expect_log_once "duration=\"[0-9]\+\""
   expect_log "name=\"dir/fail\""
+
+  bazel test //dir:all --run_under=exec &> $TEST_log && fail "should have failed" || true
+  cp bazel-testlogs/dir/success/test.xml $TEST_log
+  expect_log "errors=\"0\""
+  expect_log_once "testcase"
+  expect_log_once "duration=\"[0-9]\+\""
+  expect_log "name=\"dir/success\""
+  cp bazel-testlogs/dir/fail/test.xml $TEST_log
+  expect_log "errors=\"1\""
+  expect_log_once "testcase"
+  expect_log_once "duration=\"[0-9]\+\""
+  expect_log "name=\"dir/fail\""
 }
 
 function test_detailed_test_summary() {
@@ -516,10 +569,10 @@ EOF
   expect_log_once "FAIL: //:fail (.*/fail/test.log)"
   expect_log_once "FAILED"
   cat bazel-testlogs/fail/test_attempts/attempt_1.log &> $TEST_log
-  assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test_attempts/attempt_1.log)"
+  assert_equals "fail" "$(sed -n '4p' < bazel-testlogs/fail/test_attempts/attempt_1.log)"
   assert_equals 2 $(ls bazel-testlogs/fail/test_attempts/*.log | wc -l)
   cat bazel-testlogs/fail/test.log &> $TEST_log
-  assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test.log)"
+  assert_equals "fail" "$(sed -n '4p' < bazel-testlogs/fail/test.log)"
 }
 
 function test_undeclared_outputs_are_zipped_and_manifest_exists() {

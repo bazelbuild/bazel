@@ -27,7 +27,7 @@ public class ThrowableExtensionTestUtility {
   private static final String SYSTEM_PROPERTY_EXPECTED_STRATEGY = "expected.strategy";
 
   public static String getTwrStrategyClassNameSpecifiedInSystemProperty() {
-    String className = System.getProperty(SYSTEM_PROPERTY_EXPECTED_STRATEGY);
+    String className = unquote(System.getProperty(SYSTEM_PROPERTY_EXPECTED_STRATEGY));
     assertThat(className).isNotEmpty();
     return className;
   }
@@ -60,5 +60,14 @@ public class ThrowableExtensionTestUtility {
 
   public static boolean isReuseStrategy() {
     return isStrategyOfClass(THROWABLE_EXTENSION_CLASS_NAME + "$ReuseDesugaringStrategy");
+  }
+
+  private static String unquote(String s) {
+    if (s.startsWith("'") || s.startsWith("\"")) {
+      assertThat(s).endsWith(s.substring(0, 1));
+      return s.substring(1, s.length() - 1);
+    } else {
+      return s;
+    }
   }
 }

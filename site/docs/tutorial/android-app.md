@@ -315,7 +315,7 @@ Now, enter the following to build the sample app:
 bazel build //android:android
 ```
 
-The [`build`](../bazel-user-manual.html#build) subcommand instructs Bazel to
+The [`build`](../user-manual.html#build) subcommand instructs Bazel to
 build the target that follows. The target is specified as the name of a build
 rule inside a `BUILD` file, with along with the package path relative to
 your workspace directory. Note that you can sometimes omit the package path
@@ -367,7 +367,7 @@ how to build the backend server.
 
 You can now deploy the app to a connected Android device or emulator from the
 command line using the
-[`bazel mobile-install`](../bazel-user-manual.html#mobile-install)
+[`bazel mobile-install`](../user-manual.html#mobile-install)
 command. This command uses the Android Debug Bridge (`adb`) to communicate with
 the device. You must set up your device to use `adb` following the instructions
 in
@@ -383,7 +383,7 @@ bazel mobile-install //android:android
 ```
 
 Note that the `mobile-install` subcommand also supports the
-[`--incremental`](../bazel-user-manual.html#mobile-install)
+[`--incremental`](../user-manual.html#mobile-install)
 flag that can be used to deploy only those parts of the app that have changed
 since the last deployment.
 

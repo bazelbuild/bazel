@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.proto;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
@@ -35,8 +35,8 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
   private static final Label DEFAULT_PROTO_COMPILER =
       Label.parseAbsoluteUnchecked("@com_google_protobuf//:protoc");
-  private static final Attribute.LateBoundDefault<?, Label> PROTO_COMPILER =
-      Attribute.LateBoundDefault.fromTargetConfiguration(
+  private static final Attribute.LabelLateBoundDefault<?> PROTO_COMPILER =
+      Attribute.LabelLateBoundDefault.fromTargetConfiguration(
           ProtoConfiguration.class,
           DEFAULT_PROTO_COMPILER,
           (rule, attributes, protoConfig) ->
@@ -45,7 +45,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
                   : DEFAULT_PROTO_COMPILER);
 
   @Override
-  public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
 
     return builder
         .requiresConfigurationFragments(ProtoConfiguration.class)
@@ -72,6 +72,11 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
             attr("srcs", LABEL_LIST)
                 .direct_compile_time_input()
                 .allowedFileTypes(FileType.of(".proto"), FileType.of(".protodevel")))
+        /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(proto_source_root) -->
+        Directory containing .proto files. If set, it must be equal to the package name. If not set,
+        the source root will be the workspace directory (default).
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("proto_source_root", STRING))
         .advertiseProvider(ProtoSourcesProvider.class, ProtoSupportDataProvider.class)
         .build();
   }

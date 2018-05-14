@@ -66,7 +66,8 @@ class BinaryLauncherBase {
   //             it doesn't include the exectuable itself.
   //             The arguments are expected to be quoted if having spaces.
   ExitCode LaunchProcess(const std::string& executable,
-                         const std::vector<std::string>& arguments) const;
+                         const std::vector<std::string>& arguments,
+                         bool suppressOutput = false) const;
 
   // A launch function to be implemented for a specific language.
   virtual ExitCode Launch() = 0;
@@ -81,8 +82,11 @@ class BinaryLauncherBase {
   // A map to store all the launch information.
   const LaunchDataParser::LaunchInfo& launch_info;
 
-  // Absolute path to the runfiles manifest file.
+  // Absolute path to the runfiles manifest file, if one exists.
   const std::string manifest_file;
+
+  // Path to the runfiles directory, if one exists.
+  const std::string runfiles_dir;
 
   // The commandline arguments recieved.
   // The first argument is the path of this launcher itself.
@@ -110,7 +114,7 @@ class BinaryLauncherBase {
   void CreateCommandLine(CmdLine* result, const std::string& executable,
                          const std::vector<std::string>& arguments) const;
 
-  // Find manifest file of the binary
+  // Find manifest file of the binary.
   //
   // Expect the manifest file to be at
   //    1. <path>/<to>/<binary>/<target_name>.runfiles/MANIFEST

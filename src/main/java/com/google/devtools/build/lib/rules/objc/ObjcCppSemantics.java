@@ -24,10 +24,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
-import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -93,7 +91,6 @@ public class ObjcCppSemantics implements CppSemantics {
       RuleContext ruleContext, CppCompileActionBuilder actionBuilder) {
     actionBuilder
         .setCppConfiguration(ruleContext.getFragment(CppConfiguration.class))
-        .setActionContext(CppCompileActionContext.class)
         // Because Bazel does not support include scanning, we need the entire crosstool filegroup,
         // including header files, as opposed to just the "compile" filegroup.
         .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getCrosstool())
@@ -106,7 +103,7 @@ public class ObjcCppSemantics implements CppSemantics {
       if (!sourceFile.isTreeArtifact()
           && SOURCES_FOR_HEADER_THINNING.matches(sourceFile.getFilename())) {
         actionBuilder.addMandatoryInputs(
-            ImmutableList.of(intermediateArtifacts.headersListFile(sourceFile)));
+            ImmutableList.of(intermediateArtifacts.headersListFile(actionBuilder.getOutputFile())));
       }
     } else {
       // Header thinning feature will make all generated files mandatory inputs to the
@@ -124,12 +121,13 @@ public class ObjcCppSemantics implements CppSemantics {
   }
 
   @Override
-  public void setupCompilationContext(RuleContext ruleContext, Builder contextBuilder) {
+  public void setupCcCompilationContext(
+      RuleContext ruleContext, CcCompilationContext.Builder ccCompilationContextBuilder) {
     // The genfiles root of each child configuration must be added to the compile action so that
     // generated headers can be resolved.
     for (PathFragment iquotePath :
         ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration())) {
-      contextBuilder.addQuoteIncludeDir(iquotePath);
+      ccCompilationContextBuilder.addQuoteIncludeDir(iquotePath);
     }
   }
 
@@ -170,13 +168,14 @@ public class ObjcCppSemantics implements CppSemantics {
   }
 
   /**
-   * Gets the purpose for the compilation context.
+   * Gets the purpose for the {@code CcCompilationContext}.
    *
-   * @see CppCompilationContext.Builder#setPurpose
+   * @see CcCompilationContext.Builder#setPurpose
    */
   public String getPurpose() {
-    // ProtoSupport creates multiple compilation contexts for a single rule, potentially multiple
-    // archives per build configuration. This covers that worst case.
+    // ProtoSupport creates multiple {@code CcCompilationContext}s for a single rule,
+    // potentially
+    // multiple archives per build configuration. This covers that worst case.
     return "ObjcCppSemantics_build_arch_"
         + buildConfiguration.getMnemonic()
         + "_with_suffix_"

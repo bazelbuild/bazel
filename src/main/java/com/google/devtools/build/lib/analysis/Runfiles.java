@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,12 +31,11 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -46,7 +45,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
@@ -62,12 +60,8 @@ import javax.annotation.Nullable;
  * manifests" (see {@link PruningManifest}).
  */
 @Immutable
-@SkylarkModule(
-  name = "runfiles",
-  category = SkylarkModuleCategory.NONE,
-  doc = "An interface for a set of runfiles."
-)
-public final class Runfiles {
+@AutoCodec
+public final class Runfiles implements RunfilesApi {
   private static final Function<SymlinkEntry, Artifact> TO_ARTIFACT =
       new Function<SymlinkEntry, Artifact>() {
         @Override
@@ -76,13 +70,17 @@ public final class Runfiles {
         }
       };
 
-  private static final EmptyFilesSupplier DUMMY_EMPTY_FILES_SUPPLIER =
-      new EmptyFilesSupplier() {
-        @Override
-        public Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths) {
-          return ImmutableList.of();
-        }
-      };
+  private static class DummyEmptyFilesSupplier implements EmptyFilesSupplier {
+    private DummyEmptyFilesSupplier() {}
+
+    @Override
+    public Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths) {
+      return ImmutableList.of();
+    }
+  }
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final EmptyFilesSupplier DUMMY_EMPTY_FILES_SUPPLIER = new DummyEmptyFilesSupplier();
 
   private static final Function<Artifact, PathFragment> GET_ROOT_RELATIVE_PATH =
       new Function<Artifact, PathFragment>() {
@@ -129,11 +127,14 @@ public final class Runfiles {
   // equals to the third one if they are not the same instance (which they almost never are)
   //
   // Goodnight, prince(ss)?, and sweet dreams.
-  private static final class SymlinkEntry implements SkylarkValue {
+  @AutoCodec
+  @VisibleForSerialization
+  static final class SymlinkEntry implements SkylarkValue {
     private final PathFragment path;
     private final Artifact artifact;
 
-    private SymlinkEntry(PathFragment path, Artifact artifact) {
+    @VisibleForSerialization
+    SymlinkEntry(PathFragment path, Artifact artifact) {
       this.path = Preconditions.checkNotNull(path);
       this.artifact = Preconditions.checkNotNull(artifact);
     }
@@ -239,12 +240,12 @@ public final class Runfiles {
   private ConflictPolicy conflictPolicy = ConflictPolicy.IGNORE;
 
   /**
-   * Defines a set of artifacts that may or may not be included in the runfiles directory and
-   * a manifest file that makes that determination. These are applied on top of any artifacts
+   * Defines a set of artifacts that may or may not be included in the runfiles directory and a
+   * manifest file that makes that determination. These are applied on top of any artifacts
    * specified in {@link #unconditionalArtifacts}.
    *
-   * <p>The incentive behind this is to enable execution-phase "pruning" of runfiles. Anything
-   * set in unconditionalArtifacts is hard-set in Blaze's analysis phase, and thus unchangeable in
+   * <p>The incentive behind this is to enable execution-phase "pruning" of runfiles. Anything set
+   * in unconditionalArtifacts is hard-set in Blaze's analysis phase, and thus unchangeable in
    * response to execution phase results. This isn't always convenient. For example, say we have an
    * action that consumes a set of "possible" runtime dependencies for a source file, parses that
    * file for "import a.b.c" statements, and outputs a manifest of the actual dependencies that are
@@ -256,6 +257,7 @@ public final class Runfiles {
    * superset of the pruned dependencies, so undeclared inclusions (which can break build
    * correctness) aren't possible.
    */
+  @AutoCodec
   public static class PruningManifest {
     private final NestedSet<Artifact> candidateRunfiles;
     private final Artifact manifestFile;
@@ -294,9 +296,11 @@ public final class Runfiles {
    */
   private final boolean legacyExternalRunfiles;
 
-  private Runfiles(
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  Runfiles(
       PathFragment suffix,
-      NestedSet<Artifact> artifacts,
+      NestedSet<Artifact> unconditionalArtifacts,
       NestedSet<SymlinkEntry> symlinks,
       NestedSet<SymlinkEntry> rootSymlinks,
       NestedSet<PruningManifest> pruningManifests,
@@ -305,7 +309,7 @@ public final class Runfiles {
       ConflictPolicy conflictPolicy,
       boolean legacyExternalRunfiles) {
     this.suffix = suffix;
-    this.unconditionalArtifacts = Preconditions.checkNotNull(artifacts);
+    this.unconditionalArtifacts = Preconditions.checkNotNull(unconditionalArtifacts);
     this.symlinks = Preconditions.checkNotNull(symlinks);
     this.rootSymlinks = Preconditions.checkNotNull(rootSymlinks);
     this.extraMiddlemen = Preconditions.checkNotNull(extraMiddlemen);
@@ -330,15 +334,6 @@ public final class Runfiles {
     return unconditionalArtifacts;
   }
 
-  /**
-   * Returns the artifacts that are unconditionally included in the runfiles (as opposed to
-   * pruning manifest candidates, which may or may not be included). Middleman artifacts are
-   * excluded.
-   */
-  public Iterable<Artifact> getUnconditionalArtifactsWithoutMiddlemen() {
-    return Iterables.filter(unconditionalArtifacts, Artifact.MIDDLEMAN_FILTER);
-  }
-
   public NestedSet<Artifact> getExtraMiddlemen() {
     return extraMiddlemen;
   }
@@ -347,11 +342,7 @@ public final class Runfiles {
    * Returns the collection of runfiles as artifacts, including both unconditional artifacts and
    * pruning manifest candidates.
    */
-  @SkylarkCallable(
-    name = "files",
-    doc = "Returns the set of runfiles as files.",
-    structField = true
-  )
+  @Override
   public NestedSet<Artifact> getArtifacts() {
     NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
     allArtifacts.addAll(unconditionalArtifacts.toCollection());
@@ -361,25 +352,13 @@ public final class Runfiles {
     return allArtifacts.build();
   }
 
-  /**
-   * Returns the collection of runfiles as artifacts, including both unconditional artifacts
-   * and pruning manifest candidates. Middleman artifacts are excluded.
-   */
-  public Iterable<Artifact> getArtifactsWithoutMiddlemen() {
-    return Iterables.filter(getArtifacts(), Artifact.MIDDLEMAN_FILTER);
-  }
-
   /** Returns the symlinks. */
-  @SkylarkCallable(name = "symlinks", doc = "Returns the set of symlinks.", structField = true)
+  @Override
   public NestedSet<SymlinkEntry> getSymlinks() {
     return symlinks;
   }
 
-  @SkylarkCallable(
-    name = "empty_filenames",
-    doc = "Returns names of empty files to create.",
-    structField = true
-  )
+  @Override
   public NestedSet<String> getEmptyFilenames() {
     Set<PathFragment> manifest = new TreeSet<>();
     Iterables.addAll(
@@ -411,9 +390,9 @@ public final class Runfiles {
     Map<PathFragment, Artifact> newManifest = new HashMap<>();
 
     outer:
-    for (Iterator<Entry<PathFragment, Artifact>> i = workingManifest.entrySet().iterator();
-         i.hasNext(); ) {
-      Entry<PathFragment, Artifact> entry = i.next();
+    for (Iterator<Map.Entry<PathFragment, Artifact>> i = workingManifest.entrySet().iterator();
+        i.hasNext(); ) {
+      Map.Entry<PathFragment, Artifact> entry = i.next();
       PathFragment source = entry.getKey();
       Artifact symlink = entry.getValue();
       // drop nested entries; warn if this changes anything
@@ -427,11 +406,20 @@ public final class Runfiles {
             continue outer;
           }
           PathFragment suffix = source.subFragment(n - j, n);
-          Path viaAncestor = ancestor.getPath().getRelative(suffix);
-          Path expected = symlink.getPath();
+          PathFragment viaAncestor = ancestor.getExecPath().getRelative(suffix);
+          PathFragment expected = symlink.getExecPath();
           if (!viaAncestor.equals(expected)) {
-            eventHandler.handle(Event.warn(location, "runfiles symlink " + source + " -> "
-                + expected + " obscured by " + prefix + " -> " + ancestor.getPath()));
+            eventHandler.handle(
+                Event.warn(
+                    location,
+                    "runfiles symlink "
+                        + source
+                        + " -> "
+                        + expected
+                        + " obscured by "
+                        + prefix
+                        + " -> "
+                        + ancestor.getExecPath()));
           }
           continue outer;
         }
@@ -456,7 +444,7 @@ public final class Runfiles {
     ConflictChecker checker = new ConflictChecker(conflictPolicy, eventHandler, location);
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
     // Add unconditional artifacts (committed to inclusion on construction of runfiles).
-    for (Artifact artifact : getUnconditionalArtifactsWithoutMiddlemen()) {
+    for (Artifact artifact : getUnconditionalArtifacts()) {
       checker.put(manifest, artifact.getRootRelativePath(), artifact);
     }
 
@@ -609,7 +597,7 @@ public final class Runfiles {
     // If multiple artifacts have the same root-relative path, the last one in the list will win.
     // That is because the runfiles tree cannot contain the same artifact for different
     // configurations, because it only uses root-relative paths.
-    for (Artifact artifact : Iterables.filter(unconditionalArtifacts, Artifact.MIDDLEMAN_FILTER)) {
+    for (Artifact artifact : unconditionalArtifacts) {
       result.put(artifact.getRootRelativePath(), artifact);
     }
     return result;
@@ -729,12 +717,16 @@ public final class Runfiles {
      * @param artifact Artifact to store in map. This may be null to indicate an empty file.
      */
     public void put(Map<PathFragment, Artifact> map, PathFragment path, Artifact artifact) {
+      Preconditions.checkArgument(
+          artifact == null || !artifact.isMiddlemanArtifact(), "%s", artifact);
       if (policy != ConflictPolicy.IGNORE && map.containsKey(path)) {
         // Previous and new entry might have value of null
         Artifact previous = map.get(path);
         if (!Objects.equals(previous, artifact)) {
-          String previousStr = (previous == null) ? "empty file" : previous.getPath().toString();
-          String artifactStr = (artifact == null) ? "empty file" : artifact.getPath().toString();
+          String previousStr =
+              (previous == null) ? "empty file" : previous.getExecPath().toString();
+          String artifactStr =
+              (artifact == null) ? "empty file" : artifact.getExecPath().toString();
           String message =
               String.format(
                   "overwrote runfile %s, was symlink to %s, now symlink to %s",
@@ -837,6 +829,7 @@ public final class Runfiles {
      */
     public Builder addArtifact(Artifact artifact) {
       Preconditions.checkNotNull(artifact);
+      Preconditions.checkArgument(!artifact.isMiddlemanArtifact());
       artifactsBuilder.add(artifact);
       return this;
     }
@@ -1169,17 +1162,11 @@ public final class Runfiles {
     }
   }
 
-  /** Provides a Skylark-visible way to merge two Runfiles objects. */
-  @SkylarkCallable(
-    name = "merge",
-    doc =
-        "Returns a new runfiles object that includes all the contents of this one and the "
-            + "argument."
-  )
-  public Runfiles merge(Runfiles other) {
+  @Override
+  public Runfiles merge(RunfilesApi other) {
     Runfiles.Builder builder = new Runfiles.Builder(suffix, false);
     builder.merge(this);
-    builder.merge(other);
+    builder.merge((Runfiles) other);
     return builder.build();
   }
 }

@@ -22,9 +22,13 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.OutputBaseSupplier;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Before;
@@ -45,7 +49,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
   private SymlinkAction action;
 
   @Before
-  public final void setUp() throws Exception  {
+  public final void setUp() throws Exception {
     input = scratch.file("input.txt", "Hello, world.");
     inputArtifact = getSourceArtifact("input.txt");
     Path linkedInput =
@@ -84,11 +88,33 @@ public class SymlinkActionTest extends BuildViewTestCase {
                 null,
                 null,
                 ImmutableMap.<String, String>of(),
-                null));
+                ImmutableMap.of(),
+                null,
+                /*actionFileSystem=*/ null));
     assertThat(actionResult.spawnResults()).isEmpty();
     assertThat(output.isSymbolicLink()).isTrue();
     assertThat(output.resolveSymbolicLinks()).isEqualTo(input);
     assertThat(action.getPrimaryInput()).isEqualTo(inputArtifact);
     assertThat(action.getPrimaryOutput()).isEqualTo(outputArtifact);
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    new SerializationTester(action)
+        .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependency(OutputBaseSupplier.class, () -> outputBase)
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+        .setVerificationFunction(
+            (in, out) -> {
+              SymlinkAction inAction = (SymlinkAction) in;
+              SymlinkAction outAction = (SymlinkAction) out;
+              assertThat(inAction.getPrimaryInput().getFilename())
+                  .isEqualTo(outAction.getPrimaryInput().getFilename());
+              assertThat(inAction.getPrimaryOutput().getFilename())
+                  .isEqualTo(outAction.getPrimaryOutput().getFilename());
+              assertThat(inAction.getOwner()).isEqualTo(outAction.getOwner());
+              assertThat(inAction.getProgressMessage()).isEqualTo(outAction.getProgressMessage());
+            })
+        .runTests();
   }
 }

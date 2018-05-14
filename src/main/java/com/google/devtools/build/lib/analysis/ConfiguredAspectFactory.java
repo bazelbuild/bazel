@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 
 /**
  * Creates the Skyframe node of an aspect.
@@ -22,12 +23,12 @@ public interface ConfiguredAspectFactory {
   /**
    * Creates the aspect based on the configured target of the associated rule.
    *
-   * @param base the configured target of the associated rule
+   * @param ctadBase the ConfiguredTargetAndData of the associated rule
    * @param context the context of the associated configured target plus all the attributes the
    *     aspect itself has defined
    * @param parameters information from attributes of the rule that have requested this
-   *     aspect
    */
-  ConfiguredAspect create(ConfiguredTarget base, RuleContext context, AspectParameters parameters)
+  ConfiguredAspect create(
+      ConfiguredTargetAndData ctadBase, RuleContext context, AspectParameters parameters)
       throws InterruptedException;
 }

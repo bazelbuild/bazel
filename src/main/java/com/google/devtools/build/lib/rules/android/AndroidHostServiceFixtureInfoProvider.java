@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -46,7 +45,7 @@ public class AndroidHostServiceFixtureInfoProvider extends NativeInfo {
       NestedSet<Artifact> supportApks,
       boolean providesTestArgs,
       boolean isDaemon) {
-    super(ANDROID_HOST_SERVICE_FIXTURE_INFO, ImmutableMap.<String, Object>of());
+    super(ANDROID_HOST_SERVICE_FIXTURE_INFO);
     this.executable = executable;
     this.serviceNames = serviceNames;
     this.supportApks = supportApks;

@@ -19,13 +19,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
@@ -38,11 +41,12 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * The definition of an aspect (see {@link Aspect} for moreinformation.)
+ * The definition of an aspect (see {@link Aspect} for more information).
  *
  * <p>Contains enough information to build up the configured target graph except for the actual way
- * to build the Skyframe node (that is the territory of
- * {@link com.google.devtools.build.lib.view AspectFactory}). In particular:
+ * to build the Skyframe node (that is the territory of {@link com.google.devtools.build.lib.view
+ * AspectFactory}). In particular:
+ *
  * <ul>
  *   <li>The condition that must be fulfilled for an aspect to be able to operate on a configured
  *       target
@@ -54,6 +58,7 @@ import javax.annotation.Nullable;
  * <p>The way to build the Skyframe node is not here because this data needs to be accessible from
  * the {@code .packages} package and that one requires references to the {@code .view} package.
  */
+@AutoCodec
 @Immutable
 public final class AspectDefinition {
   private final AspectClass aspectClass;
@@ -78,11 +83,12 @@ public final class AspectDefinition {
     return advertisedProviders;
   }
 
-  private AspectDefinition(
+  @AutoCodec.VisibleForSerialization
+  AspectDefinition(
       AspectClass aspectClass,
       AdvertisedProviderSet advertisedProviders,
       RequiredProviders requiredProviders,
-      RequiredProviders requiredAspectProviders,
+      RequiredProviders requiredProvidersForAspects,
       ImmutableMap<String, Attribute> attributes,
       ImmutableSet<Label> requiredToolchains,
       @Nullable ImmutableSet<String> restrictToAttributes,
@@ -91,7 +97,7 @@ public final class AspectDefinition {
     this.aspectClass = aspectClass;
     this.advertisedProviders = advertisedProviders;
     this.requiredProviders = requiredProviders;
-    this.requiredProvidersForAspects = requiredAspectProviders;
+    this.requiredProvidersForAspects = requiredProvidersForAspects;
 
     this.attributes = attributes;
     this.requiredToolchains = requiredToolchains;
@@ -428,7 +434,7 @@ public final class AspectDefinition {
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragments(Transition transition,
+    public Builder requiresConfigurationFragments(ConfigurationTransition transition,
         Class<?>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(transition,
           ImmutableSet.copyOf(configurationFragments));
@@ -454,15 +460,15 @@ public final class AspectDefinition {
      * fragments to be present in the given configuration that isn't the aspect's configuration but
      * is also readable by the aspect.
      *
-     * <p>In contrast to {@link #requiresConfigurationFragments(Transition, Class...)}, this method
-     * takes the Skylark module names of fragments instead of their classes.
+     * <p>In contrast to {@link #requiresConfigurationFragments(ConfigurationTransition, Class...)},
+     * this method takes the Skylark module names of fragments instead of their classes.
      *
      * <p>You probably don't want to use this, because aspects generally shouldn't read
      * configurations other than their own. If you want to declare host config fragments, see
      * {@link com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
      */
-    public Builder requiresConfigurationFragmentsBySkylarkModuleName(Transition transition,
-        Collection<String> configurationFragmentNames) {
+    public Builder requiresConfigurationFragmentsBySkylarkModuleName(
+        ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy.requiresConfigurationFragmentsBySkylarkModuleName(transition,
           configurationFragmentNames);
       return this;
@@ -486,6 +492,12 @@ public final class AspectDefinition {
      */
     public Builder applyToFiles(boolean propagateOverGeneratedFiles) {
       this.applyToFiles = propagateOverGeneratedFiles;
+      return this;
+    }
+
+    /** Adds the given toolchains as requirements for this aspect. */
+    public Builder addRequiredToolchains(Label... toolchainLabels) {
+      Iterables.addAll(this.requiredToolchains, Lists.newArrayList(toolchainLabels));
       return this;
     }
 

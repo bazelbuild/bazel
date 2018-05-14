@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -22,6 +23,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -151,5 +154,40 @@ public class EvalUtilsTest extends EvaluationTestCase {
     } catch (ComparisonException e) {
       // expected
     }
+  }
+
+  @SkylarkModule(
+      name = "ParentType",
+      doc = "A parent class annotated with @SkylarkModule."
+  )
+  private static class ParentClassWithSkylarkModule {}
+
+  private static class ChildClass extends ParentClassWithSkylarkModule {}
+
+  private static class SkylarkValueSubclass implements SkylarkValue {
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("SkylarkValueSubclass");
+    }
+  }
+
+  private static class NonSkylarkValueSubclass {}
+
+  @Test
+  public void testGetSkylarkType() {
+    assertThat(EvalUtils.getSkylarkType(ParentClassWithSkylarkModule.class))
+        .isEqualTo(ParentClassWithSkylarkModule.class);
+    assertThat(EvalUtils.getSkylarkType(ChildClass.class))
+        .isEqualTo(ParentClassWithSkylarkModule.class);
+    assertThat(EvalUtils.getSkylarkType(SkylarkValueSubclass.class))
+        .isEqualTo(SkylarkValueSubclass.class);
+
+    IllegalArgumentException expected =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> EvalUtils.getSkylarkType(NonSkylarkValueSubclass.class));
+    assertThat(expected).hasMessageThat().contains(
+        "class com.google.devtools.build.lib.syntax.EvalUtilsTest$NonSkylarkValueSubclass "
+            + "is not allowed as a Skylark value");
   }
 }

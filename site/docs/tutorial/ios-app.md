@@ -113,22 +113,28 @@ This creates and opens the empty `WORKSPACE` file.
 
 To build applications for Apple devices, Bazel needs to pull the latest
 [Apple build rules](https://github.com/bazelbuild/rules_apple) from its GitHub
-repository. To enable this, add the following [`http_archive`](../be/workspace.html#http_archive)
-rule to your `WORKSPACE` file:
+repository. To enable this, add the following [`git_repository`](../be/workspace.html#git_repository)
+rules to your `WORKSPACE` file:
 
 ```
-http_archive(
+git_repository(
     name = "build_bazel_rules_apple",
-    strip_prefix = "rules_apple-0.1.0",
-    urls = ["https://github.com/bazelbuild/rules_apple/archive/0.1.0.tar.gz"],
+    remote = "https://github.com/bazelbuild/rules_apple.git",
+    tag = "0.4.0",
+)
+git_repository(
+    name = "bazel_skylib",
+    remote = "https://github.com/bazelbuild/bazel-skylib.git",
+    tag = "0.3.1",
 )
 ```
 
 **NOTE:** "Always use the [latest version of the build_apple rules](https://github.com/bazelbuild/rules_apple/releases)
-in the `urls` and `strip_prefix` attributes."
+in the `tag` attribute. Make sure to check the latest dependencies required in
+`rules_apple`'s [project](https://github.com/bazelbuild/rules_apple)."
 
 **NOTE:** You **must** set the value of the `name` attribute in the
-`http_archive` rule to `build_bazel_rules_apple` or the build will fail.
+`git_repository` rule to `build_bazel_rules_apple` or the build will fail.
 
 ## Review the source files
 

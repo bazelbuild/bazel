@@ -60,7 +60,6 @@ public final class UnaryOperatorExpression extends Expression {
   private static Object evaluate(
       UnaryOperator operator,
       Object value,
-      Environment env,
       Location loc)
       throws EvalException, InterruptedException {
     switch (operator) {
@@ -74,15 +73,11 @@ public final class UnaryOperatorExpression extends Expression {
               String.format(
                   "unsupported operand type for -: '%s'", EvalUtils.getDataTypeName(value)));
         }
-        if (env.getSemantics().incompatibleCheckedArithmetic()) {
-          try {
-            return Math.negateExact((Integer) value);
-          } catch (ArithmeticException e) {
-            // Fails for -MIN_INT.
-            throw new EvalException(loc, e.getMessage());
-          }
-        } else {
-          return -((Integer) value);
+        try {
+          return Math.negateExact((Integer) value);
+        } catch (ArithmeticException e) {
+          // Fails for -MIN_INT.
+          throw new EvalException(loc, e.getMessage());
         }
 
       default:
@@ -92,7 +87,7 @@ public final class UnaryOperatorExpression extends Expression {
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    return evaluate(operator, operand.eval(env), env, getLocation());
+    return evaluate(operator, operand.eval(env), getLocation());
   }
 
   @Override

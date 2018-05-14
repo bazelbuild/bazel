@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.con
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -44,7 +45,7 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
 
     Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders =
         ruleContext.getPrerequisites("deps", TARGET, JavaProtoLibraryAspectProvider.class);
@@ -56,8 +57,7 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
     // with the same root relative path
     Runfiles runfiles =
         new Runfiles.Builder(ruleContext.getWorkspaceName())
-            .addTransitiveArtifactsWrappedInStableOrder(
-                dependencyArgsProviders.getRecursiveJavaCompilationArgs().getRuntimeJars())
+            .addTransitiveArtifactsWrappedInStableOrder(dependencyArgsProviders.getRuntimeJars())
             .build();
 
     JavaSourceJarsProvider sourceJarsProvider =

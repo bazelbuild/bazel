@@ -18,8 +18,8 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 
 /**
- * An abstract class for adding a Skylark API for the native providers.
- * Derived classes should declare functions to be used from Skylark.
+ * An abstract class for adding a Skylark API for the native providers. Derived classes should
+ * declare functions to be used from Skylark.
  */
 public abstract class SkylarkApiProvider {
   private TransitiveInfoCollection info;

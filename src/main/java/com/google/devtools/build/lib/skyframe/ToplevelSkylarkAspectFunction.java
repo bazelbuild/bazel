@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue.SkylarkAspectLoadingKey;
@@ -40,6 +38,13 @@ import javax.annotation.Nullable;
  * one after another, so BuildView calls this function to do the work.
  */
 public class ToplevelSkylarkAspectFunction implements SkyFunction {
+
+  @Nullable private final SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining;
+
+  ToplevelSkylarkAspectFunction(
+      @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining) {
+    this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
+  }
 
   @Nullable
   @Override
@@ -70,8 +75,9 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
     SkylarkAspect skylarkAspect;
     Label extensionFileLabel = Iterables.getOnlyElement(labelLookupMap.values());
     try {
-      skylarkAspect = AspectFunction.loadSkylarkAspect(
-          env, extensionFileLabel, skylarkValueName);
+      skylarkAspect =
+          AspectFunction.loadSkylarkAspect(
+              env, extensionFileLabel, skylarkValueName, skylarkImportLookupFunctionForInlining);
       if (skylarkAspect == null) {
         return null;
       }
@@ -82,12 +88,7 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
     } catch (AspectCreationException e) {
       throw new LoadSkylarkAspectFunctionException(e);
     }
-    SkyKey aspectKey =
-        AspectValue.createAspectKey(
-            aspectLoadingKey.getTargetLabel(),
-            aspectLoadingKey.getTargetConfiguration(),
-            new AspectDescriptor(skylarkAspect.getAspectClass(), AspectParameters.EMPTY),
-            aspectLoadingKey.getAspectConfiguration());
+    SkyKey aspectKey = aspectLoadingKey.toAspectKey(skylarkAspect.getAspectClass());
 
     return env.getValue(aspectKey);
   }

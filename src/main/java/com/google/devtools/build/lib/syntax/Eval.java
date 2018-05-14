@@ -94,13 +94,10 @@ public class Eval {
       }
     }
 
+    // TODO(laurentlb): Could be moved to the Parser or the ValidationEnvironment?
     FunctionSignature sig = node.getSignature().getSignature();
-    if (env.getSemantics().incompatibleDisallowKeywordOnlyArgs()
-        && sig.getShape().getMandatoryNamedOnly() > 0) {
-      throw new EvalException(
-          node.getLocation(),
-          "Keyword-only argument is forbidden. You can temporarily disable this "
-              + "error using the flag --incompatible_disallow_keyword_only_args=false");
+    if (sig.getShape().getMandatoryNamedOnly() > 0) {
+      throw new EvalException(node.getLocation(), "Keyword-only argument is forbidden.");
     }
 
     env.update(
@@ -114,7 +111,10 @@ public class Eval {
   }
 
   void execIf(IfStatement node) throws EvalException, InterruptedException {
-    for (IfStatement.ConditionalStatements stmt : node.getThenBlocks()) {
+    ImmutableList<IfStatement.ConditionalStatements> thenBlocks = node.getThenBlocks();
+    // Avoid iterator overhead - most of the time there will be one or few "if"s.
+    for (int i = 0; i < thenBlocks.size(); i++) {
+      IfStatement.ConditionalStatements stmt = thenBlocks.get(i);
       if (EvalUtils.toBoolean(stmt.getCondition().eval(env))) {
         exec(stmt);
         return;
@@ -124,17 +124,6 @@ public class Eval {
   }
 
   void execLoad(LoadStatement node) throws EvalException, InterruptedException {
-    if (env.getSemantics().incompatibleLoadArgumentIsLabel()) {
-      String s = node.getImport().getValue();
-      if (!s.startsWith("//") && !s.startsWith(":") && !s.startsWith("@")) {
-        throw new EvalException(
-            node.getLocation(),
-            "First argument of 'load' must be a label and start with either '//', ':', or '@'. "
-                + "Use --incompatible_load_argument_is_label=false to temporarily disable this "
-                + "check.");
-      }
-    }
-
     for (Map.Entry<Identifier, String> entry : node.getSymbolMap().entrySet()) {
       try {
         Identifier name = entry.getKey();

@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -51,18 +51,21 @@ public class TargetCompletionValue implements SkyValue {
       final Set<ConfiguredTarget> targetsToTest) {
     return Iterables.transform(
         targets,
-        new Function<ConfiguredTarget, SkyKey>() {
-          @Override
-          public SkyKey apply(ConfiguredTarget ct) {
-            return TargetCompletionKey.create(
-                ConfiguredTargetKey.of(ct), ctx, targetsToTest.contains(ct));
-          }
-        });
+        ct ->
+            TargetCompletionKey.create(
+                // Can't build top-level targets in host configuration.
+                ConfiguredTargetKey.of(
+                    ct, ct.getConfigurationKey(), /*isHostConfiguration=*/ false),
+                ctx,
+                targetsToTest.contains(ct)));
   }
 
+  /** {@link SkyKey} for {@link TargetCompletionValue}. */
+  @AutoCodec
   @AutoValue
   abstract static class TargetCompletionKey implements SkyKey {
-    public static TargetCompletionKey create(
+    @AutoCodec.Instantiator
+    static TargetCompletionKey create(
         ConfiguredTargetKey configuredTargetKey,
         TopLevelArtifactContext topLevelArtifactContext,
         boolean willTest) {

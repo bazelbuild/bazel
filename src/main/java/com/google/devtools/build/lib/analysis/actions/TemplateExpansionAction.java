@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -46,6 +47,7 @@ import java.util.stream.StreamSupport;
 /**
  * Action to expand a template and write the expanded content to a file.
  */
+@AutoCodec
 @Immutable // if all substitutions are immutable
 public final class TemplateExpansionAction extends AbstractFileWriteAction {
 
@@ -68,21 +70,58 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
     public abstract String getKey();
     public abstract String getValue();
 
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec
+    static final class StringSubstitution extends Substitution {
+      private final String key;
+      private final String value;
+
+      @AutoCodec.VisibleForSerialization
+      @AutoCodec.Instantiator
+      StringSubstitution(String key, String value) {
+        this.key = key;
+        this.value = value;
+      }
+
+      @Override
+      public String getKey() {
+        return key;
+      }
+
+      @Override
+      public String getValue() {
+        return value;
+      }
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec
+    static final class ListSubstitution extends Substitution {
+      private final String key;
+      private final ImmutableList<?> value;
+
+      @AutoCodec.VisibleForSerialization
+      @AutoCodec.Instantiator
+      ListSubstitution(String key, ImmutableList<?> value) {
+        this.key = key;
+        this.value = value;
+      }
+
+      @Override
+      public String getKey() {
+        return key;
+      }
+
+      @Override
+      public String getValue() {
+        return Joiner.on(" ").join(value);
+      }
+    }
     /**
      * Returns an immutable Substitution instance for the given key and value.
      */
     public static Substitution of(final String key, final String value) {
-      return new Substitution() {
-        @Override
-        public String getKey() {
-          return key;
-        }
-
-        @Override
-        public String getValue() {
-          return value;
-        }
-      };
+      return new StringSubstitution(key, value);
     }
 
     /**
@@ -91,39 +130,7 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
      */
     public static Substitution ofSpaceSeparatedList(
         final String key, final ImmutableList<?> value) {
-      return new Substitution() {
-        @Override
-        public String getKey() {
-          return key;
-        }
-
-        @Override
-        public String getValue() {
-          return Joiner.on(" ").join(value);
-        }
-      };
-    }
-
-    /**
-     * Returns an immutable Substitution instance for the key and map of values.  Corresponding
-     * values in the map will be joined with "=", and pairs will be joined by spaces before
-     * substitution.
-     *
-     * <p>For example, the map <(a,1), (b,2), (c,3)> will become "a=1 b=2 c=3".
-     */
-    public static Substitution ofSpaceSeparatedMap(
-        final String key, final ImmutableMap<?, ?> value) {
-      return new Substitution() {
-        @Override
-        public String getKey() {
-          return key;
-        }
-
-        @Override
-        public String getValue() {
-          return Joiner.on(" ").withKeyValueSeparator("=").join(value);
-        }
-      };
+      return new ListSubstitution(key, value);
     }
 
     @Override
@@ -178,6 +185,7 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
    * string until requested. Often a template action is never executed, meaning the string is never
    * needed.
    */
+  @AutoCodec
   public static final class PathFragmentSubstitution extends ComputedSubstitution {
     private final PathFragment pathFragment;
 
@@ -198,6 +206,7 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
    * <p>This is more memory efficient than directly using the {@Label#toString}, since that method
    * constructs a new string every time it's called.
    */
+  @AutoCodec
   public static final class LabelSubstitution extends ComputedSubstitution {
     private final Label label;
 
@@ -217,6 +226,7 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
    *
    * <p>This is much more memory efficient than eagerly joining them into a string.
    */
+  @AutoCodec
   public static final class JoinedArtifactShortPathSubstitution extends ComputedSubstitution {
     private final Iterable<Artifact> artifacts;
     private final String joinStr;
@@ -231,8 +241,9 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
       this(key, (Iterable<Artifact>) artifacts, joinStr);
     }
 
-    private JoinedArtifactShortPathSubstitution(
-        String key, Iterable<Artifact> artifacts, String joinStr) {
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    JoinedArtifactShortPathSubstitution(String key, Iterable<Artifact> artifacts, String joinStr) {
       super(key);
       this.artifacts = artifacts;
       this.joinStr = joinStr;
@@ -273,6 +284,89 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
      */
     protected abstract String getKey();
 
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec
+    static final class ErrorTemplate extends Template {
+      private final IOException e;
+      private final String templateName;
+
+      @AutoCodec.VisibleForSerialization
+      @AutoCodec.Instantiator
+      ErrorTemplate(IOException e, String templateName) {
+        this.e = e;
+        this.templateName = templateName;
+      }
+
+      @Override
+      protected String getContent() throws IOException {
+        throw new IOException(
+            "failed to load resource file '"
+                + templateName
+                + "' due to I/O error: "
+                + e.getMessage(),
+            e);
+      }
+
+      @Override
+      protected String getKey() {
+        return "ERROR: " + e.getMessage();
+      }
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec
+    static final class StringTemplate extends Template {
+      private final String templateText;
+
+      @AutoCodec.VisibleForSerialization
+      @AutoCodec.Instantiator
+      StringTemplate(String templateText) {
+        this.templateText = templateText;
+      }
+
+      @Override
+      protected String getContent() {
+        return templateText;
+      }
+
+      @Override
+      protected String getKey() {
+        return templateText;
+      }
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec
+    static final class ArtifactTemplate extends Template {
+      private final Artifact templateArtifact;
+
+      @AutoCodec.VisibleForSerialization
+      @AutoCodec.Instantiator
+      ArtifactTemplate(Artifact templateArtifact) {
+        this.templateArtifact = templateArtifact;
+      }
+
+      @Override
+      protected String getContent() throws IOException {
+        Path templatePath = templateArtifact.getPath();
+        try {
+          return FileSystemUtils.readContent(templatePath, DEFAULT_CHARSET);
+        } catch (IOException e) {
+          throw new IOException(
+              "failed to load template file '"
+                  + templatePath.getPathString()
+                  + "' due to I/O error: "
+                  + e.getMessage(),
+              e);
+        }
+      }
+
+      @Override
+      protected String getKey() {
+        // This isn't strictly necessary, because the action inputs are automatically considered.
+        return "ARTIFACT: " + templateArtifact.getExecPathString();
+      }
+    }
     /**
      * Loads a template from the given resource. The resource is looked up
      * relative to the given class. If the resource cannot be loaded, the returned
@@ -284,18 +378,7 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
         String content = ResourceFileLoader.loadResource(relativeToClass, templateName);
         return forString(content);
       } catch (final IOException e) {
-        return new Template() {
-          @Override
-          protected String getContent() throws IOException {
-            throw new IOException("failed to load resource file '" + templateName
-                + "' due to I/O error: " + e.getMessage(), e);
-          }
-
-          @Override
-          protected String getKey() {
-            return "ERROR: " + e.getMessage();
-          }
-        };
+        return new ErrorTemplate(e, templateName);
       }
     }
 
@@ -303,17 +386,7 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
      * Returns a template for the given text string.
      */
     public static Template forString(final String templateText) {
-      return new Template() {
-        @Override
-        protected String getContent() {
-          return templateText;
-        }
-
-        @Override
-        protected String getKey() {
-          return templateText;
-        }
-      };
+      return new StringTemplate(templateText);
     }
 
     /**
@@ -323,24 +396,7 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
      * {@link TemplateExpansionAction} constructor.
      */
     private static Template forArtifact(final Artifact templateArtifact) {
-      return new Template() {
-        @Override
-        protected String getContent() throws IOException {
-          Path templatePath = templateArtifact.getPath();
-          try {
-            return FileSystemUtils.readContent(templatePath, DEFAULT_CHARSET);
-          } catch (IOException e) {
-            throw new IOException("failed to load template file '" + templatePath.getPathString()
-                + "' due to I/O error: " + e.getMessage(), e);
-          }
-        }
-
-        @Override
-        protected String getKey() {
-          // This isn't strictly necessary, because the action inputs are automatically considered.
-          return "ARTIFACT: " + templateArtifact.getExecPathString();
-        }
-      };
+      return new ArtifactTemplate(templateArtifact);
     }
   }
 
@@ -352,20 +408,22 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
    *
    * @param owner the action owner.
    * @param inputs the Artifacts that this Action depends on
-   * @param output the Artifact that will be created by executing this Action.
+   * @param primaryOutput the Artifact that will be created by executing this Action.
    * @param template the template that will be expanded by this Action.
-   * @param substitutions the substitutions that will be applied to the
-   *   template. All substitutions will be applied in order.
-   * @param makeExecutable iff true will change the output file to be
-   *   executable.
+   * @param substitutions the substitutions that will be applied to the template. All substitutions
+   *     will be applied in order.
+   * @param makeExecutable iff true will change the output file to be executable.
    */
-  private TemplateExpansionAction(ActionOwner owner,
-                                  Collection<Artifact> inputs,
-                                  Artifact output,
-                                  Template template,
-                                  List<Substitution> substitutions,
-                                  boolean makeExecutable) {
-    super(owner, inputs, output, makeExecutable);
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
+  TemplateExpansionAction(
+      ActionOwner owner,
+      Collection<Artifact> inputs,
+      Artifact primaryOutput,
+      Template template,
+      List<Substitution> substitutions,
+      boolean makeExecutable) {
+    super(owner, inputs, primaryOutput, makeExecutable);
     this.template = template;
     this.substitutions = ImmutableList.copyOf(substitutions);
   }
@@ -439,17 +497,15 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    f.addString(String.valueOf(makeExecutable));
-    f.addString(template.getKey());
-    f.addInt(substitutions.size());
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
+    fp.addString(String.valueOf(makeExecutable));
+    fp.addString(template.getKey());
+    fp.addInt(substitutions.size());
     for (Substitution entry : substitutions) {
-      f.addString(entry.getKey());
-      f.addString(entry.getValue());
+      fp.addString(entry.getKey());
+      fp.addString(entry.getValue());
     }
-    return f.hexDigestAndReset();
   }
 
   @Override

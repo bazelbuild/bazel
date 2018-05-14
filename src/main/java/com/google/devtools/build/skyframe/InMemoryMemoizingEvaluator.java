@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -61,6 +60,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   private Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
   private final InvalidationState deleterState = new DeletingInvalidationState();
   private final Differencer differencer;
+  private final GraphInconsistencyReceiver graphInconsistencyReceiver;
 
   // Keep edges in graph. Can be false to save memory, in which case incremental builds are
   // not possible.
@@ -83,18 +83,26 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       Map<SkyFunctionName, ? extends SkyFunction> skyFunctions,
       Differencer differencer,
       @Nullable EvaluationProgressReceiver progressReceiver) {
-    this(skyFunctions, differencer, progressReceiver, new EmittedEventState(), true);
+    this(
+        skyFunctions,
+        differencer,
+        progressReceiver,
+        GraphInconsistencyReceiver.THROWING,
+        new EmittedEventState(),
+        true);
   }
 
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, ? extends SkyFunction> skyFunctions,
       Differencer differencer,
       @Nullable EvaluationProgressReceiver progressReceiver,
+      GraphInconsistencyReceiver graphInconsistencyReceiver,
       EmittedEventState emittedEventState,
       boolean keepEdges) {
     this.skyFunctions = ImmutableMap.copyOf(skyFunctions);
     this.differencer = Preconditions.checkNotNull(differencer);
     this.progressReceiver = new DirtyTrackingProgressReceiver(progressReceiver);
+    this.graphInconsistencyReceiver = Preconditions.checkNotNull(graphInconsistencyReceiver);
     this.graph = new InMemoryGraphImpl(keepEdges);
     this.emittedEventState = emittedEventState;
     this.keepEdges = keepEdges;
@@ -109,9 +117,9 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
     valuesToDelete.addAll(
         Maps.filterEntries(
                 graph.getAllValues(),
-                new Predicate<Entry<SkyKey, ? extends NodeEntry>>() {
+                new Predicate<Map.Entry<SkyKey, ? extends NodeEntry>>() {
                   @Override
-                  public boolean apply(Entry<SkyKey, ? extends NodeEntry> input) {
+                  public boolean apply(Map.Entry<SkyKey, ? extends NodeEntry> input) {
                     Preconditions.checkNotNull(input.getKey(), "Null SkyKey in entry: %s", input);
                     return input.getValue().isDirty() || deletePredicate.apply(input.getKey());
                   }
@@ -179,7 +187,8 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
               ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
               keepGoing,
               numThreads,
-              progressReceiver);
+              progressReceiver,
+              graphInconsistencyReceiver);
       EvaluationResult<T> result = evaluator.eval(roots);
       return EvaluationResult.<T>builder()
           .mergeFrom(result)
@@ -196,9 +205,9 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
    * graph.
    */
   private void pruneInjectedValues(Map<SkyKey, SkyValue> valuesToInject) {
-    for (Iterator<Entry<SkyKey, SkyValue>> it = valuesToInject.entrySet().iterator();
-        it.hasNext();) {
-      Entry<SkyKey, SkyValue> entry = it.next();
+    for (Iterator<Map.Entry<SkyKey, SkyValue>> it = valuesToInject.entrySet().iterator();
+        it.hasNext(); ) {
+      Map.Entry<SkyKey, SkyValue> entry = it.next();
       SkyKey key = entry.getKey();
       SkyValue newValue = entry.getValue();
       NodeEntry prevEntry = graph.get(null, Reason.OTHER, key);
@@ -343,7 +352,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
             }
           };
 
-      for (Entry<SkyKey, ? extends NodeEntry> mapPair : graph.getAllValues().entrySet()) {
+      for (Map.Entry<SkyKey, ? extends NodeEntry> mapPair : graph.getAllValues().entrySet()) {
         SkyKey key = mapPair.getKey();
         NodeEntry entry = mapPair.getValue();
         if (entry.isDone()) {
@@ -386,17 +395,5 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         }
       };
 
-  public static final EvaluatorSupplier SUPPLIER =
-      new EvaluatorSupplier() {
-        @Override
-        public MemoizingEvaluator create(
-            ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
-            Differencer differencer,
-            @Nullable EvaluationProgressReceiver progressReceiver,
-            EmittedEventState emittedEventState,
-            boolean keepEdges) {
-          return new InMemoryMemoizingEvaluator(
-              skyFunctions, differencer, progressReceiver, emittedEventState, keepEdges);
-        }
-      };
+  public static final EvaluatorSupplier SUPPLIER = InMemoryMemoizingEvaluator::new;
 }

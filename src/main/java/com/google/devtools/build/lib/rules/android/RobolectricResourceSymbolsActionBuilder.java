@@ -15,18 +15,18 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
-import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
-import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.Builder.SeparatorType;
 import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.ToArg;
+import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.ToArg.Includes;
 import com.google.devtools.build.lib.util.OS;
 
 /**
@@ -39,20 +39,20 @@ public class RobolectricResourceSymbolsActionBuilder {
 
   private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_ARG =
       ResourceContainerConverter.builder()
-          .includeResourceRoots()
-          .includeManifest()
-          .includeRTxt()
-          .includeSymbolsBin()
-          .withSeparator(SeparatorType.COLON_COMMA)
+          .include(Includes.ResourceRoots)
+          .include(Includes.Manifest)
+          .include(Includes.RTxt)
+          .include(Includes.SymbolsBin)
+          .withSeparator(ToArg.SeparatorType.COLON_COMMA)
           .toArgConverter();
 
   private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_AAPT2_ARG =
       ResourceContainerConverter.builder()
-          .includeResourceRoots()
-          .includeManifest()
-          .includeAapt2RTxt()
-          .includeSymbolsBin()
-          .withSeparator(SeparatorType.COLON_COMMA)
+          .include(Includes.ResourceRoots)
+          .include(Includes.Manifest)
+          .include(Includes.Aapt2RTxt)
+          .include(Includes.SymbolsBin)
+          .withSeparator(ToArg.SeparatorType.COLON_COMMA)
           .toArgConverter();
 
   private Artifact classJarOut;
@@ -118,6 +118,8 @@ public class RobolectricResourceSymbolsActionBuilder {
         .addTransitive(dependencies.getTransitiveSymbolsBin());
 
     builder.addExecPath("--classJarOutput", classJarOut);
+    builder.addLabel("--targetLabel", ruleContext.getLabel());
+
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
 
     ParamFileInfo.Builder paramFile = ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED);

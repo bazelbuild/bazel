@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.java.WriteBuildInfoPropertiesAction.TimestampFormatter;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -48,16 +50,19 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
       DateTimeFormatter.ofPattern("EEE MMM d HH:mm:ss yyyy");
 
   // A default formatter that returns a date in UTC format.
-  private static final TimestampFormatter DEFAULT_FORMATTER =
-      new TimestampFormatter() {
-        @Override
-        public String format(long timestamp) {
-          return Instant.ofEpochMilli(timestamp).atZone(ZoneOffset.UTC).format(DEFAULT_TIME_FORMAT)
-              + " ("
-              + timestamp / 1000
-              + ')';
-        }
-      };
+  @AutoCodec
+  @VisibleForSerialization
+  static class DefaultTimestampFormatter implements TimestampFormatter {
+    @Override
+    public String format(long timestamp) {
+      return Instant.ofEpochMilli(timestamp).atZone(ZoneOffset.UTC).format(DEFAULT_TIME_FORMAT)
+          + " ("
+          + timestamp / 1000
+          + ')';
+    }
+  }
+
+  private static final TimestampFormatter DEFAULT_FORMATTER = new DefaultTimestampFormatter();
 
   @Override
   public final BuildInfoCollection create(BuildInfoContext context, BuildConfiguration config,

@@ -24,6 +24,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionTemplate;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -33,20 +35,22 @@ import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.ArtifactSkyKey.OwnedArtifact;
+import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
-import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -62,12 +66,14 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /** Tests for {@link ActionTemplateExpansionFunction}. */
 @RunWith(JUnit4.class)
 public final class ActionTemplateExpansionFunctionTest extends FoundationTestCase  {
   private Map<Artifact, TreeArtifactValue> artifactValueMap;
   private SequentialBuildDriver driver;
+  private SequencedRecordingDifferencer differencer;
 
   @Before
   public void setUp() throws Exception  {
@@ -78,7 +84,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
                 rootDirectory.getFileSystem().getPath("/outputbase"),
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    RecordingDifferencer differencer = new SequencedRecordingDifferencer();
+    differencer = new SequencedRecordingDifferencer();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -96,16 +102,16 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   @Test
   public void testActionTemplateExpansionFunction() throws Exception {
-    Artifact inputTreeArtifact = createAndPopulateTreeArtifact(
-        "inputTreeArtifact", "child0", "child1", "child2");
-    Artifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
+    SpecialArtifact inputTreeArtifact =
+        createAndPopulateTreeArtifact("inputTreeArtifact", "child0", "child1", "child2");
+    SpecialArtifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
 
     SpawnActionTemplate spawnActionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
         inputTreeArtifact, outputTreeArtifact);
     List<Action> actions = evaluate(spawnActionTemplate);
     assertThat(actions).hasSize(3);
 
-    ArtifactOwner owner = ActionTemplateExpansionValue.key(spawnActionTemplate);
+    ArtifactOwner owner = ActionTemplateExpansionValue.key(CTKEY, 0);
     int i = 0;
     for (Action action : actions) {
       String childName = "child" + i;
@@ -120,10 +126,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   @Test
   public void testThrowsOnActionConflict() throws Exception {
-    Artifact inputTreeArtifact = createAndPopulateTreeArtifact(
-        "inputTreeArtifact", "child0", "child1", "child2");
-    Artifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
-
+    SpecialArtifact inputTreeArtifact =
+        createAndPopulateTreeArtifact("inputTreeArtifact", "child0", "child1", "child2");
+    SpecialArtifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
 
     OutputPathMapper mapper = new OutputPathMapper() {
       @Override
@@ -148,9 +153,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   @Test
   public void testThrowsOnArtifactPrefixConflict() throws Exception {
-    Artifact inputTreeArtifact = createAndPopulateTreeArtifact(
-        "inputTreeArtifact", "child0", "child1", "child2");
-    Artifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
+    SpecialArtifact inputTreeArtifact =
+        createAndPopulateTreeArtifact("inputTreeArtifact", "child0", "child1", "child2");
+    SpecialArtifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
 
     OutputPathMapper mapper = new OutputPathMapper() {
       private int i = 0;
@@ -187,17 +192,24 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
   }
 
+  private static final ConfiguredTargetKey CTKEY =
+      ConfiguredTargetKey.of(Label.parseAbsoluteUnchecked("//foo:foo"), null);
+
   private List<Action> evaluate(SpawnActionTemplate spawnActionTemplate) throws Exception {
-    SkyKey skyKey = ActionTemplateExpansionValue.key(spawnActionTemplate);
-    EvaluationResult<ActionTemplateExpansionValue> result = driver.evaluate(
-        ImmutableList.of(skyKey),
-        false,
-        SkyframeExecutor.DEFAULT_THREAD_COUNT,
-        NullEventHandler.INSTANCE);
+    ConfiguredTargetValue ctValue = createConfiguredTargetValue(spawnActionTemplate);
+
+    differencer.inject(CTKEY, ctValue);
+    ActionTemplateExpansionKey templateKey = ActionTemplateExpansionValue.key(CTKEY, 0);
+    EvaluationResult<ActionTemplateExpansionValue> result =
+        driver.evaluate(
+            ImmutableList.of(templateKey),
+            false,
+            SkyframeExecutor.DEFAULT_THREAD_COUNT,
+            NullEventHandler.INSTANCE);
     if (result.hasError()) {
       throw result.getError().getException();
     }
-    ActionTemplateExpansionValue actionTemplateExpansionValue = result.get(skyKey);
+    ActionTemplateExpansionValue actionTemplateExpansionValue = result.get(templateKey);
     ImmutableList.Builder<Action> actionList = ImmutableList.builder();
     for (int i = 0; i < actionTemplateExpansionValue.getNumActions(); i++) {
       actionList.add(actionTemplateExpansionValue.getAction(i));
@@ -205,20 +217,27 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     return actionList.build();
   }
 
-  private Artifact createTreeArtifact(String path) {
+  private static ConfiguredTargetValue createConfiguredTargetValue(
+      ActionTemplate<?> actionTemplate) {
+    return new NonRuleConfiguredTargetValue(
+        Mockito.mock(ConfiguredTarget.class),
+        Actions.GeneratingActions.fromSingleAction(actionTemplate),
+        NestedSetBuilder.<Package>stableOrder().build(),
+        /*removeActionsAfterEvaluation=*/ false);
+  }
+
+  private SpecialArtifact createTreeArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
-    Path fullPath = rootDirectory.getRelative(execPath);
     return new SpecialArtifact(
-        fullPath,
         ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
         execPath,
         ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 
-  private Artifact createAndPopulateTreeArtifact(String path, String... childRelativePaths)
+  private SpecialArtifact createAndPopulateTreeArtifact(String path, String... childRelativePaths)
       throws Exception {
-    Artifact treeArtifact = createTreeArtifact(path);
+    SpecialArtifact treeArtifact = createTreeArtifact(path);
     Map<TreeFileArtifact, FileArtifactValue> treeFileArtifactMap = new LinkedHashMap<>();
 
     for (String childRelativePath : childRelativePaths) {
@@ -244,8 +263,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) {
-      OwnedArtifact ownedArtifact = (OwnedArtifact) skyKey.argument();
-      Artifact artifact = ownedArtifact.getArtifact();
+      ArtifactSkyKey artifactSkyKey = (ArtifactSkyKey) skyKey.argument();
+      Artifact artifact = artifactSkyKey.getArtifact();
       return Preconditions.checkNotNull(artifactValueMap.get(artifact));
     }
 

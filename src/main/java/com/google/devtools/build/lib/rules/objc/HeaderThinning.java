@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScannerSupplier;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -32,7 +33,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /**
@@ -42,8 +42,8 @@ import javax.annotation.Nullable;
  * <p>Reads the .headers_list output file if one was generated for the actions source file and
  * returns the Artifact objects associated with the headers that were found.
  */
+@AutoCodec
 public class HeaderThinning implements IncludeProcessing {
-
   private final Iterable<Artifact> potentialInputs;
 
   public HeaderThinning(Iterable<Artifact> potentialInputs) {
@@ -137,7 +137,7 @@ public class HeaderThinning implements IncludeProcessing {
       throws ExecException {
     ImmutableList.Builder<Artifact> includeBuilder = ImmutableList.builder();
     ImmutableList.Builder<PathFragment> treeArtifactPathsBuilder = ImmutableList.builder();
-    for (Entry<PathFragment, Artifact> inputEntry : inputArtifactsMap.entrySet()) {
+    for (Map.Entry<PathFragment, Artifact> inputEntry : inputArtifactsMap.entrySet()) {
       if (inputEntry.getValue().isTreeArtifact()) {
         treeArtifactPathsBuilder.add(inputEntry.getKey());
       }

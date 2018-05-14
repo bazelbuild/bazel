@@ -1,2 +1,0 @@
-rootProject.name='jarjar-gradle-example'
-include 'sub0', 'sub1', 'sub2' // , 'sub3'

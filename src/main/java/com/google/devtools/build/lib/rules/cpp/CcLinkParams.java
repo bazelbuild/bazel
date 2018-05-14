@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Collection;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -40,20 +42,22 @@ import javax.annotation.Nullable;
  * <p>Items in the collections are stored in nested sets. Link options and libraries are stored in
  * link order (preorder) and linkstamps are sorted.
  */
+@AutoCodec
 public final class CcLinkParams {
-
   /**
    * A list of link options contributed by a single configured target.
    *
-   * <b>WARNING:</b> Do not implement {@code #equals()} in the obvious way. This class must be
+   * <p><b>WARNING:</b> Do not implement {@code #equals()} in the obvious way. This class must be
    * checked for equality by object identity because otherwise if two configured targets contribute
    * the same link options, they will be de-duplicated, which is not the desirable behavior.
    */
+  @AutoCodec
   @Immutable
   public static final class LinkOptions {
     private final ImmutableList<String> linkOptions;
 
-    private LinkOptions(Iterable<String> linkOptions) {
+    @VisibleForSerialization
+    LinkOptions(Iterable<String> linkOptions) {
       this.linkOptions = ImmutableList.copyOf(linkOptions);
     }
 
@@ -73,7 +77,9 @@ public final class CcLinkParams {
   private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
   private final NestedSet<Artifact> nonCodeInputs;
 
-  private CcLinkParams(
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  CcLinkParams(
       NestedSet<LinkOptions> linkOpts,
       NestedSet<Linkstamp> linkstamps,
       NestedSet<LibraryToLink> libraries,
@@ -237,7 +243,10 @@ public final class CcLinkParams {
      * the method does not do anything.
      */
     public Builder addTransitiveTarget(TransitiveInfoCollection target) {
-      return addTransitiveProvider(target.get(CcLinkParamsInfo.PROVIDER));
+      CcLinkingInfo ccLinkingInfo = target.get(CcLinkingInfo.PROVIDER);
+      CcLinkParamsInfo ccLinkParamsInfo =
+          ccLinkingInfo == null ? null : ccLinkingInfo.getCcLinkParamsInfo();
+      return addTransitiveProvider(ccLinkParamsInfo);
     }
 
     /**
@@ -319,12 +328,12 @@ public final class CcLinkParams {
       return this;
     }
 
-    /**
-     * Adds a collection of linkstamps.
-     */
-    public Builder addLinkstamps(NestedSet<Artifact> linkstamps, CppCompilationContext context) {
+    /** Adds a collection of linkstamps. */
+    public Builder addLinkstamps(
+        NestedSet<Artifact> linkstamps, CcCompilationContext ccCompilationContext) {
       for (Artifact linkstamp : linkstamps) {
-        linkstampsBuilder.add(new Linkstamp(linkstamp, context.getDeclaredIncludeSrcs()));
+        linkstampsBuilder.add(
+            new Linkstamp(linkstamp, ccCompilationContext.getDeclaredIncludeSrcs()));
       }
       return this;
     }
@@ -387,14 +396,16 @@ public final class CcLinkParams {
   /**
    * A linkstamp that also knows about its declared includes.
    *
-   * <p>This object is required because linkstamp files may include other headers which
-   * will have to be provided during compilation.
+   * <p>This object is required because linkstamp files may include other headers which will have to
+   * be provided during compilation.
    */
+  @AutoCodec
   public static final class Linkstamp {
     private final Artifact artifact;
     private final NestedSet<Artifact> declaredIncludeSrcs;
 
-    private Linkstamp(Artifact artifact, NestedSet<Artifact> declaredIncludeSrcs) {
+    @VisibleForSerialization
+    Linkstamp(Artifact artifact, NestedSet<Artifact> declaredIncludeSrcs) {
       this.artifact = Preconditions.checkNotNull(artifact);
       this.declaredIncludeSrcs = Preconditions.checkNotNull(declaredIncludeSrcs);
     }

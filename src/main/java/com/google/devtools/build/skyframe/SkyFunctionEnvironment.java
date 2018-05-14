@@ -16,12 +16,9 @@ package com.google.devtools.build.skyframe;
 import static com.google.devtools.build.skyframe.AbstractParallelEvaluator.isDoneForBuild;
 import static com.google.devtools.build.skyframe.ParallelEvaluator.maybeGetValueFromError;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -85,7 +82,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private final GroupedListHelper<SkyKey> newlyRequestedDeps = new GroupedListHelper<>();
 
   /** The set of errors encountered while fetching children. */
-  private final Collection<ErrorInfo> childErrorInfos = new LinkedHashSet<>();
+  private final Set<ErrorInfo> childErrorInfos = new LinkedHashSet<>();
 
   private final StoredEventHandler eventHandler =
       new StoredEventHandler() {
@@ -129,6 +126,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       Set<SkyKey> oldDeps,
       ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
+    super(directDeps);
     this.skyKey = skyKey;
     this.oldDeps = oldDeps;
     this.evaluatorContext = evaluatorContext;
@@ -150,20 +148,26 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       boolean assertDone,
       SkyKey keyForDebugging)
       throws InterruptedException {
-    Iterable<SkyKey> depKeysAsIterable = Iterables.concat(depKeys);
-    Iterable<SkyKey> keysToPrefetch = depKeysAsIterable;
+    Set<SkyKey> depKeysAsSet = null;
     if (PREFETCH_OLD_DEPS) {
-      ImmutableSet.Builder<SkyKey> keysToPrefetchBuilder = ImmutableSet.builder();
-      keysToPrefetchBuilder.addAll(depKeysAsIterable).addAll(oldDeps);
-      keysToPrefetch = keysToPrefetchBuilder.build();
+      if (!oldDeps.isEmpty()) {
+        // Create a set here so that filtering the old deps below is fast. Once we create this set,
+        // we may as well use it for the call to evaluatorContext#getBatchValues since we've
+        // precomputed the size.
+        depKeysAsSet = depKeys.toSet();
+        evaluatorContext
+            .getGraph()
+            .getBatchAsync(
+                requestor,
+                Reason.PREFETCH,
+                Iterables.filter(oldDeps, Predicates.not(Predicates.in(depKeysAsSet))));
+      }
     }
     Map<SkyKey, ? extends NodeEntry> batchMap =
-        evaluatorContext.getBatchValues(requestor, Reason.PREFETCH, keysToPrefetch);
-    if (PREFETCH_OLD_DEPS) {
-      batchMap =
-          ImmutableMap.<SkyKey, NodeEntry>copyOf(
-              Maps.filterKeys(batchMap, Predicates.in(ImmutableSet.copyOf(depKeysAsIterable))));
-    }
+        evaluatorContext.getBatchValues(
+            requestor,
+            Reason.PREFETCH,
+            depKeysAsSet == null ? depKeys.getAllElementsAsIterable() : depKeysAsSet);
     if (batchMap.size() != depKeys.numElements()) {
       throw new IllegalStateException(
           "Missing keys for "
@@ -315,7 +319,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
             keySize - directDeps.size() - (bubbleErrorInfo == null ? 0 : bubbleErrorInfo.size()),
             0);
     ArrayList<SkyKey> missingKeys = new ArrayList<>(expectedMissingKeySize);
-    for (SkyKey key : Iterables.concat(depKeys)) {
+    for (SkyKey key : depKeys.getAllElementsAsIterable()) {
       SkyValue value = maybeGetValueFromErrorOrDeps(key);
       if (value == null) {
         missingKeys.add(key);
@@ -344,6 +348,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
       Iterable<? extends SkyKey> depKeys) throws InterruptedException {
     checkActive();
+    newlyRequestedDeps.startGroup();
     Map<SkyKey, SkyValue> values = getValuesMaybeFromError(depKeys);
     for (Map.Entry<SkyKey, SkyValue> depEntry : values.entrySet()) {
       SkyKey depKey = depEntry.getKey();
@@ -396,78 +401,48 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
             .visit(ValueWithMetadata.getEvents(depValue));
       }
     }
+    newlyRequestedDeps.endGroup();
 
     return Maps.transformValues(
         values,
-        new Function<SkyValue, ValueOrUntypedException>() {
-          @Override
-          public ValueOrUntypedException apply(SkyValue maybeWrappedValue) {
-            if (maybeWrappedValue == NULL_MARKER) {
-              return ValueOrExceptionUtils.ofNull();
-            }
-            SkyValue justValue = ValueWithMetadata.justValue(maybeWrappedValue);
-            ErrorInfo errorInfo = ValueWithMetadata.getMaybeErrorInfo(maybeWrappedValue);
-
-            if (justValue != null && (evaluatorContext.keepGoing() || errorInfo == null)) {
-              // If the dep did compute a value, it is given to the caller if we are in
-              // keepGoing mode or if we are in noKeepGoingMode and there were no errors computing
-              // it.
-              return ValueOrExceptionUtils.ofValueUntyped(justValue);
-            }
-
-            // There was an error building the value, which we will either report by throwing an
-            // exception or insulate the caller from by returning null.
-            Preconditions.checkNotNull(errorInfo, "%s %s", skyKey, maybeWrappedValue);
-            Exception exception = errorInfo.getException();
-
-            if (!evaluatorContext.keepGoing() && exception != null && bubbleErrorInfo == null) {
-              // Child errors should not be propagated in noKeepGoing mode (except during error
-              // bubbling). Instead we should fail fast.
-              return ValueOrExceptionUtils.ofNull();
-            }
-
-            if (exception != null) {
-              // Give builder a chance to handle this exception.
-              return ValueOrExceptionUtils.ofExn(exception);
-            }
-            // In a cycle.
-            Preconditions.checkState(
-                !Iterables.isEmpty(errorInfo.getCycleInfo()),
-                "%s %s %s",
-                skyKey,
-                errorInfo,
-                maybeWrappedValue);
-            return ValueOrExceptionUtils.ofNull();
+        maybeWrappedValue -> {
+          if (maybeWrappedValue == NULL_MARKER) {
+            return ValueOrUntypedException.ofNull();
           }
-        });
-  }
+          SkyValue justValue = ValueWithMetadata.justValue(maybeWrappedValue);
+          ErrorInfo errorInfo = ValueWithMetadata.getMaybeErrorInfo(maybeWrappedValue);
 
-  @Override
-  public <
-          E1 extends Exception,
-          E2 extends Exception,
-          E3 extends Exception,
-          E4 extends Exception,
-          E5 extends Exception>
-      Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValuesOrThrow(
-          Iterable<? extends SkyKey> depKeys,
-          Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4,
-          Class<E5> exceptionClass5)
-              throws InterruptedException {
-    newlyRequestedDeps.startGroup();
-    Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> result =
-        super.getValuesOrThrow(
-            depKeys,
-            exceptionClass1,
-            exceptionClass2,
-            exceptionClass3,
-            exceptionClass4,
-            exceptionClass5);
-    newlyRequestedDeps.endGroup();
-    return result;
+          if (justValue != null && (evaluatorContext.keepGoing() || errorInfo == null)) {
+            // If the dep did compute a value, it is given to the caller if we are in
+            // keepGoing mode or if we are in noKeepGoingMode and there were no errors computing
+            // it.
+            return ValueOrUntypedException.ofValueUntyped(justValue);
+          }
+
+          // There was an error building the value, which we will either report by throwing an
+          // exception or insulate the caller from by returning null.
+          Preconditions.checkNotNull(errorInfo, "%s %s", skyKey, maybeWrappedValue);
+          Exception exception = errorInfo.getException();
+
+          if (!evaluatorContext.keepGoing() && exception != null && bubbleErrorInfo == null) {
+            // Child errors should not be propagated in noKeepGoing mode (except during error
+            // bubbling). Instead we should fail fast.
+            return ValueOrUntypedException.ofNull();
+          }
+
+          if (exception != null) {
+            // Give builder a chance to handle this exception.
+            return ValueOrUntypedException.ofExn(exception);
+          }
+          // In a cycle.
+          Preconditions.checkState(
+              !Iterables.isEmpty(errorInfo.getCycleInfo()),
+              "%s %s %s",
+              skyKey,
+              errorInfo,
+              maybeWrappedValue);
+          return ValueOrUntypedException.ofNull();
+        });
   }
 
   private void addDep(SkyKey key) {
@@ -615,5 +590,16 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   @Override
   public boolean inErrorBubblingForTesting() {
     return bubbleErrorInfo != null;
+  }
+
+  @Override
+  public void registerDependencies(Iterable<SkyKey> keys) {
+    newlyRequestedDeps.startGroup();
+    for (SkyKey key : keys) {
+      if (!directDeps.containsKey(key)) {
+        addDep(key);
+      }
+    }
+    newlyRequestedDeps.endGroup();
   }
 }

@@ -16,11 +16,11 @@
 #define BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_H_
 
 #include <list>
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/rc_file.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/exit_code.h"
 
@@ -56,7 +56,7 @@ class OptionProcessor {
   OptionProcessor(const WorkspaceLayout* workspace_layout,
                   std::unique_ptr<StartupOptions> default_startup_options);
 
-  virtual ~OptionProcessor();
+  virtual ~OptionProcessor() {}
 
   // Splits the arguments of a command line invocation.
   //
@@ -81,8 +81,8 @@ class OptionProcessor {
       const std::vector<std::string>& args,
       std::string* error) const;
 
-  // Parse a command line and the appropriate blazerc files. This should be
-  // invoked only once per OptionProcessor object.
+  // Parse a command line and the appropriate blazerc files and stores the
+  // results. This should be invoked only once per OptionProcessor object.
   blaze_exit_code::ExitCode ParseOptions(const std::vector<std::string>& args,
                                          const std::string& workspace,
                                          const std::string& cwd,
@@ -103,66 +103,40 @@ class OptionProcessor {
 
   virtual StartupOptions* GetParsedStartupOptions() const;
 
-  virtual blaze_exit_code::ExitCode FindUserBlazerc(
-      const char* cmdLineRcFile,
-      const std::string& workspace, std::string* user_blazerc_file,
-      std::string* error);
-
   // Prints a message about the origin of startup options. This should be called
-  // if the server is not started or called, in case the options are related
-  // to the failure. Otherwise, the server will handle any required logging.
+  // if the server is not started or called, in case the options are related to
+  // the failure. Otherwise, the server will handle any required logging.
   void PrintStartupOptionsProvenanceMessage() const;
 
- private:
-  class RcOption {
-   public:
-    RcOption(int rcfile_index, const std::string& option);
-
-    const int rcfile_index() const { return rcfile_index_; }
-    const std::string& option() const { return option_; }
-
-   private:
-    int rcfile_index_;
-    std::string option_;
-  };
-
-  class RcFile {
-   public:
-    RcFile(const std::string& filename, int index);
-    blaze_exit_code::ExitCode Parse(
-        const std::string& workspace, const WorkspaceLayout* workspace_layout,
-        std::vector<RcFile*>* rcfiles,
-        std::map<std::string, std::vector<RcOption>>* rcoptions,
-        std::string* error);
-    const std::string& Filename() const { return filename_; }
-    const int Index() const { return index_; }
-
-   private:
-    static blaze_exit_code::ExitCode Parse(
-        const std::string& workspace, const std::string& filename,
-        const int index, const WorkspaceLayout* workspace_layout,
-        std::vector<RcFile*>* rcfiles,
-        std::map<std::string, std::vector<RcOption>>* rcoptions,
-        std::list<std::string>* import_stack, std::string* error);
-
-    std::string filename_;
-    int index_;
-  };
-
-  blaze_exit_code::ExitCode ParseStartupOptions(std::string* error);
-
+  // Constructs all synthetic command args that should be passed to the
+  // server to configure blazerc options and client environment.
   static std::vector<std::string> GetBlazercAndEnvCommandArgs(
       const std::string& cwd,
-      const std::vector<RcFile*>& blazercs,
-      const std::map<std::string, std::vector<RcOption>>& rcoptions);
+      const std::vector<std::unique_ptr<RcFile>>& blazercs,
+      const std::vector<std::string>& env);
 
-  // The list of parsed rc files, this field is initialized by ParseOptions.
-  std::vector<RcFile*> blazercs_;
+  // Finds and parses the appropriate RcFiles.
+  // TODO(#4502) Change where the bazelrcs are read from.
+  virtual blaze_exit_code::ExitCode GetRcFiles(
+      const WorkspaceLayout* workspace_layout, const std::string& workspace,
+      const std::string& cwd, const CommandLine* cmd_line,
+      std::vector<std::unique_ptr<RcFile>>* result_rc_files,
+      std::string* error) const;
 
-  // A map representing the flags parsed from the bazelrc files.
-  // A key is a command (e.g. 'build', 'startup') and its value is an ordered
-  // list of RcOptions.
-  std::map<std::string, std::vector<RcOption>> rcoptions_;
+ protected:
+  // Return the path to the user's rc file.  If cmd_line_rc_file != NULL,
+  // use it, dying if it is not readable.  Otherwise, return the first
+  // readable file called rc_basename from [workspace, $HOME]
+  //
+  // If no readable .blazerc file is found, return the empty string.
+  virtual blaze_exit_code::ExitCode FindUserBlazerc(
+      const char* cmd_line_rc_file, const std::string& workspace,
+      std::string* user_blazerc_file, std::string* error) const;
+
+ private:
+  blaze_exit_code::ExitCode ParseStartupOptions(
+      const std::vector<std::unique_ptr<RcFile>>& rc_files,
+      std::string* error);
 
   // An ordered list of command args that contain information about the
   // execution environment and the flags passed via the bazelrc files.
@@ -177,6 +151,13 @@ class OptionProcessor {
   // ParseOptions.
   std::unique_ptr<StartupOptions> parsed_startup_options_;
 };
+
+// Parses and returns the contents of the rc file.
+blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
+                                      const std::string& workspace,
+                                      const std::string& rc_file_path,
+                                      std::unique_ptr<RcFile>* result_rc_file,
+                                      std::string* error);
 
 }  // namespace blaze
 

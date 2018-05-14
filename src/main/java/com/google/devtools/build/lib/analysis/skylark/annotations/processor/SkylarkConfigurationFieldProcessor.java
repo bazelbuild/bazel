@@ -15,14 +15,12 @@
 package com.google.devtools.build.lib.analysis.skylark.annotations.processor;
 
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -39,7 +37,7 @@ import javax.tools.Diagnostic;
  *
  * <p>Checks the following invariants about {@link SkylarkConfigurationField}-annotated methods:
  * <ul>
- * <li>The annotated method must be on a configuration fragment exposed to skylark.</li>
+ * <li>The annotated method must be on a configuration fragment.</li>
  * <li>The method must have return type Label.</li>
  * <li>The method must be public.</li>
  * <li>The method must have zero arguments.</li>
@@ -49,20 +47,25 @@ import javax.tools.Diagnostic;
  * <p>These properties can be relied upon at runtime without additional checks.
  */
 @SupportedAnnotationTypes({"com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField"})
-@SupportedSourceVersion(SourceVersion.RELEASE_8)
 public final class SkylarkConfigurationFieldProcessor extends AbstractProcessor {
 
   private Messager messager;
   private Types typeUtils;
+  private Elements elementUtils;
   private TypeMirror labelType;
   private TypeMirror configurationFragmentType;
+
+  @Override
+  public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latestSupported();
+  }
 
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
     messager = processingEnv.getMessager();
     typeUtils = processingEnv.getTypeUtils();
-    Elements elementUtils = processingEnv.getElementUtils();
+    elementUtils = processingEnv.getElementUtils();
     labelType =
         elementUtils.getTypeElement("com.google.devtools.build.lib.cmdline.Label").asType();
     configurationFragmentType =
@@ -79,7 +82,7 @@ public final class SkylarkConfigurationFieldProcessor extends AbstractProcessor 
 
       if (!isMethodOfSkylarkExposedConfigurationFragment(methodElement)) {
         error(methodElement, "@SkylarkConfigurationField annotated methods must be methods "
-            + "of configuration fragments with the @SkylarkModule annotation.");
+            + "of configuration fragments.");
       }
       if (!typeUtils.isSameType(methodElement.getReturnType(), labelType)) {
         error(methodElement, "@SkylarkConfigurationField annotated methods must return Label.");
@@ -101,6 +104,7 @@ public final class SkylarkConfigurationFieldProcessor extends AbstractProcessor 
 
   private boolean isMethodOfSkylarkExposedConfigurationFragment(
       ExecutableElement methodElement) {
+
     if (methodElement.getEnclosingElement().getKind() != ElementKind.CLASS) {
       return false;
     }
@@ -108,9 +112,7 @@ public final class SkylarkConfigurationFieldProcessor extends AbstractProcessor 
     if (!typeUtils.isAssignable(classElement.asType(), configurationFragmentType)) {
       return false;
     }
-    if (classElement.getAnnotation(SkylarkModule.class) == null) {
-      return false;
-    }
+
     return true;
   }
 

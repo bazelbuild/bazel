@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -83,10 +85,10 @@ public abstract class Util {
     Set<ConfiguredTargetKey> maybeImplicitDeps = CompactHashSet.create();
     Set<ConfiguredTargetKey> explicitDeps = CompactHashSet.create();
     AttributeMap attributes = ruleContext.attributes();
-    ListMultimap<String, ? extends TransitiveInfoCollection> targetMap =
-        ruleContext.getConfiguredTargetMap();
+    ListMultimap<String, ConfiguredTargetAndData> targetMap =
+        ruleContext.getConfiguredTargetAndDataMap();
     for (String attrName : attributes.getAttributeNames()) {
-      List<? extends TransitiveInfoCollection> attrValues = targetMap.get(attrName);
+      List<ConfiguredTargetAndData> attrValues = targetMap.get(attrName);
       if (attrValues != null && !attrValues.isEmpty()) {
         if (attributes.isAttributeValueExplicitlySpecified(attrName)) {
           addLabelsAndConfigs(explicitDeps, attrValues);
@@ -111,8 +113,19 @@ public abstract class Util {
   }
 
   private static void addLabelsAndConfigs(
-      Set<ConfiguredTargetKey> set, List<? extends TransitiveInfoCollection> deps) {
-    deps.forEach(
-        target -> set.add(ConfiguredTargetKey.of(target.getLabel(), target.getConfiguration())));
+      Set<ConfiguredTargetKey> set, List<ConfiguredTargetAndData> deps) {
+    for (ConfiguredTargetAndData dep : deps) {
+      // This must be done because {@link AliasConfiguredTarget#getLabel} returns the label of the
+      // "actual" configured target instead of the alias.
+      if (dep.getConfiguredTarget() instanceof AliasConfiguredTarget) {
+        set.add(
+            ConfiguredTargetKey.of(
+                ((AliasConfiguredTarget) dep.getConfiguredTarget()).getOriginalLabel(),
+                dep.getConfiguration()));
+      } else {
+        set.add(
+            ConfiguredTargetKey.of(dep.getConfiguredTarget().getLabel(), dep.getConfiguration()));
+      }
+    }
   }
 }

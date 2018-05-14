@@ -16,14 +16,22 @@ package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
-import com.google.devtools.build.lib.syntax.Environment.Frame;
+import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
+import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** Helpers for serialization tests. */
 public class TestUtils {
@@ -31,26 +39,68 @@ public class TestUtils {
   private TestUtils() {}
 
   /** Serialize a value to a new byte array. */
-  public static <T> byte[] toBytes(ObjectCodec<T> codec, T value)
+  public static <T> byte[] toBytes(SerializationContext context, ObjectCodec<T> codec, T value)
       throws IOException, SerializationException {
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(bytes);
-    codec.serialize(value, codedOut);
+    codec.serialize(context, value, codedOut);
     codedOut.flush();
     return bytes.toByteArray();
   }
 
+  public static <T> ByteString toBytes(T value, ImmutableMap<Class<?>, Object> dependencies)
+      throws IOException, SerializationException {
+    return toBytes(new SerializationContext(dependencies), value);
+  }
+
+  public static <T> ByteString toBytes(SerializationContext serializationContext, T value)
+      throws IOException, SerializationException {
+    ByteString.Output output = ByteString.newOutput();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
+    serializationContext.serialize(value, codedOut);
+    codedOut.flush();
+    return output.toByteString();
+  }
+
+  public static Object fromBytes(DeserializationContext deserializationContext, ByteString bytes)
+      throws IOException, SerializationException {
+    return deserializationContext.deserialize(bytes.newCodedInput());
+  }
+
   /** Deserialize a value from a byte array. */
-  public static <T> T fromBytes(ObjectCodec<T> codec, byte[] bytes)
+  public static <T> T fromBytes(DeserializationContext context, ObjectCodec<T> codec, byte[] bytes)
       throws SerializationException, IOException {
-    return codec.deserialize(CodedInputStream.newInstance(bytes));
+    return codec.deserialize(context, CodedInputStream.newInstance(bytes));
+  }
+
+  public static <T> T roundTrip(T value, ObjectCodecRegistry registry)
+      throws IOException, SerializationException {
+    return new DeserializationContext(registry, ImmutableMap.of())
+        .deserialize(
+            toBytes(new SerializationContext(registry, ImmutableMap.of()), value).newCodedInput());
+  }
+
+  public static <T> T roundTrip(T value, ImmutableMap<Class<?>, Object> dependencies)
+      throws IOException, SerializationException {
+    ObjectCodecRegistry.Builder builder = AutoRegistry.get().getBuilder();
+    for (Object constant : dependencies.values()) {
+      builder.addReferenceConstant(constant);
+    }
+    ObjectCodecRegistry registry = builder.build();
+    return new DeserializationContext(registry, dependencies)
+        .deserialize(
+            toBytes(new SerializationContext(registry, dependencies), value).newCodedInput());
+  }
+
+  public static <T> T roundTrip(T value) throws IOException, SerializationException {
+    return TestUtils.roundTrip(value, ImmutableMap.of());
   }
 
   /**
-   * Asserts that two {@link Frame}s have the same structure. Needed because {@link Frame} doesn't
-   * override {@link Object#equals}.
+   * Asserts that two {@link GlobalFrame}s have the same structure. Needed because
+   * {@link GlobalFrame} doesn't override {@link Object#equals}.
    */
-  public static void assertFramesEqual(Frame frame1, Frame frame2) {
+  public static void assertGlobalFramesEqual(GlobalFrame frame1, GlobalFrame frame2) {
     assertThat(frame1.mutability().getAnnotation())
         .isEqualTo(frame2.mutability().getAnnotation());
     assertThat(frame1.getLabel()).isEqualTo(frame2.getLabel());
@@ -60,33 +110,49 @@ public class TestUtils {
       assertThat(frame1.getParent()).isNull();
       assertThat(frame2.getParent()).isNull();
     } else {
-      assertFramesEqual(frame1.getParent(), frame2.getParent());
+      assertGlobalFramesEqual(frame1.getParent(), frame2.getParent());
     }
   }
 
-  /**
-   * Fake string codec that replaces all input and output string values with the constant "dummy".
-   */
-  public static class ConstantStringCodec implements ObjectCodec<String> {
+  public static ByteString toBytesMemoized(Object original, ObjectCodecRegistry registry)
+      throws IOException, SerializationException {
+    ByteString.Output output = ByteString.newOutput();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
+    new ObjectCodecs(registry).serializeMemoized(original, codedOut);
+    codedOut.flush();
+    return output.toByteString();
+  }
 
-    private static final ObjectCodec<String> stringCodec = StringCodecs.simple();
+  public static Object fromBytesMemoized(ByteString bytes, ObjectCodecRegistry registry)
+      throws IOException, SerializationException {
+    return new ObjectCodecs(registry).deserializeMemoized(bytes.newCodedInput());
+  }
 
-    @Override
-    public Class<String> getEncodedClass() {
-      return String.class;
+  @SuppressWarnings("unchecked")
+  public static <T> T roundTripMemoized(T original, ObjectCodecRegistry registry)
+      throws IOException, SerializationException {
+    return (T)
+        new ObjectCodecs(registry)
+            .deserializeMemoized(toBytesMemoized(original, registry).newCodedInput());
+  }
+
+  public static <T> T roundTripMemoized(T original, ObjectCodec<?>... codecs)
+      throws IOException, SerializationException {
+    return roundTripMemoized(original, getBuilderWithAdditionalCodecs(codecs).build());
+  }
+
+  public static <T> T roundTripMemoized(
+      T original, @Nullable Mutability mutability, ObjectCodec<?>... codecs)
+      throws IOException, SerializationException {
+    return roundTripMemoized(original, getBuilderWithAdditionalCodecs(codecs).build());
+  }
+
+  public static ObjectCodecRegistry.Builder getBuilderWithAdditionalCodecs(
+      ObjectCodec<?>... codecs) {
+    ObjectCodecRegistry.Builder builder = AutoRegistry.get().getBuilder();
+    for (ObjectCodec<?> codec : codecs) {
+      builder.add(codec);
     }
-
-    @Override
-    public void serialize(String value, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      stringCodec.serialize("dummy", codedOut);
-    }
-
-    @Override
-    public String deserialize(CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      stringCodec.deserialize(codedIn);
-      return "dummy";
-    }
+    return builder;
   }
 }

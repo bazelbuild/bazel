@@ -72,8 +72,6 @@ def create_android_sdk_rules(
           "build-tools/%s/lib/apksigner.jar" % build_tools_directory,
           "build-tools/%s/lib/dx.jar" % build_tools_directory,
           "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
-          "tools/proguard/lib/proguard.jar",
-          "tools/support/annotations.jar",
       ] + [
           "platforms/android-%d/%s" % (api_level, filename)
           for api_level in api_levels
@@ -118,7 +116,6 @@ def create_android_sdk_rules(
         }),
         android_jar = "platforms/android-%d/android.jar" % api_level,
         shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
-        annotations_jar = "tools/support/annotations.jar",
         main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
         apksigner = ":apksigner",
         zipalign = select({
@@ -222,8 +219,7 @@ def create_android_sdk_rules(
             "STRIPPED_JAR=$$2",
             "JAR=$$3",
             "" +
-            "DIRNAME=$$(dirname $$0)",
-            "JAVA_BINARY=TBD/main_dex_list_creator_java",  # Proper runfiles path comes here
+            "JAVA_BINARY=$$0.runfiles/%s/main_dex_list_creator_java" % name,
             "$$JAVA_BINARY $$STRIPPED_JAR $$JAR > $$MAIN_DEX_LIST",
             "exit $$?",
             "",
@@ -248,14 +244,9 @@ def create_android_sdk_rules(
       runtime_deps = [":dx_jar_import"],
   )
 
-  native.filegroup(
-      name = "dx_jar",
-      srcs = ["build-tools/%s/lib/dx.jar" % build_tools_directory],
-  )
-
   native.java_import(
       name = "dx_jar_import",
-      jars = [":dx_jar"],
+      jars = ["build-tools/%s/lib/dx.jar" % build_tools_directory],
   )
 
 

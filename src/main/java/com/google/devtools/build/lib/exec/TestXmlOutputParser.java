@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
-import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Type;
 import com.google.protobuf.UninitializedMessageException;
 import java.io.InputStream;
 import javax.xml.stream.XMLInputFactory;
@@ -140,7 +139,7 @@ final class TestXmlOutputParser {
   private TestCase parseTestSuite(XMLStreamReader parser, String elementName)
       throws XMLStreamException, TestXmlOutputParserException {
     TestCase.Builder builder = TestCase.newBuilder();
-    builder.setType(Type.TEST_SUITE);
+    builder.setType(TestCase.Type.TEST_SUITE);
     for (int i = 0; i < parser.getAttributeCount(); i++) {
       String name = parser.getAttributeLocalName(i).intern();
       String value = parser.getAttributeValue(i);
@@ -184,7 +183,7 @@ final class TestXmlOutputParser {
   private TestCase parseTestDecorator(XMLStreamReader parser)
       throws XMLStreamException, TestXmlOutputParserException {
     TestCase.Builder builder = TestCase.newBuilder();
-    builder.setType(Type.TEST_DECORATOR);
+    builder.setType(TestCase.Type.TEST_DECORATOR);
     for (int i = 0; i < parser.getAttributeCount(); i++) {
       String name = parser.getAttributeLocalName(i);
       String value = parser.getAttributeValue(i);
@@ -291,7 +290,7 @@ final class TestXmlOutputParser {
   private TestCase parseTestCase(XMLStreamReader parser)
       throws XMLStreamException, TestXmlOutputParserException {
     TestCase.Builder builder = TestCase.newBuilder();
-    builder.setType(Type.TEST_CASE);
+    builder.setType(TestCase.Type.TEST_CASE);
     for (int i = 0; i < parser.getAttributeCount(); i++) {
       String name = parser.getAttributeLocalName(i).intern();
       String value = parser.getAttributeValue(i);

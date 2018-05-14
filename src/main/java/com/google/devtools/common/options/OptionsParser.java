@@ -33,7 +33,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -299,7 +298,7 @@ public class OptionsParser implements OptionsProvider {
         getOptionsSortedByCategory();
     ImmutableMap<OptionDocumentationCategory, String> optionCategoryDescriptions =
         OptionFilterDescriptions.getOptionCategoriesEnumDescription(productName);
-    for (Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
+    for (Map.Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
         optionsByCategory.entrySet()) {
       String categoryDescription = optionCategoryDescriptions.get(e.getKey());
       List<OptionDefinition> categorizedOptionList = e.getValue();
@@ -463,7 +462,7 @@ public class OptionsParser implements OptionsProvider {
     ImmutableMap<OptionDocumentationCategory, String> optionCategoryDescriptions =
         OptionFilterDescriptions.getOptionCategoriesEnumDescription(productName);
 
-    for (Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
+    for (Map.Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
         optionsByCategory.entrySet()) {
       desc.append("<dl>");
       String categoryDescription = optionCategoryDescriptions.get(e.getKey());
@@ -629,7 +628,7 @@ public class OptionsParser implements OptionsProvider {
    * @param args the arguments to parse as the expansion. Order matters, as the value of a flag may
    *     be in the following argument.
    */
-  public void parseArgsFixedAsExpansionOfOption(
+  public void parseArgsAsExpansionOfOption(
       ParsedOptionDescription optionToExpand, String source, List<String> args)
       throws OptionsParsingException {
     Preconditions.checkNotNull(
@@ -638,7 +637,7 @@ public class OptionsParser implements OptionsProvider {
         optionToExpand.getPriority().getPriorityCategory()
             != OptionPriority.PriorityCategory.DEFAULT,
         "Priority cannot be default, which was specified for arglist " + args);
-    residue.addAll(impl.parseArgsFixedAsExpansionOfOption(optionToExpand, o -> source, args));
+    residue.addAll(impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args));
     if (!allowResidue && !residue.isEmpty()) {
       String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       throw new OptionsParsingException(errorMsg);

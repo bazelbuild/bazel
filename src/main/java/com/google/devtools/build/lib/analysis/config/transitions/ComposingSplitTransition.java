@@ -17,12 +17,15 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A configuration transition that composes two other transitions in an ordered sequence.
  *
  * <p>Example:
+ *
  * <pre>
  *   transition1: { someSetting = $oldVal + " foo" }
  *   transition2: { someSetting = $oldVal + " bar" }
@@ -33,15 +36,29 @@ import java.util.List;
  * combination thereof. We implement this class as a {@link SplitTransition} since that abstraction
  * captures all possible combinations.
  */
+@AutoCodec
 public class ComposingSplitTransition implements SplitTransition {
-  private Transition transition1;
-  private Transition transition2;
+  private ConfigurationTransition transition1;
+  private ConfigurationTransition transition2;
+
+  @Override
+  public String getName() {
+    return "(" + transition1.getName() + " + " + transition2.getName() + ")";
+  }
 
   /**
-   * Creates a {@link ComposingSplitTransition} that applies the sequence:
-   * {@code fromOptions -> transition1 -> transition2 -> toOptions  }.
+   * Creates a {@link ComposingSplitTransition} that applies the sequence: {@code fromOptions ->
+   * transition1 -> transition2 -> toOptions }.
+   *
+   * <p>Note that it's possible to create silly transitions with this constructor (e.g., if one or
+   * both of the transitions is NoTransition). Use composeTransitions instead, which checks for
+   * these states and avoids instantiation appropriately.
+   *
+   * @see TransitionResolver#composeTransitions
    */
-  public ComposingSplitTransition(Transition transition1, Transition transition2) {
+  @AutoCodec.Instantiator
+  public ComposingSplitTransition(
+      ConfigurationTransition transition1, ConfigurationTransition transition2) {
     this.transition1 = verifySupported(transition1);
     this.transition2 = verifySupported(transition2);
   }
@@ -59,17 +76,47 @@ public class ComposingSplitTransition implements SplitTransition {
    * Verifies support for the given transition type. Throws an {@link IllegalArgumentException} if
    * unsupported.
    */
-  private Transition verifySupported(Transition transition) {
+  private ConfigurationTransition verifySupported(ConfigurationTransition transition) {
     Preconditions.checkArgument(transition instanceof PatchTransition
         || transition instanceof SplitTransition);
     return transition;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(transition1, transition2);
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    return other instanceof ComposingSplitTransition
+        && ((ComposingSplitTransition) other).transition1.equals(this.transition1)
+        && ((ComposingSplitTransition) other).transition2.equals(this.transition2);
+  }
+
+  /**
+   * Returns whether this transition contains only patches (and is thus suitable as a delegate
+   * for {@link ComposingPatchTransition}).
+   */
+  public boolean isPatchOnly() {
+    return transition1 instanceof PatchTransition && transition2 instanceof PatchTransition;
+  }
+
+  /**
+   * Allows this transition to be used in patch-only contexts if it contains only
+   * {@link PatchTransition}s.
+   *
+   * <p>Can only be called if {@link #isPatchOnly()} returns true.
+   */
+  public ComposingPatchTransition asPatch() {
+    return new ComposingPatchTransition(this);
   }
 
   /**
    * Applies the given transition over the given {@link BuildOptions}, returns the result.
    */
   // TODO(gregce): move this somewhere more general. This isn't intrinsic to composed splits.
-  static List<BuildOptions> apply(BuildOptions fromOptions, Transition transition) {
+  static List<BuildOptions> apply(BuildOptions fromOptions, ConfigurationTransition transition) {
     if (transition instanceof PatchTransition) {
       return ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(fromOptions));
     } else if (transition instanceof SplitTransition) {

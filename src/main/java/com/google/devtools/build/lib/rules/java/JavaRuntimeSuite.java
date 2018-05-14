@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -28,7 +29,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 public class JavaRuntimeSuite implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     TransitiveInfoCollection runtime =
         ruleContext.getPrerequisiteMap("runtimes").get(ruleContext.getConfiguration().getCpu());
     if (runtime == null) {

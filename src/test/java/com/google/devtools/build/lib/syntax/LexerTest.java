@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -498,8 +498,6 @@ public class LexerTest {
 
   @Test
   public void testLexerLocationCodec() throws Exception {
-    ObjectCodecTester.newBuilder(Location.CODEC)
-        .addSubjects(createLexer("foo").createLocation(0, 2))
-        .buildAndRunTests();
+    new SerializationTester(createLexer("foo").createLocation(0, 2)).runTests();
   }
 }

@@ -186,6 +186,10 @@ class DexFileSplitter implements Closeable {
       if (classesInMainDex == null || classesInMainDex.isEmpty()) {
         out.processDexFiles(files, Predicates.alwaysTrue());
       } else {
+        checkArgument(classesInMainDex.stream().noneMatch(s -> s.startsWith("j$/")),
+            "%s lists classes in package 'j$', which can't be included in classes.dex and can "
+                + "cause runtime errors. Please avoid needing these classes in the main dex file.",
+            options.mainDexListFile);
         // To honor --main_dex_list make two passes:
         // 1. process only the classes listed in the given file
         // 2. process the remaining files

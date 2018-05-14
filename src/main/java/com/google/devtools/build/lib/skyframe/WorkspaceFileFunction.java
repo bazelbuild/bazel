@@ -99,7 +99,8 @@ public class WorkspaceFileFunction implements SkyFunction {
               mutability,
               key.getIndex() == 0,
               directories.getEmbeddedBinariesRoot(),
-              directories.getWorkspace());
+              directories.getWorkspace(),
+              directories.getLocalJavabase());
       if (key.getIndex() > 0) {
         WorkspaceFileValue prevValue = (WorkspaceFileValue) env.getValue(
             WorkspaceFileValue.key(key.getPath(), key.getIndex() - 1));

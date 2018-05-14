@@ -21,7 +21,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -51,8 +50,12 @@ public class BlazeExecutorTest {
     fileSystem = new InMemoryFileSystem();
     directories =
         new BlazeDirectories(
-            new ServerDirectories(fileSystem.getPath("/install"), fileSystem.getPath("/base")),
+            new ServerDirectories(
+                fileSystem.getPath("/install"),
+                fileSystem.getPath("/base"),
+                fileSystem.getPath("/root")),
             fileSystem.getPath("/workspace"),
+            /* defaultSystemJavabase= */ null,
             "mock-product-name");
     binTools = BinTools.empty(directories);
   }

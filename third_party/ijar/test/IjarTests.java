@@ -12,24 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.java.bazel.BazelJavaCompiler;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.Opcodes;
-
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -37,11 +37,12 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.TypeElement;
@@ -51,6 +52,12 @@ import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
 
 /**
  * JUnit tests for ijar tool.
@@ -270,6 +277,137 @@ public class IjarTests {
   @Test
   public void moduleInfo() throws Exception {
     Map<String, byte[]> lib = readJar("third_party/ijar/test/module_info-interface.jar");
-    assertThat(lib.keySet()).containsExactly("java/lang/String.class");
+    assertThat(lib.keySet())
+        .containsExactly("java/lang/String.class", "module-info.class", "foo/module-info.class");
+    // ijar passes module-infos through unmodified, so it doesn't care that these ones are bogus
+    assertThat(new String(lib.get("module-info.class"), UTF_8)).isEqualTo("hello");
+    assertThat(new String(lib.get("foo/module-info.class"), UTF_8)).isEqualTo("goodbye");
+  }
+
+  @Test
+  public void testTargetLabel() throws Exception {
+    try (JarFile jf =
+        new JarFile("third_party/ijar/test/interface_ijar_testlib_with_target_label.jar")) {
+      ImmutableList<String> entries = jf.stream().map(JarEntry::getName).collect(toImmutableList());
+      assertThat(entries.get(0)).isEqualTo("META-INF/");
+      assertThat(entries.get(1)).isEqualTo("META-INF/MANIFEST.MF");
+      Manifest manifest = jf.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
+      assertThat(attributes.getValue("Injecting-Rule-Kind")).isEqualTo("foo_library");
+      assertThat(jf.getEntry(JarFile.MANIFEST_NAME).getLastModifiedTime().toInstant())
+          .isEqualTo(
+              LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneOffset.systemDefault()).toInstant());
+    }
+  }
+
+  @Test
+  public void testEmptyWithTargetLabel() throws Exception {
+    try (JarFile jf = new JarFile("third_party/ijar/test/empty_with_target_label.jar")) {
+      Manifest manifest = jf.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      assertThat(attributes.getValue("Target-Label")).isEqualTo("//empty");
+      assertThat(jf.getEntry(JarFile.MANIFEST_NAME).getLastModifiedTime().toInstant())
+          .isEqualTo(
+              LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneOffset.systemDefault()).toInstant());
+    }
+  }
+
+  // Tests --nostrip_jar with a jar that already has a manifest, but no target label
+  @Test
+  public void testNoStripJarWithManifest() throws Exception {
+    JarFile original = new JarFile("third_party/ijar/test/jar-with-manifest.jar");
+    JarFile stripped = new JarFile("third_party/ijar/test/jar-with-manifest-nostrip.jar");
+    try {
+      ImmutableList<String> strippedEntries =
+          stripped.stream().map(JarEntry::getName).collect(toImmutableList());
+      assertThat(strippedEntries.get(0)).isEqualTo("META-INF/");
+      assertThat(strippedEntries.get(1)).isEqualTo("META-INF/MANIFEST.MF");
+      Manifest manifest = stripped.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      assertThat(attributes.getValue("Manifest-Version")).isEqualTo("1.0");
+      // Created-By was already in manifest, doesn't get overwritten
+      assertThat(attributes.getValue("Created-By")).isEqualTo("test-code");
+      assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
+      assertNonManifestFilesBitIdentical(original, stripped);
+    } finally {
+      original.close();
+      stripped.close();
+    }
+  }
+
+  // Tests --nostrip_jar with a jar that already has a manifest with a target label
+  @Test
+  public void testNoStripJarWithManifestAndTargetLabel() throws Exception {
+    JarFile original = new JarFile("third_party/ijar/test/jar-with-manifest-and-target-label.jar");
+    JarFile stripped =
+        new JarFile("third_party/ijar/test/jar-with-manifest-and-target-label-nostrip.jar");
+    try {
+      ImmutableList<String> strippedEntries =
+          stripped.stream().map(JarEntry::getName).collect(toImmutableList());
+      assertThat(strippedEntries.get(0)).isEqualTo("META-INF/");
+      assertThat(strippedEntries.get(1)).isEqualTo("META-INF/MANIFEST.MF");
+      Manifest manifest = stripped.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      assertThat(attributes.getValue("Manifest-Version")).isEqualTo("1.0");
+      // Created-By was already in manifest, doesn't get overwritten
+      assertThat(attributes.getValue("Created-By")).isEqualTo("test-code");
+      assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
+      assertNonManifestFilesBitIdentical(original, stripped);
+    } finally {
+      original.close();
+      stripped.close();
+    }
+  }
+
+  // Tests --nostrip_jar with a jar that didn't already have a manifest
+  @Test
+  public void testNoStripJarWithoutManifest() throws Exception {
+    JarFile original = new JarFile("third_party/ijar/test/jar-without-manifest.jar");
+    JarFile stripped = new JarFile("third_party/ijar/test/jar-without-manifest-nostrip.jar");
+    try {
+      ImmutableList<String> strippedEntries =
+          stripped.stream().map(JarEntry::getName).collect(toImmutableList());
+      assertThat(strippedEntries.get(0)).isEqualTo("META-INF/");
+      assertThat(strippedEntries.get(1)).isEqualTo("META-INF/MANIFEST.MF");
+      Manifest manifest = stripped.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      assertThat(attributes.getValue("Manifest-Version")).isEqualTo("1.0");
+      assertThat(attributes.getValue("Created-By")).isEqualTo("bazel");
+      assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
+      assertNonManifestFilesBitIdentical(original, stripped);
+    } finally {
+      original.close();
+      stripped.close();
+    }
+  }
+
+  // Tests idempotence of --nostrip
+  @Test
+  public void testNoStripIdempotence() throws Exception {
+    byte[] original =
+        Files.readAllBytes(Paths.get("third_party/ijar/test/jar-without-manifest-nostrip.jar"));
+    byte[] stripped =
+        Files.readAllBytes(
+            Paths.get("third_party/ijar/test/jar-without-manifest-nostrip-idempotence.jar"));
+    assertThat(original).isEqualTo(stripped);
+  }
+
+  private static void assertNonManifestFilesBitIdentical(JarFile original, JarFile stripped)
+      throws IOException {
+    // Make sure that all other files came across bitwise equal
+    for (String classEntry :
+        original
+            .stream()
+            .map(JarEntry::getName)
+            .filter(name -> !name.equals("META-INF/MANIFEST.MF"))
+            .collect(toImmutableList())) {
+      ZipEntry originalEntry = original.getEntry(classEntry);
+      ZipEntry strippedEntry = stripped.getEntry(classEntry);
+      InputStream originalStream = original.getInputStream(originalEntry);
+      InputStream strippedStream = stripped.getInputStream(strippedEntry);
+      assertThat(ByteStreams.toByteArray(strippedStream))
+          .isEqualTo(ByteStreams.toByteArray(originalStream));
+    }
   }
 }

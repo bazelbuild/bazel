@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp.proto;
 
-import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.ccToolchainAttribute;
-
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 
 /**
@@ -26,7 +24,7 @@ import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
  * <p>This class is used to inject Bazel-specific constants into CcProtoAspect.
  */
 public class BazelCcProtoAspect extends CcProtoAspect {
-  public BazelCcProtoAspect(CppSemantics cppSemantics, RuleDefinitionEnvironment env) {
-    super(cppSemantics, ccToolchainAttribute(env));
+  public BazelCcProtoAspect(AspectLegalCppSemantics cppSemantics, RuleDefinitionEnvironment env) {
+    super(cppSemantics, env);
   }
 }

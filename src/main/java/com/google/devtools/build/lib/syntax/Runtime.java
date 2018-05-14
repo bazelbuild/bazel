@@ -16,8 +16,11 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -135,14 +138,16 @@ public final class Runtime {
   )
   public static final String REPOSITORY_NAME = "REPOSITORY_NAME";
 
-  /**
-   * Set up a given environment for supported class methods.
-   */
-  static Environment setupConstants(Environment env) {
+  /** Adds bindings for False/True/None constants to the given map builder. */
+  public static void addConstantsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     // In Python 2.x, True and False are global values and can be redefined by the user.
-    // In Python 3.x, they are keywords. We implement them as values, for the sake of
-    // simplicity. We define them as Boolean objects.
-    return env.setup("False", FALSE).setup("True", TRUE).setup("None", NONE);
+    // In Python 3.x, they are keywords. We implement them as values. Currently they can't be
+    // redefined because builtins can't be overridden. In the future we should permit shadowing of
+    // most builtins but still prevent shadowing of these constants.
+    builder
+        .put("False", FALSE)
+        .put("True", TRUE)
+        .put("None", NONE);
   }
 
 
@@ -152,7 +157,7 @@ public final class Runtime {
    */
   public static Class<?> getSkylarkNamespace(Class<?> clazz) {
     return String.class.isAssignableFrom(clazz)
-        ? MethodLibrary.StringModule.class
+        ? StringModule.class
         : EvalUtils.getSkylarkType(clazz);
   }
 
@@ -160,9 +165,22 @@ public final class Runtime {
    * A registry of builtins, including both global builtins and builtins that are under some
    * namespace.
    *
-   * <p>This object is unsynchronized, but concurrent reads are fine.
+   * <p>Concurrency model: This object is thread-safe. Read accesses are always allowed, while write
+   * accesses are only allowed before this object has been frozen ({@link #freeze}). Prior to
+   * freezing, all operations are synchronized, while after freezing they are lockless.
    */
   public static class BuiltinRegistry {
+
+    /**
+     * Whether the registry's construction has completed.
+     *
+     * <p>Mutating methods may only be called while this is still false. Accessor methods may be
+     * called at any time.
+     *
+     * <p>We use {@code volatile} rather than {@link AtomicBoolean} because the bit flip only
+     * happens once, and doesn't require correlated reads and writes.
+     */
+    private volatile boolean frozen = false;
 
     /**
      * All registered builtins, keyed and sorted by an identifying (but otherwise unimportant)
@@ -177,13 +195,36 @@ public final class Runtime {
     /** All non-global builtin functions, keyed by their namespace class and their name. */
     private final Map<Class<?>, Map<String, BaseFunction>> functions = new HashMap<>();
 
+    /**
+     * Marks the registry as initialized, if it wasn't already.
+     *
+     * <p>It is guaranteed that after this method returns, all accessor methods are safe without
+     * synchronization; i.e. no mutation operation can touch the data structures.
+     */
+    public void freeze() {
+      // Similar to double-checked locking, but no need to check again on the inside since we don't
+      // care if two threads set the bit at once. The synchronized block is only to provide
+      // exclusion with mutations.
+      if (!this.frozen) {
+        synchronized (this) {
+          this.frozen = true;
+        }
+      }
+    }
+
     /** Registers a builtin with the given simple name, that was defined in the given Java class. */
-    public void registerBuiltin(Class<?> definingClass, String name, Object builtin) {
+    public synchronized void registerBuiltin(Class<?> definingClass, String name, Object builtin) {
       String key = String.format("%s.%s", definingClass.getName(), name);
       Preconditions.checkArgument(
           !allBuiltins.containsKey(key),
           "Builtin '%s' registered multiple times",
           key);
+
+      Preconditions.checkState(
+          !frozen,
+          "Attempted to register builtin '%s' after registry has already been frozen",
+          key);
+
       allBuiltins.put(key, builtin);
     }
 
@@ -192,7 +233,7 @@ public final class Runtime {
      *
      * <p>This is independent of {@link #registerBuiltin}.
      */
-    public void registerFunction(Class<?> namespace, BaseFunction function) {
+    public synchronized void registerFunction(Class<?> namespace, BaseFunction function) {
       Preconditions.checkNotNull(namespace);
       Preconditions.checkNotNull(function.getObjectType());
       Class<?> skylarkNamespace = getSkylarkNamespace(namespace);
@@ -200,13 +241,26 @@ public final class Runtime {
       Class<?> objType = getSkylarkNamespace(function.getObjectType());
       Preconditions.checkArgument(objType.equals(skylarkNamespace));
 
+      Preconditions.checkState(
+          !frozen,
+          "Attempted to register function '%s' in namespace '%s' after registry has already been "
+              + "frozen",
+          function,
+          namespace);
+
       functions.computeIfAbsent(namespace, k -> new HashMap<>());
       functions.get(namespace).put(function.getName(), function);
     }
 
     /** Returns a list of all registered builtins, in a deterministic order. */
     public ImmutableList<Object> getBuiltins() {
-      return ImmutableList.copyOf(allBuiltins.values());
+      if (frozen) {
+        return ImmutableList.copyOf(allBuiltins.values());
+      } else {
+        synchronized (this) {
+          return ImmutableList.copyOf(allBuiltins.values());
+        }
+      }
     }
 
     @Nullable
@@ -220,8 +274,15 @@ public final class Runtime {
      * <p>If the namespace does not exist or has no function with that name, returns null.
      */
     public BaseFunction getFunction(Class<?> namespace, String name) {
-      Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
-      return namespaceFunctions != null ? namespaceFunctions.get(name) : null;
+      if (frozen) {
+        Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
+        return namespaceFunctions != null ? namespaceFunctions.get(name) : null;
+      } else {
+        synchronized (this) {
+          Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
+          return namespaceFunctions != null ? namespaceFunctions.get(name) : null;
+        }
+      }
     }
 
     /**
@@ -230,11 +291,21 @@ public final class Runtime {
      * <p>If the namespace does not exist, returns an empty set.
      */
     public ImmutableSet<String> getFunctionNames(Class<?> namespace) {
-      Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
-      if (namespaceFunctions == null) {
-        return ImmutableSet.of();
+      if (frozen) {
+        Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
+        if (namespaceFunctions == null) {
+          return ImmutableSet.of();
+        }
+        return ImmutableSet.copyOf(namespaceFunctions.keySet());
+      } else {
+        synchronized (this) {
+          Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
+          if (namespaceFunctions == null) {
+            return ImmutableSet.of();
+          }
+          return ImmutableSet.copyOf(namespaceFunctions.keySet());
+        }
       }
-      return ImmutableSet.copyOf(namespaceFunctions.keySet());
     }
   }
 
@@ -256,15 +327,33 @@ public final class Runtime {
   }
 
   /**
-   * Registers global fields with SkylarkSignature into the specified Environment.
+   * Registers global (top-level) symbols provided by the given class object.
+   *
+   * <p>Global symbols may be provided by the given class in the following ways:
+   * <ul>
+   *   <li>If the class is annotated with {@link SkylarkModule}, an instance of that object is
+   *       a global object with the module's name.</li>
+   *   <li>If the class has fields annotated with {@link SkylarkSignature}, each of these
+   *       fields is a global object with the signature's name.</li>
+   *   <li>If the class is annotated with {@link SkylarkGlobalLibrary}, then all of its methods
+   *       which are annotated with
+   *       {@link com.google.devtools.build.lib.skylarkinterface.SkylarkCallable} are global
+   *       callables.</li>
+   * </ul>
+   *
+   * <p>On collisions, this method throws an {@link AssertionError}. Collisions may occur if
+   * multiple global libraries have functions of the same name, two modules of the same name
+   * are given, or if two subclasses of the same module are given.
+   *
    * @param env the Environment into which to register fields.
    * @param moduleClass the Class object containing globals.
    */
   public static void setupModuleGlobals(Environment env, Class<?> moduleClass) {
     try {
-      if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {
+      SkylarkModule skylarkModule = SkylarkInterfaceUtils.getSkylarkModule(moduleClass);
+      if (skylarkModule != null) {
         env.setup(
-            moduleClass.getAnnotation(SkylarkModule.class).name(),
+            skylarkModule.name(),
             moduleClass.getConstructor().newInstance());
       }
       for (Field field : moduleClass.getDeclaredFields()) {
@@ -282,6 +371,12 @@ public final class Runtime {
           }
         }
       }
+      if (SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(moduleClass)) {
+        Object moduleInstance = moduleClass.getConstructor().newInstance();
+        for (String methodName : FuncallExpression.getMethodNames(moduleClass)) {
+          env.setup(methodName, FuncallExpression.getBuiltinCallable(moduleInstance, methodName));
+        }
+      }
     } catch (ReflectiveOperationException e) {
       throw new AssertionError(e);
     }
@@ -297,12 +392,5 @@ public final class Runtime {
   // TODO(bazel-team): Remove after all callers updated.
   public static void registerModuleGlobals(Environment env, Class<?> moduleClass) {
     setupModuleGlobals(env, moduleClass);
-  }
-
-  static void setupMethodEnvironment(
-      Environment env, Iterable<BaseFunction> functions) {
-    for (BaseFunction function : functions) {
-      env.setup(function.getName(), function);
-    }
   }
 }

@@ -20,11 +20,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.DigestException;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -32,7 +34,7 @@ import javax.annotation.Nullable;
  *
  * @see java.security.MessageDigest
  */
-public final class Fingerprint {
+public final class Fingerprint implements Consumer<String> {
 
   private static final MessageDigest MD5_PROTOTYPE;
   private static final boolean MD5_PROTOTYPE_SUPPORTS_CLONE;
@@ -71,6 +73,26 @@ public final class Fingerprint {
       throw new IllegalStateException("failed to flush", e);
     }
     return md5.digest();
+  }
+
+  /**
+   * Completes the hash computation by doing final operations and resets the underlying state,
+   * allowing this instance to be used again.
+   *
+   * <p>Instead of returning a digest, this method writes the digest straight into the supplied byte
+   * array, at the given offset.
+   *
+   * @see java.security.MessageDigest#digest()
+   */
+  public void digestAndReset(byte[] buf, int offset, int len) {
+    try {
+      codedOut.flush();
+      md5.digest(buf, offset, len);
+    } catch (IOException e) {
+      throw new IllegalStateException("failed to flush", e);
+    } catch (DigestException e) {
+      throw new IllegalStateException("failed to digest", e);
+    }
   }
 
   /** Same as {@link #digestAndReset()}, except returns the digest in hex string form. */
@@ -277,5 +299,10 @@ public final class Fingerprint {
    */
   public static String md5Digest(String input) {
     return hexDigest(cloneOrCreateMd5().digest(input.getBytes(StandardCharsets.UTF_8)));
+  }
+
+  @Override
+  public void accept(String s) {
+    addString(s);
   }
 }

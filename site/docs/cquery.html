@@ -1,0 +1,322 @@
+---
+layout: documentation
+title: Cquery (configurable query)
+---
+
+<h1>Cquery (Configurable Query)</h1>
+
+<ul class="toc">
+  <li><a href="#overview">Overview</a></li>
+  <li><a href="#basic-syntax">Basic Syntax</a></li>
+  <li><a href="#functions">Functions</a></li>
+  <li><a href="#options">Options</a></li>
+  <li><a href="#known-issues">Known Issues</a></li>
+  <li><a href="#updates">Updates</a></li>
+</ul>
+
+<h2 id='overview'>Overview</h2>
+
+<p>
+  <code>cquery</code> is a command complementary to <code>query</code> that properly handles
+  configurations. While <code>cquery</code> returns answers that are more correct, it does not
+  replace <code>query</code> as it does not support all of <code>query</code>'s functions.</p>
+<p>
+  <code>cquery</code> achieves configuration awareness by running after the
+  <a href="https://docs.bazel.build/versions/master/skylark/concepts.html#evaluation-model">analysis phase</a>
+  of a build, unlike traditional <code>query</code>, which runs after the loading phase.</p>
+<p>
+  The most common use for <code>cquery</code> is obtaining answers that correctly evaluate
+  <a href="https://docs.bazel.build/versions/master/be/common-definitions.html#configurable-attributes"><code>select()</code></a>
+  statements in configurable attributes. For example:
+</p>
+
+<pre>
+$ cat > tree/BUILD &lt;&lt;EOF
+sh_library(
+    name = "ash",
+    deps = select({
+        ":excelsior": [":manna-ash"],
+        ":americana": [":white-ash"],
+        "//conditions:default": [":common-ash"],
+    }),
+)
+sh_library(name = "manna-ash")
+sh_library(name = "white-ash")
+sh_library(name = "common-ash")
+config_setting(
+    name = "excelsior",
+    values = {"define": "species=excelsior"},
+)
+config_setting(
+    name = "americana",
+    values = {"define": "species=americana"},
+)
+EOF
+
+#Traditional query
+$ bazel query "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
+//tree:ash
+//tree:white-ash
+//tree:manna-ash
+//tree:common-ash
+
+#cquery
+$ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
+//tree:ash (hash-of-config)
+//tree:manna-ash (hash-of-config)
+</pre>
+
+
+<p>
+  Keep in mind that <code>cquery</code> works only on the configured target graph. Because of this,
+  it does not have insight into artifacts like build actions nor access to
+  <code><a href="https://docs.bazel.build/versions/master/be/general.html#test_suite">test_suite</a></code>
+  rules as they are not configured targets.
+</p>
+
+<h2 id='basic-syntax'>Basic Syntax</h2>
+
+<p>A simple example of the syntax for <code>cquery</code> is as follows:</p>
+
+<p><code>bazel cquery "function(//target)"</code></p>
+
+<p>The query expression (in quotes) consists of the following:
+
+<ul>
+  <li>
+    <b><code>function(...)</code></b> is the function to run on the target. <code>cquery</code>
+    supports most of the same <a href="https://docs.bazel.build/versions/master/query.html#functions">functions</a>
+    as traditional <code>query</code>.
+  </li>
+  <li><b><code>//target</code></b> is the expression fed to the function. In this example, the
+    expression is a simple target, but the query language also allows nesting of functions.
+    See the <a href="query-how-to.md">Query How-To</a> for examples.
+   </li>
+</ul>
+
+<p>
+  Note that <code>cquery</code> requires a target on which to run the
+  loading and analysis phases. Unless otherwise specified, <code>cquery</code> parses
+  the target(s) listed in the query expression. See the <code>--universe_scope</code>
+  option below for querying targets built under other targets.
+</p>
+
+<h2 id='functions'>Functions</h2>
+
+<p>
+  Of the <a href="https://docs.bazel.build/versions/master/query.html#functions" title="list of query functions">set of functions</a>
+  supported by the traiditional <code>query</code>, <code>cquery</code> supports all but siblings, buildfiles, and tests. The
+  functions listed below are <code>cquery</code>-specific.
+</p>
+
+<h3>config</h3>
+
+<p><code>expr ::= config(expr, word)</code></p>
+
+<p>
+  The <code>config</code> operator attempts to return the result of the first argument, configured
+  in the configuration specified by the second argument. Today, the second argument can only take in
+  three options <code>target</code>, <code>host</code>, or <code>null</code> but we hope to expand
+  this functionality to be able to input custom configurations (or custom configuration diffs from
+  the default target configuration).
+</p>
+
+<p><code>$ bazel cquery config(//foo, host) --universe_scope=//bar</code></p>
+
+<p>
+  Note that the above example query will return <code>//foo</code> configured in the host configuration
+  <em>if and only if</em> <code>//foo</code> exists in the host configuration in the universe of
+  this query (which we've set to the transitive closure of <code>//bar</code>).
+</p>
+
+<p>
+  If not all results of the first argument can be found in the specified
+  configuration, then only those that can be found are returned. If no results of the
+  first argument can be found in the specified configuration, an error is thrown.
+</p>
+
+<h2 id='options'>Options</h2>
+
+<h3>Build Options</h3>
+
+<p>
+  <code>cquery</code> runs on top of a regular Bazel build and thus inherits the set of
+  <a href="https://docs.bazel.build/versions/master/command-line-reference.html#build-options">options</a>
+  available during a build.
+</p>
+
+<h3>Cquery options</h3>
+
+<h4><code>--universe_scope</code> (comma-separated list)</h4>
+
+<p>
+  Often, the dependencies of configured targets go through
+  <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">transitions</a>,
+  which causes their configuration to differ from their dependent. This flag allows you to query
+  a target as if it were built as a dependency or a transitive dependency of another target. For
+  example:
+</p>
+
+<pre>
+# x/BUILD
+genrule(
+     name = "my_gen",
+     srcs = ["x.in"],
+     outs = ["x.cc"],
+     cmd = "$(locations :tool) $&lt; >$@",
+     tools = [":tool"],
+)
+cc_library(
+    name = "tool",
+)
+</pre>
+
+<p>
+  Genrules configure their tools in the
+  <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">host configuration</a>
+  so the following queries would produce the following outputs:
+</p>
+
+<table class="table table-condensed table-bordered table-params">
+  <thead>
+    <tr>
+      <th>Query</th>
+      <th>Target Built</th>
+      <th>Output</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>bazel cquery "//x:tool"</td>
+      <td>//x:tool</td>
+      <td>//x:tool(targetconfig)</td>
+    </tr>
+    <tr>
+      <td>bazel cquery "//x:tool" --universe_scope="//x:my_gen"</td>
+      <td>//x:my_gen</td>
+      <td>//x:tool(hostconfig)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  If this flag is set, its contents are built. <em>If it's not set, all targets
+  mentioned in the query expression are built</em> instead. The transitive closure of the
+  built targets are used as the universe of the query. Either way, the targets to
+  be built must be buildable at the top level (that is, compatible with top-level
+  options). <code>cquery</code> returns results in the transitive closure of these
+  top-level targets.
+</p>
+
+<p>
+  Even if it's possible to build all targets in a query expression at the top
+  level, it may be beneficial to not do so. For example, explicitly setting
+  <code>--universe_scope</code> could prevent building targets multiple times in
+  configurations you don't care about. It could also help specify which configuration version of a
+  target you're looking for (since it's not currently possible
+  to fully specify this any other way). We recommend that you set this
+  flag if your query expression is more complex than <code>deps(//foo)</code>.
+</p>
+
+<h4><code>--implicit_deps</code> (boolean, default=True)</h4>
+
+<p>
+  Setting this flag to false filters out all results that aren't explicitly set in
+  the BUILD file and instead set elsewhere by Bazel.
+</p>
+
+<h4><code>--host_deps</code> (boolean, default=True)</h4>
+
+<p>
+  Setting this flag to false filters out all configured targets for which the
+  path from the queried target to them crosses a transition between the target
+  configuration and the
+  <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">host configuration</a>.
+  If the queried target is in a non-host configuration, setting <code>--nohost_deps</code> will
+  only return targets that also are in non-host configurations. If the queried
+  target is in a host configuration, setting <code>--nohost_deps</code> will only return
+  targets also in the host configuration.
+</p>
+
+<h2 id='output-formats'>Output Formats</h2>
+
+<p> By default, cquery outputs results in a dependency-ordered list of label and configuration pairs.
+There are other options for exposing the results as well. </p>
+
+<h3> Transitions </h3>
+
+<p>
+  Configuration <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">transitions</a>
+  are used to build targets underneath the top level targets in different configurations than the top
+  level targets. For example, a target might impose a transition to the host transition on all
+  dependencies in its <code>tools</code> attribute. These are known as attribute transitions.
+  Rules can also impose transitions on their own configurations, known as rule class transitions.
+  This output format outputs information about these transitions such as what type they are and the
+  effect they have on build options.
+</p>
+
+<p>This output format is triggered by the <code>--transitions</code> flag which by default is set to
+  <code>NONE</code>. It can be set to <code>FULL</code> or <code>LITE</code> mode. <code>FULL</code>
+  mode outputs information about rule class transitions and attribute transitions including a detailed
+  diff of the options before and after the transition. <code>LITE</code> mode outputs the same information
+  without the options diff.
+</p>
+
+<h2 id='known-issues'>Known Issues</h2>
+
+<ul>
+  <li>
+    <strong>Inaccessible configurations.</strong> With the exception of the host configuration being
+    printed as <code>HOST</code>, Configurations are currently output as
+    hashes and there is no way for the user to input them (and thus to directly
+    specify the configuration to query a target in).</li>
+  <li>
+    <strong>No support for <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>,
+    <a href="https://docs.bazel.build/versions/master/query.html#output-formats" title="list of query output formats">output
+    options</a>, or recursive target patterns (/...).</strong></li>
+  <li>
+    <strong>Non-deterministic output.</strong> <code>Cquery</code> does not automatically wipe the build
+    graph from previous commands and is therefore prone to picking up results
+    from past queries. For example, <code>genquery</code> exerts a host transition on its <code>tools</code>
+    attribute - that is, it configures its tools in the
+    <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">host configuration</a>.
+    We can see the lingering effects of that transition below.</li>
+</ul>
+
+<pre>
+$ cat > foo/BUILD &lt;&lt;&lt;EOF
+genrule(
+    name = "my_gen",
+    srcs = ["x.in"],
+    outs = ["x.cc"],
+    cmd = "$(locations :tool) $&lt; >$@",
+    tools = [":tool"],
+)
+cc_library(
+    name = "tool",
+)
+EOF
+
+$ bazel cquery "//foo:tool"
+tool(target_config)
+
+$ bazel cquery "deps(//foo:my_gen)"
+my_gen (target_config)
+tool (host_config)
+...
+
+$ bazel cquery "//foo:tool"
+tool(host_config)
+</pre>
+
+<p>
+  Workaround: change any startup option to force re-analysis of configured targets. For example,
+  add <code>--test_arg=&lt;whatever&gt;</code> to your build command.
+</p>
+
+<h2 id='updates'>Updates</h2>
+
+<p>
+  The Bazel configurability team is continously improving <code>cquery</code>. If you want to
+  ask questions, stay updated, or get involved, contact juliexxia@google.com
+</p>

@@ -22,8 +22,6 @@ import com.google.common.hash.Hashing;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.vfs.Dirent.Type;
-import com.google.devtools.build.lib.vfs.Path.PathFactory;
 import com.google.devtools.common.options.EnumConverter;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -84,25 +82,6 @@ public abstract class FileSystem {
     return digestFunction;
   }
 
-  private enum UnixPathFactory implements PathFactory {
-    INSTANCE {
-      @Override
-      public Path createRootPath(FileSystem filesystem) {
-        return new Path(filesystem, PathFragment.ROOT_DIR, null);
-      }
-
-      @Override
-      public Path createChildPath(Path parent, String childName) {
-        return new Path(parent.getFileSystem(), childName, parent);
-      }
-
-      @Override
-      public Path getCachedChildPathInternal(Path path, String childName) {
-        return Path.getCachedChildPathInternal(path, childName, /*cacheable=*/ true);
-      }
-    };
-  }
-
   /**
    * An exception thrown when attempting to resolve an ordinary file as a symlink.
    */
@@ -112,53 +91,23 @@ public abstract class FileSystem {
     }
   }
 
-  /** Lazy-initialized on first access, always use {@link FileSystem#getRootDirectory} */
-  private volatile Path rootPath;
-
   private final Root absoluteRoot = new Root.AbsoluteRoot(this);
 
-  /** Returns filesystem-specific path factory. */
-  protected PathFactory getPathFactory() {
-    return UnixPathFactory.INSTANCE;
+  /**
+   * Returns an absolute path instance, given an absolute path name, without double slashes, .., or
+   * . segments. While this method will normalize the path representation by creating a
+   * structured/parsed representation, it will not cause any IO. (e.g., it will not resolve symbolic
+   * links if it's a Unix file system.
+   */
+  public Path getPath(String path) {
+    return Path.create(path, this);
   }
 
-  /**
-   * Returns an absolute path instance, given an absolute path name, without
-   * double slashes, .., or . segments. While this method will normalize the
-   * path representation by creating a structured/parsed representation, it will
-   * not cause any IO. (e.g., it will not resolve symbolic links if it's a Unix
-   * file system.
-   */
-  public Path getPath(String pathName) {
-    return getPath(PathFragment.create(pathName));
-  }
-
-  /**
-   * Returns an absolute path instance, given an absolute path name, without
-   * double slashes, .., or . segments. While this method will normalize the
-   * path representation by creating a structured/parsed representation, it will
-   * not cause any IO. (e.g., it will not resolve symbolic links if it's a Unix
-   * file system.
-   */
-  public Path getPath(PathFragment pathName) {
-    if (!pathName.isAbsolute()) {
-      throw new IllegalArgumentException(pathName.getPathString()  + " (not an absolute path)");
-    }
-    return getRootDirectory().getRelative(pathName);
-  }
-
-  /**
-   * Returns a path representing the root directory of the current file system.
-   */
-  public final Path getRootDirectory() {
-    if (rootPath == null) {
-      synchronized (this) {
-        if (rootPath == null) {
-          rootPath = getPathFactory().createRootPath(this);
-        }
-      }
-    }
-    return rootPath;
+  /** Returns an absolute path instance, given an absolute path fragment. */
+  public Path getPath(PathFragment pathFragment) {
+    Preconditions.checkArgument(pathFragment.isAbsolute());
+    return Path.createAlreadyNormalized(
+        pathFragment.getPathString(), pathFragment.getDriveStrLength(), this);
   }
 
   final Root getAbsoluteRoot() {
@@ -401,7 +350,7 @@ public abstract class FileSystem {
       throw new IOException(naive + " (Too many levels of symbolic links)");
     }
     if (linkTarget.isAbsolute()) {
-      dir = getRootDirectory();
+      dir = getPath(linkTarget.getDriveStr());
     }
     for (String name : linkTarget.segments()) {
       if (name.equals(".") || name.isEmpty()) {
@@ -634,17 +583,17 @@ public abstract class FileSystem {
 
   protected static Dirent.Type direntFromStat(FileStatus stat) {
     if (stat == null) {
-      return Type.UNKNOWN;
+      return Dirent.Type.UNKNOWN;
     } else if (stat.isSpecialFile()) {
-        return Type.UNKNOWN;
+      return Dirent.Type.UNKNOWN;
     } else if (stat.isFile()) {
-      return Type.FILE;
+      return Dirent.Type.FILE;
     } else if (stat.isDirectory()) {
-      return Type.DIRECTORY;
+      return Dirent.Type.DIRECTORY;
     } else if (stat.isSymbolicLink()) {
-      return Type.SYMLINK;
+      return Dirent.Type.SYMLINK;
     } else {
-      return Type.UNKNOWN;
+      return Dirent.Type.UNKNOWN;
     }
   }
 

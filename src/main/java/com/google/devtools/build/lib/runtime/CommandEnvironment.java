@@ -481,13 +481,7 @@ public final class CommandEnvironment {
    */
   ExitCode precompleteCommand(ExitCode originalExit) {
     eventBus.post(new CommandPrecompleteEvent(originalExit));
-    // If Blaze did not suffer an infrastructure failure, check for errors in modules.
-    ExitCode exitCode = originalExit;
-    ExitCode newExitCode = finalizeExitCode();
-    if (!originalExit.isInfrastructureFailure() && newExitCode != null) {
-      exitCode = newExitCode;
-    }
-    return exitCode;
+    return finalizeExitCode();
   }
 
   /**

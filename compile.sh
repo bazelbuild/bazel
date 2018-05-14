@@ -35,8 +35,9 @@ hash tr >&/dev/null || {
 
 # Ensure Python is on the PATH on Windows,otherwise we would see
 # "LAUNCHER ERROR" messages from py_binary exe launchers.
-case "$(uname -s | tr [:upper:] [:lower:])" in
+case "$(uname -s | tr "[:upper:]" "[:lower:]")" in
 msys*|mingw*|cygwin*)
+  # Ensure Python is on the PATH, otherwise the bootstrapping fails later.
   which python.exe >&/dev/null || {
     echo >&2 "ERROR: cannot locate python.exe; check your PATH."
     echo >&2 "       You may need to run the following command, or something"
@@ -44,6 +45,10 @@ msys*|mingw*|cygwin*)
     echo >&2 "         export PATH=\"/c/Python27:\$PATH\""
     exit 1
   }
+  # Ensure TMPDIR uses the user-specified TMPDIR or TMP or TEMP.
+  # This is necessary to avoid overly longs paths during bootstrapping, see for
+  # example https://github.com/bazelbuild/bazel/issues/4536
+  export TMPDIR="${TMPDIR:-${TMP:-${TEMP:-}}}"
 esac
 
 cd "$(dirname "$0")"
@@ -88,8 +93,8 @@ log "Building output/bazel"
 # We set host and target platform directly since the defaults in @bazel_tools
 # have not yet been generated.
 bazel_build "src:bazel${EXE_EXT}" \
-  --host_platform=//tools/platforms:host_platform \
-  --platforms=//tools/platforms:target_platform \
+  --host_platform=@bazel_tools//platforms:host_platform \
+  --platforms=@bazel_tools//platforms:target_platform \
   || fail "Could not build Bazel"
 bazel_bin_path="$(get_bazel_bin_path)/src/bazel${EXE_EXT}"
 [ -e "$bazel_bin_path" ] \

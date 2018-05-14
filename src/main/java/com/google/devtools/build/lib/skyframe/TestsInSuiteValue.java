@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.serialization.NotSerializableRuntimeException;
@@ -64,12 +64,12 @@ final class TestsInSuiteValue implements SkyValue {
   /**
    * Create a target pattern value key.
    *
-   * @param testSuite the test suite target to be expanded
+   * @param testSuiteTarget the test suite target to be expanded
    */
   @ThreadSafe
-  public static SkyKey key(Target testSuite, boolean strict) {
-    Preconditions.checkState(TargetUtils.isTestSuiteRule(testSuite));
-    return new TestsInSuiteKey((Rule) testSuite, strict);
+  public static SkyKey key(Target testSuiteTarget, boolean strict) {
+    Preconditions.checkState(TargetUtils.isTestSuiteRule(testSuiteTarget));
+    return new TestsInSuiteKey(testSuiteTarget.getLabel(), strict);
   }
 
   /**
@@ -77,11 +77,11 @@ final class TestsInSuiteValue implements SkyValue {
    */
   @ThreadSafe
   static final class TestsInSuiteKey implements SkyKey, Serializable {
-    private final Rule testSuite;
+    private final Label testSuiteLabel;
     private final boolean strict;
 
-    public TestsInSuiteKey(Rule testSuite, boolean strict) {
-      this.testSuite = testSuite;
+    public TestsInSuiteKey(Label testSuiteLabel, boolean strict) {
+      this.testSuiteLabel = testSuiteLabel;
       this.strict = strict;
     }
 
@@ -90,8 +90,8 @@ final class TestsInSuiteValue implements SkyValue {
       return SkyFunctions.TESTS_IN_SUITE;
     }
 
-    public Rule getTestSuite() {
-      return testSuite;
+    public Label getTestSuiteLabel() {
+      return testSuiteLabel;
     }
 
     public boolean isStrict() {
@@ -100,12 +100,12 @@ final class TestsInSuiteValue implements SkyValue {
 
     @Override
     public String toString() {
-      return "TestsInSuite(" + testSuite.toString() + ", strict=" + strict + ")";
+      return "TestsInSuite(" + testSuiteLabel.toString() + ", strict=" + strict + ")";
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(testSuite, strict);
+      return Objects.hash(testSuiteLabel, strict);
     }
 
     @Override
@@ -117,7 +117,7 @@ final class TestsInSuiteValue implements SkyValue {
         return false;
       }
       TestsInSuiteKey other = (TestsInSuiteKey) obj;
-      return other.testSuite.equals(testSuite) && other.strict == strict;
+      return other.testSuiteLabel.equals(testSuiteLabel) && other.strict == strict;
     }
   }
 }

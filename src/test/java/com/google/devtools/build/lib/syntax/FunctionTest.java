@@ -200,6 +200,18 @@ public class FunctionTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testFunctionParamCanShadowGlobalVarAfterGlobalVarIsRead() throws Exception {
+    eval("a = 1",
+        "def func2(a):",
+        "  return 0",
+        "def func1():",
+        "  dummy = a",
+        "  return func2(2)",
+        "b = func1()\n");
+    assertThat(lookup("b")).isEqualTo(0);
+  }
+
+  @Test
   public void testSingleLineFunction() throws Exception {
     eval("def func(): return 'a'",
         "s = func()\n");
@@ -300,13 +312,11 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testKeywordOnlyIsForbidden() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_keyword_only_args=true");
     checkEvalErrorContains("forbidden", "def foo(a, b, *, c): return a + b + c");
   }
 
   @Test
   public void testParamAfterStarArgs() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_keyword_only_args=true");
     checkEvalErrorContains("forbidden", "def foo(a, *b, c): return a");
   }
 
@@ -372,8 +382,7 @@ public class FunctionTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testIncompatibleStarParam() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_keyword_only_args=true");
+  public void testStarParam() throws Exception {
     eval("def f(name, value = '1', optional = '2', *rest):",
         "  r = name + value + optional + '|'",
         "  for x in rest: r += x",

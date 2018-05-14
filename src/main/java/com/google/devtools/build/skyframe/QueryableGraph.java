@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -48,6 +49,16 @@ public interface QueryableGraph {
   Map<SkyKey, ? extends NodeEntry> getBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
           throws InterruptedException;
+
+  /**
+   * A version of {@link #getBatch} that returns an {@link InterruptibleSupplier} to possibly
+   * retrieve the results later.
+   */
+  @CanIgnoreReturnValue
+  default InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> getBatchAsync(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    return InterruptibleSupplier.Memoize.of(() -> getBatch(requestor, reason, keys));
+  }
 
   /**
    * Examines all the given keys. Returns an iterable of keys whose corresponding nodes are
@@ -118,6 +129,9 @@ public interface QueryableGraph {
 
     /** The node is being looked up merely for an existence check. */
     EXISTENCE_CHECKING,
+
+    /** The node is being looked up merely to see if it is done or not. */
+    DONE_CHECKING,
 
     /**
      * The node is being looked up to service {@link WalkableGraph#getValue},

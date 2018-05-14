@@ -17,180 +17,189 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
-import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
+import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.ToArg.Includes;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Factory for functions to convert a {@link ResourceContainer} to a commandline argument, or a
  * collection of artifacts. Uses a certain convention for commandline arguments (e.g., separators,
  * and ordering of container elements).
+ *
+ * @deprecated Use {@link AndroidDataConverter} instead.
  */
 @VisibleForTesting
+@Deprecated
 public class ResourceContainerConverter {
 
   static Builder builder() {
     return new Builder();
   }
 
-  interface ToArg extends Function<ResourceContainer, String> {
+  static class ToArg extends CommandLineItem.ParametrizedMapFn<ValidatedAndroidData> {
 
-    String listSeparator();
-  }
+    private final Set<Includes> includes;
+    private final SeparatorType separatorType;
+    private final Joiner argJoiner;
+    private final Function<String, String> escaper;
 
-  static class Builder {
-
-    private boolean includeResourceRoots;
-    private boolean includeLabel;
-    private boolean includeManifest;
-    private boolean includeRTxt;
-    private boolean includeSymbolsBin;
-    private boolean includeCompiledSymbols;
-    private boolean includeStaticLibrary;
-    private boolean includeAapt2RTxt;
-    private SeparatorType separatorType;
-    private Joiner argJoiner;
-    private Function<String, String> escaper = Functions.identity();
+    enum Includes {
+      ResourceRoots,
+      Label,
+      Manifest,
+      RTxt,
+      SymbolsBin,
+      CompiledSymbols,
+      StaticLibrary,
+      Aapt2RTxt
+    }
 
     enum SeparatorType {
       COLON_COMMA,
       SEMICOLON_AMPERSAND
     }
 
-    Builder() {}
+    ToArg(Builder builder) {
+      this.includes = Sets.immutableEnumSet(builder.includes);
+      this.separatorType = builder.separatorType;
 
-    Builder includeAapt2RTxt() {
-      includeAapt2RTxt = true;
-      return this;
-    }
-
-    Builder includeStaticLibrary() {
-      includeStaticLibrary = true;
-      return this;
-    }
-
-    Builder includeResourceRoots() {
-      includeResourceRoots = true;
-      return this;
-    }
-
-    Builder includeLabel() {
-      includeLabel = true;
-      return this;
-    }
-
-    Builder includeManifest() {
-      includeManifest = true;
-      return this;
-    }
-
-    Builder includeRTxt() {
-      includeRTxt = true;
-      return this;
-    }
-
-    Builder includeSymbolsBin() {
-      includeSymbolsBin = true;
-      return this;
-    }
-
-    Builder includeCompiledSymbols() {
-      includeCompiledSymbols = true;
-      return this;
-    }
-
-    Builder withSeparator(SeparatorType type) {
-      separatorType = type;
-      return this;
-    }
-
-    ToArg toArgConverter() {
       switch (separatorType) {
         case COLON_COMMA:
           argJoiner = Joiner.on(":");
           // We currently use ":" to separate components of an argument and "," to separate
           // arguments in a list of arguments. Those characters require escaping if used in a label
           // (part of the set of allowed characters in a label).
-          if (includeLabel) {
+          if (includes.contains(Includes.Label)) {
             escaper = (String input) -> input.replace(":", "\\:").replace(",", "\\,");
+          } else {
+            escaper = Functions.identity();
           }
           break;
         case SEMICOLON_AMPERSAND:
           argJoiner = Joiner.on(";");
+          escaper = Functions.identity();
           break;
         default:
-          Preconditions.checkState(false, "Unknown separator type " + separatorType);
-          break;
+          throw new IllegalStateException("Unknown separator type " + separatorType);
       }
+    }
 
-      return new ToArg() {
-        @Override
-        public String apply(ResourceContainer container) {
-          ImmutableList.Builder<String> cmdPieces = ImmutableList.builder();
-          if (includeResourceRoots) {
-            cmdPieces.add(convertRoots(container, ResourceType.RESOURCES));
-            cmdPieces.add(convertRoots(container, ResourceType.ASSETS));
-          }
-          if (includeLabel) {
-            cmdPieces.add(escaper.apply(container.getLabel().toString()));
-          }
-          if (includeManifest) {
-            cmdPieces.add(container.getManifest().getExecPathString());
-          }
-          if (includeRTxt) {
-            cmdPieces.add(
-                container.getRTxt() == null ? "" : container.getRTxt().getExecPathString());
-          }
-          if (includeAapt2RTxt) {
-            cmdPieces.add(
-                container.getAapt2RTxt() == null
-                    ? ""
-                    : container.getAapt2RTxt().getExecPathString());
-          }
-          if (includeStaticLibrary) {
-            cmdPieces.add(
-                container.getStaticLibrary() == null
-                    ? ""
-                    : container.getStaticLibrary().getExecPathString());
-          }
-          if (includeCompiledSymbols) {
-            cmdPieces.add(
-                container.getCompiledSymbols() == null
-                    ? ""
-                    : container.getCompiledSymbols().getExecPathString());
-          }
-          if (includeSymbolsBin) {
-            cmdPieces.add(
-                container.getSymbols() == null ? "" : container.getSymbols().getExecPathString());
-          }
-          return argJoiner.join(cmdPieces.build());
-        }
+    @Override
+    public void expandToCommandLine(ValidatedAndroidData container, Consumer<String> args) {
+      args.accept(map(container));
+    }
 
-        @Override
-        public String listSeparator() {
-          switch (separatorType) {
-            case COLON_COMMA:
-              return ",";
-            case SEMICOLON_AMPERSAND:
-              return "&";
-            default:
-              Preconditions.checkState(false, "Unknown separator type " + separatorType);
-              return null;
-          }
-        }
-      };
+    String map(ValidatedAndroidData container) {
+      ImmutableList.Builder<String> cmdPieces = ImmutableList.builder();
+      if (includes.contains(Includes.ResourceRoots)) {
+        cmdPieces.add(convertRoots(container.getResourceRoots()));
+        cmdPieces.add(convertRoots(container.getAssetRoots()));
+      }
+      if (includes.contains(Includes.Label)) {
+        cmdPieces.add(escaper.apply(container.getLabel().toString()));
+      }
+      if (includes.contains(Includes.Manifest)) {
+        cmdPieces.add(container.getManifest().getExecPathString());
+      }
+      if (includes.contains(Includes.RTxt)) {
+        cmdPieces.add(container.getRTxt() == null ? "" : container.getRTxt().getExecPathString());
+      }
+      if (includes.contains(Includes.Aapt2RTxt)) {
+        cmdPieces.add(
+            container.getAapt2RTxt() == null ? "" : container.getAapt2RTxt().getExecPathString());
+      }
+      if (includes.contains(Includes.StaticLibrary)) {
+        cmdPieces.add(
+            container.getStaticLibrary() == null
+                ? ""
+                : container.getStaticLibrary().getExecPathString());
+      }
+      if (includes.contains(Includes.CompiledSymbols)) {
+        cmdPieces.add(
+            container.getCompiledSymbols() == null
+                ? ""
+                : container.getCompiledSymbols().getExecPathString());
+      }
+      if (includes.contains(Includes.SymbolsBin)) {
+        cmdPieces.add(
+            container.getSymbols() == null ? "" : container.getSymbols().getExecPathString());
+      }
+      return argJoiner.join(cmdPieces.build());
+    }
+
+    String listSeparator() {
+      switch (separatorType) {
+        case COLON_COMMA:
+          return ",";
+        case SEMICOLON_AMPERSAND:
+          return "&";
+        default:
+          Preconditions.checkState(false, "Unknown separator type " + separatorType);
+          return null;
+      }
+    }
+
+    @Override
+    public int maxInstancesAllowed() {
+      // This is the max number of resource converters we expect to statically
+      // construct for any given blaze instance.
+      // Do not increase recklessly.
+      return 10;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      ToArg toArg = (ToArg) o;
+      return includes.equals(toArg.includes) && separatorType == toArg.separatorType;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(includes, separatorType);
+    }
+  }
+
+  static class Builder {
+
+    private final Set<Includes> includes = new HashSet<>();
+    private ToArg.SeparatorType separatorType;
+
+    Builder() {}
+
+    Builder include(Includes include) {
+      includes.add(include);
+      return this;
+    }
+
+    Builder withSeparator(ToArg.SeparatorType type) {
+      separatorType = type;
+      return this;
+    }
+
+    ToArg toArgConverter() {
+      return new ToArg(this);
     }
   }
 
   @VisibleForTesting
-  public static String convertRoots(ResourceContainer container, ResourceType resourceType) {
-    return Joiner.on("#")
-        .join(
-            Iterators.transform(
-                container.getRoots(resourceType).iterator(), Functions.toStringFunction()));
+  public static String convertRoots(Iterable<PathFragment> roots) {
+    return Joiner.on("#").join(Iterators.transform(roots.iterator(), Functions.toStringFunction()));
   }
 
   /**

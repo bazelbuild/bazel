@@ -1,10 +1,11 @@
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
 
 java_library(
     name = "AbstractJavacTurbineCompilationTest",
     testonly = 1,
     srcs = ["AbstractJavacTurbineCompilationTest.java"],
     deps = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/bazel:JavacBootclasspath",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:javac_turbine",
         "//src/main/protobuf:deps_java_proto",
         "//third_party:asm",

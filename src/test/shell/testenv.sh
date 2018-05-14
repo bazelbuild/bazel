@@ -33,7 +33,7 @@ function is_darwin() {
 function _log_base() {
   prefix=$1
   shift
-  echo >&2 "${prefix}[$(basename "$0") $(date "+%H:%M:%S.%N (%z)")] $*"
+  echo >&2 "${prefix}[$(basename "$0") $(date "+%Y-%m-%d %H:%M:%S (%z)")] $*"
 }
 
 function log_info() {
@@ -45,38 +45,18 @@ function log_fatal() {
   exit 1
 }
 
+if ! type rlocation &> /dev/null; then
+  log_fatal "rlocation() is undefined"
+fi
 
 # Set some environment variables needed on Windows.
 if is_windows; then
   # TODO(philwo) remove this once we have a Bazel release that includes the CL
   # moving the Windows-specific TEST_TMPDIR into TestStrategy.
   TEST_TMPDIR_BASENAME="$(basename "$TEST_TMPDIR")"
-  export TEST_TMPDIR="c:/temp/${TEST_TMPDIR_BASENAME}"
 
-  # Bazel (TMPDIR) and Windows (TEMP, TMP) have three envvars that specify the
-  # location of the temp directory...
-  export TMPDIR="$TEST_TMPDIR"
-  export TEMP="$TEST_TMPDIR"
-  export TMP="$TEST_TMPDIR"
-
-  export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
-  export BAZEL_SH="c:/tools/msys64/usr/bin/bash.exe"
-  export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/VC"
-  if [ ! -d "$BAZEL_VC" ]; then
-    # Maybe Visual C++ Build Tools 2017 then?
-    export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC"
-  fi
-  if [ ! -d "$BAZEL_VC" ]; then
-    # OK, well, maybe Visual C++ 2015 then?
-    export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
-  fi
-  if [ -x /c/Python27/python.exe ]; then
-    export BAZEL_PYTHON="C:/Python27/python.exe"
-    export PATH="/c/Python27:$PATH"
-  elif [ -x /c/python_27_amd64/files/python.exe ]; then
-    export BAZEL_PYTHON="C:/python_27_amd64/files/python.exe"
-    export PATH="/c/python_27_amd64/files:$PATH"
-  fi
+  export JAVA_HOME="${JAVA_HOME:-$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)}"
+  export BAZEL_SH="$(cygpath -m /usr/bin/bash)"
 fi
 
 # Make the command "bazel" available for tests.
@@ -97,17 +77,6 @@ export PATH="$PATH_TO_BAZEL_WRAPPER:$PATH"
 #
 [ -z "$TEST_SRCDIR" ] && log_fatal "TEST_SRCDIR not set!"
 BAZEL_RUNFILES="$TEST_SRCDIR/io_bazel"
-
-if ! type rlocation &> /dev/null; then
-  function rlocation() {
-    if [[ "$1" = /* ]]; then
-      echo $1
-    else
-      echo "$TEST_SRCDIR/$1"
-    fi
-  }
-  export -f rlocation
-fi
 
 # WORKSPACE file
 workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
@@ -261,11 +230,11 @@ exit 1;
 case "${PLATFORM}" in
   darwin|freebsd)
     function sha256sum() {
-      cat "$1" | shasum -a 256 | cut -f 1 -d " "
+      shasum -a 256 "$@"
     }
     ;;
   *)
-    # Under linux sha256sum should exists
+    # Under Linux, sha256sum usually exists as a binary as part of coreutils.
     ;;
 esac
 
@@ -463,10 +432,11 @@ function cleanup_workspace() {
 # Clean-up the bazel install base
 function cleanup() {
   if [ -d "${BAZEL_INSTALL_BASE:-__does_not_exists__}" ]; then
+    log_info "Cleaning up BAZEL_INSTALL_BASE under $BAZEL_INSTALL_BASE"
     # Windows takes its time to shut down Bazel and we can't delete A-server.jar
     # until then, so just give it time and keep trying for 2 minutes.
     for i in {1..120}; do
-      if rm -fr "${BAZEL_INSTALL_BASE}" ; then
+      if rm -fr "${BAZEL_INSTALL_BASE}" >&/dev/null ; then
         break
       fi
       if (( i == 10 )) || (( i == 30 )) || (( i == 60 )) ; then

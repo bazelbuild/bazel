@@ -175,11 +175,29 @@ public class FileSystemUtilsTest {
   @Test
   public void testRelativePath() throws IOException {
     createTestDirectoryTree();
-    assertThat(relativePath(topDir, file1).getPathString()).isEqualTo("file-1");
-    assertThat(relativePath(topDir, topDir).getPathString()).isEqualTo(".");
-    assertThat(relativePath(topDir, dirLink).getPathString()).isEqualTo("a-dir/inner-dir/dir-link");
-    assertThat(relativePath(topDir, file4).getPathString()).isEqualTo("../file-4");
-    assertThat(relativePath(innerDir, file4).getPathString()).isEqualTo("../../../file-4");
+    assertThat(
+            relativePath(PathFragment.create("/top-dir"), PathFragment.create("/top-dir/file-1"))
+                .getPathString())
+        .isEqualTo("file-1");
+    assertThat(
+            relativePath(PathFragment.create("/top-dir"), PathFragment.create("/top-dir"))
+                .getPathString())
+        .isEqualTo("");
+    assertThat(
+            relativePath(
+                    PathFragment.create("/top-dir"),
+                    PathFragment.create("/top-dir/a-dir/inner-dir/dir-link"))
+                .getPathString())
+        .isEqualTo("a-dir/inner-dir/dir-link");
+    assertThat(
+            relativePath(PathFragment.create("/top-dir"), PathFragment.create("/file-4"))
+                .getPathString())
+        .isEqualTo("../file-4");
+    assertThat(
+            relativePath(
+                    PathFragment.create("/top-dir/a-dir/inner-dir"), PathFragment.create("/file-4"))
+                .getPathString())
+        .isEqualTo("../../../file-4");
   }
 
   @Test
@@ -349,6 +367,40 @@ public class FileSystemUtilsTest {
 
     assertThat(FileSystemUtils.readContent(moveTarget)).isEqualTo(content);
     assertThat(originalFile.exists()).isFalse();
+  }
+
+  @Test
+  public void testMoveFileAcrossDevices() throws Exception {
+    class MultipleDeviceFS extends InMemoryFileSystem {
+      @Override
+      public void renameTo(Path source, Path target) throws IOException {
+        if (!source.startsWith(target.asFragment().subFragment(0, 1))) {
+          throw new IOException("EXDEV");
+        }
+        super.renameTo(source, target);
+      }
+    }
+    FileSystem fs = new MultipleDeviceFS();
+    Path dev1 = fs.getPath("/fs1");
+    dev1.createDirectory();
+    Path dev2 = fs.getPath("/fs2");
+    dev2.createDirectory();
+    Path source = dev1.getChild("source");
+    Path target = dev2.getChild("target");
+
+    FileSystemUtils.writeContent(source, UTF_8, "hello, world");
+    source.setLastModifiedTime(142);
+    FileSystemUtils.moveFile(source, target);
+    assertThat(source.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(target.isFile(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("hello, world");
+    assertThat(target.getLastModifiedTime()).isEqualTo(142);
+
+    source.createSymbolicLink(PathFragment.create("link-target"));
+    FileSystemUtils.moveFile(source, target);
+    assertThat(source.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(target.isSymbolicLink()).isTrue();
+    assertThat(target.readSymbolicLink()).isEqualTo(PathFragment.create("link-target"));
   }
 
   @Test

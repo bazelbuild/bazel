@@ -67,6 +67,14 @@ interface SerializationCodeGenerator {
       return (DeclaredType) type;
     }
 
+    boolean isDeclaredType() {
+      return type instanceof DeclaredType;
+    }
+
+    TypeMirror getTypeMirror() {
+      return type;
+    }
+
     /** Returns true if this Context represents a type that can be null */
     boolean canBeNull() {
       return !(type instanceof PrimitiveType);

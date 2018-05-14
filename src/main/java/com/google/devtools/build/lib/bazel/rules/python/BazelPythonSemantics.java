@@ -19,16 +19,17 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.Runfiles.Builder;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
@@ -68,17 +69,18 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   @Override
-  public void collectRunfilesForBinary(RuleContext ruleContext, Builder builder, PyCommon common) {
+  public void collectRunfilesForBinary(
+      RuleContext ruleContext, Runfiles.Builder builder, PyCommon common) {
     addRuntime(ruleContext, builder);
   }
 
   @Override
-  public void collectDefaultRunfilesForBinary(RuleContext ruleContext, Builder builder) {
+  public void collectDefaultRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder) {
     addRuntime(ruleContext, builder);
   }
 
   @Override
-  public void collectDefaultRunfiles(RuleContext ruleContext, Builder builder) {
+  public void collectDefaultRunfiles(RuleContext ruleContext, Runfiles.Builder builder) {
     builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
   }
 
@@ -107,8 +109,8 @@ public class BazelPythonSemantics implements PythonSemantics {
             "ignoring invalid absolute path '" + importsAttr + "'");
         continue;
       }
-      PathFragment importsPath = packageFragment.getRelative(importsAttr).normalize();
-      if (!importsPath.isNormalized()) {
+      PathFragment importsPath = packageFragment.getRelative(importsAttr);
+      if (importsPath.containsUplevelReferences()) {
         ruleContext.attributeError("imports",
             "Path " + importsAttr + " references a path above the execution root");
       }
@@ -169,11 +171,13 @@ public class BazelPythonSemantics implements PythonSemantics {
               true));
 
       if (OS.getCurrent() != OS.WINDOWS) {
+        PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
         ruleContext.registerAction(
             new SpawnAction.Builder()
                 .addInput(zipFile)
                 .addOutput(executable)
                 .setShellCommand(
+                    shExecutable,
                     "echo '#!/usr/bin/env python' | cat - "
                         + zipFile.getExecPathString()
                         + " > "
@@ -239,10 +243,10 @@ public class BazelPythonSemantics implements PythonSemantics {
     String zipRunfilesPath;
     if (isUnderWorkspace(path)) {
       // If the file is under workspace, add workspace name as prefix
-      zipRunfilesPath = workspaceName.getRelative(path).normalize().toString();
+      zipRunfilesPath = workspaceName.getRelative(path).toString();
     } else {
       // If the file is in external package, strip "external"
-      zipRunfilesPath = path.relativeTo(Label.EXTERNAL_PATH_PREFIX).normalize().toString();
+      zipRunfilesPath = path.relativeTo(Label.EXTERNAL_PATH_PREFIX).toString();
     }
     // We put the whole runfiles tree under the ZIP_RUNFILES_DIRECTORY_NAME directory, by doing this
     // , we avoid the conflict between default workspace name "__main__" and __main__.py file.
@@ -277,7 +281,7 @@ public class BazelPythonSemantics implements PythonSemantics {
 
     // Read each runfile from execute path, add them into zip file at the right runfiles path.
     // Filter the executable file, cause we are building it.
-    for (Artifact artifact : runfilesSupport.getRunfilesArtifactsWithoutMiddlemen()) {
+    for (Artifact artifact : runfilesSupport.getRunfilesArtifacts()) {
       if (!artifact.equals(executable) && !artifact.equals(zipFile)) {
         argv.addDynamicString(
             getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName)
@@ -287,38 +291,26 @@ public class BazelPythonSemantics implements PythonSemantics {
       }
     }
 
-    // zipper can only consume file list options from param file not other options,
-    // so write file list in the param file first.
-    Artifact paramFile =
-        ruleContext.getDerivedArtifact(
-            ParameterFile.derivePath(zipFile.getRootRelativePath()), zipFile.getRoot());
-
-    ruleContext.registerAction(
-        new ParameterFileWriteAction(
-            ruleContext.getActionOwner(),
-            paramFile,
-            argv.build(),
-            ParameterFile.ParameterFileType.UNQUOTED,
-            ISO_8859_1));
-
     ruleContext.registerAction(
         new SpawnAction.Builder()
-            .addInput(paramFile)
             .addTransitiveInputs(inputsBuilder.build())
             .addOutput(zipFile)
             .setExecutable(zipper)
             .useDefaultShellEnvironment()
+            .addCommandLine(CustomCommandLine.builder().add("cC").addExecPath(zipFile).build())
+            // zipper can only consume file list options from param file not other options,
+            // so write file list in the param file.
             .addCommandLine(
-                CustomCommandLine.builder()
-                    .add("cC")
-                    .addExecPath(zipFile)
-                    .addPrefixedExecPath("@", paramFile)
+                argv.build(),
+                ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED)
+                    .setCharset(ISO_8859_1)
+                    .setUseAlways(true)
                     .build())
             .setMnemonic("PythonZipper")
             .build(ruleContext));
   }
 
-  private static void addRuntime(RuleContext ruleContext, Builder builder) {
+  private static void addRuntime(RuleContext ruleContext, Runfiles.Builder builder) {
     BazelPyRuntimeProvider provider = ruleContext.getPrerequisite(
         ":py_interpreter", Mode.TARGET, BazelPyRuntimeProvider.class);
     if (provider != null && provider.interpreter() != null) {

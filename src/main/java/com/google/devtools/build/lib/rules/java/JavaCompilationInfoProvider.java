@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
   doc = "Provides access to compilation information for Java rules."
 )
 @Immutable
+@AutoCodec
 public class JavaCompilationInfoProvider implements TransitiveInfoProvider {
   private final ImmutableList<String> javacOpts;
   private final NestedSet<Artifact> runtimeClasspath;
@@ -105,14 +107,15 @@ public class JavaCompilationInfoProvider implements TransitiveInfoProvider {
     return bootClasspath;
   }
 
-  private JavaCompilationInfoProvider(
+  @AutoCodec.VisibleForSerialization
+  JavaCompilationInfoProvider(
       ImmutableList<String> javacOpts,
       NestedSet<Artifact> runtimeClasspath,
-      NestedSet<Artifact> compileTimeClasspath,
+      NestedSet<Artifact> compilationClasspath,
       ImmutableList<Artifact> bootClasspath) {
     this.javacOpts = javacOpts;
     this.runtimeClasspath = runtimeClasspath;
-    this.compilationClasspath = compileTimeClasspath;
+    this.compilationClasspath = compilationClasspath;
     this.bootClasspath = bootClasspath;
   }
 }

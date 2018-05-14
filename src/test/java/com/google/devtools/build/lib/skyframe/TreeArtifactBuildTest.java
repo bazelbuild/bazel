@@ -22,10 +22,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
@@ -36,22 +34,24 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.OutputBaseSupplier;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
-import com.google.devtools.build.lib.analysis.actions.ActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -91,12 +91,12 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
   Artifact in;
 
-  Artifact outOne;
+  SpecialArtifact outOne;
   TreeFileArtifact outOneFileOne;
   TreeFileArtifact outOneFileTwo;
   Button buttonOne = new Button();
 
-  Artifact outTwo;
+  SpecialArtifact outTwo;
   TreeFileArtifact outTwoFileOne;
   TreeFileArtifact outTwoFileTwo;
   Button buttonTwo = new Button();
@@ -112,6 +112,15 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     outTwo = createTreeArtifact("outputTwo");
     outTwoFileOne = treeFileArtifact(outTwo, "out_one_file_one");
     outTwoFileTwo = treeFileArtifact(outTwo, "out_one_file_two");
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    new SerializationTester(outOne, outOneFileOne)
+        .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependency(
+            OutputBaseSupplier.class, () -> scratch.getFileSystem().getPath(TestUtils.tmpDir()))
+        .runTests();
   }
 
   /** Simple smoke test. If this isn't passing, something is very wrong... */
@@ -177,10 +186,10 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   /** Unchanged TreeArtifact outputs should not cause reexecution. */
   @Test
   public void testCacheCheckingForTreeArtifactsDoesNotCauseReexecution() throws Exception {
-    Artifact outOne = createTreeArtifact("outputOne");
+    SpecialArtifact outOne = createTreeArtifact("outputOne");
     Button buttonOne = new Button();
 
-    Artifact outTwo = createTreeArtifact("outputTwo");
+    SpecialArtifact outTwo = createTreeArtifact("outputTwo");
     Button buttonTwo = new Button();
 
     TouchingTestAction actionOne = new TouchingTestAction(
@@ -472,7 +481,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
   @Test
   public void testOutputsAreReadOnlyAndExecutable() throws Exception {
-    final Artifact out = createTreeArtifact("output");
+    final SpecialArtifact out = createTreeArtifact("output");
 
     TreeArtifactTestAction action =
         new TreeArtifactTestAction(out) {
@@ -505,7 +514,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
   @Test
   public void testValidRelativeSymlinkAccepted() throws Exception {
-    final Artifact out = createTreeArtifact("output");
+    final SpecialArtifact out = createTreeArtifact("output");
 
     TreeArtifactTestAction action =
         new TreeArtifactTestAction(out) {
@@ -535,7 +544,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     reporter.removeHandler(failFastHandler);
     reporter.addHandler(storingEventHandler);
 
-    final Artifact out = createTreeArtifact("output");
+    final SpecialArtifact out = createTreeArtifact("output");
 
     TreeArtifactTestAction action =
         new TreeArtifactTestAction(out) {
@@ -575,7 +584,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     reporter.removeHandler(failFastHandler);
     reporter.addHandler(storingEventHandler);
 
-    final Artifact out = createTreeArtifact("output");
+    final SpecialArtifact out = createTreeArtifact("output");
 
     TreeArtifactTestAction action =
         new TreeArtifactTestAction(out) {
@@ -611,7 +620,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   public void testAbsoluteSymlinkAccepted() throws Exception {
     scratch.overwriteFile("/random/pointer");
 
-    final Artifact out = createTreeArtifact("output");
+    final SpecialArtifact out = createTreeArtifact("output");
 
     TreeArtifactTestAction action =
         new TreeArtifactTestAction(out) {
@@ -641,7 +650,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     reporter.removeHandler(failFastHandler);
     reporter.addHandler(storingEventHandler);
 
-    final Artifact out = createTreeArtifact("output");
+    final SpecialArtifact out = createTreeArtifact("output");
 
     TreeArtifactTestAction action =
         new TreeArtifactTestAction(out) {
@@ -719,7 +728,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   @Test
   public void testExpandedActionsBuildInActionTemplate() throws Throwable {
     // artifact1 is a tree artifact generated by a TouchingTestAction.
-    Artifact artifact1 = createTreeArtifact("treeArtifact1");
+    SpecialArtifact artifact1 = createTreeArtifact("treeArtifact1");
     TreeFileArtifact treeFileArtifactA = ActionInputHelper.treeFileArtifact(
         artifact1, PathFragment.create("child1"));
     TreeFileArtifact treeFileArtifactB = ActionInputHelper.treeFileArtifact(
@@ -727,7 +736,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     registerAction(new TouchingTestAction(treeFileArtifactA, treeFileArtifactB));
 
     // artifact2 is a tree artifact generated by an action template.
-    Artifact artifact2 = createTreeArtifact("treeArtifact2");
+    SpecialArtifact artifact2 = createTreeArtifact("treeArtifact2");
     SpawnActionTemplate actionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
         artifact1, artifact2);
     registerAction(actionTemplate);
@@ -745,10 +754,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     actionTemplateExpansionFunction =
         new DummyActionTemplateExpansionFunction(
-            actionKeyContext,
-            ImmutableMultimap.<ActionTemplate<?>, Action>of(
-                actionTemplate, generateOutputAction,
-                actionTemplate, noGenerateOutputAction));
+            actionKeyContext, ImmutableList.of(generateOutputAction, noGenerateOutputAction));
 
     buildArtifact(artifact2);
   }
@@ -759,7 +765,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     reporter.removeHandler(failFastHandler);
 
     // artifact1 is a tree artifact generated by a TouchingTestAction.
-    Artifact artifact1 = createTreeArtifact("treeArtifact1");
+    SpecialArtifact artifact1 = createTreeArtifact("treeArtifact1");
     TreeFileArtifact treeFileArtifactA = ActionInputHelper.treeFileArtifact(
         artifact1, PathFragment.create("child1"));
     TreeFileArtifact treeFileArtifactB = ActionInputHelper.treeFileArtifact(
@@ -767,7 +773,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     registerAction(new TouchingTestAction(treeFileArtifactA, treeFileArtifactB));
 
     // artifact2 is a tree artifact generated by an action template.
-    Artifact artifact2 = createTreeArtifact("treeArtifact2");
+    SpecialArtifact artifact2 = createTreeArtifact("treeArtifact2");
     SpawnActionTemplate actionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
         artifact1, artifact2);
     registerAction(actionTemplate);
@@ -787,10 +793,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     actionTemplateExpansionFunction =
         new DummyActionTemplateExpansionFunction(
-            actionKeyContext,
-            ImmutableMultimap.<ActionTemplate<?>, Action>of(
-                actionTemplate, generateOutputAction,
-                actionTemplate, noGenerateOutputAction));
+            actionKeyContext, ImmutableList.of(generateOutputAction, noGenerateOutputAction));
 
     try {
       buildArtifact(artifact2);
@@ -806,7 +809,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     reporter.removeHandler(failFastHandler);
 
     // artifact1 is a tree artifact generated by a TouchingTestAction.
-    Artifact artifact1 = createTreeArtifact("treeArtifact1");
+    SpecialArtifact artifact1 = createTreeArtifact("treeArtifact1");
     TreeFileArtifact treeFileArtifactA = ActionInputHelper.treeFileArtifact(
         artifact1, PathFragment.create("child1"));
     TreeFileArtifact treeFileArtifactB = ActionInputHelper.treeFileArtifact(
@@ -814,7 +817,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     registerAction(new TouchingTestAction(treeFileArtifactA, treeFileArtifactB));
 
     // artifact2 is a tree artifact generated by an action template.
-    Artifact artifact2 = createTreeArtifact("treeArtifact2");
+    SpecialArtifact artifact2 = createTreeArtifact("treeArtifact2");
     SpawnActionTemplate actionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
         artifact1, artifact2);
     registerAction(actionTemplate);
@@ -834,10 +837,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     actionTemplateExpansionFunction =
         new DummyActionTemplateExpansionFunction(
-            actionKeyContext,
-            ImmutableMultimap.<ActionTemplate<?>, Action>of(
-                actionTemplate, generateOutputAction,
-                actionTemplate, throwingAction));
+            actionKeyContext, ImmutableList.of(generateOutputAction, throwingAction));
 
     try {
       buildArtifact(artifact2);
@@ -853,7 +853,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     reporter.removeHandler(failFastHandler);
 
     // artifact1 is a tree artifact generated by a TouchingTestAction.
-    Artifact artifact1 = createTreeArtifact("treeArtifact1");
+    SpecialArtifact artifact1 = createTreeArtifact("treeArtifact1");
     TreeFileArtifact treeFileArtifactA = ActionInputHelper.treeFileArtifact(
         artifact1, PathFragment.create("child1"));
     TreeFileArtifact treeFileArtifactB = ActionInputHelper.treeFileArtifact(
@@ -861,7 +861,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     registerAction(new TouchingTestAction(treeFileArtifactA, treeFileArtifactB));
 
     // artifact2 is a tree artifact generated by an action template.
-    Artifact artifact2 = createTreeArtifact("treeArtifact2");
+    SpecialArtifact artifact2 = createTreeArtifact("treeArtifact2");
     SpawnActionTemplate actionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
         artifact1, artifact2);
     registerAction(actionTemplate);
@@ -880,10 +880,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     actionTemplateExpansionFunction =
         new DummyActionTemplateExpansionFunction(
-            actionKeyContext,
-            ImmutableMultimap.<ActionTemplate<?>, Action>of(
-                actionTemplate, throwingAction,
-                actionTemplate, anotherThrowingAction));
+            actionKeyContext, ImmutableList.of(throwingAction, anotherThrowingAction));
 
     try {
       buildArtifact(artifact2);
@@ -899,12 +896,12 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     reporter.removeHandler(failFastHandler);
 
     // artifact1 is created by a action that throws.
-    Artifact artifact1 = createTreeArtifact("treeArtifact1");
+    SpecialArtifact artifact1 = createTreeArtifact("treeArtifact1");
     registerAction(
         new ThrowingDummyAction(ImmutableList.<Artifact>of(), ImmutableList.of(artifact1)));
 
     // artifact2 is a tree artifact generated by an action template.
-    Artifact artifact2 = createTreeArtifact("treeArtifact2");
+    SpecialArtifact artifact2 = createTreeArtifact("treeArtifact2");
     SpawnActionTemplate actionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
         artifact1, artifact2);
     registerAction(actionTemplate);
@@ -920,11 +917,11 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   @Test
   public void testEmptyInputAndOutputTreeArtifactInActionTemplate() throws Throwable {
     // artifact1 is an empty tree artifact which is generated by a single no-op dummy action.
-    Artifact artifact1 = createTreeArtifact("treeArtifact1");
+    SpecialArtifact artifact1 = createTreeArtifact("treeArtifact1");
     registerAction(new NoOpDummyAction(ImmutableList.<Artifact>of(), ImmutableList.of(artifact1)));
 
     // artifact2 is a tree artifact generated by an action template that takes artifact1 as input.
-    Artifact artifact2 = createTreeArtifact("treeArtifact2");
+    SpecialArtifact artifact2 = createTreeArtifact("treeArtifact2");
     SpawnActionTemplate actionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
         artifact1, artifact2);
     registerAction(actionTemplate);
@@ -945,7 +942,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     final Iterable<TreeFileArtifact> inputFiles;
     final Iterable<TreeFileArtifact> outputFiles;
 
-    TreeArtifactTestAction(final Artifact output, final String... subOutputs) {
+    TreeArtifactTestAction(final SpecialArtifact output, final String... subOutputs) {
       this(Runnables.doNothing(),
           null,
           ImmutableList.<TreeFileArtifact>of(),
@@ -1054,9 +1051,9 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     }
 
     /** Checks there's exactly one output, and returns it. */
-    Artifact getSoleOutput() {
+    SpecialArtifact getSoleOutput() {
       Iterator<Artifact> it = getOutputs().iterator();
-      Artifact r = it.next();
+      SpecialArtifact r = (SpecialArtifact) it.next();
       Preconditions.checkNotNull(r);
       Preconditions.checkState(!it.hasNext());
       Preconditions.checkState(r.equals(getPrimaryOutput()));
@@ -1068,7 +1065,8 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
           treeFileArtifact(getSoleOutput(), PathFragment.create(outputName)));
     }
 
-    static List<TreeFileArtifact> asTreeFileArtifacts(final Artifact parent, String... files) {
+    static List<TreeFileArtifact> asTreeFileArtifacts(
+        final SpecialArtifact parent, String... files) {
       return Lists.transform(
           Arrays.asList(files),
           new Function<String, TreeFileArtifact>() {
@@ -1087,7 +1085,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       super(Runnables.doNothing(), outputPaths);
     }
 
-    TouchingTestAction(Runnable effect, Artifact output, String... outputPaths) {
+    TouchingTestAction(Runnable effect, SpecialArtifact output, String... outputPaths) {
       super(effect, asTreeFileArtifacts(output, outputPaths));
     }
 
@@ -1135,7 +1133,8 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   /** Copies the given TreeFileArtifact inputs to the given outputs, in respective order. */
   private static class CopyTreeAction extends TreeArtifactTestAction {
 
-    CopyTreeAction(Runnable effect, Artifact input, Artifact output, String... sourcesAndDests) {
+    CopyTreeAction(
+        Runnable effect, SpecialArtifact input, SpecialArtifact output, String... sourcesAndDests) {
       super(effect, input, asTreeFileArtifacts(input, sourcesAndDests), output,
           asTreeFileArtifacts(output, sourcesAndDests));
     }
@@ -1176,13 +1175,11 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     }
   }
 
-  private Artifact createTreeArtifact(String name) {
+  private SpecialArtifact createTreeArtifact(String name) {
     FileSystem fs = scratch.getFileSystem();
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
-    Path path = execRoot.getRelative(execPath);
     return new SpecialArtifact(
-        path,
         ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
         execPath,
         ACTION_LOOKUP_KEY,
@@ -1230,23 +1227,21 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   /** A dummy action template expansion function that just returns the injected actions */
   private static class DummyActionTemplateExpansionFunction implements SkyFunction {
     private final ActionKeyContext actionKeyContext;
-    private final Multimap<ActionTemplate<?>, Action> actionTemplateToActionMap;
+    private final List<Action> actions;
 
-    DummyActionTemplateExpansionFunction(
-        ActionKeyContext actionKeyContext,
-        Multimap<ActionTemplate<?>, Action> actionTemplateToActionMap) {
+    DummyActionTemplateExpansionFunction(ActionKeyContext actionKeyContext, List<Action> actions) {
       this.actionKeyContext = actionKeyContext;
-      this.actionTemplateToActionMap = actionTemplateToActionMap;
+      this.actions = actions;
     }
 
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) {
-      ActionTemplateExpansionKey key = (ActionTemplateExpansionKey) skyKey.argument();
-      ActionTemplate<?> actionTemplate = key.getActionTemplate();
-      return new ActionTemplateExpansionValue(
-          actionKeyContext,
-          Preconditions.checkNotNull(actionTemplateToActionMap.get(actionTemplate)),
-          false);
+      try {
+        return new ActionTemplateExpansionValue(
+            Actions.filterSharedActionsAndThrowActionConflict(actionKeyContext, actions), false);
+      } catch (ActionConflictException e) {
+        throw new IllegalStateException(e);
+      }
     }
 
     @Override

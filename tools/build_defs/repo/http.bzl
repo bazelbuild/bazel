@@ -29,37 +29,37 @@ These rules are improved versions of the native http rules and will eventually
 replace the native rules.
 """
 
-def _patch(ctx):
-  """Implementation of patching an already extracted repository"""
-  bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
-  for patchfile in ctx.attr.patches:
-    command = "{patchtool} -p0 < {patchfile}".format(
-      patchtool=ctx.attr.patch_tool,
-      patchfile=ctx.path(patchfile))
-    st = ctx.execute([bash_exe, "-c", command])
-    if st.return_code:
-      fail("Error applying patch %s:\n%s" % (str(patchfile), st.stderr))
-  for cmd in ctx.attr.patch_cmds:
-    st = ctx.execute([bash_exe, "-c", cmd])
-    if st.return_code:
-      fail("Error applying patch command %s:\n%s%s"
-           % (cmd, st.stdout, st.stderr))
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "workspace_and_buildfile", "patch")
 
 def _http_archive_impl(ctx):
   """Implementation of the http_archive rule."""
+  if not ctx.attr.url and not ctx.attr.urls:
+    ctx.fail("At least of of url and urls must be provided")
   if ctx.attr.build_file and ctx.attr.build_file_content:
     ctx.fail("Only one of build_file and build_file_content can be provided.")
 
-  ctx.download_and_extract(ctx.attr.urls, "", ctx.attr.sha256, ctx.attr.type,
-                           ctx.attr.strip_prefix)
-  _patch(ctx)
-  ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name=ctx.name))
+  # These print statement is not only for debug, but it also ensures the file
+  # is referenced before the download is started; this is necessary till a
+  # proper fix for https://github.com/bazelbuild/bazel/issues/2700 is
+  # implemented. A proper could, e.g., be to ensure that all ctx.path of
+  # all the lables provided as arguments are present before the implementation
+  # function is called the first time.
   if ctx.attr.build_file:
-    print("ctx.attr.build_file %s" % str(ctx.attr.build_file))
-    ctx.symlink(ctx.attr.build_file, "BUILD")
-  elif ctx.attr.build_file_content:
-    ctx.file("BUILD", ctx.attr.build_file_content)
+    print("ctx.attr.build_file %s, path %s" %
+          (str(ctx.attr.build_file), ctx.path(ctx.attr.build_file)))
+  for patchfile in ctx.attr.patches:
+    print("patch file %s, path %s" % (patchfile, ctx.path(patchfile)))
 
+  all_urls = []
+  if ctx.attr.urls:
+    all_urls = ctx.attr.urls
+  if ctx.attr.url:
+    all_urls = [ctx.attr.url] + all_urls
+
+  ctx.download_and_extract(all_urls, "", ctx.attr.sha256, ctx.attr.type,
+                           ctx.attr.strip_prefix)
+  patch(ctx)
+  workspace_and_buildfile(ctx)
 
 _HTTP_FILE_BUILD = """
 package(default_visibility = ["//visibility:public"])
@@ -79,7 +79,8 @@ def _http_file_impl(ctx):
 
 
 _http_archive_attrs = {
-    "urls": attr.string_list(mandatory=True),
+    "url": attr.string(),
+    "urls": attr.string_list(),
     "sha256": attr.string(),
     "strip_prefix": attr.string(),
     "type": attr.string(),
@@ -98,10 +99,7 @@ http_archive = repository_rule(
 """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
 
-The repository should already contain a BUILD file. If it does not, use
-`new_http_archive` instead.
-
-It supports the following file extensions: `"zip"`, `"jar"`, `"war"`,
+It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"tar"`,
 `"tar.gz"`, `"tgz"`, `"tar.xz"`, and `tar.bz2`.
 
 Examples:
@@ -184,11 +182,19 @@ Args:
 
     By default, the archive type is determined from the file extension of the
     URL. If the file has no extension, you can explicitly specify one of the
-    following: `"zip"`, `"jar"`, `"war"`, `"tar.gz"`, `"tgz"`, `"tar.xz"`,
-    or `tar.bz2`.
-  urls: A URL to a file that will be made available to Bazel.
+    following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
+    `"tar.xz"`, or `tar.bz2`.
+  url: A URL to a file that will be made available to Bazel.
 
     This must be an file, http or https URL. Redirections are followed.
+    Authentication is not supported.
+
+    This parameter is to simplify the transition from the native http_archive
+    rule. More flexibility can be achieved by the urls parameter that allows
+    to specify alternative URLs to fetch from.
+  urls: A list of URLs to a file that will be made available to Bazel.
+
+    Each entry must be an file, http or https URL. Redirections are followed.
     Authentication is not supported.
   patches: A list of files that are to be applied as patches after extracting
     the archive.
@@ -233,8 +239,8 @@ Args:
     to omit the SHA-256 as remote files can change._ At best omitting this
     field will make your build non-hermetic. It is optional to make development
     easier but should be set before shipping.
-  urls: A URL to a file that will be made available to Bazel.
+  urls: A list of URLs to a file that will be made available to Bazel.
 
-    This must be an file, http, or https URL. Redirections are followed.
+    Each entry must be an file, http or https URL. Redirections are followed.
     Authentication is not supported.
 """

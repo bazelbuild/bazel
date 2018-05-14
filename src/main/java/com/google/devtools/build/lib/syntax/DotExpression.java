@@ -82,8 +82,14 @@ public final class DotExpression extends Expression {
    * Returns the field of the given name of the struct objValue, or null if no such field exists.
    */
   public static Object eval(Object objValue, String name,
-      Location loc, Environment env) throws EvalException {
-    if (objValue instanceof ClassObject) {
+      Location loc, Environment env) throws EvalException, InterruptedException {
+    if (objValue instanceof SkylarkClassObject) {
+      try {
+        return ((SkylarkClassObject) objValue).getValue(name);
+      } catch (IllegalArgumentException ex) {
+        throw new EvalException(loc, ex);
+      }
+    } else if (objValue instanceof ClassObject) {
       Object result = null;
       try {
         result = ((ClassObject) objValue).getValue(name);

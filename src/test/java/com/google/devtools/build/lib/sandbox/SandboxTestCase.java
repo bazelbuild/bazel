@@ -15,9 +15,8 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.util.FileSystems;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import org.junit.Before;
 
 /** Common parts of all sandbox tests. */
@@ -27,8 +26,8 @@ public class SandboxTestCase {
 
   @Before
   public final void createTestRoot() throws Exception {
-    fileSystem = FileSystems.getNativeFileSystem();
+    fileSystem = new InMemoryFileSystem();
     testRoot = fileSystem.getPath(TestUtils.tmpDir());
-    FileSystemUtils.deleteTreesBelow(testRoot);
+    testRoot.createDirectoryAndParents();
   }
 }

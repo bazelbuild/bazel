@@ -14,29 +14,29 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * A "configuration target" that asserts whether or not it matches the
- * configuration it's bound to.
+ * A "configuration target" that asserts whether or not it matches the configuration it's bound to.
  *
- * <p>This can be used, e.g., to declare a BUILD target that defines the
- * conditions which trigger a configurable attribute branch. In general,
- * this can be used to trigger for any user-configurable build behavior.
+ * <p>This can be used, e.g., to declare a BUILD target that defines the conditions which trigger a
+ * configurable attribute branch. In general, this can be used to trigger for any user-configurable
+ * build behavior.
  */
 @Immutable
+@AutoCodec
 public final class ConfigMatchingProvider implements TransitiveInfoProvider {
-
   private final Label label;
-  private final boolean matches;
-  private final Multimap<String, String> settingsMap;
+  private final ImmutableMultimap<String, String> settingsMap;
   private final Map<Label, String> flagSettingsMap;
+  private final boolean matches;
 
   /**
    * @param label the build label corresponding to this matcher
@@ -45,9 +45,10 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
    * @param matches whether or not this matcher matches the configuration associated with its
    *     configured target
    */
+  @AutoCodec.Instantiator
   public ConfigMatchingProvider(
       Label label,
-      Multimap<String, String> settingsMap,
+      ImmutableMultimap<String, String> settingsMap,
       Map<Label, String> flagSettingsMap,
       boolean matches) {
     this.label = label;

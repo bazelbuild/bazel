@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -41,29 +40,15 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 )
 @Immutable
 public class SwiftConfiguration extends BuildConfiguration.Fragment {
-  public static final ObjectCodec<SwiftConfiguration> CODEC = new SwiftConfiguration_AutoCodec();
-
-  private final boolean enableWholeModuleOptimization;
   private final ImmutableList<String> copts;
 
   public SwiftConfiguration(SwiftCommandLineOptions options) {
-    this(options.enableWholeModuleOptimization, ImmutableList.copyOf(options.copts));
+    this(ImmutableList.copyOf(options.copts));
   }
 
-  @AutoCodec.Constructor
-  SwiftConfiguration(boolean enableWholeModuleOptimization, ImmutableList<String> copts) {
-    this.enableWholeModuleOptimization = enableWholeModuleOptimization;
+  @AutoCodec.Instantiator
+  SwiftConfiguration(ImmutableList<String> copts) {
     this.copts = copts;
-  }
-
-  /** Returns whether to enable Whole Module Optimization. */
-  @SkylarkCallable(
-    name = "enable_whole_module_optimization",
-    doc = "<code>True</code> if <em>whole module optimization</em> should be enabled when "
-        + "compiling Swift code; otherwise, <code>False</code>."
-  )
-  public boolean enableWholeModuleOptimization() {
-    return enableWholeModuleOptimization;
   }
 
   /** Returns a list of options to use for compiling Swift. */

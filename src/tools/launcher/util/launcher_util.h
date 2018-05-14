@@ -61,6 +61,12 @@ bool DoesDirectoryPathExist(const char* path);
 // Delete a file at a given path.
 bool DeleteFileByPath(const char* path);
 
+// Delete a directory at a given path,.
+// If it's a real directory, it must be empty
+// If it's a junction, the target directory it points to doesn't have to be
+// empty, the junction will be deleted regardless of the state of the target.
+bool DeleteDirectoryByPath(const char* path);
+
 // Get the value of a specific environment variable
 //
 // Return true if succeeded and the result is stored in buffer.
@@ -78,6 +84,12 @@ std::string GetRandomStr(size_t len);
 
 // Normalize a path to a Windows path in lower case
 bool NormalizePath(const std::string& path, std::string* result);
+
+// Get the base name from a normalized absoulute path
+std::string GetBaseNameFromPath(const std::string& path);
+
+// Get parent directory from a normalized absoulute path
+std::string GetParentDirFromPath(const std::string& path);
 
 // Calculate a relative path from `path` to `base`.
 // This function expects normalized Windows path in lower case.

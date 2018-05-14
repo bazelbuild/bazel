@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -40,9 +39,6 @@ public interface PackageProviderForConfigurations {
   /** Returns fragment based on fragment type and build options. */
   <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
       throws InvalidConfigurationException, InterruptedException;
-
-  /** Returns blaze directories and adds dependency to that value. */
-  BlazeDirectories getDirectories() throws InterruptedException;
   
   /**
    * Returns true if any dependency is missing (value of some node hasn't been evaluated yet).

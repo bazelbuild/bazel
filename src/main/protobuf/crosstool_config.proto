@@ -19,7 +19,6 @@ syntax = "proto2";
 // option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.view.config.crosstool";
 
-// option py_api_version = 2;
 
 package com.google.devtools.build.lib.view.config.crosstool;
 
@@ -41,13 +40,6 @@ package com.google.devtools.build.lib.view.config.crosstool;
 // exectuable. In particular, it is used to check if the compilation products of
 // a toolchain can run on the host machine.
 message CToolchain {
-  // Optional flag. Some option lists have a corresponding optional flag list.
-  // These are appended at the end of the option list in case the corresponding
-  // default setting is set.
-  message OptionalFlag {
-    required string default_setting_name = 1;
-    repeated string flag = 2;
-  }
 
   // A group of correlated flags. Supports parametrization via variable
   // expansion.
@@ -381,21 +373,16 @@ message CToolchain {
 
   // Compiler flags for C/C++/Asm compilation.
   repeated string compiler_flag = 13;
-  repeated OptionalFlag optional_compiler_flag = 35;
   // Additional compiler flags for C++ compilation.
   repeated string cxx_flag = 14;
-  repeated OptionalFlag optional_cxx_flag = 36;
   // Additional unfiltered compiler flags for C/C++/Asm compilation.
   // These are not subject to nocopt filtering in cc_* rules.
   // Note: These flags are *not* applied to objc/objc++ compiles.
   repeated string unfiltered_cxx_flag = 25;
-  repeated OptionalFlag optional_unfiltered_cxx_flag = 37;
   // Linker flags.
   repeated string linker_flag = 15;
-  repeated OptionalFlag optional_linker_flag = 38;
   // Additional linker flags when linking dynamic libraries.
   repeated string dynamic_library_linker_flag = 27;
-  repeated OptionalFlag optional_dynamic_library_linker_flag = 39;
   // Additional test-only linker flags.
   repeated string test_only_linker_flag = 49;
   // Objcopy flags for embedding files into binaries.
@@ -543,11 +530,6 @@ message DefaultCpuToolchain {
 // cpu, a default toolchain for each supported cpu type, and a set of
 // toolchains.
 message CrosstoolRelease {
-  message DefaultSetting {
-    required string name = 1;
-    required bool default_value = 2;
-  }
-
   // The major and minor version of the crosstool release.
   required string major_version = 1;
   required string minor_version = 2;
@@ -558,9 +540,6 @@ message CrosstoolRelease {
   required string default_target_cpu = 3;
   // The default toolchain to use for each given cpu.
   repeated DefaultCpuToolchain default_toolchain = 4;
-
-  // The default settings used in this release.
-  repeated DefaultSetting default_setting = 6;
 
   // All the toolchains in this release.
   repeated CToolchain toolchain = 5;

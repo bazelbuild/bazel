@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.BazelLibrary;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
-import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;

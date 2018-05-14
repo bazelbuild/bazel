@@ -40,26 +40,23 @@ class WorkspaceLayout {
   // relative or absolute.
   virtual std::string GetWorkspace(const std::string& cwd) const;
 
+  // Given a result returned from GetWorkspace, returns a pretty workspace name
+  // than can e.g. be used in the process title of the Bazel server.
+  virtual std::string GetPrettyWorkspaceName(
+      const std::string& workspace) const;
+
   // Returns if workspace is a valid build workspace.
   virtual bool InWorkspace(const std::string& workspace) const;
 
-  // Returns the candidate pathnames for the RC files.
-  virtual void FindCandidateBlazercPaths(
+  // Returns the path of the workspace rc file.
+  virtual std::string GetWorkspaceRcPath(
       const std::string& workspace,
-      const std::string& cwd,
-      const std::string& path_to_binary,
-      const std::vector<std::string>& startup_args,
-      std::vector<std::string>* result) const;
-
-  // Returns the candidate pathnames for the RC file in the workspace,
-  // the first readable one of which will be chosen.
-  // It is ok if no usable candidate exists.
-  virtual void WorkspaceRcFileSearchPath(std::vector<std::string>* candidates)
-      const;
+      const std::vector<std::string>& startup_args) const;
 
   // Turn a %workspace%-relative import into its true name in the filesystem.
   // path_fragment is modified in place.
-  // Unlike WorkspaceRcFileSearchPath, it is an error if no import file exists.
+  // Unlike FindCandidateBlazercPaths, it is an error if no import file
+  // exists.
   virtual bool WorkspaceRelativizeRcFilePath(const std::string& workspace,
                                              std::string* path_fragment) const;
 

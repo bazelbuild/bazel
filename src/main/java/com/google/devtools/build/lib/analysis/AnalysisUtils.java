@@ -215,7 +215,7 @@ public final class AnalysisUtils {
             Dependency.withTransitionAndAspects(
                 targetAndConfig.getLabel(),
                 TransitionResolver.evaluateTopLevelTransition(
-                    targetAndConfig, ruleClassProvider.getDynamicTransitionMapper()),
+                    targetAndConfig, ruleClassProvider.getTrimmingTransitionFactory()),
                 // TODO(bazel-team): support top-level aspects
                 AspectCollection.EMPTY));
       }

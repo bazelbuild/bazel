@@ -19,11 +19,8 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Pair;
 
-/**
- * A provider of instrumented file sources and instrumentation metadata.
- */
+/** A provider of instrumented file sources and instrumentation metadata. */
 public interface InstrumentedFilesProvider extends TransitiveInfoProvider {
-
   /**
    * The transitive closure of instrumented source files.
    */

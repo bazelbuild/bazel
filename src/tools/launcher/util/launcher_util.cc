@@ -74,8 +74,10 @@ void PrintError(const char* format, ...) {
 
 wstring AsAbsoluteWindowsPath(const char* path) {
   wstring wpath;
-  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath)) {
-    die("Couldn't convert %s to absoulte Windows path.", path);
+  string error;
+  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
+    die("Couldn't convert %s to absolute Windows path: %s", path,
+        error.c_str());
   }
   return wpath;
 }
@@ -98,6 +100,10 @@ bool DeleteFileByPath(const char* path) {
   return DeleteFileW(AsAbsoluteWindowsPath(path).c_str());
 }
 
+bool DeleteDirectoryByPath(const char* path) {
+  return RemoveDirectoryW(AsAbsoluteWindowsPath(path).c_str());
+}
+
 string GetBinaryPathWithoutExtension(const string& binary) {
   if (binary.find(".exe", binary.size() - 4) != string::npos) {
     return binary.substr(0, binary.length() - 4);
@@ -110,36 +116,36 @@ string GetBinaryPathWithExtension(const string& binary) {
 }
 
 string GetEscapedArgument(const string& argument, bool escape_backslash) {
-  ostringstream escaped_arg;
+  string escaped_arg;
+  // escaped_arg will be at least this long
+  escaped_arg.reserve(argument.size());
   bool has_space = argument.find_first_of(' ') != string::npos;
 
   if (has_space) {
-    escaped_arg << '\"';
+    escaped_arg += '\"';
   }
 
-  string::const_iterator it = argument.begin();
-  while (it != argument.end()) {
-    char ch = *it++;
+  for (const char ch : argument) {
     switch (ch) {
       case '"':
         // Escape double quotes
-        escaped_arg << "\\\"";
+        escaped_arg += "\\\"";
         break;
 
       case '\\':
         // Escape back slashes if escape_backslash is true
-        escaped_arg << (escape_backslash ? "\\\\" : "\\");
+        escaped_arg += (escape_backslash ? "\\\\" : "\\");
         break;
 
       default:
-        escaped_arg << ch;
+        escaped_arg += ch;
     }
   }
 
   if (has_space) {
-    escaped_arg << '\"';
+    escaped_arg += '\"';
   }
-  return escaped_arg.str();
+  return escaped_arg;
 }
 
 // An environment variable has a maximum size limit of 32,767 characters
@@ -162,22 +168,32 @@ bool SetEnv(const string& env_name, const string& value) {
 string GetRandomStr(size_t len) {
   static const char alphabet[] =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  ostringstream rand_str;
+  string rand_str;
+  rand_str.reserve(len);
   unsigned int x;
   for (size_t i = 0; i < len; i++) {
     rand_s(&x);
-    rand_str << alphabet[x % strlen(alphabet)];
+    rand_str += alphabet[x % strlen(alphabet)];
   }
-  return rand_str.str();
+  return rand_str;
 }
 
 bool NormalizePath(const string& path, string* result) {
-  if (!blaze_util::AsWindowsPath(path, result)) {
-    PrintError("Failed to normalize %s", path.c_str());
+  string error;
+  if (!blaze_util::AsWindowsPath(path, result, &error)) {
+    PrintError("Failed to normalize %s: %s", path.c_str(), error.c_str());
     return false;
   }
   std::transform(result->begin(), result->end(), result->begin(), ::tolower);
   return true;
+}
+
+string GetBaseNameFromPath(const string& path) {
+  return path.substr(path.find_last_of("\\/") + 1);
+}
+
+string GetParentDirFromPath(const string& path) {
+  return path.substr(0, path.find_last_of("\\/"));
 }
 
 bool RelativeTo(const string& path, const string& base, string* result) {

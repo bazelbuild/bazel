@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.unix;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
 
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Before;
@@ -93,25 +93,8 @@ public class UnixPathEqualityTest {
     Path a = unixFs.getPath("/a");
     Path b = otherUnixFs.getPath("/b");
 
-    try {
-      a.renameTo(b);
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessageThat().contains("different filesystems");
-    }
-
-    try {
-      a.relativeTo(b);
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessageThat().contains("different filesystems");
-    }
-
-    try {
-      a.createSymbolicLink(b);
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessageThat().contains("different filesystems");
-    }
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> a.renameTo(b));
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> a.relativeTo(b));
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> a.createSymbolicLink(b));
   }
 }

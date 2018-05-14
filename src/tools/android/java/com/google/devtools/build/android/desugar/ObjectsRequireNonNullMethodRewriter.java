@@ -19,6 +19,7 @@ import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 import static org.objectweb.asm.Opcodes.POP;
 
+import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 
@@ -29,8 +30,11 @@ import org.objectweb.asm.MethodVisitor;
  */
 public class ObjectsRequireNonNullMethodRewriter extends ClassVisitor {
 
-  public ObjectsRequireNonNullMethodRewriter(ClassVisitor cv) {
+  private final CoreLibraryRewriter rewriter;
+
+  public ObjectsRequireNonNullMethodRewriter(ClassVisitor cv, CoreLibraryRewriter rewriter) {
     super(ASM6, cv);
+    this.rewriter = rewriter;
   }
 
   @Override
@@ -40,7 +44,7 @@ public class ObjectsRequireNonNullMethodRewriter extends ClassVisitor {
     return visitor == null ? visitor : new ObjectsMethodInlinerMethodVisitor(visitor);
   }
 
-  private static class ObjectsMethodInlinerMethodVisitor extends MethodVisitor {
+  private class ObjectsMethodInlinerMethodVisitor extends MethodVisitor {
 
     public ObjectsMethodInlinerMethodVisitor(MethodVisitor mv) {
       super(ASM6, mv);
@@ -48,20 +52,19 @@ public class ObjectsRequireNonNullMethodRewriter extends ClassVisitor {
 
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-      if (opcode != INVOKESTATIC
-          || !owner.equals("java/util/Objects")
-          || !name.equals("requireNonNull")
-          || !desc.equals("(Ljava/lang/Object;)Ljava/lang/Object;")) {
+      if (opcode == INVOKESTATIC
+          && rewriter.unprefix(owner).equals("java/util/Objects")
+          && name.equals("requireNonNull")
+          && desc.equals("(Ljava/lang/Object;)Ljava/lang/Object;")) {
+        // a call to Objects.requireNonNull(Object o)
+        // duplicate the first argument 'o', as this method returns 'o'.
+        super.visitInsn(DUP);
+        super.visitMethodInsn(
+            INVOKEVIRTUAL, "java/lang/Object", "getClass", "()Ljava/lang/Class;", false);
+        super.visitInsn(POP);
+      } else {
         super.visitMethodInsn(opcode, owner, name, desc, itf);
-        return;
       }
-
-      // a call to Objects.requireNonNull(Object o)
-      // duplicate the first argument 'o', as this method returns 'o'.
-      super.visitInsn(DUP);
-      super.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Object", "getClass", "()Ljava/lang/Class;", false);
-      super.visitInsn(POP);
     }
   }
 }

@@ -19,14 +19,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.concurrent.Future;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * A simple {@link BuildEventTransport} that writes a varint delimited binary representation of
@@ -34,9 +28,6 @@ import java.util.logging.Logger;
  */
 public final class BinaryFormatFileTransport extends FileTransport {
 
-  private static final Logger logger = Logger.getLogger(BinaryFormatFileTransport.class.getName());
-
-  private static final int MAX_VARINT_BYTES = 9;
   private final PathConverter pathConverter;
 
   BinaryFormatFileTransport(String path, PathConverter pathConverter) {
@@ -48,9 +39,10 @@ public final class BinaryFormatFileTransport extends FileTransport {
   public String name() {
     return this.getClass().getSimpleName();
   }
-  
+
   @Override
   public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
+    checkNotNull(event);
     BuildEventConverters converters =
         new BuildEventConverters() {
           @Override
@@ -62,19 +54,6 @@ public final class BinaryFormatFileTransport extends FileTransport {
             return namer;
           }
         };
-    checkNotNull(event);
-    BuildEventStreamProtos.BuildEvent protoEvent = event.asStreamProto(converters);
-
-    int maxSerializedSize = MAX_VARINT_BYTES + protoEvent.getSerializedSize();
-    ByteArrayOutputStream out = new ByteArrayOutputStream(maxSerializedSize);
-
-    try {
-      protoEvent.writeDelimitedTo(out);
-      writeData(out.toByteArray());
-    } catch (IOException e) {
-      logger.log(Level.SEVERE, e.getMessage(), e);
-      @SuppressWarnings({"unused", "nullness"})
-      Future<?> possiblyIgnoredError = close();
-    }
+    write(event.asStreamProto(converters));
   }
 }

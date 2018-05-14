@@ -14,32 +14,21 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.convertOptionsLabel;
-
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsParsingException;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.List;
 
 /** Command-line options for platform-related configuration. */
 @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class PlatformOptions extends FragmentOptions {
-  public static final ObjectCodec<PlatformOptions> CODEC = new PlatformOptions_AutoCodec();
-
   @Option(
     name = "host_platform",
     oldName = "experimental_host_platform",
@@ -59,7 +48,6 @@ public class PlatformOptions extends FragmentOptions {
     name = "host_platform_remote_properties_override",
     oldName = "experimental_remote_platform_override",
     defaultValue = "null",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -70,16 +58,17 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
     name = "extra_execution_platforms",
-    converter = LabelListConverter.class,
+    converter = CommaSeparatedOptionListConverter.class,
     defaultValue = "",
     documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
     effectTags = {OptionEffectTag.EXECUTION},
     help =
-        "The labels of platforms that are available as execution platforms to run actions. "
+        "The platforms that are available as execution platforms to run actions. "
+            + "Platforms can be specified by exact target, or as a target pattern. "
             + "These platforms will be considered before those declared in the WORKSPACE file by "
             + "register_execution_platforms()."
   )
-  public List<Label> extraExecutionPlatforms;
+  public List<String> extraExecutionPlatforms;
 
   @Option(
     name = "platforms",
@@ -99,8 +88,8 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
     name = "extra_toolchains",
-    converter = LabelListConverter.class,
     defaultValue = "",
+    converter = CommaSeparatedOptionListConverter.class,
     documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
     effectTags = {
       OptionEffectTag.AFFECTS_OUTPUTS,
@@ -108,29 +97,32 @@ public class PlatformOptions extends FragmentOptions {
       OptionEffectTag.LOADING_AND_ANALYSIS
     },
     help =
-        "The labels of toolchain rules to be considered during toolchain resolution. "
+        "The toolchain rules to be considered during toolchain resolution. "
+            + "Toolchains can be specified by exact target, or as a target pattern. "
             + "These toolchains will be considered before those declared in the WORKSPACE file by "
             + "register_toolchains()."
   )
-  public List<Label> extraToolchains;
+  public List<String> extraToolchains;
 
   @Option(
     name = "toolchain_resolution_override",
-    converter = ToolchainResolutionOverrideConverter.class,
     allowMultiple = true,
     defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {
       OptionEffectTag.AFFECTS_OUTPUTS,
       OptionEffectTag.CHANGES_INPUTS,
       OptionEffectTag.LOADING_AND_ANALYSIS
     },
+    deprecationWarning =
+        "toolchain_resolution_override is now a no-op and will be removed in"
+            + " an upcoming release",
     help =
         "Override toolchain resolution for a toolchain type with a specific toolchain. "
             + "Example: --toolchain_resolution_override=@io_bazel_rules_go//:toolchain="
             + "@io_bazel_rules_go//:linux-arm64-toolchain"
   )
-  public List<ToolchainResolutionOverride> toolchainResolutionOverrides;
+  public List<String> toolchainResolutionOverrides;
 
   @Option(
     name = "toolchain_resolution_debug",
@@ -147,7 +139,6 @@ public class PlatformOptions extends FragmentOptions {
     name = "enabled_toolchain_types",
     defaultValue = "",
     converter = LabelListConverter.class,
-    category = "semantics",
     documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
     effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
     help = "Signals that the given rule categories use platform-based toolchain resolution"
@@ -167,70 +158,5 @@ public class PlatformOptions extends FragmentOptions {
     host.toolchainResolutionDebug = this.toolchainResolutionDebug;
     host.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
     return host;
-  }
-
-  /** Data about which toolchain instance should be used for a given toolchain type. */
-  @AutoValue
-  public abstract static class ToolchainResolutionOverride {
-    public static final ObjectCodec<ToolchainResolutionOverride> CODEC =
-        new ToolchainResolutionOverrideCodec();
-
-    public abstract Label toolchainType();
-
-    public abstract Label toolchainLabel();
-
-    private static ToolchainResolutionOverride create(Label toolchainType, Label toolchainLabel) {
-      return new AutoValue_PlatformOptions_ToolchainResolutionOverride(
-          toolchainType, toolchainLabel);
-    }
-
-    private static class ToolchainResolutionOverrideCodec
-        implements ObjectCodec<ToolchainResolutionOverride> {
-      @Override
-      public Class<ToolchainResolutionOverride> getEncodedClass() {
-        return ToolchainResolutionOverride.class;
-      }
-
-      @Override
-      public void serialize(ToolchainResolutionOverride obj, CodedOutputStream codedOut)
-          throws SerializationException, IOException {
-        Label.CODEC.serialize(obj.toolchainType(), codedOut);
-        Label.CODEC.serialize(obj.toolchainLabel(), codedOut);
-      }
-
-      @Override
-      public ToolchainResolutionOverride deserialize(CodedInputStream codedIn)
-          throws SerializationException, IOException {
-        return ToolchainResolutionOverride.create(
-            Label.CODEC.deserialize(codedIn), Label.CODEC.deserialize(codedIn));
-      }
-    }
-  }
-
-  /**
-   * {@link Converter} implementation to create {@link ToolchainResolutionOverride} instances from
-   * the value set in the flag.
-   */
-  public static class ToolchainResolutionOverrideConverter
-      implements Converter<ToolchainResolutionOverride> {
-
-    @Override
-    public ToolchainResolutionOverride convert(String input) throws OptionsParsingException {
-      int index = input.indexOf('=');
-      if (index == -1) {
-        throw new OptionsParsingException(
-            "Toolchain resolution override not in the type=toolchain format");
-      }
-      Label toolchainType = convertOptionsLabel(input.substring(0, index));
-      Label toolchain = convertOptionsLabel(input.substring(index + 1));
-
-      return ToolchainResolutionOverride.create(toolchainType, toolchain);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a hard-coded override for toolchain resolution, "
-          + "in the format toolchainTypeLabel=toolchainLabel";
-    }
   }
 }

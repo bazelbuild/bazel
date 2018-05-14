@@ -24,14 +24,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.ArrayList;
 
 /** Common rule attributes used by an objc_proto_library. */
@@ -90,6 +89,15 @@ final class ProtoAttributes {
    */
   boolean isObjcProtoLibrary() {
     return ruleContext.attributes().has(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR);
+  }
+
+  private boolean isObjcProtoLibrary(ConfiguredTargetAndData dependency) {
+    try {
+      String targetName = dependency.getTarget().getTargetKind();
+      return targetName.equals("objc_proto_library rule");
+    } catch (Exception e) {
+      return false;
+    }
   }
 
   /** Returns whether to use the protobuf library instead of the PB2 library. */
@@ -239,21 +247,12 @@ final class ProtoAttributes {
   }
 
   private boolean hasObjcProtoLibraryDependencies() {
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+    for (ConfiguredTargetAndData dep :
+        ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", Mode.TARGET)) {
       if (isObjcProtoLibrary(dep)) {
         return true;
       }
     }
     return false;
-  }
-
-  private boolean isObjcProtoLibrary(TransitiveInfoCollection dependency) {
-    try {
-      AbstractConfiguredTarget target = (AbstractConfiguredTarget) dependency;
-      String targetName = target.getTarget().getTargetKind();
-      return targetName.equals("objc_proto_library rule");
-    } catch (Exception e) {
-      return false;
-    }
   }
 }

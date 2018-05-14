@@ -21,11 +21,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.Directory;
@@ -35,6 +38,7 @@ import com.google.devtools.remoteexecution.v1test.Tree;
 import io.grpc.Context;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,6 +52,8 @@ public class SimpleBlobStoreActionCacheTest {
   private FileSystem fs;
   private Path execRoot;
   private FakeActionInputFileCache fakeFileCache;
+  private Context withEmptyMetadata;
+  private Context prevContext;
 
   @Before
   public final void setUp() throws Exception {
@@ -61,10 +67,15 @@ public class SimpleBlobStoreActionCacheTest {
     Path stderr = fs.getPath("/tmp/stderr");
     FileSystemUtils.createDirectoryAndParents(stdout.getParentDirectory());
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
-    Context withEmptyMetadata =
+    withEmptyMetadata =
         TracingMetadataUtils.contextWithMetadata(
             "none", "none", DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()));
-    withEmptyMetadata.attach();
+    prevContext = withEmptyMetadata.attach();
+  }
+
+  @After
+  public void tearDown() {
+    withEmptyMetadata.detach(prevContext);
   }
 
   private SimpleBlobStoreActionCache newClient() {
@@ -72,7 +83,8 @@ public class SimpleBlobStoreActionCacheTest {
   }
 
   private SimpleBlobStoreActionCache newClient(ConcurrentMap<String, byte[]> map) {
-    return new SimpleBlobStoreActionCache(new ConcurrentMapBlobStore(map), DIGEST_UTIL);
+    return new SimpleBlobStoreActionCache(
+        Options.getDefaults(RemoteOptions.class), new ConcurrentMapBlobStore(map), DIGEST_UTIL);
   }
 
   @Test

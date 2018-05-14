@@ -170,6 +170,9 @@ public class OptionFilterDescriptions {
             "This option is deprecated. It might be that the feature it affects is deprecated, "
                 + "or that another method of supplying the information is preferred.")
         .put(
+            OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+            "This option is triggered by the expansion option --all_incompatible_changes.")
+        .put(
             OptionMetadataTag.HIDDEN, // Here for completeness, these options are UNDOCUMENTED.
             "This option should not be used by a user, and should not be logged.")
         .put(

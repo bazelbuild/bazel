@@ -18,11 +18,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * A provider that gives information about the aliases a rule was resolved through.
- */
+/** A provider that gives information about the aliases a rule was resolved through. */
+@AutoCodec
 @Immutable
 public final class AliasProvider implements TransitiveInfoProvider {
   // We don't expect long alias chains, so it's better to have a list instead of a nested set
@@ -66,12 +66,41 @@ public final class AliasProvider implements TransitiveInfoProvider {
     return aliasChain;
   }
 
-  public static String printLabelWithAliasChain(ConfiguredTargetAndTarget target) {
-    AliasProvider aliasProvider = target.getConfiguredTarget().getProvider(AliasProvider.class);
-    String suffix = aliasProvider == null
-        ? ""
-        : " (aliased through '" + Joiner.on("' -> '").join(aliasProvider.getAliasChain()) + "')";
+  /** The way {@link #describeTargetWithAliases(ConfiguredTargetAndData, TargetMode) reports the
+   * kind of a target. */
+  public enum TargetMode {
+    WITH_KIND,      // Specify the kind of the target
+    WITHOUT_KIND,   // Only say "target"
+  }
 
-    return "'" + target.getTarget().getLabel() + "'" + suffix;
+  /**
+   * Prints a nice description of a target.
+   *
+   * Also adds the aliases it was reached through, if any.
+   *
+   * @param target the target to describe
+   * @param targetMode how to express the kind of the target
+   * @return
+   */
+  public static String describeTargetWithAliases(
+      ConfiguredTargetAndData target, TargetMode targetMode) {
+    String kind = targetMode == TargetMode.WITH_KIND
+        ? target.getTarget().getTargetKind() : "target";
+    AliasProvider aliasProvider = target.getConfiguredTarget().getProvider(AliasProvider.class);
+    if (aliasProvider == null) {
+      return kind + " '" + target.getTarget().getLabel() + "'";
+    }
+
+    ImmutableList<Label> aliasChain = aliasProvider.getAliasChain();
+    StringBuilder result = new StringBuilder();
+    result.append("alias '" + aliasChain.get(0) + "'");
+    result.append(" referring to " + kind  + " '" + target.getTarget().getLabel() + "'");
+    if (aliasChain.size() > 1) {
+      result.append(" through '"
+          + Joiner.on("' -> '").join(aliasChain.subList(1, aliasChain.size()))
+          + "'");
+    }
+
+    return result.toString();
   }
 }

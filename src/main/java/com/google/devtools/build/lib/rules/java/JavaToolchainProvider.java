@@ -27,11 +27,14 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /** Information about the JDK used by the <code>java_*</code> rules. */
 @Immutable
+@AutoCodec
 public class JavaToolchainProvider extends ToolchainInfo {
 
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
@@ -73,7 +76,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
       Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
-      @Nullable Artifact headerCompiler,
+      @Nullable FilesToRunProvider headerCompiler,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
@@ -83,7 +86,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions,
-      ImmutableList<JavaPackageConfigurationProvider> packageConfiguration) {
+      ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
+      JavaSemantics javaSemantics) {
     return new JavaToolchainProvider(
         label,
         bootclasspath,
@@ -106,7 +110,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
         ImmutableList.<String>builder().addAll(javacOptions).addAll(defaultJavacFlags).build(),
         jvmOptions,
         javacSupportsWorkers,
-        packageConfiguration);
+        packageConfiguration,
+        javaSemantics);
   }
 
   private final Label label;
@@ -115,7 +120,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
   private final Artifact javac;
   private final NestedSet<Artifact> tools;
   private final FilesToRunProvider javaBuilder;
-  @Nullable private final Artifact headerCompiler;
+  @Nullable private final FilesToRunProvider headerCompiler;
   private final boolean forciblyDisableHeaderCompilation;
   private final Artifact singleJar;
   @Nullable private final Artifact oneVersion;
@@ -129,15 +134,17 @@ public class JavaToolchainProvider extends ToolchainInfo {
   private final ImmutableList<String> jvmOptions;
   private final boolean javacSupportsWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
+  private final JavaSemantics javaSemantics;
 
-  private JavaToolchainProvider(
+  @VisibleForSerialization
+  JavaToolchainProvider(
       Label label,
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> extclasspath,
       Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
-      @Nullable Artifact headerCompiler,
+      @Nullable FilesToRunProvider headerCompiler,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
@@ -150,7 +157,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
       boolean javacSupportsWorkers,
-      ImmutableList<JavaPackageConfigurationProvider> packageConfiguration) {
+      ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
+      JavaSemantics javaSemantics) {
     super(ImmutableMap.of(), Location.BUILTIN);
 
     this.label = label;
@@ -173,6 +181,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
     this.jvmOptions = jvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.packageConfiguration = packageConfiguration;
+    this.javaSemantics = javaSemantics;
   }
 
   /** Returns the label for this {@code java_toolchain}. */
@@ -205,9 +214,9 @@ public class JavaToolchainProvider extends ToolchainInfo {
     return javaBuilder;
   }
 
-  /** @return the {@link Artifact} of the Header Compiler deploy jar */
+  /** @return the {@link FilesToRunProvider} of the Header Compiler deploy jar */
   @Nullable
-  public Artifact getHeaderCompiler() {
+  public FilesToRunProvider getHeaderCompiler() {
     return headerCompiler;
   }
 
@@ -292,5 +301,9 @@ public class JavaToolchainProvider extends ToolchainInfo {
   /** Returns the global {@code java_plugin_configuration} data. */
   public ImmutableList<JavaPackageConfigurationProvider> packageConfiguration() {
     return packageConfiguration;
+  }
+
+  public JavaSemantics getJavaSemantics() {
+    return javaSemantics;
   }
 }

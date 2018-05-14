@@ -17,19 +17,22 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.FileType;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -54,8 +57,7 @@ import javax.annotation.Nullable;
  */
 public final class RecursiveFilesystemTraversalValue implements SkyValue {
   static final RecursiveFilesystemTraversalValue EMPTY = new RecursiveFilesystemTraversalValue(
-      Optional.<ResolvedFile>absent(),
-      NestedSetBuilder.<ResolvedFile>emptySet(Order.STABLE_ORDER));
+      Optional.absent(), NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
   /** The root of the traversal. May only be absent for the {@link #EMPTY} instance. */
   private final Optional<ResolvedFile> resolvedRoot;
@@ -103,15 +105,13 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     return resolvedPaths;
   }
 
-  public static SkyKey key(TraversalRequest traversal) {
-    return LegacySkyKey.create(SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, traversal);
-  }
-
   /** The parameters of a file or directory traversal. */
-  public static final class TraversalRequest {
+  @AutoCodec
+  public static final class TraversalRequest implements SkyKey {
+    private static final Interner<TraversalRequest> interner = BlazeInterners.newWeakInterner();
 
     /** The path to start the traversal from; may be a file, a directory or a symlink. */
-    final RootedPath path;
+    final DirectTraversalRoot root;
 
     /**
      * Whether the path is in the output tree.
@@ -119,7 +119,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
      * <p>Such paths and all their subdirectories are assumed not to define packages, so package
      * lookup for them is skipped.
      */
-    final boolean isGenerated;
+    final boolean isRootGenerated;
 
     /** Whether traversal should descend into directories that are roots of subpackages. */
     final PackageBoundaryMode crossPkgBoundaries;
@@ -133,32 +133,44 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
      */
     final boolean skipTestingForSubpackage;
 
-    /** A pattern that files must match to be included in this traversal (may be null.) */
-    @Nullable
-    final Pattern pattern;
-
     /** Information to be attached to any error messages that may be reported. */
     @Nullable final String errorInfo;
 
-    public TraversalRequest(RootedPath path, boolean isRootGenerated,
-        PackageBoundaryMode crossPkgBoundaries, boolean skipTestingForSubpackage,
-        @Nullable String errorInfo, @Nullable Pattern pattern) {
-      this.path = path;
-      this.isGenerated = isRootGenerated;
+    private TraversalRequest(
+        DirectTraversalRoot root,
+        boolean isRootGenerated,
+        PackageBoundaryMode crossPkgBoundaries,
+        boolean skipTestingForSubpackage,
+        @Nullable String errorInfo) {
+      this.root = root;
+      this.isRootGenerated = isRootGenerated;
       this.crossPkgBoundaries = crossPkgBoundaries;
       this.skipTestingForSubpackage = skipTestingForSubpackage;
       this.errorInfo = errorInfo;
-      this.pattern = pattern;
     }
 
-    private TraversalRequest duplicate(RootedPath newRoot, boolean newSkipTestingForSubpackage) {
-      return new TraversalRequest(newRoot, isGenerated, crossPkgBoundaries,
-          newSkipTestingForSubpackage, errorInfo, pattern);
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static TraversalRequest create(
+        DirectTraversalRoot root,
+        boolean isRootGenerated,
+        PackageBoundaryMode crossPkgBoundaries,
+        boolean skipTestingForSubpackage,
+        @Nullable String errorInfo) {
+      return interner.intern(
+          new TraversalRequest(
+              root, isRootGenerated, crossPkgBoundaries, skipTestingForSubpackage, errorInfo));
+    }
+
+    private TraversalRequest duplicate(DirectTraversalRoot newRoot,
+        boolean newSkipTestingForSubpackage) {
+      return create(
+          newRoot, isRootGenerated, crossPkgBoundaries, newSkipTestingForSubpackage, errorInfo);
     }
 
     /** Creates a new request to traverse a child element in the current directory (the root). */
     TraversalRequest forChildEntry(RootedPath newPath) {
-      return duplicate(newPath, false);
+      return duplicate(DirectTraversalRoot.forRootedPath(newPath), false);
     }
 
     /**
@@ -169,7 +181,9 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
      */
     TraversalRequest forChangedRootPath(Root newRoot) {
       return duplicate(
-          RootedPath.toRootedPath(newRoot, path.getRootRelativePath()), skipTestingForSubpackage);
+          DirectTraversalRoot.forRootedPath(
+              RootedPath.toRootedPath(newRoot, root.asRootedPath().getRootRelativePath())),
+              skipTestingForSubpackage);
     }
 
     @Override
@@ -181,25 +195,28 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
         return false;
       }
       TraversalRequest o = (TraversalRequest) obj;
-      return path.equals(o.path) && isGenerated == o.isGenerated
+      return root.equals(o.root)
+          && isRootGenerated == o.isRootGenerated
           && crossPkgBoundaries == o.crossPkgBoundaries
-          && skipTestingForSubpackage == o.skipTestingForSubpackage
-          && Objects.equal(pattern, o.pattern);
+          && skipTestingForSubpackage == o.skipTestingForSubpackage;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(path, isGenerated, crossPkgBoundaries, skipTestingForSubpackage,
-          pattern);
+      return Objects.hashCode(root, isRootGenerated, crossPkgBoundaries, skipTestingForSubpackage);
     }
 
     @Override
     public String toString() {
       return String.format(
           "TraversalParams(root=%s, is_generated=%d, skip_testing_for_subpkg=%d,"
-          + " pkg_boundaries=%s, pattern=%s)", path, isGenerated ? 1 : 0,
-          skipTestingForSubpackage ? 1 : 0, crossPkgBoundaries,
-          pattern == null ? "null" : pattern.pattern());
+              + " pkg_boundaries=%s)",
+          root, isRootGenerated ? 1 : 0, skipTestingForSubpackage ? 1 : 0, crossPkgBoundaries);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL;
     }
   }
 
@@ -669,7 +686,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
    * <p>The object stores things such as the absolute path of the file or symlink, its exact type
    * and, if it's a symlink, the resolved and unresolved link target paths.
    */
-  public static interface ResolvedFile {
+  public interface ResolvedFile {
     /** Type of the entity under {@link #getPath()}. */
     FileType getType();
 

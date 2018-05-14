@@ -14,19 +14,17 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
-import javax.annotation.Nullable;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 
 /**
- * Customizable transition which accepts the rule's nonconfigurable attributes.
+ * Customizable transition which accepts the rule it will be executing on.
  */
 public interface RuleTransitionFactory {
   /**
    * Generates a transition to be used when entering the given rule.
    *
-   * <p>This transition must be a PatchTransition, but that class is not accessible in this package.
-   * If this class determines that no transition should be performed, it should return {@code null}.
+   * <p>If this class determines that no transition should be performed, it should return
+   * {@code NoTransition.INSTANCE}.
    */
-  @Nullable
-  Transition buildTransitionFor(Rule rule);
+  PatchTransition buildTransitionFor(Rule rule);
 }

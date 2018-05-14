@@ -13,21 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.base.Functions;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.actions.CommandLine;
-import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.util.OS;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,10 +31,13 @@ import java.util.List;
 /** Builder for creating aar generator action. */
 public class AarGeneratorBuilder {
 
-  private ResourceContainer primary;
+  private AndroidResources primaryResources;
+  private AndroidAssets primaryAssets;
+
   private Artifact manifest;
   private Artifact rTxt;
   private Artifact classes;
+  private ImmutableList<Artifact> proguardSpecs = ImmutableList.of();
 
   private Artifact aarOut;
   private boolean throwOnResourceConflict;
@@ -56,8 +55,13 @@ public class AarGeneratorBuilder {
     this.builder = new SpawnAction.Builder();
   }
 
-  public AarGeneratorBuilder withPrimary(ResourceContainer primary) {
-    this.primary = primary;
+  public AarGeneratorBuilder withPrimaryResources(AndroidResources primaryResources) {
+    this.primaryResources = primaryResources;
+    return this;
+  }
+
+  public AarGeneratorBuilder withPrimaryAssets(AndroidAssets primaryAssets) {
+    this.primaryAssets = primaryAssets;
     return this;
   }
 
@@ -81,6 +85,11 @@ public class AarGeneratorBuilder {
     return this;
   }
 
+  public AarGeneratorBuilder setProguardSpecs(ImmutableList<Artifact> proguardSpecs) {
+    this.proguardSpecs = proguardSpecs;
+    return this;
+  }
+
   public AarGeneratorBuilder setThrowOnResourceConflict(boolean throwOnResourceConflict) {
     this.throwOnResourceConflict = throwOnResourceConflict;
     return this;
@@ -98,7 +107,18 @@ public class AarGeneratorBuilder {
     args.add("--");
 
     args.add("--mainData");
-    addPrimaryResourceContainer(ins, args, primary);
+
+    Iterables.addAll(ins, primaryResources.getResources());
+    Iterables.addAll(ins, primaryAssets.getAssets());
+    ins.add(manifest);
+
+    // no R.txt, because it will be generated from this action.
+    args.add(
+        String.format(
+            "%s:%s:%s",
+            AndroidDataConverter.rootsToString(primaryResources.getResourceRoots()),
+            AndroidDataConverter.rootsToString(primaryAssets.getAssetRoots()),
+            manifest.getExecPathString()));
 
     if (manifest != null) {
       args.add("--manifest");
@@ -116,6 +136,12 @@ public class AarGeneratorBuilder {
       args.add("--classes");
       args.add(classes.getExecPathString());
       ins.add(classes);
+    }
+
+    for (Artifact proguardSpec : proguardSpecs) {
+      args.add("--proguardSpec");
+      args.add(proguardSpec.getExecPathString());
+      ins.add(proguardSpec);
     }
 
     args.add("--aarOutput");
@@ -148,26 +174,5 @@ public class AarGeneratorBuilder {
             .setProgressMessage("Building AAR package for %s", ruleContext.getLabel())
             .setMnemonic("AARGenerator")
             .build(context));
-  }
-
-  private void addPrimaryResourceContainer(
-      List<Artifact> inputs, List<String> args, ResourceContainer container) {
-    Iterables.addAll(inputs, container.getArtifacts());
-    inputs.add(container.getManifest());
-
-    // no R.txt, because it will be generated from this action.
-    args.add(
-        String.format(
-            "%s:%s:%s",
-            convertRoots(container, ResourceType.RESOURCES),
-            convertRoots(container, ResourceType.ASSETS),
-            container.getManifest().getExecPathString()));
-  }
-
-  private static String convertRoots(ResourceContainer container, ResourceType resourceType) {
-    return Joiner.on("#")
-        .join(
-            Iterators.transform(
-                container.getRoots(resourceType).iterator(), Functions.toStringFunction()));
   }
 }

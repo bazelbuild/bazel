@@ -57,7 +57,6 @@ public class LoadFilesFunction implements QueryEnvironment.QueryFunction {
                     expression,
                     result,
                     /* BUILD */ false,
-                    /* subinclude */ false,
                     /* load */ true)));
           }
         });

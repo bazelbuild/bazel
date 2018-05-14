@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -425,6 +427,30 @@ public abstract class AbstractAndroidLocalTestTestBase extends BuildViewTestCase
     assertThat(getConfiguredTarget("//tools/whitelists/config_feature_flag:config_feature_flag"))
         .isNull();
     assertContainsEvent("*super* busted package group");
+  }
+
+  @Test
+  public void testDeployJar() throws Exception {
+    writeFile(
+        "java/com/google/android/foo/BUILD",
+        "android_local_test(name = 'test',",
+        "                srcs =['test.java'],",
+        "                )",
+        "android_library(name = 'lib',",
+        "                data = [':test_deploy.jar'],",
+        "                srcs =['lib.java'],",
+        "                )");
+
+    Action deployJarAction =
+        getGeneratingAction(
+            getFileConfiguredTarget("//java/com/google/android/foo:test_deploy.jar").getArtifact());
+    List<String> inputs = ActionsTestUtil.baseArtifactNames(deployJarAction.getInputs());
+
+    assertThat(inputs)
+        .containsAllOf(
+            "test_resources.jar",
+            "test.jar",
+            "SingleJar_deploy.jar");
   }
 
   public abstract void checkMainClass(

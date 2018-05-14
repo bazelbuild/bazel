@@ -163,7 +163,7 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
 
     // FileSystemTest.setUp() silently creates the test root on the filesystem...
     Path testDirUnderRoot = unionfs.getPath(workingDir.asFragment().subFragment(0, 1));
-    assertThat(unionfs.getDirectoryEntries(unionfs.getRootDirectory()))
+    assertThat(unionfs.getDirectoryEntries(unionfs.getPath("/")))
         .containsExactly(
             foo.getBaseName(),
             bar.getBaseName(),

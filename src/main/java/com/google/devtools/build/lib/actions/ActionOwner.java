@@ -17,11 +17,11 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 /**
@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
  * analysis and actions packages, the RuleConfiguredTarget provides an instance of this class.
  */
 @AutoValue
+@AutoCodec
 @Immutable
 public abstract class ActionOwner {
   /** An action owner for special cases. Usage is strongly discouraged. */
@@ -47,6 +48,7 @@ public abstract class ActionOwner {
           null,
           null);
 
+  @AutoCodec.Instantiator
   public static ActionOwner create(
       @Nullable Label label,
       ImmutableList<AspectDescriptor> aspectDescriptors,
@@ -54,7 +56,7 @@ public abstract class ActionOwner {
       @Nullable String mnemonic,
       @Nullable String targetKind,
       String configurationChecksum,
-      @Nullable BuildEvent configuration,
+      @Nullable BuildConfigurationEvent configuration,
       @Nullable String additionalProgressInfo,
       @Nullable PlatformInfo executionPlatform) {
     return new AutoValue_ActionOwner(
@@ -81,7 +83,7 @@ public abstract class ActionOwner {
 
   /** Returns the configuration's mnemonic. */
   @Nullable
-  public abstract String getConfigurationMnemonic();
+  public abstract String getMnemonic();
 
   /**
    * Returns the short cache key for the configuration of the action owner.
@@ -92,11 +94,11 @@ public abstract class ActionOwner {
   public abstract String getConfigurationChecksum();
 
   /**
-   * Return the configuration of the action owner, if any, as it should be reported in the build
-   * event protocol.
+   * Return the {@link BuildConfigurationEvent} associated with the action owner, if any, as it
+   * should be reported in the build event protocol.
    */
   @Nullable
-  public abstract BuildEvent getConfiguration();
+  public abstract BuildConfigurationEvent getConfiguration();
 
   /** Returns the target kind (rule class name) for this ActionOwner, if any; null otherwise. */
   @Nullable

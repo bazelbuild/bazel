@@ -17,10 +17,3 @@ WARNING: This library was designed for creating build tools needed to support pa
 dex compilation of Android applications, related functions. While the library provides
 fairly general facilities for processing zip files, the API is still immature, and
 subject to change.
-
-Defined targets
----------------------------------------------------
-blaze build java/com/google/devtools/build/android/ziputils:ziputils_lib
-blaze build java/com/google/devtools/build/android/ziputils:mapper
-blaze build java/com/google/devtools/build/android/ziputils:reducer
-blaze test javatests/com/google/devtools/build/android/ziputils:all_tests

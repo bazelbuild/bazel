@@ -23,11 +23,16 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.TestSuiteExpansionValue;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
@@ -37,6 +42,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 @RunWith(JUnit4.class)
 public class TestTargetUtilsTest extends PackageLoadingTestCase {
@@ -90,6 +96,37 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     assertThat(sizeFilter.test(test1)).isTrue();
     assertThat(sizeFilter.test(test2)).isTrue();
     assertThat(sizeFilter.test(test1b)).isFalse();
+  }
+
+  @Test
+  public void testFilterByLang() throws Exception {
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    LoadingOptions options = new LoadingOptions();
+    options.testLangFilterList = ImmutableList.of("nonexistent", "existent", "-noexist", "-exist");
+    options.testSizeFilterSet = ImmutableSet.of();
+    options.testTimeoutFilterSet = ImmutableSet.of();
+    options.testTagFilterList = ImmutableList.of();
+    TestFilter filter =
+        TestFilter.forOptions(
+            options, eventHandler, ImmutableSet.of("existent_test", "exist_test"));
+    assertThat(eventHandler.getEvents()).hasSize(2);
+    Package pkg = Mockito.mock(Package.class);
+    RuleClass ruleClass = Mockito.mock(RuleClass.class);
+    Rule mockRule =
+        new Rule(
+            pkg,
+            null,
+            ruleClass,
+            Location.fromPathFragment(PathFragment.EMPTY_FRAGMENT),
+            new AttributeContainer(ruleClass));
+    Mockito.when(ruleClass.getName()).thenReturn("existent_library");
+    assertThat(filter.apply(mockRule)).isTrue();
+    Mockito.when(ruleClass.getName()).thenReturn("exist_library");
+    assertThat(filter.apply(mockRule)).isFalse();
+    assertThat(eventHandler.getEvents())
+        .contains(Event.warn("Unknown language 'nonexistent' in --test_lang_filters option"));
+    assertThat(eventHandler.getEvents())
+        .contains(Event.warn("Unknown language 'noexist' in --test_lang_filters option"));
   }
 
   @Test

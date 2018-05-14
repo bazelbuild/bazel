@@ -132,7 +132,7 @@ public class ZipFilterActionTest {
 
   private List<String> outputEntriesWithArgs(ImmutableList<String> args, File output)
       throws IOException {
-    ZipFilterAction.main(args.toArray(new String[0]));
+    ZipFilterAction.run(args.toArray(new String[0]));
     List<String> filteredEntries = new ArrayList<>();
     try (ZipFile zip = new ZipFile(output)) {
       Enumeration<? extends ZipEntry> entries = zip.entries();
@@ -216,9 +216,8 @@ public class ZipFilterActionTest {
     callback.assertOp(FilterOperation.COPY);
     filter.accept("res/R.class", callback);
     callback.assertOp(FilterOperation.SKIP);
-    thrown.expect(IllegalStateException.class);
-    thrown.expectMessage("name matches but the hash does not.");
     filter.accept("baz.class", callback);
+    assertThat(filter.sawErrors()).isTrue();
   }
 
   @Test public void testFlags() throws Exception {
@@ -240,7 +239,7 @@ public class ZipFilterActionTest {
             "--checkHashMismatch", "IGNORE");
     thrown.expect(ZipException.class);
     thrown.expectMessage("Zip file 'filter1' is malformed");
-    ZipFilterAction.main(args.toArray(new String[0]));
+    ZipFilterAction.run(args.toArray(new String[0]));
   }
 
   @Test public void testFullIntegration() throws IOException {
@@ -283,9 +282,8 @@ public class ZipFilterActionTest {
             "ERROR",
             "--outputMode",
             "DONT_CARE");
-    thrown.expect(IllegalStateException.class);
-    thrown.expectMessage("name matches but the hash does not");
-    ZipFilterAction.main(args.toArray(new String[0]));
+    int exitCode = ZipFilterAction.run(args.toArray(new String[0]));
+    assertThat(exitCode).isEqualTo(1);
   }
 
   @Test

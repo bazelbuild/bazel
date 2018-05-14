@@ -17,6 +17,8 @@
 
 #include <algorithm>
 
+#include "src/main/cpp/rc_file.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 
 namespace blaze {
@@ -27,6 +29,11 @@ namespace internal {
 // omitted.
 std::vector<std::string> DedupeBlazercPaths(
     const std::vector<std::string>& paths);
+
+std::string FindRcAlongsideBinary(const std::string& cwd,
+                                  const std::string& path_to_binary);
+
+blaze_exit_code::ExitCode ParseErrorToExitCode(RcFile::ParseError parse_error);
 
 }  // namespace internal
 }  // namespace blaze

@@ -16,6 +16,8 @@
 //src/tools/singlejar:token_stream
 //src/tools/singlejar:input_jar
 //src/tools/singlejar:combiners
+//src/tools/singlejar:diag
+//src/tools/singlejar:mapped_file
 //third_party/zlib:zlib
 //src/tools/launcher:launcher
 //src/tools/launcher:python_launcher
@@ -35,3 +37,4 @@
 //src/main/cpp/util:errors
 //src/main/cpp/util:port
 //src/main/cpp/util:blaze_exit_code
+//src/main/cpp/util:logging

@@ -139,6 +139,7 @@ public class RepositoryCache {
 
     FileSystemUtils.createDirectoryAndParents(targetPath.getParentDirectory());
     FileSystemUtils.copyFile(cacheValue, targetPath);
+    FileSystemUtils.touchFile(cacheValue);
 
     return targetPath;
   }
@@ -162,6 +163,20 @@ public class RepositoryCache {
     Path cacheValue = cacheEntry.getRelative(DEFAULT_CACHE_FILENAME);
     FileSystemUtils.createDirectoryAndParents(cacheEntry);
     FileSystemUtils.copyFile(sourcePath, cacheValue);
+  }
+
+  /**
+   * Copies a value from a specified path into the cache, computing the cache key itself.
+   *
+   * @param sourcePath The path of the value to be cached.
+   * @param keyType The type of key to be used.
+   * @throws IOException
+   * @return The key for the cached entry.
+   */
+  public synchronized String put(Path sourcePath, KeyType keyType) throws IOException {
+    String cacheKey = getChecksum(keyType, sourcePath);
+    put(cacheKey, sourcePath, keyType);
+    return cacheKey;
   }
 
   private void ensureCacheDirectoryExists(KeyType keyType) throws IOException {
@@ -235,5 +250,4 @@ public class RepositoryCache {
   public Path getContentAddressableCachePath() {
     return contentAddressablePath;
   }
-
 }

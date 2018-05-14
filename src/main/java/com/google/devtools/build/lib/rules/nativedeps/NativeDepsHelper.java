@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.nativedeps;
 
+import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,8 +41,8 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
 import com.google.devtools.build.lib.rules.cpp.Link;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -216,7 +218,15 @@ public abstract class NativeDepsHelper {
     }
     FdoSupportProvider fdoSupport =
         CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
-    FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext, toolchain);
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrReportRuleError(
+            ruleContext,
+            /* requestedFeatures= */ ImmutableSet.<String>builder()
+                .addAll(ruleContext.getFeatures())
+                .add(STATIC_LINKING_MODE)
+                .build(),
+            /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
+            toolchain);
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
             ruleContext,
@@ -227,11 +237,15 @@ public abstract class NativeDepsHelper {
             featureConfiguration,
             cppSemantics);
     if (useDynamicRuntime) {
-      builder.setRuntimeInputs(ArtifactCategory.DYNAMIC_LIBRARY,
-          toolchain.getDynamicRuntimeLinkMiddleman(), toolchain.getDynamicRuntimeLinkInputs());
+      builder.setRuntimeInputs(
+          ArtifactCategory.DYNAMIC_LIBRARY,
+          toolchain.getDynamicRuntimeLinkMiddleman(featureConfiguration),
+          toolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
     } else {
-      builder.setRuntimeInputs(ArtifactCategory.STATIC_LIBRARY,
-          toolchain.getStaticRuntimeLinkMiddleman(), toolchain.getStaticRuntimeLinkInputs());
+      builder.setRuntimeInputs(
+          ArtifactCategory.STATIC_LIBRARY,
+          toolchain.getStaticRuntimeLinkMiddleman(featureConfiguration),
+          toolchain.getStaticRuntimeLinkInputs(featureConfiguration));
     }
     ImmutableMap.Builder<Artifact, Artifact> ltoBitcodeFilesMap = new ImmutableMap.Builder<>();
     for (LibraryToLink lib : linkerInputs) {
@@ -250,7 +264,7 @@ public abstract class NativeDepsHelper {
         .setCrosstoolInputs(toolchain.getLink())
         .addLibraries(linkerInputs)
         .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
-        .setLinkStaticness(LinkStaticness.MOSTLY_STATIC)
+        .setLinkingMode(LinkingMode.STATIC)
         .setLibraryIdentifier(libraryIdentifier)
         .addLinkopts(linkopts)
         .setNativeDeps(true)
@@ -260,7 +274,8 @@ public abstract class NativeDepsHelper {
 
     if (builder.hasLtoBitcodeInputs() && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
       builder.setLtoIndexing(true);
-      builder.setUsePicForLtoBackendActions(CppHelper.usePic(ruleContext, toolchain, false));
+      builder.setUsePicForLtoBackendActions(
+          CppHelper.usePicForDynamicLibraries(ruleContext, toolchain));
       CppLinkAction indexAction = builder.build();
       if (indexAction != null) {
         ruleContext.registerAction(indexAction);
@@ -280,7 +295,8 @@ public abstract class NativeDepsHelper {
       List<Artifact> runtimeSymlinks;
       if (useDynamicRuntime) {
         runtimeSymlinks = new LinkedList<>();
-        for (final Artifact runtimeInput : toolchain.getDynamicRuntimeLinkInputs()) {
+        for (final Artifact runtimeInput :
+            toolchain.getDynamicRuntimeLinkInputs(featureConfiguration)) {
           final Artifact runtimeSymlink =
               ruleContext.getPackageRelativeArtifact(
                   getRuntimeLibraryPath(ruleContext, runtimeInput), bindirIfShared);
@@ -312,7 +328,7 @@ public abstract class NativeDepsHelper {
     PathFragment libParentDir =
         relativePath.replaceName(lib.getExecPath().getParentDirectory().getBaseName());
     String libName = lib.getExecPath().getBaseName();
-    return PathFragment.create(libParentDir, PathFragment.create(libName));
+    return libParentDir.getRelative(libName);
   }
 
   /**

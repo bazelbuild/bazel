@@ -35,12 +35,12 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/strings.h"
 
 namespace blaze {
 
-using blaze_util::die;
-using blaze_util::pdie;
+using blaze_util::GetLastErrorString;
 using std::string;
 using std::vector;
 
@@ -106,20 +106,16 @@ void WarnFilesystemType(const string& output_base) {
       !CFURLCopyResourcePropertyForKey(cf_url, kCFURLVolumeIsLocalKey,
                                        &cf_local, &cf_error)) {
     CFScopedReleaser<CFErrorRef> cf_error_releaser(cf_error);
-    string error_desc = DescriptionFromCFError(cf_error_releaser);
-    fprintf(stderr, "Warning: couldn't get file system type information for "
-            "'%s'", output_base.c_str());
-    if (error_desc.length() > 0) {
-      fprintf(stderr, " - '%s'", error_desc.c_str());
-    }
-    fprintf(stderr, "\n");
+    BAZEL_LOG(WARNING) << "couldn't get file system type information for '"
+                       << output_base
+                       << "': " << DescriptionFromCFError(cf_error_releaser);
     return;
   }
   CFScopedReleaser<CFBooleanRef> cf_local_releaser(cf_local);
   if (!CFBooleanGetValue(cf_local_releaser)) {
-    fprintf(stderr, "Warning: Output base '%s' is on a non-local drive. This "
-            "may lead to surprising failures and undetermined behavior.\n",
-            output_base.c_str());
+    BAZEL_LOG(WARNING) << "Output base '" << output_base
+                       << "' is on a non-local drive. This may lead to "
+                          "surprising failures and undetermined behavior.";
   }
 }
 
@@ -127,7 +123,8 @@ string GetSelfPath() {
   char pathbuf[PROC_PIDPATHINFO_MAXSIZE] = {};
   int len = proc_pidpath(getpid(), pathbuf, sizeof(pathbuf));
   if (len == 0) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "error calling proc_pidpath");
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "error calling proc_pidpath: " << GetLastErrorString();
   }
   return string(pathbuf, len);
 }
@@ -135,7 +132,8 @@ string GetSelfPath() {
 uint64_t GetMillisecondsMonotonic() {
   struct timeval ts = {};
   if (gettimeofday(&ts, NULL) < 0) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "error calling gettimeofday");
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "error calling gettimeofday: " << GetLastErrorString();
   }
   return ts.tv_sec * 1000LL + ts.tv_usec / 1000LL;
 }
@@ -161,7 +159,7 @@ bool IsSharedLibrary(const string &filename) {
   return blaze_util::ends_with(filename, ".dylib");
 }
 
-string GetDefaultHostJavabase() {
+string GetSystemJavabase() {
   string java_home = GetEnv("JAVA_HOME");
   if (!java_home.empty()) {
     return java_home;
@@ -169,23 +167,19 @@ string GetDefaultHostJavabase() {
 
   FILE *output = popen("/usr/libexec/java_home -v 1.7+", "r");
   if (output == NULL) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "Could not run /usr/libexec/java_home");
+    return "";
   }
 
   char buf[512];
   char *result = fgets(buf, sizeof(buf), output);
   pclose(output);
   if (result == NULL) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "No output from /usr/libexec/java_home");
+    return "";
   }
 
   string javabase = buf;
   if (javabase.empty()) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Empty output from /usr/libexec/java_home - "
-        "install a JDK, or install a JRE and point your JAVA_HOME to it");
+    return "";
   }
 
   // The output ends with a \n, trim it off.
@@ -210,21 +204,15 @@ void ExcludePathFromBackup(const string &path) {
       kCFAllocatorDefault, reinterpret_cast<const UInt8 *>(path.c_str()),
       path.length(), true));
   if (!cf_url.isValid()) {
-    fprintf(stderr, "Warning: unable to exclude '%s' from backups\n",
-            path.c_str());
+    BAZEL_LOG(WARNING) << "unable to exclude '" << path << "' from backups";
     return;
   }
   CFErrorRef cf_error = NULL;
   if (!CFURLSetResourcePropertyForKey(cf_url, kCFURLIsExcludedFromBackupKey,
                                       kCFBooleanTrue, &cf_error)) {
     CFScopedReleaser<CFErrorRef> cf_error_releaser(cf_error);
-    string error_desc = DescriptionFromCFError(cf_error_releaser);
-    fprintf(stderr, "Warning: unable to exclude '%s' from backups",
-            path.c_str());
-    if (error_desc.length() > 0) {
-      fprintf(stderr, " - '%s'", error_desc.c_str());
-    }
-    fprintf(stderr, "\n");
+    BAZEL_LOG(WARNING) << "unable to exclude '" << path << "' from backups: "
+                       << DescriptionFromCFError(cf_error_releaser);
     return;
   }
 }
@@ -245,14 +233,14 @@ int32_t GetExplicitSystemLimit(const int resource) {
   int32_t limit;
   size_t len = sizeof(limit);
   if (sysctlbyname(sysctl_name, &limit, &len, nullptr, 0) == -1) {
-    fprintf(stderr, "Warning: failed to get value of sysctl %s: %s\n",
-            sysctl_name, std::strerror(errno));
+    BAZEL_LOG(WARNING) << "failed to get value of sysctl " << sysctl_name
+                       << ": " << std::strerror(errno);
     return 0;
   }
   if (len != sizeof(limit)) {
-    fprintf(stderr, "Warning: failed to get value of sysctl %s: returned "
-            "data length %zd did not match expected size %zd\n",
-            sysctl_name, len, sizeof(limit));
+    BAZEL_LOG(WARNING) << "failed to get value of sysctl " << sysctl_name
+                       << ": returned data length " << len
+                       << " did not match expected size " << sizeof(limit);
     return 0;
   }
   return limit;

@@ -18,9 +18,11 @@ import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.F
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MutableClassToInstanceMap;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -39,11 +41,15 @@ public class BuildConfigurationFunction implements SkyFunction {
 
   private final BlazeDirectories directories;
   private final ConfiguredRuleClassProvider ruleClassProvider;
+  private final BuildOptions defaultBuildOptions;
 
-  public BuildConfigurationFunction(BlazeDirectories directories,
-      RuleClassProvider ruleClassProvider) {
+  public BuildConfigurationFunction(
+      BlazeDirectories directories,
+      RuleClassProvider ruleClassProvider,
+      BuildOptions defaultBuildOptions) {
     this.directories = directories;
     this.ruleClassProvider = (ConfiguredRuleClassProvider) ruleClassProvider;
+    this.defaultBuildOptions = defaultBuildOptions;
   }
 
   @Override
@@ -71,11 +77,18 @@ public class BuildConfigurationFunction implements SkyFunction {
       fragmentsMap.put(fragment.getClass(), fragment);
     }
 
+    BuildOptions options = defaultBuildOptions.applyDiff(key.getOptionsDiff());
+    ActionEnvironment actionEnvironment =
+      ruleClassProvider.getActionEnvironmentProvider().getActionEnvironment(options);
+
     BuildConfiguration config =
         new BuildConfiguration(
             directories,
             fragmentsMap,
-            key.getBuildOptions(),
+            options,
+            key.getOptionsDiff(),
+            ruleClassProvider.getReservedActionMnemonics(),
+            actionEnvironment,
             workspaceNameValue.getName());
     return new BuildConfigurationValue(config);
   }
@@ -85,9 +98,9 @@ public class BuildConfigurationFunction implements SkyFunction {
 
     // Get SkyKeys for the fragments we need to load.
     Set<SkyKey> fragmentKeys = new LinkedHashSet<>();
+    BuildOptions options = defaultBuildOptions.applyDiff(key.getOptionsDiff());
     for (Class<? extends BuildConfiguration.Fragment> fragmentClass : key.getFragments()) {
-      fragmentKeys.add(
-          ConfigurationFragmentValue.key(key.getBuildOptions(), fragmentClass, ruleClassProvider));
+      fragmentKeys.add(ConfigurationFragmentValue.key(options, fragmentClass, ruleClassProvider));
     }
 
     // Load them as Skyframe deps.

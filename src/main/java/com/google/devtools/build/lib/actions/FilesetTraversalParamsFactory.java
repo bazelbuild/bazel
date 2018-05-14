@@ -18,13 +18,14 @@ import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.FilesetEntry.SymlinkBehavior;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Set;
@@ -132,13 +133,14 @@ public final class FilesetTraversalParamsFactory {
     return NestedTraversalParams.getNestedTraversal(ownerLabel, nested, destDir, excludes);
   }
 
-  private static Set<String> getOrderedExcludes(@Nullable Set<String> excludes) {
+  private static ImmutableSortedSet<String> getOrderedExcludes(@Nullable Set<String> excludes) {
     // Order the set for the sake of deterministic fingerprinting.
     return excludes == null
-        ? ImmutableSet.of()
-        : ImmutableSet.copyOf(Ordering.natural().immutableSortedCopy(excludes));
+        ? ImmutableSortedSet.of()
+        : ImmutableSortedSet.copyOf(Ordering.natural(), excludes);
   }
 
+  @AutoCodec
   @AutoValue
   abstract static class DirectoryTraversalParams implements FilesetTraversalParams {
     @Override
@@ -178,11 +180,22 @@ public final class FilesetTraversalParamsFactory {
       DirectTraversal traversal = DirectTraversal.getDirectTraversal(root, isPackage,
           symlinkBehaviorMode == SymlinkBehavior.DEREFERENCE, pkgBoundaryMode, isRecursive,
           isGenerated);
+      return create(ownerLabel, destPath, getOrderedExcludes(excludes), Optional.of(traversal));
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static DirectoryTraversalParams create(
+        Label ownerLabelForErrorMessages,
+        PathFragment destPath,
+        ImmutableSortedSet<String> excludedFiles,
+        Optional<DirectTraversal> directTraversal) {
       return new AutoValue_FilesetTraversalParamsFactory_DirectoryTraversalParams(
-          ownerLabel, destPath, getOrderedExcludes(excludes), Optional.of(traversal));
+          ownerLabelForErrorMessages, destPath, excludedFiles, directTraversal);
     }
   }
 
+  @AutoCodec
   @AutoValue
   abstract static class NestedTraversalParams implements FilesetTraversalParams {
     @Override
@@ -215,8 +228,18 @@ public final class FilesetTraversalParamsFactory {
         ImmutableList<FilesetTraversalParams> nested,
         PathFragment destDir,
         @Nullable Set<String> excludes) {
+      return create(ownerLabel, destDir, getOrderedExcludes(excludes), nested);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static NestedTraversalParams create(
+        Label ownerLabelForErrorMessages,
+        PathFragment destPath,
+        ImmutableSortedSet<String> excludedFiles,
+        ImmutableList<FilesetTraversalParams> nestedTraversal) {
       return new AutoValue_FilesetTraversalParamsFactory_NestedTraversalParams(
-          ownerLabel, destDir, getOrderedExcludes(excludes), nested);
+          ownerLabelForErrorMessages, destPath, excludedFiles, nestedTraversal);
     }
   }
 }

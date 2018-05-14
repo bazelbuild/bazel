@@ -17,10 +17,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Target;
@@ -29,7 +29,7 @@ import java.util.Collection;
 import java.util.List;
 
 /** This event is fired just after target pattern evaluation is completed. */
-public class TargetParsingCompleteEvent implements BuildEvent {
+public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint {
 
   private final ImmutableList<String> originalTargetPattern;
   private final ImmutableSet<Target> targets;
@@ -93,6 +93,11 @@ public class TargetParsingCompleteEvent implements BuildEvent {
   @Override
   public BuildEventId getEventId() {
     return BuildEventId.targetPatternExpanded(originalTargetPattern);
+  }
+
+  @Override
+  public Collection<BuildEventId> postedAfter() {
+    return ImmutableList.<BuildEventId>of(BuildEventId.buildStartedId());
   }
 
   @Override

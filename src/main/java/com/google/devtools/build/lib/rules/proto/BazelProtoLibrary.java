@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -35,7 +36,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     ImmutableList<Artifact> protoSources =
         ruleContext.getPrerequisiteArtifacts("srcs", TARGET).list();
     NestedSet<Artifact> checkDepsProtoSources =
@@ -44,15 +45,17 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> transitiveImports =
         ProtoCommon.collectTransitiveImports(ruleContext, protoSources);
+    NestedSet<String> protoPathFlags = ProtoCommon.collectTransitiveProtoPathFlags(ruleContext);
 
     NestedSet<Artifact> protosInDirectDeps = ProtoCommon.computeProtosInDirectDeps(ruleContext);
 
     final SupportData supportData =
         SupportData.create(
-            Predicates.<TransitiveInfoCollection>alwaysTrue() /* nonWeakDepsPredicate */,
+            /* nonWeakDepsPredicate= */ Predicates.<TransitiveInfoCollection>alwaysTrue(),
             protoSources,
             protosInDirectDeps,
             transitiveImports,
+            protoPathFlags,
             !protoSources.isEmpty());
 
     Artifact descriptorSetOutput =
@@ -70,8 +73,9 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
         transitiveImports,
         protosInDirectDeps,
         descriptorSetOutput,
-        true /* allowServices */,
-        dependenciesDescriptorSets);
+        /* allowServices= */ true,
+        dependenciesDescriptorSets,
+        protoPathFlags);
 
     Runfiles dataRunfiles =
         ProtoCommon.createDataRunfilesProvider(transitiveImports, ruleContext)
@@ -86,7 +90,8 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             protoSources,
             checkDepsProtoSources,
             descriptorSetOutput,
-            transitiveDescriptorSetOutput);
+            transitiveDescriptorSetOutput,
+            protoPathFlags);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, descriptorSetOutput))

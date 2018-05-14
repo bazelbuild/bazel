@@ -162,6 +162,23 @@ tests whose specified size is too big.</p>
 Any test that does not specify a recognized size will default to being a medium
 test.</p>
 
+<p>Tests can be parallelized via test sharding. See
+<a href="command-line-reference.html#flag--test_sharding_strategy"><code>--test_sharding_strategy</code></a>
+and
+<a href="be/common-definitions.html#common-attributes-tests"><code>shard_count</code></a>
+to enable test sharding. When sharding is enabled, the test runner is launched
+once per shard. The environment variable
+<a href="#initial-conditions"><code>TEST_TOTAL_SHARDS</code></a> is the number
+of shards, and
+<a href="#initial-conditions"><code>TEST_SHARD_INDEX</code></a> is the shard
+index, beginning at 1. Runners use this information to select which tests to
+run - for example, using a round-robin strategy. Not all test runners support sharding.
+If a runner supports sharding, it must create or update the last modified date
+of the file specified by
+<a href="#initial-conditions"><code>TEST_SHARD_STATUS_FILE</code></a>.
+Otherwise, Bazel assumes it does not support sharding and will not launch
+additional runners.</p>
+
 <p>If the main process of a test exits, but some of its children are still
 running, the test runner should consider the run complete and count it as a
 success or failure based on the exit code observed from the main process.  The
@@ -213,15 +230,20 @@ test unless the user explicitly requests it.</p>
       is set to the <var>run number</var> (starting with 1) for each individual test run.</td>
       <td>optional</td>
     </tr>
+    <tr><td><code>TEST_TARGET</code></td><td>The name of the target being tested</td><td>optional</td></tr>
     <tr><td><code>TEST_SIZE</code></td><td>The test <a href="#size"><code>size</code></a></td><td>optional</td></tr>
     <tr><td><code>TEST_TIMEOUT</code></td><td>The test <a href="#timeout"><code>timeout</code></a></td><td>optional</td></tr>
+    <tr><td><code>TEST_SHARD_INDEX</code></td><td>shard index, if sharding is used</td><td>optional</td></tr>
+    <tr><td><code>TEST_SHARD_STATUS_FILE</code></td><td>path to file to touch to indicate support for sharding</td><td>optional</td></tr>
     <tr><td><code>TEST_SRCDIR</code></td><td>absolute path to the base of the runfiles tree</td><td>required</td></tr>
+    <tr><td><code>TEST_TOTAL_SHARDS</code></td><td>total shard count, if sharding is used</td><td>optional</td></tr>
     <tr><td><code>TEST_TMPDIR</code></td><td>absolute path to a private writable directory</td><td>required</td></tr>
     <tr><td><code>TEST_UNDECLARED_OUTPUTS_DIR</code></td><td>absolute path to a private writable directory (used to write undeclared test outputs)</td><td>optional</td></tr>
     <tr><td><code>TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR</code></td><td>absolute path to a private writable directory (used to write undeclared test output annotation .part files).
 
     </td><td>optional</td></tr>
     <tr><td><code>TEST_WARNINGS_OUTPUT_FILE</code></td><td>absolute path to a private file in a writable directory (used to write test target warnings)</td><td>optional</td></tr>
+    <tr><td><code>TESTBRIDGE_TEST_ONLY</code></td><td>value of <a href="command-line-reference.html#flag--test_filter"><code>--test_filter</code></a>, if specified</td><td>optional</td></tr>
 
     <tr><td><code>TZ</code></td><td><code>UTC</code></td><td>required</td></tr>
     <tr><td><code>USER</code></td><td>value of <code>getpwuid(getuid())-&gt;pw_name</code></td><td>required</td></tr>

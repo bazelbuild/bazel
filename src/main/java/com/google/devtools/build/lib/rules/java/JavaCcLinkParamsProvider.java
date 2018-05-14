@@ -20,16 +20,22 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsStoreImpl;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * A target that provides C++ libraries to be linked into Java targets.
- */
+/** A target that provides C++ libraries to be linked into Java targets. */
 @Immutable
+@AutoCodec
 public final class JavaCcLinkParamsProvider implements TransitiveInfoProvider {
   private final CcLinkParamsStoreImpl store;
 
   public JavaCcLinkParamsProvider(CcLinkParamsStore store) {
-    this.store = new CcLinkParamsStoreImpl(store);
+    this(new CcLinkParamsStoreImpl(store));
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
+  JavaCcLinkParamsProvider(CcLinkParamsStoreImpl store) {
+    this.store = store;
   }
 
   public CcLinkParamsStore getLinkParams() {

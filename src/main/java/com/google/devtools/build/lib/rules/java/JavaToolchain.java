@@ -18,10 +18,10 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -44,10 +44,17 @@ import java.util.Map;
 /**
  * Implementation for the {@code java_toolchain} rule.
  */
-public final class JavaToolchain implements RuleConfiguredTargetFactory {
+public class JavaToolchain implements RuleConfiguredTargetFactory {
+
+  private final JavaSemantics semantics;
+
+  protected JavaToolchain(JavaSemantics semantics) {
+    this.semantics = semantics;
+  }
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws RuleErrorException {
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     ImmutableList<String> javacopts = getJavacOpts(ruleContext);
     NestedSet<Artifact> bootclasspath = PrerequisiteArtifacts.nestedSet(
         ruleContext, "bootclasspath", Mode.HOST);
@@ -58,7 +65,8 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     Artifact javac = ruleContext.getPrerequisiteArtifact("javac", Mode.HOST);
     FilesToRunProvider javabuilder =
         ruleContext.getExecutablePrerequisite("javabuilder", Mode.HOST);
-    Artifact headerCompiler = ruleContext.getPrerequisiteArtifact("header_compiler", Mode.HOST);
+    FilesToRunProvider headerCompiler =
+        ruleContext.getExecutablePrerequisite("header_compiler", Mode.HOST);
     boolean forciblyDisableHeaderCompilation =
         ruleContext.attributes().get("forcibly_disable_header_compilation", Type.BOOLEAN);
     Artifact singleJar = ruleContext.getPrerequisiteArtifact("singlejar", Mode.HOST);
@@ -109,7 +117,8 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             timezoneData,
             ijar,
             compatibleJavacOptions,
-            packageConfiguration);
+            packageConfiguration,
+            semantics);
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .addSkylarkTransitiveInfo(
@@ -122,7 +131,7 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
   }
 
   private ImmutableList<String> getJavacOpts(RuleContext ruleContext) {
-    Builder<String> javacopts = ImmutableList.builder();
+    ImmutableList.Builder<String> javacopts = ImmutableList.builder();
     String source = ruleContext.attributes().get("source_version", Type.STRING);
     if (!isNullOrEmpty(source)) {
       javacopts.add("-source").add(source);

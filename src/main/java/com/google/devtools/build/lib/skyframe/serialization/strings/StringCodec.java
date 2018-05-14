@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -28,12 +30,23 @@ class StringCodec implements ObjectCodec<String> {
   }
 
   @Override
-  public void serialize(String str, CodedOutputStream codedOut) throws IOException {
+  public MemoizationStrategy getStrategy() {
+    // Don't memoize strings inside memoizing serialization, to preserve current behavior.
+    // TODO(janakr,brandjon,michajlo): Is it actually a problem to memoize strings? Doubt there
+    // would be much performance impact from increasing the size of the identity map, and we
+    // could potentially drop our string tables in the future.
+    return MemoizationStrategy.DO_NOT_MEMOIZE;
+  }
+
+  @Override
+  public void serialize(SerializationContext context, String str, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeStringNoTag(str);
   }
 
   @Override
-  public String deserialize(CodedInputStream codedIn) throws IOException {
+  public String deserialize(DeserializationContext context, CodedInputStream codedIn)
+      throws IOException {
     return codedIn.readString();
   }
 }

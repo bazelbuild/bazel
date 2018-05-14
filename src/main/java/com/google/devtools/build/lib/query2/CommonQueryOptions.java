@@ -13,8 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.build.lib.query2.output.AspectResolver;
+import com.google.devtools.build.lib.query2.output.AspectResolver.Mode;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -25,6 +30,19 @@ import java.util.Set;
 
 /** Options shared between blaze query and blaze cquery. */
 public class CommonQueryOptions extends OptionsBase {
+
+  @Option(
+      name = "output",
+      defaultValue = "label",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "The format in which the query results should be printed. Allowed values for query are: "
+              + "build, graph, label, label_kind, locations, maxrank, minrank, package, proto, xml."
+              + "Currently you should never explicitly set this flag for cquery."
+  )
+  public String outputFormat;
+
   @Option(
     name = "universe_scope",
     defaultValue = "",
@@ -66,7 +84,6 @@ public class CommonQueryOptions extends OptionsBase {
   @Option(
     name = "implicit_deps",
     defaultValue = "true",
-    category = "query",
     documentationCategory = OptionDocumentationCategory.QUERY,
     effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
     help =
@@ -87,4 +104,85 @@ public class CommonQueryOptions extends OptionsBase {
     }
     return settings;
   }
+
+  ///////////////////////////////////////////////////////////
+  // PROTO OUTPUT FORMATTER OPTIONS                        //
+  ///////////////////////////////////////////////////////////
+
+  @Option(
+      name = "relative_locations",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If true, the location of BUILD files in xml and proto outputs will be relative. "
+              + "By default, the location output is an absolute path and will not be consistent "
+              + "across machines. You can set this option to true to have a consistent result "
+              + "across machines."
+  )
+  public boolean relativeLocations;
+
+
+  @Option(
+      name = "proto:default_values",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If true, attributes whose value is not explicitly specified in the BUILD file are "
+              + "included; otherwise they are omitted. This option is applicable to --output=proto"
+  )
+  public boolean protoIncludeDefaultValues;
+
+
+  @Option(
+      name = "proto:flatten_selects",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "If enabled, configurable attributes created by select() are flattened. For list types "
+              + "the flattened representation is a list containing each value of the select map "
+              + "exactly once. Scalar types are flattened to null."
+  )
+  public boolean protoFlattenSelects;
+
+  @Option(
+      name = "proto:output_rule_attrs",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "all",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Comma separated list of attributes to include in output. Defaults to all attributes. "
+              + "Set to empty string to not output any attribute. "
+              + "This option is applicable to --output=proto."
+  )
+  public List<String> protoOutputRuleAttributes = ImmutableList.of("all");
+
+  /** An enum converter for {@code  AspectResolver.Mode} . Should be used internally only. */
+  public static class AspectResolutionModeConverter extends EnumConverter<Mode> {
+    public AspectResolutionModeConverter() {
+      super(AspectResolver.Mode.class, "Aspect resolution mode");
+    }
+  }
+
+  @Option(
+    name = "aspect_deps",
+    converter = AspectResolutionModeConverter.class,
+    defaultValue = "conservative",
+    documentationCategory = OptionDocumentationCategory.QUERY,
+    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+    help =
+        "How to resolve aspect dependencies when the output format is one of {xml,proto,record}. "
+            + "'off' means no aspect dependencies are resolved, 'conservative' (the default) means "
+            + "all declared aspect dependencies are added regardless of whether they are viable "
+            + "given the rule class of direct dependencies, 'precise' means that only those "
+            + "aspects are added that are possibly active given the rule class of the direct "
+            + "dependencies. Note that precise mode requires loading other packages to evaluate "
+            + "a single target thus making it slower than the other modes. Also note that even "
+            + "precise mode is not completely precise: the decision whether to compute an aspect "
+            + "is decided in the analysis phase, which is not run during 'blaze query'."
+  )
+  public AspectResolver.Mode aspectDeps;
 }

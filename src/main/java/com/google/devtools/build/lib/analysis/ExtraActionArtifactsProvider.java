@@ -19,11 +19,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
-/**
- * A {@link TransitiveInfoProvider} that creates extra actions.
- */
+/** A {@link TransitiveInfoProvider} that creates extra actions. */
 @Immutable
+@AutoCodec
 public final class ExtraActionArtifactsProvider implements TransitiveInfoProvider {
   public static final ExtraActionArtifactsProvider EMPTY =
       new ExtraActionArtifactsProvider(
@@ -57,7 +58,9 @@ public final class ExtraActionArtifactsProvider implements TransitiveInfoProvide
   private final NestedSet<Artifact> transitiveExtraActionArtifacts;
 
   /** Use {@link #create} instead. */
-  private ExtraActionArtifactsProvider(
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  ExtraActionArtifactsProvider(
       NestedSet<Artifact> extraActionArtifacts,
       NestedSet<Artifact> transitiveExtraActionArtifacts) {
     this.extraActionArtifacts = extraActionArtifacts;

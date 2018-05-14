@@ -1,4 +1,4 @@
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
 
 filegroup(
     name = "srcs",
@@ -8,6 +8,11 @@ filegroup(
 java_binary(
     name = "GenClass",
     main_class = "com.google.devtools.build.buildjar.genclass.GenClass",
+    visibility = [
+        "//src:__pkg__",
+        "//src/java_tools/buildjar:buildjar_package_group",
+        "//src/test/shell/bazel:__pkg__",
+    ],
     runtime_deps = [":genclass_lib"],
 )
 

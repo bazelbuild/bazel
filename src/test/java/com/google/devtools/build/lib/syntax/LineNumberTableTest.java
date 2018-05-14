@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
@@ -85,44 +85,8 @@ public class LineNumberTableTest {
   }
 
   @Test
-  public void testHashLine() {
-    String data = "#\n"
-        + "#line 67 \"/foo\"\n"
-        + "cc_binary(name='a',\n"
-        + "          srcs=[])\n"
-        + "#line 23 \"/ba.r\"\n"
-        + "vardef(x,y)\n";
-
-    LineNumberTable table = create(data);
-
-    // Note: no attempt is made to return accurate column information.
-    assertThat(table.getLineAndColumn(data.indexOf("cc_binary")))
-        .isEqualTo(new LineAndColumn(67, 1));
-    assertThat(table.getLineAndColumn(data.indexOf("name='a'")))
-        .isEqualTo(new LineAndColumn(67, 1));
-    assertThat(table.getPath(0).toString()).isEqualTo("/fake/file");
-    // Note: newlines ignored; "srcs" is still (intentionally) considered to be
-    // on L67.  Consider the alternative, and assume that rule 'a' is 50 lines
-    // when pretty-printed: the last line of 'a' would be reported as line 67 +
-    // 50, which may be in a part of the original BUILD file that has nothing
-    // to do with this rule.  In other words, the size of rules before and
-    // after pretty printing are essentially unrelated.
-    assertThat(table.getLineAndColumn(data.indexOf("srcs"))).isEqualTo(new LineAndColumn(67, 1));
-    assertThat(table.getPath(data.indexOf("srcs")).toString()).isEqualTo("/foo");
-    assertThat(table.getOffsetsForLine(67)).isEqualTo(Pair.of(2, 57));
-
-    assertThat(table.getLineAndColumn(data.indexOf("vardef"))).isEqualTo(new LineAndColumn(23, 1));
-    assertThat(table.getLineAndColumn(data.indexOf("x,y"))).isEqualTo(new LineAndColumn(23, 1));
-    assertThat(table.getPath(data.indexOf("x,y")).toString()).isEqualTo("/ba.r");
-    assertThat(table.getOffsetsForLine(23)).isEqualTo(Pair.of(57, 86));
-
-    assertThat(table.getOffsetsForLine(42)).isEqualTo(Pair.of(0, 0));
-  }
-
-  @Test
   public void testCodec() throws Exception {
-    ObjectCodecTester.newBuilder(LineNumberTable.CODEC)
-        .addSubjects(
+    new SerializationTester(
             create(
                 "#\n"
                     + "#line 67 \"/foo\"\n"
@@ -131,6 +95,6 @@ public class LineNumberTableTest {
                     + "#line 23 \"/ba.r\"\n"
                     + "vardef(x,y)\n"),
             create("\ntwo\nthree\n\nfive\n"))
-        .buildAndRunTests();
+        .runTests();
   }
 }

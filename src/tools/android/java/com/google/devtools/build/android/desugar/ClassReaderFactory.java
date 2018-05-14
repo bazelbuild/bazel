@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar;
 
+import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
+import com.google.devtools.build.android.desugar.io.IndexedInputs;
+import com.google.devtools.build.android.desugar.io.InputFileProvider;
 import java.io.IOException;
 import java.io.InputStream;
 import javax.annotation.Nullable;

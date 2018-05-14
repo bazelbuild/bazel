@@ -26,24 +26,20 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -62,10 +58,9 @@ import java.util.logging.Logger;
  * preloaded in {@code graph}.
  */
 @ThreadSafe
-public final class GraphBackedRecursivePackageProvider implements RecursivePackageProvider {
+public final class GraphBackedRecursivePackageProvider extends AbstractRecursivePackageProvider {
 
   private final WalkableGraph graph;
-  private final PathPackageLocator pkgPath;
   private final ImmutableList<TargetPatternKey> universeTargetPatternKeys;
 
   private static final Logger logger = Logger.getLogger(
@@ -74,7 +69,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   public GraphBackedRecursivePackageProvider(WalkableGraph graph,
       ImmutableList<TargetPatternKey> universeTargetPatternKeys,
       PathPackageLocator pkgPath) {
-    this.pkgPath = pkgPath;
+    super(pkgPath);
     this.graph = Preconditions.checkNotNull(graph);
     this.universeTargetPatternKeys = Preconditions.checkNotNull(universeTargetPatternKeys);
   }
@@ -136,15 +131,6 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   }
 
   @Override
-  public Path getBuildFileForPackage(PackageIdentifier packageName) {
-    try {
-      return pkgPath.getPackageBuildFile(packageName);
-    } catch (NoSuchPackageException e) {
-      return null;
-    }
-  }
-
-  @Override
   public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws InterruptedException {
     SkyKey packageLookupKey = PackageLookupValue.key(packageName);
@@ -192,7 +178,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     boolean inUniverse = false;
     for (TargetPatternKey patternKey : universeTargetPatternKeys) {
       TargetPattern pattern = patternKey.getParsedPattern();
-      boolean isTBD = pattern.getType().equals(Type.TARGETS_BELOW_DIRECTORY);
+      boolean isTBD = pattern.getType().equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY);
       PackageIdentifier packageIdentifier = PackageIdentifier.create(repository, directory);
       if (isTBD && pattern.containsAllTransitiveSubdirectoriesForTBD(packageIdentifier)) {
         inUniverse = true;
@@ -206,7 +192,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
     List<Root> roots = new ArrayList<>();
     if (repository.isMain()) {
-      roots.addAll(pkgPath.getPathEntries());
+      roots.addAll(getPkgPath().getPathEntries());
     } else {
       RepositoryDirectoryValue repositoryValue =
           (RepositoryDirectoryValue) graph.getValue(RepositoryDirectoryValue.key(repository));
@@ -296,12 +282,6 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     if (!subdirTraversals.isEmpty()) {
       collectPackagesUnder(eventHandler, repository, subdirTraversals, builder);
     }
-  }
-
-  @Override
-  public Target getTarget(ExtendedEventHandler eventHandler, Label label)
-      throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
-    return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());
   }
 
   private static final class TraversalInfo {

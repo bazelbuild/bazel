@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
@@ -62,7 +64,9 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -76,7 +80,6 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrExceptionUtils;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -89,6 +92,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -138,9 +143,11 @@ public final class ActionsTestUtil {
         metadataHandler,
         fileOutErr,
         ImmutableMap.copyOf(clientEnv),
+        ImmutableMap.of(),
         actionGraph == null
             ? createDummyArtifactExpander()
-            : ActionInputHelper.actionGraphArtifactExpander(actionGraph));
+            : ActionInputHelper.actionGraphArtifactExpander(actionGraph),
+        /*actionFileSystem=*/ null);
   }
 
   public static ActionExecutionContext createContextForInputDiscovery(
@@ -159,10 +166,11 @@ public final class ActionsTestUtil {
         fileOutErr,
         ImmutableMap.of(),
         new BlockingSkyFunctionEnvironment(
-            buildDriver, executor == null ? null : executor.getEventHandler()));
+            buildDriver, executor == null ? null : executor.getEventHandler()),
+        /*actionFileSystem=*/ null);
   }
 
-  public static ActionExecutionContext createContext(EventHandler eventHandler) {
+  public static ActionExecutionContext createContext(ExtendedEventHandler eventHandler) {
     DummyExecutor dummyExecutor = new DummyExecutor(eventHandler);
     return new ActionExecutionContext(
         dummyExecutor,
@@ -172,7 +180,9 @@ public final class ActionsTestUtil {
         null,
         null,
         ImmutableMap.of(),
-        createDummyArtifactExpander());
+        ImmutableMap.of(),
+        createDummyArtifactExpander(),
+        /*actionFileSystem=*/ null);
   }
 
   private static ArtifactExpander createDummyArtifactExpander() {
@@ -213,22 +223,22 @@ public final class ActionsTestUtil {
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         for (SkyKey key : depKeys) {
-          result.put(key, ValueOrExceptionUtils.ofNull());
+          result.put(key, ValueOrUntypedException.ofNull());
         }
         return result;
       }
       for (SkyKey key : depKeys) {
         SkyValue value = evaluationResult.get(key);
         if (value != null) {
-          result.put(key, ValueOrExceptionUtils.ofValue(value));
+          result.put(key, ValueOrUntypedException.ofValueUntyped(value));
           continue;
         }
         ErrorInfo errorInfo = evaluationResult.getError(key);
         if (errorInfo == null || errorInfo.getException() == null) {
-          result.put(key, ValueOrExceptionUtils.ofNull());
+          result.put(key, ValueOrUntypedException.ofNull());
           continue;
         }
-        result.put(key, ValueOrExceptionUtils.ofExn(errorInfo.getException()));
+        result.put(key, ValueOrUntypedException.ofExn(errorInfo.getException()));
       }
       return result;
     }
@@ -261,13 +271,16 @@ public final class ActionsTestUtil {
           null,
           null);
 
-  public static final ArtifactOwner NULL_ARTIFACT_OWNER =
-      new ArtifactOwner() {
-        @Override
-        public Label getLabel() {
-          return NULL_LABEL;
-        }
-      };
+  static class NullArtifactOwner implements ArtifactOwner {
+    private NullArtifactOwner() {}
+
+    @Override
+    public Label getLabel() {
+      return NULL_LABEL;
+    }
+  }
+
+  @AutoCodec public static final ArtifactOwner NULL_ARTIFACT_OWNER = new NullArtifactOwner();
 
   /** An unchecked exception class for action conflicts. */
   public static class UncheckedActionConflictException extends RuntimeException {
@@ -303,8 +316,8 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    protected String computeKey(ActionKeyContext actionKeyContext) {
-      return "action";
+    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+      fp.addString("action");
     }
 
     @Override
@@ -338,11 +351,7 @@ public final class ActionsTestUtil {
    * List.
    */
   public static List<String> baseArtifactNames(Iterable<Artifact> artifacts) {
-    List<String> baseNames = new ArrayList<>();
-    for (Artifact artifact : artifacts) {
-      baseNames.add(artifact.getExecPath().getBaseName());
-    }
-    return baseNames;
+    return transform(artifacts, artifact -> artifact.getExecPath().getBaseName());
   }
 
   /**
@@ -350,11 +359,7 @@ public final class ActionsTestUtil {
    * List.
    */
   public static List<String> execPaths(Iterable<Artifact> artifacts) {
-    List<String> names = new ArrayList<>();
-    for (Artifact artifact : artifacts) {
-      names.add(artifact.getExecPathString());
-    }
-    return names;
+    return transform(artifacts, Artifact::getExecPathString);
   }
 
   /**
@@ -362,19 +367,14 @@ public final class ActionsTestUtil {
    * that this returns the root-relative paths, not the exec paths.
    */
   public static List<String> prettyArtifactNames(Iterable<Artifact> artifacts) {
-    List<String> result = new ArrayList<>();
-    for (Artifact artifact : artifacts) {
-      result.add(artifact.prettyPrint());
-    }
-    return result;
+    return transform(artifacts, Artifact::prettyPrint);
   }
 
-  public static List<String> prettyJarNames(Iterable<Artifact> jars) {
-    List<String> result = new ArrayList<>();
-    for (Artifact jar : jars) {
-      result.add(jar.prettyPrint());
-    }
-    return result;
+  public static <T, R> List<R> transform(Iterable<T> iterable, Function<T, R> mapper) {
+    // Can not use com.google.common.collect.Iterables.transform() there, as it returns Iterable.
+    return Streams.stream(iterable)
+        .map(mapper)
+        .collect(Collectors.toList());
   }
 
   /**
@@ -607,7 +607,7 @@ public final class ActionsTestUtil {
   }
 
   public static SpawnActionTemplate createDummySpawnActionTemplate(
-      Artifact inputTreeArtifact, Artifact outputTreeArtifact) {
+      SpecialArtifact inputTreeArtifact, SpecialArtifact outputTreeArtifact) {
     return new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
         .setCommandLineTemplate(CustomCommandLine.builder().build())
         .setExecutable(PathFragment.create("bin/executable"))
@@ -674,13 +674,12 @@ public final class ActionsTestUtil {
    */
   public static class FakeArtifactResolverBase implements ArtifactResolver {
     @Override
-    public Artifact getSourceArtifact(
-        PathFragment execPath, ArtifactRoot root, ArtifactOwner owner) {
+    public Artifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Artifact getSourceArtifact(PathFragment execPath, ArtifactRoot root) {
+    public Artifact getSourceArtifact(PathFragment execPath, Root root) {
       throw new UnsupportedOperationException();
     }
 
@@ -731,6 +730,12 @@ public final class ActionsTestUtil {
 
     @Override
     public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void injectRemoteFile(
+        Artifact output, byte[] digest, long size, long modifiedTime, int locationIndex) {
       throw new UnsupportedOperationException();
     }
 

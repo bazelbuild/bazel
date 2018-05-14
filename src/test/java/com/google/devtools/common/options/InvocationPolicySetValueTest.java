@@ -481,4 +481,31 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
       // expected.
     }
   }
+
+  @Test
+  public void testConfigNotAllowed() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("config")
+        .getSetValueBuilder()
+        .addFlagValue("foo");
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse();
+    try {
+      enforcer.enforce(parser, BUILD_COMMAND);
+      fail();
+    } catch (OptionsParsingException expected) {
+      assertThat(expected)
+          .hasMessageThat()
+          .isEqualTo(
+              "Invocation policy is applied after --config expansion, changing config values now "
+                  + "would have no effect and is disallowed to prevent confusion. Please remove "
+                  + "the following policy : flag_name: \"config\"\n"
+                  + "set_value {\n"
+                  + "  flag_value: \"foo\"\n"
+                  + "}\n");
+    }
+  }
 }

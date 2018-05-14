@@ -24,9 +24,11 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Formattable;
 import java.util.Formatter;
+import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
 import java.util.MissingFormatWidthException;
+import java.util.UnknownFormatConversionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -65,12 +67,27 @@ public class Printer {
    * @return new {@link BasePrinter}
    */
   public static BasePrinter getPrinter() {
-    return getPrinter(new StringBuilder());
+    return new BasePrinter(new StringBuilder());
+  }
+
+  /**
+   * Creates an instance of {@link BasePrinter} with an empty buffer and whose format strings allow
+   * only %s and %%.
+   */
+  public static BasePrinter getSimplifiedPrinter() {
+    return new BasePrinter(new StringBuilder(), /*simplifiedFormatStrings=*/ true);
   }
 
   private Printer() {}
 
   // These static methods proxy to the similar methods of BasePrinter
+
+  /**
+   * Format an object with Skylark's {@code debugPrint}.
+   */
+  public static String debugPrint(Object x) {
+    return getPrinter().debugPrint(x).toString();
+  }
 
   /**
    * Format an object with Skylark's {@code str}.
@@ -264,22 +281,55 @@ public class Printer {
     protected final Appendable buffer;
 
     /**
-     * Creates a printer instance.
-     *
-     * @param buffer the {@link Appendable} to which to print the representation
+     * If true, the only percent sequences allowed in format strings are %s substitutions and %%
+     * escapes.
      */
-    protected BasePrinter(Appendable buffer) {
+    protected final boolean simplifiedFormatStrings;
+
+    /**
+     * Creates a printer.
+     *
+     * @param buffer the {@link Appendable} that will be written to
+     * @param simplifiedFormatStrings if true, format strings will allow only %s and %%
+     */
+    protected BasePrinter(Appendable buffer, boolean simplifiedFormatStrings) {
       this.buffer = buffer;
+      this.simplifiedFormatStrings = simplifiedFormatStrings;
     }
 
-    /** Creates a printer instance with a new StringBuilder. */
+    /**
+     * Creates a printer that writes to the given buffer and that does not use simplified format
+     * strings.
+     */
+    protected BasePrinter(Appendable buffer) {
+      this(buffer, /*simplifiedFormatStrings=*/ false);
+    }
+
+    /**
+     * Creates a printer that uses a fresh buffer and that does not use simplified format strings.
+     */
     protected BasePrinter() {
-      this.buffer = new StringBuilder();
+      this(new StringBuilder());
     }
 
     @Override
     public String toString() {
       return buffer.toString();
+    }
+
+    /**
+     * Print an informal debug-only representation of object x.
+     *
+     * @param o the object
+     * @return the buffer, in fluent style
+     */
+    public BasePrinter debugPrint(Object o) {
+      if (o instanceof SkylarkValue) {
+        ((SkylarkValue) o).debugPrint(this);
+        return this;
+      }
+
+      return this.str(o);
     }
 
     /**
@@ -468,12 +518,25 @@ public class Printer {
     }
 
     /**
-     * Perform Python-style string formatting, as per pattern % tuple Limitations: only %d %s %r %%
-     * are supported.
+     * Perform Python-style string formatting, similar to the {@code pattern % tuple} syntax.
      *
-     * @param pattern a format string.
-     * @param arguments an array containing positional arguments.
-     * @return the formatted string.
+     * <p>The only supported placeholder patterns are
+     * <ul>
+     *   <li>{@code %s} (convert as if by {@code str()})
+     *   <li>{@code %r} (convert as if by {@code repr()})
+     *   <li>{@code %d} (convert an integer to its decimal representation)
+     * </ul>
+     * To encode a literal percent character, escape it as {@code %%}. It is an error to have a
+     * non-escaped {@code %} at the end of the string or followed by any character not listed above.
+     *
+     * <p>If this printer has {@code simplifiedFormatStrings} set, only {@code %s} and {@code %%}
+     * are permitted.
+     *
+     * @param pattern a format string that may contain placeholders
+     * @param arguments an array containing arguments to substitute into the placeholders in order
+     * @return the formatted string
+     * @throws IllegalFormatException if {@code pattern} is not a valid format string, or if
+     *     {@code arguments} mismatches the number or type of placeholders in {@code pattern}
      */
     @Override
     public BasePrinter format(String pattern, Object... arguments) {
@@ -481,12 +544,9 @@ public class Printer {
     }
 
     /**
-     * Perform Python-style string formatting, as per pattern % tuple Limitations: only %d %s %r %%
-     * are supported.
+     * Perform Python-style string formatting, similar to the {@code pattern % tuple} syntax.
      *
-     * @param pattern a format string.
-     * @param arguments a tuple containing positional arguments.
-     * @return the formatted string.
+     * <p>Same as {@link #format(String, Object...)}, but with a list instead of variadic args.
      */
     @Override
     public BasePrinter formatWithList(String pattern, List<?> arguments) {
@@ -521,6 +581,11 @@ public class Printer {
           case 'd':
           case 'r':
           case 's':
+            if (simplifiedFormatStrings && (directive != 's')) {
+              throw new UnknownFormatConversionException(
+                  "cannot use %" + directive + " substitution placeholder when "
+                      + "simplifiedFormatStrings is set");
+            }
             if (a >= argLength) {
               throw new MissingFormatWidthException(
                   "not enough arguments for format pattern "

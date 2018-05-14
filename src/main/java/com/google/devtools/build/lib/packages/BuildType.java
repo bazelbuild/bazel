@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -41,7 +42,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -51,96 +51,79 @@ import javax.annotation.Nullable;
 public final class BuildType {
 
   /**
-   * The type of a label. Labels are not actually a first-class datatype in
-   * the build language, but they are so frequently used in the definitions of
-   * attributes that it's worth treating them specially (and providing support
-   * for resolution of relative-labels in the <code>convert()</code> method).
+   * The type of a label. Labels are not actually a first-class datatype in the build language, but
+   * they are so frequently used in the definitions of attributes that it's worth treating them
+   * specially (and providing support for resolution of relative-labels in the <code>convert()
+   * </code> method).
    */
-  public static final Type<Label> LABEL = new LabelType(LabelClass.DEPENDENCY);
-  /**
-   * The type of a dictionary of {@linkplain #LABEL labels}.
-   */
-  public static final DictType<String, Label> LABEL_DICT_UNARY = DictType.create(
-      Type.STRING, LABEL);
-  /**
-   * The type of a dictionary keyed by {@linkplain #LABEL labels} with string values.
-   */
+  @AutoCodec public static final Type<Label> LABEL = new LabelType(LabelClass.DEPENDENCY);
+  /** The type of a dictionary of {@linkplain #LABEL labels}. */
+  @AutoCodec
+  public static final DictType<String, Label> LABEL_DICT_UNARY =
+      DictType.create(Type.STRING, LABEL);
+  /** The type of a dictionary keyed by {@linkplain #LABEL labels} with string values. */
+  @AutoCodec
   public static final DictType<Label, String> LABEL_KEYED_STRING_DICT =
       LabelKeyedDictType.create(Type.STRING);
+  /** The type of a list of {@linkplain #LABEL labels}. */
+  @AutoCodec public static final ListType<Label> LABEL_LIST = ListType.create(LABEL);
   /**
-   *  The type of a list of {@linkplain #LABEL labels}.
+   * This is a label type that does not cause dependencies. It is needed because certain rules want
+   * to verify the type of a target referenced by one of their attributes, but if there was a
+   * dependency edge there, it would be a circular dependency.
    */
-  public static final ListType<Label> LABEL_LIST = ListType.create(LABEL);
-  /**
-   * This is a label type that does not cause dependencies. It is needed because
-   * certain rules want to verify the type of a target referenced by one of their attributes, but
-   * if there was a dependency edge there, it would be a circular dependency.
-   */
+  @AutoCodec
   public static final Type<Label> NODEP_LABEL = new LabelType(LabelClass.NONDEP_REFERENCE);
+  /** The type of a list of {@linkplain #NODEP_LABEL labels} that do not cause dependencies. */
+  @AutoCodec public static final ListType<Label> NODEP_LABEL_LIST = ListType.create(NODEP_LABEL);
   /**
-   *  The type of a list of {@linkplain #NODEP_LABEL labels} that do not cause
-   *  dependencies.
+   * The type of a license. Like Label, licenses aren't first-class, but they're important enough to
+   * justify early syntax error detection.
    */
-  public static final ListType<Label> NODEP_LABEL_LIST = ListType.create(NODEP_LABEL);
-  /**
-   * The type of a license. Like Label, licenses aren't first-class, but
-   * they're important enough to justify early syntax error detection.
-   */
-  public static final Type<License> LICENSE = new LicenseType();
-  /**
-   * The type of a single distribution.  Only used internally, as a type
-   * symbol, not a converter.
-   */
-  public static final Type<DistributionType> DISTRIBUTION = new Type<DistributionType>() {
-    @Override
-    public DistributionType cast(Object value) {
-      return (DistributionType) value;
-    }
+  @AutoCodec public static final Type<License> LICENSE = new LicenseType();
+  /** The type of a single distribution. Only used internally, as a type symbol, not a converter. */
+  @AutoCodec
+  public static final Type<DistributionType> DISTRIBUTION =
+      new Type<DistributionType>() {
+        @Override
+        public DistributionType cast(Object value) {
+          return (DistributionType) value;
+        }
 
-    @Override
-    public DistributionType convert(Object x, Object what, Object context) {
-      throw new UnsupportedOperationException();
-    }
+        @Override
+        public DistributionType convert(Object x, Object what, Object context) {
+          throw new UnsupportedOperationException();
+        }
 
-    @Override
-    public DistributionType getDefaultValue() {
-      return null;
-    }
+        @Override
+        public DistributionType getDefaultValue() {
+          return null;
+        }
 
-    @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+        @Override
+        public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {}
 
-    @Override
-    public String toString() {
-      return "distribution";
-    }
-  };
+        @Override
+        public String toString() {
+          return "distribution";
+        }
+      };
   /**
-   * The type of a set of distributions. Distributions are not a first-class type,
-   * but they do warrant early syntax checking.
+   * The type of a set of distributions. Distributions are not a first-class type, but they do
+   * warrant early syntax checking.
    */
-  public static final Type<Set<DistributionType>> DISTRIBUTIONS = new Distributions();
-  /**
-   *  The type of an output file, treated as a {@link #LABEL}.
-   */
-  public static final Type<Label> OUTPUT = new OutputType();
-  /**
-   *  The type of a list of {@linkplain #OUTPUT outputs}.
-   */
-  public static final ListType<Label> OUTPUT_LIST = ListType.create(OUTPUT);
-  /**
-   * The type of a FilesetEntry attribute inside a Fileset.
-   */
-  public static final Type<FilesetEntry> FILESET_ENTRY = new FilesetEntryType();
-  /**
-   * The type of a list of {@linkplain #FILESET_ENTRY FilesetEntries}.
-   */
+  @AutoCodec public static final Type<Set<DistributionType>> DISTRIBUTIONS = new Distributions();
+  /** The type of an output file, treated as a {@link #LABEL}. */
+  @AutoCodec public static final Type<Label> OUTPUT = new OutputType();
+  /** The type of a list of {@linkplain #OUTPUT outputs}. */
+  @AutoCodec public static final ListType<Label> OUTPUT_LIST = ListType.create(OUTPUT);
+  /** The type of a FilesetEntry attribute inside a Fileset. */
+  @AutoCodec public static final Type<FilesetEntry> FILESET_ENTRY = new FilesetEntryType();
+  /** The type of a list of {@linkplain #FILESET_ENTRY FilesetEntries}. */
+  @AutoCodec
   public static final ListType<FilesetEntry> FILESET_ENTRY_LIST = ListType.create(FILESET_ENTRY);
-  /**
-   * The type of a TriState with values: true (x>0), false (x==0), auto (x<0).
-   */
-  public static final Type<TriState> TRISTATE = new TriStateType();
+  /** The type of a TriState with values: true (x>0), false (x==0), auto (x<0). */
+  @AutoCodec public static final Type<TriState> TRISTATE = new TriStateType();
 
   private BuildType() {
     // Do not instantiate
@@ -584,7 +567,7 @@ public final class BuildType {
       LinkedHashMap<Label, T> result = Maps.newLinkedHashMapWithExpectedSize(x.size());
       ImmutableSet.Builder<Label> defaultValuesBuilder = ImmutableSet.builder();
       boolean foundDefaultCondition = false;
-      for (Entry<?, ?> entry : x.entrySet()) {
+      for (Map.Entry<?, ?> entry : x.entrySet()) {
         Label key = LABEL.convert(entry.getKey(), what, context);
         if (key.equals(DEFAULT_CONDITION_LABEL)) {
           foundDefaultCondition = true;

@@ -25,7 +25,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * Utility for building {@link UnvalidatedAndroidData}, {@link ParsedAndroidData},
@@ -99,7 +98,7 @@ public class AndroidDataBuilder {
   public AndroidDataBuilder addValuesWithAttributes(
       String path, Map<String, String> attributes, String... lines) {
     ImmutableList.Builder<String> attributeBuilder = ImmutableList.builder();
-    for (Entry<String, String> attribute : attributes.entrySet()) {
+    for (Map.Entry<String, String> attribute : attributes.entrySet()) {
       if (attribute.getKey() != null && attribute.getValue() != null) {
         attributeBuilder.add(String.format("%s=\"%s\"", attribute.getKey(), attribute.getValue()));
       }
@@ -173,12 +172,12 @@ public class AndroidDataBuilder {
     Files.createDirectories(assetDir);
     Files.createDirectories(resourceDir);
     Preconditions.checkNotNull(manifest, "A manifest is required.");
-    for (Entry<Path, String> entry : filesToWrite.entrySet()) {
+    for (Map.Entry<Path, String> entry : filesToWrite.entrySet()) {
       Files.createDirectories(entry.getKey().getParent());
       Files.write(entry.getKey(), entry.getValue().getBytes(StandardCharsets.UTF_8));
       Preconditions.checkArgument(Files.exists(entry.getKey()));
     }
-    for (Entry<Path, Path> entry : filesToCopy.entrySet()) {
+    for (Map.Entry<Path, Path> entry : filesToCopy.entrySet()) {
       Path target = entry.getKey();
       Path source = entry.getValue();
       Files.createDirectories(target.getParent());

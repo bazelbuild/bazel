@@ -13,12 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
+import static com.google.devtools.build.lib.packages.SkylarkProviderIdentifier.forKey;
 import static com.google.devtools.build.lib.rules.android.AndroidCommon.getAndroidConfig;
-import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -32,6 +33,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -39,12 +41,11 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
-import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -54,27 +55,28 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
-import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspectCommon;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 
 /** Aspect to {@link DexArchiveProvider build .dex Archives} from Jars. */
 public final class DexArchiveAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "DexArchiveAspect";
+
   /**
    * Function that returns a {@link Rule}'s {@code incremental_dexing} attribute for use by this
    * aspect. Must be provided when attaching this aspect to a target.
@@ -109,8 +111,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
           "runtime_deps",
           ":android_sdk",
           "aidl_lib", // for the aidl runtime in the android_sdk rule
+          "$toolchain", // this is _toolchain in Skylark rules (b/78647825)
           // To get from proto_library through proto_lang_toolchain rule to proto runtime library.
-          JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR, "runtime");
+          JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, "runtime");
 
   private static final FlagMatcher DEXOPTS_SUPPORTED_IN_DEXBUILDER =
       new FlagMatcher(
@@ -126,8 +129,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   public AspectDefinition getDefinition(AspectParameters params) {
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(this)
-            // We care about JavaRuntimeJarProvider, but rules don't advertise that provider.
-            .requireSkylarkProviders(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+            .requireSkylarkProviders(forKey(JavaInfo.PROVIDER.getKey()))
+            // Latch onto Skylark toolchains in case they have a "runtime" (b/78647825)
+            .requireSkylarkProviders(forKey(ToolchainInfo.PROVIDER.getKey()))
             .requireProviderSets(
                 ImmutableList.of(
                     ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class),
@@ -170,10 +174,11 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTarget base, RuleContext ruleContext, AspectParameters params)
+      ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters params)
       throws InterruptedException {
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, params, ruleContext);
-    Function<Artifact, Artifact> desugaredJars = desugarJarsIfRequested(base, ruleContext, result);
+    Function<Artifact, Artifact> desugaredJars =
+        desugarJarsIfRequested(ctadBase.getConfiguredTarget(), ruleContext, result);
 
     TriState incrementalAttr =
         TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing"));
@@ -191,7 +196,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     DexArchiveProvider.Builder dexArchives =
         new DexArchiveProvider.Builder()
             .addTransitiveProviders(collectPrerequisites(ruleContext, DexArchiveProvider.class));
-    Iterable<Artifact> runtimeJars = getProducedRuntimeJars(base, ruleContext);
+    Iterable<Artifact> runtimeJars =
+        getProducedRuntimeJars(ctadBase.getConfiguredTarget(), ruleContext);
     if (runtimeJars != null) {
       boolean basenameClash = checkBasenameClash(runtimeJars);
       Set<Set<String>> aspectDexopts = aspectDexopts(ruleContext);
@@ -220,9 +226,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   }
 
   /**
-   * Runs Jars in {@link JavaRuntimeJarProvider} through desugaring action if flag is set and adds
-   * the result to {@code result}. Note that this cannot happen in a separate aspect because aspects
-   * don't see providers added by other aspects executed on the same target.
+   * Runs Jars in {@link JavaInfo#getDirectRuntimeJars()} through desugaring action if flag is set
+   * and adds the result to {@code result}. Note that this cannot happen in a separate aspect
+   * because aspects don't see providers added by other aspects executed on the same target.
    */
   private Function<Artifact, Artifact> desugarJarsIfRequested(
       ConfiguredTarget base, RuleContext ruleContext, ConfiguredAspect.Builder result) {
@@ -244,18 +250,17 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       return Functions.identity();
     }
 
-    JavaRuntimeJarProvider jarProvider = base.getProvider(JavaRuntimeJarProvider.class);
-    if (jarProvider != null) {
+    JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
+    if (javaInfo != null) {
       // These are all transitive hjars of dependencies and hjar of the jar itself
       NestedSet<Artifact> compileTimeClasspath =
-          getJavaCompilationArgsProvider(base, ruleContext)
-              .getRecursiveJavaCompilationArgs()
-              .getCompileTimeJars();
+          getJavaCompilationArgsProvider(base, ruleContext).getTransitiveCompileTimeJars();
       // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
       ImmutableList<Artifact> bootclasspath = getBootclasspath(base, ruleContext);
 
-      boolean basenameClash = checkBasenameClash(jarProvider.getRuntimeJars());
-      for (Artifact jar : jarProvider.getRuntimeJars()) {
+
+      boolean basenameClash = checkBasenameClash(javaInfo.getDirectRuntimeJars());
+      for (Artifact jar : javaInfo.getDirectRuntimeJars()) {
         Artifact desugared =
             createDesugarAction(
                 ruleContext, basenameClash, jar, bootclasspath, compileTimeClasspath);
@@ -271,17 +276,21 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       ConfiguredTarget base, RuleContext ruleContext) {
     if (isProtoLibrary(ruleContext)) {
       if (!ruleContext.getPrerequisites("srcs", Mode.TARGET).isEmpty()) {
-        JavaCompilationArgsProvider javaCompilationArgsProvider =
+        JavaRuleOutputJarsProvider outputJarsProvider =
             WrappingProvider.Helper.getWrappedProvider(
-                base, JavaProtoLibraryAspectProvider.class, JavaCompilationArgsProvider.class);
-        if (javaCompilationArgsProvider != null) {
-          return javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars();
+                base, JavaProtoLibraryAspectProvider.class, JavaRuleOutputJarsProvider.class);
+        if (outputJarsProvider != null) {
+          return outputJarsProvider
+              .getOutputJars()
+              .stream()
+              .map(OutputJar::getClassJar)
+              .collect(toImmutableList());
         }
       }
     } else {
-      JavaRuntimeJarProvider jarProvider = base.getProvider(JavaRuntimeJarProvider.class);
-      if (jarProvider != null) {
-        return jarProvider.getRuntimeJars();
+      JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
+      if (javaInfo != null) {
+        return javaInfo.getDirectRuntimeJars();
       }
     }
     return null;
@@ -314,7 +323,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     return false;
   }
 
-  private static <T extends TransitiveInfoProvider> IterablesChain<T> collectPrerequisites(
+  private static <T extends TransitiveInfoProvider> Iterable<T> collectPrerequisites(
       RuleContext ruleContext, Class<T> classType) {
     IterablesChain.Builder<T> result = IterablesChain.builder();
     for (String attr : TRANSITIVE_ATTRIBUTES) {
@@ -392,6 +401,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     if (getAndroidConfig(ruleContext).checkDesugarDeps()) {
       args.add("--emit_dependency_metadata_as_needed");
     }
+    if (getAndroidConfig(ruleContext).desugarJava8Libs()) {
+      args.add("--desugar_supported_core_libs");
+    }
 
     ruleContext.registerAction(
         new SpawnAction.Builder()
@@ -411,30 +423,20 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   }
 
   /**
-   * Creates a dex archive using an executable prerequisite called {@code "$dexbuilder"}. Rules
-   * calling this method must declare the appropriate prerequisite, similar to how {@link
-   * #getDefinition} does it for {@link DexArchiveAspect} under a different name.
+   * Creates a dexbuilder action with the given input, output, and flags. Flags must have been
+   * filtered and normalized to a set that the dexbuilder tool can understand.
    *
    * @return the artifact given as {@code result}, which can simplify calling code
    */
   // Package-private method for use in AndroidBinary
   static Artifact createDexArchiveAction(
-      RuleContext ruleContext, Artifact jar, Set<String> tokenizedDexopts, Artifact result) {
-    return createDexArchiveAction(ruleContext, "$dexbuilder", jar, tokenizedDexopts, result);
-  }
-
-  /**
-   * Creates a dexbuilder action with the given input, output, and flags. Flags must have been
-   * filtered and normalized to a set that the dexbuilder tool can understand.
-   */
-  private static Artifact createDexArchiveAction(
       RuleContext ruleContext,
       String dexbuilderPrereq,
       Artifact jar,
       Set<String> incrementalDexopts,
       Artifact dexArchive) {
     CustomCommandLine args =
-        new Builder()
+        new CustomCommandLine.Builder()
             .addExecPath("--input_jar", jar)
             .addExecPath("--output_zip", dexArchive)
             .addAll(ImmutableList.copyOf(incrementalDexopts))
@@ -471,10 +473,6 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    */
   static ImmutableSet<String> incrementalDexopts(
       RuleContext ruleContext, Iterable<String> tokenizedDexopts) {
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      // TODO(b/27382165): Still needed? No longer done in AndroidCommon.createDexAction
-      tokenizedDexopts = Iterables.concat(tokenizedDexopts, ImmutableList.of("--no-locals"));
-    }
     return normalizeDexopts(
         Iterables.filter(
             tokenizedDexopts,
@@ -498,12 +496,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    * latter typically come from a {@code dexopts} attribute on a top-level target. This should be a
    * superset of {@link #incrementalDexopts}.
    */
-  static ImmutableSet<String> topLevelDexbuilderDexopts(
-      RuleContext ruleContext, Iterable<String> tokenizedDexopts) {
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      // TODO(b/27382165): Still needed? No longer done in AndroidCommon.createDexAction
-      tokenizedDexopts = Iterables.concat(tokenizedDexopts, ImmutableList.of("--no-locals"));
-    }
+  static ImmutableSet<String> topLevelDexbuilderDexopts(Iterable<String> tokenizedDexopts) {
     // We don't need an ordered set but might as well.
     return normalizeDexopts(Iterables.filter(tokenizedDexopts, DEXOPTS_SUPPORTED_IN_DEXBUILDER));
   }
@@ -523,14 +516,13 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   }
 
   private static ImmutableSet<String> normalizeDexopts(Iterable<String> tokenizedDexopts) {
-    // Use TreeSet to drop duplicates and get fixed (sorted) order.  Fixed order is important so
-    // we generate one dex archive per set of flag in create() method, regardless of how those flags
-    // are listed in all the top-level targets being built.
-    return ImmutableSet.copyOf(
-        Streams.stream(tokenizedDexopts)
-            .map(FlagConverter.DX_TO_DEXBUILDER)
-            .collect(toCollection(TreeSet::new))
-            .iterator());
+    // Sort and use ImmutableSet to drop duplicates and get fixed (sorted) order.  Fixed order is
+    // important so we generate one dex archive per set of flag in create() method, regardless of
+    // how those flags are listed in all the top-level targets being built.
+    return Streams.stream(tokenizedDexopts)
+        .map(FlagConverter.DX_TO_DEXBUILDER)
+        .sorted()
+        .collect(ImmutableSet.toImmutableSet()); // collector with dedupe
   }
 
   private static class FlagMatcher implements Predicate<String> {

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.MutableMap;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
@@ -28,6 +27,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -155,7 +155,8 @@ public final class QueryUtil {
         int concurrencyLevel) {
       this.extractor = extractor;
       this.elementClass = elementClass;
-      this.map = new MapMaker().concurrencyLevel(concurrencyLevel).makeMap();
+      this.map =
+          new ConcurrentHashMap<>(/*initialCapacity=*/ concurrencyLevel, /*loadFactor=*/ 0.75f);
     }
 
     @Override
@@ -228,8 +229,15 @@ public final class QueryUtil {
 
     public UniquifierImpl(KeyExtractor<T, K> extractor, int concurrencyLevel) {
       this.extractor = extractor;
-      this.alreadySeen = Collections.newSetFromMap(
-          new MapMaker().concurrencyLevel(concurrencyLevel).<K, Boolean>makeMap());
+      this.alreadySeen =
+          Collections.newSetFromMap(
+              new ConcurrentHashMap<>(
+                  /*initialCapacity=*/ concurrencyLevel, /*loadFactor=*/ 0.75f));
+    }
+
+    @Override
+    public boolean uniquePure(T element) {
+      return !alreadySeen.contains(extractor.extractKey(element));
     }
 
     @Override
@@ -256,33 +264,48 @@ public final class QueryUtil {
 
     public MinDepthUniquifierImpl(KeyExtractor<T, K> extractor, int concurrencyLevel) {
       this.extractor = extractor;
-      this.alreadySeenAtDepth = new MapMaker().concurrencyLevel(concurrencyLevel).makeMap();
+      this.alreadySeenAtDepth =
+          new ConcurrentHashMap<>(/*initialCapacity=*/ concurrencyLevel, /*loadFactor=*/ 0.75f);
     }
 
     @Override
     public final ImmutableList<T> uniqueAtDepthLessThanOrEqualTo(
         Iterable<T> newElements, int depth) {
-      ImmutableList.Builder<T> result = ImmutableList.builder();
-      for (T element : newElements) {
-        AtomicInteger newDepth = new AtomicInteger(depth);
-        AtomicInteger previousDepth =
-            alreadySeenAtDepth.putIfAbsent(extractor.extractKey(element), newDepth);
-        if (previousDepth != null) {
-          if (depth < previousDepth.get()) {
-            synchronized (previousDepth) {
-              if (depth < previousDepth.get()) {
-                // We've seen the element before, but never at a depth this shallow.
-                previousDepth.set(depth);
-                result.add(element);
-              }
-            }
-          }
-        } else {
-          // We've never seen the element before.
-          result.add(element);
+      ImmutableList.Builder<T> resultBuilder = ImmutableList.builder();
+      for (T newElement : newElements) {
+        if (uniqueAtDepthLessThanOrEqualTo(newElement, depth)) {
+          resultBuilder.add(newElement);
         }
       }
-      return result.build();
+      return resultBuilder.build();
+    }
+
+    @Override
+    public boolean uniqueAtDepthLessThanOrEqualTo(T newElement, int depth) {
+      AtomicInteger newDepth = new AtomicInteger(depth);
+      AtomicInteger previousDepth =
+          alreadySeenAtDepth.putIfAbsent(extractor.extractKey(newElement), newDepth);
+      if (previousDepth == null) {
+        return true;
+      }
+      if (depth < previousDepth.get()) {
+        synchronized (previousDepth) {
+          if (depth < previousDepth.get()) {
+            // We've seen the element before, but never at a depth this shallow.
+            previousDepth.set(depth);
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    @Override
+    public boolean uniqueAtDepthLessThanOrEqualToPure(T newElement, int depth) {
+      AtomicInteger previousDepth = alreadySeenAtDepth.get(extractor.extractKey(newElement));
+      return previousDepth != null
+          ? depth < previousDepth.get()
+          : true;
     }
   }
 }

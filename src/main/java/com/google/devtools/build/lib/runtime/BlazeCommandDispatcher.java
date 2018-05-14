@@ -53,6 +53,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Dispatches to the Blaze commands; that is, given a command line, this
@@ -61,6 +62,7 @@ import java.util.logging.Level;
  * the runtime state (BlazeRuntime) to the commands.
  */
 public class BlazeCommandDispatcher {
+  private static final Logger logger = Logger.getLogger(BlazeCommandDispatcher.class.getName());
 
   /**
    * What to do if the command lock is not available.
@@ -74,27 +76,6 @@ public class BlazeCommandDispatcher {
 
   private static final ImmutableSet<String> ALL_HELP_OPTIONS =
       ImmutableSet.of("--help", "-help", "-h");
-
-  /**
-   * By throwing this exception, a command indicates that it wants to shutdown
-   * the Blaze server process.
-   */
-  public static class ShutdownBlazeServerException extends Exception {
-    private final int exitStatus;
-
-    public ShutdownBlazeServerException(int exitStatus, Throwable cause) {
-      super(cause);
-      this.exitStatus = exitStatus;
-    }
-
-    public ShutdownBlazeServerException(int exitStatus) {
-      this.exitStatus = exitStatus;
-    }
-
-    public int getExitStatus() {
-      return exitStatus;
-    }
-  }
 
   private final BlazeRuntime runtime;
   private final Object commandLock;
@@ -134,11 +115,11 @@ public class BlazeCommandDispatcher {
   }
 
   /**
-   * Executes a single command. Returns the Unix exit status for the Blaze client process, or throws
-   * {@link ShutdownBlazeServerException} to indicate that a command wants to shutdown the Blaze
-   * server.
+   * Executes a single command. Returns a {@link BlazeCommandResult} to indicate either an exit
+   * code, the desire to shut down the server, or that a given binary should be executed by the
+   * client.
    */
-  int exec(
+  public BlazeCommandResult exec(
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
@@ -146,7 +127,7 @@ public class BlazeCommandDispatcher {
       String clientDescription,
       long firstContactTime,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
-      throws ShutdownBlazeServerException, InterruptedException {
+      throws InterruptedException {
     OriginalUnstructuredCommandLineEvent originalCommandLine =
         new OriginalUnstructuredCommandLineEvent(args);
     Preconditions.checkNotNull(clientDescription);
@@ -165,7 +146,7 @@ public class BlazeCommandDispatcher {
     if (command == null) {
       outErr.printErrLn(String.format(
           "Command '%s' not found. Try '%s help'.", commandName, runtime.getProductName()));
-      return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
     // Take the exclusive server lock.  If we fail, we busy-wait until the lock becomes available.
@@ -193,7 +174,7 @@ public class BlazeCommandDispatcher {
           case ERROR_OUT:
             outErr.printErrLn(String.format("Another command (" + currentClientDescription + ") is "
                 + "running. Exiting immediately."));
-            return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
+            return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
 
           default:
             throw new IllegalStateException();
@@ -213,9 +194,9 @@ public class BlazeCommandDispatcher {
     try {
       if (shutdownReason != null) {
         outErr.printErrLn("Server shut down " + shutdownReason);
-        return ExitCode.LOCAL_ENVIRONMENTAL_ERROR.getNumericExitCode();
+        return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
       }
-      return execExclusively(
+      BlazeCommandResult result = execExclusively(
           originalCommandLine,
           invocationPolicy,
           args,
@@ -225,9 +206,12 @@ public class BlazeCommandDispatcher {
           command,
           waitTimeInMs,
           startupOptionsTaggedWithBazelRc);
-    } catch (ShutdownBlazeServerException e) {
-      shutdownReason = "explicitly by client " + currentClientDescription;
-      throw e;
+      if (result.shutdown()) {
+        // TODO(lberki): This also handles the case where we catch an uncaught Throwable in
+        // execExclusively() which is not an explicit shutdown.
+        shutdownReason = "explicitly by client " + clientDescription;
+      }
+      return result;
     } finally {
       synchronized (commandLock) {
         currentClientDescription = null;
@@ -236,7 +220,7 @@ public class BlazeCommandDispatcher {
     }
   }
 
-  private int execExclusively(
+  private BlazeCommandResult execExclusively(
       OriginalUnstructuredCommandLineEvent unstructuredServerCommandLineEvent,
       InvocationPolicy invocationPolicy,
       List<String> args,
@@ -245,8 +229,7 @@ public class BlazeCommandDispatcher {
       String commandName,
       BlazeCommand command,
       long waitTimeInMs,
-      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
-      throws ShutdownBlazeServerException {
+      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
     // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
 
@@ -325,7 +308,7 @@ public class BlazeCommandDispatcher {
         env.getEventBus().post(post);
       }
       // TODO(ulfjack): We're not calling BlazeModule.afterCommand here, even though we should.
-      return earlyExitCode.getNumericExitCode();
+      return BlazeCommandResult.exitCode(earlyExitCode);
     }
 
     // Setup log filtering
@@ -360,7 +343,7 @@ public class BlazeCommandDispatcher {
     // Do this before an actual crash so we don't have to worry about
     // allocating memory post-crash.
     String[] crashData = env.getCrashData();
-    int numericExitCode = ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode();
+    BlazeCommandResult result = BlazeCommandResult.exitCode(ExitCode.BLAZE_INTERNAL_ERROR);
     PrintStream savedOut = System.out;
     PrintStream savedErr = System.err;
 
@@ -379,14 +362,14 @@ public class BlazeCommandDispatcher {
     }
     if (oomMoreEagerlyThreshold < 0 || oomMoreEagerlyThreshold > 100) {
       reporter.handle(Event.error("--oom_more_eagerly_threshold must be non-negative percent"));
-      return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
     if (oomMoreEagerlyThreshold != 100) {
       try {
         RetainedHeapLimiter.maybeInstallRetainedHeapLimiter(oomMoreEagerlyThreshold);
       } catch (OptionsParsingException e) {
         reporter.handle(Event.error(e.getMessage()));
-        return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
+        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
     }
 
@@ -472,7 +455,7 @@ public class BlazeCommandDispatcher {
             invocationPolicy);
       } catch (AbruptExitException e) {
         reporter.handle(Event.error(e.getMessage()));
-        return e.getExitCode().getNumericExitCode();
+        return BlazeCommandResult.exitCode(e.getExitCode());
       }
 
       // Log the command line now that the modules have all had a change to register their listeners
@@ -486,22 +469,27 @@ public class BlazeCommandDispatcher {
         env.getSkyframeExecutor().injectExtraPrecomputedValues(module.getPrecomputedValues());
       }
 
-      ExitCode outcome = command.exec(env, options);
-      outcome = env.precompleteCommand(outcome);
-      numericExitCode = outcome.getNumericExitCode();
-      return numericExitCode;
-    } catch (ShutdownBlazeServerException e) {
-      numericExitCode = e.getExitStatus();
-      throw e;
+      result = command.exec(env, options);
+      ExitCode moduleExitCode = env.precompleteCommand(result.getExitCode());
+      // If Blaze did not suffer an infrastructure failure, check for errors in modules.
+      if (result.getExitCode() != null
+          && !result.getExitCode().isInfrastructureFailure()
+          && moduleExitCode != null) {
+        result = BlazeCommandResult.exitCode(moduleExitCode);
+      }
+      return result;
     } catch (Throwable e) {
       e.printStackTrace();
       BugReport.printBug(outErr, e);
       BugReport.sendBugReport(e, args, crashData);
-      numericExitCode = BugReport.getExitCodeForThrowable(e);
-      throw new ShutdownBlazeServerException(numericExitCode, e);
+      logger.log(Level.SEVERE, "Shutting down due to exception", e);
+      return BlazeCommandResult.shutdown(BugReport.getExitCodeForThrowable(e));
     } finally {
       env.getEventBus().post(new AfterCommandEvent());
-      runtime.afterCommand(env, numericExitCode);
+      int numericExitCode = result.getExitCode() == null
+          ? 0
+          : result.getExitCode().getNumericExitCode();
+      numericExitCode = runtime.afterCommand(env, numericExitCode);
       // Swallow IOException, as we are already in a finally clause
       Flushables.flushQuietly(outErr.getOutputStream());
       Flushables.flushQuietly(outErr.getErrorStream());
@@ -523,9 +511,8 @@ public class BlazeCommandDispatcher {
    * long, Optional<List<Pair<String, String>>>)}, but automatically uses the current time.
    */
   @VisibleForTesting
-  public int exec(
-      List<String> args, LockingMode lockingMode, String clientDescription, OutErr originalOutErr)
-      throws ShutdownBlazeServerException, InterruptedException {
+  public BlazeCommandResult exec(List<String> args, String clientDescription, OutErr originalOutErr)
+      throws InterruptedException {
     return exec(
         InvocationPolicy.getDefaultInstance(),
         args,
@@ -636,6 +623,7 @@ public class BlazeCommandDispatcher {
    * Returns the runtime instance shared by the commands that this dispatcher
    * dispatches to.
    */
+  @VisibleForTesting
   public BlazeRuntime getRuntime() {
     return runtime;
   }

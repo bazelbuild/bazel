@@ -96,8 +96,8 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     ConfiguredTarget b = getDirectPrerequisite(a, "//a:b");
 
-    PathFragment aPath = a.getConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPath();
-    PathFragment bPath = b.getConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPath();
+    PathFragment aPath = getConfiguration(a).getOutputDirectory(RepositoryName.MAIN).getExecPath();
+    PathFragment bPath = getConfiguration(b).getOutputDirectory(RepositoryName.MAIN).getExecPath();
 
     assertThat(aPath.getPathString()).doesNotMatch("-min[0-9]");
     assertThat(bPath.getPathString()).contains("-min7.0-");
@@ -924,16 +924,14 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   public void testLinkActionHasCorrectIosSimulatorMinVersion() throws Exception {
     getRuleType().scratchTarget(scratch, "platform_type", "'ios'");
     useConfiguration("--ios_multi_cpus=x86_64", "--ios_sdk_version=10.0", "--ios_minimum_os=8.0");
-    checkLinkMinimumOSVersion(
-        ConfigurationDistinguisher.APPLEBIN_IOS, "x86_64", "-mios-simulator-version-min=8.0");
+    checkLinkMinimumOSVersion("-mios-simulator-version-min=8.0");
   }
 
   @Test
   public void testLinkActionHasCorrectIosMinVersion() throws Exception {
     getRuleType().scratchTarget(scratch, "platform_type", "'ios'");
     useConfiguration("--ios_multi_cpus=arm64", "--ios_sdk_version=10.0", "--ios_minimum_os=8.0");
-    checkLinkMinimumOSVersion(
-        ConfigurationDistinguisher.APPLEBIN_IOS, "arm64", "-miphoneos-version-min=8.0");
+    checkLinkMinimumOSVersion("-miphoneos-version-min=8.0");
   }
 
   @Test
@@ -1037,7 +1035,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
       if (archBinary.getExecPathString().endsWith("bin_bin")) {
         Artifact protoLib =
             getFirstArtifactEndingWith(
-                getGeneratingAction(archBinary).getInputs(), "BundledProtos_0.a");
+                getGeneratingAction(archBinary).getInputs(), "BundledProtos.a");
         Artifact protoObject =
             getFirstArtifactEndingWith(
                 getGeneratingAction(protoLib).getInputs(), "Genfile.pbobjc.o");
@@ -1093,8 +1091,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     Artifact arm64Binary = getSingleArchBinary(lipoAction, "arm64");
 
     Artifact armv7ProtoLib =
-        getFirstArtifactEndingWith(
-            getGeneratingAction(armv7Binary).getInputs(), "BundledProtos_0.a");
+        getFirstArtifactEndingWith(getGeneratingAction(armv7Binary).getInputs(), "BundledProtos.a");
     Artifact armv7ProtoObject =
         getFirstArtifactEndingWith(
             getGeneratingAction(armv7ProtoLib).getInputs(), "One.pbobjc.o");
@@ -1105,8 +1102,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         getGeneratingAction(armv7ProtoObjcSource).getInputs(), "one.proto")).isNotNull();
 
     Artifact arm64ProtoLib =
-        getFirstArtifactEndingWith(
-            getGeneratingAction(arm64Binary).getInputs(), "BundledProtos_0.a");
+        getFirstArtifactEndingWith(getGeneratingAction(arm64Binary).getInputs(), "BundledProtos.a");
     Artifact arm64ProtoObject =
         getFirstArtifactEndingWith(
             getGeneratingAction(arm64ProtoLib).getInputs(), "Two.pbobjc.o");
@@ -1321,8 +1317,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "platform_type", "'watchos'");
     useConfiguration(
         "--watchos_cpus=i386", "--watchos_sdk_version=3.0", "--watchos_minimum_os=2.0");
-    checkLinkMinimumOSVersion(ConfigurationDistinguisher.APPLEBIN_WATCHOS, "i386",
-        "-mwatchos-simulator-version-min=2.0");
+    checkLinkMinimumOSVersion("-mwatchos-simulator-version-min=2.0");
   }
 
   @Test
@@ -1331,8 +1326,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "platform_type", "'watchos'");
     useConfiguration(
         "--watchos_cpus=armv7k", "--watchos_sdk_version=3.0", "--watchos_minimum_os=2.0");
-    checkLinkMinimumOSVersion(ConfigurationDistinguisher.APPLEBIN_WATCHOS, "armv7k",
-        "-mwatchos-version-min=2.0");
+    checkLinkMinimumOSVersion("-mwatchos-version-min=2.0");
   }
 
   @Test
@@ -1341,8 +1335,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "platform_type", "'tvos'");
     useConfiguration(
         "--tvos_cpus=x86_64", "--tvos_sdk_version=10.1", "--tvos_minimum_os=10.0");
-    checkLinkMinimumOSVersion(ConfigurationDistinguisher.APPLEBIN_TVOS, "x86_64",
-        "-mtvos-simulator-version-min=10.0");
+    checkLinkMinimumOSVersion("-mtvos-simulator-version-min=10.0");
   }
 
   @Test
@@ -1351,8 +1344,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "platform_type", "'tvos'");
     useConfiguration(
         "--tvos_cpus=arm64", "--tvos_sdk_version=10.1", "--tvos_minimum_os=10.0");
-    checkLinkMinimumOSVersion(ConfigurationDistinguisher.APPLEBIN_TVOS, "arm64",
-        "-mtvos-version-min=10.0");
+    checkLinkMinimumOSVersion("-mtvos-version-min=10.0");
   }
 
   @Test
@@ -1460,7 +1452,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCustomModuleMap() throws Exception {
-    checkCustomModuleMap(getRuleType());
+    checkCustomModuleMapNotPropagatedByTargetUnderTest(getRuleType());
   }
 
   @Test

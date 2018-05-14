@@ -22,14 +22,18 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Type;
@@ -42,117 +46,117 @@ public class JavaSkylarkCommon {
 
   @SkylarkCallable(
       name = "create_provider",
-      doc = "Creates a JavaInfo from jars. compile_time/runtime_jars represent the outputs of the "
-          + "target providing a JavaInfo, while transitive_*_jars represent their dependencies."
-          + "<p>Note: compile_time_jars and runtime_jars are not automatically merged into the "
-          + "transitive jars (unless the given transitive_*_jars are empty) - if this is the "
-          + "desired behaviour the user should merge the jars before creating the provider."
-          + "<p>This function also creates actions to generate interface jars by default."
-          + "<p>When use_ijar is True, ijar will be run on the given compile_time_jars and the "
-          + "resulting interface jars will be stored as compile_jars, while the initila jars will "
-          + "be stored as full_compile_jars. "
-          + "<p>When use_ijar=False, the given compile_time_jars will be stored as both "
-          + "compile_jars and full_compile_jars. No actions are created. See JavaInfo#compile_jars "
-          + "and JavaInfo#full_compile_jars for more details."
-          + "<p>Currently only "
-          + "<a href='https://github.com/bazelbuild/bazel/tree/master/third_party/ijar'>ijar</a> is "
-          + "supported for generating interface jars. Header compilation is not yet supported."
-          ,
+      doc =
+          "Creates a JavaInfo from jars. compile_time/runtime_jars represent the outputs of the "
+              + "target providing a JavaInfo, while transitive_*_jars represent their dependencies."
+              + "<p>Note: compile_time_jars and runtime_jars are not automatically merged into the "
+              + "transitive jars (unless the given transitive_*_jars are empty) - if this is the "
+              + "desired behaviour the user should merge the jars before creating the provider."
+              + "<p>This function also creates actions to generate interface jars by default."
+              + "<p>When use_ijar is True, ijar will be run on the given compile_time_jars and the "
+              + "resulting interface jars will be stored as compile_jars, "
+              + "while the initial jars will be stored as full_compile_jars. "
+              + "<p>When use_ijar=False, the given compile_time_jars will be stored as both "
+              + "compile_jars and full_compile_jars. No actions are created. "
+              + "See JavaInfo#compile_jars and JavaInfo#full_compile_jars for more details."
+              + "<p>Currently only "
+              + "<a href='https://github.com/bazelbuild/bazel/tree/master/third_party/ijar'>"
+              + "ijar</a>"
+              + " is supported for generating interface jars. "
+              + "Header compilation is not yet supported.",
       parameters = {
-          @Param(
-              name = "actions",
-              type = SkylarkActionFactory.class,
-              noneable = true,
-              defaultValue = "None",
-              doc = "The ctx.actions object, used to register the actions for creating the "
-                  + "interface jars. Only set if use_ijar=True."
-          ),
-          @Param(
-              name = "compile_time_jars",
-              positional = false,
-              named = true,
-              allowedTypes = {
-                  @ParamType(type = SkylarkList.class),
-                  @ParamType(type = SkylarkNestedSet.class),
-              },
-              generic1 = Artifact.class,
-              defaultValue = "[]",
-              doc = "A list or a set of jars that should be used at compilation for a given target."
-          ),
-          @Param(
-              name = "runtime_jars",
-              positional = false,
-              named = true,
-              allowedTypes = {
-                  @ParamType(type = SkylarkList.class),
-                  @ParamType(type = SkylarkNestedSet.class),
-              },
-              generic1 = Artifact.class,
-              defaultValue = "[]",
-              doc = "A list or a set of jars that should be used at runtime for a given target."
-          ),
-          @Param(
-              name = "use_ijar",
-              positional = false,
-              named = true,
-              type = Boolean.class,
-              defaultValue = "True",
-              doc = "If True it will generate interface jars for every jar in compile_time_jars."
-                  + "The generating interface jars will be stored as compile_jars and the initial "
-                  + "(full) compile_time_jars will be stored as full_compile_jars."
-                  + "If False the given compile_jars will be stored as both compile_jars and "
-                  + "full_compile_jars."
-          ),
-          @Param(
-              name = "java_toolchain",
-              positional = false,
-              named = true,
-              type = ConfiguredTarget.class,
-              noneable = true,
-              defaultValue = "None",
-              doc = "A label pointing to a java_toolchain rule to be used for retrieving the ijar "
-                  + "tool. Only set when use_ijar is True."
-          ),
-          @Param(
-              name = "transitive_compile_time_jars",
-              positional = false,
-              named = true,
-              allowedTypes = {
-                  @ParamType(type = SkylarkList.class),
-                  @ParamType(type = SkylarkNestedSet.class),
-              },
-              generic1 = Artifact.class,
-              defaultValue = "[]",
-              doc = "A list or set of compile time jars collected from the transitive closure of a "
-                  + "rule."
-          ),
-          @Param(
-              name = "transitive_runtime_jars",
-              positional = false,
-              named = true,
-              allowedTypes = {
-                  @ParamType(type = SkylarkList.class),
-                  @ParamType(type = SkylarkNestedSet.class),
-              },
-              generic1 = Artifact.class,
-              defaultValue = "[]",
-              doc = "A list or set of runtime jars collected from the transitive closure of a rule."
-          ),
-          @Param(
-              name = "source_jars",
-              positional = false,
-              named = true,
-              allowedTypes = {
-                  @ParamType(type = SkylarkList.class),
-                  @ParamType(type = SkylarkNestedSet.class),
-              },
-              generic1 = Artifact.class,
-              defaultValue = "[]",
-              doc = "A list or set of output source jars that contain the uncompiled source files "
-                  + "including the source files generated by annotation processors if the case."
-          )
-      }
-  )
+        @Param(
+            name = "actions",
+            type = SkylarkActionFactory.class,
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "The ctx.actions object, used to register the actions for creating the "
+                    + "interface jars. Only set if use_ijar=True."),
+        @Param(
+            name = "compile_time_jars",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = SkylarkList.class),
+              @ParamType(type = SkylarkNestedSet.class),
+            },
+            generic1 = Artifact.class,
+            defaultValue = "[]",
+            doc = "A list or a set of jars that should be used at compilation for a given target."),
+        @Param(
+            name = "runtime_jars",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = SkylarkList.class),
+              @ParamType(type = SkylarkNestedSet.class),
+            },
+            generic1 = Artifact.class,
+            defaultValue = "[]",
+            doc = "A list or a set of jars that should be used at runtime for a given target."),
+        @Param(
+            name = "use_ijar",
+            positional = false,
+            named = true,
+            type = Boolean.class,
+            defaultValue = "True",
+            doc =
+                "If True it will generate interface jars for every jar in compile_time_jars."
+                    + "The generating interface jars will be stored as compile_jars "
+                    + "and the initial (full) compile_time_jars will be stored as "
+                    + "full_compile_jars. If False the given compile_jars will be "
+                    + "stored as both compile_jars and full_compile_jars."),
+        @Param(
+            name = "java_toolchain",
+            positional = false,
+            named = true,
+            type = ConfiguredTarget.class,
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "A label pointing to a java_toolchain rule to be used for retrieving the ijar "
+                    + "tool. Only set when use_ijar is True."),
+        @Param(
+            name = "transitive_compile_time_jars",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = SkylarkList.class),
+              @ParamType(type = SkylarkNestedSet.class),
+            },
+            generic1 = Artifact.class,
+            defaultValue = "[]",
+            doc =
+                "A list or set of compile time jars collected from the transitive closure of a "
+                    + "rule."),
+        @Param(
+            name = "transitive_runtime_jars",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = SkylarkList.class),
+              @ParamType(type = SkylarkNestedSet.class),
+            },
+            generic1 = Artifact.class,
+            defaultValue = "[]",
+            doc = "A list or set of runtime jars collected from the transitive closure of a rule."),
+        @Param(
+            name = "source_jars",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = SkylarkList.class),
+              @ParamType(type = SkylarkNestedSet.class),
+            },
+            generic1 = Artifact.class,
+            defaultValue = "[]",
+            doc =
+                "A list or set of output source jars that contain the uncompiled source files "
+                    + "including the source files generated by annotation processors if the case.")
+      },
+      useLocation = true,
+      useEnvironment = true)
   public JavaInfo create(
       @Nullable Object actionsUnchecked,
       Object compileTimeJars,
@@ -161,9 +165,17 @@ public class JavaSkylarkCommon {
       @Nullable Object javaToolchainUnchecked,
       Object transitiveCompileTimeJars,
       Object transitiveRuntimeJars,
-      Object sourceJars)
+      Object sourceJars,
+      Location location,
+      Environment environment)
       throws EvalException {
-
+    if (environment.getSemantics().incompatibleDisallowLegacyJavaInfo()) {
+      throw new EvalException(
+          location,
+          "create_provider is deprecated and cannot be used when "
+              + "--incompatible_disallow_legacy_javainfo is set. "
+              + "Please migrate to the JavaInfo constructor.");
+    }
     return JavaInfoBuildHelper.getInstance()
         .create(
             actionsUnchecked,
@@ -173,7 +185,8 @@ public class JavaSkylarkCommon {
             javaToolchainUnchecked,
             asArtifactNestedSet(transitiveCompileTimeJars),
             asArtifactNestedSet(transitiveRuntimeJars),
-            asArtifactNestedSet(sourceJars));
+            asArtifactNestedSet(sourceJars),
+            location);
   }
 
   public JavaSkylarkCommon(JavaSemantics javaSemantics) {
@@ -311,6 +324,13 @@ public class JavaSkylarkCommon {
           type = SkylarkList.class,
           generic1 = Artifact.class,
           defaultValue = "[]"
+      ),
+      @Param(
+          name = "neverlink",
+          positional = false,
+          named = true,
+          type = Boolean.class,
+          defaultValue = "False"
       )
     }
   )
@@ -328,7 +348,8 @@ public class JavaSkylarkCommon {
       ConfiguredTarget javaToolchain,
       ConfiguredTarget hostJavabase,
       SkylarkList<Artifact> sourcepathEntries,
-      SkylarkList<Artifact> resources) throws EvalException, InterruptedException {
+      SkylarkList<Artifact> resources,
+      Boolean neverlink) throws EvalException, InterruptedException {
 
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
@@ -346,7 +367,162 @@ public class JavaSkylarkCommon {
             hostJavabase,
             sourcepathEntries,
             resources,
+            neverlink,
             javaSemantics);
+  }
+
+  @SkylarkCallable(
+      name = "run_ijar",
+      doc =
+          "Runs ijar on a jar, stripping it of its method bodies. This helps reduce rebuilding "
+              + "of dependent jars during any recompiles consisting only of simple changes to "
+              + "method implementations. The return value is typically passed to "
+              + "<code><a class=\"anchor\" href=\"JavaInfo.html\">"
+              + "JavaInfo</a>#compile_jar</code>.",
+      parameters = {
+        @Param(
+            name = "actions",
+            named = true,
+            type = SkylarkActionFactory.class,
+            doc = "ctx.actions"),
+        @Param(
+            name = "jar",
+            positional = false,
+            named = true,
+            type = Artifact.class,
+            doc = "The jar to run ijar on."),
+        @Param(
+            name = "target_label",
+            positional = false,
+            named = true,
+            type = Label.class,
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "A target label to stamp the jar with. Used for <code>add_dep</code> support. "
+                    + "Typically, you would pass <code>ctx.label</code> to stamp the jar "
+                    + "with the current rule's label."),
+        @Param(
+            name = "java_toolchain",
+            positional = false,
+            named = true,
+            type = ConfiguredTarget.class,
+            doc = "A label pointing to a java_toolchain rule to used to find the ijar tool."),
+      })
+  public Artifact runIjar(
+      SkylarkActionFactory actions,
+      Artifact jar,
+      Object targetLabel,
+      ConfiguredTarget javaToolchain)
+      throws EvalException {
+    return JavaInfoBuildHelper.getInstance()
+        .buildIjar(
+            actions, jar, targetLabel != Runtime.NONE ? (Label) targetLabel : null, javaToolchain);
+  }
+
+  @SkylarkCallable(
+      name = "stamp_jar",
+      doc =
+          "Stamps a jar with a target label for <code>add_dep</code> support. "
+              + "The return value is typically passed to "
+              + "<code><a class=\"anchor\" href=\"JavaInfo.html\">"
+              + "JavaInfo</a>#compile_jar</code>. "
+              + "Prefer to use "
+              + "<code><a class=\"anchor\" href=\"java_common.html#run_ijar\">run_ijar</a></code> "
+              + "when possible.",
+      parameters = {
+        @Param(
+            name = "actions",
+            named = true,
+            type = SkylarkActionFactory.class,
+            doc = "ctx.actions"),
+        @Param(
+            name = "jar",
+            positional = false,
+            named = true,
+            type = Artifact.class,
+            doc = "The jar to run ijar on."),
+        @Param(
+            name = "target_label",
+            positional = false,
+            named = true,
+            type = Label.class,
+            doc =
+                "A target label to stamp the jar with. Used for <code>add_dep</code> support. "
+                    + "Typically, you would pass <code>ctx.label</code> to stamp the jar "
+                    + "with the current rule's label."),
+        @Param(
+            name = "java_toolchain",
+            positional = false,
+            named = true,
+            type = ConfiguredTarget.class,
+            doc = "A label pointing to a java_toolchain rule to used to find the ijar tool."),
+      })
+  public Artifact stampJar(
+      SkylarkActionFactory actions, Artifact jar, Label targetLabel, ConfiguredTarget javaToolchain)
+      throws EvalException {
+    return JavaInfoBuildHelper.getInstance().stampJar(actions, jar, targetLabel, javaToolchain);
+  }
+
+  @SkylarkCallable(
+      name = "pack_sources",
+      doc =
+          "Packs sources and source jars into a single source jar file. "
+              + "The return value is typically passed to"
+              + "<p><code><a class=\"anchor\" href=\"JavaInfo.html\">"
+              + "JavaInfo</a>#source_jar</code></p>.",
+      parameters = {
+        @Param(
+            name = "actions",
+            named = true,
+            type = SkylarkActionFactory.class,
+            doc = "ctx.actions"),
+        @Param(
+            name = "output_jar",
+            positional = false,
+            named = true,
+            type = Artifact.class,
+            doc = "The output jar of the rule. Used to name the resulting source jar."),
+        @Param(
+            name = "sources",
+            positional = false,
+            named = true,
+            type = SkylarkList.class,
+            generic1 = Artifact.class,
+            defaultValue = "[]",
+            doc = "A list of Java source files to be packed into the source jar."),
+        @Param(
+            name = "source_jars",
+            positional = false,
+            named = true,
+            type = SkylarkList.class,
+            generic1 = Artifact.class,
+            defaultValue = "[]",
+            doc = "A list of source jars to be packed into the source jar."),
+        @Param(
+            name = "java_toolchain",
+            positional = false,
+            named = true,
+            type = ConfiguredTarget.class,
+            doc = "A label pointing to a java_toolchain rule to used to find the ijar tool."),
+        @Param(
+            name = "host_javabase",
+            positional = false,
+            named = true,
+            type = ConfiguredTarget.class,
+            doc = "A label pointing to a JDK to be used for packing sources."),
+      },
+      allowReturnNones = true)
+  public Artifact packSources(
+      SkylarkActionFactory actions,
+      Artifact outputJar,
+      SkylarkList<Artifact> sourceFiles,
+      SkylarkList<Artifact> sourceJars,
+      ConfiguredTarget javaToolchain,
+      ConfiguredTarget hostJavabase)
+      throws EvalException {
+    return JavaInfoBuildHelper.getInstance()
+        .packSourceFiles(actions, outputJar, sourceFiles, sourceJars, javaToolchain, hostJavabase);
   }
 
   @SkylarkCallable(
@@ -357,8 +533,9 @@ public class JavaSkylarkCommon {
       mandatoryPositionals = 1,
       parameters = {
         @Param(name = "java_toolchain_attr", positional = false, named = true, type = String.class)
-      }
-  )
+      })
+  // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
+  // delete
   public static ImmutableList<String> getDefaultJavacOpts(
       SkylarkRuleContext skylarkRuleContext, String javaToolchainAttr) throws EvalException {
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
@@ -421,8 +598,7 @@ public class JavaSkylarkCommon {
     return JavaCompilationArgsProvider.create(
         directCompilationArgs.build(),
         provider.getRecursiveJavaCompilationArgs(),
-        provider.getCompileTimeJavaDependencyArtifacts(),
-        provider.getRunTimeJavaDependencyArtifacts());
+        provider.getCompileTimeJavaDependencyArtifacts());
   }
 
   @SkylarkCallable(

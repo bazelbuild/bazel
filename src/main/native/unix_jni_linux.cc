@@ -74,13 +74,17 @@ int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
 }
 
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
-                          size_t size) {
-  return ::getxattr(path, name, value, size);
+                          size_t size, bool *attr_not_found) {
+  ssize_t result = ::getxattr(path, name, value, size);
+  *attr_not_found = (errno == ENODATA);
+  return result;
 }
 
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
-                           size_t size) {
-  return ::lgetxattr(path, name, value, size);
+                           size_t size, bool *attr_not_found) {
+  ssize_t result = ::lgetxattr(path, name, value, size);
+  *attr_not_found = (errno == ENODATA);
+  return result;
 }
 
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {

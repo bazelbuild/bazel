@@ -17,19 +17,33 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.Collection;
 
 /**
  * The collection of labels of exported targets and artifacts reached via "exports" attribute
  * transitively.
  */
 @Immutable
+@AutoCodec
 public final class JavaExportsProvider implements TransitiveInfoProvider {
 
   private final NestedSet<Label> transitiveExports;
 
-  public JavaExportsProvider(NestedSet<Label> transitiveExports) {
+  JavaExportsProvider(NestedSet<Label> transitiveExports) {
     this.transitiveExports = transitiveExports;
+  }
+
+  public static JavaExportsProvider merge(Collection<JavaExportsProvider> providers) {
+    NestedSetBuilder<Label> builder = NestedSetBuilder.stableOrder();
+
+    providers.stream()
+        .map(JavaExportsProvider::getTransitiveExports)
+        .forEach(builder::addTransitive);
+
+    return new JavaExportsProvider(builder.build());
   }
 
   /**

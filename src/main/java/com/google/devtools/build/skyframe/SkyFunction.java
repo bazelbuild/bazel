@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.util.GroupedList;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -35,15 +36,18 @@ public interface SkyFunction {
    * When a value is requested, this method is called with the name of the value and a
    * dependency-tracking environment.
    *
-   * <p>This method should return a non-{@code null} value, or {@code null} if any dependencies
-   * were missing ({@link Environment#valuesMissing} was true before returning). In that case the
-   * missing dependencies will be computed and the {@code compute} method called again.
+   * <p>This method should return a non-{@code null} value, or {@code null} if any dependencies were
+   * missing ({@link Environment#valuesMissing} was true before returning). In that case the missing
+   * dependencies will be computed and the {@code compute} method called again.
    *
-   * <p>This method should throw if it fails, or if one of its dependencies fails with an
-   * exception and this method cannot recover. If one of its dependencies fails and this method can
-   * enrich the exception with additional context, then this method should catch that exception and
-   * throw another containing that additional context. If it has no such additional context, then
-   * it should allow its dependency's exception to be thrown through it.
+   * <p>This method should throw if it fails, or if one of its dependencies fails with an exception
+   * and this method cannot recover. If one of its dependencies fails and this method can enrich the
+   * exception with additional context, then this method should catch that exception and throw
+   * another containing that additional context. If it has no such additional context, then it
+   * should allow its dependency's exception to be thrown through it.
+   *
+   * <p>This method may return {@link #SENTINEL_FOR_RESTART_FROM_SCRATCH} in rare circumstances. See
+   * its docs. Do not return this value unless you know exactly what you are doing.
    *
    * @throws SkyFunctionException on failure
    * @throws InterruptedException if interrupted
@@ -63,6 +67,17 @@ public interface SkyFunction {
    */
   @Nullable
   String extractTag(SkyKey skyKey);
+
+  /**
+   * Sentinel value for {@link #compute} to return, indicating that something went wrong in external
+   * state and the evaluation has to be restarted from scratch, ignoring any deps that the {@link
+   * #compute} function may have declared during evaluation at this version (including deps declared
+   * during previous calls that returned null). Common causes for returning this would be data loss,
+   * if a dep's data is not actually available externally. In this case, the {@link SkyFunction}
+   * will likely dirty the unusable dep to force its re-evalution when re-requested by the restarted
+   * entry's computation.
+   */
+  SkyValue SENTINEL_FOR_RESTART_FROM_SCRATCH = new SkyValue() {};
 
   /**
    * The services provided to the {@link SkyFunction#compute} implementation by the Skyframe
@@ -272,6 +287,26 @@ public interface SkyFunction {
      * or progress messages during execution of {@link SkyFunction#compute}.
      */
     ExtendedEventHandler getListener();
+
+    /**
+     * A live view of deps known to have already been requested either through an earlier call to
+     * {@link SkyFunction#compute} or inferred during change pruning. Should return {@code null} if
+     * unknown.
+     */
+    @Nullable
+    default GroupedList<SkyKey> getTemporaryDirectDeps() {
+      return null;
+    }
+
+    /**
+     * Register dependencies on keys without necessarily requiring their values.
+     *
+     * <p>WARNING: Dependencies here MUST be done! Only use this function if you know what you're
+     * doing.
+     */
+    default void registerDependencies(Iterable<SkyKey> keys) throws InterruptedException {
+      getValues(keys);
+    }
 
     /** Returns whether we are currently in error bubbling. */
     @VisibleForTesting

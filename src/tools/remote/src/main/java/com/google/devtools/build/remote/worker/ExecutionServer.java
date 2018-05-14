@@ -24,11 +24,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.remote.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.DigestUtil;
-import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
+import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
-import com.google.devtools.build.lib.remote.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -40,6 +42,7 @@ import com.google.devtools.remoteexecution.v1test.Action;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.Command.EnvironmentVariable;
 import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
+import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
 import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionImplBase;
 import com.google.devtools.remoteexecution.v1test.Platform;
 import com.google.devtools.remoteexecution.v1test.RequestMetadata;
@@ -49,7 +52,6 @@ import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.Context;
 import io.grpc.StatusException;
-import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -251,17 +253,20 @@ final class ExecutionServer extends ExecutionImplBase {
         (cmdResult != null && cmdResult.getTerminationStatus().timedOut())
             || wasTimeout(timeoutMillis, System.currentTimeMillis() - startTime);
     final int exitCode;
+    Status errStatus = null;
+    ExecuteResponse.Builder resp = ExecuteResponse.newBuilder();
     if (wasTimeout) {
       final String errMessage =
           String.format(
               "Command:\n%s\nexceeded deadline of %f seconds.",
               Arrays.toString(command.getArgumentsList().toArray()), timeoutMillis / 1000.0);
       logger.warning(errMessage);
-      throw StatusProto.toStatusException(
+      errStatus =
           Status.newBuilder()
               .setCode(Code.DEADLINE_EXCEEDED.getNumber())
               .setMessage(errMessage)
-              .build());
+              .build();
+      exitCode = LOCAL_EXEC_ERROR;
     } else if (cmdResult == null) {
       exitCode = LOCAL_EXEC_ERROR;
     } else {
@@ -269,16 +274,35 @@ final class ExecutionServer extends ExecutionImplBase {
     }
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    cache.upload(result, execRoot, outputs);
+    try {
+      cache.upload(result, execRoot, outputs);
+    } catch (ExecException e) {
+      if (errStatus == null) {
+        errStatus =
+            Status.newBuilder()
+                .setCode(Code.FAILED_PRECONDITION.getNumber())
+                .setMessage(e.getMessage())
+                .build();
+      }
+    }
     byte[] stdout = cmdResult.getStdout();
     byte[] stderr = cmdResult.getStderr();
     cache.uploadOutErr(result, stdout, stderr);
     ActionResult finalResult = result.setExitCode(exitCode).build();
-    if (exitCode == 0 && !action.getDoNotCache()) {
+    resp.setResult(finalResult);
+    if (errStatus != null) {
+      resp.setStatus(errStatus);
+      throw new ExecutionStatusException(errStatus, resp.build());
+    } else if (exitCode == 0 && !action.getDoNotCache()) {
       ActionKey actionKey = digestUtil.computeActionKey(action);
       cache.setCachedActionResult(actionKey, finalResult);
     }
     return finalResult;
+  }
+
+  // Returns true if the OS being run on is Windows (or some close approximation thereof).
+  private boolean isWindows() {
+    return System.getProperty("os.name").startsWith("Windows");
   }
 
   private boolean wasTimeout(long timeoutMillis, long wallTimeMillis) {
@@ -363,10 +387,14 @@ final class ExecutionServer extends ExecutionImplBase {
       newCommandLineElements.add("docker");
       newCommandLineElements.add("run");
 
-      long uid = getUid();
-      if (uid >= 0) {
-        newCommandLineElements.add("-u");
-        newCommandLineElements.add(Long.toString(uid));
+      // -u doesn't currently make sense for Windows:
+      // https://github.com/docker/for-win/issues/636#issuecomment-293653788
+      if (!isWindows()) {
+        long uid = getUid();
+        if (uid >= 0) {
+          newCommandLineElements.add("-u");
+          newCommandLineElements.add(Long.toString(uid));
+        }
       }
 
       String dockerPathString = pathString + "-docker";

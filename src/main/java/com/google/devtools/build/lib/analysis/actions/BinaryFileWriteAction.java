@@ -71,21 +71,18 @@ public final class BinaryFileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    f.addString(String.valueOf(makeExecutable));
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
+    fp.addString(String.valueOf(makeExecutable));
 
     try (InputStream in = source.openStream()) {
       byte[] buffer = new byte[512];
       int amountRead;
       while ((amountRead = in.read(buffer)) != -1) {
-        f.addBytes(buffer, 0, amountRead);
+        fp.addBytes(buffer, 0, amountRead);
       }
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-
-    return f.hexDigestAndReset();
   }
 }

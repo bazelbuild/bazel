@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
@@ -107,7 +108,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   private AttributeContainer getContainerForTarget(String targetName) throws Exception {
-    ConfiguredTarget target = getConfiguredTarget("//test/skylark:" + targetName);
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("//test/skylark:" + targetName);
     return target.getTarget().getAssociatedRule().getAttributeContainer();
   }
 
@@ -157,7 +158,26 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     assertThat(ccTarget.getAttr("generator_location")).isEqualTo("");
   }
 
-
+  @Test
+  public void sanityCheckUserDefinedTestRule() throws Exception {
+    scratch.file(
+        "test/skylark/test_rule.bzl",
+        "def _impl(ctx):",
+        "  output = ctx.outputs.out",
+        "  ctx.actions.write(output = output, content = 'hello')",
+        "",
+        "fake_test = rule(",
+        "  implementation = _impl,",
+        "  test=True,",
+        "  attrs = {'_xcode_config': attr.label(default = configuration_field(",
+        "  fragment = 'apple', name = \"xcode_config_label\"))},",
+        "  outputs = {\"out\": \"%{name}.txt\"})");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:test_rule.bzl', 'fake_test')",
+        "fake_test(name = 'test_name')");
+    getConfiguredTarget("//test/skylark:fake_test");
+  }
 
   @Test
   public void testOutputGroups() throws Exception {
@@ -243,10 +263,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     assertThat(myTarget.get("has_key2")).isEqualTo(Boolean.FALSE);
     assertThat((SkylarkList) myTarget.get("all_keys"))
         .containsExactly(
-            "_hidden_top_level" + INTERNAL_SUFFIX,
-            "compilation_prerequisites" + INTERNAL_SUFFIX,
-            "files_to_compile" + INTERNAL_SUFFIX,
-            "temp_files" + INTERNAL_SUFFIX);
+            OutputGroupInfo.HIDDEN_TOP_LEVEL,
+            OutputGroupInfo.COMPILATION_PREREQUISITES,
+            OutputGroupInfo.FILES_TO_COMPILE,
+            OutputGroupInfo.TEMP_FILES);
   }
 
   @Test
@@ -339,8 +359,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "str",
         "\t\tstr.index(1)"
             + System.lineSeparator()
-            + "argument 'sub' has type 'int', but should be 'string'\n"
-            + "in call to builtin method string.index(sub, start, end)");
+            + "expected value of type 'string' for parameter 'sub', "
+            + "in method call index(int) of 'string'");
   }
 
   @Test
@@ -912,6 +932,46 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         ActionsTestUtil.baseArtifactNames(
             target.getProvider(FileProvider.class).getFilesToBuild()))
         .containsExactly("bar.txt");
+  }
+
+  @Test
+  public void testPrintProviderCollection() throws Exception {
+    scratch.file(
+        "test/skylark/rules.bzl",
+        "",
+        "FooInfo = provider()",
+        "BarInfo = provider()",
+        "",
+        "def _top_level_rule_impl(ctx):",
+        "  print('My Dep Providers:', ctx.attr.my_dep)",
+        "",
+        "def _dep_rule_impl(name):",
+        "  providers = [",
+        "      FooInfo(),",
+        "      BarInfo(),",
+        "  ]",
+        "  return providers",
+        "",
+        "top_level_rule = rule(",
+        "    implementation=_top_level_rule_impl,",
+        "    attrs={'my_dep':attr.label()}",
+        ")",
+        "",
+        "dep_rule = rule(",
+        "    implementation=_dep_rule_impl,",
+        ")");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:rules.bzl', 'top_level_rule', 'dep_rule')",
+        "",
+        "top_level_rule(name = 'tl', my_dep=':d')",
+        "",
+        "dep_rule(name = 'd')");
+
+    getConfiguredTarget("//test/skylark:tl");
+    assertContainsEvent(
+        "My Dep Providers: <target //test/skylark:d, keys:[FooInfo, BarInfo, OutputGroupInfo]>");
   }
 
   @Test
@@ -1611,6 +1671,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
               .getSkyFunctionsForTesting();
       SkylarkImportLookupFunction skylarkImportLookupFunction =
           new SkylarkImportLookupFunction(this.getRuleClassProvider(), this.getPackageFactory());
+      skylarkImportLookupFunction.resetCache();
       ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
           .setSkylarkImportLookupFunctionForInliningForTesting(skylarkImportLookupFunction);
     }

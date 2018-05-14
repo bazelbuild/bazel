@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
+import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -40,6 +42,8 @@ public class BazelRulesModule extends BlazeModule {
           ResourceFileLoader.loadResource(BazelCppRuleClasses.class, "cc_configure.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelRulesModule.class, "xcode_configure.WORKSPACE"));
+      builder.addWorkspaceFileSuffix(
+          ResourceFileLoader.loadResource(BazelShRuleClasses.class, "sh_configure.WORKSPACE"));
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
@@ -49,5 +53,11 @@ public class BazelRulesModule extends BlazeModule {
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     builder.addSkyFunction(FdoSupportValue.SKYFUNCTION, new FdoSupportFunction(directories));
+  }
+
+  @Override
+  public BuildOptions getDefaultBuildOptions(BlazeRuntime blazeRuntime) {
+    return DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+        blazeRuntime.getRuleClassProvider().getConfigurationOptions());
   }
 }

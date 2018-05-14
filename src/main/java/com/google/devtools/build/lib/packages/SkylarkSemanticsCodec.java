@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.protobuf.CodedInputStream;
@@ -37,47 +39,48 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
   }
 
   @Override
-  public void serialize(SkylarkSemantics semantics, CodedOutputStream codedOut)
+  public void serialize(
+      SerializationContext context, SkylarkSemantics semantics, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     // <== Add new options here in alphabetic order ==>
     codedOut.writeBoolNoTag(semantics.incompatibleBzlDisallowLoadAfterStatement());
-    codedOut.writeBoolNoTag(semantics.incompatibleCheckedArithmetic());
-    codedOut.writeBoolNoTag(semantics.incompatibleComprehensionVariablesDoNotLeak());
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetIsNotIterable());
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetUnion());
-    codedOut.writeBoolNoTag(semantics.incompatibleDictLiteralHasNoDuplicates());
     codedOut.writeBoolNoTag(semantics.incompatibleDisableGlobTracking());
+    codedOut.writeBoolNoTag(semantics.incompatibleDisableObjcProviderResources());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowDictPlus());
-    codedOut.writeBoolNoTag(semantics.incompatibleDisallowKeywordOnlyArgs());
-    codedOut.writeBoolNoTag(semantics.incompatibleDisallowToplevelIfStatement());
-    codedOut.writeBoolNoTag(semantics.incompatibleDisallowUncalledSetConstructor());
-    codedOut.writeBoolNoTag(semantics.incompatibleLoadArgumentIsLabel());
+    codedOut.writeBoolNoTag(semantics.incompatibleDisallowFileType());
+    codedOut.writeBoolNoTag(semantics.incompatibleDisallowLegacyJavaInfo());
+    codedOut.writeBoolNoTag(semantics.incompatibleDisallowOldStyleArgsAdd());
+    codedOut.writeBoolNoTag(semantics.incompatibleDisallowSlashOperator());
     codedOut.writeBoolNoTag(semantics.incompatibleNewActionsApi());
-    codedOut.writeBoolNoTag(semantics.incompatibleShowAllPrintMessages());
+    codedOut.writeBoolNoTag(semantics.incompatiblePackageNameIsAFunction());
+    codedOut.writeBoolNoTag(semantics.incompatibleRemoveNativeGitRepository());
+    codedOut.writeBoolNoTag(semantics.incompatibleRemoveNativeHttpArchive());
     codedOut.writeBoolNoTag(semantics.incompatibleStringIsNotIterable());
     codedOut.writeBoolNoTag(semantics.internalSkylarkFlagTestCanary());
   }
 
   @Override
-  public SkylarkSemantics deserialize(CodedInputStream codedIn)
+  public SkylarkSemantics deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     SkylarkSemantics.Builder builder = SkylarkSemantics.builder();
 
     // <== Add new options here in alphabetic order ==>
     builder.incompatibleBzlDisallowLoadAfterStatement(codedIn.readBool());
-    builder.incompatibleCheckedArithmetic(codedIn.readBool());
-    builder.incompatibleComprehensionVariablesDoNotLeak(codedIn.readBool());
     builder.incompatibleDepsetIsNotIterable(codedIn.readBool());
     builder.incompatibleDepsetUnion(codedIn.readBool());
-    builder.incompatibleDictLiteralHasNoDuplicates(codedIn.readBool());
     builder.incompatibleDisableGlobTracking(codedIn.readBool());
+    builder.incompatibleDisableObjcProviderResources(codedIn.readBool());
     builder.incompatibleDisallowDictPlus(codedIn.readBool());
-    builder.incompatibleDisallowKeywordOnlyArgs(codedIn.readBool());
-    builder.incompatibleDisallowToplevelIfStatement(codedIn.readBool());
-    builder.incompatibleDisallowUncalledSetConstructor(codedIn.readBool());
-    builder.incompatibleLoadArgumentIsLabel(codedIn.readBool());
+    builder.incompatibleDisallowFileType(codedIn.readBool());
+    builder.incompatibleDisallowLegacyJavaInfo(codedIn.readBool());
+    builder.incompatibleDisallowOldStyleArgsAdd(codedIn.readBool());
+    builder.incompatibleDisallowSlashOperator(codedIn.readBool());
     builder.incompatibleNewActionsApi(codedIn.readBool());
-    builder.incompatibleShowAllPrintMessages(codedIn.readBool());
+    builder.incompatiblePackageNameIsAFunction(codedIn.readBool());
+    builder.incompatibleRemoveNativeGitRepository(codedIn.readBool());
+    builder.incompatibleRemoveNativeHttpArchive(codedIn.readBool());
     builder.incompatibleStringIsNotIterable(codedIn.readBool());
     builder.internalSkylarkFlagTestCanary(codedIn.readBool());
 

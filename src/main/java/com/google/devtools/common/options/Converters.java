@@ -26,10 +26,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-/**
- * Some convenient converters used by blaze. Note: These are specific to
- * blaze.
- */
+/** Some convenient converters used by blaze. Note: These are specific to blaze. */
 public final class Converters {
 
   /** Standard converter for booleans. Accepts common shorthands/synonyms. */
@@ -180,9 +177,7 @@ public final class Converters {
     }
   }
 
-  /**
-   * Standard converter for the {@link java.time.Duration} type.
-   */
+  /** Standard converter for the {@link java.time.Duration} type. */
   public static class DurationConverter implements Converter<Duration> {
     private final Pattern durationRegex = Pattern.compile("^([0-9]+)(d|h|m|s|ms)$");
 
@@ -198,7 +193,7 @@ public final class Converters {
       }
       long duration = Long.parseLong(m.group(1));
       String unit = m.group(2);
-      switch(unit) {
+      switch (unit) {
         case "d":
           return Duration.ofDays(duration);
         case "h":
@@ -210,8 +205,8 @@ public final class Converters {
         case "ms":
           return Duration.ofMillis(duration);
         default:
-          throw new IllegalStateException("This must not happen. Did you update the regex without "
-              + "the switch case?");
+          throw new IllegalStateException(
+              "This must not happen. Did you update the regex without the switch case?");
       }
     }
 
@@ -240,14 +235,8 @@ public final class Converters {
           .build();
 
   /**
-   * Join a list of words as in English.  Examples:
-   * "nothing"
-   * "one"
-   * "one or two"
-   * "one and two"
-   * "one, two or three".
-   * "one, two and three".
-   * The toString method of each element is used.
+   * Join a list of words as in English. Examples: "nothing" "one" "one or two" "one and two" "one,
+   * two or three". "one, two and three". The toString method of each element is used.
    */
   static String joinEnglishList(Iterable<?> choices) {
     StringBuilder buf = new StringBuilder();
@@ -261,14 +250,12 @@ public final class Converters {
     return buf.length() == 0 ? "nothing" : buf.toString();
   }
 
-  public static class SeparatedOptionListConverter
-      implements Converter<List<String>> {
+  public static class SeparatedOptionListConverter implements Converter<List<String>> {
 
     private final String separatorDescription;
     private final Splitter splitter;
 
-    protected SeparatedOptionListConverter(char separator,
-                                           String separatorDescription) {
+    protected SeparatedOptionListConverter(char separator, String separatorDescription) {
       this.separatorDescription = separatorDescription;
       this.splitter = Splitter.on(separator);
     }
@@ -284,8 +271,7 @@ public final class Converters {
     }
   }
 
-  public static class CommaSeparatedOptionListConverter
-      extends SeparatedOptionListConverter {
+  public static class CommaSeparatedOptionListConverter extends SeparatedOptionListConverter {
     public CommaSeparatedOptionListConverter() {
       super(',', "comma");
     }
@@ -299,10 +285,10 @@ public final class Converters {
 
   public static class LogLevelConverter implements Converter<Level> {
 
-    public static final Level[] LEVELS = new Level[] {
-      Level.OFF, Level.SEVERE, Level.WARNING, Level.INFO, Level.FINE,
-      Level.FINER, Level.FINEST
-    };
+    public static final Level[] LEVELS =
+        new Level[] {
+          Level.OFF, Level.SEVERE, Level.WARNING, Level.INFO, Level.FINE, Level.FINER, Level.FINEST
+        };
 
     @Override
     public Level convert(String input) throws OptionsParsingException {
@@ -318,12 +304,9 @@ public final class Converters {
     public String getTypeDescription() {
       return "0 <= an integer <= " + (LEVELS.length - 1);
     }
-
   }
 
-  /**
-   * Checks whether a string is part of a set of strings.
-   */
+  /** Checks whether a string is part of a set of strings. */
   public static class StringSetConverter implements Converter<String> {
 
     // TODO(bazel-team): if this class never actually contains duplicates, we could s/List/Set/
@@ -349,9 +332,7 @@ public final class Converters {
     }
   }
 
-  /**
-   * Checks whether a string is a valid regex pattern and compiles it.
-   */
+  /** Checks whether a string is a valid regex pattern and compiles it. */
   public static class RegexPatternConverter implements Converter<Pattern> {
 
     @Override
@@ -369,9 +350,7 @@ public final class Converters {
     }
   }
 
-  /**
-   * Limits the length of a string argument.
-   */
+  /** Limits the length of a string argument. */
   public static class LengthLimitingConverter implements Converter<String> {
     private final int maxSize;
 
@@ -393,9 +372,7 @@ public final class Converters {
     }
   }
 
-  /**
-   * Checks whether an integer is in the given range.
-   */
+  /** Checks whether an integer is in the given range. */
   public static class RangeConverter implements Converter<Integer> {
     final int minValue;
     final int maxValue;
@@ -432,25 +409,27 @@ public final class Converters {
         return "an integer, >= " + minValue;
       } else {
         return "an integer in "
-            + (minValue < 0 ? "(" + minValue + ")" : minValue) + "-" + maxValue + " range";
+            + (minValue < 0 ? "(" + minValue + ")" : minValue)
+            + "-"
+            + maxValue
+            + " range";
       }
     }
   }
 
   /**
-   * A converter for variable assignments from the parameter list of a blaze
-   * command invocation. Assignments are expected to have the form "name=value",
-   * where names and values are defined to be as permissive as possible.
+   * A converter for variable assignments from the parameter list of a blaze command invocation.
+   * Assignments are expected to have the form "name=value", where names and values are defined to
+   * be as permissive as possible.
    */
   public static class AssignmentConverter implements Converter<Map.Entry<String, String>> {
 
     @Override
-    public Map.Entry<String, String> convert(String input)
-        throws OptionsParsingException {
+    public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
       int pos = input.indexOf("=");
       if (pos <= 0) {
-        throw new OptionsParsingException("Variable definitions must be in the form of a "
-            + "'name=value' assignment");
+        throw new OptionsParsingException(
+            "Variable definitions must be in the form of a 'name=value' assignment");
       }
       String name = input.substring(0, pos);
       String value = input.substring(pos + 1);
@@ -461,24 +440,22 @@ public final class Converters {
     public String getTypeDescription() {
       return "a 'name=value' assignment";
     }
-
   }
 
   /**
-   * A converter for variable assignments from the parameter list of a blaze
-   * command invocation. Assignments are expected to have the form "name[=value]",
-   * where names and values are defined to be as permissive as possible and value
-   * part can be optional (in which case it is considered to be null).
+   * A converter for variable assignments from the parameter list of a blaze command invocation.
+   * Assignments are expected to have the form "name[=value]", where names and values are defined to
+   * be as permissive as possible and value part can be optional (in which case it is considered to
+   * be null).
    */
   public static class OptionalAssignmentConverter implements Converter<Map.Entry<String, String>> {
 
     @Override
-    public Map.Entry<String, String> convert(String input)
-        throws OptionsParsingException {
-      int pos = input.indexOf("=");
+    public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
+      int pos = input.indexOf('=');
       if (pos == 0 || input.length() == 0) {
-        throw new OptionsParsingException("Variable definitions must be in the form of a "
-            + "'name=value' or 'name' assignment");
+        throw new OptionsParsingException(
+            "Variable definitions must be in the form of a 'name=value' or 'name' assignment");
       } else if (pos < 0) {
         return Maps.immutableEntry(input, null);
       }
@@ -491,7 +468,40 @@ public final class Converters {
     public String getTypeDescription() {
       return "a 'name=value' assignment with an optional value part";
     }
+  }
 
+  /**
+   * A converter for named integers of the form "[name=]value". When no name is specified, an empty
+   * string is used for the key.
+   */
+  public static class NamedIntegersConverter implements Converter<Map.Entry<String, Integer>> {
+
+    @Override
+    public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
+      int pos = input.indexOf('=');
+      if (pos == 0 || input.length() == 0) {
+        throw new OptionsParsingException(
+            "Specify either 'value' or 'name=value', where 'value' is an integer");
+      } else if (pos < 0) {
+        try {
+          return Maps.immutableEntry("", Integer.parseInt(input));
+        } catch (NumberFormatException e) {
+          throw new OptionsParsingException("'" + input + "' is not an int");
+        }
+      }
+      String name = input.substring(0, pos);
+      String value = input.substring(pos + 1);
+      try {
+        return Maps.immutableEntry(name, Integer.parseInt(value));
+      } catch (NumberFormatException e) {
+        throw new OptionsParsingException("'" + value + "' is not an int");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an integer or a named integer, 'name=value'";
+    }
   }
 
   public static class HelpVerbosityConverter extends EnumConverter<OptionsParser.HelpVerbosity> {
@@ -508,5 +518,4 @@ public final class Converters {
       super(0, 100);
     }
   }
-
 }

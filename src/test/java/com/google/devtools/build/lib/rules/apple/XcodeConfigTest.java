@@ -18,9 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.Type;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -805,6 +805,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
    * Returns a ConfiguredAttributeMapper bound to the given rule with the target configuration.
    */
   private ConfiguredAttributeMapper getMapper(String label) throws Exception {
-    return ((RuleConfiguredTarget) getConfiguredTarget(label)).getAttributeMapper();
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndData(label);
+    return getMapperFromConfiguredTargetAndTarget(ctad);
   }
 }

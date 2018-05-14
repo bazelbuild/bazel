@@ -41,7 +41,6 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -54,8 +53,13 @@ final class TestsInSuiteFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
     TestsInSuiteKey expansion = (TestsInSuiteKey) key.argument();
-    ResolvedTargets<Target> result =
-        computeTestsInSuite(env, expansion.getTestSuite(), expansion.isStrict());
+    SkyKey packageKey = PackageValue.key(expansion.getTestSuiteLabel().getPackageIdentifier());
+    PackageValue pkg = (PackageValue) env.getValue(packageKey);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    Rule testSuite = pkg.getPackage().getRule(expansion.getTestSuiteLabel().getName());
+    ResolvedTargets<Target> result = computeTestsInSuite(env, testSuite, expansion.isStrict());
     if (env.valuesMissing()) {
       return null;
     }
@@ -143,7 +147,8 @@ final class TestsInSuiteFunction implements SkyFunction {
     }
     boolean hasError = false;
     Map<PackageIdentifier, Package> packageMap = new HashMap<>();
-    for (Entry<SkyKey, ValueOrException<BuildFileNotFoundException>> entry : packages.entrySet()) {
+    for (Map.Entry<SkyKey, ValueOrException<BuildFileNotFoundException>> entry :
+        packages.entrySet()) {
       try {
         packageMap.put(
             (PackageIdentifier) entry.getKey().argument(),

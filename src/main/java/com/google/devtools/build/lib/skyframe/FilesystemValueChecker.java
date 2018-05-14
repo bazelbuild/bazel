@@ -477,17 +477,14 @@ public class FilesystemValueChecker {
     final AtomicInteger numKeysScanned = new AtomicInteger(0);
     final AtomicInteger numKeysChecked = new AtomicInteger(0);
     ElapsedTimeReceiver elapsedTimeReceiver =
-        new ElapsedTimeReceiver() {
-          @Override
-          public void accept(long elapsedTimeNanos) {
-            if (elapsedTimeNanos > 0) {
-              logger.info(
-                  String.format(
-                      "Spent %d ms checking %d filesystem nodes (%d scanned)",
-                      TimeUnit.MILLISECONDS.convert(elapsedTimeNanos, TimeUnit.NANOSECONDS),
-                      numKeysChecked.get(),
-                      numKeysScanned.get()));
-            }
+        elapsedTimeNanos -> {
+          if (elapsedTimeNanos > 0) {
+            logger.info(
+                String.format(
+                    "Spent %d ms checking %d filesystem nodes (%d scanned)",
+                    TimeUnit.MILLISECONDS.convert(elapsedTimeNanos, TimeUnit.NANOSECONDS),
+                    numKeysChecked.get(),
+                    numKeysScanned.get()));
           }
         };
     try (AutoProfiler prof = AutoProfiler.create(elapsedTimeReceiver)) {
@@ -496,20 +493,24 @@ public class FilesystemValueChecker {
         if (!checker.applies(key)) {
           continue;
         }
-        final SkyValue value = fetcher.get(key);
-        if (!checkMissingValues && value == null) {
-          continue;
-        }
         executor.execute(
             wrapper.wrap(
-                new Runnable() {
-                  @Override
-                  public void run() {
-                    numKeysChecked.incrementAndGet();
-                    DirtyResult result = checker.check(key, value, tsgm);
-                    if (result.isDirty()) {
-                      batchResult.add(key, value, result.getNewValue());
-                    }
+                () -> {
+                  SkyValue value;
+                  try {
+                    value = fetcher.get(key);
+                  } catch (InterruptedException e) {
+                    // Exit fast. Interrupt is handled below on the main thread.
+                    return;
+                  }
+                  if (!checkMissingValues && value == null) {
+                    return;
+                  }
+
+                  numKeysChecked.incrementAndGet();
+                  DirtyResult result = checker.check(key, value, tsgm);
+                  if (result.isDirty()) {
+                    batchResult.add(key, value, result.getNewValue());
                   }
                 }));
       }

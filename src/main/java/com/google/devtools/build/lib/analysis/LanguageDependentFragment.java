@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
@@ -36,9 +35,6 @@ import java.util.Objects;
 @Immutable
 @AutoCodec
 public final class LanguageDependentFragment implements TransitiveInfoProvider {
-  public static final ObjectCodec<LanguageDependentFragment> CODEC = new
-      LanguageDependentFragment_AutoCodec();
-
   /**
    * A language that can be supported by a multi-language configured target.
    *
@@ -47,12 +43,9 @@ public final class LanguageDependentFragment implements TransitiveInfoProvider {
    */
   @AutoCodec
   public static final class LibraryLanguage {
-    public static final ObjectCodec<LibraryLanguage> CODEC =
-        new LanguageDependentFragment_LibraryLanguage_AutoCodec();
-
     private final String displayName;
 
-    @AutoCodec.Constructor
+    @AutoCodec.Instantiator
     public LibraryLanguage(String displayName) {
       this.displayName = displayName;
     }
@@ -80,7 +73,7 @@ public final class LanguageDependentFragment implements TransitiveInfoProvider {
   private final Label label;
   private final ImmutableSet<LibraryLanguage> languages;
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   public LanguageDependentFragment(Label label, ImmutableSet<LibraryLanguage> languages) {
     this.label = label;
     this.languages = languages;

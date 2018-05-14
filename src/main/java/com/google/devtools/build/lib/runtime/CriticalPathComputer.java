@@ -269,8 +269,10 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   private boolean isBiggestCriticalPath(C newCriticalPath) {
     synchronized (lock) {
       return maxCriticalPath == null
-          || maxCriticalPath.getAggregatedElapsedTimeMillis()
-          < newCriticalPath.getAggregatedElapsedTimeMillis();
+          || maxCriticalPath
+                  .getAggregatedElapsedTime()
+                  .compareTo(newCriticalPath.getAggregatedElapsedTime())
+              < 0;
     }
   }
 

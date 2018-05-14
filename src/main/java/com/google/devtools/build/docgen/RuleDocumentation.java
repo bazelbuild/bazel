@@ -19,11 +19,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.DocgenConsts.RuleType;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleClass;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -189,7 +187,7 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
   public String getHtmlDocumentation() throws BuildEncyclopediaDocException {
     String expandedDoc = htmlDocumentation;
     // Substituting variables
-    for (Entry<String, String> docVariable : docVariables.entrySet()) {
+    for (Map.Entry<String, String> docVariable : docVariables.entrySet()) {
       expandedDoc = expandedDoc.replace("${" + docVariable.getKey() + "}",
           expandBuiltInVariables(docVariable.getKey(), docVariable.getValue()));
     }

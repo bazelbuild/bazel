@@ -16,8 +16,11 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.FileStateType;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -26,8 +29,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.skyframe.LegacySkyKey;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
@@ -55,8 +58,11 @@ import javax.annotation.Nullable;
 @VisibleForTesting
 public abstract class FileStateValue implements SkyValue {
 
+  @AutoCodec
   public static final DirectoryFileStateValue DIRECTORY_FILE_STATE_NODE =
       new DirectoryFileStateValue();
+
+  @AutoCodec
   public static final NonexistentFileStateValue NONEXISTENT_FILE_STATE_NODE =
       new NonexistentFileStateValue();
 
@@ -95,8 +101,29 @@ public abstract class FileStateValue implements SkyValue {
 
   @VisibleForTesting
   @ThreadSafe
-  public static SkyKey key(RootedPath rootedPath) {
-    return LegacySkyKey.create(SkyFunctions.FILE_STATE, rootedPath);
+  public static Key key(RootedPath rootedPath) {
+    return Key.create(rootedPath);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<RootedPath> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(RootedPath arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(RootedPath arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.FILE_STATE;
+    }
   }
 
   public abstract FileStateType getType();
@@ -127,10 +154,11 @@ public abstract class FileStateValue implements SkyValue {
    *
    * <p>A union of (digest, mtime). We use digests only if a fast digest lookup is available from
    * the filesystem. If not, we fall back to mtime-based digests. This avoids the case where Blaze
-   * must read all files involved in the build in order to check for modifications in the case
-   * where fast digest lookups are not available.
+   * must read all files involved in the build in order to check for modifications in the case where
+   * fast digest lookups are not available.
    */
   @ThreadSafe
+  @AutoCodec
   public static final class RegularFileStateValue extends FileStateValue {
     private final long size;
     @Nullable private final byte[] digest;
@@ -155,11 +183,10 @@ public abstract class FileStateValue implements SkyValue {
       try {
         byte[] digest = tryGetDigest(path, stat);
         if (digest == null) {
-          long mtime = stat.getLastModifiedTime();
           // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe
           // method.
           if (tsgm != null) {
-            tsgm.notifyDependenceOnFileTime(path.asFragment(), mtime);
+            tsgm.notifyDependenceOnFileTime(path.asFragment(), stat.getLastChangeTime());
           }
           return new RegularFileStateValue(stat.getSize(), null, FileContentsProxy.create(stat));
         } else {
@@ -247,6 +274,7 @@ public abstract class FileStateValue implements SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for special files that exist. */
+  @AutoCodec
   public static final class SpecialFileStateValue extends FileStateValue {
     private final FileContentsProxy contentsProxy;
 
@@ -256,10 +284,9 @@ public abstract class FileStateValue implements SkyValue {
 
     static SpecialFileStateValue fromStat(PathFragment path, FileStatus stat,
         @Nullable TimestampGranularityMonitor tsgm) throws IOException {
-      long mtime = stat.getLastModifiedTime();
       // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe method.
       if (tsgm != null) {
-        tsgm.notifyDependenceOnFileTime(path, mtime);
+        tsgm.notifyDependenceOnFileTime(path, stat.getLastChangeTime());
       }
       return new SpecialFileStateValue(FileContentsProxy.create(stat));
     }
@@ -308,7 +335,8 @@ public abstract class FileStateValue implements SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for directories that exist. */
-  public static final class DirectoryFileStateValue extends FileStateValue {
+  @AutoCodec.VisibleForSerialization
+  static final class DirectoryFileStateValue extends FileStateValue {
 
     private DirectoryFileStateValue() {
     }
@@ -336,6 +364,7 @@ public abstract class FileStateValue implements SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for symlinks. */
+  @AutoCodec
   public static final class SymlinkFileStateValue extends FileStateValue {
 
     private final PathFragment symlinkTarget;
@@ -375,7 +404,8 @@ public abstract class FileStateValue implements SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for nonexistent files. */
-  public static final class NonexistentFileStateValue extends FileStateValue {
+  @AutoCodec.VisibleForSerialization
+  static final class NonexistentFileStateValue extends FileStateValue {
 
     private NonexistentFileStateValue() {
     }

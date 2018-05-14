@@ -165,6 +165,7 @@ class PlaceholderIdFieldInitializerBuilder {
 
   private static String normalizeAttrName(String attrName) {
     // In addition to ".", attributes can have ":", e.g., for "android:textColor".
+    Preconditions.checkArgument(!attrName.contains("::"), "invalid name %s", attrName);
     return normalizeName(attrName).replace(':', '_');
   }
 
@@ -240,7 +241,7 @@ class PlaceholderIdFieldInitializerBuilder {
       styleableAttrs.put(normalizedStyleableName, normalizedAttrs);
     }
     for (Map.Entry<FullyQualifiedName, Boolean> attrEntry : attrs.entrySet()) {
-      String normalizedAttrName = normalizeAttrName(attrEntry.getKey().name());
+      String normalizedAttrName = normalizeAttrName(attrEntry.getKey().qualifiedName());
       normalizedAttrs.put(normalizedAttrName, attrEntry.getValue());
     }
   }
@@ -336,13 +337,17 @@ class PlaceholderIdFieldInitializerBuilder {
                 "Cannot force ATTR to have type code other than 0x%02x (got 0x%02x from %s)",
                 ATTR_TYPE_ID, reservedTypeSlot, previousResource));
       }
-      allocatedTypeIds.put(currentType, reservedTypeSlot);
-      ResourceType alreadyAssigned = assignedIds.put(reservedTypeSlot, currentType);
-      if (alreadyAssigned != null) {
-        logger.warning(
-            String.format(
-                "Multiple type names declared for public type identifier 0x%x (%s vs %s)",
-                reservedTypeSlot, alreadyAssigned, currentType));
+      if (reservedTypeSlot == null) {
+        logger.warning(String.format("Invalid public resource of type %s - ignoring", currentType));
+      } else {
+        allocatedTypeIds.put(currentType, reservedTypeSlot);
+        ResourceType alreadyAssigned = assignedIds.put(reservedTypeSlot, currentType);
+        if (alreadyAssigned != null) {
+          logger.warning(
+              String.format(
+                  "Multiple type names declared for public type identifier 0x%x (%s vs %s)",
+                  reservedTypeSlot, alreadyAssigned, currentType));
+        }
       }
     }
     return allocatedTypeIds;

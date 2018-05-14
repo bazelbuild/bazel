@@ -30,7 +30,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,23 +37,6 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link LocationExpander.LocationFunction}. */
 @RunWith(JUnit4.class)
 public class LocationFunctionTest {
-  private FileSystem fs;
-
-  @Before
-  public void createFileSystem() throws Exception {
-    fs = new InMemoryFileSystem();
-  }
-
-  private Artifact makeArtifact(String path) {
-    if (path.startsWith("/exec/out")) {
-      return new Artifact(
-          fs.getPath(path),
-          ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), fs.getPath("/exec/out")));
-    } else {
-      return new Artifact(
-          fs.getPath(path), ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/exec"))));
-    }
-  }
 
   @Test
   public void absoluteAndRelativeLabels() throws Exception {
@@ -159,34 +141,46 @@ public class LocationFunctionTest {
         .build();
     assertThat(func.apply("//foo")).isEqualTo("./bar out/foobar");
   }
+}
 
-  private final class LocationFunctionBuilder {
-    private final Label root;
-    private final boolean multiple;
-    private boolean execPaths;
-    private final Map<Label, Collection<Artifact>> labelMap = new HashMap<>();
+final class LocationFunctionBuilder {
+  private final Label root;
+  private final boolean multiple;
+  private boolean execPaths;
+  private final Map<Label, Collection<Artifact>> labelMap = new HashMap<>();
 
-    LocationFunctionBuilder(String rootLabel, boolean multiple) {
-      this.root = Label.parseAbsoluteUnchecked(rootLabel);
-      this.multiple = multiple;
-    }
+  LocationFunctionBuilder(String rootLabel, boolean multiple) {
+    this.root = Label.parseAbsoluteUnchecked(rootLabel);
+    this.multiple = multiple;
+  }
 
-    public LocationFunction build() {
-      return new LocationFunction(root, Suppliers.ofInstance(labelMap), execPaths, multiple);
-    }
+  public LocationFunction build() {
+    return new LocationFunction(root, Suppliers.ofInstance(labelMap), execPaths, multiple);
+  }
 
-    public LocationFunctionBuilder setExecPaths(boolean execPaths) {
-      this.execPaths = execPaths;
-      return this;
-    }
+  public LocationFunctionBuilder setExecPaths(boolean execPaths) {
+    this.execPaths = execPaths;
+    return this;
+  }
 
-    public LocationFunctionBuilder add(String label, String... paths) {
-      labelMap.put(
-          Label.parseAbsoluteUnchecked(label),
-          Arrays.stream(paths)
-              .map(LocationFunctionTest.this::makeArtifact)
-              .collect(Collectors.toList()));
-      return this;
+  public LocationFunctionBuilder add(String label, String... paths) {
+    labelMap.put(
+        Label.parseAbsoluteUnchecked(label),
+        Arrays.stream(paths)
+            .map(LocationFunctionBuilder::makeArtifact)
+            .collect(Collectors.toList()));
+    return this;
+  }
+
+  private static Artifact makeArtifact(String path) {
+    FileSystem fs = new InMemoryFileSystem();
+    if (path.startsWith("/exec/out")) {
+      return new Artifact(
+          fs.getPath(path),
+          ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), fs.getPath("/exec/out")));
+    } else {
+      return new Artifact(
+          fs.getPath(path), ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/exec"))));
     }
   }
 }

@@ -21,6 +21,7 @@
 
 #include <sys/types.h>
 
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -66,23 +67,6 @@ bool SearchNullaryOption(const std::vector<std::string>& args,
                          const std::string& flag_name,
                          const bool default_value);
 
-// Enable messages mostly of interest to developers.
-bool VerboseLogging();
-
-// Read the JVM version from a string. The string should contain the output of a
-// "java -version" execution and is supposed to contain a string of the form
-// 'version "version-number"' in the first 255 bytes. If the string is found,
-// version-number is returned, else the empty string is returned.
-std::string ReadJvmVersion(const std::string &version_string);
-
-// Returns true iff jvm_version is at least the version specified by
-// version_spec.
-// jvm_version is supposed to be a string specifying a java runtime version
-// as specified by the JSR-56 appendix A. version_spec is supposed to be a
-// version is the format [0-9]+(.[1-9]+)*.
-bool CheckJavaVersionIsAtLeast(const std::string &jvm_version,
-                               const std::string &version_spec);
-
 // Returns true iff arg is a valid command line argument for bazel.
 bool IsArg(const std::string& arg);
 
@@ -110,18 +94,50 @@ extern const unsigned int kPostKillGracePeriodSeconds;
 // See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52015.
 template <typename T>
 std::string ToString(const T &value) {
+#if defined(__CYGWIN__) || defined(__MINGW32__)
   std::ostringstream oss;
   oss << value;
   return oss.str();
+#else
+  return std::to_string(value);
+#endif
 }
 
 // Control the output of debug information by debug_log.
 // Revisit once client logging is fixed (b/32939567).
 void SetDebugLog(bool enabled);
 
-// Output debug information from client.
-// Revisit once client logging is fixed (b/32939567).
-void debug_log(const char *format, ...);
+// What WithEnvVar should do with an environment variable
+enum EnvVarAction { UNSET, SET };
+
+// What WithEnvVar should do with an environment variable
+struct EnvVarValue {
+  // What should be done with the given variable
+  EnvVarAction action;
+
+  // The value of the variable; ignored if action == UNSET
+  std::string value;
+
+  EnvVarValue() {}
+
+  EnvVarValue(EnvVarAction action, const std::string& value)
+      : action(action),
+        value(value) {}
+};
+
+// While this class is in scope, the specified environment variables will be set
+// to a specified value (or unset). When it leaves scope, changed variables will
+// be set to their original values.
+class WithEnvVars {
+ private:
+  std::map<std::string, EnvVarValue> _old_values;
+
+  void SetEnvVars(const std::map<std::string, EnvVarValue>& vars);
+
+ public:
+  WithEnvVars(const std::map<std::string, EnvVarValue>& vars);
+  ~WithEnvVars();
+};
 
 }  // namespace blaze
 

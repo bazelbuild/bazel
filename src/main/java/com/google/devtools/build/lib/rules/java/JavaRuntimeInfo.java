@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -25,6 +24,8 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -33,6 +34,7 @@ import javax.annotation.Nullable;
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @SkylarkModule(name = "JavaRuntimeInfo", doc = "Information about the Java runtime being used.")
 @Immutable
+@AutoCodec
 public class JavaRuntimeInfo extends NativeInfo {
   public static final String SKYLARK_NAME = "JavaRuntimeInfo";
 
@@ -96,13 +98,15 @@ public class JavaRuntimeInfo extends NativeInfo {
   private final PathFragment javaBinaryExecPath;
   private final PathFragment javaBinaryRunfilesPath;
 
-  private JavaRuntimeInfo(
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  JavaRuntimeInfo(
       NestedSet<Artifact> javaBaseInputs,
       NestedSet<Artifact> javaBaseInputsMiddleman,
       PathFragment javaHome,
       PathFragment javaBinaryExecPath,
       PathFragment javaBinaryRunfilesPath) {
-    super(PROVIDER, ImmutableMap.<String, Object>of());
+    super(PROVIDER);
     this.javaBaseInputs = javaBaseInputs;
     this.javaBaseInputsMiddleman = javaBaseInputsMiddleman;
     this.javaHome = javaHome;

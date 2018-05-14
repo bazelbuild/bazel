@@ -75,7 +75,7 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
     // single-machine execution environment, but problematic with remote execution.
     Preconditions.checkState(OS.getCurrent() == OS.WINDOWS);
     return out -> {
-      InputStream in = this.launcher.getPath().getInputStream();
+      InputStream in = ctx.getInputPath(this.launcher).getInputStream();
       ByteStreams.copy(in, out);
       long dataLength = this.launchInfo.write(out);
       ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
@@ -87,16 +87,10 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    try {
-      f.addBytes(this.launcher.getPath().getDigest());
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-    f.addString(this.launchInfo.fingerPrint);
-    return f.hexDigestAndReset();
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
+    fp.addPath(this.launcher.getExecPath());
+    fp.addString(this.launchInfo.fingerPrint);
   }
 
   /**

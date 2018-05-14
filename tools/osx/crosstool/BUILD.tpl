@@ -62,3 +62,21 @@ cc_toolchain_suite(
     )
     for arch in OSX_TOOLS_ARCHS
 ]
+
+[
+    toolchain(
+        name = "cc-toolchain-" + arch,
+        exec_compatible_with = [
+            # This toolchain will only work with the local autoconfigured
+            # platforms.
+            "@bazel_tools//platforms:autoconfigured",
+            # TODO(katre): add autodiscovered constraints for host CPU and OS.
+        ],
+        target_compatible_with = [
+            # TODO(katre): add autodiscovered constraints for host CPU and OS.
+        ],
+        toolchain = ":cc-compiler-" + arch,
+        toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+    )
+    for arch in OSX_TOOLS_ARCHS
+]

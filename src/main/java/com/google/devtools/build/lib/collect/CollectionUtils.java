@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Preconditions;
@@ -106,12 +106,11 @@ public final class CollectionUtils {
   }
 
   /**
-   * Returns an immutable list of all non-null parameters in the order in which
-   * they are specified.
+   * Returns an immutable set of all non-null parameters in the order in which they are specified.
    */
   @SuppressWarnings("unchecked")
-  public static <T> ImmutableList<T> asListWithoutNulls(T... elements) {
-    return Arrays.stream(elements).filter(Objects::nonNull).collect(toImmutableList());
+  public static <T> ImmutableSet<T> asSetWithoutNulls(T... elements) {
+    return Arrays.stream(elements).filter(Objects::nonNull).collect(toImmutableSet());
   }
 
   /**
@@ -123,6 +122,7 @@ public final class CollectionUtils {
     return iterable instanceof ImmutableList<?>
         || iterable instanceof ImmutableSet<?>
         || iterable instanceof IterablesChain<?>
+        || iterable instanceof DedupingIterable<?>
         || iterable instanceof NestedSet<?>
         || iterable instanceof ImmutableIterable<?>;
   }

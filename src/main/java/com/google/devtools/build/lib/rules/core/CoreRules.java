@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.rules.core;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Builder;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.packages.NativeProvider;
@@ -29,7 +29,7 @@ public final class CoreRules implements RuleSet {
   }
 
   @Override
-  public void init(Builder builder) {
+  public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.addConfig(TestConfiguration.TestOptions.class, new TestConfiguration.Loader());
     builder.addRuleDefinition(new BaseRuleClasses.RootRule());
     builder.addRuleDefinition(new BaseRuleClasses.BaseRule());

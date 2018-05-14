@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.HashSet;
 import java.util.List;
@@ -39,8 +38,6 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 public final class TestFilter implements com.google.common.base.Predicate<Target> {
-  public static final ObjectCodec<TestFilter> CODEC = new TestFilter_AutoCodec();
-
   private static final Predicate<Target> ALWAYS_TRUE = (t) -> true;
 
   /** Convert the options into a test filter. */
@@ -139,6 +136,9 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
   private static void checkLangFilters(
       List<String> langFilterList, ExtendedEventHandler reporter, Set<String> allRuleNames) {
     for (String lang : langFilterList) {
+      if (lang.startsWith("-")) {
+        lang = lang.substring(1);
+      }
       if (!allRuleNames.contains(lang + "_test")) {
         reporter.handle(
             Event.warn("Unknown language '" + lang + "' in --test_lang_filters option"));

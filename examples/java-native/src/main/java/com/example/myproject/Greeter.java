@@ -35,7 +35,7 @@ public class Greeter {
     String greeting = "Hello";
     InputStream stream  = Greeter.class.getResourceAsStream("/greeting.txt");
     if (stream != null) {
-      greeting = convertStreamToString(stream);
+      greeting = convertStreamToString(stream).trim();
     }
     out.println(greeting + " " + obj);
   }

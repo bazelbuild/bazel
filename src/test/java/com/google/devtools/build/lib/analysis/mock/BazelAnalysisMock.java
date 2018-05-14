@@ -17,9 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfigurationLoader;
+import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
+import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
+import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.StrictActionEnvOptions;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
@@ -58,7 +60,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "local_repository(name = 'local_config_xcode', path = '/local_config_xcode')",
             "local_repository(name = 'com_google_protobuf', path = '/protobuf')",
             "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
-            "bind(name = 'tools/python', actual='//tools/python')"));
+            "bind(name = 'tools/python', actual='//tools/python')",
+            "register_toolchains('@bazel_tools//tools/cpp:all')"));
   }
 
   @Override
@@ -125,7 +128,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "/bazel_tools_workspace/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
 
     config.create("/bazel_tools_workspace/tools/test/BUILD",
-        "filegroup(name = 'runtime', srcs = ['test-setup.sh'],)",
+        "filegroup(name = 'runtime', srcs = ['test-setup.sh'])",
+        "filegroup(name = 'test_setup', srcs = ['test-setup.sh'])",
+        "filegroup(name = 'collect_coverage', srcs = ['collect_coverage.sh'])",
         "filegroup(name='coverage_support', srcs=['collect_coverage.sh','LcovMerger'])",
         "filegroup(name = 'coverage_report_generator', srcs = ['coverage_report_generator.sh'])");
 
@@ -205,7 +210,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "    adb = ':static_adb_tool',",
         "    aidl = ':static_aidl_tool',",
         "    android_jar = ':android_runtime_jar',",
-        "    annotations_jar = ':annotations_jar',",
         "    apksigner = ':ApkSignerBinary',",
         "    dx = ':dx_binary',",
         "    framework_aidl = ':aidl_framework',",
@@ -222,17 +226,21 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'aar_generator', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'desugar_java8', srcs = ['empty.sh'])")
         .add("filegroup(name = 'desugar_java8_extra_bootclasspath', srcs = ['fake.jar'])")
+        .add("filegroup(name = 'java8_legacy_dex', srcs = ['java8_legacy.dex.zip'])")
+        .add("sh_binary(name = 'build_java8_legacy_dex', srcs = ['empty.sh'])")
+        .add("filegroup(name = 'desugared_java8_legacy_apis', srcs = ['fake.jar'])")
         .add("sh_binary(name = 'aar_native_libs_zip_creator', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'resource_extractor', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexbuilder', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'dexbuilder_after_proguard', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexmerger', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexsharder', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'aar_import_deps_checker', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'busybox', srcs = ['empty.sh'])")
         .add("android_library(name = 'incremental_stub_application')")
         .add("android_library(name = 'incremental_split_stub_application')")
         .add("sh_binary(name = 'stubify_manifest', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'merge_dexzips', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'merge_manifests', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'build_split_manifest', srcs = ['empty.sh'])")
         .add("filegroup(name = 'debug_keystore', srcs = ['fake.file'])")
         .add("sh_binary(name = 'shuffle_jars', srcs = ['empty.sh'])")
@@ -258,23 +266,27 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("    processor_class = 'android.databinding.annotationprocessor.ProcessDataBinding')")
         .add("sh_binary(name = 'jarjar_bin', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'instrumentation_test_check', srcs = ['empty.sh'])")
-        .add("package_group(name = 'android_device_whitelist', packages = ['//...'])");
+        .add("package_group(name = 'android_device_whitelist', packages = ['//...'])")
+        .add("android_tools_defaults_jar(name = 'android_jar')");
 
     return androidBuildContents.build();
   }
 
   @Override
   public void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException {
+    embeddedBinariesRoot.createDirectoryAndParents();
     Path jdkWorkspacePath = embeddedBinariesRoot.getRelative("jdk.WORKSPACE");
-    FileSystemUtils.createDirectoryAndParents(jdkWorkspacePath.getParentDirectory());
     FileSystemUtils.writeContentAsLatin1(jdkWorkspacePath, "");
   }
 
   @Override
   public List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories() {
     return ImmutableList.<ConfigurationFragmentFactory>of(
-        new BazelConfiguration.Loader(),
         new CppConfigurationLoader(CpuTransformer.IDENTITY),
+        new ShellConfiguration.Loader(
+            BazelRuleClassProvider.SHELL_EXECUTABLE,
+            ShellConfiguration.Options.class,
+            StrictActionEnvOptions.class),
         new PythonConfigurationLoader(),
         new BazelPythonConfiguration.Loader(),
         new JavaConfigurationLoader(),

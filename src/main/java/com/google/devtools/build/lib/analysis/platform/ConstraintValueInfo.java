@@ -14,19 +14,17 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.util.Fingerprint;
 
 /** Provider for a platform constraint value that fulfills a {@link ConstraintSettingInfo}. */
 @SkylarkModule(
@@ -35,47 +33,22 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
   category = SkylarkModuleCategory.PROVIDER
 )
 @Immutable
+@AutoCodec
 public class ConstraintValueInfo extends NativeInfo {
-
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "ConstraintValueInfo";
 
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
-      FunctionSignature.WithValues.create(
-          FunctionSignature.of(
-              /*numMandatoryPositionals=*/ 2,
-              /*numOptionalPositionals=*/ 0,
-              /*numMandatoryNamedOnly*/ 0,
-              /*starArg=*/ false,
-              /*kwArg=*/ false,
-              /*names=*/ "label",
-              "constraint_setting"),
-          /*defaultValues=*/ null,
-          /*types=*/ ImmutableList.<SkylarkType>of(
-              SkylarkType.of(Label.class), SkylarkType.of(ConstraintSettingInfo.class)));
-
   /** Skylark constructor and identifier for this provider. */
   public static final NativeProvider<ConstraintValueInfo> SKYLARK_CONSTRUCTOR =
-      new NativeProvider<ConstraintValueInfo>(ConstraintValueInfo.class, SKYLARK_NAME, SIGNATURE) {
-        @Override
-        protected ConstraintValueInfo createInstanceFromSkylark(Object[] args, Location loc)
-            throws EvalException {
-          // Based on SIGNATURE above, the args are label, constraint_setting.
-          Label label = (Label) args[0];
-          ConstraintSettingInfo constraint = (ConstraintSettingInfo) args[1];
-          return ConstraintValueInfo.create(constraint, label, loc);
-        }
-      };
+      new NativeProvider<ConstraintValueInfo>(ConstraintValueInfo.class, SKYLARK_NAME) {};
 
   private final ConstraintSettingInfo constraint;
   private final Label label;
 
-  private ConstraintValueInfo(ConstraintSettingInfo constraint, Label label, Location location) {
+  @VisibleForSerialization
+  ConstraintValueInfo(ConstraintSettingInfo constraint, Label label, Location location) {
     super(
         SKYLARK_CONSTRUCTOR,
-        ImmutableMap.<String, Object>of(
-            "constraint", constraint,
-            "label", label),
         location);
 
     this.constraint = constraint;
@@ -111,5 +84,11 @@ public class ConstraintValueInfo extends NativeInfo {
   public static ConstraintValueInfo create(
       ConstraintSettingInfo constraint, Label value, Location location) {
     return new ConstraintValueInfo(constraint, value, location);
+  }
+
+  /** Add this constraint value to the given fingerprint. */
+  public void addTo(Fingerprint fp) {
+    this.constraint.addTo(fp);
+    fp.addString(label.getCanonicalForm());
   }
 }

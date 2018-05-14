@@ -15,13 +15,11 @@ package com.google.devtools.build.lib.syntax;
 
 import java.io.IOException;
 
-/**
- * Syntax node for an integer literal.
- */
+/** Syntax node for an integer literal. */
 public final class IntegerLiteral extends Expression {
   private final int value;
 
-  public IntegerLiteral(Integer value) {
+  public IntegerLiteral(int value) {
     this.value = value;
   }
 

@@ -17,9 +17,11 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -27,12 +29,12 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
+import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * Rule definition for compiler definition.
@@ -47,14 +49,26 @@ public final class CcToolchainRule implements RuleDefinition {
     return ruleClass.endsWith("cc_toolchain");
   }
 
-  private static final LateBoundDefault<?, Label> LIBC_TOP =
-      LateBoundDefault.fromTargetConfiguration(
+  private static final LabelLateBoundDefault<?> LIBC_TOP =
+      LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
           null,
           (rule, attributes, cppConfig) -> cppConfig.getSysrootLabel());
 
+  private static final LabelLateBoundDefault<?> FDO_OPTIMIZE_LABEL =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> cppConfig.getFdoOptimizeLabel());
+
+  private static final LabelLateBoundDefault<?> FDO_PROFILE_LABEL =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> cppConfig.getFdoProfileLabel());
+
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     final Label zipper = env.getToolsLabel("//tools/zip:zipper");
     return builder
         .setUndocumented()
@@ -64,42 +78,42 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("cpu", STRING).mandatory())
         .add(attr("compiler", STRING))
         .add(attr("libc", STRING))
-        .add(attr("all_files", LABEL)
-            .legacyAllowAnyFileType()
-            .cfg(HostTransition.INSTANCE)
-            .mandatory())
-        .add(attr("compiler_files", LABEL)
-            .legacyAllowAnyFileType()
-            .cfg(HostTransition.INSTANCE)
-            .mandatory())
-        .add(attr("strip_files", LABEL)
-            .legacyAllowAnyFileType()
-            .cfg(HostTransition.INSTANCE)
-            .mandatory())
-        .add(attr("objcopy_files", LABEL)
-            .legacyAllowAnyFileType()
-            .cfg(HostTransition.INSTANCE)
-            .mandatory())
-        .add(attr("linker_files", LABEL)
-            .legacyAllowAnyFileType()
-            .cfg(HostTransition.INSTANCE)
-            .mandatory())
-        .add(attr("dwp_files", LABEL)
-            .legacyAllowAnyFileType()
-            .cfg(HostTransition.INSTANCE)
-            .mandatory())
-        .add(attr("coverage_files", LABEL)
-            .legacyAllowAnyFileType()
-            .cfg(HostTransition.INSTANCE))
-        .add(attr("static_runtime_libs", LABEL_LIST)
-            .legacyAllowAnyFileType()
-            .mandatory())
-        .add(attr("dynamic_runtime_libs", LABEL_LIST)
-            .legacyAllowAnyFileType()
-            .mandatory())
-        .add(attr("module_map", LABEL)
-            .legacyAllowAnyFileType()
-            .cfg(HostTransition.INSTANCE))
+        .add(
+            attr("all_files", LABEL)
+                .legacyAllowAnyFileType()
+                .cfg(HostTransition.INSTANCE)
+                .mandatory())
+        .add(
+            attr("compiler_files", LABEL)
+                .legacyAllowAnyFileType()
+                .cfg(HostTransition.INSTANCE)
+                .mandatory())
+        .add(
+            attr("strip_files", LABEL)
+                .legacyAllowAnyFileType()
+                .cfg(HostTransition.INSTANCE)
+                .mandatory())
+        .add(
+            attr("objcopy_files", LABEL)
+                .legacyAllowAnyFileType()
+                .cfg(HostTransition.INSTANCE)
+                .mandatory())
+        .add(attr("as_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.INSTANCE))
+        .add(attr("ar_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.INSTANCE))
+        .add(
+            attr("linker_files", LABEL)
+                .legacyAllowAnyFileType()
+                .cfg(HostTransition.INSTANCE)
+                .mandatory())
+        .add(
+            attr("dwp_files", LABEL)
+                .legacyAllowAnyFileType()
+                .cfg(HostTransition.INSTANCE)
+                .mandatory())
+        .add(attr("coverage_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.INSTANCE))
+        .add(attr("static_runtime_libs", LABEL_LIST).legacyAllowAnyFileType().mandatory())
+        .add(attr("dynamic_runtime_libs", LABEL_LIST).legacyAllowAnyFileType().mandatory())
+        .add(attr("module_map", LABEL).legacyAllowAnyFileType().cfg(HostTransition.INSTANCE))
         .add(attr("supports_param_files", BOOLEAN).value(true))
         .add(attr("supports_header_parsing", BOOLEAN).value(false))
         .add(
@@ -113,25 +127,32 @@ public final class CcToolchainRule implements RuleDefinition {
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
         .add(
-            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)
+            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
         .add(
             attr(":zipper", LABEL)
                 .cfg(HostTransition.INSTANCE)
                 .singleArtifact()
                 .value(
-                    LateBoundDefault.fromTargetConfiguration(
+                    LabelLateBoundDefault.fromTargetConfiguration(
                         CppConfiguration.class,
                         null,
-                        // TODO(b/69547565): Remove call to isLLVMOptimizedFdo
+                        // TODO(b/69547565): Remove call to shouldIncludeZipperInToolchain
                         (rule, attributes, cppConfig) ->
-                            cppConfig.isLLVMOptimizedFdo() ? zipper : null)))
+                            cppConfig.shouldIncludeZipperInToolchain() ? zipper : null)))
         .add(attr(":libc_top", LABEL).value(LIBC_TOP))
+        .add(attr(":fdo_optimize", LABEL).singleArtifact().value(FDO_OPTIMIZE_LABEL))
         .add(
-            attr(":lipo_context_collector", LABEL)
+            attr(":fdo_profile", LABEL)
+                .allowedRuleClasses("fdo_profile")
+                .mandatoryProviders(ImmutableList.of(FdoProfileProvider.PROVIDER.id()))
+                .value(FDO_PROFILE_LABEL))
+        .add(
+            attr(TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, LABEL)
                 .cfg(LipoContextCollectorTransition.INSTANCE)
                 .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
                 .skipPrereqValidatorCheck())
+        .add(attr("proto", Type.STRING))
         .build();
   }
 

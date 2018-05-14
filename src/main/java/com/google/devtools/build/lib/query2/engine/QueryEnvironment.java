@@ -395,12 +395,14 @@ public interface QueryEnvironment<T> {
   void reportBuildFileError(QueryExpression expression, String msg) throws QueryException;
 
   /**
-   * Returns the set of BUILD, and optionally sub-included and Skylark files that define the given
-   * set of targets. Each such file is itself represented as a target in the result.
+   * Returns the set of BUILD, and optionally Skylark files that define the given set of targets.
+   * Each such file is itself represented as a target in the result.
    */
   ThreadSafeMutableSet<T> getBuildFiles(
-      QueryExpression caller, ThreadSafeMutableSet<T> nodes, boolean buildFiles,
-      boolean subincludes, boolean loads) throws QueryException, InterruptedException;
+      QueryExpression caller,
+      ThreadSafeMutableSet<T> nodes,
+      boolean buildFiles,
+      boolean loads) throws QueryException, InterruptedException;
 
   /**
    * Returns an object that can be used to query information about targets. Implementations should

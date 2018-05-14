@@ -55,7 +55,7 @@ public final class QueryParser {
   /**
    * Scan and parse the specified query expression.
    */
-  static QueryExpression parse(String query, QueryEnvironment<?> env) throws QueryException {
+  public static QueryExpression parse(String query, QueryEnvironment<?> env) throws QueryException {
     HashMap<String, QueryFunction> functions = new HashMap<>();
     for (QueryFunction queryFunction : env.getFunctions()) {
       functions.put(queryFunction.getName(), queryFunction);
@@ -63,7 +63,7 @@ public final class QueryParser {
     return parse(query, functions);
   }
 
-  public static QueryExpression parse(String query, HashMap<String, QueryFunction> functions)
+  public static QueryExpression parse(String query, Map<String, QueryFunction> functions)
       throws QueryException {
     QueryParser parser = new QueryParser(Lexer.scan(query), functions);
     QueryExpression expr = parser.parseExpression();
@@ -74,7 +74,7 @@ public final class QueryParser {
     return expr;
   }
 
-  public QueryParser(List<Lexer.Token> tokens, HashMap<String, QueryFunction> functions) {
+  public QueryParser(List<Lexer.Token> tokens, Map<String, QueryFunction> functions) {
     this.functions = functions;
     this.tokens = tokens;
     this.tokenIterator = tokens.iterator();

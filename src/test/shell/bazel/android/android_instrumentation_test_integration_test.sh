@@ -109,8 +109,8 @@ function test_incorrect_target_package_build_failure() {
 </manifest>
 EOF
 
-  assert_build_fails //javatests/com/bin:instr
-  expect_log "does not match the package name of"
+  assert_build_fails //javatests/com/bin:instr \
+    "does not match the package name of"
 }
 
 function test_multiple_instrumentations_with_different_package_names_build_failure() {
@@ -126,8 +126,8 @@ function test_multiple_instrumentations_with_different_package_names_build_failu
 </manifest>
 EOF
 
-  assert_build_fails //javatests/com/bin:instr
-  expect_log "do not reference the same target package"
+  assert_build_fails //javatests/com/bin:instr \
+    "do not reference the same target package"
 }
 
 function test_no_target_package_attribute_build_failure() {
@@ -142,8 +142,8 @@ function test_no_target_package_attribute_build_failure() {
 </manifest>
 EOF
 
-  assert_build_fails //javatests/com/bin:instr
-  expect_log "No <instrumentation> tag containing the targetPackage attribute"
+  assert_build_fails //javatests/com/bin:instr \
+    "No <instrumentation> tag containing the targetPackage attribute"
 }
 
 function test_target_package_no_package_specified_build_failure() {
@@ -156,8 +156,8 @@ function test_target_package_no_package_specified_build_failure() {
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" />
 EOF
 
-  assert_build_fails //javatests/com/bin:instr
-  expect_log "needs to specify the package name"
+  assert_build_fails //javatests/com/bin:instr \
+    "needs to specify the package name"
 }
 
 function test_android_instrumentation_binary_class_filtering() {

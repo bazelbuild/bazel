@@ -17,11 +17,11 @@ package com.google.devtools.build.lib.graph;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toCollection;
 
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -53,7 +53,7 @@ public class DFS<T> {
 
   private final boolean transpose;
 
-  private final Set<Node<T>> marked = new HashSet<>();
+  private final Set<Node<T>> marked = CompactHashSet.create();
 
   /**
    *  Constructs a DFS instance for searching over the enclosing Digraph

@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.rules.proto;
 
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * Provider that returns SupportData from proto_library used by language-specific protobuf
  * generators.
  */
 @Immutable
+@AutoCodec
 public final class ProtoSupportDataProvider implements TransitiveInfoProvider {
 
   private final SupportData supportData;

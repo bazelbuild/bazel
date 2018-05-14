@@ -51,6 +51,28 @@ public class ProxyHelper {
    */
   public Proxy createProxyIfNeeded(URL requestedUrl) throws IOException {
     String proxyAddress = null;
+    String noProxyUrl = env.get("no_proxy");
+    if (Strings.isNullOrEmpty(noProxyUrl)) {
+      noProxyUrl = env.get("NO_PROXY");
+    }
+    if (!Strings.isNullOrEmpty(noProxyUrl)) {
+      String[] noProxyUrlArray = noProxyUrl.split(",");
+      String requestedHost = requestedUrl.getHost();
+      for (int i = 0; i < noProxyUrlArray.length; i++) {
+        if (noProxyUrlArray[i].startsWith(".")) {
+          // This entry applies to sub-domains only.
+          if (requestedHost.endsWith(noProxyUrlArray[i])) {
+            return Proxy.NO_PROXY;
+          }
+        } else {
+          // This entry applies to the literal hostname and sub-domains.
+          if (requestedHost.equals(noProxyUrlArray[i])
+              || requestedHost.endsWith("." + noProxyUrlArray[i])) {
+            return Proxy.NO_PROXY;
+          }
+        }
+      }
+    }
     if (HttpUtils.isProtocol(requestedUrl, "https")) {
       proxyAddress = env.get("https_proxy");
       if (Strings.isNullOrEmpty(proxyAddress)) {

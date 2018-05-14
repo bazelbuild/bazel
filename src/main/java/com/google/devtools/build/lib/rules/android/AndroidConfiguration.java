@@ -24,21 +24,17 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToN
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion.AndroidRobolectricTestDeprecationLevel;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -60,9 +56,6 @@ import javax.annotation.Nullable;
 )
 @Immutable
 public class AndroidConfiguration extends BuildConfiguration.Fragment {
-  public static final ObjectCodec<AndroidConfiguration> CODEC =
-      new AndroidConfiguration_AutoCodec();
-
   /**
    * Converter for {@link
    * com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher}
@@ -93,6 +86,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   public static final class AndroidAaptConverter extends EnumConverter<AndroidAaptVersion> {
     public AndroidAaptConverter() {
       super(AndroidAaptVersion.class, "android androidAaptVersion");
+    }
+  }
+
+  /** Converter for {@link AndroidRobolectricTestDeprecationLevel} */
+  public static final class AndroidRobolectricTestDeprecationLevelConverter
+      extends EnumConverter<AndroidRobolectricTestDeprecationLevel> {
+    public AndroidRobolectricTestDeprecationLevelConverter() {
+      super(AndroidRobolectricTestDeprecationLevel.class, "android robolectric deprecation level");
     }
   }
 
@@ -145,7 +146,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       return signV1;
     }
 
-    /** Wheter to sign the APK with the apksigner tool with APK Signature Schema V2. */
+    /** Whether to sign the APK with the apksigner tool with APK Signature Schema V2. */
     public boolean signV2() {
       return signV2;
     }
@@ -199,29 +200,44 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       return null;
     }
 
+    /** android_robolectric_test deprecation levels */
+    public enum AndroidRobolectricTestDeprecationLevel {
+      OFF,
+      WARNING,
+      DEPRECATED;
+
+      public static List<String> getAttributeValues() {
+        return ImmutableList.of(
+            OFF.name().toLowerCase(),
+            WARNING.name().toLowerCase(),
+            DEPRECATED.name().toLowerCase());
+      }
+
+      public static AndroidRobolectricTestDeprecationLevel fromString(String value) {
+        for (AndroidRobolectricTestDeprecationLevel level :
+            AndroidRobolectricTestDeprecationLevel.values()) {
+          if (level.name().equals(value)) {
+            return level;
+          }
+        }
+        return null;
+      }
+    }
+
     // TODO(corysmith): Move to ApplicationManifest when no longer needed as a public function.
     @Nullable
     public static AndroidAaptVersion chooseTargetAaptVersion(RuleContext ruleContext)
         throws RuleErrorException {
       if (ruleContext.isLegalFragment(AndroidConfiguration.class)) {
         boolean hasAapt2 = AndroidSdkProvider.fromRuleContext(ruleContext).getAapt2() != null;
-        AndroidAaptVersion flag =
-            ruleContext.getFragment(AndroidConfiguration.class).getAndroidAaptVersion();
 
         if (ruleContext.getRule().isAttrDefined("aapt_version", STRING)) {
           // On rules that can choose a version, test attribute then flag choose the aapt version
           // target.
-          AndroidAaptVersion version =
-              fromString(ruleContext.attributes().get("aapt_version", STRING));
-          // version is null if the value is "auto"
-          version = version == AndroidAaptVersion.AUTO ? flag : version;
-
-          if (version == AAPT2 && !hasAapt2) {
-            ruleContext.throwWithRuleError(
-                "aapt2 processing requested but not available on the android_sdk");
-            return null;
-          }
-          return version == AndroidAaptVersion.AUTO ? AAPT : version;
+          return chooseTargetAaptVersion(
+              ruleContext,
+              ruleContext.getFragment(AndroidConfiguration.class),
+              ruleContext.attributes().get("aapt_version", STRING));
         } else {
           // On rules can't choose, assume aapt2 if aapt2 is present in the sdk.
           return hasAapt2 ? AAPT2 : AAPT;
@@ -229,12 +245,39 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       }
       return null;
     }
+
+    @Nullable
+    public static AndroidAaptVersion chooseTargetAaptVersion(
+        RuleContext ruleContext, AndroidConfiguration androidConfig, @Nullable String versionString)
+        throws RuleErrorException {
+
+      boolean hasAapt2 = AndroidSdkProvider.fromRuleContext(ruleContext).getAapt2() != null;
+      AndroidAaptVersion flag = androidConfig.getAndroidAaptVersion();
+
+      AndroidAaptVersion version = fromString(versionString);
+      // version is null if the value is "auto"
+      version = version == AndroidAaptVersion.AUTO ? flag : version;
+
+      if (version == AAPT2 && !hasAapt2) {
+        ruleContext.throwWithRuleError(
+            "aapt2 processing requested but not available on the android_sdk");
+        return null;
+      }
+      return version == AndroidAaptVersion.AUTO ? AAPT : version;
+    }
   }
 
   /** Android configuration options. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
-    public static final ObjectCodec<Options> CODEC = new AndroidConfiguration_Options_AutoCodec();
+    @Option(
+        name = "experimental_enable_android_cpu_make_variable",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        defaultValue = "true",
+        help = "Flag to roll out the removal of the ANDROID_CPU Make variable.")
+    public boolean enableAndroidCpuMakeVariable;
 
     @Option(
       name = "Android configuration distinguisher",
@@ -266,7 +309,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(
       name = "android_crosstool_top",
       defaultValue = "//external:android/crosstool",
-      category = "semantics",
       converter = EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
@@ -281,8 +323,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(
       name = "android_cpu",
-      defaultValue = "armeabi",
-      category = "semantics",
+      defaultValue = "armeabi-v7a",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -296,7 +337,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(
       name = "android_compiler",
       defaultValue = "null",
-      category = "semantics",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -311,7 +351,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       name = "android_grte_top",
       defaultValue = "null",
       converter = LibcTopLabelConverter.class,
-      category = "semantics",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.CHANGES_INPUTS,
@@ -345,7 +384,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(
       name = "android_sdk",
       defaultValue = "@bazel_tools//tools/android:sdk",
-      category = "version",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
@@ -362,7 +400,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       name = "fat_apk_cpu",
       converter = Converters.CommaSeparatedOptionListConverter.class,
       defaultValue = "armeabi-v7a",
-      category = "semantics",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -394,6 +431,20 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean desugarJava8;
 
+    @Option(
+      name = "experimental_desugar_java8_libs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+      },
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      help = "Whether to include supported Java 8 libraries in apps for legacy devices."
+    )
+    public boolean desugarJava8Libs;
+
     // This flag is intended to be flipped globally.
     @Option(
       name = "experimental_check_desugar_deps",
@@ -411,7 +462,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(
       name = "incremental_dexing",
       defaultValue = "true",
-      category = "semantics",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -444,6 +494,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean incrementalDexingUseDexSharder;
 
+    @Option(
+      name = "experimental_incremental_dexing_after_proguard_by_default",
+      defaultValue = "false",
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Whether to use incremental dexing for proguarded Android binaries by default.  "
+              + "Use incremental_dexing attribute to override default for a particular "
+              + "android_binary."
+    )
+    public boolean incrementalDexingAfterProguardByDefault;
+
     // TODO(b/31711689): Remove this flag when this optimization is proven to work globally.
     @Option(
       name = "experimental_android_assume_minsdkversion",
@@ -462,7 +525,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(
       name = "experimental_android_use_parallel_dex2oat",
-      category = "experimental",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {
@@ -480,7 +542,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       name = "non_incremental_per_target_dexopts",
       converter = Converters.CommaSeparatedOptionListConverter.class,
       defaultValue = "--positions",
-      category = "semantics",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -578,7 +639,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(
       name = "android_resource_shrinking",
       defaultValue = "false",
-      category = "semantics",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -591,7 +651,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(
       name = "experimental_android_resource_cycle_shrinking",
       defaultValue = "false",
-      category = "semantics",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -607,7 +666,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(
       name = "android_manifest_merger",
       defaultValue = "android",
-      category = "semantics",
       converter = AndroidManifestMergerConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
@@ -624,7 +682,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(
       name = "android_aapt",
       defaultValue = "aapt",
-      category = "semantics",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -660,32 +717,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       help = "Build Android APKs with SingleJar."
     )
     public boolean useSingleJarApkBuilder;
-
-    @Option(
-      name = "experimental_android_resource_filtering_method",
-      converter = ResourceFilterFactory.Converter.class,
-      defaultValue = "filter_in_analysis",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.CHANGES_INPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Determines when resource filtering attributes, such as the android_binary "
-              + "'resource_configuration_filters' and 'densities' attributes, are applied. "
-              + "By default, bazel will 'filter_in_analysis'. The experimental "
-              + "'filter_in_analysis_with_dynamic_configuration' option also passes these options "
-              + "to the android_binary's dependencies, which also filter their internal resources "
-              + "in analysis, possibly making the build even faster (especially in systems that "
-              + "do not cache the results of those dependencies). When using aapt2, filtering is "
-              + "only performed in execution, and this setting does nothing."
-    )
-    // The ResourceFilterFactory object holds the filtering behavior as well as settings for which
-    // resources should be filtered. The filtering behavior is set from the command line, but the
-    // other settings default to empty and are set or modified via dynamic configuration.
-    public ResourceFilterFactory resourceFilterFactory;
 
     @Option(
       name = "experimental_android_compress_java_resources",
@@ -761,6 +792,67 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean fixedResourceNeverlinking;
 
+    @Option(
+      name = "android_robolectric_test_deprecation_level",
+      defaultValue = "off",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      converter = AndroidRobolectricTestDeprecationLevelConverter.class,
+      help =
+          "Determine the deprecation level of android_robolectric_test. Can be 'off', "
+              + "'warning', or 'deprecated'."
+    )
+    public AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
+
+    @Option(
+        name = "android_decouple_data_processing",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+          OptionEffectTag.ACTION_COMMAND_LINES
+        },
+        help =
+            "If true, Android data (assets, resources, and manifests) will be processed seperately "
+                + "when possible. Otherwise, they will all be processed together.")
+    public boolean decoupleDataProcessing;
+
+    // TODO(cushon): make this the default, and delete it
+    @Option(
+      name = "experimental_android_enforce_strict_deps_for_binaries_under_test",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help = "If enabled, strict dependencies are enforced for android_test.binary_under_test"
+    )
+    public boolean enforceStrictDepsForBinariesUnderTest;
+
+    @Option(
+      name = "android_migration_tag_check",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+      },
+      help = "If enabled, strict usage of the Skylark migration tag is enabled for android rules."
+    )
+    public boolean checkForMigrationTag;
+
+    // TODO(eaftan): enable this by default and delete it
+    @Option(
+      name = "experimental_one_version_enforcement_use_transitive_jars_for_binary_under_test",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.ACTION_COMMAND_LINES
+      },
+      help =
+          "If enabled, one version enforcement for android_test uses the binary_under_test's "
+              + "transitive classpath, otherwise it uses the deploy jar"
+    )
+    public boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -769,10 +861,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the host.
 
       host.desugarJava8 = desugarJava8;
+      host.desugarJava8Libs = desugarJava8Libs;
       host.checkDesugarDeps = checkDesugarDeps;
       host.incrementalDexing = incrementalDexing;
       host.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
       host.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
+      host.incrementalDexingAfterProguardByDefault = incrementalDexingAfterProguardByDefault;
       host.assumeMinSdkVersion = assumeMinSdkVersion;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
@@ -781,19 +875,17 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.manifestMerger = manifestMerger;
       host.androidAaptVersion = androidAaptVersion;
       host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
+      host.enforceStrictDepsForBinariesUnderTest = enforceStrictDepsForBinariesUnderTest;
+      host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
+          oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
       return host;
-    }
-
-    @Override
-    public ImmutableList<String> getDefaultsRules() {
-      return ImmutableList.of("android_tools_defaults_jar(name = 'android_jar')");
     }
   }
 
   /** Configuration loader for the Android fragment. */
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
-    public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
+    public Fragment create(BuildOptions buildOptions)
         throws InvalidConfigurationException, InterruptedException {
       return new AndroidConfiguration(buildOptions.get(Options.class));
     }
@@ -809,6 +901,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
+  private final boolean enableAndroidCpuMakeVariable;
   private final Label sdk;
   private final String cpu;
   private final boolean useIncrementalNativeLibs;
@@ -816,12 +909,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
   private final boolean incrementalDexingUseDexSharder;
+  private final boolean incrementalDexingAfterProguardByDefault;
   private final boolean assumeMinSdkVersion;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final ImmutableList<String> dexoptsSupportedInDexMerger;
   private final boolean useWorkersWithDexbuilder;
   private final boolean desugarJava8;
+  private final boolean desugarJava8Libs;
   private final boolean checkDesugarDeps;
   private final boolean useRexToCompressDexFiles;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
@@ -830,7 +925,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final AndroidManifestMerger manifestMerger;
   private final ApkSigningMethod apkSigningMethod;
   private final boolean useSingleJarApkBuilder;
-  private final ResourceFilterFactory resourceFilterFactory;
   private final boolean compressJavaResources;
   private final boolean exportsManifestDefault;
   private final AndroidAaptVersion androidAaptVersion;
@@ -839,8 +933,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useParallelDex2Oat;
   private final boolean skipParsingAction;
   private final boolean fixedResourceNeverlinking;
+  private final AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
+  private final boolean decoupleDataProcessing;
+  private final boolean enforceStrictDepsForBinariesUnderTest;
+  private final boolean checkForMigrationTag;
+  private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
+    this.enableAndroidCpuMakeVariable = options.enableAndroidCpuMakeVariable;
     this.sdk = options.sdk;
     this.useIncrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
@@ -848,6 +948,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.incrementalDexing = options.incrementalDexing;
     this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
     this.incrementalDexingUseDexSharder = options.incrementalDexingUseDexSharder;
+    this.incrementalDexingAfterProguardByDefault = options.incrementalDexingAfterProguardByDefault;
     this.assumeMinSdkVersion = options.assumeMinSdkVersion;
     this.dexoptsSupportedInIncrementalDexing =
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
@@ -856,6 +957,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.dexoptsSupportedInDexMerger = ImmutableList.copyOf(options.dexoptsSupportedInDexMerger);
     this.useWorkersWithDexbuilder = options.useWorkersWithDexbuilder;
     this.desugarJava8 = options.desugarJava8;
+    this.desugarJava8Libs = options.desugarJava8Libs;
     this.checkDesugarDeps = options.checkDesugarDeps;
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking =
@@ -865,7 +967,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.apkSigningMethod = options.apkSigningMethod;
     this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
-    this.resourceFilterFactory = options.resourceFilterFactory;
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
     this.androidAaptVersion = options.androidAaptVersion;
@@ -874,21 +975,31 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useParallelDex2Oat = options.useParallelDex2Oat;
     this.skipParsingAction = options.skipParsingAction;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
+    this.robolectricTestDeprecationLevel = options.robolectricTestDeprecationLevel;
+    this.decoupleDataProcessing = options.decoupleDataProcessing;
+    this.enforceStrictDepsForBinariesUnderTest = options.enforceStrictDepsForBinariesUnderTest;
+    this.checkForMigrationTag = options.checkForMigrationTag;
+    this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
+        options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
 
-    if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
-      // TODO(bazel-team): Still needed? See DexArchiveAspect
-      throw new InvalidConfigurationException(
-          "--dexopts_supported_in_incremental_dexing must "
-              + "include '--no-locals' to enable coverage builds");
-    }
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
           "--experimental_incremental_dexing_after_proguard must be a positive number");
     }
+    if (incrementalDexingAfterProguardByDefault && incrementalDexingShardsAfterProguard == 0) {
+      throw new InvalidConfigurationException(
+          "--experimental_incremental_dexing_after_proguard_by_default requires "
+              + "--experimental_incremental_dexing_after_proguard to be at least 1");
+    }
+    if (desugarJava8Libs && !desugarJava8) {
+      throw new InvalidConfigurationException(
+          "Java 8 library support requires --desugar_java8 to be enabled.");
+    }
   }
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   AndroidConfiguration(
+      boolean enableAndroidCpuMakeVariable,
       Label sdk,
       String cpu,
       boolean useIncrementalNativeLibs,
@@ -896,12 +1007,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       boolean incrementalDexing,
       int incrementalDexingShardsAfterProguard,
       boolean incrementalDexingUseDexSharder,
+      boolean incrementalDexingAfterProguardByDefault,
       boolean assumeMinSdkVersion,
       ImmutableList<String> dexoptsSupportedInIncrementalDexing,
       ImmutableList<String> targetDexoptsThatPreventIncrementalDexing,
       ImmutableList<String> dexoptsSupportedInDexMerger,
       boolean useWorkersWithDexbuilder,
       boolean desugarJava8,
+      boolean desugarJava8Libs,
       boolean checkDesugarDeps,
       boolean useRexToCompressDexFiles,
       boolean allowAndroidLibraryDepsWithoutSrcs,
@@ -910,7 +1023,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       AndroidManifestMerger manifestMerger,
       ApkSigningMethod apkSigningMethod,
       boolean useSingleJarApkBuilder,
-      ResourceFilterFactory resourceFilterFactory,
       boolean compressJavaResources,
       boolean exportsManifestDefault,
       AndroidAaptVersion androidAaptVersion,
@@ -918,7 +1030,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       boolean throwOnResourceConflict,
       boolean useParallelDex2Oat,
       boolean skipParsingAction,
-      boolean fixedResourceNeverlinking) {
+      boolean fixedResourceNeverlinking,
+      AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel,
+      boolean decoupleDataProcessing,
+      boolean enforceStrictDepsForBinariesUnderTest,
+      boolean checkForMigrationTag,
+      boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest) {
+    this.enableAndroidCpuMakeVariable = enableAndroidCpuMakeVariable;
     this.sdk = sdk;
     this.cpu = cpu;
     this.useIncrementalNativeLibs = useIncrementalNativeLibs;
@@ -926,12 +1044,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.incrementalDexing = incrementalDexing;
     this.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
     this.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
+    this.incrementalDexingAfterProguardByDefault = incrementalDexingAfterProguardByDefault;
     this.assumeMinSdkVersion = assumeMinSdkVersion;
     this.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
     this.targetDexoptsThatPreventIncrementalDexing = targetDexoptsThatPreventIncrementalDexing;
     this.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
     this.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
     this.desugarJava8 = desugarJava8;
+    this.desugarJava8Libs = desugarJava8Libs;
     this.checkDesugarDeps = checkDesugarDeps;
     this.useRexToCompressDexFiles = useRexToCompressDexFiles;
     this.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
@@ -940,7 +1060,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.manifestMerger = manifestMerger;
     this.apkSigningMethod = apkSigningMethod;
     this.useSingleJarApkBuilder = useSingleJarApkBuilder;
-    this.resourceFilterFactory = resourceFilterFactory;
     this.compressJavaResources = compressJavaResources;
     this.exportsManifestDefault = exportsManifestDefault;
     this.androidAaptVersion = androidAaptVersion;
@@ -949,6 +1068,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useParallelDex2Oat = useParallelDex2Oat;
     this.skipParsingAction = skipParsingAction;
     this.fixedResourceNeverlinking = fixedResourceNeverlinking;
+    this.robolectricTestDeprecationLevel = robolectricTestDeprecationLevel;
+    this.decoupleDataProcessing = decoupleDataProcessing;
+    this.enforceStrictDepsForBinariesUnderTest = enforceStrictDepsForBinariesUnderTest;
+    this.checkForMigrationTag = checkForMigrationTag;
+    this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
+        oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   }
 
   public String getCpu() {
@@ -984,6 +1109,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return incrementalDexingUseDexSharder;
   }
 
+  /** Whether to use incremental dexing to build proguarded binaries by default. */
+  public boolean incrementalDexingAfterProguardByDefault() {
+    return incrementalDexingAfterProguardByDefault;
+  }
+
   /**
    * Returns true if an -assumevalues should be generated for Proguard based on the minSdkVersion of
    * the merged AndroidManifest.
@@ -1017,6 +1147,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean desugarJava8() {
     return desugarJava8;
+  }
+
+  public boolean desugarJava8Libs() {
+    return desugarJava8Libs;
   }
 
   public boolean checkDesugarDeps() {
@@ -1055,10 +1189,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return useSingleJarApkBuilder;
   }
 
-  public ResourceFilterFactory getResourceFilterFactory() {
-    return resourceFilterFactory;
-  }
-
   public boolean useParallelDex2Oat() {
     return useParallelDex2Oat;
   }
@@ -1087,33 +1217,37 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return this.fixedResourceNeverlinking;
   }
 
+  public AndroidRobolectricTestDeprecationLevel getRobolectricTestDeprecationLevel() {
+    return robolectricTestDeprecationLevel;
+  }
+
+  public boolean decoupleDataProcessing() {
+    return decoupleDataProcessing;
+  }
+
+  public boolean getEnforceStrictDepsForBinariesUnderTest() {
+    return enforceStrictDepsForBinariesUnderTest;
+  }
+
+  public boolean checkForMigrationTag() {
+    return checkForMigrationTag;
+  }
+
+  public boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest() {
+    return oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+  }
+
   @Override
   public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
+    if (!enableAndroidCpuMakeVariable) {
+      return;
+    }
+
     globalMakeEnvBuilder.put("ANDROID_CPU", cpu);
   }
 
   @Override
   public String getOutputDirectoryName() {
-    // We expect this value to be null most of the time - it will only become non-null when a
-    // dynamically configured transition changes the configuration's resource filter object.
-    String resourceFilterSuffix = resourceFilterFactory.getOutputDirectorySuffix();
-
-    if (configurationDistinguisher.suffix == null) {
-      return resourceFilterSuffix;
-    }
-
-    if (resourceFilterSuffix == null) {
-      return configurationDistinguisher.suffix;
-    }
-
-    return configurationDistinguisher.suffix + "_" + resourceFilterSuffix;
-  }
-
-  @Nullable
-  @Override
-  public PatchTransition topLevelConfigurationHook(Target toTarget) {
-    return resourceFilterFactory.getTopLevelPatchTransition(
-        toTarget.getAssociatedRule().getRuleClass(),
-        AggregatingAttributeMapper.of(toTarget.getAssociatedRule()));
+    return configurationDistinguisher.suffix;
   }
 }

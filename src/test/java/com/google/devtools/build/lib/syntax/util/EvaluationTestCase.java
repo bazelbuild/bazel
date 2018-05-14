@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.syntax.BazelLibrary;
+import com.google.devtools.build.lib.packages.BazelLibrary;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.FailFastException;
@@ -53,15 +53,7 @@ public class EvaluationTestCase {
 
   @Before
   public final void initialize() throws Exception {
-    beforeInitialization();
     env = newEnvironment();
-  }
-
-  protected void beforeInitialization() throws Exception {
-    // This method exists so that it can be overridden in MakeEnvironmentTest.
-    // The problem is that MakeEnvironmentTest's initialization code (setting up makeEnvBuilder)
-    // needs to run before initialize(), otherwise some tests fail with an NPE.
-    // Consequently, we need this hack to ensure the right order of methods.
   }
 
   /**

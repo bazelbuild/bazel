@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.Cross
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.DefaultCpuToolchain;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 
 /** Generates a CrosstoolRelease proto for the Android NDK. */
 final class AndroidNdkCrosstoolsR13 {
@@ -97,7 +97,7 @@ final class AndroidNdkCrosstoolsR13 {
             .build();
 
     ImmutableList.Builder<DefaultCpuToolchain> defaultCpuToolchains = ImmutableList.builder();
-    for (Entry<String, String> defaultCpu : defaultCpus.entrySet()) {
+    for (Map.Entry<String, String> defaultCpu : defaultCpus.entrySet()) {
       defaultCpuToolchains.add(
           DefaultCpuToolchain.newBuilder()
               .setCpu(defaultCpu.getKey())

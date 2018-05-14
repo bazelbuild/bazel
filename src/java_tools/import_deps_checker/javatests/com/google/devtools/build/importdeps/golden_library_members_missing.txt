@@ -1,0 +1,8 @@
+Missing member 'I' in class com.google.devtools.build.importdeps.testdata.Library$Class1 : name=I, descriptor=Lcom/google/devtools/build/importdeps/testdata/Library$Class1;
+Missing member 'field' in class com.google.devtools.build.importdeps.testdata.Library$Class3 : name=field, descriptor=Lcom/google/devtools/build/importdeps/testdata/Library$Class4;
+Missing member 'createClass5' in class com.google.devtools.build.importdeps.testdata.Library$Class4 : name=createClass5, descriptor=()Lcom/google/devtools/build/importdeps/testdata/Library$Class5;
+Missing member 'create' in class com.google.devtools.build.importdeps.testdata.Library$Class5 : name=create, descriptor=(Lcom/google/devtools/build/importdeps/testdata/Library$Class7;)Lcom/google/devtools/build/importdeps/testdata/Library$Class6;
+===Total===
+missing=0
+incomplete=0
+missing_members=4

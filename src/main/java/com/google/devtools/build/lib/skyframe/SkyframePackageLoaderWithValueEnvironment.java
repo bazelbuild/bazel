@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -42,15 +41,11 @@ import java.io.IOException;
 class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForConfigurations {
   private final SkyFunction.Environment env;
   private final RuleClassProvider ruleClassProvider;
-  private final BlazeDirectories directories;
 
   SkyframePackageLoaderWithValueEnvironment(
-      SkyFunction.Environment env,
-      RuleClassProvider ruleClassProvider,
-      BlazeDirectories directories) {
+      SkyFunction.Environment env, RuleClassProvider ruleClassProvider) {
     this.env = env;
     this.ruleClassProvider = ruleClassProvider;
-    this.directories = directories;
   }
 
   @Override
@@ -96,11 +91,6 @@ class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForCon
       return null;
     }
     return fragmentType.cast(fragmentNode.getFragment());
-  }
-
-  @Override
-  public BlazeDirectories getDirectories() throws InterruptedException {
-    return directories;
   }
 
   @Override

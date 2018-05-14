@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -86,9 +85,6 @@ public class SkylarkImports {
   @VisibleForSerialization
   @AutoCodec
   static final class AbsolutePathImport extends SkylarkImportImpl {
-    static final ObjectCodec<AbsolutePathImport> CODEC =
-        new SkylarkImports_AbsolutePathImport_AutoCodec();
-
     private final PathFragment importPath;
 
     @VisibleForSerialization
@@ -122,9 +118,6 @@ public class SkylarkImports {
   @VisibleForSerialization
   @AutoCodec
   static final class RelativePathImport extends SkylarkImportImpl {
-    static final ObjectCodec<RelativePathImport> CODEC =
-        new SkylarkImports_RelativePathImport_AutoCodec();
-
     private final String importFile;
 
     @VisibleForSerialization
@@ -160,9 +153,6 @@ public class SkylarkImports {
   @VisibleForSerialization
   @AutoCodec
   static final class AbsoluteLabelImport extends SkylarkImportImpl {
-    static final ObjectCodec<AbsoluteLabelImport> CODEC =
-        new SkylarkImports_AbsoluteLabelImport_AutoCodec();
-
     private final Label importLabel;
 
     @VisibleForSerialization
@@ -173,7 +163,7 @@ public class SkylarkImports {
 
     @Override
     public PathFragment asPathFragment() {
-      return PathFragment.create(PathFragment.ROOT_DIR).getRelative(importLabel.toPathFragment());
+      return PathFragment.create("/").getRelative(importLabel.toPathFragment());
     }
 
     @Override
@@ -188,9 +178,6 @@ public class SkylarkImports {
   @VisibleForSerialization
   @AutoCodec
   static final class RelativeLabelImport extends SkylarkImportImpl {
-    static final ObjectCodec<RelativeLabelImport> CODEC =
-        new SkylarkImports_RelativeLabelImport_AutoCodec();
-
     private final String importTarget;
 
     @VisibleForSerialization
@@ -241,14 +228,10 @@ public class SkylarkImports {
 
   @VisibleForTesting
   static final String INVALID_PATH_SYNTAX =
-      "Don't use paths for Load statements; "
-      + "use a label instead, e.g. '//foo:bar.bzl' or ':bar.bzl'";
+      "First argument of 'load' must be a label and start with either '//', ':', or '@'.";
 
   @VisibleForTesting
   static final String INVALID_TARGET_PREFIX = "Invalid target: ";
-
-  @VisibleForTesting
-  static final String INVALID_FILENAME_PREFIX = "Invalid filename: ";
 
   /**
    * Creates and syntactically validates a {@link SkylarkImports} instance from a string.
@@ -276,16 +259,8 @@ public class SkylarkImports {
         throw new SkylarkImportSyntaxException(EXTERNAL_PKG_NOT_ALLOWED_MSG);
       }
       return new AbsoluteLabelImport(importString, importLabel);
-    } else if (importString.startsWith("/")) {
-      // Absolute path.
-      if (importString.endsWith(".bzl")) {
-        throw new SkylarkImportSyntaxException(INVALID_PATH_SYNTAX);
-      }
-      PathFragment importPath = PathFragment.create(importString + ".bzl");
-      return new AbsolutePathImport(importString, importPath);
     } else if (importString.startsWith(":")) {
-      // Relative label. We require that relative labels use an explicit ':' prefix to distinguish
-      // them from relative paths, which have a different semantics.
+      // Relative label. We require that relative labels use an explicit ':' prefix.
       String importTarget = importString.substring(1);
       if (!importTarget.endsWith(".bzl")) {
         throw new SkylarkImportSyntaxException(MUST_HAVE_BZL_EXT_MSG);
@@ -296,18 +271,8 @@ public class SkylarkImports {
         throw new SkylarkImportSyntaxException(INVALID_TARGET_PREFIX + maybeErrMsg);
       }
       return new RelativeLabelImport(importString, importTarget);
-    } else {
-      // Relative path.
-      if (importString.endsWith(".bzl") || importString.contains("/")) {
-        throw new SkylarkImportSyntaxException(INVALID_PATH_SYNTAX);
-      }
-      String importTarget = importString + ".bzl";
-      String maybeErrMsg = LabelValidator.validateTargetName(importTarget);
-      if (maybeErrMsg != null) {
-        // Null indicates successful target validation.
-        throw new SkylarkImportSyntaxException(INVALID_FILENAME_PREFIX + maybeErrMsg);
-      }
-      return new RelativePathImport(importString, importTarget);
     }
+
+    throw new SkylarkImportSyntaxException(INVALID_PATH_SYNTAX);
   }
 }

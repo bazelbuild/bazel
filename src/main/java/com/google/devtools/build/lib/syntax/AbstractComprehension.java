@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -93,9 +94,8 @@ public abstract class AbstractComprehension extends Expression {
     void prettyPrint(Appendable buffer) throws IOException;
   }
 
-  /**
-   * A for clause in a comprehension, e.g. "for a in b" in the example above.
-   */
+  /** A for clause in a comprehension, e.g. "for a in b" in the example above. */
+  @AutoCodec
   public static final class ForClause implements Clause {
     private final LValue lvalue;
     private final Expression iterable;
@@ -158,9 +158,8 @@ public abstract class AbstractComprehension extends Expression {
     }
   }
 
-  /**
-   * A if clause in a comprehension, e.g. "if c" in the example above.
-   */
+  /** A if clause in a comprehension, e.g. "if c" in the example above. */
+  @AutoCodec
   public static final class IfClause implements Clause {
     private final Expression condition;
 
@@ -278,10 +277,6 @@ public abstract class AbstractComprehension extends Expression {
     OutputCollector collector = createCollector(env);
     evalStep(env, collector, 0);
     Object result = collector.getResult(env);
-
-    if (!env.getSemantics().incompatibleComprehensionVariablesDoNotLeak()) {
-      return result;
-    }
 
     // Undefine loop variables (remove them from the environment).
     // This code is useful for the transition, to make sure no one relies on the old behavior

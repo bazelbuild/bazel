@@ -14,14 +14,19 @@
 package com.google.devtools.build.android;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.emptyToNull;
 
+import com.android.SdkConstants;
+import com.android.annotations.VisibleForTesting;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
 import com.android.ide.common.resources.configuration.ResourceQualifier;
+import com.android.resources.ResourceFolderType;
 import com.android.resources.ResourceType;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.devtools.build.android.proto.SerializeFormat;
@@ -31,8 +36,10 @@ import java.io.OutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -55,6 +62,7 @@ public class FullyQualifiedName implements DataKey {
   // Using a HashMap to deduplicate the instances -- the key retrieves a single instance.
   private static final ConcurrentMap<FullyQualifiedName, FullyQualifiedName> instanceCache =
       new ConcurrentHashMap<>();
+
   private static final AtomicInteger cacheHit = new AtomicInteger(0);
   private final String pkg;
   private final ImmutableList<String> qualifiers;
@@ -62,6 +70,7 @@ public class FullyQualifiedName implements DataKey {
   private final String name;
 
   private FullyQualifiedName(String pkg, ImmutableList<String> qualifiers, Type type, String name) {
+    Preconditions.checkArgument(!pkg.isEmpty());
     this.pkg = pkg;
     this.qualifiers = qualifiers;
     this.type = type;
@@ -82,18 +91,20 @@ public class FullyQualifiedName implements DataKey {
   /**
    * Creates a new FullyQualifiedName with normalized qualifiers.
    *
-   * @param pkg The resource package of the name. If unknown the default should be "res-auto"
+   * @param rawPkg The resource package of the name. If unknown the default should be "res-auto"
    * @param qualifiers The resource qualifiers of the name, such as "en" or "xhdpi".
    * @param type The type of the name.
    * @param name The name of the name.
    * @return A new FullyQualifiedName.
    */
-  public static FullyQualifiedName of(String pkg, List<String> qualifiers, Type type, String name) {
-    checkNotNull(pkg);
+  public static FullyQualifiedName of(
+      String rawPkg, List<String> qualifiers, Type type, String name) {
+    checkNotNull(rawPkg);
     checkNotNull(qualifiers);
     checkNotNull(type);
     checkNotNull(name);
     ImmutableList<String> immutableQualifiers = ImmutableList.copyOf(qualifiers);
+    String pkg = rawPkg.isEmpty() ? DEFAULT_PACKAGE : rawPkg;
     // TODO(corysmith): Address the GC thrash this creates by managing a simplified, mutable key to
     // do the instance check.
     FullyQualifiedName fqn = new FullyQualifiedName(pkg, immutableQualifiers, type, name);
@@ -130,6 +141,25 @@ public class FullyQualifiedName implements DataKey {
         protoKey.getKeyValue());
   }
 
+  static final Pattern QUALIFIED_REFERENCE =
+      Pattern.compile("((?<package>[^:]+):)?(?<type>\\w+)/(?<name>\\w+)");
+
+  public static FullyQualifiedName fromReference(
+      String qualifiedReference, Optional<String> packageName) {
+    final Matcher matcher = QUALIFIED_REFERENCE.matcher(qualifiedReference);
+    Preconditions.checkArgument(
+        matcher.find(),
+        "%s is not a reference. Expected %s",
+        qualifiedReference,
+        QUALIFIED_REFERENCE.pattern());
+    return of(
+        Optional.ofNullable(emptyToNull(matcher.group("package")))
+            .orElse(packageName.orElse(DEFAULT_PACKAGE)),
+        ImmutableList.of(),
+        ResourceType.getEnum(matcher.group("type")),
+        matcher.group("name"));
+  }
+
   public static void logCacheUsage(Logger logger) {
     logger.fine(
         String.format(
@@ -159,7 +189,8 @@ public class FullyQualifiedName implements DataKey {
   public String toPrettyString() {
     // TODO(corysmith): Add package when we start tracking it.
     return String.format(
-        "%s/%s",
+        "%s%s/%s",
+        DEFAULT_PACKAGE.equals(pkg) ? "" : pkg + ':',
         DASH_JOINER.join(
             ImmutableList.<String>builder().add(type.getName()).addAll(qualifiers).build()),
         name);
@@ -182,8 +213,31 @@ public class FullyQualifiedName implements DataKey {
         .toString();
   }
 
+  @VisibleForTesting
+  public String asUnqualifedName() {
+    return String.format(
+        "%s/%s",
+        DASH_JOINER.join(
+            ImmutableList.<String>builder().add(type.getName()).addAll(qualifiers).build()),
+        name);
+  }
+
   public String name() {
     return name;
+  }
+
+  public boolean isInPackage(String packageName) {
+    return pkg.equals(packageName);
+  }
+
+  /** Provides the name qualified by the package it belongs to. */
+  public String qualifiedName() {
+    return (pkg.equals(DEFAULT_PACKAGE) ? "" : pkg + ":") + name;
+  }
+
+  public String asQualifiedReference() {
+    return String.format(
+        "%s%s/%s", (pkg.equals(DEFAULT_PACKAGE) ? "" : pkg + ":"), type.getName(), name);
   }
 
   public ResourceType type() {
@@ -349,29 +403,29 @@ public class FullyQualifiedName implements DataKey {
 
   /** Represents the type of a {@link FullyQualifiedName}. */
   public interface Type {
-    public String getName();
+    String getName();
 
-    public ConcreteType getType();
+    ConcreteType getType();
 
-    public boolean isOverwritable(FullyQualifiedName fqn);
+    boolean isOverwritable(FullyQualifiedName fqn);
 
-    public int compareTo(Type other);
-
-    @Override
-    public boolean equals(Object obj);
+    int compareTo(Type other);
 
     @Override
-    public int hashCode();
+    boolean equals(Object obj);
 
     @Override
-    public String toString();
+    int hashCode();
+
+    @Override
+    String toString();
 
     /**
      * The category of type that a {@link Type} can be.
      *
      * <p><em>Note:</em> used for strict ordering of {@link FullyQualifiedName}s.
      */
-    public enum ConcreteType {
+    enum ConcreteType {
       RESOURCE_TYPE,
       VIRTUAL_TYPE;
     }
@@ -429,6 +483,117 @@ public class FullyQualifiedName implements DataKey {
     }
   }
 
+  /** Represents the configuration qualifiers in a resource directory. */
+  public static class Qualifiers {
+
+    private static final Qualifiers EMPTY_QUALIFIERS =
+        new Qualifiers(null, ImmutableList.of(), false);
+
+    // Qualifiers are reasonably expensive to create, so cache them on directory names.
+    private static final ConcurrentMap<String, Qualifiers> qualifierCache =
+        new ConcurrentHashMap<>();
+
+    public static final String INVALID_QUALIFIERS = "%s contains invalid qualifiers.";
+    private final ResourceFolderType folderType;
+    private final ImmutableList<String> qualifiers;
+    private boolean defaultLocale;
+
+    private Qualifiers(
+        ResourceFolderType folderType, ImmutableList<String> qualifiers, boolean defaultLocale) {
+      this.folderType = folderType;
+      this.qualifiers = qualifiers;
+      this.defaultLocale = defaultLocale;
+    }
+
+    public static Qualifiers parseFrom(String directoryName) {
+      return qualifierCache.computeIfAbsent(
+          directoryName, d -> getQualifiers(Splitter.on(SdkConstants.RES_QUALIFIER_SEP).split(d)));
+    }
+
+    private static Qualifiers getQualifiers(String... dirNameAndQualifiers) {
+      return getQualifiers(Arrays.asList(dirNameAndQualifiers));
+    }
+
+    private static Qualifiers getQualifiers(Iterable<String> dirNameAndQualifiers) {
+      PeekingIterator<String> rawQualifiers =
+          Iterators.peekingIterator(dirNameAndQualifiers.iterator());
+      // Remove directory name
+      final ResourceFolderType folderType = ResourceFolderType.getTypeByName(rawQualifiers.next());
+
+      // If there is no folder type, there are no qualifiers to parse.
+      if (folderType == null) {
+        return EMPTY_QUALIFIERS;
+      }
+
+      List<String> handledQualifiers = new ArrayList<>();
+      // Do some substitution of language/region qualifiers.
+      while (rawQualifiers.hasNext()) {
+        String qualifier = rawQualifiers.next();
+        if ("es".equalsIgnoreCase(qualifier)
+            && rawQualifiers.hasNext()
+            && "419".equalsIgnoreCase(rawQualifiers.peek())) {
+          // Replace the es-419.
+          handledQualifiers.add("b+es+419");
+          // Consume the next value, as it's been replaced.
+          rawQualifiers.next();
+        } else if ("sr".equalsIgnoreCase(qualifier)
+            && rawQualifiers.hasNext()
+            && "rlatn".equalsIgnoreCase(rawQualifiers.peek())) {
+          // Replace the sr-rLatn.
+          handledQualifiers.add("b+sr+Latn");
+          // Consume the next value, as it's been replaced.
+          rawQualifiers.next();
+        } else {
+          // This qualifier can probably be handled by FolderConfiguration.
+          handledQualifiers.add(qualifier);
+        }
+      }
+      // Create a configuration
+      FolderConfiguration config = FolderConfiguration.getConfigFromQualifiers(handledQualifiers);
+      // FolderConfiguration returns an unhelpful null when it considers the qualifiers to be
+      // invalid.
+      if (config == null) {
+        throw new IllegalArgumentException(
+            String.format(INVALID_QUALIFIERS, DASH_JOINER.join(dirNameAndQualifiers)));
+      }
+      config.normalize();
+
+      ImmutableList.Builder<String> builder = ImmutableList.<String>builder();
+      // index 3 is past the country code, network code, and locale indices.
+      for (int i = 0; i < FolderConfiguration.getQualifierCount(); ++i) {
+        addIfNotNull(config.getQualifier(i), builder);
+      }
+      return new Qualifiers(folderType, builder.build(), config.getLocaleQualifier() == null);
+    }
+
+    private static void addIfNotNull(
+        ResourceQualifier qualifier, ImmutableList.Builder<String> builder) {
+      if (qualifier != null) {
+        builder.add(qualifier.getFolderSegment());
+      }
+    }
+
+    /** Returns the qualifiers as a list of strings. */
+    public List<String> asList() {
+      return qualifiers;
+    }
+
+    public ResourceFolderType asFolderType() {
+      return folderType;
+    }
+
+    /** Creates a Qualifiers assuming that they are in the values directory. */
+    @VisibleForTesting
+    public static Qualifiers forValuesFolderFrom(List<String> qualifiers) {
+      return Qualifiers.getQualifiers(
+          ImmutableList.builder().add("values").addAll(qualifiers).build().toArray(new String[0]));
+    }
+
+    public boolean containDefaultLocale() {
+      return defaultLocale;
+    }
+  }
+
   /** A factory for parsing an generating FullyQualified names with qualifiers and package. */
   public static class Factory {
 
@@ -452,93 +617,51 @@ public class FullyQualifiedName implements DataKey {
                         .add(ResourceType.getNames())
                         .add(VirtualType.getNames())
                         .build()));
-    public static final String INVALID_QUALIFIERS = "%s contains invalid qualifiers.";
     private static final Pattern PARSING_REGEX =
         Pattern.compile(
             "(?:(?<package>[^:]+):){0,1}(?<type>[^-/]+)(?:[^/]*)/(?:(?:(?<namespace>\\{[^}]+\\}))"
                 + "|(?:(?<misplacedPackage>[^:]+):)){0,1}(?<name>.+)");
-    private final ImmutableList<String> qualifiers;
+    // private final ImmutableList<String> qualifiers;
+
     private final String pkg;
 
-    private Factory(ImmutableList<String> qualifiers, String pkg) {
-      this.qualifiers = qualifiers;
+    private final Qualifiers qs;
+
+    private Factory(Qualifiers qualifiers, String pkg) {
+      // this.qualifiers = qualifiers;
       this.pkg = pkg;
+      this.qs = qualifiers;
     }
 
     /** Creates a factory with default package from a directory name split on '-'. */
-    public static Factory fromDirectoryName(String[] dirNameAndQualifiers) {
-      return from(getQualifiers(dirNameAndQualifiers));
+    @VisibleForTesting
+    public static Factory fromDirectoryName(String... dirNameAndQualifiers) {
+      return using(Qualifiers.getQualifiers(dirNameAndQualifiers), DEFAULT_PACKAGE);
     }
 
-    private static List<String> getQualifiers(String[] dirNameAndQualifiers) {
-      PeekingIterator<String> rawQualifiers =
-          Iterators.peekingIterator(Iterators.forArray(dirNameAndQualifiers));
-      // Remove directory name
-      rawQualifiers.next();
-      List<String> transformedLocaleQualifiers = new ArrayList<>();
-      List<String> handledQualifiers = new ArrayList<>();
-      // Do some substitution of language/region qualifiers.
-      while (rawQualifiers.hasNext()) {
-        String qualifier = rawQualifiers.next();
-        if ("es".equalsIgnoreCase(qualifier)
-            && rawQualifiers.hasNext()
-            && "419".equalsIgnoreCase(rawQualifiers.peek())) {
-          // Replace the es-419.
-          transformedLocaleQualifiers.add("b+es+419");
-          // Consume the next value, as it's been replaced.
-          rawQualifiers.next();
-        } else if ("sr".equalsIgnoreCase(qualifier)
-            && rawQualifiers.hasNext()
-            && "rlatn".equalsIgnoreCase(rawQualifiers.peek())) {
-          // Replace the sr-rLatn.
-          transformedLocaleQualifiers.add("b+sr+Latn");
-          // Consume the next value, as it's been replaced.
-          rawQualifiers.next();
-        } else {
-          // This qualifier can probably be handled by FolderConfiguration.
-          handledQualifiers.add(qualifier);
-        }
-      }
-      // Create a configuration
-      FolderConfiguration config = FolderConfiguration.getConfigFromQualifiers(handledQualifiers);
-      // FolderConfiguration returns an unhelpful null when it considers the qualifiers to be
-      // invalid.
-      if (config == null) {
-        throw new IllegalArgumentException(
-            String.format(INVALID_QUALIFIERS, DASH_JOINER.join(dirNameAndQualifiers)));
-      }
-      config.normalize();
-
-      // This is fragile but better than the Gradle scheme of just dropping
-      // entire subtrees.
-      Builder<String> builder = ImmutableList.<String>builder();
-      addIfNotNull(config.getCountryCodeQualifier(), builder);
-      addIfNotNull(config.getNetworkCodeQualifier(), builder);
-      if (transformedLocaleQualifiers.isEmpty()) {
-        addIfNotNull(config.getLocaleQualifier(), builder);
-      } else {
-        builder.addAll(transformedLocaleQualifiers);
-      }
-      // index 3 is past the country code, network code, and locale indices.
-      for (int i = 3; i < FolderConfiguration.getQualifierCount(); ++i) {
-        addIfNotNull(config.getQualifier(i), builder);
-      }
-      return builder.build();
+    /** Creates a factory with default package from a directory with '-' separating qualifiers. */
+    public static Factory fromDirectoryName(String dirNameAndQualifiers) {
+      return using(Qualifiers.parseFrom(dirNameAndQualifiers), DEFAULT_PACKAGE);
     }
 
-    private static void addIfNotNull(
-        ResourceQualifier qualifier, ImmutableList.Builder<String> builder) {
-      if (qualifier != null) {
-        builder.add(qualifier.getFolderSegment());
-      }
-    }
-
+    @VisibleForTesting
     public static Factory from(List<String> qualifiers, String pkg) {
-      return new Factory(ImmutableList.copyOf(qualifiers), pkg);
+      return using(Qualifiers.forValuesFolderFrom(qualifiers), pkg);
     }
 
+    @VisibleForTesting
     public static Factory from(List<String> qualifiers) {
-      return from(ImmutableList.copyOf(qualifiers), DEFAULT_PACKAGE);
+      return from(qualifiers, DEFAULT_PACKAGE);
+    }
+
+    /** Creates a factory with the qualifiers and package. */
+    public static Factory using(Qualifiers qualifiers) {
+      return using(qualifiers, DEFAULT_PACKAGE);
+    }
+
+    /** Creates a factory with the qualifiers and package. */
+    public static Factory using(Qualifiers qualifiers, String pkg) {
+      return new Factory(qualifiers, pkg.isEmpty() ? DEFAULT_PACKAGE : pkg);
     }
 
     private static String deriveRawFullyQualifiedName(Path source) {
@@ -571,7 +694,7 @@ public class FullyQualifiedName implements DataKey {
     }
 
     public FullyQualifiedName create(Type type, String name, String pkg) {
-      return FullyQualifiedName.of(pkg, qualifiers, type, name);
+      return FullyQualifiedName.of(pkg, qs.asList(), type, name);
     }
 
     public FullyQualifiedName create(ResourceType type, String name) {
@@ -613,7 +736,7 @@ public class FullyQualifiedName implements DataKey {
             String.format(INVALID_QUALIFIED_NAME_MESSAGE_NO_TYPE_OR_NAME, type, name, raw));
       }
 
-      return FullyQualifiedName.of(parsedPackage, qualifiers, type, name);
+      return FullyQualifiedName.of(parsedPackage, qs.asList(), type, name);
     }
 
     private String firstNonNull(String... values) {

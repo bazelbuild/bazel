@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.pkgcache.CompileOneDependencyTransformer;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
-import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
@@ -185,17 +185,37 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     ResolvedTargets<Target> expandedTargets = expandedTargetsBuilder.build();
     Set<Target> testSuiteTargets =
         Sets.difference(targets.getTargets(), expandedTargets.getTargets());
-    TargetPatternPhaseValue result = new TargetPatternPhaseValue(
-        expandedTargets.getTargets(), testsToRun, preExpansionError,
-        expandedTargets.hasError() || workspaceError, filteredTargets, testFilteredTargets,
-        ImmutableSet.copyOf(testSuiteTargets), workspaceName);
-    env.getListener().post(
-        new TargetParsingCompleteEvent(
-            targets.getTargets(),
-            result.getFilteredTargets(),
-            result.getTestFilteredTargets(),
-            options.getTargetPatterns(),
-            result.getTargets()));
+    ImmutableSet<Label> targetLabels =
+        expandedTargets
+            .getTargets()
+            .stream()
+            .map(Target::getLabel)
+            .collect(ImmutableSet.toImmutableSet());
+    ImmutableSet<Label> testsToRunLabels = null;
+    if (testsToRun != null) {
+      testsToRunLabels =
+          testsToRun.stream().map(Target::getLabel).collect(ImmutableSet.toImmutableSet());
+    }
+    ImmutableSet<Label> removedTargetLabels =
+        testSuiteTargets.stream().map(Target::getLabel).collect(ImmutableSet.toImmutableSet());
+
+    TargetPatternPhaseValue result =
+        new TargetPatternPhaseValue(
+            targetLabels,
+            testsToRunLabels,
+            targets.hasError(),
+            expandedTargets.hasError() || workspaceError,
+            removedTargetLabels,
+            workspaceName);
+
+    env.getListener()
+        .post(
+            new TargetParsingCompleteEvent(
+                targets.getTargets(),
+                filteredTargets,
+                testFilteredTargets,
+                options.getTargetPatterns(),
+                expandedTargets.getTargets()));
     return result;
   }
 
@@ -206,8 +226,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    */
   private static ResolvedTargets<Target> getTargetsToBuild(
       Environment env, TargetPatternPhaseKey options, PathPackageLocator pkgPath)
-      throws InterruptedException {
+          throws InterruptedException {
     List<TargetPatternKey> patternSkyKeys = new ArrayList<>();
+    ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
     for (TargetPatternSkyKeyOrException keyOrException :
         TargetPatternValue.keys(
             options.getTargetPatterns(),
@@ -224,6 +245,16 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         // pattern could be parsed successfully).
         env.getListener().post(
             new ParsingFailedEvent(keyOrException.getOriginalPattern(),  e.getMessage()));
+        try {
+          env.getValueOrThrow(
+              TargetPatternErrorFunction.key(e.getMessage()), TargetParsingException.class);
+        } catch (TargetParsingException ignore) {
+          // We ignore this. Keep going is active.
+        }
+        env.getListener().handle(
+            Event.error(
+                "Skipping '" + keyOrException.getOriginalPattern() + "': " + e.getMessage()));
+        builder.setError();
       }
     }
     Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
@@ -232,7 +263,6 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       return null;
     }
 
-    ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
     for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
@@ -240,6 +270,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       } catch (TargetParsingException e) {
         String rawPattern = pattern.getPattern();
         String errorMessage = e.getMessage();
+        env.getListener().post(PatternExpandingError.skipped(rawPattern, errorMessage));
         env.getListener().handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
         builder.setError();
         continue;
@@ -265,6 +296,12 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       } catch (MissingDepException e) {
         return null;
       } catch (TargetParsingException e) {
+        try {
+          env.getValueOrThrow(
+              TargetPatternErrorFunction.key(e.getMessage()), TargetParsingException.class);
+        } catch (TargetParsingException ignore) {
+          // We ignore this. Keep going is active.
+        }
         env.getListener().handle(Event.error(e.getMessage()));
         return ResolvedTargets.failed();
       }

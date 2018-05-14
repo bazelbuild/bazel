@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedWriter;
@@ -40,15 +42,15 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * Action to create a manifest of input files for processing by a subsequent
- * build step (e.g. runfiles symlinking or archive building).
+ * Action to create a manifest of input files for processing by a subsequent build step (e.g.
+ * runfiles symlinking or archive building).
  *
- * <p>The manifest's format is specifiable by {@link ManifestType}, in
- * accordance with the needs of the calling functionality.
+ * <p>The manifest's format is specifiable by {@link ManifestType}, in accordance with the needs of
+ * the calling functionality.
  *
- * <p>Note that this action carefully avoids building the manifest content in
- * memory.
+ * <p>Note that this action carefully avoids building the manifest content in memory.
  */
+@AutoCodec
 @Immutable // if all ManifestWriter implementations are immutable
 public final class SourceManifestAction extends AbstractFileWriteAction {
 
@@ -93,17 +95,18 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   private final Runfiles runfiles;
 
   /**
-   * Creates a new AbstractSourceManifestAction instance using latin1 encoding
-   * to write the manifest file and with a specified root path for manifest entries.
+   * Creates a new AbstractSourceManifestAction instance using latin1 encoding to write the manifest
+   * file and with a specified root path for manifest entries.
    *
    * @param manifestWriter the strategy to use to write manifest entries
    * @param owner the action owner
-   * @param output the file to which to write the manifest
+   * @param primaryOutput the file to which to write the manifest
    * @param runfiles runfiles
    */
-  private SourceManifestAction(ManifestWriter manifestWriter, ActionOwner owner, Artifact output,
-      Runfiles runfiles) {
-    super(owner, getDependencies(runfiles), output, false);
+  @VisibleForSerialization
+  SourceManifestAction(
+      ManifestWriter manifestWriter, ActionOwner owner, Artifact primaryOutput, Runfiles runfiles) {
+    super(owner, getDependencies(runfiles), primaryOutput, false);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
   }
@@ -193,29 +196,27 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    f.addBoolean(runfiles.getLegacyExternalRunfiles());
-    f.addPath(runfiles.getSuffix());
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
+    fp.addBoolean(runfiles.getLegacyExternalRunfiles());
+    fp.addPath(runfiles.getSuffix());
     Map<PathFragment, Artifact> symlinks = runfiles.getSymlinksAsMap(null);
-    f.addInt(symlinks.size());
+    fp.addInt(symlinks.size());
     for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
-      f.addPath(symlink.getKey());
-      f.addPath(symlink.getValue().getPath());
+      fp.addPath(symlink.getKey());
+      fp.addPath(symlink.getValue().getExecPath());
     }
     Map<PathFragment, Artifact> rootSymlinks = runfiles.getRootSymlinksAsMap(null);
-    f.addInt(rootSymlinks.size());
+    fp.addInt(rootSymlinks.size());
     for (Map.Entry<PathFragment, Artifact> rootSymlink : rootSymlinks.entrySet()) {
-      f.addPath(rootSymlink.getKey());
-      f.addPath(rootSymlink.getValue().getPath());
+      fp.addPath(rootSymlink.getKey());
+      fp.addPath(rootSymlink.getValue().getExecPath());
     }
 
-    for (Artifact artifact : runfiles.getArtifactsWithoutMiddlemen()) {
-      f.addPath(artifact.getRootRelativePath());
-      f.addPath(artifact.getPath());
+    for (Artifact artifact : runfiles.getArtifacts()) {
+      fp.addPath(artifact.getRootRelativePath());
+      fp.addPath(artifact.getExecPath());
     }
-    return f.hexDigestAndReset();
   }
 
   /**
@@ -303,10 +304,18 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
 
     public Builder(String prefix, ManifestType manifestType, ActionOwner owner, Artifact output,
                    boolean legacyExternalRunfiles) {
-      this.runfilesBuilder = new Runfiles.Builder(prefix, legacyExternalRunfiles);
-      manifestWriter = manifestType;
+      this(manifestType, owner, output, new Runfiles.Builder(prefix, legacyExternalRunfiles));
+    }
+
+    public Builder(
+        ManifestType manifestType,
+        ActionOwner owner,
+        Artifact output,
+        Runfiles.Builder runfilesBuilder) {
+      this.manifestWriter = manifestType;
       this.owner = owner;
       this.output = output;
+      this.runfilesBuilder = runfilesBuilder;
     }
 
     @VisibleForTesting  // Only used for testing.

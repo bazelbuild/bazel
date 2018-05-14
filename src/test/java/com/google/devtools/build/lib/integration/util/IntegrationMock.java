@@ -14,11 +14,10 @@
 package com.google.devtools.build.lib.integration.util;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.config.BinTools;
+import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,14 +32,16 @@ public class IntegrationMock {
   }
 
   /**
-   * Populates the _embedded_binaries/ directory, containing all binaries/libraries, by symlinking
-   * directories#getEmbeddedBinariesRoot() to the test's runfiles tree.
+   * Populates the _embedded_binaries/ directory with all files found in any of the directories in
+   * {@link TestConstants#EMBEDDED_SCRIPTS_PATHS} by creating symlinks in
+   * {@link BlazeDirectories#getEmbeddedBinariesRoot} that point to the runfiles tree
+   * of the currently running test (as obtained from {@link BlazeTestUtils#runfilesDir}).
    */
   public BinTools getIntegrationBinTools(
       FileSystem fileSystem, BlazeDirectories directories, String workspaceName)
       throws IOException {
-    Path embeddedDir = directories.getEmbeddedBinariesRoot();
-    FileSystemUtils.createDirectoryAndParents(embeddedDir);
+    Path embeddedBinariesRoot = directories.getEmbeddedBinariesRoot();
+    embeddedBinariesRoot.createDirectoryAndParents();
 
     Path runfiles = fileSystem.getPath(BlazeTestUtils.runfilesDir());
     // Copy over everything in embedded_scripts.
@@ -56,13 +57,15 @@ public class IntegrationMock {
 
     for (Path fromFile : files) {
       try {
-        embeddedDir.getChild(fromFile.getBaseName()).createSymbolicLink(fromFile);
+        embeddedBinariesRoot.getChild(fromFile.getBaseName()).createSymbolicLink(fromFile);
       } catch (IOException e) {
         System.err.println("Could not symlink: " + e.getMessage());
       }
     }
 
     return BinTools.forIntegrationTesting(
-        directories, embeddedDir.toString(), TestConstants.EMBEDDED_TOOLS, workspaceName);
+        directories,
+        TestConstants.EMBEDDED_TOOLS,
+        workspaceName);
   }
 }

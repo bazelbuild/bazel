@@ -21,6 +21,7 @@ import static org.objectweb.asm.Opcodes.ASM6;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.android.desugar.io.BitFlags;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;

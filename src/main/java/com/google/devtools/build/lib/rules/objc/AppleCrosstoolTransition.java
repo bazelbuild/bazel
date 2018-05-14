@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * Transition that produces a configuration that causes c++ toolchain selection to use the
@@ -30,9 +31,8 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
  */
 public class AppleCrosstoolTransition implements PatchTransition {
 
-  /**
-   * A singleton instance of AppleCrosstoolTransition.
-   */
+  /** A singleton instance of AppleCrosstoolTransition. */
+  @AutoCodec
   public static final PatchTransition APPLE_CROSSTOOL_TRANSITION = new AppleCrosstoolTransition();
 
   @Override

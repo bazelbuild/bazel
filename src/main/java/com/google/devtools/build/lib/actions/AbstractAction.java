@@ -29,14 +29,14 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -46,26 +46,17 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Map.Entry;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Abstract implementation of Action which implements basic functionality: the inputs, outputs, and
- * toString method. Both input and output sets are immutable. Subclasses must be generally
- * immutable - see the documentation on {@link Action}.
+ * toString method. Both input and output sets are immutable. Subclasses must be generally immutable
+ * - see the documentation on {@link Action}.
  */
-@Immutable @ThreadSafe
-@SkylarkModule(
-    name = "Action",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "An action created on a <a href=\"ctx.html\">ctx</a> object. You can retrieve these "
-        + "using the <a href=\"globals.html#Actions\">Actions</a> provider. Some fields are only "
-        + "applicable for certain kinds of actions. Fields that are inapplicable are set to "
-        + "<code>None</code>."
-)
-public abstract class AbstractAction implements Action, SkylarkValue {
-
+@Immutable
+@ThreadSafe
+public abstract class AbstractAction implements Action, ActionApi {
   /**
    * An arbitrary default resource set. Currently 250MB of memory, 50% CPU and 0% of total I/O.
    */
@@ -77,7 +68,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
    * AbstractAction itself. The appropriate getter methods should be used instead. This has to be
    * done due to the fact that the getter methods can be overridden in subclasses.
    */
-  private final ActionOwner owner;
+  @VisibleForSerialization protected final ActionOwner owner;
 
   /**
    * Tools are a subset of inputs and used by the WorkerSpawnStrategy to determine whether a
@@ -103,11 +94,12 @@ public abstract class AbstractAction implements Action, SkylarkValue {
 
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
   @GuardedBy("this")
-  private Iterable<Artifact> inputs;
+  @VisibleForSerialization
+  protected Iterable<Artifact> inputs;
 
   protected final ActionEnvironment env;
   private final RunfilesSupplier runfilesSupplier;
-  private final ImmutableSet<Artifact> outputs;
+  @VisibleForSerialization protected final ImmutableSet<Artifact> outputs;
 
   private String cachedKey;
 
@@ -299,16 +291,27 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   /**
    * See the javadoc for {@link com.google.devtools.build.lib.actions.Action} and {@link
    * ActionExecutionMetadata#getKey(ActionKeyContext)} for the contract for {@link
-   * #computeKey(ActionKeyContext)}.
+   * #computeKey(ActionKeyContext, Fingerprint)}.
    */
-  protected abstract String computeKey(ActionKeyContext actionKeyContext)
+  protected abstract void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
       throws CommandLineExpansionException;
 
   @Override
   public final synchronized String getKey(ActionKeyContext actionKeyContext) {
     if (cachedKey == null) {
       try {
-        cachedKey = computeKey(actionKeyContext);
+        Fingerprint fp = new Fingerprint();
+        computeKey(actionKeyContext, fp);
+
+        // Add a bool indicating whether the execution platform was set.
+        fp.addBoolean(getExecutionPlatform() != null);
+        if (getExecutionPlatform() != null) {
+          // Add the execution platform information.
+          getExecutionPlatform().addTo(fp);
+        }
+
+        // Compute the actual key and store it.
+        cachedKey = fp.hexDigestAndReset();
       } catch (CommandLineExpansionException e) {
         cachedKey = KEY_ERROR;
       }
@@ -453,20 +456,23 @@ public abstract class AbstractAction implements Action, SkylarkValue {
     return true;
   }
 
-  /**
-   * If the action might create directories as outputs this method must be called.
-   */
-  protected void checkOutputsForDirectories(EventHandler eventHandler) {
+  /** If the action might create directories as outputs this method must be called. */
+  protected void checkOutputsForDirectories(ActionExecutionContext actionExecutionContext) {
     for (Artifact output : getOutputs()) {
-      Path path = output.getPath();
+      Path path = actionExecutionContext.getInputPath(output);
       String ownerString = Label.print(getOwner().getLabel());
       if (path.isDirectory()) {
-        eventHandler.handle(
-            Event.warn(
-                getOwner().getLocation(),
-                "output '" + output.prettyPrint() + "' of " + ownerString
-                    + " is a directory; dependency checking of directories is unsound")
-                .withTag(ownerString));
+        actionExecutionContext
+            .getEventHandler()
+            .handle(
+                Event.warn(
+                        getOwner().getLocation(),
+                        "output '"
+                            + output.prettyPrint()
+                            + "' of "
+                            + ownerString
+                            + " is a directory; dependency checking of directories is unsound")
+                    .withTag(ownerString));
       }
     }
   }
@@ -503,7 +509,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       ExtraActionInfo.AspectDescriptor.Builder builder =
           ExtraActionInfo.AspectDescriptor.newBuilder()
             .setAspectName(aspectDescriptor.getAspectClass().getName());
-      for (Entry<String, Collection<String>> entry :
+      for (Map.Entry<String, Collection<String>> entry :
           aspectDescriptor.getParameters().getAttributes().asMap().entrySet()) {
           builder.putAspectParameters(
             entry.getKey(),
@@ -552,59 +558,36 @@ public abstract class AbstractAction implements Action, SkylarkValue {
     return ImmutableList.of();
   }
 
-  @SkylarkCallable(
-      name = "inputs",
-      doc = "A set of the input files of this action.",
-      structField = true)
+  @Override
   public SkylarkNestedSet getSkylarkInputs() {
     return SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.wrap(
         Order.STABLE_ORDER, getInputs()));
   }
 
-  @SkylarkCallable(
-      name = "outputs",
-      doc = "A set of the output files of this action.",
-      structField = true)
+  @Override
   public SkylarkNestedSet getSkylarkOutputs() {
     return SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.wrap(
         Order.STABLE_ORDER, getOutputs()));
   }
 
-  @SkylarkCallable(
-    name = "argv",
-    doc =
-        "For actions created by <a href=\"actions.html#run\">ctx.actions.run()</a> "
-            + "or <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>  an immutable "
-            + "list of the arguments for the command line to be executed. Note that "
-            + "for shell actions the first two arguments will be the shell path "
-            + "and <code>\"-c\"</code>.",
-    structField = true,
-    allowReturnNones = true
-  )
-  public SkylarkList<String> getSkylarkArgv() throws CommandLineExpansionException {
+  @Override
+  public SkylarkList<String> getSkylarkArgv() throws EvalException {
     return null;
   }
 
-  @SkylarkCallable(
-      name = "content",
-      doc = "For actions created by <a href=\"actions.html#write\">ctx.actions.write()</a> or "
-          + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
-          + " the contents of the file to be written.",
-      structField = true,
-      allowReturnNones = true)
+  @Override
   public String getSkylarkContent() throws IOException {
     return null;
   }
 
-  @SkylarkCallable(
-      name = "substitutions",
-      doc = "For actions created by "
-          + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
-          + " an immutable dict holding the substitution mapping.",
-      structField = true,
-      allowReturnNones = true)
+  @Override
   public SkylarkDict<String, String> getSkylarkSubstitutions() {
     return null;
+  }
+
+  @Override
+  public SkylarkDict<String, String> getEnv() {
+    return SkylarkDict.copyOf(null, env.getFixedEnv());
   }
 
   @Override

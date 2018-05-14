@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -30,6 +31,7 @@ import javax.annotation.Nullable;
  * A (Label, Configuration key) pair. Note that this pair may be used to look up the generating
  * action of an artifact.
  */
+@AutoCodec
 public class ConfiguredTargetKey extends ActionLookupKey {
   private final Label label;
   @Nullable private final BuildConfigurationValue.Key configurationKey;
@@ -41,11 +43,23 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     this.configurationKey = configurationKey;
   }
 
-  public static ConfiguredTargetKey of(ConfiguredTarget configuredTarget) {
+  private static Label getLabel(ConfiguredTarget configuredTarget) {
     AliasProvider aliasProvider = configuredTarget.getProvider(AliasProvider.class);
-    Label label =
-        aliasProvider != null ? aliasProvider.getAliasChain().get(0) : configuredTarget.getLabel();
-    return of(label, configuredTarget.getConfiguration());
+    return aliasProvider != null
+        ? aliasProvider.getAliasChain().get(0)
+        : configuredTarget.getLabel();
+  }
+
+  public static ConfiguredTargetKey of(
+      ConfiguredTarget configuredTarget, BuildConfiguration buildConfiguration) {
+    return of(getLabel(configuredTarget), buildConfiguration);
+  }
+
+  public static ConfiguredTargetKey of(
+      ConfiguredTarget configuredTarget,
+      BuildConfigurationValue.Key configurationKey,
+      boolean isHostConfiguration) {
+    return of(getLabel(configuredTarget), configurationKey, isHostConfiguration);
   }
 
   /**
@@ -61,7 +75,8 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     return of(label, keyAndHost.key, keyAndHost.isHost);
   }
 
-  static ConfiguredTargetKey of(
+  @AutoCodec.Instantiator
+  public static ConfiguredTargetKey of(
       Label label,
       @Nullable BuildConfigurationValue.Key configurationKey,
       boolean isHostConfiguration) {
@@ -76,9 +91,7 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     return configuration == null
         ? KeyAndHost.NULL_INSTANCE
         : new KeyAndHost(
-            BuildConfigurationValue.key(
-                configuration.fragmentClasses(), configuration.getOptions()),
-            configuration.isHostConfiguration());
+            BuildConfigurationValue.key(configuration), configuration.isHostConfiguration());
   }
 
   @Override
@@ -165,7 +178,7 @@ public class ConfiguredTargetKey extends ActionLookupKey {
         System.identityHashCode(this));
   }
 
-  private static class HostConfiguredTargetKey extends ConfiguredTargetKey {
+  static class HostConfiguredTargetKey extends ConfiguredTargetKey {
     private HostConfiguredTargetKey(
         Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
       super(label, configurationKey);
@@ -185,7 +198,7 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     private static final KeyAndHost NULL_INSTANCE = new KeyAndHost(null, false);
 
     @Nullable public final BuildConfigurationValue.Key key;
-    private final boolean isHost;
+    final boolean isHost;
 
     private KeyAndHost(@Nullable BuildConfigurationValue.Key key, boolean isHost) {
       this.key = key;

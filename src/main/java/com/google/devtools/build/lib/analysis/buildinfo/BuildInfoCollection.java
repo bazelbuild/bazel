@@ -16,12 +16,11 @@ package com.google.devtools.build.lib.analysis.buildinfo;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 
-/**
- * A collection of build-info files for both stamped and unstamped modes.
- */
+/** A collection of build-info files for both stamped and unstamped modes. */
+@AutoCodec
 public final class BuildInfoCollection {
   private final ImmutableList<ActionAnalysisMetadata> actions;
   private final ImmutableList<Artifact> stampedBuildInfo;
@@ -29,9 +28,21 @@ public final class BuildInfoCollection {
 
   public BuildInfoCollection(List<? extends ActionAnalysisMetadata> actions,
       List<Artifact> stampedBuildInfo, List<Artifact> redactedBuildInfo) {
-    this.actions = ImmutableList.copyOf(actions);
-    this.stampedBuildInfo = ImmutableList.copyOf(stampedBuildInfo);
-    this.redactedBuildInfo = ImmutableList.copyOf(redactedBuildInfo);
+    this(
+        ImmutableList.copyOf(actions),
+        ImmutableList.copyOf(stampedBuildInfo),
+        ImmutableList.copyOf(redactedBuildInfo));
+  }
+
+  @AutoCodec.Instantiator
+  @AutoCodec.VisibleForSerialization
+  BuildInfoCollection(
+      ImmutableList<ActionAnalysisMetadata> actions,
+      ImmutableList<Artifact> stampedBuildInfo,
+      ImmutableList<Artifact> redactedBuildInfo) {
+    this.actions = actions;
+    this.stampedBuildInfo = stampedBuildInfo;
+    this.redactedBuildInfo = redactedBuildInfo;
   }
 
   public ImmutableList<ActionAnalysisMetadata> getActions() {

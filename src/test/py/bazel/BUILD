@@ -10,6 +10,7 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = ["//src:bazel_with_jdk"],
+    data = ["//src/tools/remote:worker"],
 )
 
 py_library(
@@ -35,6 +36,13 @@ py_test(
     name = "cc_import_test",
     size = "medium",
     srcs = ["cc_import_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
+    name = "py_test",
+    size = "medium",
+    srcs = ["py_test.py"],
     deps = [":test_base"],
 )
 
@@ -78,16 +86,39 @@ py_test(
 )
 
 py_test(
+    name = "windows_remote_test",
+    size = "medium",
+    srcs = select({
+        "//src/conditions:windows": ["windows_remote_test.py"],
+        "//conditions:default": ["empty_test.py"],
+    }),
+    main = select({
+        "//src/conditions:windows": "windows_remote_test.py",
+        "//conditions:default": "empty_test.py",
+    }),
+    deps = select({
+        "//src/conditions:windows": [":test_base"],
+        "//conditions:default": [],
+    }),
+)
+
+py_test(
     name = "launcher_test",
     size = "medium",
     srcs = ["launcher_test.py"],
+    tags = ["manual"],  # TODO(b/72827255): Reenable once it works.
     deps = [":test_base"],
 )
 
 py_test(
     name = "runfiles_test",
+    timeout = "long",
     srcs = ["runfiles_test.py"],
-    deps = [":test_base"],
+    data = glob(["testdata/runfiles_test/**"]),
+    deps = [
+        ":test_base",
+        "//third_party/py/six",
+    ],
 )
 
 py_test(

@@ -5,6 +5,8 @@
 cc_toolchain(
     name = "%toolchainName%",
     all_files = ":%toolchainName%-all_files",
+    ar_files = ":%toolchainName%-all_files",
+    as_files = ":%toolchainName%-all_files",
     compiler_files = ":%toolchainName%-all_files",
     cpu = "%cpu%",
     dwp_files = ":%toolchainName%-all_files",
@@ -20,6 +22,9 @@ filegroup(
     name = "%toolchainName%-all_files",
     srcs = glob(["ndk/toolchains/%toolchainDirectory%/**"]) + glob([
         %toolchainFileGlobs%
-    ]),
+    ]) + [
+      ":%dynamicRuntimeLibs%",
+      ":%staticRuntimeLibs%",
+    ],
 )
 

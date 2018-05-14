@@ -25,4 +25,10 @@ if __name__ == "__main__":
     sys.exit(-1)
   with open(sys.argv[2], "w") as outputfile:
     with open(sys.argv[1], "rb") as inputfile:
-      outputfile.write(hashlib.sha256(inputfile.read()).hexdigest())
+      sha256 = hashlib.sha256()
+      while True:
+        data = inputfile.read(65536)
+        if not data:
+          break
+        sha256.update(data)
+      outputfile.write(sha256.hexdigest())

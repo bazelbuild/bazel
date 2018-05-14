@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.graph;
 import static java.util.Comparator.comparing;
 import static java.util.Comparator.comparingLong;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -31,57 +31,48 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
- * <p> {@code Digraph} a generic directed graph or "digraph", suitable for
- * modeling asymmetric binary relations. </p>
+ * {@code Digraph} a generic directed graph or "digraph", suitable for modeling asymmetric binary
+ * relations.
  *
- * <p> An instance <code>G = &lt;V,E&gt;</code> consists of a set of nodes or
- * vertices <code>V</code>, and a set of directed edges <code>E</code>, which
- * is a subset of <code>V &times; V</code>.  This permits self-edges but does
- * not represent multiple edges between the same pair of nodes. </p>
+ * <p>An instance <code>G = &lt;V,E&gt;</code> consists of a set of nodes or vertices <code>V</code>
+ * , and a set of directed edges <code>E</code>, which is a subset of <code>V &times; V</code>. This
+ * permits self-edges but does not represent multiple edges between the same pair of nodes.
  *
- * <p> Nodes may be labeled with values of any type (type parameter
- * T).  All nodes within a graph have distinct labels.  The null
- * pointer is not a valid label.</p>
+ * <p>Nodes may be labeled with values of any type (type parameter T). All nodes within a graph have
+ * distinct labels. The null pointer is not a valid label.
  *
- * <p> The package supports various operations for modeling partial order
- * relations, and supports input/output in AT&amp;T's 'dot' format.  See
- * http://www.research.att.com/sw/tools/graphviz/. </p>
+ * <p>The package supports various operations for modeling partial order relations, and supports
+ * input/output in AT&amp;T's 'dot' format. See http://www.research.att.com/sw/tools/graphviz/.
  *
- * <p> Some invariants: </p>
+ * <p>Some invariants:
+ *
  * <ul>
- *
- * <li> Each graph instances "owns" the nodes is creates.  The behaviour of
- * operations on nodes a graph does not own is undefined.
- *
- * <li> {@code Digraph} assumes immutability of node labels, much like {@link
- * HashMap} assumes it for keys.
- *
- * <li> Mutating the underlying graph invalidates any sets and iterators backed
- * by it.
- *
+ *   <li>Each graph instances "owns" the nodes is creates. The behaviour of operations on nodes a
+ *       graph does not own is undefined.
+ *   <li>{@code Digraph} assumes immutability of node labels, much like {@link HashMap} assumes it
+ *       for keys.
+ *   <li>Mutating the underlying graph invalidates any sets and iterators backed by it.
+ *   <li>Nodes can be added and removed concurrently. Edges can be added and removed concurrently
+ *       too. While it is thread safe to add or remove edge, these operations are not atomic. Graph
+ *       can be observable in inconsistent state during this operations, for instance: edge linked
+ *       to only one node.
+ *   <li>
  * </ul>
  *
- * <p>Each node stores successor and predecessor adjacency sets using a
- * representation that dynamically changes with size: small sets are stored as
- * arrays, large sets using hash tables.  This representation provides
- * significant space and time performance improvements upon two prior versions:
- * the earliest used only HashSets; a later version used linked lists, as
- * described in Cormen, Leiserson &amp; Rivest.
+ * <p>Each node stores successor and predecessor adjacency sets using a representation that
+ * dynamically changes with size: small sets are stored as arrays, large sets using hash tables.
+ * This representation provides significant space and time performance improvements upon two prior
+ * versions: the earliest used only HashSets; a later version used linked lists, as described in
+ * Cormen, Leiserson &amp; Rivest.
  */
 public final class Digraph<T> implements Cloneable {
 
-  /**
-   * Maps labels to nodes, which are in strict 1:1 correspondence.
-   */
-  private final HashMap<T, Node<T>> nodes = Maps.newHashMap();
-
-  /**
-   * A source of unique, deterministic hashCodes for {@link Node} instances.
-   */
-  private int nextHashCode = 0;
+  /** Maps labels to nodes, which are in strict 1:1 correspondence. */
+  private final Map<T, Node<T>> nodes = new ConcurrentHashMap<>();
 
   /**
    * Construct an empty Digraph.
@@ -123,12 +114,7 @@ public final class Digraph<T> implements Cloneable {
   public boolean addEdge(Node<T> fromNode, Node<T> toNode) {
     checkNode(fromNode);
     checkNode(toNode);
-    boolean isNewSuccessor = fromNode.addSuccessor(toNode);
-    boolean isNewPredecessor = toNode.addPredecessor(fromNode);
-    if (isNewPredecessor != isNewSuccessor) {
-      throw new IllegalStateException();
-    }
-    return isNewSuccessor;
+    return fromNode.addEdge(toNode);
   }
 
   /**
@@ -151,11 +137,7 @@ public final class Digraph<T> implements Cloneable {
   public boolean removeEdge(Node<T> fromNode, Node<T> toNode) {
     checkNode(fromNode);
     checkNode(toNode);
-    boolean changed = fromNode.removeSuccessor(toNode);
-    if (changed) {
-      toNode.removePredecessor(fromNode);
-    }
-    return changed;
+    return fromNode.removeEdge(toNode);
   }
 
   /**
@@ -370,14 +352,16 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * Find or create a node with the specified label.  This is the <i>only</i>
-   * factory of Nodes.  The null pointer is not a valid label.
+   * Find or create a node with the specified label. This is the <i>only</i> factory of Nodes. The
+   * null pointer is not a valid label.
    */
   public Node<T> createNode(T label) {
-    if (label == null) {
-      throw new NullPointerException();
-    }
-    return nodes.computeIfAbsent(label, k -> new Node<>(k, nextHashCode++));
+    return nodes.computeIfAbsent(label, Digraph::createNodeNative);
+  }
+
+  private static <T> Node<T> createNodeNative(T label) {
+    Preconditions.checkNotNull(label);
+    return new Node<>(label);
   }
 
   /******************************************************************
@@ -692,58 +676,56 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * Removes the node in the graph specified by the given label.  Optionally,
-   * preserves the graph order (by connecting up the broken edges) or drop them
-   * all.  If the specified label is not the label of any node in the graph,
-   * does nothing.
-   *
-   * @param label the label of the node to remove.
-   * @param preserveOrder if true, adds edges between the neighbours
-   *   of the removed node so as to maintain the graph ordering
-   *   relation between all pairs of such nodes.  If false, simply
-   *   discards all edges from the deleted node to its neighbours.
-   * @return true iff 'label' identifies a node (i.e. the graph was changed).
-   */
-  public boolean removeNode(T label, boolean preserveOrder) {
-    Node<T> node = getNodeMaybe(label);
-    if (node != null) {
-      removeNode(node, preserveOrder);
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  /**
    * Removes the specified node in the graph.
    *
-   * @param n the node to remove (must be in the graph).
+   * <p>If preserveOrder flag is set than after removing node this method connects all predecessors
+   * and successors.
+   *
+   * <p>Let's consider graph
+   *
+   * <pre>
+   * a -> n -> c
+   * b -> n -> d
+   * </pre>
+   *
+   * After n removed the following edges will be added
+   *
+   * <pre>
+   * a -> c
+   * a -> d
+   * b -> c
+   * b -> d
+   * </pre>
+   *
+   * @param node the node to remove (must be in the graph).
    * @param preserveOrder see removeNode(T, boolean).
    */
-  public void removeNode(Node<T> n, boolean preserveOrder) {
-    checkNode(n);
-    for (Node<T> b:  n.getSuccessors()) { // edges from n
-      // exists: n -> b
-      if (preserveOrder) {
-        for (Node<T> a: n.getPredecessors()) { // edges to n
-          // exists: a -> n
-          // beware self edges: they prevent n's deletion!
-          if (a != n && b != n) {
-            addEdge(a, b); // concurrent mod?
-          }
+  public Collection<Node<T>> removeNode(Node<T> node, boolean preserveOrder) {
+    checkNode(node);
+
+    Collection<Node<T>> predecessors = node.removeAllPredecessors();
+    Collection<Node<T>> successors = node.removeAllSuccessors();
+
+    List<Node<T>> neighbours = Collections.emptyList();
+
+    if (preserveOrder) {
+      neighbours = new ArrayList<>(successors.size() + predecessors.size());
+      neighbours.addAll(successors);
+      neighbours.addAll(predecessors);
+
+      for (Node<T> p : predecessors) {
+        for (Node<T> s : successors) {
+          p.addEdge(s);
         }
       }
-      b.removePredecessor(n); // remove edge n->b in b
-    }
-    for (Node<T> a: n.getPredecessors()) { // edges to n
-      a.removeSuccessor(n); // remove edge a->n in a
     }
 
-    n.removeAllEdges(); // remove edges b->n and a->n in n
-    Object del = nodes.remove(n.getLabel());
-    if (del != n) {
-      throw new IllegalStateException(del + " " + n);
+    Object del = nodes.remove(node.getLabel());
+    if (del != node) {
+      throw new IllegalStateException(del + " " + node);
     }
+
+    return neighbours;
   }
 
   /**
@@ -764,10 +746,10 @@ public final class Digraph<T> implements Cloneable {
    * Removes all nodes from this graph except those whose label is an element of {@code keepLabels}.
    * Edges are added so as to preserve the <i>transitive</i> closure relation.
    *
-   * @param keepLabels a subset of the labels of this graph; the resulting graph
-   * will have only the nodes with these labels.
+   * @param keepLabels a subset of the labels of this graph; the resulting graph will have only the
+   *     nodes with these labels.
    */
-  public void subgraph(final Set<T> keepLabels) {
+  private void subgraph(final Set<T> keepLabels) {
     // This algorithm does the following:
     // Let keep = nodes that have labels in keepLabels.
     // Let toRemove = nodes \ keep. reachables = successors and predecessors of keep in nodes.
@@ -824,33 +806,16 @@ public final class Digraph<T> implements Cloneable {
 
     // Remove nodes, least connected first, preserving reachability.
     while (!reachables.isEmpty()) {
+
       Node<T> node = reachables.poll();
-      for (Node<T> s : node.getSuccessors()) {
-        if (s == node) { continue; } // ignore self-edge
 
-        for (Node<T> p : node.getPredecessors()) {
-          if (p == node) { continue; } // ignore self-edge
-          addEdge(p, s);
-        }
+      Collection<Node<T>> neighbours = removeNode(node, /*preserveOrder*/ true);
 
-        // removes n -> s
-        s.removePredecessor(node);
-        if (toRemove.remove(s)) {
-          reachables.add(s);
+      for (Node<T> neighbour : neighbours) {
+        if (toRemove.remove(neighbour)) {
+          reachables.add(neighbour);
         }
       }
-
-      for (Node<T> p : node.getPredecessors()) {
-        if (p == node) { continue; } // ignore self-edge
-        p.removeSuccessor(node);
-        if (toRemove.remove(p)) {
-          reachables.add(p);
-        }
-      }
-
-      // After the node deletion, the graph is again well-formed and the original topological order
-      // is preserved.
-      nodes.remove(node.getLabel());
     }
 
     // Final cleanup for non-reachable nodes.

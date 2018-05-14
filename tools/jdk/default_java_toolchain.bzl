@@ -15,7 +15,7 @@
 """Bazel rules for creating Java toolchains."""
 
 JDK8_JVM_OPTS = [
-    "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
+    "-Xbootclasspath/p:$(location @bazel_tools//third_party/java/jdk/langtools:javac_jar)",
 ]
 
 JDK9_JVM_OPTS = [
@@ -29,48 +29,50 @@ JDK9_JVM_OPTS = [
     "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
     "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
 
-    # TODO(cushon): override the javac in the JDK.
-    # "--patch-module=java.compiler=$(location //third_party/java/jdk/langtools/blaze:java_compiler_jar)",
-    # "--patch-module=jdk.compiler=$(location //third_party/java/jdk/langtools/blaze:jdk_compiler_jar)",
+    # override the javac in the JDK.
+    "--patch-module=java.compiler=$(location @bazel_tools//third_party/java/jdk/langtools:java_compiler_jar)",
+    "--patch-module=jdk.compiler=$(location @bazel_tools//third_party/java/jdk/langtools:jdk_compiler_jar)",
+
+    # quiet warnings from com.google.protobuf.UnsafeUtil,
+    # see: https://github.com/google/protobuf/issues/3781
+    "--add-opens=java.base/java.nio=ALL-UNNAMED",
 ]
 
-DEFAULT_COMPATIBLE_JAVACOPTS = {
-  # Restrict protos to Java 7 so that they are compatible with Android.
-  "proto": [
+DEFAULT_JAVACOPTS = [
+    "-XDskipDuplicateBridges=true",
+    "-g",
+    "-parameters",
+]
+
+PROTO_JAVACOPTS = [
+    # Restrict protos to Java 7 so that they are compatible with Android.
     "-source",
     "7",
     "-target",
     "7",
-  ],
-}
-
-DEFAULT_JAVACOPTS = [
-  "-XDskipDuplicateBridges=true",
-  "-g",
-  "-parameters",
 ]
 
+COMPATIBLE_JAVACOPTS = {
+    "proto": PROTO_JAVACOPTS,
+}
+
 DEFAULT_TOOLCHAIN_CONFIGURATION = {
-  # javac -extdirs is implemented by appending the contents to the platform
-  # class path after -bootclasspath. For convenience, we currently have a
-  # single jar that contains the contents of both the bootclasspath and
-  # extdirs.
-  "bootclasspath": ["platformclasspath.jar"],
-  "extclasspath": [],
-  "compatible_javacopts": DEFAULT_COMPATIBLE_JAVACOPTS,
-  "encoding": "UTF-8",
-  "forcibly_disable_header_compilation": 0,
-  "genclass": ["@bazel_tools//tools/jdk:genclass"],
-  "header_compiler": ["@bazel_tools//tools/jdk:turbine"],
-  "ijar": ["@bazel_tools//tools/jdk:ijar"],
-  "javabuilder": ["@bazel_tools//tools/jdk:javabuilder"],
-  "javac": ["//third_party/java/jdk/langtools:javac_jar"],
-  "javac_supports_workers": 1,
-  "jvm_opts": JDK8_JVM_OPTS,
-  "misc": DEFAULT_JAVACOPTS,
-  "singlejar": ["@bazel_tools//tools/jdk:singlejar"],
-  "source_version": "8",
-  "target_version": "8",
+    "encoding": "UTF-8",
+    "forcibly_disable_header_compilation": 0,
+    "genclass": ["@bazel_tools//tools/jdk:genclass"],
+    "header_compiler": ["@bazel_tools//tools/jdk:turbine"],
+    "ijar": ["@bazel_tools//tools/jdk:ijar"],
+    "javabuilder": ["@bazel_tools//tools/jdk:javabuilder"],
+    "javac": ["@bazel_tools//third_party/java/jdk/langtools:javac_jar"],
+    "tools": [
+        "@bazel_tools//third_party/java/jdk/langtools:java_compiler_jar",
+        "@bazel_tools//third_party/java/jdk/langtools:jdk_compiler_jar",
+    ],
+    "javac_supports_workers": 1,
+    "jvm_opts": JDK8_JVM_OPTS,
+    "misc": DEFAULT_JAVACOPTS,
+    "compatible_javacopts": COMPATIBLE_JAVACOPTS,
+    "singlejar": ["@bazel_tools//tools/jdk:singlejar"],
 }
 
 def default_java_toolchain(name, **kwargs):

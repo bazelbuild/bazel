@@ -278,4 +278,43 @@ EOF
   assert_contains "override" bazel-genfiles/external/o/gen.out
 }
 
+function test_workspace_addition_change() {
+  mkdir -p repo_one
+  mkdir -p repo_two
+
+  cat > repo_one/BUILD <<EOF
+genrule(
+    name = "gen",
+    cmd = "echo 'This is repo_one' > \$@",
+    outs = ["gen.out"],
+)
+EOF
+  cat > repo_two/BUILD <<EOF
+genrule(
+    name = "gen",
+    cmd = "echo 'This is repo_two' > \$@",
+    outs = ["gen.out"],
+)
+EOF
+
+  touch WORKSPACE
+  cat > repo_one/WORKSPACE <<EOF
+workspace(name = "new_repo")
+EOF
+  cat > repo_two/WORKSPACE <<EOF
+workspace(name = "new_repo")
+EOF
+
+  bazel build @new_repo//:gen \
+      && fail "Failure expected" || true
+
+  bazel build --override_repository="new_repo=$PWD/repo_one" @new_repo//:gen \
+      || fail "Expected build to succeed"
+  assert_contains "This is repo_one" bazel-genfiles/external/new_repo/gen.out
+
+  bazel build --override_repository="new_repo=$PWD/repo_two" @new_repo//:gen \
+      || fail "Expected build to succeed"
+  assert_contains "This is repo_two" bazel-genfiles/external/new_repo/gen.out
+}
+
 run_suite "workspace tests"

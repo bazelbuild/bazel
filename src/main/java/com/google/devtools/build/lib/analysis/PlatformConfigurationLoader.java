@@ -15,17 +15,13 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.PlatformOptions.ToolchainResolutionOverride;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.cmdline.Label;
-import java.util.List;
 
 /** A loader that creates {@link PlatformConfiguration} instances based on command-line options. */
 public class PlatformConfigurationLoader implements ConfigurationFragmentFactory {
@@ -48,23 +44,11 @@ public class PlatformConfigurationLoader implements ConfigurationFragmentFactory
 
   private PlatformConfiguration create(PlatformOptions options)
       throws InvalidConfigurationException {
-    // TODO(katre): This will change with remote execution.
-    Label executionPlatform = options.hostPlatform;
     return new PlatformConfiguration(
-        executionPlatform,
+        options.hostPlatform,
         ImmutableList.copyOf(options.extraExecutionPlatforms),
         ImmutableList.copyOf(options.platforms),
         ImmutableList.copyOf(options.extraToolchains),
-        convertOverrides(options.toolchainResolutionOverrides),
         ImmutableList.copyOf(options.enabledToolchainTypes));
-  }
-
-  private static ImmutableMap<Label, Label> convertOverrides(
-      List<ToolchainResolutionOverride> overrides) {
-    ImmutableMap.Builder<Label, Label> builder = new ImmutableMap.Builder<>();
-    for (ToolchainResolutionOverride override : overrides) {
-      builder.put(override.toolchainType(), override.toolchainLabel());
-    }
-    return builder.build();
   }
 }

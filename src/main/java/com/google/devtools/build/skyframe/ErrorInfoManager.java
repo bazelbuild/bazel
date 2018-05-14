@@ -14,7 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
-import java.util.Collection;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Used by {@link ParallelEvaluator} to produce and consume {@link ErrorInfo} instances. */
@@ -25,14 +25,11 @@ public interface ErrorInfoManager {
       boolean isTransitivelyTransient);
 
   /**
-   * Returns the {@link ErrorInfo} to use when there isn't currently one because
-   * {@link SkyFunction#compute} didn't throw a {@link SkyFunctionException} and there was no cycle.
+   * Returns the {@link ErrorInfo} to use when there isn't currently one because {@link
+   * SkyFunction#compute} didn't throw a {@link SkyFunctionException}.
    */
   @Nullable
-  ErrorInfo getErrorInfoToUse(
-      SkyKey skyKey,
-      boolean hasValue,
-      Collection<ErrorInfo> childErrorInfos);
+  ErrorInfo getErrorInfoToUse(SkyKey skyKey, boolean hasValue, Set<ErrorInfo> childErrorInfos);
 
   /**
    * Trivial {@link ErrorInfoManager} implementation whose {@link #fromException} simply uses
@@ -56,9 +53,7 @@ public interface ErrorInfoManager {
     @Override
     @Nullable
     public ErrorInfo getErrorInfoToUse(
-        SkyKey skyKey,
-        boolean hasValue,
-        Collection<ErrorInfo> childErrorInfos) {
+        SkyKey skyKey, boolean hasValue, Set<ErrorInfo> childErrorInfos) {
       return !childErrorInfos.isEmpty() ? ErrorInfo.fromChildErrors(skyKey, childErrorInfos) : null;
     }
   }

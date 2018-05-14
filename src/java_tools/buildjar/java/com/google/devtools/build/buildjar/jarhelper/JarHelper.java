@@ -18,8 +18,11 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
@@ -29,7 +32,7 @@ import java.util.zip.CRC32;
  * A simple helper class for creating Jar files. All Jar entries are sorted alphabetically. Allows
  * normalization of Jar entries by setting the timestamp of non-.class files to the DOS epoch.
  * Timestamps of .class files are set to the DOS epoch + 2 seconds (The zip timestamp granularity)
- * Adjusting the timestamp for .class files is neccessary since otherwise javac will recompile java
+ * Adjusting the timestamp for .class files is necessary since otherwise javac will recompile java
  * files if both the java file and its .class file are present.
  */
 public class JarHelper {
@@ -37,6 +40,18 @@ public class JarHelper {
   public static final String MANIFEST_DIR = "META-INF/";
   public static final String MANIFEST_NAME = JarFile.MANIFEST_NAME;
   public static final String SERVICES_DIR = "META-INF/services/";
+
+  /** Normalize timestamps. */
+  public static final long DEFAULT_TIMESTAMP =
+      LocalDateTime.of(2010, 1, 1, 0, 0, 0)
+          .atZone(ZoneId.systemDefault())
+          .toInstant()
+          .toEpochMilli();
+  // These attributes are used by JavaBuilder, Turbine, and ijar.
+  // They must all be kept in sync.
+  public static final Attributes.Name TARGET_LABEL = new Attributes.Name("Target-Label");
+  public static final Attributes.Name INJECTING_RULE_KIND =
+      new Attributes.Name("Injecting-Rule-Kind");
 
   public static final long DOS_EPOCH_IN_JAVA_TIME = 315561600000L;
 
@@ -97,15 +112,15 @@ public class JarHelper {
    */
   private long normalizedTimestamp(String name) {
     if (name.endsWith(".class")) {
-      return DOS_EPOCH_IN_JAVA_TIME + MINIMUM_TIMESTAMP_INCREMENT;
+      return DEFAULT_TIMESTAMP + MINIMUM_TIMESTAMP_INCREMENT;
     } else {
-      return DOS_EPOCH_IN_JAVA_TIME;
+      return DEFAULT_TIMESTAMP;
     }
   }
 
   /**
    * Returns the time for a new Jar file entry in milliseconds since the epoch. Uses {@link
-   * JarCreator#DOS_EPOCH_IN_JAVA_TIME} for normalized entries, {@link System#currentTimeMillis()}
+   * JarCreator#DEFAULT_TIMESTAMP} for normalized entries, {@link System#currentTimeMillis()}
    * otherwise.
    *
    * @param filename The name of the file for which we are entering the time

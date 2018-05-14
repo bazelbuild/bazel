@@ -25,7 +25,8 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJ
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 
 /**
@@ -33,14 +34,14 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
  */
 public final class BazelJavaBinaryRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     /* <!-- #BLAZE_RULE(java_binary).NAME -->
     <br/>It is good practice to use the name of the source file that is the main entry point of the
     application (minus the extension). For example, if your entry point is called
     <code>Main.java</code>, then your name could be <code>Main</code>.
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
-        .requiresConfigurationFragments(JavaConfiguration.class)
+        .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
         /* <!-- #BLAZE_RULE(java_binary).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code><var>name</var>.jar</code>: A Java archive, containing the class files and other
@@ -87,6 +88,7 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
         .add(
             attr("$jacocorunner", LABEL).value(env.getToolsLabel(
                 "//tools/jdk:JacocoCoverage")))
+        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .build();
   }
 

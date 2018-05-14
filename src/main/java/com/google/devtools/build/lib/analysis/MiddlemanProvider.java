@@ -16,15 +16,15 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * A provider class that supplies an aggregating middleman to the targets that depend on it.
- */
+/** A provider class that supplies an aggregating middleman to the targets that depend on it. */
 @Immutable
+@AutoCodec
 public final class MiddlemanProvider implements TransitiveInfoProvider {
-
   private final NestedSet<Artifact> middlemanArtifact;
 
+  @AutoCodec.Instantiator
   public MiddlemanProvider(NestedSet<Artifact> middlemanArtifact) {
     this.middlemanArtifact = middlemanArtifact;
   }

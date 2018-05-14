@@ -19,12 +19,14 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * A target that provides native libraries in the transitive closure of its deps that are needed for
  * executing Java code.
  */
 @Immutable
+@AutoCodec
 public final class JavaNativeLibraryProvider implements TransitiveInfoProvider {
 
   private final NestedSet<LinkerInput> transitiveJavaNativeLibraries;

@@ -22,15 +22,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * A structured representation of the compilation outputs of a C++ rule.
- */
-public class CcCompilationOutputs {
+/** A structured representation of the compilation outputs of a C++ rule. */
+public class CcCompilationOutputs implements CcCompilationOutputsApi {
   /**
    * All .o files built by the target.
    */
@@ -144,7 +143,7 @@ public class CcCompilationOutputs {
   public List<IncludeScannable> getLipoScannables() {
     return lipoScannables;
   }
-  
+
   /**
    * Returns the output files that are considered "compiled" by this C++ compile action.
    */
@@ -161,7 +160,7 @@ public class CcCompilationOutputs {
     return files.build();
   }
 
-
+  /** Builder for CcCompilationOutputs. */
   public static final class Builder {
     private final Set<Artifact> objectFiles = new LinkedHashSet<>();
     private final Set<Artifact> picObjectFiles = new LinkedHashSet<>();
@@ -192,12 +191,11 @@ public class CcCompilationOutputs {
       this.temps.addTransitive(outputs.temps);
       this.headerTokenFiles.addAll(outputs.headerTokenFiles);
       this.lipoScannables.addAll(outputs.lipoScannables);
+      this.ltoBitcodeFiles.putAll(outputs.ltoBitcodeFiles);
       return this;
     }
 
-    /**
-     * Adds an .o file.
-     */
+    /** Adds an object file. */
     public Builder addObjectFile(Artifact artifact) {
       // We skip file extension checks for TreeArtifacts because they represent directory artifacts
       // without a file extension.
@@ -215,9 +213,7 @@ public class CcCompilationOutputs {
       return this;
     }
 
-    /**
-     * Adds a .pic.o file.
-     */
+    /** Adds a pic object file. */
     public Builder addPicObjectFile(Artifact artifact) {
       picObjectFiles.add(artifact);
       return this;
@@ -225,11 +221,6 @@ public class CcCompilationOutputs {
 
     public Builder addLtoBitcodeFile(Artifact fullBitcode, Artifact ltoIndexingBitcode) {
       ltoBitcodeFiles.put(fullBitcode, ltoIndexingBitcode);
-      return this;
-    }
-
-    public Builder addLtoBitcodeFile(ImmutableMap<Artifact, Artifact> artifacts) {
-      ltoBitcodeFiles.putAll(artifacts);
       return this;
     }
 

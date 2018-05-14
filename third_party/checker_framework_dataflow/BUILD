@@ -7,20 +7,13 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-java_library(
+java_import(
     name = "checker_framework_dataflow",
-    srcs = glob(["java/**"]),
-    javacopts = ["-Xep:MissingCasesInEnumSwitch:OFF"],
-    deps = [
-        "//third_party/checker_framework_javacutil",
-        "@local_jdk//:langtools-neverlink",
-    ],
+    jars = ["dataflow-2.5.0.jar"],
+    srcjar = "dataflow-2.5.0-sources.jar",
 )
 
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
-
-bootstrap_java_library(
+filegroup(
     name = "bootstrap",
-    srcs = glob(["java/**"]),
-    deps = ["//third_party/checker_framework_javacutil:bootstrap"],
+    srcs = ["dataflow-2.5.0.jar"],
 )

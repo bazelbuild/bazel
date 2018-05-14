@@ -15,15 +15,13 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.devtools.build.lib.analysis.config.transitions.ComposingPatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * A {@link RuleTransitionFactory} that composes other {@link RuleTransitionFactory}s.
- */
+/** A {@link RuleTransitionFactory} that composes other {@link RuleTransitionFactory}s. */
+@AutoCodec
 public class ComposingRuleTransitionFactory implements RuleTransitionFactory {
 
   private final RuleTransitionFactory rtf1;
@@ -39,20 +37,8 @@ public class ComposingRuleTransitionFactory implements RuleTransitionFactory {
   }
 
   @Override
-  public Transition buildTransitionFor(Rule rule) {
-    PatchTransition transition1 = (PatchTransition) rtf1.buildTransitionFor(rule);
-    PatchTransition transition2 = (PatchTransition) rtf2.buildTransitionFor(rule);
-
-    if (transition1 == null) {
-      return transition2;
-    }
-
-    if (transition2 == null) {
-      return transition1;
-    }
-
-    return new ComposingPatchTransition(
-        (PatchTransition) rtf1.buildTransitionFor(rule),
-        (PatchTransition) rtf2.buildTransitionFor(rule));
+  public PatchTransition buildTransitionFor(Rule rule) {
+    return TransitionResolver.composePatchTransitions(
+        rtf1.buildTransitionFor(rule), rtf2.buildTransitionFor(rule));
   }
 }

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import java.util.Arrays;
 import java.util.Map;
@@ -54,11 +55,13 @@ import javax.annotation.Nullable;
  * @see com.google.devtools.build.lib.packages.AspectClass
  */
 @Immutable
+@AutoCodec
 public final class ConfiguredAspect {
   private final TransitiveInfoProviderMap providers;
   private final AspectDescriptor descriptor;
 
-  private ConfiguredAspect(AspectDescriptor descriptor, TransitiveInfoProviderMap providers) {
+  @AutoCodec.VisibleForSerialization
+  ConfiguredAspect(AspectDescriptor descriptor, TransitiveInfoProviderMap providers) {
     this.descriptor = descriptor;
     this.providers = providers;
   }
@@ -244,7 +247,7 @@ public final class ConfiguredAspect {
 
       addProvider(
           createExtraActionProvider(
-              ImmutableSet.<ActionAnalysisMetadata>of() /* actionsWithoutExtraAction */,
+              /* actionsWithoutExtraAction= */ ImmutableSet.<ActionAnalysisMetadata>of(),
               ruleContext));
 
       return new ConfiguredAspect(descriptor, providers.build());

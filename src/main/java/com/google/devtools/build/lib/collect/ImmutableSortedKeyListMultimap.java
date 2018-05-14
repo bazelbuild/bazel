@@ -32,7 +32,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -165,8 +164,8 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
     }
 
     @Override
-    public Set<Entry<K, Collection<V>>> entrySet() {
-      ImmutableSet.Builder<Entry<K, Collection<V>>> builder = ImmutableSet.builder();
+    public Set<Map.Entry<K, Collection<V>>> entrySet() {
+      ImmutableSet.Builder<Map.Entry<K, Collection<V>>> builder = ImmutableSet.builder();
       for (int i = 0; i < sortedKeys.length; i++) {
         builder.add(new SimpleImmutableEntry<>(sortedKeys[i], values[i]));
       }
@@ -333,8 +332,8 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
   }
 
   @Override
-  public Collection<Entry<K, V>> entries() {
-    ImmutableList.Builder<Entry<K, V>> builder = ImmutableList.builder();
+  public Collection<Map.Entry<K, V>> entries() {
+    ImmutableList.Builder<Map.Entry<K, V>> builder = ImmutableList.builder();
     for (int i = 0; i < sortedKeys.length; i++) {
       for (V value : values[i]) {
         builder.add(new SimpleImmutableEntry<>(sortedKeys[i], value));

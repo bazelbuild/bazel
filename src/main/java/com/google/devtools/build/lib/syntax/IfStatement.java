@@ -18,9 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Syntax node for an if/else statement.
- */
+/** Syntax node for an if/else statement. */
 public final class IfStatement extends Statement {
 
   /**

@@ -25,7 +25,7 @@ java_toolchain(
     source_version = "8",
     target_version = "8",
     misc = [
-        "-Xep:CollectionIncompatibleType:ERROR", # http://errorprone.info/bugpattern/CollectionIncompatibleType
+        "-Xep:CollectionIncompatibleType:ERROR", # https://errorprone.info/bugpattern/CollectionIncompatibleType
     ],
 )
 ```

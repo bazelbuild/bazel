@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.common.collect.ImmutableList;
 import java.util.Objects;
 
 /**
@@ -25,43 +26,63 @@ import java.util.Objects;
  */
 public class OptionPriority implements Comparable<OptionPriority> {
   private final PriorityCategory priorityCategory;
-  private final int index;
-  private final boolean locked;
+  /**
+   * Each option that is passed explicitly has 0 ancestors, so it only has its command line index
+   * (or rc index, etc., depending on the category), but expanded options have the command line
+   * index of its parent and then its position within the options that were expanded at that point.
+   * Since options can expand to expanding options, and --config can expand to expansion options as
+   * well, this can technically go arbitrarily deep, but in practice this is very short, of length <
+   * 5, most commonly of length 1.
+   */
+  private final ImmutableList<Integer> priorityIndices;
 
-  private OptionPriority(PriorityCategory priorityCategory, int index, boolean locked) {
+  private boolean alreadyExpanded = false;
+
+  private OptionPriority(
+      PriorityCategory priorityCategory, ImmutableList<Integer> priorityIndices) {
     this.priorityCategory = priorityCategory;
-    this.index = index;
-    this.locked = locked;
+    this.priorityIndices = priorityIndices;
   }
 
   /** Get the first OptionPriority for that category. */
   static OptionPriority lowestOptionPriorityAtCategory(PriorityCategory category) {
-    return new OptionPriority(category, 0, false);
+    return new OptionPriority(category, ImmutableList.of(0));
   }
 
   /**
    * Get the priority for the option following this one. In normal, incremental option parsing, the
-   * returned priority would compareTo as after the current one. Does not increment locked
+   * returned priority would compareTo as after the current one. Does not increment ancestor
    * priorities.
    */
   static OptionPriority nextOptionPriority(OptionPriority priority) {
-    if (priority.locked) {
-      return priority;
-    }
-    return new OptionPriority(priority.priorityCategory, priority.index + 1, false);
+    int lastElementPosition = priority.priorityIndices.size() - 1;
+    return new OptionPriority(
+        priority.priorityCategory,
+        ImmutableList.<Integer>builder()
+            .addAll(priority.priorityIndices.subList(0, lastElementPosition))
+            .add(priority.priorityIndices.get(lastElementPosition) + 1)
+            .build());
   }
 
   /**
-   * Return a priority for this option that will avoid priority increases by calls to
-   * nextOptionPriority.
+   * Some options are expanded to other options, and the children options need to have their order
+   * preserved while maintaining their position between the options that flank the parent option.
    *
-   * <p>Some options are expanded in-place, and need to be all parsed at the priority of the
-   * original option. In this case, parsing one of these after another should not cause the option
-   * to be considered as higher priority than the ones before it (this would cause overlap between
-   * the expansion of --expansion_flag and a option following it in the same list of options).
+   * @return the priority for the first child of the passed priority. This child's ordering can be
+   *     tracked the same way that the parent's was.
    */
-  public static OptionPriority getLockedPriority(OptionPriority priority) {
-    return new OptionPriority(priority.priorityCategory, priority.index, true);
+  public static OptionPriority getChildPriority(OptionPriority parentPriority)
+      throws OptionsParsingException {
+    if (parentPriority.alreadyExpanded) {
+      throw new OptionsParsingException("Tried to expand option too many times");
+    }
+    // Prevent this option from being re-expanded.
+    parentPriority.alreadyExpanded = true;
+
+    // The child priority has 1 more level of nesting than its parent.
+    return new OptionPriority(
+        parentPriority.priorityCategory,
+        ImmutableList.<Integer>builder().addAll(parentPriority.priorityIndices).add(0).build());
   }
 
   public PriorityCategory getPriorityCategory() {
@@ -71,28 +92,36 @@ public class OptionPriority implements Comparable<OptionPriority> {
   @Override
   public int compareTo(OptionPriority o) {
     if (priorityCategory.equals(o.priorityCategory)) {
-      return index - o.index;
+      for (int i = 0; i < priorityIndices.size() && i < o.priorityIndices.size(); ++i) {
+        if (!priorityIndices.get(i).equals(o.priorityIndices.get(i))) {
+          return priorityIndices.get(i).compareTo(o.priorityIndices.get(i));
+        }
+      }
+      // The values are up to the shorter one's length are the same, so the shorter one is a direct
+      // ancestor and comes first.
+      return Integer.compare(priorityIndices.size(), o.priorityIndices.size());
     }
-    return priorityCategory.ordinal() - o.priorityCategory.ordinal();
+    return Integer.compare(priorityCategory.ordinal(), o.priorityCategory.ordinal());
   }
 
   @Override
   public boolean equals(Object o) {
     if (o instanceof OptionPriority) {
       OptionPriority other = (OptionPriority) o;
-      return other.priorityCategory.equals(priorityCategory) && other.index == index;
+      return priorityCategory.equals(other.priorityCategory)
+          && priorityIndices.equals(other.priorityIndices);
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(priorityCategory, index);
+    return Objects.hash(priorityCategory, priorityIndices);
   }
 
   @Override
   public String toString() {
-    return String.format("OptionPriority(%s,%s)", priorityCategory, index);
+    return String.format("OptionPriority(%s,%s)", priorityCategory, priorityIndices);
   }
 
   /**

@@ -13,19 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
-import com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat;
-import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-import java.time.Duration;
-import java.util.Map;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Options affecting the execution phase of a build.
@@ -50,7 +51,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "verbose_failures",
     defaultValue = "false",
-    category = "verbosity",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "If a command fails, print out the full command line."
@@ -61,7 +61,6 @@ public class ExecutionOptions extends OptionsBase {
     name = "subcommands",
     abbrev = 's',
     defaultValue = "false",
-    category = "verbosity",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Display the subcommands executed during a build."
@@ -71,7 +70,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "check_up_to_date",
     defaultValue = "false",
-    category = "what",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -84,7 +82,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "check_tests_up_to_date",
     defaultValue = "false",
-    category = "testing",
     implicitRequirements = {"--check_up_to_date"},
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -99,7 +96,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "test_strategy",
     defaultValue = "",
-    category = "testing",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Specifies which strategy to use when running tests."
@@ -109,7 +105,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "test_keep_going",
     defaultValue = "true",
-    category = "testing",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -121,7 +116,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "runs_per_test_detects_flakes",
     defaultValue = "false",
-    category = "testing",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -132,9 +126,9 @@ public class ExecutionOptions extends OptionsBase {
 
   @Option(
     name = "flaky_test_attempts",
+    allowMultiple = true,
     defaultValue = "default",
-    category = "testing",
-    converter = TestStrategy.TestAttemptsConverter.class,
+    converter = TestAttemptsConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -146,12 +140,11 @@ public class ExecutionOptions extends OptionsBase {
             + "will be made for regular tests and three for tests marked explicitly as flaky by "
             + "their rule (flaky=1 attribute)."
   )
-  public int testAttempts;
+  public List<PerLabelOptions> testAttempts;
 
   @Option(
     name = "test_tmpdir",
     defaultValue = "null",
-    category = "testing",
     converter = OptionsUtils.PathFragmentConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -162,7 +155,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "test_output",
     defaultValue = "summary",
-    category = "testing",
     converter = TestStrategy.TestOutputFormat.Converter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -173,12 +165,11 @@ public class ExecutionOptions extends OptionsBase {
             + "(this will force tests to be executed locally one at a time regardless of "
             + "--test_strategy value)."
   )
-  public TestOutputFormat testOutput;
+  public TestStrategy.TestOutputFormat testOutput;
 
   @Option(
     name = "test_summary",
     defaultValue = "short",
-    category = "testing",
     converter = TestStrategy.TestSummaryFormat.Converter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -188,28 +179,11 @@ public class ExecutionOptions extends OptionsBase {
             + "unsuccessful tests that were run, 'detailed' to print detailed information about "
             + "failed test cases, and 'none' to omit the summary."
   )
-  public TestSummaryFormat testSummary;
-
-  @Option(
-    name = "test_timeout",
-    defaultValue = "-1",
-    category = "testing",
-    converter = TestTimeout.TestTimeoutConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Override the default test timeout values for test timeouts (in secs). If a single "
-            + "positive integer value is specified it will override all categories.  If 4 "
-            + "comma-separated integers are specified, they will override the timeouts for short, "
-            + "moderate, long and eternal (in that order). In either form, a value of -1 tells "
-            + "blaze to use its default timeouts for that category."
-  )
-  public Map<TestTimeout, Duration> testTimeout;
+  public TestStrategy.TestSummaryFormat testSummary;
 
   @Option(
     name = "resource_autosense",
     defaultValue = "false",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "This flag has no effect, and is deprecated"
@@ -219,7 +193,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "ram_utilization_factor",
     defaultValue = "67",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -238,7 +211,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "local_resources",
     defaultValue = "null",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -253,9 +225,23 @@ public class ExecutionOptions extends OptionsBase {
   public ResourceSet availableResources;
 
   @Option(
+    name = "experimental_local_memory_estimate",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Estimate the actual memory available online. "
+            + "By default, Blaze assumes most actions use a fixed amount of memory, and counts "
+            + "that against the total available system memory, regardless of how much memory is "
+            + "actually available.  This option enables online estimation of how much memory is "
+            + "available at any given time, and thus does not require accurate estimation of how "
+            + "much memory a given action will take."
+  )
+  public boolean localMemoryEstimate;
+
+  @Option(
     name = "local_test_jobs",
     defaultValue = "0",
-    category = "testing",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -303,4 +289,72 @@ public class ExecutionOptions extends OptionsBase {
             + " aggressive RAM optimizations in some cases."
   )
   public boolean enableCriticalPathProfiling;
+
+  @Option(
+    name = "experimental_execution_log_file",
+    defaultValue = "",
+    category = "verbosity",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Log the executed spawns into this file as delimited Spawn protos."
+  )
+  public String executionLogFile;
+
+  /** Converter for the --flaky_test_attempts option. */
+  public static class TestAttemptsConverter extends PerLabelOptions.PerLabelOptionsConverter {
+    private static final int MIN_VALUE = 1;
+    private static final int MAX_VALUE = 10;
+
+    private void validateInput(String input) throws OptionsParsingException {
+      if ("default".equals(input)) {
+        return;
+      } else {
+        Integer value = Integer.parseInt(input);
+        if (value < MIN_VALUE) {
+          throw new OptionsParsingException("'" + input + "' should be >= " + MIN_VALUE);
+        } else if (value < MIN_VALUE || value > MAX_VALUE) {
+          throw new OptionsParsingException("'" + input + "' should be <= " + MAX_VALUE);
+        }
+        return;
+      }
+    }
+
+    @Override
+    public PerLabelOptions convert(String input) throws OptionsParsingException {
+      try {
+        return parseAsInteger(input);
+      } catch (NumberFormatException ignored) {
+        return parseAsRegex(input);
+      }
+    }
+
+    private PerLabelOptions parseAsInteger(String input)
+        throws NumberFormatException, OptionsParsingException {
+      validateInput(input);
+      RegexFilter catchAll =
+          new RegexFilter(Collections.singletonList(".*"), Collections.<String>emptyList());
+      return new PerLabelOptions(catchAll, Collections.singletonList(input));
+    }
+
+    private PerLabelOptions parseAsRegex(String input) throws OptionsParsingException {
+      PerLabelOptions testRegexps = super.convert(input);
+      if (testRegexps.getOptions().size() != 1) {
+        throw new OptionsParsingException("'" + input + "' has multiple runs for a single pattern");
+      }
+      String runsPerTest = Iterables.getOnlyElement(testRegexps.getOptions());
+      try {
+        // Run this in order to catch errors.
+        validateInput(runsPerTest);
+      } catch (NumberFormatException e) {
+        throw new OptionsParsingException("'" + input + "' has a non-numeric value", e);
+      }
+      return testRegexps;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a positive integer, the string \"default\", or test_regex@attempts. "
+          + "This flag may be passed more than once";
+    }
+  }
 }

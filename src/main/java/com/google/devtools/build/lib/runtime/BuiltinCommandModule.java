@@ -34,7 +34,13 @@ import com.google.devtools.common.options.OptionsProvider;
 /**
  * Internal module for the built-in commands.
  */
-public final class BuiltinCommandModule extends BlazeModule {
+public class BuiltinCommandModule extends BlazeModule {
+  private final RunCommand runCommand;
+
+  protected BuiltinCommandModule(RunCommand runCommand) {
+    this.runCommand = runCommand;
+  }
+
   @Override
   public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
     builder.addCommands(
@@ -48,7 +54,7 @@ public final class BuiltinCommandModule extends BlazeModule {
         new PrintActionCommand(),
         new ProfileCommand(),
         new QueryCommand(),
-        new RunCommand(),
+        runCommand,
         new ShutdownCommand(),
         new TestCommand(),
         new VersionCommand(),

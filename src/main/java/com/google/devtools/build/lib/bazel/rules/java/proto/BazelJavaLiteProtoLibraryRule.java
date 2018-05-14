@@ -15,27 +15,23 @@
 package com.google.devtools.build.lib.bazel.rules.java.proto;
 
 import static com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAspect.DEFAULT_PROTO_TOOLCHAIN_LABEL;
-import static com.google.devtools.build.lib.packages.Aspect.INJECTING_RULE_KIND_PARAMETER_KEY;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR;
 import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.getProtoToolchainLabel;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoLibrary;
+import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspectCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 
 /** Declaration of the {@code java_lite_proto_library} rule. */
@@ -49,12 +45,6 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-    Function<Rule, AspectParameters> aspectParameters =
-        rule ->
-            new AspectParameters.Builder()
-                .addAttribute(INJECTING_RULE_KIND_PARAMETER_KEY, "java_lite_proto_library")
-                .build();
-
     return builder
         .requiresConfigurationFragments(JavaConfiguration.class)
         /* <!-- #BLAZE_RULE(java_lite_proto_library).ATTRIBUTE(deps) -->
@@ -65,10 +55,10 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
             attr("deps", LABEL_LIST)
                 .allowedRuleClasses("proto_library")
                 .allowedFileTypes()
-                .aspect(javaProtoAspect, aspectParameters))
+                .aspect(javaProtoAspect))
         .add(attr("strict_deps", BOOLEAN).value(true).undocumented("for migration"))
         .add(
-            attr(PROTO_TOOLCHAIN_ATTR, LABEL)
+            attr(JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, LABEL)
                 .mandatoryNativeProviders(
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                         ProtoLangToolchainProvider.class))

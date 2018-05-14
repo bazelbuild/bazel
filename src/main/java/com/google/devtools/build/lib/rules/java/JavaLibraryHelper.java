@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.OFF;
-import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.BOTH;
+import static com.google.devtools.build.lib.rules.java.JavaCommon.collectJavaCompilationArgs;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -60,11 +60,18 @@ public final class JavaLibraryHelper {
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
   private StrictDepsMode strictDepsMode = StrictDepsMode.OFF;
   private JavaClasspathMode classpathMode = JavaClasspathMode.OFF;
+  private String injectingRuleKind;
+  private boolean neverlink;
 
   public JavaLibraryHelper(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     ruleContext.getConfiguration();
     this.classpathMode = ruleContext.getFragment(JavaConfiguration.class).getReduceJavaClasspath();
+  }
+
+  public JavaLibraryHelper setNeverlink(boolean neverlink) {
+    this.neverlink = neverlink;
+    return this;
   }
 
   /**
@@ -140,6 +147,11 @@ public final class JavaLibraryHelper {
     return this;
   }
 
+  public JavaLibraryHelper setInjectingRuleKind(String injectingRuleKind) {
+    this.injectingRuleKind = injectingRuleKind;
+    return this;
+  }
+
   /**
    * When in strict mode, compiling the source-jars passed to this JavaLibraryHelper will break if
    * they depend on classes not in any of the {@link
@@ -177,6 +189,26 @@ public final class JavaLibraryHelper {
       JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
       boolean createOutputSourceJar,
       @Nullable Artifact outputSourceJar) {
+    return build(
+        semantics,
+        javaToolchainProvider,
+        hostJavabase,
+        jacocoInstrumental,
+        outputJarsBuilder,
+        createOutputSourceJar,
+        outputSourceJar,
+        /* javaInfoBuilder= */ null);
+  }
+
+  public JavaCompilationArtifacts build(
+      JavaSemantics semantics,
+      JavaToolchainProvider javaToolchainProvider,
+      JavaRuntimeInfo hostJavabase,
+      Iterable<Artifact> jacocoInstrumental,
+      JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
+      boolean createOutputSourceJar,
+      @Nullable Artifact outputSourceJar,
+      @Nullable JavaInfo.Builder javaInfoBuilder) {
     Preconditions.checkState(output != null, "must have an output file; use setOutput()");
     Preconditions.checkState(
         !createOutputSourceJar || outputSourceJar != null,
@@ -187,6 +219,7 @@ public final class JavaLibraryHelper {
     addDepsToAttributes(attributes);
     attributes.setStrictJavaDeps(strictDepsMode);
     attributes.setTargetLabel(ruleContext.getLabel());
+    attributes.setInjectingRuleKind(injectingRuleKind);
     attributes.setSourcePath(sourcePathEntries);
     JavaCommon.addPlugins(attributes, plugins);
 
@@ -207,10 +240,21 @@ public final class JavaLibraryHelper {
             hostJavabase,
             jacocoInstrumental);
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(output, artifactsBuilder);
+
+    Artifact manifestProtoOutput = helper.createManifestProtoOutput(output);
+
+    Artifact genSourceJar = null;
+    Artifact genClassJar = null;
+    if (helper.usesAnnotationProcessing()) {
+      genClassJar = helper.createGenJar(output);
+      genSourceJar = helper.createGensrcJar(output);
+      helper.createGenJarAction(output, manifestProtoOutput, genClassJar, hostJavabase);
+    }
+
     helper.createCompileAction(
         output,
-        /* manifestProtoOutput= */ null,
-        /* gensrcOutputJar= */ null,
+        manifestProtoOutput,
+        genSourceJar,
         outputDepsProto,
         /* instrumentationMetadataJar= */ null,
         /* nativeHeaderOutput= */ null);
@@ -219,7 +263,8 @@ public final class JavaLibraryHelper {
     Artifact iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);
 
     if (createOutputSourceJar) {
-      helper.createSourceJarAction(outputSourceJar, null, javaToolchainProvider, hostJavabase);
+      helper.createSourceJarAction(
+          outputSourceJar, genSourceJar, javaToolchainProvider, hostJavabase);
     }
     ImmutableList<Artifact> outputSourceJars =
         outputSourceJar == null ? ImmutableList.of() : ImmutableList.of(outputSourceJar);
@@ -227,7 +272,26 @@ public final class JavaLibraryHelper {
         .addOutputJar(new OutputJar(output, iJar, outputSourceJars))
         .setJdeps(outputDepsProto);
 
-    return artifactsBuilder.build();
+    JavaCompilationArtifacts javaArtifacts = artifactsBuilder.build();
+    if (javaInfoBuilder != null) {
+      ClasspathConfiguredFragment classpathFragment = new ClasspathConfiguredFragment(
+        javaArtifacts,
+        attributes.build(),
+        neverlink,
+        JavaCompilationHelper.getBootClasspath(javaToolchainProvider)
+      );
+
+      javaInfoBuilder.addProvider(
+          JavaCompilationInfoProvider.class,
+          new JavaCompilationInfoProvider.Builder()
+              .setJavacOpts(javacOpts)
+              .setBootClasspath(classpathFragment.getBootClasspath())
+              .setCompilationClasspath(classpathFragment.getCompileTimeClasspath())
+              .setRuntimeClasspath(classpathFragment.getRuntimeClasspath())
+              .build());
+    }
+
+    return javaArtifacts;
   }
 
   /**
@@ -242,16 +306,27 @@ public final class JavaLibraryHelper {
    *     compilation. Contrast this with {@link #setCompilationStrictDepsMode}.
    */
   public JavaCompilationArgsProvider buildCompilationArgsProvider(
-      JavaCompilationArtifacts artifacts, boolean isReportedAsStrict) {
-    JavaCompilationArgs directArgs = JavaCompilationArgs.builder()
-        .merge(artifacts)
-        .addTransitiveDependencies(exports, true /* recursive */)
-        .build();
+      JavaCompilationArtifacts artifacts, boolean isReportedAsStrict, boolean isNeverlink) {
+
+    JavaCompilationArgs directArgs =
+        collectJavaCompilationArgs(
+            /* recursive= */ false,
+            /* isNeverLink= */ isNeverlink,
+            /* srcLessDepsExport= */ false,
+            artifacts,
+            deps,
+            /* runtimeDeps= */ ImmutableList.of(),
+            exports);
     JavaCompilationArgs transitiveArgs =
-        JavaCompilationArgs.builder()
-            .addTransitiveArgs(directArgs, BOTH)
-            .addTransitiveDependencies(deps, true /* recursive */)
-            .build();
+        collectJavaCompilationArgs(
+            /* recursive= */ true,
+            /* isNeverLink= */ isNeverlink,
+            /* srcLessDepsExport= */ false,
+            artifacts,
+            deps,
+            /* runtimeDeps= */ ImmutableList.of(),
+            exports);
+
     Artifact compileTimeDepArtifact = artifacts.getCompileTimeDependencyArtifact();
     NestedSet<Artifact> compileTimeJavaDepArtifacts = compileTimeDepArtifact != null 
         ? NestedSetBuilder.create(Order.STABLE_ORDER, compileTimeDepArtifact)
@@ -259,34 +334,24 @@ public final class JavaLibraryHelper {
     return JavaCompilationArgsProvider.create(
         isReportedAsStrict ? directArgs : transitiveArgs,
         transitiveArgs,
-        compileTimeJavaDepArtifacts,
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+        compileTimeJavaDepArtifacts);
   }
 
   private void addDepsToAttributes(JavaTargetAttributes.Builder attributes) {
-    NestedSet<Artifact> directJars;
+    JavaCompilationArgsProvider argsProvider = JavaCompilationArgsProvider.merge(deps);
+
     if (isStrict()) {
-      directJars = getNonRecursiveCompileTimeJarsFromDeps();
+      NestedSet<Artifact> directJars = argsProvider.getDirectCompileTimeJars();
       if (directJars != null) {
         attributes.addDirectJars(directJars);
       }
     }
 
-    JavaCompilationArgs args =
-        JavaCompilationArgs.builder()
-            .addTransitiveDependencies(deps, true)
-            .build();
-    attributes.addCompileTimeClassPathEntries(args.getCompileTimeJars());
-    attributes.addRuntimeClassPathEntries(args.getRuntimeJars());
-    attributes.addInstrumentationMetadataEntries(args.getInstrumentationMetadata());
+    attributes.addCompileTimeClassPathEntries(argsProvider.getTransitiveCompileTimeJars());
+    attributes.addRuntimeClassPathEntries(argsProvider.getRuntimeJars());
+    attributes.addInstrumentationMetadataEntries(argsProvider.getInstrumentationMetadata());
   }
 
-  private NestedSet<Artifact> getNonRecursiveCompileTimeJarsFromDeps() {
-    return JavaCompilationArgs.builder()
-        .addTransitiveDependencies(deps, false)
-        .build()
-        .getCompileTimeJars();
-  }
 
   private boolean isStrict() {
     return strictDepsMode != OFF;

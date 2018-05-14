@@ -15,16 +15,19 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -44,32 +47,14 @@ import java.util.Objects;
  * <p>The derived roots must have paths that point inside the exec root, i.e. below the directory
  * that is the root of the merged directory tree.
  */
-@SkylarkModule(
-  name = "root",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "A root for files. The roots are the directories containing files, and they are mapped "
-          + "together into a single directory tree to form the execution environment."
-)
 @Immutable
-public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializable, SkylarkValue {
-
-  // This must always be consistent with Package.getSourceRoot; otherwise computing source roots
-  // from exec paths does not work, which can break the action cache for input-discovering actions.
-  public static ArtifactRoot computeSourceRoot(Root packageRoot, RepositoryName repository) {
-    if (repository.isMain()) {
-      return asSourceRoot(packageRoot);
-    } else {
-      Path actualRootPath = packageRoot.asPath();
-      int segmentCount = repository.getSourceRoot().segmentCount();
-      for (int i = 0; i < segmentCount; i++) {
-        actualRootPath = actualRootPath.getParentDirectory();
-      }
-      return asSourceRoot(Root.fromPath(actualRootPath));
-    }
-  }
-
-  /** Returns the given path as a source root. The path may not be {@code null}. */
+public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializable, FileRootApi {
+  /**
+   * Do not use except in tests and in {@link
+   * com.google.devtools.build.lib.skyframe.SkyframeExecutor}.
+   *
+   * <p>Returns the given path as a source root. The path may not be {@code null}.
+   */
   public static ArtifactRoot asSourceRoot(Root root) {
     return new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.Source);
   }
@@ -106,7 +91,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   private final PathFragment execPath;
   private final RootType rootType;
 
-  private ArtifactRoot(Root root, PathFragment execPath, RootType rootType) {
+  ArtifactRoot(Root root, PathFragment execPath, RootType rootType) {
     this.root = Preconditions.checkNotNull(root);
     this.execPath = execPath;
     this.rootType = rootType;
@@ -124,8 +109,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     return execPath;
   }
 
-  @SkylarkCallable(name = "path", structField = true,
-      doc = "Returns the relative path from the exec root to the actual root.")
+  @Override
   public String getExecPathString() {
     return getExecPath().getPathString();
   }
@@ -169,5 +153,50 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append(isSourceRoot() ? "<source root>" : "<derived root>");
+  }
+
+  /** Custom codec that replaces output base with local output base on deserialization. */
+  private static class ArtifactRootCodec implements ObjectCodec<ArtifactRoot> {
+    @Override
+    public Class<ArtifactRoot> getEncodedClass() {
+      return ArtifactRoot.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, ArtifactRoot input, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(input.rootType, codedOut);
+      switch (input.rootType) {
+        case Source:
+          context.serialize(input.root, codedOut);
+          break;
+        case Output: // fall-through, same behavior as Middleman
+        case Middleman:
+          Path outputBase = context.getDependency(OutputBaseSupplier.class).get();
+          context.serialize(input.root.asPath().relativeTo(outputBase), codedOut);
+          break;
+      }
+      context.serialize(input.execPath, codedOut);
+    }
+
+    @Override
+    public ArtifactRoot deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      ArtifactRoot.RootType rootType = context.deserialize(codedIn);
+      Root root = null;
+      switch (rootType) {
+        case Source:
+          root = context.deserialize(codedIn);
+          break;
+        case Output: // fall-through, same behavior as Middleman
+        case Middleman:
+          Path outputBase = context.getDependency(OutputBaseSupplier.class).get();
+          PathFragment relativeRoot = context.deserialize(codedIn);
+          root = Root.fromPath(outputBase.getRelative(relativeRoot));
+          break;
+      }
+      return new ArtifactRoot(root, context.deserialize(codedIn), rootType);
+    }
   }
 }

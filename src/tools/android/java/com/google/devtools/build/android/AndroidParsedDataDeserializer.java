@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
-import com.google.devtools.build.android.ParsedAndroidData.Builder;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.Header;
@@ -35,7 +34,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -48,11 +46,13 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
 
     private final Path symbolPath;
 
-    private final Builder finalDataBuilder;
+    private final ParsedAndroidData.Builder finalDataBuilder;
     private final AndroidParsedDataDeserializer deserializer;
 
     private Deserialize(
-        AndroidParsedDataDeserializer deserializer, Path symbolPath, Builder finalDataBuilder) {
+        AndroidParsedDataDeserializer deserializer,
+        Path symbolPath,
+        ParsedAndroidData.Builder finalDataBuilder) {
       this.deserializer = deserializer;
       this.symbolPath = symbolPath;
       this.finalDataBuilder = finalDataBuilder;
@@ -60,7 +60,7 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
 
     @Override
     public Boolean call() throws Exception {
-      final Builder parsedDataBuilder = ParsedAndroidData.Builder.newBuilder();
+      final ParsedAndroidData.Builder parsedDataBuilder = ParsedAndroidData.Builder.newBuilder();
       deserializer.read(symbolPath, parsedDataBuilder.consumers());
       // The builder isn't threadsafe, so synchronize the copyTo call.
       synchronized (finalDataBuilder) {
@@ -145,7 +145,7 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
     DataSourceTable sourceTable = DataSourceTable.read(in, currentFileSystem, header);
 
     // TODO(corysmith): Make this a lazy read of the values.
-    for (Entry<DataKey, KeyValueConsumer<DataKey, ?>> entry : keys.entrySet()) {
+    for (Map.Entry<DataKey, KeyValueConsumer<DataKey, ?>> entry : keys.entrySet()) {
       SerializeFormat.DataValue protoValue = SerializeFormat.DataValue.parseDelimitedFrom(in);
       DataSource source = sourceTable.sourceFromId(protoValue.getSourceId());
       // Compose the `shortPath` manually to ensure it uses a forward slash.
@@ -178,13 +178,17 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
     }
   }
 
-  /** Deserializes a list of serialized resource paths to a {@link ParsedAndroidData}. */
+  /**
+   * Deserializes a list of serialized resource paths to a {@link
+   * com.google.devtools.build.android.ParsedAndroidData}.
+   */
   public static ParsedAndroidData deserializeSymbolsToData(List<Path> symbolPaths)
       throws IOException {
     AndroidParsedDataDeserializer deserializer = create();
     final ListeningExecutorService executorService =
         MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(15));
-    final Builder deserializedDataBuilder = ParsedAndroidData.Builder.newBuilder();
+    final ParsedAndroidData.Builder deserializedDataBuilder =
+        ParsedAndroidData.Builder.newBuilder();
     try (Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
       List<ListenableFuture<Boolean>> deserializing = new ArrayList<>();
       for (final Path symbolPath : symbolPaths) {

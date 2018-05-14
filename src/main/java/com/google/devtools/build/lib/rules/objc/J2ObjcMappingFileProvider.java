@@ -21,8 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
- * This provider is exported by java_library rules and proto_library rules with attribute
- * "j2objc_api_version=1" to support distributed J2ObjC translation and proto compilation.
+ * This provider is exported by java_library rules and proto_library rules via the j2objc aspect.
  */
 @Immutable
 public final class J2ObjcMappingFileProvider implements TransitiveInfoProvider {

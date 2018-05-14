@@ -21,9 +21,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.io.IOException;
 import java.util.IllegalFormatException;
 
-/**
- * Syntax node for a binary operator expression.
- */
+/** Syntax node for a binary operator expression. */
 public final class BinaryOperatorExpression extends Expression {
 
   private final Expression lhs;
@@ -201,12 +199,21 @@ public final class BinaryOperatorExpression extends Expression {
           return pipe(lhs, rhs, env, location);
 
         case MINUS:
-          return minus(lhs, rhs, env, location);
+          return minus(lhs, rhs, location);
 
         case MULT:
           return mult(lhs, rhs, env, location);
 
         case DIVIDE:
+          if (env.getSemantics().incompatibleDisallowSlashOperator()) {
+            throw new EvalException(
+                location,
+                "The `/` operator has been removed. Please use the `//` operator for integer "
+                    + "division. You can temporarily enable the `/` operator by passing "
+                    + "the flag --incompatible_disallow_slash_operator=false");
+          }
+          return divide(lhs, rhs, location);
+
         case FLOOR_DIVIDE:
           return divide(lhs, rhs, location);
 
@@ -270,11 +277,7 @@ public final class BinaryOperatorExpression extends Expression {
       throws EvalException {
     // int + int
     if (lval instanceof Integer && rval instanceof Integer) {
-      if (env.getSemantics().incompatibleCheckedArithmetic()) {
-        return Math.addExact((Integer) lval, (Integer) rval);
-      } else {
-        return ((Integer) lval).intValue() + ((Integer) rval).intValue();
-      }
+      return Math.addExact((Integer) lval, (Integer) rval);
     }
 
     // string + string
@@ -335,7 +338,7 @@ public final class BinaryOperatorExpression extends Expression {
                 + "recommendations. Use --incompatible_depset_union=false "
                 + "to temporarily disable this check.");
       }
-      return new SkylarkNestedSet((SkylarkNestedSet) lval, rval, location);
+      return SkylarkNestedSet.of((SkylarkNestedSet) lval, rval, location);
     }
     throw typeException(lval, rval, Operator.PLUS, location);
   }
@@ -352,20 +355,15 @@ public final class BinaryOperatorExpression extends Expression {
                 + "recommendations. Use --incompatible_depset_union=false "
                 + "to temporarily disable this check.");
       }
-      return new SkylarkNestedSet((SkylarkNestedSet) lval, rval, location);
+      return SkylarkNestedSet.of((SkylarkNestedSet) lval, rval, location);
     }
     throw typeException(lval, rval, Operator.PIPE, location);
   }
 
   /** Implements Operator.MINUS. */
-  private static Object minus(Object lval, Object rval, Environment env, Location location)
-      throws EvalException {
+  private static Object minus(Object lval, Object rval, Location location) throws EvalException {
     if (lval instanceof Integer && rval instanceof Integer) {
-      if (env.getSemantics().incompatibleCheckedArithmetic()) {
-        return Math.subtractExact((Integer) lval, (Integer) rval);
-      } else {
-        return ((Integer) lval).intValue() - ((Integer) rval).intValue();
-      }
+      return Math.subtractExact((Integer) lval, (Integer) rval);
     }
     throw typeException(lval, rval, Operator.MINUS, location);
   }
@@ -386,11 +384,7 @@ public final class BinaryOperatorExpression extends Expression {
 
     if (number != null) {
       if (otherFactor instanceof Integer) {
-        if (env.getSemantics().incompatibleCheckedArithmetic()) {
-          return Math.multiplyExact(number, (Integer) otherFactor);
-        } else {
-          return number * ((Integer) otherFactor);
-        }
+        return Math.multiplyExact(number, (Integer) otherFactor);
       } else if (otherFactor instanceof String) {
         // Similar to Python, a factor < 1 leads to an empty string.
         return Strings.repeat((String) otherFactor, Math.max(0, number));

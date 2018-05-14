@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 
-/**
- * Syntax node for a function definition.
- */
+/** Syntax node for a function definition. */
 public final class FunctionDefStatement extends Statement {
 
   private final Identifier identifier;

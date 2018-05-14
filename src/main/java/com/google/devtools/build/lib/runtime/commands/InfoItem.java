@@ -271,25 +271,6 @@ public abstract class InfoItem {
   }
 
   /**
-   * Info item for the message log
-   */
-  public static final class MessageLogInfoItem extends InfoItem {
-    public MessageLogInfoItem() {
-      super("message_log" ,
-      "Location of a log containing machine readable message in LogMessage protobuf format.",
-      false);
-    }
-
-    @Override
-    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
-        throws AbruptExitException {
-      checkNotNull(configurationSupplier);
-      // NB: Duplicated in EventLogModule
-      return print(env.getRuntime().getWorkspace().getOutputBase().getRelative("message.log"));
-    }
-  }
-
-  /**
    * Info item for release
    */
   public static final class ReleaseInfoItem extends InfoItem {

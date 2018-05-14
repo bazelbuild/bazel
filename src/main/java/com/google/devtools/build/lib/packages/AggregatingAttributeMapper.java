@@ -66,11 +66,9 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   /**
    * Override that also visits the rule's configurable attribute keys (which are themselves labels).
    *
-   * <p>Note that we directly parse the selectors rather than just calling {@link #visitAttribute}
-   * to iterate over all possible values. That's because {@link #visitAttribute} can grow
-   * exponentially with respect to the number of selects (e.g. if an attribute uses three selects
-   * with three conditions each, it can take nine possible values). So we want to avoid that code
-   * path whenever actual value iteration isn't specifically needed.
+   * <p>This method directly parses each selector, vs. calling {@link #visitAttribute} to iterate
+   * over all possible values. The latter has dangerous efficiency consequences, as discussed in
+   * {@link #visitAttribute}'s documentation. So we want to avoid that code path when possible.
    */
   @Override
   protected void visitLabels(Attribute attribute, Type.LabelVisitor<Attribute> visitor)
@@ -112,6 +110,9 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
 
   /**
    * Returns all labels reachable via the given attribute, with duplicate instances removed.
+   *
+   * <p>Use this interface over @link #visitAttribute} whenever possible, since the latter has
+   * efficiency problems discussed in that method's documentation.
    *
    * @param includeSelectKeys whether to include config_setting keys for configurable attributes
    */
@@ -195,6 +196,9 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * computed default, and the computed default function depends on other attributes whose values
    * contain {@code select(...)} expressions, then the computed default function is evaluated for
    * every possible combination of input values, and the list of outputs is returned.
+   *
+   * <p><b>EFFICIENCY WARNING:</b> Do not use this method unless you really need every single value
+   * the attribute might take. See {@link #visitAttribute}'s documentation for details.
    */
   public Iterable<Object> getPossibleAttributeValues(Rule rule, Attribute attr) {
     // Values may be null, so use normal collections rather than immutable collections.
@@ -239,9 +243,25 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   /**
    * Returns a list of all possible values an attribute can take for this rule.
    *
-   * <p>Note that when an attribute uses multiple selects, or is a {@link Attribute.ComputedDefault}
-   * that depends on configurable attributes, it can potentially take on many values. So be cautious
-   * about unnecessarily relying on this method.
+   * <p><b>EFFICIENCY WARNING:</b> Do not use this method unless you really need every single value
+   * the attribute might take.
+   *
+   * <p>This is dangerous because it's easy to write attributes with an exponential number of
+   * possible values:
+   *
+   * <pre>
+   *   foo = select({a: 1, b: 2} + select({c: 3, d: 4}) + select({e: 5, f: 6})
+   * </pre>
+   *
+   * <p>Possible values: <code>[135, 136, 145, 146, 235, 236, 245, 246]</code> (i.e. 2^3).
+   *
+   * <p>This is true not just for attributes with multiple selects, but also
+   * {@link Attribute.ComputedDefault}s depending on such attributes.
+   *
+   * <p>More often than not, calling code doesn't really need every value, but really just wants to
+   * know, e.g., which labels might appear in a dependency list. For such cases, merging methods
+   * like {@link #getReachableLabels} work just as well without the efficiency hit. Use those
+   * whenever possible.
    */
   public <T> Iterable<T> visitAttribute(String attributeName, Type<T> type) {
     // If this attribute value is configurable, visit all possible values.
@@ -485,6 +505,11 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       @Override
       public Label getLabel() {
         return owner.getLabel();
+      }
+
+      @Override
+      public String getRuleClassName() {
+        return owner.getRuleClassName();
       }
 
       @Override

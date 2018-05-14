@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -30,13 +31,13 @@ import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     new ProtoAttributes(ruleContext).validate();
     return createProtobufTarget(ruleContext);
   }
 
   private ConfiguredTarget createProtobufTarget(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
     Iterable<ProtoSourcesProvider> protoProviders =

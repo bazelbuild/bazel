@@ -29,11 +29,13 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -52,7 +54,7 @@ import org.junit.runners.JUnit4;
 public class ParamFileWriteActionTest extends BuildViewTestCase {
   private ArtifactRoot rootDir;
   private Artifact outputArtifact;
-  private Artifact treeArtifact;
+  private SpecialArtifact treeArtifact;
 
   @Before
   public void createArtifacts() throws Exception  {
@@ -108,10 +110,9 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
                 + "out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact2");
   }
 
-  private Artifact createTreeArtifact(String rootRelativePath) {
+  private SpecialArtifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
     return new SpecialArtifact(
-        rootDir.getRoot().getRelative(relpath),
         rootDir,
         rootDir.getExecPath().getRelative(relpath),
         ArtifactOwner.NullArtifactOwner.INSTANCE,
@@ -119,7 +120,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   }
 
   private TreeFileArtifact createTreeFileArtifact(
-      Artifact inputTreeArtifact, String parentRelativePath) {
+      SpecialArtifact inputTreeArtifact, String parentRelativePath) {
     return ActionInputHelper.treeFileArtifact(
         inputTreeArtifact,
         PathFragment.create(parentRelativePath));
@@ -167,6 +168,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
       }
     };
 
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     return new ActionExecutionContext(
         executor,
@@ -176,7 +178,9 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         null,
         new FileOutErr(),
         ImmutableMap.<String, String>of(),
-        artifactExpander);
+        ImmutableMap.of(),
+        artifactExpander,
+        /*actionFileSystem=*/ null);
   }
 
   private enum KeyAttributes {

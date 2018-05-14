@@ -22,6 +22,9 @@ import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionExecutedEvent;
+import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFileTransport;
@@ -53,6 +56,14 @@ import org.mockito.MockitoAnnotations;
 /** Tests {@link BuildEventServiceModule}. **/
 @RunWith(JUnit4.class)
 public class BazelBuildEventServiceModuleTest {
+
+  private static final ActionExecutedEvent SUCCESSFUL_ACTION_EXECUTED_EVENT =
+      new ActionExecutedEvent(
+          new ActionsTestUtil.NullAction(),
+          /* exception= */ null,
+          /* stdout= */ null,
+          /* stderr= */ null,
+          ErrorTiming.NO_ERROR);
 
   private static final Function<Object, Class<?>> GET_CLASS =
       new Function<Object, Class<?>>() {
@@ -124,22 +135,27 @@ public class BazelBuildEventServiceModuleTest {
     assertThat(options.getBuildEventJsonFile()).isEqualTo("/tmp/foo.json");
   }
 
+  private BuildEventStreamer createBuildEventStreamerForCommand(
+      BazelBuildEventServiceModule module, String commandName) {
+    return module.tryCreateStreamer(
+        /* startupOptionsProvider= */ null,
+        optionsProvider,
+        commandLineReporter,
+        moduleEnvironment,
+        clock,
+        PATH_CONVERTER,
+        reporter,
+        /* buildRequestId= */ "foo",
+        /* invocationId= */ "bar",
+        commandName);
+  }
+
   @Test
   public void testCreatesStreamerForTextFormatFileTransport() throws Exception {
     when(bepOptions.getBuildEventTextFile()).thenReturn(tmp.newFile().getAbsolutePath());
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
-    BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(
-            optionsProvider,
-            commandLineReporter,
-            moduleEnvironment,
-            clock,
-            PATH_CONVERTER,
-            reporter,
-            "foo",
-            "bar",
-            "build");
+    BuildEventStreamer buildEventStreamer = createBuildEventStreamerForCommand(module, "build");
     assertThat(buildEventStreamer).isNotNull();
     verifyNoMoreInteractions(moduleEnvironment);
     assertThat(FluentIterable.from(buildEventStreamer.getTransports()).transform(GET_CLASS))
@@ -151,17 +167,7 @@ public class BazelBuildEventServiceModuleTest {
     when(bepOptions.getBuildEventBinaryFile()).thenReturn(tmp.newFile().getAbsolutePath());
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
-    BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(
-            optionsProvider,
-            commandLineReporter,
-            moduleEnvironment,
-            clock,
-            PATH_CONVERTER,
-            reporter,
-            "foo",
-            "bar",
-            "test");
+    BuildEventStreamer buildEventStreamer = createBuildEventStreamerForCommand(module, "test");
     assertThat(buildEventStreamer).isNotNull();
     verifyNoMoreInteractions(moduleEnvironment);
     assertThat(FluentIterable.from(buildEventStreamer.getTransports()).transform(GET_CLASS))
@@ -173,17 +179,7 @@ public class BazelBuildEventServiceModuleTest {
     when(bepOptions.getBuildEventJsonFile()).thenReturn(tmp.newFile().getAbsolutePath());
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
-    BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(
-            optionsProvider,
-            commandLineReporter,
-            moduleEnvironment,
-            clock,
-            PATH_CONVERTER,
-            reporter,
-            "foo",
-            "bar",
-            "fetch");
+    BuildEventStreamer buildEventStreamer = createBuildEventStreamerForCommand(module, "fetch");
     assertThat(buildEventStreamer).isNotNull();
     verifyNoMoreInteractions(moduleEnvironment);
     assertThat(FluentIterable.from(buildEventStreamer.getTransports()).transform(GET_CLASS))
@@ -195,17 +191,7 @@ public class BazelBuildEventServiceModuleTest {
     besOptions.besBackend = "does.not.exist:1234";
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
-    BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(
-            optionsProvider,
-            commandLineReporter,
-            moduleEnvironment,
-            clock,
-            PATH_CONVERTER,
-            reporter,
-            "foo",
-            "bar",
-            "build");
+    BuildEventStreamer buildEventStreamer = createBuildEventStreamerForCommand(module, "build");
     assertThat(buildEventStreamer).isNotNull();
   }
 
@@ -217,17 +203,7 @@ public class BazelBuildEventServiceModuleTest {
     besOptions.besBackend = "does.not.exist:1234";
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
-    BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(
-            optionsProvider,
-            commandLineReporter,
-            moduleEnvironment,
-            clock,
-            PATH_CONVERTER,
-            reporter,
-            "foo",
-            "bar",
-            "test");
+    BuildEventStreamer buildEventStreamer = createBuildEventStreamerForCommand(module, "test");
     assertThat(buildEventStreamer).isNotNull();
     verifyNoMoreInteractions(moduleEnvironment);
     assertThat(FluentIterable.from(buildEventStreamer.getTransports()).transform(GET_CLASS))
@@ -238,17 +214,7 @@ public class BazelBuildEventServiceModuleTest {
   @Test
   public void testDoesNotCreatesStreamerWithoutTransports() throws Exception {
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
-    BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(
-            optionsProvider,
-            commandLineReporter,
-            moduleEnvironment,
-            clock,
-            PATH_CONVERTER,
-            reporter,
-            "foo",
-            "bar",
-            "fetch");
+    BuildEventStreamer buildEventStreamer = createBuildEventStreamerForCommand(module, "fetch");
     assertThat(buildEventStreamer).isNull();
   }
 
@@ -256,7 +222,31 @@ public class BazelBuildEventServiceModuleTest {
   public void testKeywords() throws Exception {
     besOptions.besKeywords = ImmutableList.of("keyword0", "keyword1", "keyword0");
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
-    assertThat(module.keywords(besOptions))
+    assertThat(module.keywords(besOptions, null))
         .containsExactly("user_keyword=keyword0", "user_keyword=keyword1");
+  }
+
+  @Test
+  public void testSuccessfulActionsAreNotPublishedByDefault() throws Exception {
+    when(bepOptions.getBuildEventTextFile()).thenReturn(tmp.newFile().getAbsolutePath());
+    BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
+    BuildEventStreamer buildEventStreamer = createBuildEventStreamerForCommand(module, "build");
+    assertThat(buildEventStreamer).isNotNull();
+
+    assertThat(buildEventStreamer.shouldIgnoreBuildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT))
+        .isTrue();
+  }
+
+  @Test
+  public void testSuccessfulActionsArePublishedWhenOptionIsSet() throws Exception {
+    bepOptions.publishAllActions = true;
+
+    when(bepOptions.getBuildEventTextFile()).thenReturn(tmp.newFile().getAbsolutePath());
+    BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
+    BuildEventStreamer buildEventStreamer = createBuildEventStreamerForCommand(module, "build");
+    assertThat(buildEventStreamer).isNotNull();
+
+    assertThat(buildEventStreamer.shouldIgnoreBuildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT))
+        .isFalse();
   }
 }

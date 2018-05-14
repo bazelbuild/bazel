@@ -15,10 +15,11 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import java.util.Map;
@@ -60,7 +61,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
     builder.addConstraint(ConstraintValueInfo.create(setting3, makeLabel("//constraint:value6")));
 
     PlatformInfo.DuplicateConstraintException exception =
-        expectThrows(PlatformInfo.DuplicateConstraintException.class, () -> builder.build());
+        assertThrows(PlatformInfo.DuplicateConstraintException.class, () -> builder.build());
     assertThat(exception)
         .hasMessageThat()
         .contains(
@@ -95,12 +96,6 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .setLabel(makeLabel("//platform/plat1"))
                 .addConstraint(value1)
                 .addConstraint(value2)
-                .build(),
-            PlatformInfo.builder()
-                .setLabel(makeLabel("//platform/plat1"))
-                .addConstraint(value1)
-                .addConstraint(value2)
-                .setRemoteExecutionProperties("key=val") // execution properties are ignored.
                 .build())
         .addEqualityGroup(
             // Different label.
@@ -122,71 +117,15 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .setLabel(makeLabel("//platform/plat1"))
                 .addConstraint(value1)
                 .build())
+        .addEqualityGroup(
+            // Different remote exec properties.
+            PlatformInfo.builder()
+                .setLabel(makeLabel("//platform/plat1"))
+                .addConstraint(value1)
+                .addConstraint(value2)
+                .setRemoteExecutionProperties("foo")
+                .build())
         .testEquals();
-  }
-
-  @Test
-  public void platformInfoConstructor() throws Exception {
-    scratch.file(
-        "test/platform/my_platform.bzl",
-        "def _impl(ctx):",
-        "  constraints = [val[platform_common.ConstraintValueInfo] "
-            + "for val in ctx.attr.constraints]",
-        "  platform = platform_common.PlatformInfo(",
-        "      label = ctx.label, constraint_values = constraints)",
-        "  return [platform]",
-        "my_platform = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'constraints': attr.label_list(providers = [platform_common.ConstraintValueInfo])",
-        "  }",
-        ")");
-    scratch.file(
-        "test/platform/BUILD",
-        "load('//test/platform:my_platform.bzl', 'my_platform')",
-        "my_platform(name = 'custom',",
-        "    constraints = [",
-        "       '//constraint:foo',",
-        "    ])");
-
-    ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
-    assertThat(platform).isNotNull();
-
-    PlatformInfo provider = PlatformProviderUtils.platform(platform);
-    assertThat(provider).isNotNull();
-    assertThat(provider.label()).isEqualTo(makeLabel("//test/platform:custom"));
-    assertThat(provider.constraints()).hasSize(1);
-    ConstraintSettingInfo constraintSetting =
-        ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
-    ConstraintValueInfo constraintValue =
-        ConstraintValueInfo.create(constraintSetting, makeLabel("//constraint:foo"));
-    assertThat(provider.constraints()).containsExactly(constraintValue);
-    assertThat(provider.remoteExecutionProperties()).isNull();
-  }
-
-  @Test
-  public void platformInfoConstructor_error_duplicateConstraints() throws Exception {
-    scratch.file(
-        "test/platform/my_platform.bzl",
-        "def _impl(ctx):",
-        "  platform = platform_common.PlatformInfo()",
-        "  return [platform]",
-        "my_platform = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'constraints': attr.label_list(providers = [platform_common.ConstraintValueInfo])",
-        "  }",
-        ")");
-    checkError(
-        "test/platform",
-        "custom",
-        "Label '//constraint:foo' is duplicated in the 'constraints' attribute of rule 'custom'",
-        "load('//test/platform:my_platform.bzl', 'my_platform')",
-        "my_platform(name = 'custom',",
-        "    constraints = [",
-        "       '//constraint:foo',",
-        "       '//constraint:foo',",
-        "    ])");
   }
 
   @Test
@@ -209,7 +148,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void makeVariableInfo() throws Exception {
+  public void templateVariableInfo() throws Exception {
     scratch.file(
         "a/rule.bzl",
         "def _impl(ctx):",
@@ -226,5 +165,34 @@ public class PlatformInfoTest extends BuildViewTestCase {
     @SuppressWarnings("unchecked")
     Map<String, String> makeVariables = (Map<String, String>) ct.get("variables");
     assertThat(makeVariables).containsKey("CC_FLAGS");
+  }
+
+  @Test
+  public void templateVariableInfoConstructor() throws Exception {
+    scratch.file(
+        "a/rule.bzl",
+        "def _consumer_impl(ctx):",
+        "  return struct(",
+        "      var = ctx.attr.supplier[platform_common.TemplateVariableInfo]",
+        "          .variables[ctx.attr.var])",
+        "def _supplier_impl(ctx):",
+        "  return [platform_common.TemplateVariableInfo({ctx.attr.var: ctx.attr.value})]",
+        "consumer = rule(_consumer_impl,",
+        "    attrs = { 'var': attr.string(), 'supplier': attr.label() })",
+        "supplier = rule(_supplier_impl,",
+        "    attrs = { 'var': attr.string(), 'value': attr.string() })");
+
+    scratch.file("a/BUILD",
+        "load(':rule.bzl', 'consumer', 'supplier')",
+        "consumer(name='consumer', supplier=':supplier', var='cherry')",
+        "supplier(name='supplier', var='cherry', value='ontop')");
+
+    ConfiguredTarget consumer = getConfiguredTarget("//a:consumer");
+    @SuppressWarnings("unchecked") String value = (String) consumer.get("var");
+    assertThat(value).isEqualTo("ontop");
+
+    ConfiguredTarget supplier = getConfiguredTarget("//a:supplier");
+    assertThat(supplier.get(TemplateVariableInfo.PROVIDER).getVariables())
+        .containsExactly("cherry", "ontop");
   }
 }

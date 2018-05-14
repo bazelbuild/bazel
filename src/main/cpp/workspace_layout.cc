@@ -49,50 +49,17 @@ string WorkspaceLayout::GetWorkspace(const string &cwd) const {
   return "";
 }
 
-static string FindDepotBlazerc(const blaze::WorkspaceLayout* workspace_layout,
-                               const string& workspace) {
-  // Package semantics are ignored here, but that's acceptable because
-  // blaze.blazerc is a configuration file.
-  vector<string> candidates;
-  workspace_layout->WorkspaceRcFileSearchPath(&candidates);
-  for (const auto& candidate : candidates) {
-    string blazerc = blaze_util::JoinPath(workspace, candidate);
-    if (blaze_util::CanReadFile(blazerc)) {
-      return blazerc;
-    }
-  }
-  return "";
+string WorkspaceLayout::GetPrettyWorkspaceName(
+    const std::string& workspace) const {
+  // e.g. A Bazel server process running in ~/src/myproject (where there's a
+  // ~/src/myproject/WORKSPACE file) will appear in ps(1) as "bazel(myproject)".
+  return blaze_util::Basename(workspace);
 }
 
-static string FindAlongsideBinaryBlazerc(const string& cwd,
-                                         const string& path_to_binary) {
-  // TODO(b/32115171): This doesn't work on Windows. Fix this together with the
-  // associated bug.
-  const string path = blaze_util::IsAbsolute(path_to_binary)
-                          ? path_to_binary
-                          : blaze_util::JoinPath(cwd, path_to_binary);
-  const string base = blaze_util::Basename(path_to_binary);
-  const string binary_blazerc_path = path + "." + base + "rc";
-  if (blaze_util::CanReadFile(binary_blazerc_path)) {
-    return binary_blazerc_path;
-  }
-  return "";
-}
-
-void WorkspaceLayout::FindCandidateBlazercPaths(
-    const string& workspace,
-    const string& cwd,
-    const string& path_to_binary,
-    const vector<string>& startup_args,
-    std::vector<string>* result) const {
-  result->push_back(FindDepotBlazerc(this, workspace));
-  result->push_back(FindAlongsideBinaryBlazerc(cwd, path_to_binary));
-  result->push_back(FindSystemWideBlazerc());
-}
-
-void WorkspaceLayout::WorkspaceRcFileSearchPath(
-    vector<string>* candidates) const {
-  candidates->push_back("tools/bazel.rc");
+std::string WorkspaceLayout::GetWorkspaceRcPath(
+    const std::string &workspace,
+    const std::vector<std::string> &startup_args) const {
+  return blaze_util::JoinPath(workspace, "tools/bazel.rc");
 }
 
 bool WorkspaceLayout::WorkspaceRelativizeRcFilePath(const string &workspace,

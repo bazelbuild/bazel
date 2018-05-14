@@ -17,13 +17,17 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
+import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.serialization.NotSerializableRuntimeException;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -42,42 +46,58 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 @VisibleForTesting
+@AutoCodec
 public final class TargetPatternPhaseValue implements SkyValue {
 
-  private final ImmutableSet<Target> targets;
-  @Nullable private final ImmutableSet<Target> testsToRun;
+  private final ImmutableSet<Label> targetLabels;
+  @Nullable private final ImmutableSet<Label> testsToRunLabels;
   private final boolean hasError;
   private final boolean hasPostExpansionError;
 
-  private final ImmutableSet<Target> filteredTargets;
-  private final ImmutableSet<Target> testFilteredTargets;
-
   // This field is only for the purposes of generating the LoadingPhaseCompleteEvent.
   // TODO(ulfjack): Support EventBus event posting in Skyframe, and remove this code again.
-  private final ImmutableSet<Target> removedTargets;
+  private final ImmutableSet<Label> removedTargetLabels;
   private final String workspaceName;
 
-  TargetPatternPhaseValue(ImmutableSet<Target> targets, @Nullable ImmutableSet<Target> testsToRun,
-      boolean hasError, boolean hasPostExpansionError, ImmutableSet<Target> filteredTargets,
-      ImmutableSet<Target> testFilteredTargets, ImmutableSet<Target> removedTargets,
+  TargetPatternPhaseValue(
+      ImmutableSet<Label> targetLabels,
+      ImmutableSet<Label> testsToRunLabels,
+      boolean hasError,
+      boolean hasPostExpansionError,
+      ImmutableSet<Label> removedTargetLabels,
       String workspaceName) {
-    this.targets = Preconditions.checkNotNull(targets);
-    this.testsToRun = testsToRun;
+    this.targetLabels = targetLabels;
+    this.testsToRunLabels = testsToRunLabels;
     this.hasError = hasError;
     this.hasPostExpansionError = hasPostExpansionError;
-    this.filteredTargets = Preconditions.checkNotNull(filteredTargets);
-    this.testFilteredTargets = Preconditions.checkNotNull(testFilteredTargets);
-    this.removedTargets = Preconditions.checkNotNull(removedTargets);
+    this.removedTargetLabels = removedTargetLabels;
     this.workspaceName = workspaceName;
   }
 
-  public ImmutableSet<Target> getTargets() {
-    return targets;
+  public ImmutableSet<Target> getTargets(
+      ExtendedEventHandler eventHandler, PackageManager packageManager) {
+    return targetLabels
+        .stream()
+        .map(
+            (label) -> {
+              try {
+                return packageManager
+                    .getPackage(eventHandler, label.getPackageIdentifier())
+                    .getTarget(label.getName());
+              } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
+                throw new RuntimeException("Failed to get package from TargetPatternPhaseValue", e);
+              }
+            })
+        .collect(ImmutableSet.toImmutableSet());
+  }
+
+  public ImmutableSet<Label> getTargetLabels() {
+    return targetLabels;
   }
 
   @Nullable
-  public ImmutableSet<Target> getTestsToRun() {
-    return testsToRun;
+  public ImmutableSet<Label> getTestsToRunLabels() {
+    return testsToRunLabels;
   }
 
   public boolean hasError() {
@@ -88,30 +108,72 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return hasPostExpansionError;
   }
 
-  public ImmutableSet<Target> getFilteredTargets() {
-    return filteredTargets;
-  }
-
-  public ImmutableSet<Target> getTestFilteredTargets() {
-    return testFilteredTargets;
-  }
-
   /**
-   * Returns a set of targets that were present on the command line but got
-   * expanded during the loading phase (currently these are only test suites;
-   * this set is always empty when <code>--expand_test_suites=false</code>.
+   * Returns a set of targets that were present on the command line but got expanded during the
+   * loading phase (currently these are only test suites; this set is always empty when <code>
+   * --expand_test_suites=false</code>.
    */
-  public ImmutableSet<Target> getRemovedTargets() {
-    return removedTargets;
+  public ImmutableSet<Target> getRemovedTargets(
+      ExtendedEventHandler eventHandler, PackageManager packageManager) {
+    return removedTargetLabels
+        .stream()
+        .map(
+            (label) -> {
+              try {
+                return packageManager
+                    .getPackage(eventHandler, label.getPackageIdentifier())
+                    .getTarget(label.getName());
+              } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .collect(ImmutableSet.toImmutableSet());
   }
 
   public String getWorkspaceName() {
     return workspaceName;
   }
 
-  public LoadingResult toLoadingResult() {
+  public LoadingResult toLoadingResult(
+      ExtendedEventHandler eventHandler, PackageManager packageManager) {
+    ImmutableSet<Target> targets =
+        getTargetLabels()
+            .stream()
+            .map(
+                (label) -> {
+                  try {
+                    return packageManager
+                        .getPackage(eventHandler, label.getPackageIdentifier())
+                        .getTarget(label.getName());
+                  } catch (NoSuchPackageException
+                      | NoSuchTargetException
+                      | InterruptedException e) {
+                    throw new RuntimeException(e);
+                  }
+                })
+            .collect(ImmutableSet.toImmutableSet());
+    ImmutableSet<Target> testsToRun = null;
+    if (testsToRunLabels != null) {
+      testsToRun =
+          getTestsToRunLabels()
+              .stream()
+              .map(
+                  (label) -> {
+                    try {
+                      return packageManager
+                          .getPackage(eventHandler, label.getPackageIdentifier())
+                          .getTarget(label.getName());
+                    } catch (NoSuchPackageException
+                        | NoSuchTargetException
+                        | InterruptedException e) {
+                      throw new RuntimeException(e);
+                    }
+                  })
+              .collect(ImmutableSet.toImmutableSet());
+    }
+
     return new LoadingResult(
-        hasError(), hasPostExpansionError(), getTargets(), getTestsToRun(), getWorkspaceName());
+        hasError(), hasPostExpansionError(), targets, testsToRun, getWorkspaceName());
   }
 
   @SuppressWarnings("unused")
@@ -158,9 +220,6 @@ public final class TargetPatternPhaseValue implements SkyValue {
   @VisibleForSerialization
   @AutoCodec
   public static final class TargetPatternPhaseKey implements SkyKey, Serializable {
-    public static final ObjectCodec<TargetPatternPhaseKey> CODEC =
-        new TargetPatternPhaseValue_TargetPatternPhaseKey_AutoCodec();
-
     private final ImmutableList<String> targetPatterns;
     private final String offset;
     private final boolean compileOneDependency;

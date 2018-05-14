@@ -17,22 +17,19 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
- * To be implemented by actions (such as C++ compilation steps) whose inputs
- * can be scanned to discover other implicit inputs (such as C++ header files).
+ * To be implemented by actions (such as C++ compilation steps) whose inputs can be scanned to
+ * discover other implicit inputs (such as C++ header files).
  *
- * <p>This is useful for remote execution strategies to be able to compute the
- * complete set of files that must be distributed in order to execute such an action.
+ * <p>This is useful for remote execution strategies to be able to compute the complete set of files
+ * that must be distributed in order to execute such an action.
  */
 public interface IncludeScannable {
-
   /**
    * Returns the built-in list of system include paths for the toolchain compiler. All paths in this
    * list should be relative to the exec directory. They may be absolute if they are also installed
@@ -77,14 +74,14 @@ public interface IncludeScannable {
   List<Artifact> getBuiltInIncludeFiles();
 
   /**
-   * Returns the artifact relative to which the {@code getCmdlineIncludes()} should be interpreted. 
+   * Returns the artifact relative to which the {@code getCmdlineIncludes()} should be interpreted.
    */
   Artifact getMainIncludeScannerSource();
-  
+
   /**
    * Returns an immutable list of sources that the IncludeScanner should scan
    * for this action.
-   * 
+   *
    * <p>Must contain {@code getMainIncludeScannerSource()}.
    */
   Collection<Artifact> getIncludeScannerSources();
@@ -109,4 +106,9 @@ public interface IncludeScannable {
    * should just map to null.
    */
   Map<Artifact, Artifact> getLegalGeneratedScannerFileMap();
+
+  /**
+   * Returns an artifact that is the executable for {@link ExtractInclusionAction}.
+   */
+  Artifact getGrepIncludes();
 }

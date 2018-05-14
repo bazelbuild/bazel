@@ -25,10 +25,9 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -48,8 +47,8 @@ public class GenRuleBaseRule implements RuleDefinition {
    * Late-bound dependency on the C++ toolchain <i>iff</i> the genrule has make variables that need
    * that toolchain.
    */
-  public static LateBoundDefault<?, Label> ccToolchainAttribute(RuleDefinitionEnvironment env) {
-    return LateBoundDefault.fromTargetConfiguration(
+  public static LabelLateBoundDefault<?> ccToolchainAttribute(RuleDefinitionEnvironment env) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
         CppConfiguration.class,
         env.getToolsLabel(CppRuleClasses.CROSSTOOL_LABEL),
         // null guards are needed for LateBoundAttributeTest

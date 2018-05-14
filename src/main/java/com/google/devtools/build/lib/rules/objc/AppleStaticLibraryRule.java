@@ -27,11 +27,11 @@ import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFact
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
 /**
  * Rule definition for apple_static_library.
@@ -57,7 +57,7 @@ public class AppleStaticLibraryRule implements RuleDefinition {
   static final String AVOID_DEPS_ATTR_NAME = "avoid_deps";
 
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     MultiArchSplitTransitionProvider splitTransitionProvider =
         new MultiArchSplitTransitionProvider();
 
@@ -108,6 +108,7 @@ public class AppleStaticLibraryRule implements RuleDefinition {
             new ComposingRuleTransitionFactory(
                 (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
                 new ConfigFeatureFlagTransitionFactory("feature_flags")))
+        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .build();
   }
 
@@ -116,8 +117,7 @@ public class AppleStaticLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("apple_static_library")
         .factoryClass(AppleStaticLibrary.class)
-        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.MultiArchPlatformRule.class,
-            ObjcRuleClasses.SimulatorRule.class)
+        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.MultiArchPlatformRule.class)
         .build();
   }
 }

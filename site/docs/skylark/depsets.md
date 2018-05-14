@@ -30,8 +30,8 @@ If you don't need the merge operation, consider using another type, such as
 ## Full example
 
 
-_This example is avalable at
-[https://github.com/bazelbuild/examples/rules/depsets](https://github.com/bazelbuild/examples/rules/depsets).
+This example is avalable at
+[https://github.com/bazelbuild/examples/tree/master/rules/depsets](https://github.com/bazelbuild/examples/tree/master/rules/depsets).
 
 Suppose we have a hypothetical interpreted language Foo. In order to build each
 `foo_binary` we need to know all the `*.foo` files that it directly or indirectly
@@ -101,7 +101,7 @@ Here’s a complete implementation of the `foo_library` and `foo_binary` rules.
 # //depsets/foo.bzl
 
 # A provider with one field, transitive_sources.
-FooFiles = provider()
+FooFiles = provider(fields = ["transitive_sources"])
 
 def get_transitive_srcs(srcs, deps):
   """Obtain the source files for a target and its transitive dependencies.

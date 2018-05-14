@@ -31,8 +31,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
-import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -50,8 +48,6 @@ import javax.annotation.Nullable;
 )
 @Immutable
 public class AppleConfiguration extends BuildConfiguration.Fragment {
-  public static final ObjectCodec<AppleConfiguration> CODEC = new AppleConfiguration_AutoCodec();
-
   /**
    * Environment variable name for the xcode version. The value of this environment variable should
    * be set to the version (for example, "7.2") of xcode to use when invoking part of the apple
@@ -91,7 +87,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final boolean mandatoryMinimumVersion;
   private final boolean objcProviderFromLinked;
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   AppleConfiguration(AppleCommandLineOptions options, String iosCpu) {
     this.options = options;
     this.iosCpu = iosCpu;
@@ -568,8 +564,5 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     public String getFileSystemName() {
       return fileSystemName;
     }
-
-    static final EnumCodec<ConfigurationDistinguisher> CODEC =
-        new EnumCodec<>(ConfigurationDistinguisher.class);
   }
 }

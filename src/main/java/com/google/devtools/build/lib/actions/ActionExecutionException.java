@@ -121,7 +121,7 @@ public class ActionExecutionException extends Exception {
         : NestedSetBuilder.<Cause>create(
             Order.STABLE_ORDER,
             new ActionFailed(
-                action.getPrimaryOutput().getPath(),
+                action.getPrimaryOutput().getExecPath(),
                 action.getOwner().getLabel(),
                 action.getOwner().getConfigurationChecksum()));
   }

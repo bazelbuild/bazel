@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -152,7 +151,7 @@ public final class GlobFunction implements SkyFunction {
       Map<Dirent, Object> sortedResultMap = Maps.newTreeMap();
       // First pass: do normal files and collect SkyKeys to request for subdirectories and symlinks.
       for (Dirent dirent : listingValue.getDirents()) {
-        Type direntType = dirent.getType();
+        Dirent.Type direntType = dirent.getType();
         String fileName = dirent.getName();
         if (!UnixGlob.matches(patternHead, fileName, regexPatternCache)) {
           continue;

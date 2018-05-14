@@ -23,26 +23,28 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -70,6 +73,7 @@ import javax.annotation.Nullable;
  * <p>The implementation of the header compiler tool can be found under {@code
  * //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine}.
  */
+@AutoCodec
 public class JavaHeaderCompileAction extends SpawnAction {
 
   private static final String GUID = "952db158-2654-4ced-87e5-4646d50523cf";
@@ -93,62 +97,71 @@ public class JavaHeaderCompileAction extends SpawnAction {
    * @param owner the action owner, typically a java_* RuleConfiguredTarget
    * @param tools the set of files comprising the tool that creates the header interface jar
    * @param directInputs the set of direct input artifacts of the compile action
-   * @param transitiveInputs the set of transitive input artifacts of the compile action
+   * @param inputs the set of transitive input artifacts of the compile action
    * @param outputs the outputs of the action
+   * @param primaryOutput the output jar
+   * @param commandLines the transitive command line arguments for the java header compiler
    * @param directCommandLine the direct command line arguments for the java header compiler
-   * @param transitiveCommandLine the transitive command line arguments for the java header compiler
+   * @param commandLineLimits the command line limits
    * @param progressMessage the message printed during the progression of the build
    */
   protected JavaHeaderCompileAction(
       ActionOwner owner,
       Iterable<Artifact> tools,
       Iterable<Artifact> directInputs,
-      Iterable<Artifact> transitiveInputs,
+      Iterable<Artifact> inputs,
       Iterable<Artifact> outputs,
+      Artifact primaryOutput,
+      CommandLines commandLines,
       CommandLine directCommandLine,
-      CommandLine transitiveCommandLine,
-      CharSequence progressMessage) {
+      CommandLineLimits commandLineLimits,
+      CharSequence progressMessage,
+      RunfilesSupplier runfilesSupplier) {
     super(
         owner,
         tools,
-        transitiveInputs,
+        inputs,
         outputs,
+        primaryOutput,
         LOCAL_RESOURCES,
-        transitiveCommandLine,
+        commandLines,
+        commandLineLimits,
         false,
         // TODO(#3320): This is missing the config's action environment.
         JavaCompileAction.UTF8_ACTION_ENVIRONMENT,
+        /* executionInfo= */ ImmutableMap.of(),
         progressMessage,
-        "Turbine");
+        runfilesSupplier,
+        "Turbine",
+        /* executeUnconditionally= */ false,
+        /* extraActionInfoSupplier= */ null);
     this.directInputs = checkNotNull(directInputs);
     this.directCommandLine = checkNotNull(directCommandLine);
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint().addString(GUID);
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
     try {
-      f.addString(super.computeKey(actionKeyContext));
-      f.addStrings(directCommandLine.arguments());
+      super.computeKey(actionKeyContext, fp);
+      fp.addStrings(directCommandLine.arguments());
     } catch (CommandLineExpansionException e) {
       throw new AssertionError("JavaHeaderCompileAction command line expansion cannot fail");
     }
-    return f.hexDigestAndReset();
   }
 
   @Override
   protected List<SpawnResult> internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    SpawnActionContext context = getContext(actionExecutionContext);
+    Spawn spawn = getDirectSpawn();
+    SpawnActionContext context = getContext(actionExecutionContext, spawn);
     try {
-      return context.exec(getDirectSpawn(), actionExecutionContext);
+      return context.exec(spawn, actionExecutionContext);
     } catch (ExecException e) {
       // if the direct input spawn failed, try again with transitive inputs to produce better
       // better messages
       try {
-        return context.exec(
-            getSpawn(actionExecutionContext.getClientEnv()),
-            actionExecutionContext);
+        return context.exec(getSpawn(actionExecutionContext), actionExecutionContext);
       } catch (CommandLineExpansionException commandLineExpansionException) {
         throw new UserExecException(commandLineExpansionException);
       }
@@ -189,8 +202,8 @@ public class JavaHeaderCompileAction extends SpawnAction {
     private NestedSet<Artifact> classpathEntries =
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.<Artifact>of();
-    @Nullable private String ruleKind;
     @Nullable private Label targetLabel;
+    @Nullable private String injectingRuleKind;
     private PathFragment tempDirectory;
     private BuildConfiguration.StrictDepsMode strictJavaDeps
         = BuildConfiguration.StrictDepsMode.OFF;
@@ -285,15 +298,15 @@ public class JavaHeaderCompileAction extends SpawnAction {
       return this;
     }
 
-    /** Sets the kind of the build rule being compiled (e.g. {@code java_library}). */
-    public Builder setRuleKind(@Nullable String ruleKind) {
-      this.ruleKind = ruleKind;
-      return this;
-    }
-
     /** Sets the label of the target being compiled. */
     public Builder setTargetLabel(@Nullable Label targetLabel) {
       this.targetLabel = targetLabel;
+      return this;
+    }
+
+    /** Sets the injecting rule kind of the target being compiled. */
+    public Builder setInjectingRuleKind(@Nullable String injectingRuleKind) {
+      this.injectingRuleKind = injectingRuleKind;
       return this;
     }
 
@@ -337,11 +350,6 @@ public class JavaHeaderCompileAction extends SpawnAction {
 
     /** Builds and registers the {@link JavaHeaderCompileAction} for a header compilation. */
     public void build(JavaToolchainProvider javaToolchain, JavaRuntimeInfo hostJavabase) {
-      ruleContext.registerAction(buildInternal(javaToolchain, hostJavabase));
-    }
-
-    private Action[] buildInternal(
-        JavaToolchainProvider javaToolchain, JavaRuntimeInfo hostJavabase) {
       checkNotNull(outputDepsProto, "outputDepsProto must not be null");
       checkNotNull(sourceFiles, "sourceFiles must not be null");
       checkNotNull(sourceJars, "sourceJars must not be null");
@@ -370,7 +378,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
       NestedSet<Artifact> tools =
           NestedSetBuilder.<Artifact>stableOrder()
               .add(javacJar)
-              .add(javaToolchain.getHeaderCompiler())
+              .addTransitive(javaToolchain.getHeaderCompiler().getFilesToRun())
               .addTransitive(toolsJars)
               .build();
       ImmutableList<Artifact> outputs = ImmutableList.of(outputJar, outputDepsProto);
@@ -407,64 +415,92 @@ public class JavaHeaderCompileAction extends SpawnAction {
         if (noFallback) {
           commandLine.add("--nojavac_fallback");
         }
-        return builder
-            .addTools(tools)
-            .addTransitiveInputs(baseInputs)
-            .addTransitiveInputs(classpath)
-            .addOutputs(outputs)
-            .addCommandLine(commandLine.build(), paramFileInfo)
-            .setJarExecutable(
-                hostJavabase.javaBinaryExecPath(),
-                javaToolchain.getHeaderCompiler(),
-                javaToolchain.getJvmOptions())
-            .setMnemonic("Turbine")
-            .setProgressMessage(getProgressMessage())
-            .build(ruleContext);
+        Artifact headerCompiler = javaToolchain.getHeaderCompiler().getExecutable();
+        // The header compiler is either a jar file that needs to be executed using
+        // `java -jar <path>`, or an executable that can be run directly.
+        if (!headerCompiler.getExtension().equals("jar")) {
+          builder.setExecutable(headerCompiler);
+          builder.addTool(javaToolchain.getHeaderCompiler());
+        } else {
+          builder.setJarExecutable(
+              hostJavabase.javaBinaryExecPath(), headerCompiler, javaToolchain.getJvmOptions());
+        }
+        ruleContext.registerAction(
+            builder
+                .addTransitiveTools(tools)
+                .addTransitiveInputs(baseInputs)
+                .addTransitiveInputs(classpath)
+                .addOutputs(outputs)
+                .addCommandLine(commandLine.build(), paramFileInfo)
+                .setMnemonic("Turbine")
+                .setProgressMessage(getProgressMessage())
+                .build(ruleContext));
+        return;
       }
 
-      CommandLine transitiveParams = transitiveCommandLine();
-      PathFragment paramFilePath = ParameterFile.derivePath(outputJar.getRootRelativePath());
-      Artifact paramsFile =
-          ruleContext
-              .getAnalysisEnvironment()
-              .getDerivedArtifact(paramFilePath, outputJar.getRoot());
-      ParameterFileWriteAction parameterFileWriteAction =
-          new ParameterFileWriteAction(
-              ruleContext.getActionOwner(),
-              paramsFile,
-              transitiveParams,
-              ParameterFile.ParameterFileType.UNQUOTED,
-              ISO_8859_1);
-      CommandLine transitiveCommandLine =
-          getBaseArgs(javaToolchain, hostJavabase)
-              .addFormatted("@%s", paramsFile.getExecPath()).build();
-      NestedSet<Artifact> transitiveInputs =
+      CustomCommandLine.Builder commandLine = getBaseArgs(javaToolchain, hostJavabase);
+      CommandLine paramFileCommandLine = transitiveCommandLine();
+      NestedSetBuilder<Artifact> transitiveInputs =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(baseInputs)
               .addTransitive(classpathEntries)
               .addTransitive(processorPath)
-              .addTransitive(compileTimeDependencyArtifacts)
-              .add(paramsFile)
-              .build();
+              .addTransitive(compileTimeDependencyArtifacts);
+      final CommandLines commandLines;
+
+      if (ruleContext.getConfiguration().deferParamFiles()) {
+        commandLines =
+            CommandLines.builder()
+                .addCommandLine(commandLine.build())
+                .addCommandLine(
+                    paramFileCommandLine,
+                    ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED)
+                        .setUseAlways(true)
+                        .setCharset(ISO_8859_1)
+                        .build())
+                .build();
+      } else {
+        PathFragment paramFilePath = ParameterFile.derivePath(outputJar.getRootRelativePath());
+        Artifact paramsFile =
+            ruleContext
+                .getAnalysisEnvironment()
+                .getDerivedArtifact(paramFilePath, outputJar.getRoot());
+        transitiveInputs.add(paramsFile);
+        commandLine.addFormatted("@%s", paramsFile.getExecPath());
+        commandLines = CommandLines.of(commandLine.build());
+        ParameterFileWriteAction parameterFileWriteAction =
+            new ParameterFileWriteAction(
+                ruleContext.getActionOwner(),
+                paramsFile,
+                paramFileCommandLine,
+                ParameterFile.ParameterFileType.UNQUOTED,
+                ISO_8859_1);
+        ruleContext.registerAction(parameterFileWriteAction);
+      }
 
       if (requiresAnnotationProcessing) {
         // turbine doesn't support API-generating annotation processors, so skip the two-tiered
         // turbine/javac-turbine action and just use SpawnAction to invoke javac-turbine.
-        return new Action[] {
-          parameterFileWriteAction,
-          new SpawnAction(
-              ruleContext.getActionOwner(),
-              tools,
-              transitiveInputs,
-              outputs,
-              LOCAL_RESOURCES,
-              transitiveCommandLine,
-              false,
-              // TODO(b/63280599): This is missing the config's action environment.
-              JavaCompileAction.UTF8_ACTION_ENVIRONMENT,
-              getProgressMessageWithAnnotationProcessors(),
-              "JavacTurbine")
-        };
+        ruleContext.registerAction(
+            new SpawnAction(
+                ruleContext.getActionOwner(),
+                tools,
+                transitiveInputs.build(),
+                outputs,
+                outputJar,
+                LOCAL_RESOURCES,
+                commandLines,
+                ruleContext.getConfiguration().getCommandLineLimits(),
+                false,
+                // TODO(b/63280599): This is missing the config's action environment.
+                JavaCompileAction.UTF8_ACTION_ENVIRONMENT,
+                /* executionInfo= */ ImmutableMap.of(),
+                getProgressMessageWithAnnotationProcessors(),
+                javaToolchain.getHeaderCompiler().getRunfilesSupplier(),
+                "JavacTurbine",
+                /* executeUnconditionally= */ false,
+                /* extraActionInfoSupplier= */ null));
+        return;
       }
 
       // The action doesn't require annotation processing, javac-turbine fallback is enabled, and
@@ -479,18 +515,19 @@ public class JavaHeaderCompileAction extends SpawnAction {
       CustomCommandLine directCommandLine = baseCommandLine(
           getBaseArgs(javaToolchain, hostJavabase), directJars)
           .build();
-      return new Action[] {
-        parameterFileWriteAction,
-        new JavaHeaderCompileAction(
-            ruleContext.getActionOwner(),
-            tools,
-            directInputs,
-            transitiveInputs,
-            outputs,
-            directCommandLine,
-            transitiveCommandLine,
-            getProgressMessage())
-      };
+      ruleContext.registerAction(
+          new JavaHeaderCompileAction(
+              ruleContext.getActionOwner(),
+              tools,
+              directInputs,
+              transitiveInputs.build(),
+              outputs,
+              outputJar,
+              commandLines,
+              directCommandLine,
+              ruleContext.getConfiguration().getCommandLineLimits(),
+              getProgressMessage(),
+              javaToolchain.getHeaderCompiler().getRunfilesSupplier()));
     }
 
     private LazyString getProgressMessageWithAnnotationProcessors() {
@@ -520,11 +557,16 @@ public class JavaHeaderCompileAction extends SpawnAction {
 
     private CustomCommandLine.Builder getBaseArgs(
         JavaToolchainProvider javaToolchain, JavaRuntimeInfo hostJavabase) {
-      return CustomCommandLine.builder()
-          .addPath(hostJavabase.javaBinaryExecPath())
-          .add("-Xverify:none")
-          .addAll(javaToolchain.getJvmOptions())
-          .addExecPath("-jar", javaToolchain.getHeaderCompiler());
+      Artifact headerCompiler = javaToolchain.getHeaderCompiler().getExecutable();
+      if (!headerCompiler.getExtension().equals("jar")) {
+        return CustomCommandLine.builder().addExecPath(headerCompiler);
+      } else {
+        return CustomCommandLine.builder()
+            .addPath(hostJavabase.javaBinaryExecPath())
+            .add("-Xverify:none")
+            .addAll(javaToolchain.getJvmOptions())
+            .addExecPath("-jar", headerCompiler);
+      }
     }
 
     /**
@@ -555,9 +597,6 @@ public class JavaHeaderCompileAction extends SpawnAction {
         result.add("--");
       }
 
-      if (ruleKind != null) {
-        result.add("--rule_kind", ruleKind);
-      }
       if (targetLabel != null) {
         result.add("--target_label");
         if (targetLabel.getPackageIdentifier().getRepository().isDefault()
@@ -568,6 +607,9 @@ public class JavaHeaderCompileAction extends SpawnAction {
           // so add an extra @ to escape it.
           result.addPrefixedLabel("@", targetLabel);
         }
+      }
+      if (injectingRuleKind != null) {
+        result.add("--injecting_rule_kind", injectingRuleKind);
       }
       result.addExecPaths("--classpath", classpathEntries);
       return result;
@@ -584,8 +626,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
         result.addExecPaths("--processorpath", processorPath);
       }
       if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
-        result.addCustomMultiArgv(
-            new JavaCompileAction.JarsToTargetsArgv(classpathEntries, directJars));
+        result.addExecPaths("--direct_dependencies", directJars);
         if (!compileTimeDependencyArtifacts.isEmpty()) {
           result.addExecPaths("--deps_artifacts", compileTimeDependencyArtifacts);
         }

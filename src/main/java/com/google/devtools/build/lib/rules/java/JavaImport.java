@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -30,12 +31,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -51,7 +47,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     ImmutableList<Artifact> srcJars = ImmutableList.of();
     ImmutableList<Artifact> jars = collectJars(ruleContext);
     Artifact srcJar = ruleContext.getPrerequisiteArtifact("srcjar", Mode.TARGET);
@@ -84,7 +80,6 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     JavaCompilationArtifacts javaArtifacts = collectJavaArtifacts(jars, interfaceJars);
     common.setJavaCompilationArtifacts(javaArtifacts);
 
-    CppCompilationContext transitiveCppDeps = common.collectTransitiveCppDeps();
     NestedSet<LinkerInput> transitiveJavaNativeLibraries =
         common.collectTransitiveJavaNativeLibraries();
     boolean neverLink = JavaCommon.isNeverLink(ruleContext);
@@ -113,14 +108,6 @@ public class JavaImport implements RuleConfiguredTargetFactory {
             .add(ruleContext, JavaRunfilesProvider.TO_RUNFILES)
             .build();
 
-    CcLinkParamsStore ccLinkParamsStore = new CcLinkParamsStore() {
-      @Override
-      protected void collect(CcLinkParams.Builder builder, boolean linkingStatically,
-                             boolean linkShared) {
-        builder.addTransitiveTargets(common.targetsTreatedAsDeps(ClasspathType.BOTH),
-            JavaCcLinkParamsProvider.TO_LINK_PARAMS, CcLinkParamsInfo.TO_LINK_PARAMS);
-      }
-    };
     RuleConfiguredTargetBuilder ruleBuilder =
         new RuleConfiguredTargetBuilder(ruleContext);
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
@@ -128,17 +115,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
 
     ImmutableBiMap<Artifact, Artifact> compilationToRuntimeJarMap =
         compilationToRuntimeJarMapBuilder.build();
-    semantics.addProviders(
-        ruleContext,
-        common,
-        ImmutableList.<String>of(),
-        null /* classJar */,
-        srcJar /* srcJar */,
-        null /* genJar */,
-        null /* gensrcJar */,
-        compilationToRuntimeJarMap,
-        filesBuilder,
-        ruleBuilder);
+    semantics.addProviders(ruleContext, common, /* gensrcJar= */ null, ruleBuilder);
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
@@ -169,22 +146,20 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+        .setRuntimeJars(javaArtifacts.getRuntimeJars())
+        .setJavaConstraints(JavaCommon.getConstraints(ruleContext))
         .setNeverlink(neverLink)
         .build();
+
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
         .addSkylarkTransitiveInfo(
             JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaInfo)
-        .add(
-            JavaRuntimeJarProvider.class,
-            new JavaRuntimeJarProvider(javaArtifacts.getRuntimeJars()))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
-        .addNativeDeclaredProvider(new CcLinkParamsInfo(ccLinkParamsStore))
         .add(
             JavaNativeLibraryProvider.class,
             new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
-        .add(CppCompilationContext.class, transitiveCppDeps)
         .add(JavaSourceInfoProvider.class, javaSourceInfoProvider)
         .add(ProguardSpecProvider.class, new ProguardSpecProvider(proguardSpecs))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveJavaSourceJars)
@@ -242,13 +217,16 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     ImmutableList.Builder<Artifact> interfaceJarsBuilder = ImmutableList.builder();
     boolean useIjar = ruleContext.getFragment(JavaConfiguration.class).getUseIjars();
     for (Artifact jar : jars) {
-      Artifact interfaceJar = useIjar
-          ? JavaCompilationHelper.createIjarAction(
-              ruleContext,
-              JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
-              jar,
-              true)
-          : jar;
+      Artifact interfaceJar =
+          useIjar
+              ? JavaCompilationHelper.createIjarAction(
+                  ruleContext,
+                  JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
+                  jar,
+                  ruleContext.getLabel(),
+                  /* injectingRuleKind */ null,
+                  true)
+              : jar;
       interfaceJarsBuilder.add(interfaceJar);
       compilationToRuntimeJarMap.put(interfaceJar, jar);
     }

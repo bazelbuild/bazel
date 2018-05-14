@@ -43,7 +43,7 @@ public class AspectConfiguredEvent implements BuildEventWithConfiguration {
     ImmutableList.Builder<BuildEvent> builder = new ImmutableList.Builder<>();
     for (BuildConfiguration config : configurations) {
       if (config != null) {
-        builder.add(config);
+        builder.add(config.toBuildEvent());
       } else {
         builder.add(new NullConfiguration());
       }

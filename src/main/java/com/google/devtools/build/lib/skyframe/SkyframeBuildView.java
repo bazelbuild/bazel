@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
-import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
@@ -48,9 +47,11 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -126,7 +127,8 @@ public final class SkyframeBuildView {
 
   public SkyframeBuildView(BlazeDirectories directories,
       SkyframeExecutor skyframeExecutor, ConfiguredRuleClassProvider ruleClassProvider) {
-    this.factory = new ConfiguredTargetFactory(ruleClassProvider);
+    this.factory =
+        new ConfiguredTargetFactory(ruleClassProvider, skyframeExecutor.getDefaultBuildOptions());
     this.artifactFactory =
         new ArtifactFactory(directories.getExecRoot(), directories.getRelativeOutputPath());
     this.skyframeExecutor = skyframeExecutor;
@@ -145,17 +147,16 @@ public final class SkyframeBuildView {
     return factory;
   }
 
-  /**
-   * Sets the configurations. Not thread-safe. DO NOT CALL except from tests!
-   */
+  /** Sets the configurations. Not thread-safe. DO NOT CALL except from tests! */
   @VisibleForTesting
-  public void setConfigurations(BuildConfigurationCollection configurations) {
+  public void setConfigurations(
+      EventHandler eventHandler, BuildConfigurationCollection configurations) {
     // Clear all cached ConfiguredTargets on configuration change of if --discard_analysis_cache
     // was set on the previous build. In the former case, it's not required for correctness, but
     // prevents unbounded memory usage.
     if ((this.configurations != null && !configurations.equals(this.configurations))
         || skyframeAnalysisWasDiscarded) {
-      logger.info("Discarding analysis cache: configurations have changed.");
+      eventHandler.handle(Event.info("Build options have changed, discarding analysis cache."));
       skyframeExecutor.handleConfiguredTargetChange();
     }
     skyframeAnalysisWasDiscarded = false;
@@ -269,7 +270,7 @@ public final class SkyframeBuildView {
         ConflictException ex = bad.getValue();
         try {
           ex.rethrowTyped();
-        } catch (MutableActionGraph.ActionConflictException ace) {
+        } catch (ActionConflictException ace) {
           ace.reportTo(eventHandler);
           String errorMsg = "Analysis of target '" + bad.getKey().getOwner().getLabel()
               + "' failed; build aborted";
@@ -293,7 +294,7 @@ public final class SkyframeBuildView {
       if (topLevel.argument() instanceof ConfiguredTargetKey) {
         errorMsg =
             "Analysis of target '"
-                + ConfiguredTargetValue.extractLabel(topLevel)
+                + NonRuleConfiguredTargetValue.extractLabel(topLevel)
                 + "' failed; build aborted";
       } else if (topLevel.argument() instanceof AspectValueKey) {
         AspectValueKey aspectKey = (AspectValueKey) topLevel.argument();
@@ -312,7 +313,7 @@ public final class SkyframeBuildView {
     }
 
     boolean hasLoadingError = false;
-    // --keep_going : We notify the error and return a ConfiguredTargetValue
+    // --keep_going : We notify the error and return a NonRuleConfiguredTargetValue
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
       // Only handle errors of configured targets, not errors of top-level aspects.
       // TODO(ulfjack): this is quadratic - if there are a lot of CTs, this could be rather slow.
@@ -329,6 +330,7 @@ public final class SkyframeBuildView {
           eventHandler);
       Exception cause = errorInfo.getException();
       Label analysisRootCause = null;
+      BuildEventId configuration = null;
       if (cause instanceof ConfiguredValueCreationException) {
         ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) cause;
         for (Label rootCause : ctCause.getRootCauses()) {
@@ -336,6 +338,7 @@ public final class SkyframeBuildView {
           eventBus.post(new LoadingFailureEvent(topLevelLabel, rootCause));
         }
         analysisRootCause = ctCause.getAnalysisRootCause();
+        configuration = ctCause.getConfiguration();
       } else if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
         analysisRootCause = maybeGetConfiguredTargetCycleCulprit(
             topLevelLabel, errorInfo.getCycleInfo());
@@ -350,6 +353,7 @@ public final class SkyframeBuildView {
             new AnalysisFailureEvent(
                 ConfiguredTargetKey.of(
                     topLevelLabel, label.getConfigurationKey(), label.isHostConfiguration()),
+                configuration,
                 analysisRootCause));
       }
     }
@@ -359,7 +363,7 @@ public final class SkyframeBuildView {
       ConflictException ex = bad.getValue();
       try {
         ex.rethrowTyped();
-      } catch (MutableActionGraph.ActionConflictException ace) {
+      } catch (ActionConflictException ace) {
         ace.reportTo(eventHandler);
         eventHandler
             .handle(Event.warn("errors encountered while analyzing target '"
@@ -501,10 +505,10 @@ public final class SkyframeBuildView {
       Target target,
       BuildConfiguration configuration,
       CachingAnalysisEnvironment analysisEnvironment,
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
-      throws InterruptedException {
+      throws InterruptedException, ActionConflictException {
     Preconditions.checkState(enableAnalysis,
         "Already in execution phase %s %s", target, configuration);
     Preconditions.checkNotNull(analysisEnvironment);
@@ -565,13 +569,14 @@ public final class SkyframeBuildView {
     // case. So further optimization is necessary to make that viable (proto_library in particular
     // contributes to much of the difference).
     BuildConfiguration trimmedConfig =
-        topLevelHostConfiguration.clone(fragmentClasses, ruleClassProvider);
+        topLevelHostConfiguration.clone(
+            fragmentClasses, ruleClassProvider, skyframeExecutor.getDefaultBuildOptions());
     hostConfigurationCache.put(fragmentClasses, trimmedConfig);
     return trimmedConfig;
   }
 
   SkyframeDependencyResolver createDependencyResolver(Environment env) {
-    return new SkyframeDependencyResolver(env, ruleClassProvider.getDynamicTransitionMapper());
+    return new SkyframeDependencyResolver(env);
   }
 
   /**

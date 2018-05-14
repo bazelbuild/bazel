@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.events.Event.of;
 import static com.google.devtools.build.lib.events.EventKind.PROGRESS;
 
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.buildeventstream.ChainableEvent;
 import com.google.devtools.build.lib.buildeventstream.LastBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
+import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -73,6 +75,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /**
  * Listens for {@link BuildEvent}s and streams them to the provided {@link BuildEventTransport}s.
@@ -88,6 +91,7 @@ public class BuildEventStreamer implements EventHandler {
 
   private final Collection<BuildEventTransport> transports;
   private final Reporter reporter;
+  private final BuildEventStreamOptions options;
   private Set<BuildEventId> announcedEvents;
   private final Set<BuildEventId> postedEvents = new HashSet<>();
   private final Set<BuildEventId> configurationsPosted = new HashSet<>();
@@ -97,7 +101,7 @@ public class BuildEventStreamer implements EventHandler {
   private final CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
   private OutErrProvider outErrProvider;
   private AbortReason abortReason = AbortReason.UNKNOWN;
-  // Will be set to true if the build was invoked through "bazel test".
+  // Will be set to true if the build was invoked through "bazel test" or "bazel coverage".
   private boolean isTestCommand;
 
   // After a BuildCompetingEvent we might expect a whitelisted set of events. If non-null,
@@ -160,12 +164,24 @@ public class BuildEventStreamer implements EventHandler {
     }
   }
 
-  public BuildEventStreamer(Collection<BuildEventTransport> transports, Reporter reporter) {
+  /** Creates a new build event streamer. */
+  public BuildEventStreamer(
+      Collection<BuildEventTransport> transports,
+      @Nullable Reporter reporter,
+      BuildEventStreamOptions options) {
     checkArgument(transports.size() > 0);
+    checkNotNull(options);
     this.transports = transports;
     this.reporter = reporter;
+    this.options = options;
     this.announcedEvents = null;
     this.progressCount = 0;
+  }
+
+  /** Creates a new build event streamer with default options. */
+  public BuildEventStreamer(
+      Collection<BuildEventTransport> transports, @Nullable Reporter reporter) {
+    this(transports, reporter, new BuildEventStreamOptions());
   }
 
   public void registerOutErrProvider(OutErrProvider outErrProvider) {
@@ -441,21 +457,14 @@ public class BuildEventStreamer implements EventHandler {
       }
     }
 
-    if (isActionWithoutError(event)
-        || bufferUntilPrerequisitesReceived(event)
-        || isVacuousTestSummary(event)) {
-      return;
-    }
-
-    if (isTestCommand && event instanceof BuildCompleteEvent) {
-      // In case of "bazel test" ignore the BuildCompleteEvent, as it will be followed by a
-      // TestingCompleteEvent that contains the correct exit code.
+    if (shouldIgnoreBuildEvent(event)) {
       return;
     }
 
     if (event instanceof BuildStartingEvent) {
       BuildRequest buildRequest = ((BuildStartingEvent) event).getRequest();
-      isTestCommand = "test".equals(buildRequest.getCommandName());
+      isTestCommand = "test".equals(buildRequest.getCommandName())
+          || "coverage".equals(buildRequest.getCommandName());
     }
 
     if (event instanceof BuildEventWithConfiguration) {
@@ -557,14 +566,39 @@ public class BuildEventStreamer implements EventHandler {
     }
   }
 
-  /**
-   * Return true, if the action is not worth being reported. This is the case, if the action
-   * executed successfully and is not an ExtraAction.
-   */
-  private static boolean isActionWithoutError(BuildEvent event) {
-    return event instanceof ActionExecutedEvent
-        && ((ActionExecutedEvent) event).getException() == null
-        && (!(((ActionExecutedEvent) event).getAction() instanceof ExtraAction));
+  /** Returns whether a {@link BuildEvent} should be ignored. */
+  public boolean shouldIgnoreBuildEvent(BuildEvent event) {
+    if (event instanceof ActionExecutedEvent
+        && !shouldPublishActionExecutedEvent((ActionExecutedEvent) event)) {
+      return true;
+    }
+
+    if (bufferUntilPrerequisitesReceived(event) || isVacuousTestSummary(event)) {
+      return true;
+    }
+
+    if (isTestCommand && event instanceof BuildCompleteEvent) {
+      // In case of "bazel test" ignore the BuildCompleteEvent, as it will be followed by a
+      // TestingCompleteEvent that contains the correct exit code.
+      return true;
+    }
+
+    return false;
+  }
+
+  /** Returns whether an {@link ActionExecutedEvent} should be published. */
+  private boolean shouldPublishActionExecutedEvent(ActionExecutedEvent event) {
+    if (options.publishAllActions) {
+      return true;
+    }
+    if (event.getException() != null) {
+      // Publish failed actions
+      return true;
+    }
+    if (event.getAction() instanceof ExtraAction) {
+      return true;
+    }
+    return false;
   }
 
   private boolean bufferUntilPrerequisitesReceived(BuildEvent event) {

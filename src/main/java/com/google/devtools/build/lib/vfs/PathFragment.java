@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,284 +15,524 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
+import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InvalidObjectException;
-import java.io.ObjectInputStream;
 import java.io.Serializable;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
- * This class represents an immutable filesystem path, which may be absolute or relative. The path
- * is maintained as a simple ordered list of path segment strings.
+ * A path segment representing a path fragment using the host machine's path style. That is; If you
+ * are running on a Unix machine, the path style will be unix, on Windows it is the windows path
+ * style.
  *
- * <p>This class is independent from other VFS classes, especially anything requiring native code.
- * It is safe to use in places that need simple segmented string path functionality.
+ * <p>Path fragments are either absolute or relative.
+ *
+ * <p>Strings are normalized with '.' and '..' removed and resolved (if possible), any multiple
+ * slashes ('/') removed, and any trailing slash also removed. Windows drive letters are uppercased.
+ * The current implementation does not touch the incoming path string unless the string actually
+ * needs to be normalized.
  *
  * <p>There is some limited support for Windows-style paths. Most importantly, drive identifiers in
  * front of a path (c:/abc) are supported and such paths are correctly recognized as absolute, as
  * are paths with backslash separators (C:\\foo\\bar). However, advanced Windows-style features like
- * \\\\network\\paths and \\\\?\\unc\\paths are not supported.
+ * \\\\network\\paths and \\\\?\\unc\\paths are not supported. We are currently using forward
+ * slashes ('/') even on Windows.
+ *
+ * <p>Mac and Windows path fragments are case insensitive.
  */
-@Immutable
-@javax.annotation.concurrent.Immutable
-@ThreadSafe
-public abstract class PathFragment
-    implements Comparable<PathFragment>, Serializable, SkylarkPrintable, FileType.HasFileType {
-  private static final Helper HELPER =
-      OS.getCurrent() == OS.WINDOWS ? WindowsPathFragment.HELPER : UnixPathFragment.HELPER;
+@AutoCodec
+public final class PathFragment
+    implements Comparable<PathFragment>,
+        Serializable,
+        FileType.HasFileType,
+        SkylarkPrintable,
+        CommandLineItem {
+  private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
 
-  public static final char SEPARATOR_CHAR = HELPER.getPrimarySeparatorChar();
-
+  @AutoCodec public static final PathFragment EMPTY_FRAGMENT = create("");
+  public static final char SEPARATOR_CHAR = OS.getSeparator();
   public static final int INVALID_SEGMENT = -1;
 
-  public static final String ROOT_DIR = "/";
+  private final String normalizedPath;
+  private final int driveStrLength; // 0 for relative paths, 1 on Unix, 3 on Windows
 
-  /** An empty path fragment. */
-  public static final PathFragment EMPTY_FRAGMENT = create("");
-
-  /** The path fragment representing the root directory. */
-  public static final PathFragment ROOT_FRAGMENT = create(ROOT_DIR);
-
-  public static final ObjectCodec<PathFragment> CODEC = new PathFragmentCodec();
-
-  /**
-   * A helper object for manipulating the various internal {@link PathFragment} implementations.
-   *
-   * <p>There will be exactly one {@link Helper} instance used to manipulate all the {@link
-   * PathFragment} instances (see {@link PathFragment#HELPER}). All of the various {@link Helper}
-   * and {@link PathFragment} implementations may assume this property.
-   */
-  protected abstract static class Helper {
-    /**
-     * Returns whether the two given arrays of segments have the same length and should be
-     * considered have logically equal contents.
-     */
-    protected final boolean segmentsEqual(String[] segments1, String[] segments2) {
-      return segments1.length == segments2.length
-          && segmentsEqual(segments1.length, segments1, 0, segments2);
-    }
-
-    /**
-     * Returns whether the {@code length} segments in {@code segments1}, starting at {@code offset1}
-     * should be considered to be logically equal to the first {@code length} segments in {@code
-     * segments2}.
-     */
-    abstract boolean segmentsEqual(int length, String[] segments1, int offset1, String[] segments2);
-
-    /** Returns the comparison result of two {@link PathFragment} instances. */
-    protected abstract int compare(PathFragment pathFragment1, PathFragment pathFragment2);
-
-    /** Returns a fresh {@link PathFragment} instance from the given path string. */
-    abstract PathFragment create(String path);
-    /**
-     * Returns a fresh {@link PathFragment} instance from the given information, taking ownership of
-     * {@code segments} and assuming the {@link String}s within have already been interned.
-     */
-    abstract PathFragment createAlreadyInterned(
-        char driveLetter, boolean isAbsolute, String[] segments);
-
-    /** Returns whether {@code c} is a path separator. */
-    abstract boolean isSeparator(char c);
-    /** Returns the primary path separator. */
-    abstract char getPrimarySeparatorChar();
-    /** Return whether the given {@code path} contains a path separator. */
-    abstract boolean containsSeparatorChar(String path);
-
-    /**
-     * Splits the given {@code toSegment} into path segments, starting at the given {@code offset}.
-     */
-    protected final String[] segment(String toSegment, int offset) {
-      int length = toSegment.length();
-
-      // We make two passes through the array of characters: count & alloc,
-      // because simply using ArrayList was a bottleneck showing up during profiling.
-      int seg = 0;
-      int start = offset;
-      for (int i = offset; i < length; i++) {
-        if (isSeparator(toSegment.charAt(i))) {
-          if (i > start) { // to skip repeated separators
-            seg++;
-          }
-          start = i + 1;
-        }
-      }
-      if (start < length) {
-        seg++;
-      }
-      String[] result = new String[seg];
-      seg = 0;
-      start = offset;
-      for (int i = offset; i < length; i++) {
-        if (isSeparator(toSegment.charAt(i))) {
-          if (i > start) { // to skip repeated separators
-            result[seg] = StringCanonicalizer.intern(toSegment.substring(start, i));
-            seg++;
-          }
-          start = i + 1;
-        }
-      }
-      if (start < length) {
-        result[seg] = StringCanonicalizer.intern(toSegment.substring(start, length));
-      }
-      return result;
-    }
-  }
-
-  /** Lower-level API. Create a PathFragment, interning segments. */
-  public static PathFragment create(char driveLetter, boolean isAbsolute, String[] segments) {
-    String[] internedSegments = new String[segments.length];
-    for (int i = 0; i < segments.length; i++) {
-      internedSegments[i] = StringCanonicalizer.intern(segments[i]);
-    }
-    return createAlreadyInterned(driveLetter, isAbsolute, internedSegments);
-  }
-
-  /** Same as {@link #create(char, boolean, String[])}, except for {@link List}s of segments. */
-  public static PathFragment create(char driveLetter, boolean isAbsolute, List<String> segments) {
-    String[] internedSegments = new String[segments.size()];
-    for (int i = 0; i < segments.size(); i++) {
-      internedSegments[i] = StringCanonicalizer.intern(segments.get(i));
-    }
-    return createAlreadyInterned(driveLetter, isAbsolute, internedSegments);
-  }
-
-  /**
-   * Construct a PathFragment from a java.io.File, which is an absolute or
-   * relative UNIX path.  Does not support Windows-style Files.
-   */
-  public static PathFragment create(File path) {
-    return HELPER.create(path.getPath());
-  }
-
-  /**
-   * Construct a PathFragment from a string, which is an absolute or relative UNIX or Windows path.
-   */
+  /** Creates a new normalized path fragment. */
   public static PathFragment create(String path) {
-    return HELPER.create(path);
+    int normalizationLevel = OS.needsToNormalize(path);
+    String normalizedPath =
+        normalizationLevel != OsPathPolicy.NORMALIZED
+            ? OS.normalize(path, normalizationLevel)
+            : path;
+    int driveStrLength = OS.getDriveStrLength(normalizedPath);
+    return new PathFragment(normalizedPath, driveStrLength);
   }
 
   /**
-   * Constructs a PathFragment, taking ownership of {@code segments} and assuming the {@link
-   * String}s within have already been interned.
+   * Creates a new path fragment, where the caller promises that the path is normalized.
    *
-   * <p>Package-private because it does not perform a defensive copy of the segments array. Used
-   * here in PathFragment, and by Path.asFragment() and Path.relativeTo().
+   * <p>WARNING! Make sure the path fragment is in fact already normalized. The rest of the code
+   * assumes this is the case.
    */
-  static PathFragment createAlreadyInterned(
-      char driveLetter, boolean isAbsolute, String[] segments) {
-    return HELPER.createAlreadyInterned(driveLetter, isAbsolute, segments);
-  }
-
-  /** Returns whether the current {@code path} contains a path separator. */
-  static boolean containsSeparator(String path) {
-    return HELPER.containsSeparatorChar(path);
+  public static PathFragment createAlreadyNormalized(String normalizedPath) {
+    int driveStrLength = OS.getDriveStrLength(normalizedPath);
+    return createAlreadyNormalized(normalizedPath, driveStrLength);
   }
 
   /**
-   * Construct a PathFragment from a sequence of other PathFragments. The new fragment will be
-   * absolute iff the first fragment was absolute.
+   * Creates a new path fragment, where the caller promises that the path is normalized.
+   *
+   * <p>Should only be used internally.
    */
-  // TODO(bazel-team): Most usages of this method are wasteful from a garbage perspective. Refactor
-  // to something better.
-  public static PathFragment create(PathFragment first, PathFragment second, PathFragment... more) {
-    String[] segments = new String[sumLengths(first, second, more)];
-    int offset = 0;
-    offset += addSegmentsTo(segments, offset, first);
-    offset += addSegmentsTo(segments, offset, second);
-    for (PathFragment fragment : more) {
-      offset += addSegmentsTo(segments, offset, fragment);
-    }
-    boolean isAbsolute = first.isAbsolute();
-    char driveLetter = first.getDriveLetter();
-    return HELPER.createAlreadyInterned(driveLetter, isAbsolute, segments);
+  @AutoCodec.Instantiator
+  static PathFragment createAlreadyNormalized(String normalizedPath, int driveStrLength) {
+    return new PathFragment(normalizedPath, driveStrLength);
   }
 
-  // Medium sized builds can easily hold millions of live PathFragments, so the per-instance size of
-  // PathFragment is a concern.
-  //
-  // We have two oop-sized fields (segments, path), and one 4-byte-sized one (hashCode).
-  //
-  // If Blaze is run on a jvm with -XX:+UseCompressedOops, each PathFragment instance is 24 bytes
-  // and so adding any additional field will increase the per-instance size to at least 32 bytes.
-  //
-  // If Blaze is run on a jvm with -XX:-UseCompressedOops, each PathFragment instance is 32 bytes
-  // and so adding any additional field will increase the per-instance size to at least 40 bytes.
-  //
-  // Therefore, do not add any additional fields unless you have considered the memory implications.
-
-  // The individual path components.
-  // Does *not* include the Windows drive letter.
-  protected final String[] segments;
-
-  // hashCode and path are lazily initialized but semantically immutable.
-  private int hashCode;
-  private String path;
-
-  protected PathFragment(String[] segments) {
-    this.segments = segments;
+  /** This method expects path to already be normalized. */
+  private PathFragment(String normalizedPath, int driveStrLength) {
+    this.normalizedPath = Preconditions.checkNotNull(normalizedPath);
+    this.driveStrLength = driveStrLength;
   }
 
-  private static int addSegmentsTo(String[] segments, int offset, PathFragment fragment) {
-    int count = fragment.segmentCount();
-    System.arraycopy(fragment.segments, 0, segments, offset, count);
-    return count;
-  }
-
-  private static int sumLengths(PathFragment first, PathFragment second, PathFragment[] more) {
-    int total = first.segmentCount() + second.segmentCount();
-    for (PathFragment fragment : more) {
-      total += fragment.segmentCount();
-    }
-    return total;
-  }
-
-  protected Object writeReplace() {
-    return new PathFragmentSerializationProxy(toString());
-  }
-
-  protected void readObject(ObjectInputStream stream) throws InvalidObjectException {
-    throw new InvalidObjectException("Serialization is allowed only by proxy");
-  }
-
-  /**
-   * Returns the path string using '/' as the name-separator character.  Returns "" if the path
-   * is both relative and empty.
-   */
   public String getPathString() {
-    // Double-checked locking works, even without volatile, because path is a String, according to:
-    // http://www.cs.umd.edu/~pugh/java/memoryModel/DoubleCheckedLocking.html
-    if (path == null) {
-      synchronized (this) {
-        if (path == null) {
-          path = StringCanonicalizer.intern(joinSegments(HELPER.getPrimarySeparatorChar()));
+    return normalizedPath;
+  }
+
+  public boolean isEmpty() {
+    return normalizedPath.isEmpty();
+  }
+
+  int getDriveStrLength() {
+    return driveStrLength;
+  }
+
+  /**
+   * If called on a {@link PathFragment} instance for a mount name (eg. '/' or 'C:/'), the empty
+   * string is returned.
+   *
+   * <p>This operation allocates a new string.
+   */
+  public String getBaseName() {
+    int lastSeparator = normalizedPath.lastIndexOf(SEPARATOR_CHAR);
+    return lastSeparator < driveStrLength
+        ? normalizedPath.substring(driveStrLength)
+        : normalizedPath.substring(lastSeparator + 1);
+  }
+
+  /**
+   * Returns a {@link PathFragment} instance representing the relative path between this {@link
+   * PathFragment} and the given {@link PathFragment}.
+   *
+   * <p>If the passed path is absolute it is returned untouched. This can be useful to resolve
+   * symlinks.
+   */
+  public PathFragment getRelative(PathFragment other) {
+    Preconditions.checkNotNull(other);
+    // Fast-path: The path fragment is already normal, use cheaper normalization check
+    String otherStr = other.normalizedPath;
+    return getRelative(otherStr, other.getDriveStrLength(), OS.needsToNormalizeSuffix(otherStr));
+  }
+
+  public static boolean isNormalizedRelativePath(String path) {
+    int driveStrLength = OS.getDriveStrLength(path);
+    int normalizationLevel = OS.needsToNormalize(path);
+    return driveStrLength == 0 && normalizationLevel == OsPathPolicy.NORMALIZED;
+  }
+
+  public static boolean containsSeparator(String path) {
+    return path.lastIndexOf(SEPARATOR_CHAR) != -1;
+  }
+
+  /**
+   * Returns a {@link PathFragment} instance representing the relative path between this {@link
+   * PathFragment} and the given path.
+   *
+   * <p>See {@link #getRelative(PathFragment)} for details.
+   */
+  public PathFragment getRelative(String other) {
+    Preconditions.checkNotNull(other);
+    return getRelative(other, OS.getDriveStrLength(other), OS.needsToNormalize(other));
+  }
+
+  private PathFragment getRelative(String other, int otherDriveStrLength, int normalizationLevel) {
+    if (normalizedPath.isEmpty()) {
+      return create(other);
+    }
+    if (other.isEmpty()) {
+      return this;
+    }
+    // This is an absolute path, simply return it
+    if (otherDriveStrLength > 0) {
+      String normalizedPath =
+          normalizationLevel != OsPathPolicy.NORMALIZED
+              ? OS.normalize(other, normalizationLevel)
+              : other;
+      return new PathFragment(normalizedPath, otherDriveStrLength);
+    }
+    String newPath;
+    if (normalizedPath.length() == driveStrLength) {
+      newPath = normalizedPath + other;
+    } else {
+      newPath = normalizedPath + '/' + other;
+    }
+    newPath =
+        normalizationLevel != OsPathPolicy.NORMALIZED
+            ? OS.normalize(newPath, normalizationLevel)
+            : newPath;
+    return new PathFragment(newPath, driveStrLength);
+  }
+
+  public PathFragment getChild(String baseName) {
+    checkBaseName(baseName);
+    String newPath;
+    if (normalizedPath.length() == driveStrLength) {
+      newPath = normalizedPath + baseName;
+    } else {
+      newPath = normalizedPath + '/' + baseName;
+    }
+    return new PathFragment(newPath, driveStrLength);
+  }
+
+  /**
+   * Returns the parent directory of this {@link PathFragment}.
+   *
+   * <p>If this is called on an single directory for a relative path, this returns an empty relative
+   * path. If it's called on a root (like '/') or the empty string, it returns null.
+   */
+  @Nullable
+  public PathFragment getParentDirectory() {
+    int lastSeparator = normalizedPath.lastIndexOf(SEPARATOR_CHAR);
+
+    // For absolute paths we need to specially handle when we hit root
+    // Relative paths can't hit this path as driveStrLength == 0
+    if (driveStrLength > 0) {
+      if (lastSeparator < driveStrLength) {
+        if (normalizedPath.length() > driveStrLength) {
+          String newPath = normalizedPath.substring(0, driveStrLength);
+          return new PathFragment(newPath, driveStrLength);
+        } else {
+          return null;
+        }
+      }
+    } else {
+      if (lastSeparator == -1) {
+        if (!normalizedPath.isEmpty()) {
+          return EMPTY_FRAGMENT;
+        } else {
+          return null;
         }
       }
     }
-    return path;
+    String newPath = normalizedPath.substring(0, lastSeparator);
+    return new PathFragment(newPath, driveStrLength);
   }
 
   /**
-   * Returns "." if the path fragment is both relative and empty, or {@link
-   * #getPathString} otherwise.
+   * Returns the {@link PathFragment} relative to the base {@link PathFragment}.
+   *
+   * <p>For example, <code>FilePath.create("foo/bar/wiz").relativeTo(FilePath.create("foo"))</code>
+   * returns <code>"bar/wiz"</code>.
+   *
+   * <p>If the {@link PathFragment} is not a child of the passed {@link PathFragment} an {@link
+   * IllegalArgumentException} is thrown. In particular, this will happen whenever the two {@link
+   * PathFragment} instances aren't both absolute or both relative.
    */
-  // TODO(bazel-team): Change getPathString to do this - this behavior makes more sense.
+  public PathFragment relativeTo(PathFragment base) {
+    Preconditions.checkNotNull(base);
+    if (isAbsolute() != base.isAbsolute()) {
+      throw new IllegalArgumentException(
+          "Cannot relativize an absolute and a non-absolute path pair");
+    }
+    String basePath = base.normalizedPath;
+    if (!OS.startsWith(normalizedPath, basePath)) {
+      throw new IllegalArgumentException(
+          String.format("Path '%s' is not under '%s', cannot relativize", this, base));
+    }
+    int bn = basePath.length();
+    if (bn == 0) {
+      return this;
+    }
+    if (normalizedPath.length() == bn) {
+      return EMPTY_FRAGMENT;
+    }
+    final int lastSlashIndex;
+    if (basePath.charAt(bn - 1) == '/') {
+      lastSlashIndex = bn - 1;
+    } else {
+      lastSlashIndex = bn;
+    }
+    if (normalizedPath.charAt(lastSlashIndex) != '/') {
+      throw new IllegalArgumentException(
+          String.format("Path '%s' is not under '%s', cannot relativize", this, base));
+    }
+    String newPath = normalizedPath.substring(lastSlashIndex + 1);
+    return new PathFragment(newPath, 0 /* Always a relative path */);
+  }
+
+  public PathFragment relativeTo(String base) {
+    return relativeTo(PathFragment.create(base));
+  }
+
+  /**
+   * Returns whether this path is an ancestor of another path.
+   *
+   * <p>If this == other, true is returned.
+   *
+   * <p>An absolute path can never be an ancestor of a relative path, and vice versa.
+   */
+  public boolean startsWith(PathFragment other) {
+    Preconditions.checkNotNull(other);
+    if (other.normalizedPath.length() > normalizedPath.length()) {
+      return false;
+    }
+    if (driveStrLength != other.driveStrLength) {
+      return false;
+    }
+    if (!OS.startsWith(normalizedPath, other.normalizedPath)) {
+      return false;
+    }
+    return normalizedPath.length() == other.normalizedPath.length()
+        || other.normalizedPath.length() == driveStrLength
+        || normalizedPath.charAt(other.normalizedPath.length()) == SEPARATOR_CHAR;
+  }
+
+  /**
+   * Returns true iff {@code suffix}, considered as a list of path segments, is relative and a
+   * suffix of {@code this}, or both are absolute and equal.
+   *
+   * <p>This is a reflexive, transitive, anti-symmetric relation (i.e. a partial order)
+   */
+  public boolean endsWith(PathFragment other) {
+    Preconditions.checkNotNull(other);
+    if (other.normalizedPath.length() > normalizedPath.length()) {
+      return false;
+    }
+    if (other.isAbsolute()) {
+      return this.equals(other);
+    }
+    if (!OS.endsWith(normalizedPath, other.normalizedPath)) {
+      return false;
+    }
+    return normalizedPath.length() == other.normalizedPath.length()
+        || other.normalizedPath.length() == 0
+        || normalizedPath.charAt(normalizedPath.length() - other.normalizedPath.length() - 1)
+            == SEPARATOR_CHAR;
+  }
+
+  public boolean isAbsolute() {
+    return driveStrLength > 0;
+  }
+
+  public static boolean isAbsolute(String path) {
+    return OS.getDriveStrLength(path) > 0;
+  }
+
+  @Override
+  public String toString() {
+    return normalizedPath;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append(normalizedPath);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    return OS.equals(this.normalizedPath, ((PathFragment) o).normalizedPath);
+  }
+
+  @Override
+  public int hashCode() {
+    return OS.hash(this.normalizedPath);
+  }
+
+  @Override
+  public int compareTo(PathFragment o) {
+    return OS.compare(this.normalizedPath, o.normalizedPath);
+  }
+
+  ////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Returns the number of segments in this path.
+   *
+   * <p>This operation is O(N) on the length of the string.
+   */
+  public int segmentCount() {
+    int n = normalizedPath.length();
+    int segmentCount = 0;
+    int i;
+    for (i = driveStrLength; i < n; ++i) {
+      if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
+        ++segmentCount;
+      }
+    }
+    // Add last segment if one exists.
+    if (i > driveStrLength) {
+      ++segmentCount;
+    }
+    return segmentCount;
+  }
+
+  /**
+   * Returns the specified segment of this path; index must be positive and less than numSegments().
+   *
+   * <p>This operation is O(N) on the length of the string.
+   */
+  public String getSegment(int index) {
+    int n = normalizedPath.length();
+    int segmentCount = 0;
+    int i;
+    for (i = driveStrLength; i < n && segmentCount < index; ++i) {
+      if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
+        ++segmentCount;
+      }
+    }
+    int starti = i;
+    for (; i < n; ++i) {
+      if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
+        break;
+      }
+    }
+    // Add last segment if one exists.
+    if (i > driveStrLength) {
+      ++segmentCount;
+    }
+    int endi = i;
+    if (index < 0 || index >= segmentCount) {
+      throw new IllegalArgumentException("Illegal segment index: " + index);
+    }
+    return normalizedPath.substring(starti, endi);
+  }
+
+  /**
+   * Returns a new path fragment that is a sub fragment of this one. The sub fragment begins at the
+   * specified <code>beginIndex</code> segment and ends at the segment at index <code>endIndex - 1
+   * </code>. Thus the number of segments in the new PathFragment is <code>endIndex - beginIndex
+   * </code>.
+   *
+   * <p>This operation is O(N) on the length of the string.
+   *
+   * @param beginIndex the beginning index, inclusive.
+   * @param endIndex the ending index, exclusive.
+   * @return the specified sub fragment, never null.
+   * @exception IndexOutOfBoundsException if the <code>beginIndex</code> is negative, or <code>
+   *     endIndex</code> is larger than the length of this <code>String</code> object, or <code>
+   *     beginIndex</code> is larger than <code>endIndex</code>.
+   */
+  public PathFragment subFragment(int beginIndex, int endIndex) {
+    if (beginIndex < 0 || beginIndex > endIndex) {
+      throw new IndexOutOfBoundsException(
+          String.format("path: %s, beginIndex: %d endIndex: %d", toString(), beginIndex, endIndex));
+    }
+    return subFragmentImpl(beginIndex, endIndex);
+  }
+
+  public PathFragment subFragment(int beginIndex) {
+    if (beginIndex < 0) {
+      throw new IndexOutOfBoundsException(
+          String.format("path: %s, beginIndex: %d", toString(), beginIndex));
+    }
+    return subFragmentImpl(beginIndex, -1);
+  }
+
+  private PathFragment subFragmentImpl(int beginIndex, int endIndex) {
+    int n = normalizedPath.length();
+    int segmentIndex = 0;
+    int i;
+    for (i = driveStrLength; i < n && segmentIndex < beginIndex; ++i) {
+      if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
+        ++segmentIndex;
+      }
+    }
+    int starti = i;
+    if (segmentIndex < endIndex) {
+      for (; i < n; ++i) {
+        if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
+          ++segmentIndex;
+          if (segmentIndex == endIndex) {
+            break;
+          }
+        }
+      }
+    } else if (endIndex == -1) {
+      i = normalizedPath.length();
+    }
+    int endi = i;
+    // Add last segment if one exists for verification
+    if (i == n && i > driveStrLength) {
+      ++segmentIndex;
+    }
+    if (beginIndex > segmentIndex || endIndex > segmentIndex) {
+      throw new IndexOutOfBoundsException(
+          String.format("path: %s, beginIndex: %d endIndex: %d", toString(), beginIndex, endIndex));
+    }
+    // If beginIndex is 0 we include the drive. Very odd semantics.
+    int driveStrLength = 0;
+    if (beginIndex == 0) {
+      starti = 0;
+      driveStrLength = this.driveStrLength;
+      endi = Math.max(endi, driveStrLength);
+    }
+    return new PathFragment(normalizedPath.substring(starti, endi), driveStrLength);
+  }
+
+  /**
+   * Returns the segments of this path fragment. This array should not be
+   * modified.
+   */
+  String[] segments() {
+    int segmentCount = segmentCount();
+    String[] segments = new String[segmentCount];
+    int segmentIndex = 0;
+    int nexti = driveStrLength;
+    int n = normalizedPath.length();
+    for (int i = driveStrLength; i < n; ++i) {
+      if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
+        segments[segmentIndex++] = normalizedPath.substring(nexti, i);
+        nexti = i + 1;
+      }
+    }
+    // Add last segment if one exists.
+    if (nexti < n) {
+      segments[segmentIndex] = normalizedPath.substring(nexti);
+    }
+    return segments;
+  }
+
+  /**
+   * Returns a list of the segments.
+   *
+   * <p>This operation is O(N) on the length of the string.
+   */
+  public ImmutableList<String> getSegments() {
+    return ImmutableList.copyOf(segments());
+  }
+
+  public int getFirstSegment(Set<String> values) {
+    String[] segments = segments();
+    for (int i = 0; i < segments.length; ++i) {
+      if (values.contains(segments[i])) {
+        return i;
+      }
+    }
+    return INVALID_SEGMENT;
+  }
+
+  /** Returns the path string, or '.' if the path is empty. */
   public String getSafePathString() {
-    return (!isAbsolute() && (segmentCount() == 0)) ? "." : getPathString();
+    return !normalizedPath.isEmpty() ? normalizedPath : ".";
   }
 
   /**
@@ -305,399 +545,52 @@ public abstract class PathFragment
    */
   public String getCallablePathString() {
     if (isAbsolute()) {
-      return getPathString();
-    } else if (segmentCount() == 0) {
+      return normalizedPath;
+    } else if (normalizedPath.isEmpty()) {
       return ".";
-    } else if (segmentCount() == 1) {
-      return "." + HELPER.getPrimarySeparatorChar() + getPathString();
+    } else if (normalizedPath.indexOf(SEPARATOR_CHAR) == -1) {
+      return "." + SEPARATOR_CHAR + normalizedPath;
     } else {
-      return getPathString();
+      return normalizedPath;
     }
-  }
-
-  /**
-  * Throws {@link IllegalArgumentException} if {@code paths} contains any paths that
-  * are equal to {@code startingWithPath} or that are not beneath {@code startingWithPath}.
-  */
-  public static void checkAllPathsAreUnder(Iterable<PathFragment> paths,
-      PathFragment startingWithPath) {
-    for (PathFragment path : paths) {
-      Preconditions.checkArgument(
-          !path.equals(startingWithPath) && path.startsWith(startingWithPath),
-              "%s is not beneath %s", path, startingWithPath);
-    }
-  }
-
-  private String joinSegments(char separatorChar) {
-    if (segments.length == 0 && isAbsolute()) {
-      return windowsVolume() + ROOT_DIR;
-    }
-
-    // Profile driven optimization:
-    // Preallocate a size determined by the number of segments, so that
-    // we do not have to expand the capacity of the StringBuilder.
-    // Heuristically, this estimate is right for about 99% of the time.
-    int estimateSize =
-        ((getDriveLetter() != '\0') ? 2 : 0)
-            + ((segments.length == 0) ? 0 : (segments.length + 1) * 20);
-    StringBuilder result = new StringBuilder(estimateSize);
-    if (isAbsolute()) {
-      // Only print the Windows volume label if the PathFragment is absolute. Do not print relative
-      // Windows paths like "C:foo/bar", it would break all kinds of things, e.g. glob().
-      result.append(windowsVolume());
-    }
-    boolean initialSegment = true;
-    for (String segment : segments) {
-      if (!initialSegment || isAbsolute()) {
-        result.append(separatorChar);
-      }
-      initialSegment = false;
-      result.append(segment);
-    }
-    return result.toString();
-  }
-
-  /**
-   * Return true iff none of the segments are either "." or "..".
-   */
-  public boolean isNormalized() {
-    for (String segment : segments) {
-      if (segment.equals(".") || segment.equals("..")) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  public static boolean isNormalized(String path) {
-    return PathFragment.create(path).isNormalized();
-  }
-
-  /**
-   * Normalizes the path fragment: removes "." and ".." segments if possible
-   * (if there are too many ".." segments, the resulting PathFragment will still
-   * start with "..").
-   */
-  public PathFragment normalize() {
-    String[] scratchSegments = new String[segments.length];
-    int segmentCount = 0;
-
-    for (String segment : segments) {
-      switch (segment) {
-        case ".":
-          // Just discard it
-          break;
-        case "..":
-          if (segmentCount > 0 && !scratchSegments[segmentCount - 1].equals("..")) {
-            // Remove the last segment, if there is one and it is not "..". This
-            // means that the resulting PathFragment can still contain ".."
-            // segments at the beginning.
-            segmentCount--;
-          } else {
-            scratchSegments[segmentCount++] = segment;
-          }
-          break;
-        default:
-          scratchSegments[segmentCount++] = segment;
-      }
-    }
-
-    if (segmentCount == segments.length) {
-      // Optimization, no new PathFragment needs to be created.
-      return this;
-    }
-
-    return HELPER.createAlreadyInterned(
-        getDriveLetter(), isAbsolute(), subarray(scratchSegments, 0, segmentCount));
-  }
-
-  /**
-   * Returns the path formed by appending the relative or absolute path fragment
-   * {@code otherFragment} to this path.
-   *
-   * <p>If {@code otherFragment} is absolute, the current path will be ignored;
-   * otherwise, they will be concatenated. This is a purely syntactic operation,
-   * with no path normalization or I/O performed.
-   */
-  public PathFragment getRelative(PathFragment otherFragment) {
-    if (otherFragment == EMPTY_FRAGMENT) {
-      return this;
-    }
-
-    if (otherFragment.isAbsolute()) {
-      char driveLetter = getDriveLetter();
-      return driveLetter == '\0' || otherFragment.getDriveLetter() != '\0'
-          ? otherFragment
-          : createAlreadyInterned(driveLetter, true, otherFragment.segments);
-    } else {
-      return create(this, otherFragment);
-    }
-  }
-
-  /**
-   * Returns the path formed by appending the relative or absolute string
-   * {@code path} to this path.
-   *
-   * <p>If the given path string is absolute, the current path will be ignored;
-   * otherwise, they will be concatenated. This is a purely syntactic operation,
-   * with no path normalization or I/O performed.
-   */
-  public PathFragment getRelative(String path) {
-    return getRelative(create(path));
-  }
-
-  /**
-   * Returns the path formed by appending the single non-special segment "baseName" to this path.
-   *
-   * <p>You should almost always use {@link #getRelative} instead, which has the same performance
-   * characteristics if the given name is a valid base name, and which also works for '.', '..', and
-   * strings containing '/'.
-   *
-   * @throws IllegalArgumentException if {@code baseName} is not a valid base name according to
-   *     {@link #checkBaseName}
-   */
-  public PathFragment getChild(String baseName) {
-    checkBaseName(baseName);
-    baseName = StringCanonicalizer.intern(baseName);
-    String[] newSegments = Arrays.copyOf(segments, segments.length + 1);
-    newSegments[newSegments.length - 1] = baseName;
-    return createAlreadyInterned(getDriveLetter(), isAbsolute(), newSegments);
-  }
-
-  /**
-   * Returns the last segment of this path, or "" for the empty fragment.
-   */
-  public String getBaseName() {
-    return (segments.length == 0) ? "" : segments[segments.length - 1];
   }
 
   /**
    * Returns the file extension of this path, excluding the period, or "" if there is no extension.
    */
   public String getFileExtension() {
-    String baseName = getBaseName();
-
-    int lastIndex = baseName.lastIndexOf('.');
-    if (lastIndex != -1) {
-      return baseName.substring(lastIndex + 1);
+    int n = normalizedPath.length();
+    for (int i = n - 1; i > driveStrLength; --i) {
+      char c = normalizedPath.charAt(i);
+      if (c == '.') {
+        return normalizedPath.substring(i + 1, n);
+      } else if (c == SEPARATOR_CHAR) {
+        break;
+      }
     }
-
     return "";
   }
 
   /**
-   * Returns a relative path fragment to this path, relative to
-   * {@code ancestorDirectory}.
-   * <p>
-   * <code>x.relativeTo(z) == y</code> implies
-   * <code>z.getRelative(y) == x</code>.
-   * <p>
-   * For example, <code>"foo/bar/wiz".relativeTo("foo")</code>
-   * returns <code>"bar/wiz"</code>.
-   */
-  public PathFragment relativeTo(PathFragment ancestorDirectory) {
-    String[] ancestorSegments = ancestorDirectory.segments();
-    int ancestorLength = ancestorSegments.length;
-
-    if (isAbsolute() != ancestorDirectory.isAbsolute() || segments.length < ancestorLength) {
-      throw new IllegalArgumentException("PathFragment " + this
-          + " is not beneath " + ancestorDirectory);
-    }
-
-    if (!HELPER.segmentsEqual(ancestorLength, segments, 0, ancestorSegments)) {
-      throw new IllegalArgumentException(
-          "PathFragment " + this + " is not beneath " + ancestorDirectory);
-    }
-
-    int length = segments.length - ancestorLength;
-    String[] resultSegments = subarray(segments, ancestorLength, length);
-    return createAlreadyInterned('\0', false, resultSegments);
-  }
-
-  /**
-   * Returns a relative path fragment to this path, relative to {@code path}.
-   */
-  public PathFragment relativeTo(String path) {
-    return relativeTo(create(path));
-  }
-
-  /**
-   * Returns a new PathFragment formed by appending {@code newName} to the
-   * parent directory. Null is returned iff this method is called on a
-   * PathFragment with zero segments.  If {@code newName} designates an absolute path,
-   * the value of {@code this} will be ignored and a PathFragment corresponding to
-   * {@code newName} will be returned.  This behavior is consistent with the behavior of
-   * {@link #getRelative(String)}.
+   * Returns a new PathFragment formed by appending {@code newName} to the parent directory. Null is
+   * returned iff this method is called on a PathFragment with zero segments. If {@code newName}
+   * designates an absolute path, the value of {@code this} will be ignored and a PathFragment
+   * corresponding to {@code newName} will be returned. This behavior is consistent with the
+   * behavior of {@link #getRelative(String)}.
    */
   public PathFragment replaceName(String newName) {
-    return segments.length == 0 ? null : getParentDirectory().getRelative(newName);
+    PathFragment parent = getParentDirectory();
+    return parent != null ? parent.getRelative(newName) : null;
   }
 
   /**
-   * Returns a path representing the parent directory of this path,
-   * or null iff this Path represents the root of the filesystem.
+   * Returns the drive for an absolute path fragment.
    *
-   * <p>Note: This method DOES NOT normalize ".."  and "." path segments.
+   * <p>On unix, this will return "/". On Windows it will return the drive letter, like "C:/".
    */
-  public PathFragment getParentDirectory() {
-    return segments.length == 0 ? null : subFragment(0, segments.length - 1);
-  }
-
-  /**
-   * Returns true iff {@code prefix}, considered as a list of path segments, is
-   * a prefix of {@code this}, and that they are both relative or both
-   * absolute.
-   *
-   * <p>This is a reflexive, transitive, anti-symmetric relation (i.e. a partial
-   * order)
-   */
-  public boolean startsWith(PathFragment prefix) {
-    if (isAbsolute() != prefix.isAbsolute()
-        || this.segments.length < prefix.segments.length
-        || (isAbsolute() && getDriveLetter() != prefix.getDriveLetter())) {
-      return false;
-    }
-    return HELPER.segmentsEqual(prefix.segments.length, segments, 0, prefix.segments);
-  }
-
-  /**
-   * Returns true iff {@code suffix}, considered as a list of path segments, is
-   * relative and a suffix of {@code this}, or both are absolute and equal.
-   *
-   * <p>This is a reflexive, transitive, anti-symmetric relation (i.e. a partial
-   * order)
-   */
-  public boolean endsWith(PathFragment suffix) {
-    if ((suffix.isAbsolute() && !suffix.equals(this))
-        || this.segments.length < suffix.segments.length) {
-      return false;
-    }
-    int offset = this.segments.length - suffix.segments.length;
-    return HELPER.segmentsEqual(suffix.segments.length, segments, offset, suffix.segments);
-  }
-
-  private static String[] subarray(String[] array, int start, int length) {
-    String[] subarray = new String[length];
-    System.arraycopy(array, start, subarray, 0, length);
-    return subarray;
-  }
-
-  /**
-   * Returns a new path fragment that is a sub fragment of this one.
-   * The sub fragment begins at the specified <code>beginIndex</code> segment
-   * and ends at the segment at index <code>endIndex - 1</code>. Thus the number
-   * of segments in the new PathFragment is <code>endIndex - beginIndex</code>.
-   *
-   * @param      beginIndex   the beginning index, inclusive.
-   * @param      endIndex     the ending index, exclusive.
-   * @return     the specified sub fragment, never null.
-   * @exception  IndexOutOfBoundsException  if the
-   *             <code>beginIndex</code> is negative, or
-   *             <code>endIndex</code> is larger than the length of
-   *             this <code>String</code> object, or
-   *             <code>beginIndex</code> is larger than
-   *             <code>endIndex</code>.
-   */
-  public PathFragment subFragment(int beginIndex, int endIndex) {
-    int count = segments.length;
-    if ((beginIndex < 0) || (beginIndex > endIndex) || (endIndex > count)) {
-      throw new IndexOutOfBoundsException(String.format("path: %s, beginIndex: %d endIndex: %d",
-          toString(), beginIndex, endIndex));
-    }
-    boolean isAbsolute = (beginIndex == 0) && isAbsolute();
-    return ((beginIndex == 0) && (endIndex == count))
-        ? this
-        : createAlreadyInterned(
-            getDriveLetter(), isAbsolute, subarray(segments, beginIndex, endIndex - beginIndex));
-  }
-
-  /**
-   * Returns a new path fragment that is a sub fragment of this one. The sub fragment begins at the
-   * specified <code>beginIndex</code> segment and contains the rest of the original path fragment.
-   *
-   * @param beginIndex the beginning index, inclusive.
-   * @return the specified sub fragment, never null.
-   * @exception IndexOutOfBoundsException if the <code>beginIndex</code> is negative, or <code>
-   *     endIndex</code> is larger than the length of this <code>String</code> object, or <code>
-   *     beginIndex</code> is larger than <code>endIndex</code>.
-   */
-  public PathFragment subFragment(int beginIndex) {
-    return subFragment(beginIndex, segments.length);
-  }
-
-  /**
-   * Returns true iff the path represented by this object is absolute.
-   *
-   * <p>True both for UNIX-style absolute paths ("/foo") and Windows-style ("C:/foo"). False for a
-   * Windows-style volume label ("C:") which is actually a relative path.
-   */
-  public abstract boolean isAbsolute();
-
-  public static boolean isAbsolute(String path) {
-    return PathFragment.create(path).isAbsolute();
-  }
-
-  /**
-   * Returns the segments of this path fragment. This array should not be
-   * modified.
-   */
-  String[] segments() {
-    return segments;
-  }
-
-  public ImmutableList<String> getSegments() {
-    return ImmutableList.copyOf(segments);
-  }
-
-  public abstract String windowsVolume();
-
-  /** Return the drive letter or '\0' if not applicable. */
-  // TODO(bazel-team): This doesn't need to pollute the PathFragment interface (ditto for
-  // windowsVolume).
-  public abstract char getDriveLetter();
-
-  public boolean isEmpty() {
-    return segments.length == 0;
-  }
-
-  /**
-   * Returns the number of segments in this path.
-   */
-  public int segmentCount() {
-    return segments.length;
-  }
-
-  /**
-   * Returns the specified segment of this path; index must be positive and
-   * less than numSegments().
-   */
-  public String getSegment(int index) {
-    return segments[index];
-  }
-
-  /**
-   * Returns the index of the first segment which equals one of the input values
-   * or {@link PathFragment#INVALID_SEGMENT} if none of the segments match.
-   */
-  public int getFirstSegment(Set<String> values) {
-    for (int i = 0; i < segments.length; i++) {
-      if (values.contains(segments[i])) {
-        return i;
-      }
-    }
-    return INVALID_SEGMENT;
-  }
-
-  /**
-   * Returns true iff this path contains uplevel references "..".
-   */
-  public boolean containsUplevelReferences() {
-    for (String segment : segments) {
-      if (segment.equals("..")) {
-        return true;
-      }
-    }
-    return false;
+  public String getDriveStr() {
+    Preconditions.checkArgument(isAbsolute());
+    return normalizedPath.substring(0, driveStrLength);
   }
 
   /**
@@ -706,93 +599,134 @@ public abstract class PathFragment
    */
   public PathFragment toRelative() {
     Preconditions.checkArgument(isAbsolute());
-    return HELPER.createAlreadyInterned(getDriveLetter(), false, segments);
+    return new PathFragment(normalizedPath.substring(driveStrLength), 0);
   }
-
-  @Override
-  public final int hashCode() {
-    // We use the hash code caching strategy employed by java.lang.String. There are three subtle
-    // things going on here:
-    //
-    // (1) We use a value of 0 to indicate that the hash code hasn't been computed and cached yet.
-    // Yes, this means that if the hash code is really 0 then we will "recompute" it each time. But
-    // this isn't a problem in practice since a hash code of 0 is rare.
-    //
-    // (2) Since we have no synchronization, multiple threads can race here thinking they are the
-    // first one to compute and cache the hash code.
-    //
-    // (3) Moreover, since 'hashCode' is non-volatile, the cached hash code value written from one
-    // thread may not be visible by another. Note that we don't need to worry about multiple
-    // inefficient reads of 'hashCode' on the same thread since it's non-volatile.
-    //
-    // All three of these issues are benign from a correctness perspective; in the end we have no
-    // overhead from synchronization, at the cost of potentially computing the hash code more than
-    // once.
-    if (hashCode == 0) {
-      hashCode = computeHashCode();
-    }
-    return hashCode;
-  }
-
-  protected abstract int computeHashCode();
-
-  @Override
-  public abstract boolean equals(Object other);
 
   /**
-   * Compares two PathFragments using the lexicographical order.
+   * Returns true if this path contains uplevel references "..".
+   *
+   * <p>Since path fragments are normalized, this implies that the uplevel reference is at the start
+   * of the path fragment.
    */
-  @Override
-  public int compareTo(PathFragment p2) {
-    return HELPER.compare(this, p2);
+  public boolean containsUplevelReferences() {
+    // Path is normalized, so any ".." would have to be at the very start
+    return normalizedPath.startsWith("..");
   }
 
-  @Override
-  public String toString() {
-    return getPathString();
+  /**
+   * Returns true if the passed path contains uplevel references ".." or single-dot references "."
+   *
+   * <p>This is useful to check a string for normalization before constructing a PathFragment, since
+   * these are always normalized and will throw uplevel references away.
+   */
+  public static boolean isNormalized(String path) {
+    return isNormalizedImpl(path, /* lookForSameLevelReferences= */ true);
   }
 
-  @Override
-  public void repr(SkylarkPrinter printer) {
-    printer.append(getPathString());
+  /**
+   * Returns true if the passed path contains uplevel references "..".
+   *
+   * <p>This is useful to check a string for '..' segments before constructing a PathFragment, since
+   * these are always normalized and will throw uplevel references away.
+   */
+  public static boolean containsUplevelReferences(String path) {
+    return !isNormalizedImpl(path, /* lookForSameLevelReferences= */ false);
+  }
+
+  private enum NormalizedImplState {
+    Base, /* No particular state, eg. an 'a' or 'L' character */
+    Separator, /* We just saw a separator */
+    Dot, /* We just saw a dot after a separator */
+    DotDot, /* We just saw two dots after a separator */
+  }
+
+  private static boolean isNormalizedImpl(String path, boolean lookForSameLevelReferences) {
+    // Starting state is equivalent to having just seen a separator
+    NormalizedImplState state = NormalizedImplState.Separator;
+    int n = path.length();
+    for (int i = 0; i < n; ++i) {
+      char c = path.charAt(i);
+      boolean isSeparator = OS.isSeparator(c);
+      switch (state) {
+        case Base:
+          if (isSeparator) {
+            state = NormalizedImplState.Separator;
+          } else {
+            state = NormalizedImplState.Base;
+          }
+          break;
+        case Separator:
+          if (isSeparator) {
+            state = NormalizedImplState.Separator;
+          } else if (c == '.') {
+            state = NormalizedImplState.Dot;
+          } else {
+            state = NormalizedImplState.Base;
+          }
+          break;
+        case Dot:
+          if (isSeparator) {
+            if (lookForSameLevelReferences) {
+              // "." segment found
+              return false;
+            }
+            state = NormalizedImplState.Separator;
+          } else if (c == '.') {
+            state = NormalizedImplState.DotDot;
+          } else {
+            state = NormalizedImplState.Base;
+          }
+          break;
+        case DotDot:
+          if (isSeparator) {
+            // ".." segment found
+            return false;
+          } else {
+            state = NormalizedImplState.Base;
+          }
+          break;
+        default:
+          throw new IllegalStateException("Unhandled state: " + state);
+      }
+    }
+    // The character just after the string is equivalent to a separator
+    switch (state) {
+      case Dot:
+        if (lookForSameLevelReferences) {
+          // "." segment found
+          return false;
+        }
+        break;
+      case DotDot:
+        return false;
+      default:
+    }
+    return true;
+  }
+
+  /**
+   * Throws {@link IllegalArgumentException} if {@code paths} contains any paths that are equal to
+   * {@code startingWithPath} or that are not beneath {@code startingWithPath}.
+   */
+  public static void checkAllPathsAreUnder(
+      Iterable<PathFragment> paths, PathFragment startingWithPath) {
+    for (PathFragment path : paths) {
+      Preconditions.checkArgument(
+          !path.equals(startingWithPath) && path.startsWith(startingWithPath),
+          "%s is not beneath %s",
+          path,
+          startingWithPath);
+    }
   }
 
   @Override
   public String filePathForFileTypeMatcher() {
-    return getBaseName();
+    return normalizedPath;
   }
 
-  private static class PathFragmentCodec implements ObjectCodec<PathFragment> {
-    private final ObjectCodec<String> stringCodec = StringCodecs.asciiOptimized();
-
-    @Override
-    public Class<PathFragment> getEncodedClass() {
-      return PathFragment.class;
-    }
-
-    @Override
-    public void serialize(PathFragment pathFragment, CodedOutputStream codedOut)
-        throws IOException, SerializationException {
-      codedOut.writeInt32NoTag(pathFragment.getDriveLetter());
-      codedOut.writeBoolNoTag(pathFragment.isAbsolute());
-      codedOut.writeInt32NoTag(pathFragment.segmentCount());
-      for (int i = 0; i < pathFragment.segmentCount(); i++) {
-        stringCodec.serialize(pathFragment.getSegment(i), codedOut);
-      }
-    }
-
-    @Override
-    public PathFragment deserialize(CodedInputStream codedIn)
-        throws IOException, SerializationException {
-      char driveLetter = (char) codedIn.readInt32();
-      boolean isAbsolute = codedIn.readBool();
-      int segmentCount = codedIn.readInt32();
-      String[] segments = new String[segmentCount];
-      for (int i = 0; i < segmentCount; i++) {
-        segments[i] = stringCodec.deserialize(codedIn);
-      }
-      return PathFragment.create(driveLetter, isAbsolute, segments);
-    }
+  @Override
+  public String expandToCommandLine() {
+    return getPathString();
   }
 
   private static void checkBaseName(String baseName) {
@@ -805,5 +739,9 @@ public abstract class PathFragment
     if (baseName.indexOf('/') != -1) {
       throw new IllegalArgumentException("baseName must not contain a slash: '" + baseName + "'");
     }
+  }
+
+  private Object writeReplace() {
+    return new PathFragmentSerializationProxy(normalizedPath);
   }
 }

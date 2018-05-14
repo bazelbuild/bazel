@@ -25,12 +25,14 @@ title: User Manual
     <a href='#canonicalize'>canonicalize-flags</a>  Canonicalize Bazel flags.
     <a href='#clean'>clean</a>               Removes output files and optionally stops the server.
 
+    <a href='#query'>cquery</a>              Executes a <a href='#analysis-phase'>post-analysis</a> dependency graph query.
+
     <a href='#dump'>dump</a>                Dumps the internal state of the Bazel server process.
 
     <a href='#help'>help</a>                Prints help for commands, or the index.
     <a href='#info'>info</a>                Displays runtime info about the bazel server.
 
-    <a href='#fetch'>fetch</a>                Fetches all external dependencies of a target.
+    <a href='#fetch'>fetch</a>               Fetches all external dependencies of a target.
     <a href='#mobile-install'>mobile-install</a>      Installs apps on mobile devices.
 
     <a href='#query'>query</a>               Executes a dependency graph query.
@@ -165,10 +167,12 @@ title: User Manual
 
 <p>
   Aside from the optional configuration file described above, Bazel also looks
-  for a master rc file next to the binary, in the workspace at
-  <code>tools/bazel.rc</code> or system-wide at <code>/etc/bazel.bazelrc</code>.
-  These files are here to support installation-wide options or options shared
-  between users. Reading of this file can be disabled using the
+  for a master rc file named <code>bazel.bazelrc</code> next to the binary, in
+  the workspace at <code>tools/bazel.rc</code> or system-wide at
+  <code>/etc/bazel.bazelrc</code>. These files are here to support
+  installation-wide options or options shared between users. These files do not
+  override one another; if all of these files exist, all of them will be loaded.
+  Reading of these files can be disabled using the
   <code class='flag'>--nomaster_bazelrc</code> option.
 </p>
 <h4><code>.bazelrc</code> syntax and semantics</h4>
@@ -424,6 +428,7 @@ Package path elements may be specified in three formats:
 <pre>
   % mkdir -p foo/bazel
   % cd foo/bazel
+  % touch WORKSPACE
   % bazel build --package_path /some/other/path //foo
 </pre>
 <h3 id='target-patterns'>Specifying targets to build</h3>
@@ -1165,14 +1170,6 @@ $ bazel fetch //...
   </tr>
 </table>
 
-<h4 id='flag--analysis_warnings_as_errors'><code>--[no]analysis_warnings_as_errors</code></h4>
-<p>
-  When this option is enabled, visible analysis warnings (as specified by
-  the output filter) are treated as errors, effectively preventing the build
-  phase from starting. This feature can be used to enable strict builds that
-  do not allow new warnings to creep into a project.
-</p>
-
 <h3 id='flags-options'>Flags options</h3>
 <p>
   These options control which options Bazel will pass to other tools.
@@ -1835,12 +1832,12 @@ The default is <code>armeabi-v7a</code>.
   is to enable cross-compilation.
 </p>
 
-<h4 id='flag--javabase'><code class='flag'>--javabase (<var>path</var>|<var>label</var>)</code></h4>
+<h4 id='flag--javabase'><code class='flag'>--javabase (<var>label</var>)</code></h4>
 <p>
-  This option sets the <i>label</i> or the <i>path</i> of the base Java installation to
+  This option sets the <i>label</i> of the base Java installation to
   use for running JavaBuilder, SingleJar, for <i>bazel run</i> and <i>bazel
   test</i>, and for Java binaries built by <code>java_binary</code> and <code>java_test</code>
-  rules. A path must be to a JDK or JRE directory that contains <code>bin/java</code>.
+  rules.
   The various  <a href='be/make-variables.html'>"Make" variables</a> for
   Java (<code>JAVABASE</code>, <code>JAVA</code>, <code>JAVAC</code> and
   <code>JAR</code>) are derived from this option.
@@ -2420,6 +2417,107 @@ either to the terminal, or to additional log files.
   for copying and pasting to a shell prompt.
 </p>
 
+<h3 id='workspace_status'>Options that control how Bazel embeds workspace status information
+into binaries ("stamping")</h3>
+
+<p>
+  Use these options to "stamp" Bazel-built binaries: to embed additional information into the
+  binaries, such as the source control revision or other workspace-related information. You can use
+  this mechanism with rules that support the <code>stamp</code> attribute, such as
+  <code>genrule</code>, <code>cc_binary</code>, and more.
+</p>
+
+<h4 id='flag--workspace_status_command'><code class='flag'>--workspace_status_command <var>program</var></code></h4>
+<p>
+  This flag lets you specify a binary that Bazel runs before each build. The program can report
+  information about the status of the workspace, such as the current source control revision.
+</p>
+<p>
+  The flag's value must be a path to a native program. On Linux/macOS this may be any executable.
+  On Windows this must be a native binary, typically an ".exe", ".bat", or a ".cmd" file.
+</p>
+
+<p>
+  The program should print zero or more key/value pairs to standard output, one entry on each line,
+  then exit with zero (otherwise the build fails). The key names can be anything but they may only
+  use upper case letters and underscores. The first space after the key name separates it from the
+  value. The value is the rest of the line (including additional whitespaces).
+</p>
+<p>
+  Bazel partitions the keys into two buckets: "stable" and "volatile". (The names "stable" and
+  "volatile" are a bit counter-intuitive, so don't think much about them.)
+</p>
+
+<p>Bazel then writes the key-value pairs into two files:</p>
+<ul>
+  <li>
+    <code>bazel-out/stable-status.txt</code> contains all keys and values where the key's name
+    starts with <code>STABLE_</code>
+  </li>
+  <li><code>bazel-out/volatile-status.txt</code> contains the rest of the keys and their values</li>
+</ul>
+
+<p>The contract is:</p>
+<ul>
+  <li>
+    <p>
+      "stable" keys' values should change rarely, if possible. If the contents of
+      <code>stable-status.txt</code> change, it invalidates the actions that depend on them. In
+      other words, if a stable key's value changes, it'll make Bazel rebuild stamped actions.
+      Therefore the stable status should not contain things like timestamps, because they change all
+      the time, and would make Bazel rebuild the stamped actions with each build.
+    </p>
+    <p>Bazel always outputs the following stable keys:</p>
+    <ul>
+      <li><code>BUILD_EMBED_LABEL</code>: value of <code class='flag'>--embed_label</code></li>
+      <li><code>BUILD_HOST</code>: the name of the host machine that Bazel is running on</li>
+      <li><code>BUILD_USER</code>: the name of the user that Bazel is running as</li>
+    </ul>
+  </li>
+  <li>
+    <p>
+      "volatile" keys' values may change often. Bazel expects them to change all the time, like
+      timestamps do, and duly updates the <code>volatile-status.txt</code> file. In order to avoid
+      rebuilding stamped actions all the time though, <b>Bazel pretends that the volatile file never
+      changes</b>. In other words, if the volatile status file is the only one whose contents
+      changed, that will not invalidate actions that depend on it. If other inputs of the actions
+      have changed, then Bazel rebuilds that action, and the action will use the updated volatile
+      status, but just the volatile status changing alone will not invalidate the action.
+    </p>
+    <p>Bazel always outputs the following volatile keys:</p>
+    <ul>
+      <li>
+        <code>BUILD_TIMESTAMP</code>: time of the build in seconds since the Unix Epoch (the value
+        of <code>System.currentTimeMillis()</code> divided by a thousand)
+      </li>
+    </ul>
+  </li>
+</ul>
+
+<p>
+  On Linux/macOS you can pass <code class='flag'>--workspace_status_command=/bin/true</code> to
+  disable retrieving workspace status, because <code>true</code> does nothing successfully (exits
+  with zero) and prints no output. On Windows you can pass the path of MSYS's <code>true.exe</code>
+  for the same effect.
+</p>
+
+<p>If the workspace status command fails (exits non-zero) for any reason, the build will fail.</p>
+
+<p>Example program on Linux using Git:</p>
+
+<pre>
+#!/bin/bash
+echo "CURRENT_TIME $(date +%s)"
+echo "RANDOM_HASH $(cat /dev/urandom | head -c16 | md5sum 2>/dev/null | cut -f1 -d' ')"
+echo "STABLE_GIT_COMMIT $(git rev-parse HEAD)"
+echo "STABLE_USER_NAME $USER"
+</pre>
+
+<p>
+  Pass this program's path with <code>--workspace_status_command</code>, and the stable status file
+  will include the STABLE lines and the volatile status file will include the rest of the lines.
+</p>
+
 <h4 id='flag--stamp'><code class='flag'>--[no]stamp</code></h4>
 <p>
   This option controls whether stamping is enabled for
@@ -2939,7 +3037,10 @@ in an environment closer to the current shell environment. Note that none of the
 
 <p>
   Bazel includes a query language for asking questions about the
-  dependency graph used during the build.  The query tool is an
+  dependency graph used during the build.  The query language is used
+  by two commands: query and cquery. The major difference between the
+  two commands is that query runs after the <a href='#loading-phase'>loading phase</a>
+  and cquery runs after the <a href='#analysis-phase'>analysis phase</a>. These tools are an
   invaluable aid to many software engineering tasks.
 </p>
 <p>
@@ -3268,6 +3369,16 @@ adb -s deadbeef install ...
   printed to the console.
 </p>
 
+
+<h3 id='dump'>The <code>dump</code> command</h3>
+
+<p>
+  The <code>dump</code> command prints to stdout a dump of the
+  internal state of the Bazel server.  This command is intended
+  primarily for use by Bazel developers, so the output of this command
+  is not specified, and is subject to change.
+</p>
+
 <p>
   By default, command will just print help message outlining possible
   options to dump specific areas of the Bazel state. In order to dump
@@ -3279,7 +3390,6 @@ adb -s deadbeef install ...
 <ul>
   <li><code class='flag'>--action_cache</code> dumps action cache content.</li>
   <li><code class='flag'>--packages</code> dumps package cache content.</li>
-  <li><code class='flag'>--vfs</code> dumps VFS state.</li>
   <li><code class='flag'>--skyframe</code> dumps state of internal Bazel dependency graph.</li>
   <li><code class='flag'>--rules</code> dumps rule summary for each rule and aspect class,
     including counts and action counts. This includes both native and Skylark rules.
@@ -3287,6 +3397,16 @@ adb -s deadbeef install ...
   <li><code class='flag'>--skylark_memory</code> dumps a
     <href a=https://github.com/google/pprof>pprof</href> compatible .gz file to the specified path.
     You must enable memory tracking for this to work.</li>
+  <li><code class='flag'>--action_graph=/path/to/file</code> dumps the state of
+    the internal Bazel action graph in proto format to
+    <code>/path/to/file</code>. You have to run (at least) the analysis phase
+    for the targets you are interested in (for example, <code>bazel build --nobuild
+    //foo:bar</code>). Note that this feature is still experimental, subject to
+    change and will probably be integrated into <code>cquery</code> in the
+    future.
+  <li><code class='flag'>--action_graph:targets=target1,target2,...</code>
+    filters the actions to the comma-separated list of targets when dumping the
+    action graph.</li>
 </ul>
 
   <h4 id='memory-tracking'>Memory tracking</h4>

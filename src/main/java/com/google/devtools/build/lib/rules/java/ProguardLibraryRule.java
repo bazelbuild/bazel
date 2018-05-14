@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 
 /**
@@ -33,7 +32,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 public final class ProguardLibraryRule implements RuleDefinition {
 
   @Override
-  public RuleClass build(Builder builder, final RuleDefinitionEnvironment environment) {
+  public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment environment) {
     return builder
         /* <!-- #BLAZE_RULE($proguard_library).ATTRIBUTE(proguard_specs) -->
         Files to be used as Proguard specification.

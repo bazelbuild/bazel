@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsInfo.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.MultiArchBinarySupport.DependencySpecificConfiguration;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -113,7 +115,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     AppleBinaryOutput appleBinaryOutput = linkMultiArchBinary(ruleContext);
 
     return ruleConfiguredTargetFromProvider(ruleContext, appleBinaryOutput);
@@ -130,7 +132,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
    * @return a tuple containing all necessary information about the linked binary
    */
   public static AppleBinaryOutput linkMultiArchBinary(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     MultiArchSplitTransitionProvider.validateMinimumOs(ruleContext);
     PlatformType platformType = MultiArchSplitTransitionProvider.getPlatformType(ruleContext);
 
@@ -142,6 +144,9 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             "non_propagated_deps", Mode.SPLIT, ObjcProvider.SKYLARK_CONSTRUCTOR);
     ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap =
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
+    ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndData>
+        configToCTATDepsCollectionMap =
+            ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration("deps", Mode.SPLIT);
 
     ImmutableMap<BuildConfiguration, CcToolchainProvider> childConfigurations =
         MultiArchBinarySupport.getChildConfigurationsAndToolchains(ruleContext);
@@ -154,6 +159,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         multiArchBinarySupport.getDependencySpecificConfigurations(
             childConfigurations,
             configToDepsCollectionMap,
+            configToCTATDepsCollectionMap,
             configurationToNonPropagatedObjcMap,
             getDylibProviderTargets(ruleContext));
 
@@ -173,7 +179,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             outputArtifact,
             platform);
 
-    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
+    ObjcProvider.Builder objcProviderBuilder =
+        new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getSkylarkSemantics());
     for (DependencySpecificConfiguration dependencySpecificConfiguration :
         dependencySpecificConfigurations) {
       objcProviderBuilder.addTransitiveAndPropagate(
@@ -296,7 +303,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   }
 
   private static ConfiguredTarget ruleConfiguredTargetFromProvider(
-      RuleContext ruleContext, AppleBinaryOutput appleBinaryOutput) throws RuleErrorException {
+      RuleContext ruleContext, AppleBinaryOutput appleBinaryOutput)
+      throws RuleErrorException, ActionConflictException {
     NativeInfo nativeInfo = appleBinaryOutput.getBinaryInfoProvider();
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 

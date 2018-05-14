@@ -18,10 +18,10 @@ import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Comp
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -70,7 +71,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     final JavaCommon common = new JavaCommon(ruleContext, semantics);
     DeployArchiveBuilder deployArchiveBuilder =  new DeployArchiveBuilder(semantics, ruleContext);
     Runfiles.Builder runfilesBuilder = new Runfiles.Builder(
@@ -138,19 +139,23 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     // TODO(b/64384912): Remove in favor of CcToolchainProvider
     boolean stripAsDefault =
-        CppHelper.useFission(cppConfiguration, ccToolchain)
-            && cppConfiguration.getCompilationMode() == CompilationMode.OPT;
-    Artifact launcher = semantics.getLauncher(ruleContext, common, deployArchiveBuilder,
-        runfilesBuilder, jvmFlags, attributesBuilder, stripAsDefault);
-
+        ccToolchain.useFission() && cppConfiguration.getCompilationMode() == CompilationMode.OPT;
     DeployArchiveBuilder unstrippedDeployArchiveBuilder = null;
-    Artifact unstrippedLauncher = null;
     if (stripAsDefault) {
       unstrippedDeployArchiveBuilder = new DeployArchiveBuilder(semantics, ruleContext);
-      unstrippedLauncher = semantics.getLauncher(ruleContext, common,
-          unstrippedDeployArchiveBuilder, runfilesBuilder, jvmFlags, attributesBuilder,
-          false  /* shouldStrip */);
     }
+    Pair<Artifact, Artifact> launcherAndUnstrippedLauncher =
+        semantics.getLauncher(
+            ruleContext,
+            common,
+            deployArchiveBuilder,
+            unstrippedDeployArchiveBuilder,
+            runfilesBuilder,
+            jvmFlags,
+            attributesBuilder,
+            stripAsDefault);
+    Artifact launcher = launcherAndUnstrippedLauncher.first;
+    Artifact unstrippedLauncher = launcherAndUnstrippedLauncher.second;
 
     JavaCompilationArtifacts.Builder javaArtifactsBuilder = new JavaCompilationArtifacts.Builder();
     Artifact instrumentationMetadata =
@@ -246,8 +251,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     // Collect the action inputs for the runfiles collector here because we need to access the
     // analysis environment, and that may no longer be safe when the runfiles collector runs.
     Iterable<Artifact> dynamicRuntimeActionInputs =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
-            .getDynamicRuntimeLinkInputs();
+        CppHelper.getDefaultCcToolchainDynamicRuntimeInputs(ruleContext);
 
     Iterables.addAll(jvmFlags,
         semantics.getJvmFlags(ruleContext, common.getSrcsArtifacts(), userJvmFlags));
@@ -302,9 +306,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         JavaPrimaryClassProvider.class,
         new JavaPrimaryClassProvider(
             semantics.getPrimaryClass(ruleContext, common.getSrcsArtifacts())));
-    semantics.addProviders(ruleContext, common, jvmFlags, classJar, srcJar,
-            genClassJar, genSourceJar, ImmutableMap.<Artifact, Artifact>of(),
-            filesBuilder, builder);
     if (generatedExtensionRegistryProvider != null) {
       builder.add(GeneratedExtensionRegistryProvider.class, generatedExtensionRegistryProvider);
     }

@@ -14,10 +14,16 @@ java_library(
     exports = [
         ":autocodec-annotation",
         # Generated classes have the following dependencies.
+        ":registered-singleton",
         ":unsafe-provider",
         "//third_party/protobuf:protobuf_java",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
     ],
+)
+
+java_library(
+    name = "registered-singleton",
+    srcs = ["RegisteredSingletonDoNotUse.java"],
 )
 
 # @AutoCodec annotation only. Used by clients and the processor.
@@ -51,11 +57,12 @@ java_library(
     ],
     deps = [
         ":autocodec-annotation",
+        ":registered-singleton",
         ":unsafe-provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//third_party:auto_service",
+        "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:jsr305",
         "//third_party/java/javapoet",
         "//third_party/protobuf:protobuf_java",
     ],
@@ -72,6 +79,7 @@ pkg_tar(
     files = {
         ":libautocodec-annotation.jar": "third_party/bazel_bootstrap/libautocodec-annotation.jar",
         ":libautocodec-processor.jar": "third_party/bazel_bootstrap/libautocodec-processor.jar",
+        ":libregistered-singleton.jar": "third_party/bazel_bootstrap/libregistered-singleton.jar",
         ":libunsafe-provider.jar": "third_party/bazel_bootstrap/libunsafe-provider.jar",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:libserialization.jar": "third_party/bazel_bootstrap/libserialization.jar",
     },

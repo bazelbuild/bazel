@@ -17,7 +17,7 @@
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/zip_headers.h"
 #include "src/tools/singlejar/zlib_interface.h"
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 // A test fixture is used because friend access to class under test is needed.
 // Tests are instance methods to avoid gUnit dep in .h file.

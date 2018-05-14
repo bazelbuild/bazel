@@ -20,9 +20,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Syntax node for lists comprehension expressions.
- */
+/** Syntax node for lists comprehension expressions. */
 public final class ListComprehension extends AbstractComprehension {
   private final Expression outputExpression;
 

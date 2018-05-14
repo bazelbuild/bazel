@@ -18,20 +18,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -50,14 +47,14 @@ import java.util.Map;
  * <p>This implementation never emits events through the {@link ExtendedEventHandler}s passed to its
  * methods. Instead, it emits events through its environment's {@link Environment#getListener()}.
  */
-public final class EnvironmentBackedRecursivePackageProvider implements RecursivePackageProvider {
+public final class EnvironmentBackedRecursivePackageProvider
+    extends AbstractRecursivePackageProvider {
 
   private final Environment env;
-  private final PathPackageLocator pkgPath;
 
-  public EnvironmentBackedRecursivePackageProvider(Environment env, PathPackageLocator pkgPath) {
+  EnvironmentBackedRecursivePackageProvider(Environment env, PathPackageLocator pkgPath) {
+    super(pkgPath);
     this.env = env;
-    this.pkgPath = pkgPath;
   }
 
   @Override
@@ -94,15 +91,6 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
       builder.put(pkgId, getPackage(env.getListener(), pkgId));
     }
     return builder.build();
-  }
-
-  @Override
-  public Path getBuildFileForPackage(PackageIdentifier packageName) {
-    try {
-      return pkgPath.getPackageBuildFile(packageName);
-    } catch (NoSuchPackageException e) {
-      return null;
-    }
   }
 
   @Override
@@ -186,21 +174,5 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
     }
 
     return packageNames;
-  }
-
-  @Override
-  public Target getTarget(ExtendedEventHandler eventHandler, Label label)
-      throws NoSuchPackageException, NoSuchTargetException, MissingDepException,
-          InterruptedException {
-    return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());
-  }
-
-  /**
-   * Indicates that a missing dependency is needed before target parsing can proceed. Currently
-   * used only in skyframe to notify the framework of missing dependencies. Caught by the compute
-   * method in {@link com.google.devtools.build.lib.skyframe.TargetPatternFunction}, which then
-   * returns null in accordance with the skyframe missing dependency policy.
-   */
-  static class MissingDepException extends RuntimeException {
   }
 }

@@ -28,18 +28,19 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -69,6 +70,7 @@ public final class JavaCompilationHelper {
   private final JavaSemantics semantics;
   private final ImmutableList<Artifact> additionalJavaBaseInputs;
   private final StrictDepsMode strictJavaDeps;
+  private final String fixDepsTool;
 
   private static final String DEFAULT_ATTRIBUTES_SUFFIX = "";
   private static final PathFragment JAVAC = PathFragment.create("_javac");
@@ -92,6 +94,7 @@ public final class JavaCompilationHelper {
     this.strictJavaDeps = disableStrictDeps
         ? StrictDepsMode.OFF
         : getJavaConfiguration().getFilteredStrictJavaDeps();
+    this.fixDepsTool = getJavaConfiguration().getFixDepsTool();
   }
 
   public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
@@ -227,16 +230,13 @@ public final class JavaCompilationHelper {
     builder.setProcessorPaths(attributes.getProcessorPath());
     builder.addProcessorNames(attributes.getProcessorNames());
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
+    builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
     builder.setDirectJars(attributes.getDirectJars());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
-    builder.setRuleKind(attributes.getRuleKind());
     builder.setTargetLabel(
         attributes.getTargetLabel() == null
             ? ruleContext.getLabel() : attributes.getTargetLabel());
-    AttributeMap attributeMap = ruleContext.attributes();
-    if (attributeMap.has("testonly", Type.BOOLEAN)) {
-      builder.setTestOnly(attributeMap.get("testonly", Type.BOOLEAN));
-    }
+    builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
     getAnalysisEnvironment().registerAction(builder.build());
   }
 
@@ -412,8 +412,8 @@ public final class JavaCompilationHelper {
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setDirectJars(attributes.getDirectJars());
-    builder.setRuleKind(attributes.getRuleKind());
     builder.setTargetLabel(attributes.getTargetLabel());
+    builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
     builder.setAdditionalInputs(NestedSetBuilder.wrap(Order.LINK_ORDER, additionalJavaBaseInputs));
     builder.setJavacJar(javaToolchain.getJavac());
     builder.setToolsJars(javaToolchain.getTools());
@@ -480,8 +480,18 @@ public final class JavaCompilationHelper {
    * @param manifestProto The artifact for the manifest proto emitted from JavaBuilder
    * @param genClassJar The artifact for the gen jar to output
    */
-  public void createGenJarAction(Artifact classJar, Artifact manifestProto,
+  public void createGenJarAction(
+      Artifact classJar,
+      Artifact manifestProto,
       Artifact genClassJar) {
+    createGenJarAction(
+        classJar, manifestProto, genClassJar, JavaRuntimeInfo.forHost(getRuleContext()));
+  }
+
+  public void createGenJarAction(Artifact classJar,
+      Artifact manifestProto,
+      Artifact genClassJar,
+      JavaRuntimeInfo hostJavabase) {
     getRuleContext()
         .registerAction(
             new SpawnAction.Builder()
@@ -489,9 +499,9 @@ public final class JavaCompilationHelper {
                 .addInput(classJar)
                 .addOutput(genClassJar)
                 .addTransitiveInputs(
-                    JavaRuntimeInfo.forHost(getRuleContext()).javaBaseInputsMiddleman())
+                    hostJavabase.javaBaseInputsMiddleman())
                 .setJarExecutable(
-                    JavaCommon.getHostJavaExecutable(ruleContext),
+                    JavaCommon.getHostJavaExecutable(hostJavabase),
                     getGenClassJar(ruleContext),
                     javaToolchain.getJvmOptions())
                 .addCommandLine(
@@ -633,8 +643,14 @@ public final class JavaCompilationHelper {
       resourceJars.add(gensrcJar);
     }
     SingleJarActionBuilder.createSourceJarAction(
-        ruleContext, semantics, attributes.getSourceFiles(),
-        resourceJars.build(), outputJar, javaToolchainProvider, hostJavabase);
+        ruleContext,
+        ruleContext,
+        semantics,
+        attributes.getSourceFiles(),
+        resourceJars.build(),
+        outputJar,
+        javaToolchainProvider,
+        hostJavabase);
   }
 
   public void createSourceJarAction(Artifact outputJar, @Nullable Artifact gensrcJar) {
@@ -661,7 +677,15 @@ public final class JavaCompilationHelper {
     if (shouldUseHeaderCompilation()) {
       jar = createHeaderCompilationAction(runtimeJar, builder);
     } else if (getJavaConfiguration().getUseIjars()) {
-      jar = createIjarAction(ruleContext, javaToolchain, runtimeJar, false);
+      JavaTargetAttributes attributes = getAttributes();
+      jar =
+          createIjarAction(
+              ruleContext,
+              javaToolchain,
+              runtimeJar,
+              attributes.getTargetLabel(),
+              attributes.getInjectingRuleKind(),
+              false);
     } else {
       jar = runtimeJar;
       isFullJar = true;
@@ -685,12 +709,11 @@ public final class JavaCompilationHelper {
   }
 
   private void addLibrariesToAttributesInternal(Iterable<? extends TransitiveInfoCollection> deps) {
-    JavaCompilationArgs args = JavaCompilationArgs.builder()
-        .addTransitiveTargets(deps).build();
+    JavaCompilationArgs args =
+        JavaCompilationArgsProvider.legacyFromTargets(deps).getRecursiveJavaCompilationArgs();
 
-    NestedSet<Artifact> directJars = isStrict()
-        ? getNonRecursiveCompileTimeJarsFromCollection(deps)
-        : null;
+    NestedSet<Artifact> directJars =
+        isStrict() ? getNonRecursiveCompileTimeJarsFromCollection(deps) : null;
     addArgsAndJarsToAttributes(args, directJars);
   }
 
@@ -701,7 +724,10 @@ public final class JavaCompilationHelper {
   private NestedSet<Artifact> getNonRecursiveCompileTimeJarsFromCollection(
       Iterable<? extends TransitiveInfoCollection> deps) {
     JavaCompilationArgs.Builder builder = JavaCompilationArgs.builder();
-    builder.addTransitiveTargets(deps, /*recursive=*/false);
+    builder.addTransitiveCompilationArgs(
+        JavaCompilationArgsProvider.legacyFromTargets(deps),
+        /*recursive=*/ false,
+        ClasspathType.BOTH);
     return builder.build().getCompileTimeJars();
   }
 
@@ -750,6 +776,11 @@ public final class JavaCompilationHelper {
    */
   public StrictDepsMode getStrictJavaDeps() {
     return strictJavaDeps;
+  }
+
+  /** Determines which tool to use when fixing dependency errors. */
+  public String getFixDepsTool() {
+    return fixDepsTool;
   }
 
   /**
@@ -837,17 +868,28 @@ public final class JavaCompilationHelper {
    * Creates the Action that creates ijars from Jar files.
    *
    * @param inputJar the Jar to create the ijar for
-   * @param addPrefix whether to prefix the path of the generated ijar with the package and
-   *     name of the current rule
+   * @param addPrefix whether to prefix the path of the generated ijar with the package and name of
+   *     the current rule
    * @return the Artifact to create with the Action
    */
   protected static Artifact createIjarAction(
       RuleContext ruleContext,
       JavaToolchainProvider javaToolchain,
-      Artifact inputJar, boolean addPrefix) {
+      Artifact inputJar,
+      @Nullable Label targetLabel,
+      @Nullable String injectingRuleKind,
+      boolean addPrefix) {
     Artifact interfaceJar = getIjarArtifact(ruleContext, inputJar, addPrefix);
     FilesToRunProvider ijarTarget = javaToolchain.getIjar();
     if (!ruleContext.hasErrors()) {
+      CustomCommandLine.Builder commandLine =
+          CustomCommandLine.builder().addExecPath(inputJar).addExecPath(interfaceJar);
+      if (targetLabel != null) {
+        commandLine.addLabel("--target_label", targetLabel);
+      }
+      if (injectingRuleKind != null) {
+        commandLine.add("--injecting_rule_kind", injectingRuleKind);
+      }
       ruleContext.registerAction(
           new SpawnAction.Builder()
               .addInput(inputJar)
@@ -859,11 +901,7 @@ public final class JavaCompilationHelper {
               .useDefaultShellEnvironment()
               .setProgressMessage("Extracting interface %s", ruleContext.getLabel())
               .setMnemonic("JavaIjar")
-              .addCommandLine(
-                  CustomCommandLine.builder()
-                      .addExecPath(inputJar)
-                      .addExecPath(interfaceJar)
-                      .build())
+              .addCommandLine(commandLine.build())
               .build(ruleContext));
     }
     return interfaceJar;
@@ -890,10 +928,10 @@ public final class JavaCompilationHelper {
    * The new artifact will have the same root as the given one.
    */
   static Artifact derivedArtifact(
-      RuleContext ruleContext, Artifact artifact, String prefix, String suffix) {
+      ActionConstructionContext context, Artifact artifact, String prefix, String suffix) {
     PathFragment path = artifact.getRootRelativePath();
     String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
     path = path.replaceName(prefix + basename);
-    return ruleContext.getDerivedArtifact(path, artifact.getRoot());
+    return context.getDerivedArtifact(path, artifact.getRoot());
   }
 }

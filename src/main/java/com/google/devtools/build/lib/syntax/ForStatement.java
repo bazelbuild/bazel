@@ -18,9 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Syntax node for a for loop statement.
- */
+/** Syntax node for a for loop statement. */
 public final class ForStatement extends Statement {
 
   private final LValue variable;

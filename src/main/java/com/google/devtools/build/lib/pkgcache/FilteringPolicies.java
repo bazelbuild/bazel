@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
 /**
@@ -34,13 +36,15 @@ public final class FilteringPolicies {
     return new AndFilteringPolicy(x, y);
   }
 
+  public static FilteringPolicy ruleType(String ruleName, boolean keepExplicit) {
+    return RuleTypeFilter.create(ruleName, keepExplicit);
+  }
+
   private FilteringPolicies() {
   }
 
-  /**
-   * Base class for singleton filtering policies.
-   */
-  private abstract static class AbstractFilteringPolicy implements FilteringPolicy {
+  /** Base class for singleton filtering policies. */
+  private abstract static class AbstractFilteringPolicy extends FilteringPolicy {
     private final int hashCode = getClass().getSimpleName().hashCode();
 
     @Override
@@ -89,8 +93,35 @@ public final class FilteringPolicies {
     }
   }
 
+  /** FilteringPolicy that only matches a specific rule name. */
+  @AutoValue
+  @AutoCodec
+  abstract static class RuleTypeFilter extends FilteringPolicy {
+    abstract String ruleName();
+
+    abstract boolean keepExplicit();
+
+    @Override
+    public boolean shouldRetain(Target target, boolean explicit) {
+      if (explicit && keepExplicit()) {
+        return true;
+      }
+
+      if (target.getAssociatedRule().getRuleClass().equals(ruleName())) {
+        return true;
+      }
+
+      return false;
+    }
+
+    @AutoCodec.Instantiator
+    static RuleTypeFilter create(String ruleName, boolean keepExplicit) {
+      return new AutoValue_FilteringPolicies_RuleTypeFilter(ruleName, keepExplicit);
+    }
+  }
+
   /** FilteringPolicy for combining FilteringPolicies. */
-  public static class AndFilteringPolicy implements FilteringPolicy {
+  public static class AndFilteringPolicy extends FilteringPolicy {
     private final FilteringPolicy firstPolicy;
     private final FilteringPolicy secondPolicy;
 

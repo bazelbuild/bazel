@@ -14,12 +14,9 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
-import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -36,29 +33,5 @@ public class ConstraintSettingInfoTest extends BuildViewTestCase {
             ConstraintSettingInfo.create(makeLabel("//constraint:basic")))
         .addEqualityGroup(ConstraintSettingInfo.create(makeLabel("//constraint:other")))
         .testEquals();
-  }
-
-  @Test
-  public void constraintSettingInfoConstructor() throws Exception {
-    scratch.file(
-        "test/platform/my_constraint_setting.bzl",
-        "def _impl(ctx):",
-        "  constraint_setting = platform_common.ConstraintSettingInfo(label = ctx.label)",
-        "  return [constraint_setting]",
-        "my_constraint_setting = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "  }",
-        ")");
-    scratch.file(
-        "test/platform/BUILD",
-        "load('//test/platform:my_constraint_setting.bzl', 'my_constraint_setting')",
-        "my_constraint_setting(name = 'custom')");
-
-    ConfiguredTarget setting = getConfiguredTarget("//test/platform:custom");
-    assertThat(setting).isNotNull();
-    assertThat(PlatformProviderUtils.constraintSetting(setting)).isNotNull();
-    assertThat(PlatformProviderUtils.constraintSetting(setting).label())
-        .isEqualTo(Label.parseAbsolute("//test/platform:custom"));
   }
 }

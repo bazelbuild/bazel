@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
@@ -28,8 +28,8 @@ import java.util.Objects;
  * the WORKSPACE file.
  */
 public class WorkspaceNameValue implements SkyValue {
-  private static final SkyKey KEY =
-      LegacySkyKey.create(SkyFunctions.WORKSPACE_NAME, DummyArgument.INSTANCE);
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final SkyKey KEY = () -> SkyFunctions.WORKSPACE_NAME;
 
   private final String workspaceName;
 
@@ -71,29 +71,5 @@ public class WorkspaceNameValue implements SkyValue {
   @Override
   public String toString() {
     return String.format("WorkspaceNameValue[name=%s]", workspaceName);
-  }
-
-  /** Singleton class used as the {@link SkyKey#argument} for {@link WorkspaceNameValue#key}. */
-  public static final class DummyArgument {
-    static final int HASHCODE = DummyArgument.class.getCanonicalName().hashCode();
-    public static final DummyArgument INSTANCE = new DummyArgument();
-
-    private DummyArgument() {
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      return obj instanceof DummyArgument;
-    }
-
-    @Override
-    public int hashCode() {
-      return HASHCODE;
-    }
-
-    @Override
-    public String toString() {
-      return "#";
-    }
   }
 }

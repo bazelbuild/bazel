@@ -82,6 +82,8 @@
 
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
+export BAZEL_SHELL_TEST=1
+
 #### Configuration variables (may be overridden by testenv.sh or the suite):
 
 # This function may be called by testenv.sh or a test suite to enable errexit

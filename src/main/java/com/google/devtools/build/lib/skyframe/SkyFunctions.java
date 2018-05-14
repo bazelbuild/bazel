@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Predicate;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -45,8 +46,12 @@ public final class SkyFunctions {
   public static final SkyFunctionName GLOB = SkyFunctionName.create("GLOB");
   public static final SkyFunctionName PACKAGE = SkyFunctionName.create("PACKAGE");
   public static final SkyFunctionName PACKAGE_ERROR = SkyFunctionName.create("PACKAGE_ERROR");
+  public static final SkyFunctionName PACKAGE_ERROR_MESSAGE =
+      SkyFunctionName.create("PACKAGE_ERROR_MESSAGE");
   public static final SkyFunctionName TARGET_MARKER = SkyFunctionName.create("TARGET_MARKER");
   public static final SkyFunctionName TARGET_PATTERN = SkyFunctionName.create("TARGET_PATTERN");
+  public static final SkyFunctionName TARGET_PATTERN_ERROR =
+      SkyFunctionName.create("TARGET_PATTERN_ERROR");
   public static final SkyFunctionName PREPARE_DEPS_OF_PATTERNS =
       SkyFunctionName.create("PREPARE_DEPS_OF_PATTERNS");
   public static final SkyFunctionName PREPARE_DEPS_OF_PATTERN =
@@ -84,8 +89,7 @@ public final class SkyFunctions {
   public static final SkyFunctionName CONFIGURATION_FRAGMENT =
       SkyFunctionName.create("CONFIGURATION_FRAGMENT");
   public static final SkyFunctionName ARTIFACT = SkyFunctionName.create("ARTIFACT");
-  public static final SkyFunctionName ACTION_EXECUTION =
-      SkyFunctionName.create("ACTION_EXECUTION");
+  public static final SkyFunctionName ACTION_EXECUTION = ActionLookupData.NAME;
   public static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
       SkyFunctionName.create("RECURSIVE_DIRECTORY_TRAVERSAL");
   public static final SkyFunctionName FILESET_ENTRY = SkyFunctionName.create("FILESET_ENTRY");

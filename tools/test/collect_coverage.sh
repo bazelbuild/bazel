@@ -88,6 +88,7 @@ fi
 if [[ "$COVERAGE_LEGACY_MODE" ]]; then
   export GCOV_PREFIX_STRIP=3
   export GCOV_PREFIX="${COVERAGE_DIR}"
+  export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
 fi
 
 cd "$TEST_SRCDIR/$TEST_WORKSPACE"
@@ -107,11 +108,17 @@ fi
 
 cd $ROOT
 
-# If LCOV_MERGER is not set, use the legacy, awful, C++-only method to convert
-# coverage files.
-# NB: This is here just so that we don't regress. Do not add support for new
-# coverage features here. Implement it instead properly in LcovMerger.
-if [[ "$COVERAGE_LEGACY_MODE" ]]; then
+USES_LLVM_COV=
+if stat --printf='' "${COVERAGE_DIR}"/*.profraw 2>/dev/null; then
+  USES_LLVM_COV=1
+fi
+
+if [[ "$USES_LLVM_COV" ]]; then
+  "${COVERAGE_GCOV_PATH}" merge -output "${COVERAGE_OUTPUT_FILE}" "${COVERAGE_DIR}"/*.profraw
+  exit $TEST_STATUS
+
+# If LCOV_MERGER is not set, use the legacy C++-only method to convert coverage files.
+elif [[ "$COVERAGE_LEGACY_MODE" ]]; then
   cat "${COVERAGE_MANIFEST}" | grep ".gcno$" | while read path; do
     mkdir -p "${COVERAGE_DIR}/$(dirname ${path})"
     cp "${ROOT}/${path}" "${COVERAGE_DIR}/${path}"
@@ -126,11 +133,26 @@ if [[ "$COVERAGE_LEGACY_MODE" ]]; then
     touch "${COVERAGE_DIR}/${path}"
   done
 
+  # Symlink the gcov tool such with a link called gcov. Clang comes with a tool
+  # called llvm-cov, which behaves like gcov if symlinked in this way (otherwise
+  # we would need to invoke it with "llvm-cov gcov").
+  GCOV="${COVERAGE_DIR}/gcov"
+  ln -s "${COVERAGE_GCOV_PATH}" "${GCOV}"
+
   # Run lcov over the .gcno and .gcda files to generate the lcov tracefile.
-  /usr/bin/lcov -c --no-external -d "${COVERAGE_DIR}" -o "${COVERAGE_OUTPUT_FILE}"
+  # -c - Collect coverage data
+  # --no-external - Do not collect coverage data for system files
+  # --ignore-errors graph - Ignore missing .gcno files; Bazel only instruments some files
+  # --gcov-tool "${GCOV}" - Pass the local symlink to be uses as gcov by lcov
+  # -d "${COVERAGE_DIR}" - Directory to search for .gcda files
+  # -o "${COVERAGE_OUTPUT_FILE}" - Output file
+  /usr/bin/lcov -c --no-external --ignore-errors graph \
+      --gcov-tool "${GCOV}" \
+      -d "${COVERAGE_DIR}" -o "${COVERAGE_OUTPUT_FILE}"
 
   # The paths are all wrong, because they point to /tmp. Fix up the paths to
   # point to the exec root instead (${ROOT}).
+  # This does not work with sandboxing, because ${ROOT} points to the sandbox dir.
   sed -i -e "s*${COVERAGE_DIR}*${ROOT}*g" "${COVERAGE_OUTPUT_FILE}"
 
   exit $TEST_STATUS

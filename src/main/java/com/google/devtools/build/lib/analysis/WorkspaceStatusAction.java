@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -53,14 +54,12 @@ import java.util.UUID;
  */
 public abstract class WorkspaceStatusAction extends AbstractAction {
 
-  /**
-   * Options controlling the workspace status command.
-   */
+  /** Options controlling the workspace status command. */
+  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends OptionsBase {
     @Option(
       name = "embed_label",
       defaultValue = "",
-      category = "misc",
       valueHelp = "<string>",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -71,7 +70,6 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     @Option(
       name = "workspace_status_command",
       defaultValue = "",
-      category = "misc",
       converter = OptionsUtils.PathFragmentConverter.class,
       valueHelp = "<path>",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

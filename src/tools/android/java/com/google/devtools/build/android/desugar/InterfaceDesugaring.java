@@ -17,6 +17,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.devtools.build.android.desugar.io.BitFlags;
+import com.google.devtools.build.android.desugar.io.FieldInfo;
+import java.lang.reflect.Method;
 import javax.annotation.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
@@ -46,7 +49,9 @@ class InterfaceDesugaring extends ClassVisitor {
 
   private final ClassVsInterface interfaceCache;
   private final DependencyCollector depsCollector;
+  private final CoreLibrarySupport coreLibrarySupport;
   private final ClassReaderFactory bootclasspath;
+  private final ClassLoader targetLoader;
   private final GeneratedClassStore store;
   private final boolean legacyJaCoCo;
 
@@ -61,13 +66,17 @@ class InterfaceDesugaring extends ClassVisitor {
       ClassVisitor dest,
       ClassVsInterface interfaceCache,
       DependencyCollector depsCollector,
+      @Nullable CoreLibrarySupport coreLibrarySupport,
       ClassReaderFactory bootclasspath,
+      ClassLoader targetLoader,
       GeneratedClassStore store,
       boolean legacyJaCoCo) {
     super(Opcodes.ASM6, dest);
     this.interfaceCache = interfaceCache;
     this.depsCollector = depsCollector;
+    this.coreLibrarySupport = coreLibrarySupport;
     this.bootclasspath = bootclasspath;
+    this.targetLoader = targetLoader;
     this.store = store;
     this.legacyJaCoCo = legacyJaCoCo;
   }
@@ -210,6 +219,10 @@ class InterfaceDesugaring extends ClassVisitor {
               internalName,
               desc);
           ++numberOfDefaultMethods;
+          if (coreLibrarySupport != null) {
+            coreLibrarySupport.registerIfEmulatedCoreInterface(
+                access, internalName, name, desc, exceptions);
+          }
           abstractDest =
               super.visitMethod(access | Opcodes.ACC_ABSTRACT, name, desc, signature, exceptions);
         }
@@ -234,7 +247,12 @@ class InterfaceDesugaring extends ClassVisitor {
     }
     return result != null
         ? new InterfaceInvocationRewriter(
-            result, isInterface() ? internalName : null, bootclasspath, depsCollector, codeOwner)
+            result,
+            isInterface() ? internalName : null,
+            bootclasspath,
+            targetLoader,
+            depsCollector,
+            codeOwner)
         : null;
   }
 
@@ -265,8 +283,7 @@ class InterfaceDesugaring extends ClassVisitor {
     return "<clinit>".equals(methodName);
   }
 
-  private static String normalizeInterfaceMethodName(
-      String name, boolean isLambda, boolean isStatic) {
+  static String normalizeInterfaceMethodName(String name, boolean isLambda, boolean isStatic) {
     if (isLambda) {
       // Rename lambda method to reflect the new owner.  Not doing so confuses LambdaDesugaring
       // if it's run over this class again. LambdaDesugaring has already renamed the method from
@@ -355,6 +372,7 @@ class InterfaceDesugaring extends ClassVisitor {
     @Nullable private final String interfaceName;
 
     private final ClassReaderFactory bootclasspath;
+    private final ClassLoader targetLoader;
     private final DependencyCollector depsCollector;
     /** Internal name that'll be used to record any dependencies on interface methods. */
     private final String declaringClass;
@@ -363,11 +381,13 @@ class InterfaceDesugaring extends ClassVisitor {
         MethodVisitor dest,
         @Nullable String knownInterfaceName,
         ClassReaderFactory bootclasspath,
+        ClassLoader targetLoader,
         DependencyCollector depsCollector,
         String declaringClass) {
       super(Opcodes.ASM6, dest);
       this.interfaceName = knownInterfaceName;
       this.bootclasspath = bootclasspath;
+      this.targetLoader = targetLoader;
       this.depsCollector = depsCollector;
       this.declaringClass = declaringClass;
     }
@@ -410,7 +430,16 @@ class InterfaceDesugaring extends ClassVisitor {
           checkArgument(!owner.endsWith(DependencyCollector.INTERFACE_COMPANION_SUFFIX),
               "shouldn't consider %s an interface", owner);
           if (opcode == Opcodes.INVOKESPECIAL) {
-            // Turn Interface.super.m() into Interface$$CC.m(receiver)
+            // Turn Interface.super.m() into DefiningInterface$$CC.m(receiver). Note that owner
+            // always refers to the current type's immediate super-interface, but the default method
+            // may be inherited by that interface, so we have to figure out where the method is
+            // defined and invoke it in the corresponding companion class (b/73355452).  Note that
+            // we're always dealing with interfaces here, and all interface methods are public,
+            // so using Class.getMethods should suffice to find inherited methods.  Also note this
+            // can only be a default method invocation, no abstract method invocation.
+            owner =
+                findDefaultMethod(owner, name, desc)
+                    .getDeclaringClass().getName().replace('.', '/');
             opcode = Opcodes.INVOKESTATIC;
             desc = companionDefaultMethodDescriptor(owner, desc);
           }
@@ -421,6 +450,23 @@ class InterfaceDesugaring extends ClassVisitor {
         }
       }
       super.visitMethodInsn(opcode, owner, name, desc, itf);
+    }
+
+    private Method findDefaultMethod(String owner, String name, String desc) {
+      try {
+        Class<?> clazz = targetLoader.loadClass(owner.replace('/', '.'));
+        // otherwise getting public methods with getMethods() below isn't enough
+        checkArgument(clazz.isInterface(), "Not an interface: %s", owner);
+        for (Method m : clazz.getMethods()) {
+          if (m.getName().equals(name) && Type.getMethodDescriptor(m).equals(desc)) {
+            checkState(m.isDefault(), "Found non-default method: %s", m);
+            return m;
+          }
+        }
+      } catch (ClassNotFoundException e) {
+        throw new IllegalStateException("Couldn't load " + owner, e);
+      }
+      throw new IllegalArgumentException("Method not found: " + owner + "." + name + desc);
     }
   }
 

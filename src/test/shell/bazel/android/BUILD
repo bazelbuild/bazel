@@ -25,7 +25,7 @@ sh_library(
 
 sh_test(
     name = "android_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["android_integration_test.sh"],
     data = [
         ":android_helper",
@@ -36,7 +36,7 @@ sh_test(
 
 sh_test(
     name = "aar_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["aar_integration_test.sh"],
     data = [
         ":android_helper",
@@ -71,6 +71,7 @@ sh_test(
 sh_test(
     name = "android_ndk_integration_test",
     size = "medium",
+    timeout = "long",
     srcs = ["android_ndk_integration_test.sh"],
     data = [
         ":android_helper",

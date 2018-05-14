@@ -18,6 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -65,7 +67,7 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
     Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact manifest =
         ActionsTestUtil.getFirstArtifactEndingWith(
-            runfilesArtifacts, "dummyTest_generated/dummyTest/AndroidManifest.xml");
+            runfilesArtifacts, "dummyTest_processed_manifest/AndroidManifest.xml");
     assertThat(manifest).isNotNull();
   }
 
@@ -109,6 +111,54 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    deps = extra_deps",
         "    manifest = 'NotAndroidManifest.xml')");
     assertNoEvents();
+  }
+
+  @Test
+  public void testCustomPackage() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
+        "android_local_test(name = 'dummyTest',",
+        "    srcs = ['test.java'],",
+        "    custom_package = 'custom.pkg',",
+        "    test_class = 'test',",
+        "    deps = extra_deps)");
+    ConfiguredTarget target = getConfiguredTarget("//a:dummyTest");
+    Artifact resourcesClassJar =
+        getImplicitOutputArtifact(target, AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
+    List<String> args = getGeneratingSpawnActionArgs(resourcesClassJar);
+    MoreAsserts.assertContainsSublist(args, "--packageForR", "custom.pkg");
+  }
+
+  @Test
+  public void testBinaryResources() throws Exception {
+    scratch.file(
+        "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
+        "android_local_test(name = 'dummyTest',",
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
+    useConfiguration("--experimental_android_local_test_binary_resources");
+    ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
+    Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
+    Artifact resourceApk =
+        ActionsTestUtil.getFirstArtifactEndingWith(runfilesArtifacts, "dummyTest.ap_");
+    assertThat(resourceApk).isNotNull();
+  }
+
+  @Test
+  public void testNoBinaryResources() throws Exception {
+    scratch.file(
+        "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
+        "android_local_test(name = 'dummyTest',",
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
+    ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
+    Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
+    Artifact resourceApk =
+        ActionsTestUtil.getFirstArtifactEndingWith(runfilesArtifacts, "dummyTest.ap_");
+    assertThat(resourceApk).isNull();
   }
 
   @Override

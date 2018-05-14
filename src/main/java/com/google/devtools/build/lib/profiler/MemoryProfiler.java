@@ -14,10 +14,18 @@
 
 package com.google.devtools.build.lib.profiler;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
+import java.time.Duration;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import javax.annotation.Nullable;
 
 /**
  * Blaze memory profiler.
@@ -46,10 +54,18 @@ public final class MemoryProfiler {
 
   private PrintStream memoryProfile;
   private ProfilePhase currentPhase;
+  private long heapUsedMemoryAtFinish;
+  @Nullable private MemoryProfileStableHeapParameters memoryProfileStableHeapParameters;
+
+  public synchronized void setStableMemoryParameters(
+      MemoryProfileStableHeapParameters memoryProfileStableHeapParameters) {
+    this.memoryProfileStableHeapParameters = memoryProfileStableHeapParameters;
+  }
 
   public synchronized void start(OutputStream out) {
     this.memoryProfile = (out == null) ? null : new PrintStream(out);
     this.currentPhase = ProfilePhase.INIT;
+    heapUsedMemoryAtFinish = 0;
   }
 
   public synchronized void stop() {
@@ -57,24 +73,100 @@ public final class MemoryProfiler {
       memoryProfile.close();
       memoryProfile = null;
     }
+    heapUsedMemoryAtFinish = 0;
   }
 
-  public synchronized void markPhase(ProfilePhase nextPhase) {
+  public synchronized long getHeapUsedMemoryAtFinish() {
+    return heapUsedMemoryAtFinish;
+  }
+
+  public synchronized void markPhase(ProfilePhase nextPhase) throws InterruptedException {
     if (memoryProfile != null) {
+      MemoryMXBean bean = ManagementFactory.getMemoryMXBean();
+      prepareBean(nextPhase, bean, (duration) -> Thread.sleep(duration.toMillis()));
       String name = currentPhase.description;
-      ManagementFactory.getMemoryMXBean().gc();
-      MemoryUsage memoryUsage = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+      MemoryUsage memoryUsage = bean.getHeapMemoryUsage();
       memoryProfile.println(name + ":heap:init:" + memoryUsage.getInit());
       memoryProfile.println(name + ":heap:used:" + memoryUsage.getUsed());
       memoryProfile.println(name + ":heap:commited:" + memoryUsage.getCommitted());
       memoryProfile.println(name + ":heap:max:" + memoryUsage.getMax());
+      if (nextPhase == ProfilePhase.FINISH) {
+        heapUsedMemoryAtFinish = memoryUsage.getUsed();
+      }
 
-      memoryUsage = ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage();
+      memoryUsage = bean.getNonHeapMemoryUsage();
       memoryProfile.println(name + ":non-heap:init:" + memoryUsage.getInit());
       memoryProfile.println(name + ":non-heap:used:" + memoryUsage.getUsed());
       memoryProfile.println(name + ":non-heap:commited:" + memoryUsage.getCommitted());
       memoryProfile.println(name + ":non-heap:max:" + memoryUsage.getMax());
       currentPhase = nextPhase;
     }
+  }
+
+  @VisibleForTesting
+  synchronized void prepareBean(ProfilePhase nextPhase, MemoryMXBean bean, Sleeper sleeper)
+      throws InterruptedException {
+    bean.gc();
+    if (nextPhase == ProfilePhase.FINISH && memoryProfileStableHeapParameters != null) {
+      for (int i = 1; i < memoryProfileStableHeapParameters.numTimesToDoGc; i++) {
+        sleeper.sleep(memoryProfileStableHeapParameters.timeToSleepBetweenGcs);
+        bean.gc();
+      }
+    }
+  }
+
+  /**
+   * Parameters that control how {@code MemoryProfiler} tries to get a stable heap at the end of the
+   * build.
+   */
+  public static class MemoryProfileStableHeapParameters {
+    private final int numTimesToDoGc;
+    private final Duration timeToSleepBetweenGcs;
+
+    private MemoryProfileStableHeapParameters(int numTimesToDoGc, Duration timeToSleepBetweenGcs) {
+      this.numTimesToDoGc = numTimesToDoGc;
+      this.timeToSleepBetweenGcs = timeToSleepBetweenGcs;
+    }
+
+    /** Converter for {@code MemoryProfileStableHeapParameters} option. */
+    public static class Converter
+        implements com.google.devtools.common.options.Converter<MemoryProfileStableHeapParameters> {
+      private static final Splitter SPLITTER = Splitter.on(',');
+
+      @Override
+      public MemoryProfileStableHeapParameters convert(String input)
+          throws OptionsParsingException {
+        Iterator<String> values = SPLITTER.split(input).iterator();
+        try {
+          int numTimesToDoGc = Integer.parseInt(values.next());
+          int numSecondsToSleepBetweenGcs = Integer.parseInt(values.next());
+          if (values.hasNext()) {
+            throw new OptionsParsingException("Expected exactly 2 comma-separated integer values");
+          }
+          if (numTimesToDoGc <= 0) {
+            throw new OptionsParsingException("Number of times to GC must be positive");
+          }
+          if (numSecondsToSleepBetweenGcs < 0) {
+            throw new OptionsParsingException(
+                "Number of seconds to sleep between GC's must be positive");
+          }
+          return new MemoryProfileStableHeapParameters(
+              numTimesToDoGc, Duration.ofSeconds(numSecondsToSleepBetweenGcs));
+        } catch (NumberFormatException | NoSuchElementException nfe) {
+          throw new OptionsParsingException(
+              "Expected exactly 2 comma-separated integer values", nfe);
+        }
+      }
+
+      @Override
+      public String getTypeDescription() {
+        return "two integers, separated by a comma";
+      }
+    }
+  }
+
+  @VisibleForTesting
+  interface Sleeper {
+    void sleep(Duration duration) throws InterruptedException;
   }
 }

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -254,7 +254,7 @@ public final class AspectCollection {
     // the original list in reverse).
     //
     // deps[aspect] contains all aspects that 'aspect' needs, in reverse order.
-    for (Entry<AspectDescriptor, Aspect> aspect :
+    for (Map.Entry<AspectDescriptor, Aspect> aspect :
         ImmutableList.copyOf(aspectMap.entrySet()).reverse()) {
       boolean needed = visibleAspects.contains(aspect.getKey());
       for (AspectDescriptor depAspectDescriptor : deps.keySet()) {

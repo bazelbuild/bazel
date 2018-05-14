@@ -20,6 +20,23 @@ import java.lang.annotation.Target;
 
 /**
  * A marker interface for Java methods which can be called from Skylark.
+ *
+ * <p>Methods annotated with this annotation are expected to meet certain requirements which are
+ * enforced by an annotation processor:
+ *
+ * <ul>
+ *   <li>The method must be public.
+ *   <li>If structField=true, there must be zero user-supplied parameters.
+ *   <li>The underlying java method's parameters must be supplied in the following order:
+ *       <pre>method([positionals]*[named args]*(extra positionals list)(extra kwargs)
+ *       (Location)(FuncallExpression)(Envrionment)(SkylarkSemantics))</pre>
+ *       where (extra positionals list) is a SkylarkList if extraPositionals is defined, (extra
+ *       kwargs) is a SkylarkDict if extraKeywords is defined, and Location, FuncallExpression,
+ *       Environment, and SkylarkSemantics are supplied by the interpreter if and only if
+ *       useLocation, useAst, useEnvironment, and useSkylarkSemantics are specified, respectively.
+ *   <li>The number of method parameters much match the number of annotation-declared parameters
+ *       plus the number of interpreter-supplied parameters.
+ * </ul>
  */
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
@@ -66,8 +83,83 @@ public @interface SkylarkCallable {
   Param[] parameters() default {};
 
   /**
+   * Defines a catch-all list for additional unspecified positional parameters.
+   *
+   * <p>If this is left as default, it is an error for the caller to pass more positional arguments
+   * than are explicitly allowed by the method signature. If this is defined, all additional
+   * positional arguments are passed as elements of a {@link SkylarkList} to the method.
+   *
+   * <p>See python's <code>*args</code> (http://thepythonguru.com/python-args-and-kwargs/).
+   *
+   * <p>(If this is defined, the annotated method signature must contain a corresponding SkylarkList
+   * parameter. See the interface-level javadoc for details.)
+   */
+  Param extraPositionals() default @Param(name = "");
+
+  /**
+   * Defines a catch-all dictionary for additional unspecified named parameters.
+   *
+   * <p>If this is left as default, it is an error for the caller to pass any named arguments not
+   * explicitly declared by the method signature. If this is defined, all additional named arguments
+   * are passed as elements of a {@link SkylarkDict} to the method.
+   *
+   * <p>See python's <code>**kwargs</code> (http://thepythonguru.com/python-args-and-kwargs/).
+   *
+   * <p>(If this is defined, the annotated method signature must contain a corresponding SkylarkDict
+   * parameter. See the interface-level javadoc for details.)
+   */
+  Param extraKeywords() default @Param(name = "");
+
+  /**
+   * If true, indicates that the class containing the annotated method has the ability to be called
+   * from skylark (as if it were a function) and that the annotated method should be invoked when
+   * this occurs.
+   *
+   * <p>A class may only have one method with selfCall set to true.</p>
+   *
+   * <p>A method with selfCall=true must not be a structField, and must have name specified
+   * (used for descriptive errors if, for example, there are missing arguments).</p>
+   */
+  boolean selfCall() default false;
+
+  /**
    * Set it to true if the Java method may return <code>null</code> (which will then be converted to
    * <code>None</code>). If not set and the Java method returns null, an error will be raised.
    */
   boolean allowReturnNones() default false;
+
+  /**
+   * If true, the location of the call site will be passed as an argument of the annotated function.
+   * (Thus, the annotated method signature must contain Location as a parameter. See the
+   * interface-level javadoc for details.)
+   *
+   * <p>This is incompatible with structField=true. If structField is true, this must be false.
+   */
+  boolean useLocation() default false;
+
+  /**
+   * If true, the AST of the call site will be passed as an argument of the annotated function.
+   * (Thus, the annotated method signature must contain FuncallExpression as a parameter. See the
+   * interface-level javadoc for details.)
+   *
+   * <p>This is incompatible with structField=true. If structField is true, this must be false.
+   */
+  boolean useAst() default false;
+
+  /**
+   * If true, the Skylark Environment will be passed as an argument of the annotated function.
+   * (Thus, the annotated method signature must contain Environment as a parameter. See the
+   * interface-level javadoc for details.)
+   *
+   * <p>This is incompatible with structField=true. If structField is true, this must be false.
+   */
+  boolean useEnvironment() default false;
+
+  /**
+   * If true, the Skylark semantics will be passed as an argument of the annotated function. (Thus,
+   * the annotated method signature must contain SkylarkSemantics as a parameter. See the
+   * interface-level javadoc for details.)
+   */
+  // TODO(cparsons): This field should work with structField=true.
+  boolean useSkylarkSemantics() default false;
 }

@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.cpp.CcImportRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -30,14 +30,14 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 /** Rule definition for the cc_import rule. */
 public final class BazelCcImportRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(CppConfiguration.class)
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
                 .value(CppRuleClasses.ccToolchainAttribute(env)))
         .add(
-            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)
+            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
         .add(attr(":stl", LABEL).value(BazelCppRuleClasses.STL))
         .build();
@@ -94,7 +94,7 @@ cc_import(
 )
 </pre>
 
-4. Linking a shared library with <code>system_provided=1</code> (Windows)
+4. Linking a shared library with <code>system_provided=True</code> (Windows)
 <pre class="code">
 cc_import(
   name = "mylib",

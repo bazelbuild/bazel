@@ -20,12 +20,15 @@
 #include <iostream>
 #include <memory>
 
+#include "src/main/cpp/util/exit_code.h"
+
 namespace blaze_util {
 
 const char* LogLevelName(LogLevel level) {
-  static const char* level_names[] = {"INFO", "WARNING", "ERROR", "FATAL"};
-  BAZEL_CHECK(static_cast<int>(level) < 4)
-      << "LogLevelName: level out of range, there are only 4 levels.";
+  static const char* level_names[] = {"INFO", "USER", "WARNING", "ERROR",
+                                      "FATAL"};
+  BAZEL_CHECK(static_cast<int>(level) < 5)
+      << "LogLevelName: level out of range, there are only 5 levels.";
   return level_names[level];
 }
 
@@ -34,7 +37,14 @@ namespace internal {
 static std::unique_ptr<LogHandler> log_handler_(nullptr);
 
 LogMessage::LogMessage(LogLevel level, const std::string& filename, int line)
-    : level_(level), filename_(filename), line_(line) {}
+    : level_(level),
+      filename_(filename),
+      line_(line),
+      exit_code_(blaze_exit_code::INTERNAL_ERROR) {}
+
+LogMessage::LogMessage(LogLevel level, const std::string& filename, int line,
+                       int exit_code)
+    : level_(level), filename_(filename), line_(line), exit_code_(exit_code) {}
 
 #undef DECLARE_STREAM_OPERATOR
 #define DECLARE_STREAM_OPERATOR(TYPE)              \
@@ -63,14 +73,20 @@ DECLARE_STREAM_OPERATOR(void*)
 void LogMessage::Finish() {
   std::string message(message_.str());
   if (log_handler_ != nullptr) {
-    log_handler_->HandleMessage(level_, filename_, line_, message);
-  } else if (level_ == LOGLEVEL_FATAL) {
-    // Expect the log_handler_ to handle FATAL calls, but we should still fail
-    // as expected even if no log_handler_ is defined. For ease of debugging,
-    // we also print out the error statement.
-    std::cerr << filename_ << ":" << line_ << " FATAL: " << message
-              << std::endl;
-    std::abort();
+    log_handler_->HandleMessage(level_, filename_, line_, message, exit_code_);
+  } else {
+    // If no custom handler was provided, never print INFO messages,
+    // but USER should always be printed, as should warnings and errors.
+    if (level_ == LOGLEVEL_USER) {
+      std::cerr << message << std::endl;
+    } else if (level_ > LOGLEVEL_USER) {
+      std::cerr << LogLevelName(level_) << ": " << message << std::endl;
+    }
+
+    if (level_ == LOGLEVEL_FATAL) {
+      // Exit for fatal calls after handling the message.
+      std::exit(exit_code_);
+    }
   }
 }
 
@@ -82,9 +98,14 @@ void SetLogHandler(std::unique_ptr<LogHandler> new_handler) {
   internal::log_handler_ = std::move(new_handler);
 }
 
-void SetLogfileDirectory(const std::string& output_dir) {
+void SetLoggingOutputStream(std::unique_ptr<std::ostream> output_stream) {
   if (internal::log_handler_ != nullptr) {
-    internal::log_handler_->SetOutputDir(output_dir);
+    internal::log_handler_->SetOutputStream(std::move(output_stream));
+  }
+}
+void SetLoggingOutputStreamToStderr() {
+  if (internal::log_handler_ != nullptr) {
+    internal::log_handler_->SetOutputStreamToStderr();
   }
 }
 

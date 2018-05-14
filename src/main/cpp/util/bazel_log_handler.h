@@ -22,29 +22,32 @@
 namespace blaze_util {
 
 // Handles logging for the Bazel client.
-// In order to have the logfile in output_base, which does not exist or is
-// unknown at the time of the client's creation, logs are buffered until
-// SetOutputDir is called. At that point, all past log statements are dumped
-// in the appropriate file, and all following statements are logged directly.
+// In order to control where the log output goes based on the flags received at
+// startup, logs are buffered until SetOutputStream is called. At that point,
+// all past log statements are dumped in the appropriate stream, and all
+// following statements are logged directly.
 class BazelLogHandler : public blaze_util::LogHandler {
  public:
   BazelLogHandler();
   ~BazelLogHandler() override;
 
   void HandleMessage(blaze_util::LogLevel level, const std::string& filename,
-                     int line, const std::string& message) override;
-
-  // Sets the output directory of the logfile.
-  // Can only be called once - all logs before this call will be buffered and
-  // dumped to the logfile once this is called. If this is never called, or if
-  // creating the logfile failed, the buffered logs will be dumped to stderr at
-  // destruction.
-  void SetOutputDir(const std::string& new_output_dir) override;
+                     int line, const std::string& message,
+                     int exit_code) override;
+  void SetOutputStream(
+      std::unique_ptr<std::ostream> new_output_stream) override;
+  void SetOutputStreamToStderr() override;
 
  private:
-  bool output_dir_set_attempted_;
+  void FlushBufferToNewStreamAndSet(std::ostream* new_output_stream);
+  bool output_stream_set_;
+  bool logging_deactivated_;
   std::unique_ptr<std::stringstream> buffer_stream_;
-  std::unique_ptr<std::ofstream> logfile_stream_;
+  // The actual output_stream to which all logs will be sent.
+  std::ostream* output_stream_;
+  // A unique pts to the output_stream, if we need to keep ownership of the
+  // stream. In the case of stderr logging, this is null.
+  std::unique_ptr<std::ostream> owned_output_stream_;
 };
 }  // namespace blaze_util
 

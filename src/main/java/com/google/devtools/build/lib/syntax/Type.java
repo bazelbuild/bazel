@@ -21,17 +21,17 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
 
@@ -193,44 +193,30 @@ public abstract class Type<T> {
     throw new UnsupportedOperationException(msg);
   }
 
-  /**
-   * The type of an integer.
-   */
-  public static final Type<Integer> INTEGER = new IntegerType();
+  /** The type of an integer. */
+  @AutoCodec public static final Type<Integer> INTEGER = new IntegerType();
 
-  /**
-   * The type of a string.
-   */
-  public static final Type<String> STRING = new StringType();
+  /** The type of a string. */
+  @AutoCodec public static final Type<String> STRING = new StringType();
 
-  /**
-   * The type of a boolean.
-   */
-  public static final Type<Boolean> BOOLEAN = new BooleanType();
+  /** The type of a boolean. */
+  @AutoCodec public static final Type<Boolean> BOOLEAN = new BooleanType();
 
-  /**
-   *  The type of a list of not-yet-typed objects.
-   */
-  public static final ObjectListType OBJECT_LIST = new ObjectListType();
+  /** The type of a list of not-yet-typed objects. */
+  @AutoCodec public static final ObjectListType OBJECT_LIST = new ObjectListType();
 
-  /**
-   *  The type of a list of {@linkplain #STRING strings}.
-   */
-  public static final ListType<String> STRING_LIST = ListType.create(STRING);
+  /** The type of a list of {@linkplain #STRING strings}. */
+  @AutoCodec public static final ListType<String> STRING_LIST = ListType.create(STRING);
 
-  /**
-   *  The type of a list of {@linkplain #INTEGER strings}.
-   */
-  public static final ListType<Integer> INTEGER_LIST = ListType.create(INTEGER);
+  /** The type of a list of {@linkplain #INTEGER strings}. */
+  @AutoCodec public static final ListType<Integer> INTEGER_LIST = ListType.create(INTEGER);
 
-  /**
-   *  The type of a dictionary of {@linkplain #STRING strings}.
-   */
+  /** The type of a dictionary of {@linkplain #STRING strings}. */
+  @AutoCodec
   public static final DictType<String, String> STRING_DICT = DictType.create(STRING, STRING);
 
-  /**
-   * The type of a dictionary of {@linkplain #STRING_LIST label lists}.
-   */
+  /** The type of a dictionary of {@linkplain #STRING_LIST label lists}. */
+  @AutoCodec
   public static final DictType<String, List<String>> STRING_LIST_DICT =
       DictType.create(STRING, STRING_LIST);
 
@@ -454,7 +440,7 @@ public abstract class Type<T> {
     @Override
     public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context)
         throws InterruptedException {
-      for (Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
+      for (Map.Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
         keyType.visitLabels(visitor, entry.getKey(), context);
         valueType.visitLabels(visitor, entry.getValue(), context);
       }
@@ -512,10 +498,11 @@ public abstract class Type<T> {
       if (!(x instanceof Map<?, ?>)) {
         throw new ConversionException(this, x, what);
       }
-      // Order the keys so the return value will be independent of insertion order.
-      Map<KeyT, ValueT> result = new TreeMap<>();
       Map<?, ?> o = (Map<?, ?>) x;
-      for (Entry<?, ?> elem : o.entrySet()) {
+      // It's possible that #convert() calls transform non-equal keys into equal ones so we can't
+      // just use ImmutableMap.Builder() here (that throws on collisions).
+      LinkedHashMap<KeyT, ValueT> result = new LinkedHashMap<>();
+      for (Map.Entry<?, ?> elem : o.entrySet()) {
         result.put(
             keyType.convert(elem.getKey(), "dict key element", context),
             valueType.convert(elem.getValue(), "dict value element", context));

@@ -230,7 +230,7 @@ function test_ijar_output() {
 
   # Check that -interface.jar timestamps are normalized:
   check_eq 0 $(TZ=UTC $JAR tvf $A_INTERFACE_JAR |
-               grep -v 'Tue Jan 01 00:00:00 UTC 1980' | wc -l) \
+               grep -v 'Fri Jan 01 00:00:00 UTC 2010' | wc -l) \
    "Interface jar contained non-zero timestamps!"
 
 

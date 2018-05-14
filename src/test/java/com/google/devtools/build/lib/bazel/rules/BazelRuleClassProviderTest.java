@@ -16,16 +16,26 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.pathOrDefault;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
+import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.StrictActionEnvOptions;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.rules.cpp.transitions.LipoDataTransitionRuleSet;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Options;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -64,6 +74,7 @@ public class BazelRuleClassProviderTest {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     builder.setToolsRepository(BazelRuleClassProvider.TOOLS_REPOSITORY);
     Set<RuleSet> result = new HashSet<>();
+    result.add(LipoDataTransitionRuleSet.INSTANCE);
     result.add(BazelRuleClassProvider.BAZEL_SETUP);
     collectTransitiveClosure(result, top);
     for (RuleSet module : result) {
@@ -94,7 +105,7 @@ public class BazelRuleClassProviderTest {
 
   @Test
   public void genericConsistency() {
-    checkModule(BazelRuleClassProvider.GENERIC_RULES);
+    checkModule(GenericRules.INSTANCE);
   }
 
   @Test
@@ -104,7 +115,7 @@ public class BazelRuleClassProviderTest {
 
   @Test
   public void shConsistency() {
-    checkModule(BazelRuleClassProvider.SH_RULES);
+    checkModule(ShRules.INSTANCE);
   }
 
   @Test
@@ -114,12 +125,12 @@ public class BazelRuleClassProviderTest {
 
   @Test
   public void cppConsistency() {
-    checkModule(BazelRuleClassProvider.CPP_RULES);
+    checkModule(CcRules.INSTANCE);
   }
 
   @Test
   public void javaConsistency() {
-    checkModule(BazelRuleClassProvider.JAVA_RULES);
+    checkModule(JavaRules.INSTANCE);
   }
 
   @Test
@@ -134,16 +145,63 @@ public class BazelRuleClassProviderTest {
 
   @Test
   public void objcConsistency() {
-    checkModule(BazelRuleClassProvider.OBJC_RULES);
+    checkModule(ObjcRules.INSTANCE);
   }
 
   @Test
   public void j2objcConsistency() {
-    checkModule(BazelRuleClassProvider.J2OBJC_RULES);
+    checkModule(J2ObjcRules.INSTANCE);
   }
 
   @Test
   public void variousWorkspaceConsistency() {
     checkModule(BazelRuleClassProvider.VARIOUS_WORKSPACE_RULES);
+  }
+
+  @Test
+  public void toolchainConsistency() {
+    checkModule(ToolchainRules.INSTANCE);
+  }
+
+  @Test
+  public void strictActionEnv() throws Exception {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return;
+    }
+
+    BuildOptions options = BuildOptions.of(
+        ImmutableList.of(
+            BuildConfiguration.Options.class,
+            ShellConfiguration.Options.class,
+            StrictActionEnvOptions.class),
+        "--experimental_strict_action_env",
+        "--action_env=FOO=bar");
+
+    ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.getActionEnvironment(options);
+    assertThat(env.getFixedEnv()).containsEntry("PATH", "/bin:/usr/bin");
+    assertThat(env.getFixedEnv()).containsEntry("FOO", "bar");
+  }
+
+  @Test
+  public void pathOrDefaultOnLinux() {
+    assertThat(pathOrDefault(OS.LINUX, null, null)).isEqualTo("/bin:/usr/bin");
+    assertThat(pathOrDefault(OS.LINUX, "/not/bin", null)).isEqualTo("/bin:/usr/bin");
+  }
+
+  @Test
+  public void pathOrDefaultOnWindows() {
+    assertThat(pathOrDefault(OS.WINDOWS, null, null)).isNull();
+    assertThat(pathOrDefault(OS.WINDOWS, "C:/mypath", null)).isNull();
+    assertThat(pathOrDefault(OS.WINDOWS, "C:/mypath", PathFragment.create("D:/foo/shell")))
+        .isEqualTo("D:\\foo;C:/mypath");
+  }
+
+  @Test
+  public void optionsAlsoApplyToHost() {
+    StrictActionEnvOptions o = Options.getDefaults(
+        StrictActionEnvOptions.class);
+    o.useStrictActionEnv = true;
+    StrictActionEnvOptions h = o.getHost();
+    assertThat(h.useStrictActionEnv).isTrue();
   }
 }

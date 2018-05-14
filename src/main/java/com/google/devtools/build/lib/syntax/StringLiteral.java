@@ -15,9 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import java.io.IOException;
 
-/**
- * Syntax node for a string literal.
- */
+/** Syntax node for a string literal. */
 public final class StringLiteral extends Expression {
   String value;
 

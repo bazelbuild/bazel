@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.skylark;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLineItemSimpleFormatter;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
@@ -26,10 +30,9 @@ import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -37,22 +40,19 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.analysis.skylark.SkylarkCustomCommandLine.ScalarArg;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.FunctionSignature.Shape;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkMutable;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -71,14 +70,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 /** Provides a Skylark interface for all action creation needs. */
-@SkylarkModule(
-  name = "actions",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "Module providing functions to create actions. "
-          + "Access this module using <a href=\"ctx.html#actions\"><code>ctx.actions</code></a>."
-)
-public class SkylarkActionFactory implements SkylarkValue {
+public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   private final SkylarkRuleContext context;
   private final SkylarkSemantics skylarkSemantics;
   private RuleContext ruleContext;
@@ -100,41 +92,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         : ruleContext.getBinOrGenfilesDirectory();
   }
 
-  @SkylarkCallable(
-    name = "declare_file",
-    doc =
-        "Declares that rule or aspect creates a file with the given filename. "
-            + "If <code>sibling</code> is not specified, file name is relative to "
-            + "package directory, otherwise the file is in the same directory as "
-            + "<code>sibling</code>. "
-            + "You must create an action that generates the file. <br>"
-            + "Files cannot be created outside of the current package. "
-            + "Files that are specified in rule's outputs do not need to be declared and are "
-            + "available through <a href=\"ctx.html#outputs\"><code>ctx.outputs</code></a>. "
-            + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
-            + "computed_dependencies/hash.bzl\">See example of use</a>",
-    parameters = {
-      @Param(
-        name = "filename",
-        type = String.class,
-        doc =
-            "If no 'sibling' provided, path of the new file, relative "
-                + "to the current package. Otherwise a base name for a file "
-                + "('sibling' determines a directory)."
-      ),
-      @Param(
-        name = "sibling",
-        doc =
-            "A file that lives in the same directory as the newly created file. "
-                + "The file must be in the current package.",
-        type = Artifact.class,
-        noneable = true,
-        positional = false,
-        named = true,
-        defaultValue = "None"
-      )
-    }
-  )
+  @Override
   public Artifact declareFile(String filename, Object sibling) throws EvalException {
     context.checkMutable("actions.declare_file");
     if (Runtime.NONE.equals(sibling)) {
@@ -146,31 +104,7 @@ public class SkylarkActionFactory implements SkylarkValue {
     }
   }
 
-  @SkylarkCallable(
-      name = "declare_directory",
-      doc =
-          "Declares that rule or aspect create a directory with the given name, in the "
-              + "current package. You must create an action that generates the directory.",
-      parameters = {
-          @Param(
-              name = "filename",
-              type = String.class,
-              doc =
-                  "If no 'sibling' provided, path of the new directory, relative "
-                      + "to the current package. Otherwise a base name for a file "
-                      + "('sibling' defines a directory)."
-          ),
-          @Param(
-              name = "sibling",
-              doc = "A file that lives in the same directory as the newly declared directory.",
-              type = Artifact.class,
-              noneable = true,
-              positional = false,
-              named = true,
-              defaultValue = "None"
-          )
-      }
-  )
+  @Override
   public Artifact declareDirectory(String filename, Object sibling) throws EvalException {
     context.checkMutable("actions.declare_directory");
     if (Runtime.NONE.equals(sibling)) {
@@ -183,34 +117,7 @@ public class SkylarkActionFactory implements SkylarkValue {
     }
   }
 
-
-  @SkylarkCallable(
-      name = "do_nothing",
-      doc =
-          "Creates an empty action that neither executes a command nor produces any "
-              + "output, but that is useful for inserting 'extra actions'.",
-      parameters = {
-          @Param(
-              name = "mnemonic",
-              type = String.class,
-              named = true,
-              positional = false,
-              doc = "A one-word description of the action, for example, CppCompile or GoLink."
-          ),
-          @Param(
-              name = "inputs",
-              allowedTypes = {
-                  @ParamType(type = SkylarkList.class),
-                  @ParamType(type = SkylarkNestedSet.class),
-              },
-              generic1 = Artifact.class,
-              named = true,
-              positional = false,
-              defaultValue = "[]",
-              doc = "List of the input files of the action."
-          ),
-      }
-  )
+  @Override
   public void doNothing(String mnemonic, Object inputs) throws EvalException {
     context.checkMutable("actions.do_nothing");
     NestedSet<Artifact> inputSet = inputs instanceof SkylarkNestedSet
@@ -232,47 +139,19 @@ public class SkylarkActionFactory implements SkylarkValue {
     ruleContext.registerAction(action);
   }
 
-  @SkylarkCallable(
-    name = "write",
-    doc =
-        "Creates a file write action. When the action is executed, it will write the given content "
-            + "to a file. This is used to generate files using information available in the "
-            + "analysis phase. If the file is large and with a lot of static content, consider "
-            + "using <a href=\"#expand_template\"><code>expand_template</code></a>. "
-            + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/executable/executable.bzl\">"
-            + "See example of use</a>",
-    parameters = {
-      @Param(name = "output", type = Artifact.class, doc = "The output file.", named = true),
-      @Param(
-        name = "content",
-        type = Object.class,
-        allowedTypes = {@ParamType(type = String.class), @ParamType(type = Args.class)},
-        doc =
-            "the contents of the file. "
-                + "May be a either a string or an "
-                + "<a href=\"actions.html#args\"><code>actions.args()</code></a> object.",
-        named = true
-      ),
-      @Param(
-        name = "is_executable",
-        type = Boolean.class,
-        defaultValue = "False",
-        doc = "Whether the output file should be executable.",
-        named = true
-      )
-    }
-  )
-  public void write(Artifact output, Object content, Boolean isExecutable) throws EvalException {
+  @Override
+  public void write(FileApi output, Object content, Boolean isExecutable) throws EvalException {
     context.checkMutable("actions.write");
     final Action action;
     if (content instanceof String) {
-      action = FileWriteAction.create(ruleContext, output, (String) content, isExecutable);
+      action =
+          FileWriteAction.create(ruleContext, (Artifact) output, (String) content, isExecutable);
     } else if (content instanceof Args) {
       Args args = (Args) content;
       action =
           new ParameterFileWriteAction(
               ruleContext.getActionOwner(),
-              output,
+              (Artifact) output,
               args.build(),
               args.parameterFileType,
               StandardCharsets.UTF_8);
@@ -282,134 +161,20 @@ public class SkylarkActionFactory implements SkylarkValue {
     ruleContext.registerAction(action);
   }
 
-  @SkylarkCallable(
-    name = "run",
-    doc =
-        "Creates an action that runs an executable. "
-            + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
-            + "actions_run/execute.bzl\">See example of use</a>",
-    parameters = {
-      @Param(
-        name = "outputs",
-        type = SkylarkList.class,
-        generic1 = Artifact.class,
-        named = true,
-        positional = false,
-        doc = "List of the output files of the action."
-      ),
-      @Param(
-        name = "inputs",
-        allowedTypes = {
-          @ParamType(type = SkylarkList.class),
-          @ParamType(type = SkylarkNestedSet.class),
-        },
-        generic1 = Artifact.class,
-        defaultValue = "[]",
-        named = true,
-        positional = false,
-        doc = "List of the input files of the action."
-      ),
-      @Param(
-        name = "executable",
-        type = Object.class,
-        allowedTypes = {
-          @ParamType(type = Artifact.class),
-          @ParamType(type = String.class),
-        },
-        named = true,
-        positional = false,
-        doc = "The executable file to be called by the action."
-      ),
-      @Param(
-        name = "arguments",
-        type = Object.class,
-        allowedTypes = {
-          @ParamType(type = SkylarkList.class),
-        },
-        defaultValue = "[]",
-        named = true,
-        positional = false,
-        doc =
-            "Command line arguments of the action. "
-                + "Must be a list of strings or "
-                + "<a href=\"actions.html#args\"><code>actions.args()</code></a> objects."
-      ),
-      @Param(
-        name = "mnemonic",
-        type = String.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc = "A one-word description of the action, for example, CppCompile or GoLink."
-      ),
-      @Param(
-        name = "progress_message",
-        type = String.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc =
-            "Progress message to show to the user during the build, "
-                + "for example, \"Compiling foo.cc to create foo.o\"."
-      ),
-      @Param(
-        name = "use_default_shell_env",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        positional = false,
-        doc = "Whether the action should use the built in shell environment or not."
-      ),
-      @Param(
-        name = "env",
-        type = SkylarkDict.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc = "Sets the dictionary of environment variables."
-      ),
-      @Param(
-        name = "execution_requirements",
-        type = SkylarkDict.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc =
-            "Information for scheduling the action. See "
-                + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
-                + "for useful keys."
-      ),
-      @Param(
-        // TODO(bazel-team): The name here isn't accurate anymore.
-        // This is technically experimental, so folks shouldn't be too attached,
-        // but consider renaming to be more accurate/opaque.
-        name = "input_manifests",
-        type = SkylarkList.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc =
-            "(Experimental) sets the input runfiles metadata; "
-                + "they are typically generated by resolve_command."
-      )
-    }
-  )
+  @Override
   public void run(
       SkylarkList outputs,
       Object inputs,
       Object executableUnchecked,
+      Object toolsUnchecked,
       Object arguments,
       Object mnemonicUnchecked,
       Object progressMessage,
       Boolean useDefaultShellEnv,
       Object envUnchecked,
       Object executionRequirementsUnchecked,
-      Object inputManifestsUnchecked)
+      Object inputManifestsUnchecked,
+      Location location)
       throws EvalException {
     context.checkMutable("actions.run");
     SpawnAction.Builder builder = new SpawnAction.Builder();
@@ -435,8 +200,18 @@ public class SkylarkActionFactory implements SkylarkValue {
               + EvalUtils.getDataTypeName(executableUnchecked)
               + " instead");
     }
-    registerSpawnAction(outputs, inputs, mnemonicUnchecked, progressMessage, useDefaultShellEnv,
-        envUnchecked, executionRequirementsUnchecked, inputManifestsUnchecked, builder);
+    registerSpawnAction(
+        outputs,
+        inputs,
+        toolsUnchecked,
+        mnemonicUnchecked,
+        progressMessage,
+        useDefaultShellEnv,
+        envUnchecked,
+        executionRequirementsUnchecked,
+        inputManifestsUnchecked,
+        location,
+        builder);
   }
 
   /**
@@ -457,137 +232,11 @@ public class SkylarkActionFactory implements SkylarkValue {
     return ruleContext;
   }
 
-  @SkylarkCallable(
-    name = "run_shell",
-    doc =
-        "Creates an action that runs a shell command. "
-            + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
-            + "shell_command/size.bzl\">See example of use</a>",
-    parameters = {
-      @Param(
-        name = "outputs",
-        type = SkylarkList.class,
-        generic1 = Artifact.class,
-        named = true,
-        positional = false,
-        doc = "List of the output files of the action."
-      ),
-      @Param(
-        name = "inputs",
-        allowedTypes = {
-          @ParamType(type = SkylarkList.class),
-          @ParamType(type = SkylarkNestedSet.class),
-        },
-        generic1 = Artifact.class,
-        defaultValue = "[]",
-        named = true,
-        positional = false,
-        doc = "List of the input files of the action."
-      ),
-      @Param(
-        name = "arguments",
-        allowedTypes = {
-          @ParamType(type = SkylarkList.class),
-        },
-        defaultValue = "[]",
-        named = true,
-        positional = false,
-        doc =
-            "Command line arguments of the action. "
-                + "Must be a list of strings or "
-                + "<a href=\"actions.html#args\"><code>actions.args()</code></a> objects.<br>"
-                + "Blaze passes the elements in this attribute as arguments to the command."
-                + "The command can access these arguments as <code>$1</code>, <code>$2</code>, etc."
-      ),
-      @Param(
-        name = "mnemonic",
-        type = String.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc = "A one-word description of the action, for example, CppCompile or GoLink."
-      ),
-      @Param(
-        name = "command",
-        type = Object.class,
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = SkylarkList.class, generic1 = String.class),
-          @ParamType(type = Runtime.NoneType.class),
-        },
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc =
-            "Shell command to execute.<br><br>"
-                + "<b>Passing a sequence of strings to this attribute is deprecated and Blaze may "
-                + "stop accepting such values in the future.</b><br><br>"
-                + "The command can access the elements of the <code>arguments</code> object via "
-                + "<code>$1</code>, <code>$2</code>, etc.<br>"
-                + "When this argument is a string, it must be a valid shell command. For example: "
-                + "\"<code>echo foo > $1</code>\". Blaze uses the same shell to execute the "
-                + "command as it does for genrules."
-      ),
-      @Param(
-        name = "progress_message",
-        type = String.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc =
-            "Progress message to show to the user during the build, "
-                + "for example, \"Compiling foo.cc to create foo.o\"."
-      ),
-      @Param(
-        name = "use_default_shell_env",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        positional = false,
-        doc = "Whether the action should use the built in shell environment or not."
-      ),
-      @Param(
-        name = "env",
-        type = SkylarkDict.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc = "Sets the dictionary of environment variables."
-      ),
-      @Param(
-        name = "execution_requirements",
-        type = SkylarkDict.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc =
-            "Information for scheduling the action. See "
-                + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
-                + "for useful keys."
-      ),
-      @Param(
-        // TODO(bazel-team): The name here isn't accurate anymore.
-        // This is technically experimental, so folks shouldn't be too attached,
-        // but consider renaming to be more accurate/opaque.
-        name = "input_manifests",
-        type = SkylarkList.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc =
-            "(Experimental) sets the input runfiles metadata; "
-                + "they are typically generated by resolve_command."
-      )
-    }
-  )
+  @Override
   public void runShell(
       SkylarkList outputs,
       Object inputs,
+      Object toolsUnchecked,
       Object arguments,
       Object mnemonicUnchecked,
       Object commandUnchecked,
@@ -595,11 +244,11 @@ public class SkylarkActionFactory implements SkylarkValue {
       Boolean useDefaultShellEnv,
       Object envUnchecked,
       Object executionRequirementsUnchecked,
-      Object inputManifestsUnchecked)
+      Object inputManifestsUnchecked,
+      Location location)
       throws EvalException {
     context.checkMutable("actions.run_shell");
 
-    // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
     SkylarkList argumentList = (SkylarkList) arguments;
     SpawnAction.Builder builder = new SpawnAction.Builder();
     buildCommandLine(builder, argumentList);
@@ -612,10 +261,11 @@ public class SkylarkActionFactory implements SkylarkValue {
       Artifact helperScript =
           CommandHelper.shellCommandHelperScriptMaybe(
               ruleContext, command, helperScriptSuffix, executionInfo);
+      PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
       if (helperScript == null) {
-        builder.setShellCommand(command);
+        builder.setShellCommand(shExecutable, command);
       } else {
-        builder.setShellCommand(helperScript.getExecPathString());
+        builder.setShellCommand(shExecutable, helperScript.getExecPathString());
         builder.addInput(helperScript);
         FilesToRunProvider provider = context.getExecutableRunfiles(helperScript);
         if (provider != null) {
@@ -646,12 +296,14 @@ public class SkylarkActionFactory implements SkylarkValue {
     registerSpawnAction(
         outputs,
         inputs,
+        toolsUnchecked,
         mnemonicUnchecked,
         progressMessage,
         useDefaultShellEnv,
         envUnchecked,
         executionRequirementsUnchecked,
         inputManifestsUnchecked,
+        location,
         builder);
   }
 
@@ -697,31 +349,49 @@ public class SkylarkActionFactory implements SkylarkValue {
   private void registerSpawnAction(
       SkylarkList outputs,
       Object inputs,
+      Object toolsUnchecked,
       Object mnemonicUnchecked,
       Object progressMessage,
       Boolean useDefaultShellEnv,
       Object envUnchecked,
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
+      Location location,
       SpawnAction.Builder builder)
       throws EvalException {
-    // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
     Iterable<Artifact> inputArtifacts;
     if (inputs instanceof SkylarkList) {
       inputArtifacts = ((SkylarkList) inputs).getContents(Artifact.class, "inputs");
       builder.addInputs(inputArtifacts);
     } else {
-      inputArtifacts = ((SkylarkNestedSet) inputs).toCollection(Artifact.class);
-      builder.addInputs(((SkylarkNestedSet) inputs).getSet(Artifact.class));
+      NestedSet<Artifact> inputSet = ((SkylarkNestedSet) inputs).getSet(Artifact.class);
+      builder.addTransitiveInputs(inputSet);
+      inputArtifacts = inputSet;
     }
     builder.addOutputs(outputs.getContents(Artifact.class, "outputs"));
 
-    // The actual command can refer to an executable from the inputs, which could require
-    // some runfiles. Consequently, we add the runfiles of all inputs of this action manually.
-    for (Artifact current : inputArtifacts) {
-      FilesToRunProvider provider = context.getExecutableRunfiles(current);
-      if (provider != null) {
-        builder.addTool(provider);
+    if (toolsUnchecked != Runtime.UNBOUND) {
+      final Iterable<Artifact> toolsIterable;
+      if (toolsUnchecked instanceof SkylarkList) {
+        toolsIterable = ((SkylarkList) toolsUnchecked).getContents(Artifact.class, "tools");
+      } else {
+        toolsIterable = ((SkylarkNestedSet) toolsUnchecked).getSet(Artifact.class);
+      }
+      for (Artifact artifact : toolsIterable) {
+        builder.addInput(artifact);
+        FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
+        if (provider != null) {
+          builder.addTool(provider);
+        }
+      }
+    } else {
+      // Users didn't pass 'tools', kick in compatibility modes
+      // Full legacy support -- add tools from inputs
+      for (Artifact artifact : inputArtifacts) {
+        FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
+        if (provider != null) {
+          builder.addTool(provider);
+        }
       }
     }
 
@@ -741,7 +411,7 @@ public class SkylarkActionFactory implements SkylarkValue {
     }
     if (executionRequirementsUnchecked != Runtime.NONE) {
       builder.setExecutionInfo(
-          ImmutableMap.copyOf(
+          TargetUtils.filter(
               SkylarkDict.castSkylarkDictOrNoneToDict(
                   executionRequirementsUnchecked,
                   String.class,
@@ -771,52 +441,10 @@ public class SkylarkActionFactory implements SkylarkValue {
     return mnemonic + "FromSkylark";
   }
 
-  @SkylarkCallable(
-    name = "expand_template",
-    doc =
-        "Creates a template expansion action. When the action is executed, it will "
-            + "generate a file based on a template. Parts of the template will be replaced "
-            + "using the <code>substitutions</code> dictionary. Whenever a key of the "
-            + "dictionary appears in the template, it is replaced with the associated value. "
-            + "There is no special syntax for the keys. You may, for example, use curly braces "
-            + "to avoid conflicts (for example, <code>{KEY}</code>). "
-            + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/expand_template/hello.bzl\">"
-            + "See example of use</a>",
-    parameters = {
-      @Param(
-        name = "template",
-        type = Artifact.class,
-        named = true,
-        positional = false,
-        doc = "The template file, which is a UTF-8 encoded text file."
-      ),
-      @Param(
-        name = "output",
-        type = Artifact.class,
-        named = true,
-        positional = false,
-        doc = "The output file, which is a UTF-8 encoded text file."
-      ),
-      @Param(
-        name = "substitutions",
-        type = SkylarkDict.class,
-        named = true,
-        positional = false,
-        doc = "Substitutions to make when expanding the template."
-      ),
-      @Param(
-        name = "is_executable",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        positional = false,
-        doc = "Whether the output file should be executable."
-      )
-    }
-  )
+  @Override
   public void expandTemplate(
-      Artifact template,
-      Artifact output,
+      FileApi template,
+      FileApi output,
       SkylarkDict<?, ?> substitutionsUnchecked,
       Boolean executable)
       throws EvalException {
@@ -837,8 +465,8 @@ public class SkylarkActionFactory implements SkylarkValue {
     TemplateExpansionAction action =
         new TemplateExpansionAction(
             ruleContext.getActionOwner(),
-            template,
-            output,
+            (Artifact) template,
+            (Artifact) output,
             substitutionsBuilder.build(),
             executable);
     ruleContext.registerAction(action);
@@ -854,137 +482,263 @@ public class SkylarkActionFactory implements SkylarkValue {
     return new String(latin1.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
   }
 
+  /** Args module. */
   @SkylarkModule(
     name = "Args",
     category = SkylarkModuleCategory.BUILTIN,
     doc =
-        "Module providing methods to build memory-efficient command lines.<br><br>"
-            + "The command lines are memory-efficient because Blaze doesn't fully construct them"
-            + " until just before executing the action. "
-            + "See <a href=\"actions.html#run\"><code>ctx.actions.run()</code></a> or "
-            + "<a href=\"actions.html#run_shell\"><code>ctx.actions.run_shell()</code></a>.<br>"
-            + "Example:"
+        "An object that encapsulates, in a memory-efficient way, the data needed to build part or "
+            + "all of a command line."
+            + ""
+            + "<p>It often happens that an action requires a large command line containing values "
+            + "accumulated from transitive dependencies. For example, a linker command line might "
+            + "list every object file needed by all of the libraries being linked. It is best "
+            + "practice to store such transitive data in <a href='depset.html'><code>depset"
+            + "</code></a>s, so that they can be shared by multiple targets. However, if the rule "
+            + "author had to convert these depsets into lists of strings in order to construct an "
+            + "action command line, it would defeat this memory-sharing optimization."
+            + ""
+            + "<p>For this reason, the action-constructing functions accept <code>Args</code> "
+            + "objects in addition to strings. Each <code>Args</code> object represents a "
+            + "concatenation of strings and depsets, with optional transformations for "
+            + "manipulating the data. <code>Args</code> objects do not process the depsets they "
+            + "encapsulate until the execution phase, when it comes time to calculate the command "
+            + "line. This helps defer any expensive copying until after the analysis phase is "
+            + "complete. See the <a href='../performance.$DOC_EXT'>Optimizing Performance</a> page "
+            + "for more information."
+            + ""
+            + "<p><code>Args</code> are constructed by calling <a href='actions.html#args'><code>"
+            + "ctx.actions.args()</code></a>. They can be passed as the <code>arguments</code> "
+            + "parameter of <a href='actions.html#run'><code>ctx.actions.run()</code></a> or "
+            + "<a href='actions.html#run_shell'><code>ctx.actions.run_shell()</code></a>. Each "
+            + "mutation of an <code>Args</code> object appends values to the eventual command "
+            + "line."
+            + ""
+            + "<p>The <code>map_each</code> feature allows you to customize how items are "
+            + "transformed into strings. If you do not provide a <code>map_each</code> function, "
+            + "the standard conversion is as follows: "
+            + "<ul>"
+            + "<li>Values that are already strings are left as-is."
+            + "<li><a href='File.html'><code>File</code></a> objects are turned into their "
+            + "    <code>File.path</code> values."
+            + "<li>All other types are turned into strings in an <i>unspecified</i> manner. For "
+            + "    this reason, you should avoid passing values that are not of string or "
+            + "    <code>File</code> type to <code>add()</code>, and if you pass them to "
+            + "    <code>add_all()</code> or <code>add_joined()</code> then you should provide a "
+            + "    <code>map_each</code> function."
+            + "</ul>"
+            + ""
+            + "<p>When using string formatting (<code>format</code>, <code>format_each</code>, and "
+            + "<code>format_joined</code> params of the <code>add*()</code> methods), the format "
+            + "template is interpreted in the same way as <code>%</code>-substitution on strings, "
+            + "except that the template must have exactly one substitution placeholder and it must "
+            + "be <code>%s</code>. Literal percents may be escaped as <code>%%</code>. Formatting "
+            + "is applied after the value is converted to a string as per the above."
+            + ""
+            + "<p>Each of the <code>add*()</code> methods have an alternate form that accepts an "
+            + "extra positional parameter, an \"arg name\" string to insert before the rest of the "
+            + "arguments. For <code>add_all</code> and <code>add_joined</code> the extra string "
+            + "will not be added if the sequence turns out to be empty. "
+            + "For instance, the same usage can add either <code>--foo val1 val2 val3 --bar"
+            + "</code> or just <code>--bar</code> to the command line, depending on whether the "
+            + "given sequence contains <code>val1..val3</code> or is empty."
+            + ""
+            + "<p>If the size of the command line can grow longer than the maximum size allowed by "
+            + "the system, the arguments can be spilled over into parameter files. See "
+            + "<a href='#use_param_file'><code>use_param_file()</code></a> and "
+            + "<a href='#set_param_file_format'><code>set_param_file_format()</code></a>."
+            + ""
+            + "<p>Example: Suppose we wanted to generate the command line: "
+            + "<pre>\n"
+            + "--foo foo1.txt foo2.txt ... fooN.txt --bar bar1.txt,bar2.txt,...,barM.txt --baz\n"
+            + "</pre>"
+            + "We could use the following <code>Args</code> object: "
             + "<pre class=language-python>\n"
-            + "# foo_deps and bar_deps are each a large depset of artifacts\n"
+            + "# foo_deps and bar_deps are depsets containing\n"
+            + "# File objects for the foo and bar .txt files.\n"
             + "args = ctx.actions.args()\n"
-            + "args.add(\"--foo\")\n"
-            + "args.add(foo_deps)\n"
-            + "args.add(\"--bar\")\n"
-            + "args.add(bar_deps, join_with=\",\")\n"
+            + "args.add_all(\"--foo\", foo_deps)\n"
+            + "args.add_joined(\"--bar\", bar_deps, join_with=\",\")\n"
+            + "args.add(\"--baz\")\n"
             + "ctx.actions.run(\n"
+            + "  ...\n"
             + "  arguments = [args],\n"
             + "  ...\n"
             + ")\n"
-            + "# Expands to [\n"
-            + "#   \"--foo\",\n"
-            + "#   ...artifacts from foo_deps,\n"
-            + "#   \"--bar\",\n"
-            + "#   ...artifacts from bar_deps joined with ',',\n"
-            + "# ]"
             + "</pre>"
   )
-  static class Args extends SkylarkMutable {
+  @VisibleForTesting
+  public static class Args extends SkylarkMutable implements CommandLineArgsApi {
     private final Mutability mutability;
+    private final SkylarkSemantics skylarkSemantics;
     private final SkylarkCustomCommandLine.Builder commandLine;
     private ParameterFileType parameterFileType = ParameterFileType.SHELL_QUOTED;
     private String flagFormatString;
     private boolean useAlways;
 
-    @SkylarkSignature(
-      name = "add",
-      objectType = Args.class,
-      returnType = NoneType.class,
-      doc = "Adds an argument to be dynamically expanded at evaluation time.",
-      parameters = {
-        @Param(name = "self", type = Args.class, doc = "This args object."),
-        @Param(
-          name = "value",
-          type = Object.class,
-          doc =
-              "The object to add to the argument list. "
-                  + "If the object is scalar, the object's string representation is added. "
-                  + "If it's a <a href=\"list.html\">list</a> or "
-                  + "<a href=\"depset.html\">depset</a>, "
-                  + "each element's string representation is added."
-        ),
-        @Param(
-          name = "format",
-          type = String.class,
-          named = true,
-          positional = false,
-          defaultValue = "None",
-          noneable = true,
-          doc =
-              "A format string used to format the object(s). "
-                  + "The format string is as per pattern % tuple. "
-                  + "Limitations: only %d %s %r %% are supported."
-        ),
-        @Param(
-          name = "before_each",
-          type = String.class,
-          named = true,
-          positional = false,
-          defaultValue = "None",
-          noneable = true,
-          doc =
-              "Each object in the list is prepended by this string. "
-                  + "Only supported for vector arguments."
-        ),
-        @Param(
-          name = "join_with",
-          type = String.class,
-          named = true,
-          positional = false,
-          defaultValue = "None",
-          noneable = true,
-          doc =
-              "Each object in the list is joined with this string. "
-                  + "Only supported for vector arguments."
-        ),
-        @Param(
-          name = "map_fn",
-          type = BaseFunction.class,
-          named = true,
-          positional = false,
-          defaultValue = "None",
-          noneable = true,
-          doc =
-              "The passed objects are passed through a map function. "
-                  + "For vector args the function is given a list and is expected to return a list."
-        )
-      },
-      useLocation = true
-    )
-    public static final BuiltinFunction add =
-        new BuiltinFunction("add") {
-          @SuppressWarnings("unused")
-          public NoneType invoke(
-              Args self,
-              Object value,
-              Object format,
-              Object beforeEach,
-              Object joinWith,
-              Object mapFn,
-              Location loc)
-              throws EvalException {
-            if (self.isImmutable()) {
-              throw new EvalException(null, "cannot modify frozen value");
-            }
-            if (value instanceof SkylarkNestedSet || value instanceof SkylarkList) {
-              self.addVectorArg(value, format, beforeEach, joinWith, mapFn, loc);
-            } else {
-              self.addScalarArg(value, format, beforeEach, joinWith, mapFn, loc);
-            }
-            return Runtime.NONE;
-          }
-        };
+    @Override
+    public NoneType addArgument(
+        Object argNameOrValue,
+        Object value,
+        Object format,
+        Object beforeEach,
+        Object joinWith,
+        Object mapFn,
+        Location loc)
+        throws EvalException {
+      if (isImmutable()) {
+        throw new EvalException(null, "cannot modify frozen value");
+      }
+      final String argName;
+      if (value == Runtime.UNBOUND) {
+        value = argNameOrValue;
+        argName = null;
+      } else {
+        validateArgName(argNameOrValue, loc);
+        argName = (String) argNameOrValue;
+      }
+      if (argName != null) {
+        commandLine.add(argName);
+      }
+      if (value instanceof SkylarkNestedSet || value instanceof SkylarkList) {
+        if (skylarkSemantics.incompatibleDisallowOldStyleArgsAdd()) {
+          throw new EvalException(
+              loc,
+              "Args#add no longer accepts vectorized arguments when "
+                  + "--incompatible_disallow_old_style_args_add is set. "
+                  + "Please use Args#add_all or Args#add_joined.");
+        }
+        addVectorArg(
+            value,
+            /* argName= */ null,
+            mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
+            /* mapEach= */ null,
+            format != Runtime.NONE ? (String) format : null,
+            beforeEach != Runtime.NONE ? (String) beforeEach : null,
+            joinWith != Runtime.NONE ? (String) joinWith : null,
+            /* formatJoined= */ null,
+            /* omitIfEmpty= */ false,
+            /* uniquify= */ false,
+            /* terminateWith= */ null,
+            loc);
+
+      } else {
+        if (mapFn != Runtime.NONE && skylarkSemantics.incompatibleDisallowOldStyleArgsAdd()) {
+          throw new EvalException(
+              loc,
+              "Args#add no longer accepts map_fn when"
+                  + "--incompatible_disallow_old_style_args_add is set. "
+                  + "Please eagerly map the value.");
+        }
+        if (beforeEach != Runtime.NONE) {
+          throw new EvalException(null, "'before_each' is not supported for scalar arguments");
+        }
+        if (joinWith != Runtime.NONE) {
+          throw new EvalException(null, "'join_with' is not supported for scalar arguments");
+        }
+        addScalarArg(
+            value,
+            format != Runtime.NONE ? (String) format : null,
+            mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
+            loc);
+      }
+      return Runtime.NONE;
+    }
+
+    @Override
+    public NoneType addAll(
+        Object argNameOrValue,
+        Object values,
+        Object mapEach,
+        Object formatEach,
+        Object beforeEach,
+        Boolean omitIfEmpty,
+        Boolean uniquify,
+        Object terminateWith,
+        Location loc)
+        throws EvalException {
+      if (isImmutable()) {
+        throw new EvalException(null, "cannot modify frozen value");
+      }
+      final String argName;
+      if (values == Runtime.UNBOUND) {
+        values = argNameOrValue;
+        validateValues(values, loc);
+        argName = null;
+      } else {
+        validateArgName(argNameOrValue, loc);
+        argName = (String) argNameOrValue;
+      }
+      addVectorArg(
+          values,
+          argName,
+          /* mapAll= */ null,
+          mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
+          formatEach != Runtime.NONE ? (String) formatEach : null,
+          beforeEach != Runtime.NONE ? (String) beforeEach : null,
+          /* joinWith= */ null,
+          /* formatJoined= */ null,
+          omitIfEmpty,
+          uniquify,
+          terminateWith != Runtime.NONE ? (String) terminateWith : null,
+          loc);
+      return Runtime.NONE;
+    }
+
+    @Override
+    public NoneType addJoined(
+        Object argNameOrValue,
+        Object values,
+        String joinWith,
+        Object mapEach,
+        Object formatEach,
+        Object formatJoined,
+        Boolean omitIfEmpty,
+        Boolean uniquify,
+        Location loc)
+        throws EvalException {
+      if (isImmutable()) {
+        throw new EvalException(null, "cannot modify frozen value");
+      }
+      final String argName;
+      if (values == Runtime.UNBOUND) {
+        values = argNameOrValue;
+        validateValues(values, loc);
+        argName = null;
+      } else {
+        validateArgName(argNameOrValue, loc);
+        argName = (String) argNameOrValue;
+      }
+      addVectorArg(
+          values,
+          argName,
+          /* mapAll= */ null,
+          mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
+          formatEach != Runtime.NONE ? (String) formatEach : null,
+          /* beforeEach= */ null,
+          joinWith,
+          formatJoined != Runtime.NONE ? (String) formatJoined : null,
+          omitIfEmpty,
+          uniquify,
+          /* terminateWith= */ null,
+          loc);
+      return Runtime.NONE;
+    }
 
     private void addVectorArg(
-        Object value, Object format, Object beforeEach, Object joinWith, Object mapFn, Location loc)
+        Object value,
+        String argName,
+        BaseFunction mapAll,
+        BaseFunction mapEach,
+        String formatEach,
+        String beforeEach,
+        String joinWith,
+        String formatJoined,
+        boolean omitIfEmpty,
+        boolean uniquify,
+        String terminateWith,
+        Location loc)
         throws EvalException {
-      if (beforeEach != Runtime.NONE && joinWith != Runtime.NONE) {
-        throw new EvalException(null, "cannot pass both 'before_each' and 'join_with'");
-      }
       SkylarkCustomCommandLine.VectorArg.Builder vectorArg;
       if (value instanceof SkylarkNestedSet) {
         NestedSet<?> nestedSet = ((SkylarkNestedSet) value).getSet(Object.class);
@@ -993,78 +747,87 @@ public class SkylarkActionFactory implements SkylarkValue {
         SkylarkList skylarkList = (SkylarkList) value;
         vectorArg = new SkylarkCustomCommandLine.VectorArg.Builder(skylarkList);
       }
-      vectorArg.setLocation(loc);
-      if (format != Runtime.NONE) {
-        vectorArg.setFormat((String) format);
-      }
-      if (beforeEach != Runtime.NONE) {
-        vectorArg.setBeforeEach((String) beforeEach);
-      }
-      if (joinWith != Runtime.NONE) {
-        vectorArg.setJoinWith((String) joinWith);
-      }
-      if (mapFn != Runtime.NONE) {
-        vectorArg.setMapFn((BaseFunction) mapFn);
-      }
+      validateMapEach(mapEach, loc);
+      validateFormatString("format_each", formatEach);
+      validateFormatString("format_joined", formatJoined);
+      vectorArg
+          .setLocation(loc)
+          .setArgName(argName)
+          .setMapAll(mapAll)
+          .setFormatEach(formatEach)
+          .setBeforeEach(beforeEach)
+          .setJoinWith(joinWith)
+          .setFormatJoined(formatJoined)
+          .omitIfEmpty(omitIfEmpty)
+          .uniquify(uniquify)
+          .setTerminateWith(terminateWith)
+          .setMapEach(mapEach);
       commandLine.add(vectorArg);
     }
 
-    private void addScalarArg(
-        Object value, Object format, Object beforeEach, Object joinWith, Object mapFn, Location loc)
+    private void validateArgName(Object argName, Location loc) throws EvalException {
+      if (!(argName instanceof String)) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "expected value of type 'string' for arg name, got '%s'",
+                argName.getClass().getSimpleName()));
+      }
+    }
+
+    private void validateValues(Object values, Location loc) throws EvalException {
+      if (!(values instanceof SkylarkList || values instanceof SkylarkNestedSet)) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "expected value of type 'sequence or depset' for values, got '%s'",
+                values.getClass().getSimpleName()));
+      }
+    }
+
+    private void validateMapEach(@Nullable BaseFunction mapEach, Location loc)
         throws EvalException {
-      if (!EvalUtils.isImmutable(value)) {
-        throw new EvalException(null, "arg must be an immutable type");
+      if (mapEach == null) {
+        return;
       }
-      if (beforeEach != Runtime.NONE) {
-        throw new EvalException(null, "'before_each' is not supported for scalar arguments");
+      Shape shape = mapEach.getSignature().getSignature().getShape();
+      boolean valid =
+          shape.getMandatoryPositionals() == 1
+              && shape.getOptionalPositionals() == 0
+              && shape.getMandatoryNamedOnly() == 0
+              && shape.getOptionalPositionals() == 0;
+      if (!valid) {
+        throw new EvalException(
+            loc, "map_each must be a function that accepts a single positional argument");
       }
-      if (joinWith != Runtime.NONE) {
-        throw new EvalException(null, "'join_with' is not supported for scalar arguments");
+    }
+
+    private void validateFormatString(String argumentName, @Nullable String formatStr)
+        throws EvalException {
+      if (formatStr != null
+          && skylarkSemantics.incompatibleDisallowOldStyleArgsAdd()
+          && !CommandLineItemSimpleFormatter.isValid(formatStr)) {
+        throw new EvalException(
+            null,
+            String.format(
+                "Invalid value for parameter \"%s\": Expected string with a single \"%%s\"",
+                argumentName));
       }
-      if (format == Runtime.NONE && mapFn == Runtime.NONE) {
+    }
+
+    private void addScalarArg(Object value, String format, BaseFunction mapFn, Location loc)
+        throws EvalException {
+      validateFormatString("format", format);
+      if (format == null && mapFn == null) {
         commandLine.add(value);
       } else {
-        ScalarArg.Builder scalarArg = new ScalarArg.Builder(value);
-        scalarArg.setLocation(loc);
-        if (format != Runtime.NONE) {
-          scalarArg.setFormat((String) format);
-        }
-        if (mapFn != Runtime.NONE) {
-          scalarArg.setMapFn((BaseFunction) mapFn);
-        }
+        ScalarArg.Builder scalarArg =
+            new ScalarArg.Builder(value).setLocation(loc).setFormat(format).setMapFn(mapFn);
         commandLine.add(scalarArg);
       }
     }
 
-    @SkylarkCallable(
-      name = "use_param_file",
-      doc =
-          "Spills the args to a params file, replacing them with a pointer to the param file. "
-              + "Use when your args may be too large for the system's command length limits ",
-      parameters = {
-        @Param(
-          name = "param_file_arg",
-          type = String.class,
-          named = true,
-          doc =
-              "A format string with a single \"%s\". "
-                  + "If the args are spilled to a params file then they are replaced "
-                  + "with an argument consisting of this string formatted with "
-                  + "the path of the params file."
-        ),
-        @Param(
-          name = "use_always",
-          type = Boolean.class,
-          named = true,
-          positional = false,
-          defaultValue = "False",
-          doc =
-              "Whether to always spill the args to a params file. If false, "
-                  + "bazel will decide whether the arguments need to be spilled "
-                  + "based on your system and arg length."
-        )
-      }
-    )
+    @Override
     public void useParamsFile(String paramFileArg, Boolean useAlways) throws EvalException {
       if (isImmutable()) {
         throw new EvalException(null, "cannot modify frozen value");
@@ -1078,22 +841,7 @@ public class SkylarkActionFactory implements SkylarkValue {
       this.useAlways = useAlways;
     }
 
-    @SkylarkCallable(
-      name = "set_param_file_format",
-      doc = "Sets the format of the param file when written to disk",
-      parameters = {
-        @Param(
-          name = "format",
-          type = String.class,
-          named = true,
-          doc =
-              "The format of the param file. Must be one of:<br>"
-                  + "\"shell\": All arguments are shell quoted and separated by whitespace<br>"
-                  + "\"multiline\": All arguments are unquoted and separated by newline characters"
-                  + "The format defaults to \"shell\" if not called."
-        )
-      }
-    )
+    @Override
     public void setParamFileFormat(String format) throws EvalException {
       if (isImmutable()) {
         throw new EvalException(null, "cannot modify frozen value");
@@ -1114,12 +862,10 @@ public class SkylarkActionFactory implements SkylarkValue {
       this.parameterFileType = parameterFileType;
     }
 
-    private Args(
-        @Nullable Mutability mutability,
-        SkylarkSemantics skylarkSemantics,
-        EventHandler eventHandler) {
+    private Args(@Nullable Mutability mutability, SkylarkSemantics skylarkSemantics) {
       this.mutability = mutability != null ? mutability : Mutability.IMMUTABLE;
-      this.commandLine = new SkylarkCustomCommandLine.Builder(skylarkSemantics, eventHandler);
+      this.skylarkSemantics = skylarkSemantics;
+      this.commandLine = new SkylarkCustomCommandLine.Builder(skylarkSemantics);
     }
 
     public SkylarkCustomCommandLine build() {
@@ -1135,34 +881,12 @@ public class SkylarkActionFactory implements SkylarkValue {
     public void repr(SkylarkPrinter printer) {
       printer.append("context.args() object");
     }
-
-    static {
-      SkylarkSignatureProcessor.configureSkylarkFunctions(Args.class);
-    }
   }
 
-  @SkylarkSignature(
-    name = "args",
-    doc = "Returns an Args object that can be used to build memory-efficient command lines.",
-    objectType = SkylarkActionFactory.class,
-    returnType = Args.class,
-    parameters = {
-        @Param(
-            name = "self",
-            type = SkylarkActionFactory.class,
-            doc = "This 'actions' object."
-        )
-    },
-    useEnvironment = true
-  )
-  public static final BuiltinFunction args =
-      new BuiltinFunction("args") {
-        public Args invoke(SkylarkActionFactory self, Environment env) {
-          return new Args(env.mutability(),
-              env.getSemantics(),
-              self.ruleContext.getAnalysisEnvironment().getEventHandler());
-        }
-      };
+  @Override
+  public Args args(Environment env) {
+    return new Args(env.mutability(), skylarkSemantics);
+  }
 
   @Override
   public boolean isImmutable() {
@@ -1177,9 +901,5 @@ public class SkylarkActionFactory implements SkylarkValue {
 
   void nullify() {
     ruleContext = null;
-  }
-
-  static {
-    SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkActionFactory.class);
   }
 }

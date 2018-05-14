@@ -847,7 +847,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkfifo(JNIEnv *env,
 // Linux extended file attributes
 
 typedef ssize_t getxattr_func(const char *path, const char *name,
-                              void *value, size_t size);
+                              void *value, size_t size, bool *attr_not_found);
 
 static jbyteArray getxattr_common(JNIEnv *env,
                                   jstring path,
@@ -859,9 +859,11 @@ static jbyteArray getxattr_common(JNIEnv *env,
   // TODO(bazel-team): on ERANGE, try again with larger buffer.
   jbyte value[4096];
   jbyteArray result = NULL;
-  ssize_t size = getxattr(path_chars, name_chars, value, arraysize(value));
+  bool attr_not_found = false;
+  ssize_t size = getxattr(path_chars, name_chars, value, arraysize(value),
+                          &attr_not_found);
   if (size == -1) {
-    if (errno != ENODATA) {
+    if (!attr_not_found) {
       ::PostFileException(env, errno, path_chars);
     }
   } else {

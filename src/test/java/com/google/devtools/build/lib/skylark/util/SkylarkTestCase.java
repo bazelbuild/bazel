@@ -24,12 +24,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -46,11 +48,11 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
 
   @Before
   public final void setUpEvaluator() throws Exception {
-    ev = createEvaluationTestCase();
+    ev = createEvaluationTestCase(SkylarkSemantics.DEFAULT_SEMANTICS);
     ev.initialize();
   }
 
-  protected EvaluationTestCase createEvaluationTestCase() {
+  protected EvaluationTestCase createEvaluationTestCase(SkylarkSemantics semantics) {
     return new EvaluationTestCase() {
       @Override
       public Environment newEnvironment() throws Exception {
@@ -61,9 +63,12 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                 .build();
         Environment env =
             Environment.builder(mutability)
-                .useDefaultSemantics()
+                .setSemantics(semantics)
                 .setEventHandler(getEventHandler())
-                .setGlobals(SkylarkModules.getGlobals(modules))
+                .setGlobals(
+                    SkylarkModules.getGlobals(modules)
+                        .withLabel(
+                            Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
                 .setPhase(Phase.LOADING)
                 .build()
                 .setupDynamic(
@@ -72,6 +77,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                     // create rules. Creating actual rules is tested in SkylarkIntegrationTest.
                     new PackageContext(null, null, getEventHandler(), null));
         SkylarkUtils.setToolsRepository(env, TestConstants.TOOLS_REPOSITORY);
+        SkylarkUtils.setLipoDataTransition(env, ruleClassProvider.getLipoDataTransition());
         return env;
       }
     };
@@ -134,6 +140,12 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
 
   protected Object evalRuleClassCode(String... lines) throws Exception {
     setUpEvaluator();
+    return eval("def impl(ctx): return None\n" + Joiner.on("\n").join(lines));
+  }
+
+  protected Object evalRuleClassCode(SkylarkSemantics semantics, String... lines) throws Exception {
+    ev = createEvaluationTestCase(semantics);
+    ev.initialize();
     return eval("def impl(ctx): return None\n" + Joiner.on("\n").join(lines));
   }
 

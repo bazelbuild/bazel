@@ -250,7 +250,16 @@ EOF
       || fail "should build watch binary"
 
   cat bazel-genfiles/package/lipo_out | grep "armv7k" \
-    || fail "expected output binary to be for armv7k architecture"
+      || fail "expected output binary to be for armv7k architecture"
+
+  bazel build --verbose_failures //package:lipo_out \
+      --apple_crosstool_transition \
+      --watchos_cpus=i386 \
+      --xcode_version=$XCODE_VERSION \
+      || fail "should build watch binary"
+
+  cat bazel-genfiles/package/lipo_out | grep "i386" \
+      || fail "expected output binary to be for i386 architecture"
 }
 
 function test_xcode_config_select() {
@@ -345,6 +354,35 @@ EOF
       --xcode_version=3.0 || fail "build failed"
   assert_contains "XCODE UNKNOWN" bazel-genfiles/a/xcodeo
   assert_contains "IOS UNKNOWN" bazel-genfiles/a/ioso
+}
+
+function test_apple_binary_dsym_builds() {
+  rm -rf package
+  mkdir -p package
+  cat > package/BUILD <<EOF
+apple_binary(
+    name = "main_binary",
+    deps = [":main_lib"],
+    platform_type = "ios",
+    minimum_os_version = "10.0",
+)
+objc_library(
+    name = "main_lib",
+    srcs = ["main.m"],
+)
+EOF
+  cat > package/main.m <<EOF
+int main() {
+  return 0;
+}
+EOF
+
+  bazel build --verbose_failures //package:main_binary \
+      --apple_crosstool_transition \
+      --ios_multi_cpus=i386,x86_64 \
+      --xcode_version=$XCODE_VERSION \
+      --apple_generate_dsym=true \
+      || fail "should build apple_binary with dSYMs"
 }
 
 run_suite "apple_tests"

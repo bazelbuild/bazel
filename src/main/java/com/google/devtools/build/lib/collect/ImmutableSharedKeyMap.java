@@ -19,10 +19,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -44,7 +44,7 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
   private static final Interner<OffsetTable> offsetTables = BlazeInterners.newWeakInterner();
 
   private final OffsetTable<K> offsetTable;
-  private final Object[] values;
+  @VisibleForSerialization protected final Object[] values;
 
   private static final class OffsetTable<K> {
     private final Object[] keys;
@@ -105,21 +105,6 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
     this.offsetTable = createOffsetTable(keys);
   }
 
-  protected ImmutableSharedKeyMap(Map<K, V> map) {
-    int count = map.size();
-    Object[] keys = new Object[count];
-    Object[] values = new Object[count];
-    int i = 0;
-    for (Map.Entry<K, V> entry : map.entrySet()) {
-      keys[i] = entry.getKey();
-      values[i] = entry.getValue();
-      ++i;
-    }
-    Preconditions.checkArgument(keys.length == values.length);
-    this.values = values;
-    this.offsetTable = createOffsetTable(keys);
-  }
-
   @SuppressWarnings("unchecked")
   private static <K> OffsetTable<K> createOffsetTable(Object[] keys) {
     OffsetTable<K> offsetTable = new OffsetTable<>(keys);
@@ -150,6 +135,13 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
   @Override
   public V valueAt(int index) {
     return (V) values[index];
+  }
+
+  /** Do not use! Present only for serialization. (Annotated as @Deprecated just to prevent use.) */
+  @Deprecated
+  @VisibleForSerialization
+  public Object[] getKeys() {
+    return offsetTable.keys;
   }
 
   @Override

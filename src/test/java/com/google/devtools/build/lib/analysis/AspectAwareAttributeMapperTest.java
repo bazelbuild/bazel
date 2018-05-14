@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import org.junit.Before;
 import org.junit.Test;
@@ -40,17 +42,24 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
 
   @Before
   public final void createMapper() throws Exception {
-    RuleConfiguredTarget ct = (RuleConfiguredTarget) scratchConfiguredTarget("foo", "myrule",
-        "cc_binary(",
-        "    name = 'myrule',",
-        "    srcs = [':a.cc'],",
-        "    linkstatic = select({'//conditions:default': 1}))");
-    rule = ct.getTarget();
+    ConfiguredTargetAndData ctad =
+        scratchConfiguredTargetAndData(
+            "foo",
+            "myrule",
+            "cc_binary(",
+            "    name = 'myrule',",
+            "    srcs = [':a.cc'],",
+            "    linkstatic = select({'//conditions:default': 1}))");
+
+    RuleConfiguredTarget ct = (RuleConfiguredTarget) ctad.getConfiguredTarget();
+    rule = (Rule) ctad.getTarget();
     Attribute aspectAttr = new Attribute.Builder<Label>("fromaspect", BuildType.LABEL)
         .allowedFileTypes(FileTypeSet.ANY_FILE)
         .build();
     aspectAttributes = ImmutableMap.<String, Attribute>of(aspectAttr.getName(), aspectAttr);
-    mapper = new AspectAwareAttributeMapper(ct.getAttributeMapper(), aspectAttributes);
+    mapper =
+        new AspectAwareAttributeMapper(
+            ConfiguredAttributeMapper.of(rule, ct.getConfigConditions()), aspectAttributes);
   }
 
   @Test

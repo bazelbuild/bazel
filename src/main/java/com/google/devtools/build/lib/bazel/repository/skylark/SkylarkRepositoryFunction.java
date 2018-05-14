@@ -18,8 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
@@ -71,7 +73,25 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           new SkylarkRepositoryContext(
               rule, outputDirectory, env, clientEnvironment, httpDownloader, markerData);
 
-      // This has side-effect, we don't care about the output.
+      // Since restarting a repository function can be really expensive, we first ensure that
+      // all label-arguments can be resolved to paths.
+      try {
+        skylarkRepositoryContext.enforceLabelAttributes();
+      } catch (EvalException e) {
+        if (e instanceof RepositoryMissingDependencyException) {
+          // Missing values are expected; just restart before we actually start the rule
+          return null;
+        }
+        // Other EvalExceptions indicate labels not referring to existing files. This is fine,
+        // as long as they are never resolved to files in the execution of the rule; we allow
+        // non-strict rules. So now we have to start evaluating the actual rule, even if that
+        // means the rule might get restarted for legitimate reasons.
+      }
+
+      // This rule is mainly executed for its side effect. Nevertheless, the return value is
+      // of importance, as it provides information on how the call has to be modified to be a
+      // reproducible rule.
+      //
       // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make
       // it possible to return null and not block but it doesn't seem to be easy with Skylark
       // structure as it is.
@@ -82,14 +102,11 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               null,
               buildEnv);
       if (retValue != Runtime.NONE) {
-        throw new RepositoryFunctionException(
-            new EvalException(
-                rule.getLocation(),
-                "Call to repository rule "
-                    + rule.getName()
-                    + " returned a non-None value, None expected."),
-            Transience.PERSISTENT);
+        env.getListener()
+            .handle(Event.info("Repository rule '" + rule.getName() + "' returned: " + retValue));
       }
+      env.getListener()
+          .post(new RepositoryResolvedEvent(rule, skylarkRepositoryContext.getAttr(), retValue));
     } catch (EvalException e) {
       if (e.getCause() instanceof RepositoryMissingDependencyException) {
         // A dependency is missing, cleanup and returns null

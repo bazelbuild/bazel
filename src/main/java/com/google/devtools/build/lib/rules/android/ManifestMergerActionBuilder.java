@@ -18,11 +18,11 @@ import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /** Builder for creating manifest merger actions. */
 public class ManifestMergerActionBuilder {
@@ -97,16 +96,18 @@ public class ManifestMergerActionBuilder {
         ruleContext
             .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
             .getRunfilesSupport()
-            .getRunfilesArtifactsWithoutMiddlemen());
+            .getRunfilesArtifacts());
 
-    builder.addExecPath("--manifest", manifest);
-    inputs.add(manifest);
+    if (manifest != null) {
+      builder.addExecPath("--manifest", manifest);
+      inputs.add(manifest);
+    }
 
     if (mergeeManifests != null && !mergeeManifests.isEmpty()) {
       builder.add(
           "--mergeeManifests",
           mapToDictionaryString(
-              mergeeManifests, Artifact::getExecPathString, null /* valueConverter */));
+              mergeeManifests, Artifact::getExecPathString, /* valueConverter= */ null));
       inputs.addAll(mergeeManifests.keySet());
     }
 
@@ -173,9 +174,9 @@ public class ManifestMergerActionBuilder {
     }
 
     StringBuilder sb = new StringBuilder();
-    Iterator<Entry<K, V>> iter = map.entrySet().iterator();
+    Iterator<Map.Entry<K, V>> iter = map.entrySet().iterator();
     while (iter.hasNext()) {
-      Entry<K, V> entry = iter.next();
+      Map.Entry<K, V> entry = iter.next();
       sb.append(Functions.compose(ESCAPER, keyConverter).apply(entry.getKey()));
       sb.append(':');
       sb.append(Functions.compose(ESCAPER, valueConverter).apply(entry.getValue()));

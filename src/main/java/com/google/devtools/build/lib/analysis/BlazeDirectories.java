@@ -18,10 +18,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
-import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Objects;
 
@@ -44,12 +42,9 @@ import java.util.Objects;
  *
  * <p>Do not put shortcuts to specific files here!
  */
-@AutoCodec(dependency = FileSystemProvider.class)
+@AutoCodec
 @Immutable
 public final class BlazeDirectories {
-  public static final InjectingObjectCodec<BlazeDirectories, FileSystemProvider> CODEC =
-      new BlazeDirectories_AutoCodec();
-
   // Include directory name, relative to execRoot/blaze-out/configuration.
   public static final String RELATIVE_INCLUDE_DIR = StringCanonicalizer.intern("include");
   @VisibleForTesting static final String DEFAULT_EXEC_ROOT = "default-exec-root";
@@ -57,6 +52,11 @@ public final class BlazeDirectories {
   private final ServerDirectories serverDirectories;
   /** Workspace root and server CWD. */
   private final Path workspace;
+  /**
+   * The root of the user's local JDK install, to be used as the default target javabase and as a
+   * fall-back host_javabase. This is not the embedded JDK.
+   */
+  private final Path defaultSystemJavabase;
   /** The root of all build actions. */
   private final Path execRoot;
 
@@ -66,10 +66,15 @@ public final class BlazeDirectories {
   private final Path localOutputPath;
   private final String productName;
 
-  @AutoCodec.Constructor
-  public BlazeDirectories(ServerDirectories serverDirectories, Path workspace, String productName) {
+  @AutoCodec.Instantiator
+  public BlazeDirectories(
+      ServerDirectories serverDirectories,
+      Path workspace,
+      Path defaultSystemJavabase,
+      String productName) {
     this.serverDirectories = serverDirectories;
     this.workspace = workspace;
+    this.defaultSystemJavabase = defaultSystemJavabase;
     this.productName = productName;
     Path outputBase = serverDirectories.getOutputBase();
     Path execRootBase = outputBase.getChild("execroot");
@@ -102,6 +107,11 @@ public final class BlazeDirectories {
   /** Returns the workspace directory, which is also the working dir of the server. */
   public Path getWorkspace() {
     return workspace;
+  }
+
+  /** Returns the root of the user's local JDK install (not the embedded JDK). */
+  public Path getLocalJavabase() {
+    return defaultSystemJavabase;
   }
 
   /** Returns if the workspace directory is a valid workspace. */

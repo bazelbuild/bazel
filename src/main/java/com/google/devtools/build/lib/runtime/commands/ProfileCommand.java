@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.profiler.statistics.MultiProfileStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -212,7 +213,7 @@ public final class ProfileCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) {}
 
   @Override
-  public ExitCode exec(final CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(final CommandEnvironment env, OptionsProvider options) {
     ProfileOptions opts =
         options.getOptions(ProfileOptions.class);
 
@@ -280,11 +281,16 @@ public final class ProfileCommand implements BlazeCommand {
             PhaseSummaryStatistics phaseSummaryStatistics = new PhaseSummaryStatistics(info);
             EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics =
                 new EnumMap<>(ProfilePhase.class);
+
+            Path workspace = env.getWorkspace();
             for (ProfilePhase phase : ProfilePhase.values()) {
               phaseStatistics.put(
                   phase,
                   new PhaseStatistics(
-                      phase, info, env.getWorkspace().getBaseName(), opts.vfsStatsLimit > 0));
+                      phase,
+                      info,
+                      (workspace == null ? "<workspace>" : workspace.getBaseName()),
+                      opts.vfsStatsLimit > 0));
             }
 
             CriticalPathStatistics critPathStats = new CriticalPathStatistics(info);
@@ -325,7 +331,7 @@ public final class ProfileCommand implements BlazeCommand {
         }
       }
     }
-    return ExitCode.SUCCESS;
+    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
 
   /**

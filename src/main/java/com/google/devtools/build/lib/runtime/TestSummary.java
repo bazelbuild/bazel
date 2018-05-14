@@ -22,10 +22,11 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -49,7 +50,7 @@ import java.util.TreeMap;
  * TestSummary methods (except the constructor) may mutate the object.
  */
 @VisibleForTesting // Ideally package-scoped.
-public class TestSummary implements Comparable<TestSummary>, BuildEvent {
+public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrderConstraint {
   /**
    * Builder class responsible for creating and altering TestSummary objects.
    */
@@ -67,6 +68,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
       summary.shardRunStatuses =
           MultimapBuilder.hashKeys().arrayListValues().build(existingSummary.shardRunStatuses);
       setTarget(existingSummary.target);
+      setConfiguration(existingSummary.configuration);
       setStatus(existingSummary.status);
       addCoverageFiles(existingSummary.coverageFiles);
       addPassedLogs(existingSummary.passedLogs);
@@ -107,6 +109,12 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
     public Builder setTarget(ConfiguredTarget target) {
       checkMutation(target);
       summary.target = target;
+      return this;
+    }
+
+    public Builder setConfiguration(BuildConfiguration configuration) {
+      checkMutation(configuration);
+      summary.configuration = Preconditions.checkNotNull(configuration, summary);
       return this;
     }
 
@@ -299,6 +307,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
   }
 
   private ConfiguredTarget target;
+  private BuildConfiguration configuration;
   private BlazeTestStatus status;
   // Currently only populated if --runs_per_test_detects_flakes is enabled.
   private Multimap<Integer, BlazeTestStatus> shardRunStatuses = ArrayListMultimap.create();
@@ -341,6 +350,10 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
 
   public ConfiguredTarget getTarget() {
     return target;
+  }
+
+  public BuildConfiguration getConfiguration() {
+    return configuration;
   }
 
   public BlazeTestStatus getStatus() {
@@ -432,8 +445,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
         .compare(getSortKey(this.status), getSortKey(that.status))
         .compare(this.getLabel(), that.getLabel())
         .compare(
-            this.getTarget().getConfiguration().checksum(),
-            that.getTarget().getConfiguration().checksum())
+            this.getTarget().getConfigurationChecksum(),
+            that.getTarget().getConfigurationChecksum())
         .result();
   }
 
@@ -459,12 +472,21 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
   @Override
   public BuildEventId getEventId() {
     return BuildEventId.testSummary(
-        AliasProvider.getDependencyLabel(target), target.getConfiguration().getEventId());
+        AliasProvider.getDependencyLabel(target),
+        BuildEventId.configurationId(target.getConfigurationChecksum()));
   }
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     return ImmutableList.of();
+  }
+
+  @Override
+  public Collection<BuildEventId> postedAfter() {
+    return ImmutableList.of(
+        BuildEventId.targetCompleted(
+            AliasProvider.getDependencyLabel(target),
+            BuildEventId.configurationId(target.getConfigurationChecksum())));
   }
 
   @Override

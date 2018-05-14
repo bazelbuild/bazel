@@ -403,7 +403,7 @@ final class CompilationAttributes {
           Iterables.filter(includes(), Predicates.not(PathFragment::isAbsolute));
       for (PathFragment include : relativeIncludes) {
         for (PathFragment rootFragment : rootFragments) {
-          paths.add(rootFragment.getRelative(include).normalize());
+          paths.add(rootFragment.getRelative(include));
         }
       }
     }

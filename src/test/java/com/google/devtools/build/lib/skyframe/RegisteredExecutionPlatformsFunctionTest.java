@@ -20,10 +20,10 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.common.truth.IterableSubject;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo.DuplicateConstraintException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
+import com.google.devtools.build.lib.skyframe.ToolchainUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -55,31 +55,31 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   protected static IterableSubject assertExecutionPlatformLabels(
       RegisteredExecutionPlatformsValue registeredExecutionPlatformsValue) {
     assertThat(registeredExecutionPlatformsValue).isNotNull();
-    ImmutableList<PlatformInfo> declaredExecutionPlatforms =
-        registeredExecutionPlatformsValue.registeredExecutionPlatforms();
-    List<Label> labels = collectExecutionPlatformLabels(declaredExecutionPlatforms);
+    ImmutableList<ConfiguredTargetKey> declaredExecutionPlatformKeys =
+        registeredExecutionPlatformsValue.registeredExecutionPlatformKeys();
+    List<Label> labels = collectExecutionPlatformLabels(declaredExecutionPlatformKeys);
     return assertThat(labels);
   }
 
   protected static List<Label> collectExecutionPlatformLabels(
-      List<PlatformInfo> executionPlatforms) {
-    return executionPlatforms
+      List<ConfiguredTargetKey> executionPlatformKeys) {
+    return executionPlatformKeys
         .stream()
-        .map((executionPlatform -> executionPlatform.label()))
+        .map(ConfiguredTargetKey::getLabel)
         .collect(Collectors.toList());
   }
 
   @Test
   public void testRegisteredExecutionPlatforms() throws Exception {
     // Request the executionPlatforms.
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfig);
+    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertThatEvaluationResult(result).hasEntryThat(executionPlatformsKey).isNotNull();
 
     RegisteredExecutionPlatformsValue value = result.get(executionPlatformsKey);
-    assertThat(value.registeredExecutionPlatforms()).isEmpty();
+    assertThat(value.registeredExecutionPlatformKeys()).isEmpty();
   }
 
   @Test
@@ -94,7 +94,55 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     rewriteWorkspace("register_execution_platforms('//extra:execution_platform_2')");
     useConfiguration("--extra_execution_platforms=//extra:execution_platform_1");
 
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfig);
+    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    assertThatEvaluationResult(result).hasNoError();
+
+    // Verify that the target registered with the extra_execution_platforms flag is first in the
+    // list.
+    assertExecutionPlatformLabels(result.get(executionPlatformsKey))
+        .containsAllOf(
+            makeLabel("//extra:execution_platform_1"), makeLabel("//extra:execution_platform_2"))
+        .inOrder();
+  }
+
+  @Test
+  public void testRegisteredExecutionPlatforms_targetPattern_workspace() throws Exception {
+
+    // Add an extra execution platform.
+    scratch.file(
+        "extra/BUILD",
+        "platform(name = 'execution_platform_1')",
+        "platform(name = 'execution_platform_2')");
+
+    rewriteWorkspace("register_execution_platforms('//extra/...')");
+
+    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    assertThatEvaluationResult(result).hasNoError();
+
+    // Verify that the target registered with the extra_execution_platforms flag is first in the
+    // list.
+    assertExecutionPlatformLabels(result.get(executionPlatformsKey))
+        .containsAllOf(
+            makeLabel("//extra:execution_platform_1"), makeLabel("//extra:execution_platform_2"))
+        .inOrder();
+  }
+
+  @Test
+  public void testRegisteredExecutionPlatforms_targetPattern_flagOverride() throws Exception {
+
+    // Add an extra execution platform.
+    scratch.file(
+        "extra/BUILD",
+        "platform(name = 'execution_platform_1')",
+        "platform(name = 'execution_platform_2')");
+
+    useConfiguration("--extra_execution_platforms=//extra/...");
+
+    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -113,16 +161,19 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     scratch.file("error/BUILD", "filegroup(name = 'not_an_execution_platform')");
 
     // Request the executionPlatforms.
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfig);
+    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(executionPlatformsKey)
+        .hasExceptionThat()
+        .isInstanceOf(InvalidPlatformException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(executionPlatformsKey)
         .hasExceptionThat()
         .hasMessageThat()
-        .contains(
-            "invalid registered execution platform '//error:not_an_execution_platform': "
-                + "target does not provide the PlatformInfo provider");
+        .contains("//error:not_an_execution_platform");
   }
 
   @Test
@@ -134,7 +185,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
     rewriteWorkspace("register_execution_platforms('//platform:execution_platform_1')");
 
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfig);
+    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -144,7 +195,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // Re-write the WORKSPACE.
     rewriteWorkspace("register_execution_platforms('//platform:execution_platform_2')");
 
-    executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfig);
+    executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     result = requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
@@ -154,21 +205,21 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   @Test
   public void testRegisteredExecutionPlatformsValue_equalsAndHashCode()
       throws DuplicateConstraintException {
-    PlatformInfo executionPlatform1 =
-        PlatformInfo.builder().setLabel(makeLabel("//test:executionPlatform")).build();
-    PlatformInfo executionPlatform2 =
-        PlatformInfo.builder().setLabel(makeLabel("//test:executionPlatform2")).build();
+    ConfiguredTargetKey executionPlatformKey1 =
+        ConfiguredTargetKey.of(makeLabel("//test:executionPlatform1"), null, false);
+    ConfiguredTargetKey executionPlatformKey2 =
+        ConfiguredTargetKey.of(makeLabel("//test:executionPlatform2"), null, false);
 
     new EqualsTester()
         .addEqualityGroup(
             RegisteredExecutionPlatformsValue.create(
-                ImmutableList.of(executionPlatform1, executionPlatform2)),
+                ImmutableList.of(executionPlatformKey1, executionPlatformKey2)),
             RegisteredExecutionPlatformsValue.create(
-                ImmutableList.of(executionPlatform1, executionPlatform2)))
+                ImmutableList.of(executionPlatformKey1, executionPlatformKey2)))
         .addEqualityGroup(
-            RegisteredExecutionPlatformsValue.create(ImmutableList.of(executionPlatform1)),
-            RegisteredExecutionPlatformsValue.create(ImmutableList.of(executionPlatform2)),
+            RegisteredExecutionPlatformsValue.create(ImmutableList.of(executionPlatformKey1)),
+            RegisteredExecutionPlatformsValue.create(ImmutableList.of(executionPlatformKey2)),
             RegisteredExecutionPlatformsValue.create(
-                ImmutableList.of(executionPlatform2, executionPlatform1)));
+                ImmutableList.of(executionPlatformKey2, executionPlatformKey1)));
   }
 }

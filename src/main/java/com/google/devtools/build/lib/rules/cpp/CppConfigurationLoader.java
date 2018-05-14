@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -26,17 +25,12 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -88,7 +82,8 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     protected final Label crosstoolTop;
     protected final Label ccToolchainLabel;
     protected final Label stlLabel;
-    protected final Path fdoZip;
+    protected final PathFragment fdoPath;
+    protected final Label fdoOptimizeLabel;
     protected final Label sysrootLabel;
     protected final CpuTransformer cpuTransformer;
 
@@ -97,7 +92,8 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         CrosstoolConfigurationLoader.CrosstoolFile crosstoolFile,
         String cacheKeySuffix,
         BuildOptions buildOptions,
-        Path fdoZip,
+        PathFragment fdoPath,
+        Label fdoOptimizeLabel,
         Label crosstoolTop,
         Label ccToolchainLabel,
         Label stlLabel,
@@ -108,7 +104,8 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       this.cacheKeySuffix = cacheKeySuffix;
       this.commonOptions = buildOptions.get(BuildConfiguration.Options.class);
       this.cppOptions = buildOptions.get(CppOptions.class);
-      this.fdoZip = fdoZip;
+      this.fdoPath = fdoPath;
+      this.fdoOptimizeLabel = fdoOptimizeLabel;
       this.crosstoolTop = crosstoolTop;
       this.ccToolchainLabel = ccToolchainLabel;
       this.stlLabel = stlLabel;
@@ -121,10 +118,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
   protected CppConfigurationParameters createParameters(
       ConfigurationEnvironment env, BuildOptions options)
       throws InvalidConfigurationException, InterruptedException {
-    BlazeDirectories directories = env.getBlazeDirectories();
-    if (directories == null) {
-      return null;
-    }
+
     Label crosstoolTopLabel = RedirectChaser.followRedirects(env,
         options.get(CppOptions.class).crosstoolTop, "crosstool_top");
     if (crosstoolTopLabel == null) {
@@ -149,37 +143,23 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         CrosstoolConfigurationLoader.selectToolchain(
             file.getProto(), options, cpuTransformer.getTransformer());
 
-    // FDO
-    // TODO(bazel-team): move this to CppConfiguration.prepareHook
-    Path fdoZip;
-    if (cppOptions.getFdoOptimize() == null) {
-      fdoZip = null;
-    } else if (cppOptions.getFdoOptimize().startsWith("//")) {
-      try {
-        Target target = env.getTarget(Label.parseAbsolute(cppOptions.getFdoOptimize()));
-        if (target == null) {
-          return null;
+    PathFragment fdoPath = null;
+    Label fdoProfileLabel = null;
+    if (cppOptions.getFdoOptimize() != null) {
+      if (cppOptions.getFdoOptimize().startsWith("//")) {
+        try {
+          fdoProfileLabel = Label.parseAbsolute(cppOptions.getFdoOptimize());
+        } catch (LabelSyntaxException e) {
+          throw new InvalidConfigurationException(e);
         }
-        if (!(target instanceof InputFile)) {
-          throw new InvalidConfigurationException(
-              "--fdo_optimize cannot accept targets that do not refer to input files");
+      } else {
+        fdoPath = PathFragment.create(cppOptions.getFdoOptimize());
+        try {
+          // We don't check for file existence, but at least the filename should be well-formed.
+          FileSystemUtils.checkBaseName(fdoPath.getBaseName());
+        } catch (IllegalArgumentException e) {
+          throw new InvalidConfigurationException(e);
         }
-        fdoZip = env.getPath(target.getPackage(), target.getName());
-        if (fdoZip == null) {
-          throw new InvalidConfigurationException(
-              "The --fdo_optimize parameter you specified resolves to a file that does not exist");
-        }
-      } catch (NoSuchPackageException | NoSuchTargetException | LabelSyntaxException e) {
-        env.getEventHandler().handle(Event.error(e.getMessage()));
-        throw new InvalidConfigurationException(e);
-      }
-    } else {
-      fdoZip = directories.getWorkspace().getRelative(cppOptions.getFdoOptimize());
-      try {
-        // We don't check for file existence, but at least the filename should be well-formed.
-        FileSystemUtils.checkBaseName(fdoZip.getBaseName());
-      } catch (IllegalArgumentException e) {
-        throw new InvalidConfigurationException(e);
       }
     }
 
@@ -232,7 +212,8 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         file,
         file.getMd5(),
         options,
-        fdoZip,
+        fdoPath,
+        fdoProfileLabel,
         crosstoolTopLabel,
         ccToolchainLabel,
         stlLabel,

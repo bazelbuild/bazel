@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -54,17 +54,17 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException {
     if (getInstrumentationProvider(ruleContext) == null) {
       ruleContext.throwWithAttributeError(
-          "instrumentation",
+          "test_app",
           String.format(
               "The android_binary target %s is missing an 'instruments' attribute. Please set "
                   + "it to the label of the android_binary under test.",
-              ruleContext.attributes().get("instrumentation", BuildType.LABEL)));
+              ruleContext.attributes().get("test_app", BuildType.LABEL)));
     }
   }
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     validateRuleContext(ruleContext);
 
     // The wrapper script that invokes the test entry point.
@@ -127,8 +127,6 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
         .add(artifactSubstitution("%target_apk%", getTargetApk(ruleContext)))
         .add(artifactSubstitution("%instrumentation_apk%", getInstrumentationApk(ruleContext)))
         .add(artifactListSubstitution("%support_apks%", getAllSupportApks(ruleContext)))
-        .add(Substitution.ofSpaceSeparatedMap("%fixture_args%", getFixtureArgs(ruleContext)))
-        .add(Substitution.ofSpaceSeparatedMap("%log_levels%", getLogLevels(ruleContext)))
         .add(deviceScriptFixturesSubstitution(ruleContext))
         .addAll(hostServiceFixturesSubstitutions(ruleContext))
         .add(artifactListSubstitution("%data_deps%", getDataDeps(ruleContext)))
@@ -199,7 +197,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
   @Nullable
   private static AndroidInstrumentationInfo getInstrumentationProvider(RuleContext ruleContext) {
     return ruleContext.getPrerequisite(
-        "instrumentation", Mode.TARGET, AndroidInstrumentationInfo.PROVIDER);
+        "test_app", Mode.TARGET, AndroidInstrumentationInfo.PROVIDER);
   }
 
   /** The target APK from the {@code android_binary} in the {@code instrumentation} attribute. */
@@ -257,16 +255,6 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
     return AndroidSdkProvider.fromRuleContext(ruleContext).getAapt();
   }
 
-  /** Map of {@code fixture_args} for the test runner to pass to the {@code fixtures}. */
-  private static ImmutableMap<String, String> getFixtureArgs(RuleContext ruleContext) {
-    return ImmutableMap.copyOf(ruleContext.attributes().get("fixture_args", Type.STRING_DICT));
-  }
-
-  /** Map of {@code log_levels} to enable before the test run. */
-  private static ImmutableMap<String, String> getLogLevels(RuleContext ruleContext) {
-    return ImmutableMap.copyOf(ruleContext.attributes().get("log_levels", Type.STRING_DICT));
-  }
-
   private static ImmutableList<Artifact> getDataDeps(RuleContext ruleContext) {
     return ruleContext.getPrerequisiteArtifacts("data", Mode.DATA).list();
   }
@@ -300,7 +288,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
 
   private static String getDeviceBrokerType(RuleContext ruleContext) {
     return ruleContext
-        .getPrerequisite("target_device", Mode.HOST, DeviceBrokerTypeProvider.class)
+        .getPrerequisite("target_device", Mode.HOST, AndroidDeviceBrokerInfo.PROVIDER)
         .getDeviceBrokerType();
   }
 

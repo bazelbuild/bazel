@@ -36,15 +36,19 @@ import com.google.devtools.build.lib.query2.output.OutputFormatter.StreamedForma
 import com.google.devtools.build.lib.query2.output.QueryOptions;
 import com.google.devtools.build.lib.query2.output.QueryOutputUtils;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.runtime.TargetProviderForQueryEnvironment;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.BufferedOutputStream;
@@ -85,7 +89,7 @@ public final class QueryCommand implements BlazeCommand {
    *        (only when --keep_going is in effect.)
    */
   @Override
-  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
     BlazeRuntime runtime = env.getRuntime();
     QueryOptions queryOptions = options.getOptions(QueryOptions.class);
 
@@ -93,10 +97,10 @@ public final class QueryCommand implements BlazeCommand {
       env.setupPackageCache(options, runtime.getDefaultsPackageContent());
     } catch (InterruptedException e) {
       env.getReporter().handle(Event.error("query interrupted"));
-      return ExitCode.INTERRUPTED;
+      return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
-      return e.getExitCode();
+      return BlazeCommandResult.exitCode(e.getExitCode());
     }
 
     String query;
@@ -104,7 +108,7 @@ public final class QueryCommand implements BlazeCommand {
       if (!queryOptions.queryFile.isEmpty()) {
         env.getReporter()
             .handle(Event.error("Command-line query and --query_file cannot both be specified"));
-        return ExitCode.COMMAND_LINE_ERROR;
+        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
       query = Joiner.on(' ').join(options.getResidue());
     } else if (!queryOptions.queryFile.isEmpty()) {
@@ -115,13 +119,13 @@ public final class QueryCommand implements BlazeCommand {
       } catch (IOException e) {
         env.getReporter()
             .handle(Event.error("I/O error reading from " + residuePath.getPathString()));
-        return ExitCode.COMMAND_LINE_ERROR;
+        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
     } else {
       env.getReporter().handle(Event.error(String.format(
           "missing query expression. Type '%s help query' for syntax and help",
           runtime.getProductName())));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
     Iterable<OutputFormatter> formatters = runtime.getQueryOutputFormatters();
@@ -131,7 +135,7 @@ public final class QueryCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(
           String.format("Invalid output format '%s'. Valid values are: %s",
               queryOptions.outputFormat, OutputFormatter.formatterNames(formatters))));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
     Set<Setting> settings = queryOptions.toSettings();
@@ -151,14 +155,14 @@ public final class QueryCommand implements BlazeCommand {
     } catch (QueryException e) {
       env.getReporter()
           .handle(Event.error(null, "Error while parsing '" + query + "': " + e.getMessage()));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
     try {
       formatter.verifyCompatible(queryEnv, expr);
     } catch (QueryException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
     expr = queryEnv.transformParsedQuery(expr);
@@ -194,21 +198,21 @@ public final class QueryCommand implements BlazeCommand {
           // TODO(bazel-team): this is a kludge to fix a bug observed in the wild. We should make
           // sure no null error messages ever get in.
           .handle(Event.error(e.getMessage() == null ? e.toString() : e.getMessage()));
-      return ExitCode.ANALYSIS_FAILURE;
+      return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
     } catch (InterruptedException e) {
       catastrophe = false;
       IOException ioException = callback.getIoException();
       if (ioException == null || ioException instanceof ClosedByInterruptException) {
         env.getReporter().handle(Event.error("query interrupted"));
-        return ExitCode.INTERRUPTED;
+        return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
       } else {
         env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
-        return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
+        return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
       }
     } catch (IOException e) {
       catastrophe = false;
       env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
-      return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     } finally {
       if (!catastrophe) {
         try {
@@ -216,7 +220,7 @@ public final class QueryCommand implements BlazeCommand {
         } catch (IOException e) {
           env.getReporter().handle(
               Event.error("Failed to flush query results: " + e.getMessage()));
-          return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
+          return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
         }
       }
     }
@@ -236,17 +240,17 @@ public final class QueryCommand implements BlazeCommand {
             queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
       } catch (ClosedByInterruptException | InterruptedException e) {
         env.getReporter().handle(Event.error("query interrupted"));
-        return ExitCode.INTERRUPTED;
+        return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
       } catch (IOException e) {
         env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
-        return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
+        return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
       } finally {
         try {
           out.flush();
         } catch (IOException e) {
           env.getReporter().handle(
               Event.error("Failed to flush query results: " + e.getMessage()));
-          return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
+          return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
         }
       }
     }
@@ -258,7 +262,7 @@ public final class QueryCommand implements BlazeCommand {
     ExitCode exitCode = result.getSuccess() ? ExitCode.SUCCESS : ExitCode.PARTIAL_ANALYSIS_FAILURE;
     env.getEventBus()
         .post(new NoBuildRequestFinishedEvent(exitCode, runtime.getClock().currentTimeMillis()));
-    return exitCode;
+    return BlazeCommandResult.exitCode(exitCode);
   }
 
   /**
@@ -282,11 +286,19 @@ public final class QueryCommand implements BlazeCommand {
   public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(CommandEnvironment env,
       boolean keepGoing, boolean orderedResults, List<String> universeScope,
       int loadingPhaseThreads, Set<Setting> settings) {
+
+    WalkableGraph walkableGraph =
+        SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
+
+    TargetProviderForQueryEnvironment targetProviderForQueryEnvironment =
+        new TargetProviderForQueryEnvironment(walkableGraph, env.getPackageManager());
+
     return env.getRuntime()
         .getQueryEnvironmentFactory()
         .create(
             env.getPackageManager().newTransitiveLoader(),
             env.getSkyframeExecutor(),
+            targetProviderForQueryEnvironment,
             env.getPackageManager(),
             env.newTargetPatternEvaluator(),
             keepGoing,

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * AST visitor that keeps track of which symbols are in scope.
@@ -78,7 +77,7 @@ public class AstVisitorWithNameResolution extends SyntaxTreeVisitor {
   @Override
   public void visit(LoadStatement node) {
     Map<Identifier, String> symbolMap = node.getSymbolMap();
-    for (Entry<Identifier, String> entry : symbolMap.entrySet()) {
+    for (Map.Entry<Identifier, String> entry : symbolMap.entrySet()) {
       String name = entry.getKey().getName();
       env.addImported(name, entry.getKey());
       declare(name, entry.getKey());

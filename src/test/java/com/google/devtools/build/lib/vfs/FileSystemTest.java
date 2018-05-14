@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
@@ -789,23 +788,6 @@ public abstract class FileSystemTest {
     assertThat(xNonEmptyDirectoryFoo.isFile()).isTrue();
   }
 
-  @Test
-  public void testCannotRemoveRoot() {
-    Path rootDirectory = testFS.getRootDirectory();
-    try {
-      rootDirectory.delete();
-      fail();
-    } catch (IOException e) {
-      String msg = e.getMessage();
-      assertWithMessage(String.format("got %s want EBUSY or ENOTEMPTY", msg))
-          .that(
-              msg.endsWith(" (Directory not empty)")
-                  || msg.endsWith(" (Device or resource busy)")
-                  || msg.endsWith(" (Is a directory)"))
-          .isTrue(); // Happens on OS X.
-    }
-  }
-
   // Test the date functions
   @Test
   public void testCreateFileChangesTimeOfDirectory() throws Exception {
@@ -1105,22 +1087,13 @@ public abstract class FileSystemTest {
   // Test the Paths
   @Test
   public void testGetPathOnlyAcceptsAbsolutePath() {
-    try {
-      testFS.getPath("not-absolute");
-      fail("The expected Exception was not thrown.");
-    } catch (IllegalArgumentException ex) {
-      assertThat(ex).hasMessage("not-absolute (not an absolute path)");
-    }
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> testFS.getPath("not-absolute"));
   }
 
   @Test
   public void testGetPathOnlyAcceptsAbsolutePathFragment() {
-    try {
-      testFS.getPath(PathFragment.create("not-absolute"));
-      fail("The expected Exception was not thrown.");
-    } catch (IllegalArgumentException ex) {
-      assertThat(ex).hasMessage("not-absolute (not an absolute path)");
-    }
+    MoreAsserts.assertThrows(
+        IllegalArgumentException.class, () -> testFS.getPath(PathFragment.create("not-absolute")));
   }
 
   // Test the access permissions

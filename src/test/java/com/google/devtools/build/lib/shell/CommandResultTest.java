@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import java.time.Duration;
 import org.junit.Test;
@@ -30,7 +30,7 @@ public final class CommandResultTest {
   @Test
   public void testBuilder_WithNoStderr() {
     Exception e =
-        expectThrows(
+        assertThrows(
             IllegalStateException.class,
             () ->
                 CommandResult.builder()
@@ -43,7 +43,7 @@ public final class CommandResultTest {
   @Test
   public void testBuilder_WithNoStdout() {
     Exception e =
-        expectThrows(
+        assertThrows(
             IllegalStateException.class,
             () ->
                 CommandResult.builder()
@@ -56,7 +56,7 @@ public final class CommandResultTest {
   @Test
   public void testBuilder_WithNoTerminationStatus() {
     Exception e =
-        expectThrows(
+        assertThrows(
             IllegalStateException.class,
             () ->
                 CommandResult.builder()

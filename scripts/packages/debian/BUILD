@@ -72,7 +72,8 @@ pkg_deb(
     built_using = "bazel (HEAD)",
     data = ":debian-data",
     depends = [
-        "google-jdk | java8-jdk | java8-sdk | oracle-java8-installer",
+        # Keep in sync with Depends section in ./control
+        "google-jdk | java8-sdk-headless | java8-jdk | java8-sdk | oracle-java8-installer",
         "g++",
         "zlib1g-dev",
         "bash-completion",
@@ -98,12 +99,11 @@ filegroup(
 genrule(
     name = "generate-changelog-file",
     srcs = [
-        "convert_changelog.py",
-        "//:changelog-file",
+        "generate_changelog.py",
         "//:bazel-srcs",  # Force a rebuild on source change
     ],
     outs = ["changelog"],
-    cmd = "python $(location convert_changelog.py) bazel-out/volatile-status.txt $(location //:changelog-file) $(location changelog)",
+    cmd = "python2.7 $(location generate_changelog.py) bazel-out/volatile-status.txt $(location changelog)",
     stamp = 1,
 )
 

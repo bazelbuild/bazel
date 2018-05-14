@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
 import com.google.devtools.build.lib.runtime.AggregatingTestListener;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -81,7 +82,7 @@ public class TestCommand implements BlazeCommand {
   }
 
   @Override
-  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
     TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).testOutput;
     if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
       env.getReporter().handle(Event.warn(
@@ -105,7 +106,7 @@ public class TestCommand implements BlazeCommand {
     return doTest(env, options, testListener);
   }
 
-  private ExitCode doTest(CommandEnvironment env,
+  private BlazeCommandResult doTest(CommandEnvironment env,
       OptionsProvider options,
       AggregatingTestListener testListener) {
     BlazeRuntime runtime = env.getRuntime();
@@ -134,7 +135,7 @@ public class TestCommand implements BlazeCommand {
       ExitCode exitCode =
           buildResult.getSuccess() ? ExitCode.PARSING_FAILURE : buildResult.getExitCondition();
       env.getEventBus().post(new TestingCompleteEvent(exitCode, buildResult.getStopTime()));
-      return exitCode;
+      return BlazeCommandResult.exitCode(exitCode);
     }
     // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
     // more tests
@@ -146,7 +147,7 @@ public class TestCommand implements BlazeCommand {
           buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
       env.getEventBus()
           .post(new NoTestsFound(exitCode, env.getRuntime().getClock().currentTimeMillis()));
-      return exitCode;
+      return BlazeCommandResult.exitCode(exitCode);
     }
 
     boolean buildSuccess = buildResult.getSuccess();
@@ -165,7 +166,7 @@ public class TestCommand implements BlazeCommand {
         ? (testSuccess ? ExitCode.SUCCESS : ExitCode.TESTS_FAILED)
         : buildResult.getExitCondition();
     env.getEventBus().post(new TestingCompleteEvent(exitCode, buildResult.getStopTime()));
-    return exitCode;
+    return BlazeCommandResult.exitCode(exitCode);
   }
 
   /**

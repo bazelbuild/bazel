@@ -1,0 +1,13 @@
+Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations
+Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationAnnotation
+Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationFlag
+Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ClassAnnotation
+Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ConstructorAnnotation
+Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$FieldAnnotation
+Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$MethodAnnotation
+Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ParameterAnnotation
+Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$TypeAnnotation
+===Total===
+missing=9
+incomplete=0
+missing_members=0

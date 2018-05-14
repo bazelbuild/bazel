@@ -12,8 +12,6 @@ filegroup(
 filegroup(
     name = "java-srcs",
     srcs = [
-        "DirectoryBased.java",
-        "ManifestBased.java",
         "Runfiles.java",
         "Util.java",
     ],
@@ -37,18 +35,6 @@ java_library(
 java_test(
     name = "RunfilesTest",
     srcs = ["RunfilesTest.java"],
-    deps = [":test_deps"],
-)
-
-java_test(
-    name = "DirectoryBasedTest",
-    srcs = ["DirectoryBasedTest.java"],
-    deps = [":test_deps"],
-)
-
-java_test(
-    name = "ManifestBasedTest",
-    srcs = ["ManifestBasedTest.java"],
     deps = [":test_deps"],
 )
 

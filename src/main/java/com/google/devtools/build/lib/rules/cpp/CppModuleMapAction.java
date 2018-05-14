@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -37,10 +38,11 @@ import java.util.HashSet;
 import java.util.List;
 
 /**
- * Creates C++ module map artifact genfiles. These are then passed to Clang to
- * do dependency checking.
+ * Creates C++ module map artifact genfiles. These are then passed to Clang to do dependency
+ * checking.
  */
 @Immutable
+@AutoCodec
 public final class CppModuleMapAction extends AbstractFileWriteAction {
 
   private static final String GUID = "4f407081-1951-40c1-befc-d6b4daff5de3";
@@ -226,36 +228,34 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    f.addInt(privateHeaders.size());
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
+    fp.addInt(privateHeaders.size());
     for (Artifact artifact : privateHeaders) {
-      f.addPath(artifact.getExecPath());
+      fp.addPath(artifact.getExecPath());
     }
-    f.addInt(publicHeaders.size());
+    fp.addInt(publicHeaders.size());
     for (Artifact artifact : publicHeaders) {
-      f.addPath(artifact.getExecPath());
+      fp.addPath(artifact.getExecPath());
     }
-    f.addInt(dependencies.size());
+    fp.addInt(dependencies.size());
     for (CppModuleMap dep : dependencies) {
-      f.addPath(dep.getArtifact().getExecPath());
+      fp.addPath(dep.getArtifact().getExecPath());
     }
-    f.addInt(additionalExportedHeaders.size());
+    fp.addInt(additionalExportedHeaders.size());
     for (PathFragment path : additionalExportedHeaders) {
-      f.addPath(path);
+      fp.addPath(path);
     }
-    f.addPath(cppModuleMap.getArtifact().getExecPath());
+    fp.addPath(cppModuleMap.getArtifact().getExecPath());
     Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
     if (umbrellaHeader.isPresent()) {
-      f.addPath(umbrellaHeader.get().getExecPath());
+      fp.addPath(umbrellaHeader.get().getExecPath());
     }
-    f.addString(cppModuleMap.getName());
-    f.addBoolean(moduleMapHomeIsCwd);
-    f.addBoolean(compiledModule);
-    f.addBoolean(generateSubmodules);
-    f.addBoolean(externDependencies);
-    return f.hexDigestAndReset();
+    fp.addString(cppModuleMap.getName());
+    fp.addBoolean(moduleMapHomeIsCwd);
+    fp.addBoolean(compiledModule);
+    fp.addBoolean(generateSubmodules);
+    fp.addBoolean(externDependencies);
   }
 
   @VisibleForTesting

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -58,11 +57,27 @@ public class AllRdepsFunction implements QueryFunction {
       QueryExpression expression,
       List<Argument> args,
       Callback<T> callback) {
-    return evalRdeps(env, context, args, callback, Optional.<Predicate<T>>absent());
+    boolean isDepthUnbounded = args.size() == 1;
+    int depth = isDepthUnbounded ? Integer.MAX_VALUE : args.get(1).getInteger();
+    QueryExpression argumentExpression = args.get(0).getExpression();
+    if (env instanceof StreamableQueryEnvironment) {
+      StreamableQueryEnvironment<T> streamableEnv = (StreamableQueryEnvironment<T>) env;
+      return isDepthUnbounded
+          ? streamableEnv.getAllRdepsUnboundedParallel(argumentExpression, context, callback)
+          : streamableEnv.getAllRdepsBoundedParallel(argumentExpression, depth, context, callback);
+    } else {
+      return eval(
+          env,
+          argumentExpression,
+          Predicates.<T>alwaysTrue(),
+          context,
+          callback,
+          depth);
+    }
   }
 
-  /** Evaluates rdeps query. */
-  public static <T> QueryTaskFuture<Void> eval(
+  /** Common non-parallel implementation of depth-bounded allrdeps/deps. */
+  static <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
       QueryExpression expression,
       final Predicate<T> universe,
@@ -99,26 +114,5 @@ public class AllRdepsFunction implements QueryFunction {
             }
           }
         });
-  }
-
-  static <T> QueryTaskFuture<Void> evalRdeps(
-      final QueryEnvironment<T> env,
-      VariableContext<T> context,
-      final List<Argument> args,
-      final Callback<T> callback,
-      Optional<Predicate<T>> universeMaybe) {
-    final int depth = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
-    final Predicate<T> universe = universeMaybe.isPresent()
-        ? universeMaybe.get()
-        : Predicates.<T>alwaysTrue();
-    if (env instanceof StreamableQueryEnvironment<?>) {
-      StreamableQueryEnvironment<T> streamableEnv = ((StreamableQueryEnvironment<T>) env);
-      return depth == Integer.MAX_VALUE && !universeMaybe.isPresent()
-        ? streamableEnv.getAllRdepsUnboundedParallel(args.get(0).getExpression(), context, callback)
-        : streamableEnv.getAllRdeps(
-            args.get(0).getExpression(), universe, context, callback, depth);
-    } else {
-      return eval(env, args.get(0).getExpression(), universe, context, callback, depth);
-    }
   }
 }

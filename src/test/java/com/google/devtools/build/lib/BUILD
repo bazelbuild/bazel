@@ -9,8 +9,7 @@ package(
 CROSS_PLATFORM_WINDOWS_TESTS = [
     "util/DependencySetWindowsTest.java",
     "vfs/PathFragmentWindowsTest.java",
-    "vfs/WindowsLocalPathTest.java",
-    "windows/PathWindowsTest.java",
+    "vfs/WindowsPathTest.java",
 ]
 
 # Tests for Windows-specific functionality that run on Windows.
@@ -18,7 +17,6 @@ WINDOWS_ON_WINDOWS_TESTS = glob(
     ["windows/*.java"],
     exclude = [
         "windows/MockSubprocess.java",
-        "windows/PathWindowsTest.java",
     ],
 )
 
@@ -60,6 +58,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe:srcs",
         "//src/test/java/com/google/devtools/build/lib/skylark:srcs",
+        "//src/test/java/com/google/devtools/build/lib/skylarkinterface/processor:srcs",
     ],
     visibility = ["//src:__pkg__"],
 )
@@ -78,10 +77,14 @@ filegroup(
 java_library(
     name = "testutil",
     testonly = 1,
-    srcs = glob(["testutil/*.java"]),
+    srcs = glob(
+        ["testutil/*.java"],
+        exclude = ["testutil/BazelPackageBuilderHelperForTesting.java"],
+    ),
     visibility = ["//visibility:public"],
     deps = [
         ":guava_junit_truth",
+        ":testutil/BazelPackageBuilderHelperForTesting",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -89,6 +92,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib:packages/BuilderFactoryForTesting",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/clock",
@@ -99,6 +103,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/protobuf:invocation_policy_java_proto",
+    ],
+)
+
+java_library(
+    name = "testutil/BazelPackageBuilderHelperForTesting",
+    testonly = 0,
+    srcs = ["testutil/BazelPackageBuilderHelperForTesting.java"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/packages",
+        "//third_party:guava",
     ],
 )
 
@@ -202,11 +219,15 @@ java_test(
         ":test_runner",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:serialization",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:mockito",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -314,6 +335,8 @@ java_test(
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/protobuf:bazel_flags_java_proto",
+        "//third_party:mockito",
     ],
 )
 
@@ -373,6 +396,7 @@ java_library(
     deps = [
         ":guava_junit_truth",
         ":vfs_filesystem_test",
+        "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
     ],
 )
@@ -400,7 +424,7 @@ java_test(
 # systems
 java_test(
     name = "windows_test",
-    srcs = CROSS_PLATFORM_WINDOWS_TESTS + ["vfs/LocalPathAbstractTest.java"],
+    srcs = CROSS_PLATFORM_WINDOWS_TESTS + ["vfs/PathAbstractTest.java"],
     jvm_flags = [
         "-Dblaze.os=Windows",
         "-Dbazel.windows_unix_root=C:/fake/msys",
@@ -483,6 +507,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -521,6 +546,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
@@ -534,12 +561,15 @@ java_test(
 java_library(
     name = "analysis_testutil",
     testonly = 1,
-    srcs = glob([
-        "analysis/LicensingTests.java",
-        "analysis/mock/BazelAnalysisMock.java",
-        "analysis/util/*.java",
-        "exec/util/*.java",
-    ]),
+    srcs = glob(
+        [
+            "analysis/LicensingTests.java",
+            "analysis/mock/BazelAnalysisMock.java",
+            "analysis/util/*.java",
+            "exec/util/*.java",
+        ],
+        exclude = ["analysis/util/DefaultBuildOptionsForTesting.java"],
+    ),
     resources = [
         "analysis/mock/MOCK_CROSSTOOL",
     ],
@@ -549,6 +579,7 @@ java_library(
     ],
     deps = [
         ":actions_testutil",
+        ":default_test_build_rules",
         ":foundations_testutil",
         ":guava_junit_truth",
         ":packages_testutil",
@@ -601,6 +632,16 @@ java_library(
 )
 
 java_library(
+    name = "default_test_build_rules",
+    testonly = 1,
+    srcs = ["analysis/util/DefaultBuildOptionsForTesting.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/common/options",
+    ],
+)
+
+java_library(
     name = "integration_testutil",
     testonly = 1,
     srcs = glob([
@@ -633,6 +674,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//third_party:jsr305",
@@ -660,6 +704,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:java-compilation",
         "//src/main/java/com/google/devtools/build/lib:java-rules",
         "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
@@ -716,6 +761,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/vfs",
     ],
 )
@@ -751,9 +797,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -795,6 +841,7 @@ java_library(
         "packages/util/MOCK_OSX_CROSSTOOL",
     ],
     deps = [
+        ":default_test_build_rules",
         ":foundations_testutil",
         ":guava_junit_truth",
         ":testutil",
@@ -852,12 +899,15 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:build_java_proto",
         "//third_party:jsr305",
+        "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -872,6 +922,7 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":analysis_testutil",
+        ":default_test_build_rules",
         ":guava_junit_truth",
         ":packages_testutil",
         ":test_runner",
@@ -908,6 +959,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:server",
         "//src/main/java/com/google/devtools/build/lib:unix",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/collect",
@@ -968,7 +1020,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:profiler-output",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party:mockito",
     ],
 )
 
@@ -1052,6 +1106,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:filetype",
         "//src/main/java/com/google/devtools/build/lib:java-compilation",
         "//src/main/java/com/google/devtools/build/lib:java-rules",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
@@ -1146,6 +1201,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:unix",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
@@ -1154,6 +1210,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
@@ -1161,6 +1218,7 @@ java_test(
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
+        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/common/options:testutils",
         "//third_party:mockito",
     ],
@@ -1168,7 +1226,7 @@ java_test(
 
 java_test(
     name = "remote-tests",
-    srcs = glob(["remote/*.java"]),
+    srcs = glob(["remote/**/*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":analysis_testutil",
@@ -1180,15 +1238,23 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
+        "//src/main/java/com/google/devtools/build/lib/remote/blobstore/http",
+        "//src/main/java/com/google/devtools/build/lib/remote/logging",
+        "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:remote_execution_log_java_proto",
         "//third_party:api_client",
+        "//third_party:auth",
         "//third_party:mockito",
+        "//third_party:netty",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "@googleapis//:google_bytestream_bytestream_java_grpc",
@@ -1203,30 +1269,72 @@ java_test(
     ],
 )
 
+java_library(
+    name = "sandboxfs-base-tests",
+    testonly = 1,
+    srcs = ["sandbox/BaseSandboxfsProcessTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/sandbox",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 java_test(
     name = "sandbox-tests",
-    srcs = glob(["sandbox/*.java"]),
+    srcs = glob(
+        ["sandbox/*.java"],
+        exclude = [
+            "sandbox/BaseSandboxfsProcessTest.java",
+            "sandbox/RealSandboxfsProcessTest.java",
+        ],
+    ),
     data = [":embedded_scripts"],
     local = 1,
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
-        ":actions_testutil",
         ":analysis_testutil",
         ":foundations_testutil",
         ":guava_junit_truth",
+        ":sandboxfs-base-tests",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
+    ],
+)
+
+java_test(
+    name = "sandboxfs-integration-tests",
+    srcs = ["sandbox/RealSandboxfsProcessTest.java"],
+    data = [":embedded_scripts"],
+    local = 1,
+    tags = [
+        # On macOS:
+        #   sudo sysctl -w vfs.generic.osxfuse.tunables.allow_other=1
+        # Test requires:
+        #   --test_env=SANDBOXFS=/path/to/sandboxfs
+        "manual",
+        "no-sandbox",
+        "no_windows",
+    ],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        ":sandboxfs-base-tests",
+        ":test_runner",
+        "//src/main/java/com/google/devtools/build/lib/sandbox",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:junit4",
     ],
 )
 
@@ -1280,9 +1388,12 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:spawn_java_proto",
+        "//src/main/protobuf:test_status_java_proto",
         "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
     ],
@@ -1413,6 +1524,7 @@ java_test(
         ":foundations_testutil",
         ":guava_junit_truth",
         ":test_runner",
+        ":testutil",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
@@ -1517,6 +1629,7 @@ test_suite(
         "//src/test/java/com/google/devtools/build/lib/shell:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/skyframe:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/skylark:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/skylarkinterface/processor:all_windows_tests",
     ],
     visibility = ["//src:__pkg__"],
 )

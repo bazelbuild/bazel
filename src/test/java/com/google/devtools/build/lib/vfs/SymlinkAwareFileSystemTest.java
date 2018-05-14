@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -197,7 +198,8 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
       linkPath.delete();
       createSymbolicLink(linkPath, relative);
       if (testFS.supportsSymbolicLinksNatively(linkPath)) {
-        assertThat(linkPath.getFileSize(Symlinks.NOFOLLOW)).isEqualTo(linkTarget.length());
+        assertThat(linkPath.getFileSize(Symlinks.NOFOLLOW))
+            .isEqualTo(relative.getSafePathString().length());
         assertThat(linkPath.readSymbolicLink()).isEqualTo(relative);
       }
     }
@@ -205,6 +207,10 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
   @Test
   public void testLinkToRootResolvesCorrectly() throws IOException {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // This test cannot be run on Windows, it mixes "/" paths with "C:/" paths
+      return;
+    }
     Path rootPath = testFS.getPath("/");
 
     try {

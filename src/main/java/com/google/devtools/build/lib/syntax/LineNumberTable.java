@@ -14,320 +14,126 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
-import java.nio.CharBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * A table to keep track of line numbers in source files. The client creates a LineNumberTable for
  * their buffer using {@link #create}. The client can then ask for the line and column given a
  * position using ({@link #getLineAndColumn(int)}).
  */
-@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
-public abstract class LineNumberTable implements Serializable {
-  public static final ObjectCodec<LineNumberTable> CODEC = new LineNumberTable_AutoCodec();
+@AutoCodec
+@Immutable
+public class LineNumberTable implements Serializable {
+  /** A mapping from line number (line >= 1) to character offset into the file. */
+  private final int[] linestart;
 
-  /**
-   * Returns the (line, column) pair for the specified offset.
-   */
-  abstract LineAndColumn getLineAndColumn(int offset);
+  private final PathFragment path;
+  private final int bufferLength;
 
-  /**
-   * Returns the (start, end) offset pair for a specified line, not including
-   * newline chars.
-   */
-  abstract Pair<Integer, Integer> getOffsetsForLine(int line);
+  public LineNumberTable(char[] buffer, PathFragment path) {
+    this(computeLinestart(buffer), path, buffer.length);
+  }
 
-  /**
-   * Returns the path corresponding to the given offset.
-   */
-  abstract PathFragment getPath(int offset);
+  @AutoCodec.Instantiator
+  LineNumberTable(int[] linestart, PathFragment path, int bufferLength) {
+    this.linestart = linestart;
+    this.path = path;
+    this.bufferLength = bufferLength;
+  }
 
   static LineNumberTable create(char[] buffer, PathFragment path) {
-    // If #line appears within a BUILD file, we assume it has been preprocessed
-    // by gconfig2blaze.  We ignore all actual newlines and compute the logical
-    // LNT based only on the presence of #line markers.
-    return StringUtilities.containsSubarray(buffer, "\n#line ".toCharArray())
-        ? HashLine.create(buffer, path)
-        : new Regular(buffer, path);
+    return new LineNumberTable(buffer, path);
   }
 
-  /** Line number table implementation for regular source files. Records offsets of newlines. */
-  @AutoCodec
-  @Immutable
-  public static class Regular extends LineNumberTable {
-    public static final ObjectCodec<Regular> CODEC = new LineNumberTable_Regular_AutoCodec();
-
-    /**
-     * A mapping from line number (line >= 1) to character offset into the file.
-     */
-    private final int[] linestart;
-    private final PathFragment path;
-    private final int bufferLength;
-
-    public Regular(char[] buffer, PathFragment path) {
-      this(computeLinestart(buffer), path, buffer.length);
+  private int getLineAt(int offset) {
+    if (offset < 0) {
+      throw new IllegalStateException("Illegal position: " + offset);
     }
-
-    @AutoCodec.Constructor
-    Regular(int[] linestart, PathFragment path, int bufferLength) {
-      this.linestart = linestart;
-      this.path = path;
-      this.bufferLength = bufferLength;
-    }
-
-    private int getLineAt(int offset) {
-      if (offset < 0) {
-        throw new IllegalStateException("Illegal position: " + offset);
-      }
-      int lowBoundary = 1;
-      int highBoundary = linestart.length - 1;
-      while (true) {
-        if ((highBoundary - lowBoundary) <= 1) {
-          if (linestart[highBoundary] > offset) {
-            return lowBoundary;
-          } else {
-            return highBoundary;
-          }
-        }
-        int medium = lowBoundary + ((highBoundary - lowBoundary) >> 1);
-        if (linestart[medium] > offset) {
-          highBoundary = medium;
+    int lowBoundary = 1;
+    int highBoundary = linestart.length - 1;
+    while (true) {
+      if ((highBoundary - lowBoundary) <= 1) {
+        if (linestart[highBoundary] > offset) {
+          return lowBoundary;
         } else {
-          lowBoundary = medium;
+          return highBoundary;
         }
       }
-    }
-
-    @Override
-    LineAndColumn getLineAndColumn(int offset) {
-      int line = getLineAt(offset);
-      int column = offset - linestart[line] + 1;
-      return new LineAndColumn(line, column);
-    }
-
-    @Override
-    PathFragment getPath(int offset) {
-      return path;
-    }
-
-    @Override
-    Pair<Integer, Integer> getOffsetsForLine(int line) {
-      if (line <= 0 || line >= linestart.length) {
-        throw new IllegalArgumentException("Illegal line: " + line);
+      int medium = lowBoundary + ((highBoundary - lowBoundary) >> 1);
+      if (linestart[medium] > offset) {
+        highBoundary = medium;
+      } else {
+        lowBoundary = medium;
       }
-      return Pair.of(linestart[line], line < linestart.length - 1
-          ? linestart[line + 1]
-          : bufferLength);
-    }
-
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(Arrays.hashCode(linestart), path, bufferLength);
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (other == null || !other.getClass().equals(getClass())) {
-        return false;
-      }
-      Regular that = (Regular) other;
-      return this.bufferLength == that.bufferLength
-          && Arrays.equals(this.linestart, that.linestart)
-          && Objects.equals(this.path, that.path);
-    }
-
-    private static int[] computeLinestart(char[] buffer) {
-      // Compute the size.
-      int size = 2;
-      for (int i = 0; i < buffer.length; i++) {
-        if (buffer[i] == '\n') {
-          size++;
-        }
-      }
-      int[] linestart = new int[size];
-
-      int index = 0;
-      linestart[index++] = 0; // The 0th line does not exist - so we fill something in
-      // to make sure the start pos for the 1st line ends up at
-      // linestart[1]. Using 0 is useful for tables that are
-      // completely empty.
-      linestart[index++] = 0; // The first line ("line 1") starts at offset 0.
-
-      // Scan the buffer and record the offset of each line start. Doing this
-      // once upfront is faster than checking each char as it is pulled from
-      // the buffer.
-      for (int i = 0; i < buffer.length; i++) {
-        if (buffer[i] == '\n') {
-          linestart[index++] = i + 1;
-        }
-      }
-      return linestart;
     }
   }
 
-  /**
-   * Line number table implementation for source files that have been preprocessed. Ignores newlines
-   * and uses only #line directives.
-   */
-  @AutoCodec
-  @Immutable
-  public static class HashLine extends LineNumberTable {
-    public static final ObjectCodec<HashLine> CODEC = new LineNumberTable_HashLine_AutoCodec();
+  LineAndColumn getLineAndColumn(int offset) {
+    int line = getLineAt(offset);
+    int column = offset - linestart[line] + 1;
+    return new LineAndColumn(line, column);
+  }
 
-    /** Represents a "#line" directive */
-    @AutoCodec
-    static class SingleHashLine implements Serializable {
-      public static final ObjectCodec<SingleHashLine> CODEC =
-          new LineNumberTable_HashLine_SingleHashLine_AutoCodec();
+  PathFragment getPath(int offset) {
+    return path;
+  }
 
-      private final int offset;
-      private final int line;
-      private final PathFragment path;
-
-      SingleHashLine(int offset, int line, PathFragment path) {
-        this.offset = offset;
-        this.line = line;
-        this.path = path;
-      }
-
-      @Override
-      public int hashCode() {
-        return Objects.hash(offset, line, path);
-      }
-
-      @Override
-      public boolean equals(Object obj) {
-        if (obj == null) {
-          return false;
-        }
-        if (!(obj instanceof SingleHashLine)) {
-          return false;
-        }
-        SingleHashLine that = (SingleHashLine) obj;
-        return offset == that.offset && line == that.line && Objects.equals(path, that.path);
-      }
+  Pair<Integer, Integer> getOffsetsForLine(int line) {
+    if (line <= 0 || line >= linestart.length) {
+      throw new IllegalArgumentException("Illegal line: " + line);
     }
+    return Pair.of(
+        linestart[line], line < linestart.length - 1 ? linestart[line + 1] : bufferLength);
+  }
 
-    private static final Ordering<SingleHashLine> hashOrdering =
-        new Ordering<SingleHashLine>() {
+  @Override
+  public int hashCode() {
+    return Objects.hash(Arrays.hashCode(linestart), path, bufferLength);
+  }
 
-          @Override
-          public int compare(SingleHashLine o1, SingleHashLine o2) {
-            return Integer.compare(o1.offset, o2.offset);
-          }
-        };
-
-    private static final Pattern pattern = Pattern.compile("\n#line ([0-9]+) \"([^\"\\n]+)\"");
-
-    private final ImmutableList<SingleHashLine> table;
-    private final PathFragment defaultPath;
-    private final int bufferLength;
-
-    public static HashLine create(char[] buffer, PathFragment defaultPath) {
-      CharSequence bufString = CharBuffer.wrap(buffer);
-      Matcher m = pattern.matcher(bufString);
-      List<SingleHashLine> unorderedTable = new ArrayList<>();
-      Map<String, PathFragment> pathCache = new HashMap<>();
-      while (m.find()) {
-        String pathString = m.group(2);
-        PathFragment pathFragment = pathCache.computeIfAbsent(pathString, defaultPath::getRelative);
-        unorderedTable.add(new SingleHashLine(
-                m.start(0) + 1,  //offset (+1 to skip \n in pattern)
-                Integer.parseInt(m.group(1)),  // line number
-                pathFragment));  // filename is an absolute path
-      }
-      return new HashLine(
-          hashOrdering.immutableSortedCopy(unorderedTable),
-          Preconditions.checkNotNull(defaultPath),
-          buffer.length);
+  @Override
+  public boolean equals(Object other) {
+    if (other == null || !other.getClass().equals(getClass())) {
+      return false;
     }
+    LineNumberTable that = (LineNumberTable) other;
+    return this.bufferLength == that.bufferLength
+        && Arrays.equals(this.linestart, that.linestart)
+        && Objects.equals(this.path, that.path);
+  }
 
-    @AutoCodec.Constructor
-    HashLine(ImmutableList<SingleHashLine> table, PathFragment defaultPath, int bufferLength) {
-      this.table = table;
-      this.defaultPath = defaultPath;
-      this.bufferLength = bufferLength;
-    }
-
-    private SingleHashLine getHashLine(int offset) {
-      if (offset < 0) {
-        throw new IllegalStateException("Illegal position: " + offset);
-      }
-      int binarySearchIndex =
-          Collections.binarySearch(table, new SingleHashLine(offset, -1, null), hashOrdering);
-      if (binarySearchIndex >= 0) {
-        // An exact match in the binary search. Return it.
-        return table.get(binarySearchIndex);
-      } else if (binarySearchIndex < -1) {
-        // See docs at Collections#binarySearch. Our index is -(insertionPoint + 1). To get to the
-        // nearest existing value in the original list, we must subtract 2.
-        return table.get(-binarySearchIndex - 2);
-      } else {
-        return null;
+  private static int[] computeLinestart(char[] buffer) {
+    // Compute the size.
+    int size = 2;
+    for (int i = 0; i < buffer.length; i++) {
+      if (buffer[i] == '\n') {
+        size++;
       }
     }
+    int[] linestart = new int[size];
 
-    @Override
-    LineAndColumn getLineAndColumn(int offset) {
-      SingleHashLine hashLine = getHashLine(offset);
-      return hashLine == null ? new LineAndColumn(-1, 1) : new LineAndColumn(hashLine.line, 1);
-    }
+    int index = 0;
+    linestart[index++] = 0; // The 0th line does not exist - so we fill something in
+    // to make sure the start pos for the 1st line ends up at
+    // linestart[1]. Using 0 is useful for tables that are
+    // completely empty.
+    linestart[index++] = 0; // The first line ("line 1") starts at offset 0.
 
-    @Override
-    PathFragment getPath(int offset) {
-      SingleHashLine hashLine = getHashLine(offset);
-      return hashLine == null ? defaultPath : hashLine.path;
-    }
-
-    /**
-     * Returns 0, 0 for an unknown line
-     */
-    @Override
-    Pair<Integer, Integer> getOffsetsForLine(int line) {
-      for (int ii = 0, len = table.size(); ii < len; ii++) {
-        if (table.get(ii).line == line) {
-          return Pair.of(table.get(ii).offset, ii < len - 1
-              ? table.get(ii + 1).offset
-              : bufferLength);
-        }
+    // Scan the buffer and record the offset of each line start. Doing this
+    // once upfront is faster than checking each char as it is pulled from
+    // the buffer.
+    for (int i = 0; i < buffer.length; i++) {
+      if (buffer[i] == '\n') {
+        linestart[index++] = i + 1;
       }
-      return Pair.of(0, 0);
     }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(table, defaultPath, bufferLength);
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (other == null || !other.getClass().equals(getClass())) {
-        return false;
-      }
-      HashLine that = (HashLine) other;
-      return this.bufferLength == that.bufferLength
-          && this.defaultPath.equals(that.defaultPath)
-          && this.table.equals(that.table);
-    }
+    return linestart;
   }
 }

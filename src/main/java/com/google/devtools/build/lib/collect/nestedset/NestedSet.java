@@ -19,6 +19,8 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.protobuf.ByteString;
 import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
@@ -34,6 +36,7 @@ import javax.annotation.Nullable;
  * @see NestedSetBuilder
  */
 @SuppressWarnings("unchecked")
+@AutoCodec
 public final class NestedSet<E> implements Iterable<E> {
 
   private final Order order;
@@ -41,7 +44,7 @@ public final class NestedSet<E> implements Iterable<E> {
   private byte[] memo;
 
   private static final byte[] LEAF_MEMO = {};
-  static final Object[] EMPTY_CHILDREN = {};
+  @AutoCodec static final Object[] EMPTY_CHILDREN = {};
 
   /**
    * Construct an empty NestedSet.  Should only be called by Order's class initializer.
@@ -93,6 +96,9 @@ public final class NestedSet<E> implements Iterable<E> {
           if (member instanceof Object[]) {
             throw new IllegalArgumentException("cannot store Object[] in NestedSet");
           }
+          if (member instanceof ByteString) {
+            throw new IllegalArgumentException("cannot store ByteString in NestedSet");
+          }
           if (!alreadyInserted.contains(member)) {
             children[n++] = member;
           }
@@ -135,6 +141,7 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   // Only used by deserialization
+  @AutoCodec.Instantiator
   NestedSet(Order order, Object children) {
     this.order = order;
     this.children = children;

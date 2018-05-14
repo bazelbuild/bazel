@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import java.util.Map;
@@ -68,7 +67,7 @@ public class WorkspaceFactoryHelper {
   }
 
   static void addBindRule(
-      Builder pkg,
+      Package.Builder pkg,
       RuleClass bindRuleClass,
       Label virtual,
       Label actual,

@@ -16,11 +16,8 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionContextMarker;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import java.io.IOException;
-import javax.annotation.Nullable;
 
 /**
  * Context for compiling plain C++.
@@ -36,18 +33,6 @@ public interface CppCompileActionContext extends ActionContext {
      */
     byte[] getContents() throws IOException;
   }
-
-  /**
-   * Does include scanning to find the list of files needed to execute the action.
-   *
-   * <p>Returns null if additional inputs will only be found during action execution, not before.
-   */
-  @Nullable
-  Iterable<Artifact> findAdditionalInputs(
-      CppCompileAction action,
-      ActionExecutionContext actionExecutionContext,
-      IncludeProcessing includeProcessing)
-      throws ExecException, InterruptedException, ActionExecutionException;
 
   /**
    * Executes the given action and return the reply of the executor.

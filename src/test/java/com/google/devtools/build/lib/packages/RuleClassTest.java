@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -76,13 +77,15 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class RuleClassTest extends PackageLoadingTestCase {
-  private static final RuleClass.ConfiguredTargetFactory<Object, Object>
-      DUMMY_CONFIGURED_TARGET_FACTORY = new RuleClass.ConfiguredTargetFactory<Object, Object>() {
-        @Override
-        public Object create(Object ruleContext) throws InterruptedException {
-          throw new IllegalStateException();
-        }
-  };
+  private static final RuleClass.ConfiguredTargetFactory<Object, Object, Exception>
+      DUMMY_CONFIGURED_TARGET_FACTORY =
+          new RuleClass.ConfiguredTargetFactory<Object, Object, Exception>() {
+            @Override
+            public Object create(Object ruleContext)
+                throws InterruptedException, RuleErrorException, ActionConflictException {
+              throw new IllegalStateException();
+            }
+          };
 
   private static final class DummyFragment extends BuildConfiguration.Fragment {
 
@@ -249,8 +252,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
   private Package.Builder createDummyPackageBuilder() {
     return packageFactory.newPackageBuilder(
         PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME), "TESTING")
-        .setFilename(testBuildfilePath)
-        .setMakeEnv(new MakeEnvironment.Builder());
+        .setFilename(testBuildfilePath);
   }
 
   @Test
@@ -845,7 +847,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
       boolean outputsDefaultExecutable,
       ImplicitOutputsFunction implicitOutputsFunction,
       RuleTransitionFactory transitionFactory,
-      ConfiguredTargetFactory<?, ?> configuredTargetFactory,
+      ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
       AdvertisedProviderSet advertisedProviders,
@@ -863,8 +865,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     return new RuleClass(
         name,
         name,
+        RuleClassType.NORMAL,
         /*isSkylark=*/ skylarkExecutable,
-        skylarkExecutable,
         /*skylarkTestable=*/ false,
         documented,
         publicByDefault,
@@ -874,7 +876,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         implicitOutputsFunction,
         /*isConfigMatcher=*/ false,
         transitionFactory,
-        null,
         configuredTargetFactory,
         validityPredicate,
         preferredDependencyPredicate,
@@ -882,7 +883,9 @@ public class RuleClassTest extends PackageLoadingTestCase {
         configuredTargetFunction,
         externalBindingsFunction,
         /*optionReferenceFunction=*/ RuleClass.NO_OPTION_REFERENCE,
-        ruleDefinitionEnvironment,
+        ruleDefinitionEnvironment == null
+            ? null
+            : ruleDefinitionEnvironment.getGlobals().getLabel(),
         ruleDefinitionEnvironmentHashCode,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)
@@ -891,7 +894,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         supportsConstraintChecking,
         /*requiredToolchains=*/ ImmutableSet.<Label>of(),
         /*supportsPlatforms=*/ true,
-        attributes);
+        ImmutableList.copyOf(attributes));
   }
 
   private static RuleClass createParentRuleClass() {

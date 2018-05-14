@@ -18,12 +18,14 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
 /**
  * Objects of this class contain values of some attributes of rules. Used for passing this
  * information to the aspects.
  */
+@AutoCodec
 public final class AspectParameters {
   private final ImmutableMultimap<String, String> attributes;
 
@@ -31,7 +33,16 @@ public final class AspectParameters {
     this.attributes = ImmutableMultimap.copyOf(attributes);
   }
 
-  public static final AspectParameters EMPTY = new AspectParameters.Builder().build();
+  public static final AspectParameters EMPTY = new AspectParameters(ImmutableMultimap.of());
+
+  @AutoCodec.Instantiator
+  @AutoCodec.VisibleForSerialization
+  static AspectParameters create(ImmutableMultimap<String, String> attributes) {
+    if (attributes.isEmpty()) {
+      return EMPTY;
+    }
+    return new AspectParameters(attributes);
+  }
 
   /**
    * A builder for @{link {@link AspectParameters} class.
@@ -52,7 +63,7 @@ public final class AspectParameters {
      * Creates a new instance of {@link AspectParameters} class.
      */
     public AspectParameters build() {
-      return new AspectParameters(attributes.build());
+      return create(attributes.build());
     }
   }
 

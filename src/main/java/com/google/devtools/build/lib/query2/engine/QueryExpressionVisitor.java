@@ -13,15 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
-/** Provides interfaces to visit all {@link QueryExpression}s. */
-public interface QueryExpressionVisitor<T> {
-  T visit(TargetLiteral targetLiteral);
+/** Provides interfaces to visit all {@link QueryExpression}s with a context object. */
+public interface QueryExpressionVisitor<T, C> {
+  T visit(TargetLiteral targetLiteral, C context);
 
-  T visit(BinaryOperatorExpression binaryOperatorExpression);
+  T visit(BinaryOperatorExpression binaryOperatorExpression, C context);
 
-  T visit(FunctionExpression functionExpression);
+  T visit(FunctionExpression functionExpression, C context);
 
-  T visit(LetExpression letExpression);
+  T visit(LetExpression letExpression, C context);
 
-  T visit(SetExpression setExpression);
+  T visit(SetExpression setExpression, C context);
 }

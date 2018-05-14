@@ -350,7 +350,8 @@ EOF
     --toolchain_resolution_debug \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log 'ToolchainResolution: Looking for toolchain of type //toolchain:test_toolchain'
-  expect_log 'ToolchainResolution:   Selected toolchain //:test_toolchain_impl_1'
+  expect_log 'ToolchainResolution:   For toolchain type //toolchain:test_toolchain, possible execution platforms and toolchains: {@bazel_tools//platforms:host_platform -> //:test_toolchain_impl_1}'
+  expect_log 'ToolchainUtil: Selected execution platform @bazel_tools//platforms:host_platform, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
@@ -538,7 +539,7 @@ use_toolchain(
 EOF
 
   bazel build //demo:use &> $TEST_log && fail "Build failure expected"
-  expect_log 'In register_toolchains: unable to parse toolchain label /:invalid:label:syntax'
+  expect_log "invalid registered toolchain '/:invalid:label:syntax': not a valid absolute pattern"
 }
 
 function test_register_toolchain_error_invalid_target() {
@@ -592,6 +593,36 @@ EOF
   bazel build //demo:use &> $TEST_log && fail "Build failure expected"
   expect_log "While resolving toolchains for target //demo:use: invalid registered toolchain '//demo:invalid': target does not provide the DeclaredToolchainInfo provider"
 }
+
+
+function test_register_toolchain_error_invalid_pattern() {
+  cat >WORKSPACE <<EOF
+register_toolchains('//:bad1')
+register_toolchains('//:bad2')
+EOF
+
+  cat >rules.bzl <<EOF
+def _impl(ctx):
+  toolchain = ctx.toolchains['//:dummy']
+  return []
+
+foo = rule(
+  implementation = _impl,
+  toolchains = ['//:dummy'],
+)
+EOF
+
+  cat >BUILD <<EOF
+load(":rules.bzl", "foo")
+toolchain_type(name = 'dummy')
+foo(name = "foo")
+EOF
+
+  bazel build //:foo &> $TEST_log && fail "Build failure expected"
+  # It's uncertain which error will happen first, so handle either.
+  expect_log "While resolving toolchains for target //:foo: invalid registered toolchain '//:bad[12]': no such target"
+}
+
 
 function test_toolchain_error_invalid_target() {
   write_test_toolchain
@@ -648,10 +679,11 @@ EOF
 EOF
 
   bazel build --platforms=//platform:not_a_platform //demo:use &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //demo:use: Target filegroup rule //platform:not_a_platform was found as the target platform, but does not provide PlatformInfo"
+  expect_log "While resolving toolchains for target //demo:use: Target //platform:not_a_platform was referenced as a platform, but does not provide PlatformInfo"
 
   bazel build --host_platform=//platform:not_a_platform //demo:use &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //demo:use: Target filegroup rule //platform:not_a_platform was found as the execution platform, but does not provide PlatformInfo"
+  expect_log "While resolving toolchains for target //demo:use: Target //platform:not_a_platform was referenced as a platform, but does not provide PlatformInfo"
 }
+
 
 run_suite "toolchain tests"

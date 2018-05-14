@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Objects;
 
 /**
  * A value which represents every execution platform known to Bazel and available to run actions.
@@ -29,15 +31,57 @@ import com.google.devtools.build.skyframe.SkyValue;
 public abstract class RegisteredExecutionPlatformsValue implements SkyValue {
 
   /** Returns the {@link SkyKey} for {@link RegisteredExecutionPlatformsValue}s. */
-  public static SkyKey key(BuildConfiguration configuration) {
-    return LegacySkyKey.create(SkyFunctions.REGISTERED_EXECUTION_PLATFORMS, configuration);
+  public static SkyKey key(BuildConfigurationValue.Key configurationKey) {
+    return Key.of(configurationKey);
+  }
+
+  /** {@link SkyKey} implementation used for {@link RegisteredExecutionPlatformsFunction}. */
+  @AutoCodec
+  @AutoCodec.VisibleForSerialization
+  static class Key implements SkyKey {
+    private static final Interner<Key> interners = BlazeInterners.newWeakInterner();
+
+    private final BuildConfigurationValue.Key configurationKey;
+
+    private Key(BuildConfigurationValue.Key configurationKey) {
+      this.configurationKey = configurationKey;
+    }
+
+    @AutoCodec.Instantiator
+    @AutoCodec.VisibleForSerialization
+    static Key of(BuildConfigurationValue.Key configurationKey) {
+      return interners.intern(new Key(configurationKey));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.REGISTERED_EXECUTION_PLATFORMS;
+    }
+
+    BuildConfigurationValue.Key getConfigurationKey() {
+      return configurationKey;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof Key)) {
+        return false;
+      }
+      Key that = (Key) obj;
+      return Objects.equals(this.configurationKey, that.configurationKey);
+    }
+
+    @Override
+    public int hashCode() {
+      return configurationKey.hashCode();
+    }
   }
 
   static RegisteredExecutionPlatformsValue create(
-      Iterable<PlatformInfo> registeredExecutionPlatforms) {
+      Iterable<ConfiguredTargetKey> registeredExecutionPlatformKeys) {
     return new AutoValue_RegisteredExecutionPlatformsValue(
-        ImmutableList.copyOf(registeredExecutionPlatforms));
+        ImmutableList.copyOf(registeredExecutionPlatformKeys));
   }
 
-  public abstract ImmutableList<PlatformInfo> registeredExecutionPlatforms();
+  public abstract ImmutableList<ConfiguredTargetKey> registeredExecutionPlatformKeys();
 }

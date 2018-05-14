@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlockingStack;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
-import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -46,14 +44,13 @@ import java.util.concurrent.TimeUnit;
  */
 @ThreadSafe
 public abstract class ParallelVisitor<T, V> {
-  private final Uniquifier<T> uniquifier;
   private final Callback<V> callback;
   private final int visitBatchSize;
   private final int processResultsBatchSize;
 
   private final VisitingTaskExecutor executor;
 
-  /** A queue to store pending visits. */
+  /** A queue to store pending visits. These should be unique wrt {@link #getUniqueValues}. */
   private final LinkedBlockingQueue<T> processingQueue = new LinkedBlockingQueue<>();
 
   /**
@@ -119,11 +116,9 @@ public abstract class ParallelVisitor<T, V> {
           new ThreadFactoryBuilder().setNameFormat("parallel-visitor %d").build());
 
   protected ParallelVisitor(
-      Uniquifier<T> uniquifier,
       Callback<V> callback,
       int visitBatchSize,
       int processResultsBatchSize) {
-    this.uniquifier = uniquifier;
     this.callback = callback;
     this.visitBatchSize = visitBatchSize;
     this.processResultsBatchSize = processResultsBatchSize;
@@ -157,7 +152,7 @@ public abstract class ParallelVisitor<T, V> {
 
   void visitAndWaitForCompletion(Iterable<SkyKey> keys)
       throws QueryException, InterruptedException {
-    Streams.stream(preprocessInitialVisit(keys)).forEachOrdered(processingQueue::add);
+    getUniqueValues(preprocessInitialVisit(keys)).forEach(processingQueue::add);
     executor.visitAndWaitForCompletion();
   }
 
@@ -172,8 +167,15 @@ public abstract class ParallelVisitor<T, V> {
   /** Gets the {@link Visit} representing the local visitation of the given {@code values}. */
   protected abstract Visit getVisitResult(Iterable<T> values) throws InterruptedException;
 
-  /** Gets the first {@link Visit} representing the entry-level SkyKeys. */
+  /** Gets the equivalent of {@link Visit#keysToVisit} for the entry-level SkyKeys. */
   protected abstract Iterable<T> preprocessInitialVisit(Iterable<SkyKey> keys);
+
+  /**
+   * Returns the values that have never been visited before in {@link #getVisitResult}.
+   *
+   * <p>Used to dedupe visitations before adding them to {@link #processingQueue}.
+   */
+  protected abstract ImmutableList<T> getUniqueValues(Iterable<T> values);
 
   /** Gets tasks to visit pending keys. */
   protected Iterable<Task> getVisitTasks(Collection<T> pendingKeysToVisit) {
@@ -211,18 +213,13 @@ public abstract class ParallelVisitor<T, V> {
 
     @Override
     void process() throws InterruptedException {
-      ImmutableList<T> uniqueKeys = uniquifier.unique(keysToVisit);
-      if (uniqueKeys.isEmpty()) {
-        return;
-      }
-
-      Visit visit = getVisitResult(uniqueKeys);
+      Visit visit = getVisitResult(keysToVisit);
       for (Iterable<SkyKey> keysToUseForResultBatch :
           Iterables.partition(visit.keysToUseForResult, processResultsBatchSize)) {
         executor.execute(new GetAndProcessResultsTask(keysToUseForResultBatch));
       }
 
-      Streams.stream(visit.keysToVisit).forEachOrdered(processingQueue::add);
+      getUniqueValues(visit.keysToVisit).forEach(processingQueue::add);
     }
   }
 

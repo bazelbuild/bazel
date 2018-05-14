@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
+import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -209,8 +210,9 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    protected String computeKey(ActionKeyContext actionKeyContext) {
-      return getPrimaryOutput().getExecPathString() + executionCounter.get();
+    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+      fp.addString(getPrimaryOutput().getExecPathString());
+      fp.addInt(executionCounter.get());
     }
   }
 
@@ -333,19 +335,39 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
   }
 
+  /** Sanity check: ensure that a file's ctime was updated from an older value. */
+  private void checkCtimeUpdated(Path path, long oldCtime) throws IOException {
+    if (oldCtime >= path.stat().getLastChangeTime()) {
+      throw new IllegalStateException(String.format("path=(%s), ctime=(%d)", path, oldCtime));
+    }
+  }
+
   private void maybeChangeFile(Artifact file, ChangeArtifact changeRequest) throws Exception {
     if (changeRequest == ChangeArtifact.DONT_CHANGE) {
       return;
     }
 
+    Path path = file.getPath();
+
     if (changeRequest.changeMtime()) {
-      // 1000000 should be larger than the filesystem timestamp granularity.
-      file.getPath().setLastModifiedTime(file.getPath().getLastModifiedTime() + 1000000);
-      tsgm.waitForTimestampGranularity(reporter.getOutErr());
+      long ctime = path.stat().getLastChangeTime();
+      // Ensure enough time elapsed for file updates to have a visible effect on the file's ctime.
+      TimestampGranularityUtils.waitForTimestampGranularity(ctime, reporter.getOutErr());
+      // waitForTimestampGranularity waits long enough for System.currentTimeMillis() to be greater
+      // than the time at the setCommandStartTime() call. Therefore setting
+      // System.currentTimeMillis() is guaranteed to advance the file's ctime.
+      path.setLastModifiedTime(System.currentTimeMillis());
+      // Sanity check: ensure that updating the file's mtime indeed advanced its ctime.
+      checkCtimeUpdated(path, ctime);
     }
 
     if (changeRequest.changeContent()) {
-      appendToFile(file.getPath());
+      long ctime = path.stat().getLastChangeTime();
+      // Ensure enough time elapsed for file updates to have a visible effect on the file's ctime.
+      TimestampGranularityUtils.waitForTimestampGranularity(ctime, reporter.getOutErr());
+      appendToFile(path);
+      // Sanity check: ensure that appending to the file indeed advanced its ctime.
+      checkCtimeUpdated(path, ctime);
     }
 
     // Invalidate the file state value to inform Skyframe that the file may have changed.
@@ -385,6 +407,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         executor,
         null,
+        null,
         false,
         null,
         null);
@@ -413,6 +436,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         null,
         executor,
+        null,
         null,
         false,
         null,
@@ -510,7 +534,9 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         },
         ChangeArtifact.CHANGE_MTIME,
         Callables.<Void>returning(null),
-        ExpectActionIs.DIRTIED_BUT_VERIFIED_CLEAN);
+        unconditionalExecution
+            ? ExpectActionIs.REEXECUTED
+            : ExpectActionIs.DIRTIED_BUT_VERIFIED_CLEAN);
   }
 
   public void testActionWithNonChangingInput(final boolean unconditionalExecution)
@@ -653,8 +679,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    protected String computeKey(ActionKeyContext actionKeyContext) {
-      return new Fingerprint().addInt(42).hexDigestAndReset();
+    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+      fp.addInt(42);
     }
   }
 
@@ -791,6 +817,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         null,
         executor,
+        null,
         null,
         false,
         null,

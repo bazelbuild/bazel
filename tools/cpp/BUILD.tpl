@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This becomes the BUILD file for @local_config_cc// under non-FreeBSD unixes.
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
@@ -65,6 +67,19 @@ cc_toolchain(
     supports_param_files = %{supports_param_files},
 )
 
+toolchain(
+    name = "cc-toolchain-%{name}",
+    exec_compatible_with = [
+        # This toolchain will only work with the local autoconfigured platforms.
+        "@bazel_tools//platforms:autoconfigured",
+        # TODO(katre): add autodiscovered constraints for host CPU and OS.
+    ],
+    target_compatible_with = [
+        # TODO(katre): add autodiscovered constraints for host CPU and OS.
+    ],
+    toolchain = ":cc-compiler-%{name}",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
 
 # Android tooling requires a default toolchain for the armeabi-v7a cpu.
 cc_toolchain(
@@ -79,6 +94,19 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
+)
+
+toolchain(
+    name = "cc-toolchain-armeabi-v7a",
+    exec_compatible_with = [
+        # TODO(katre): add autodiscovered constraints for host CPU and OS.
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:arm",
+        "@bazel_tools//platforms:android",
+    ],
+    toolchain = ":cc-compiler-armabi-v7a",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
 # ios crosstool configuration requires a default toolchain for the
@@ -97,23 +125,15 @@ cc_toolchain(
     supports_param_files = 1,
 )
 
-cc_toolchain_type(name = "toolchain_type")
-
-# A dummy toolchain is necessary to satisfy toolchain resolution until platforms
-# are used in c++ by default.
-# TODO(b/64754003): Remove once platforms are used in c++ by default.
 toolchain(
-    name = "dummy_cc_toolchain",
-    toolchain = "dummy_cc_toolchain_impl",
-    toolchain_type = ":toolchain_type",
+    name = "cc-toolchain-ios_x86_64",
+    exec_compatible_with = [
+        # TODO(katre): add autodiscovered constraints for host CPU and OS.
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:ios",
+    ],
+    toolchain = ":cc-compiler-ios_x86_64",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
-
-toolchain(
-    name = "dummy_cc_toolchain_type",
-    toolchain = "dummy_cc_toolchain_impl",
-    toolchain_type = ":toolchain_type",
-)
-
-load(":dummy_toolchain.bzl", "dummy_toolchain")
-
-dummy_toolchain(name = "dummy_cc_toolchain_impl")

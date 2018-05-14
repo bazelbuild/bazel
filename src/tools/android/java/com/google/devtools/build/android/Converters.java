@@ -19,9 +19,7 @@ import com.android.manifmerger.ManifestMerger2.MergeType;
 import com.android.repository.Revision;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
 import com.google.devtools.common.options.Converter;
@@ -40,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 
 /**
  * Some convenient converters used by android actions. Note: These are specific to android actions.
@@ -206,42 +203,6 @@ public final class Converters {
   }
 
   /**
-   * Converter for a list of {@link DependencySymbolFileProvider}. Relies on {@code
-   * DependencySymbolFileProvider#valueOf(String)} to perform conversion and validation.
-   *
-   * @deprecated use multi-value flags and {@link DependencySymbolFileProviderConverter} instead.
-   */
-  @Deprecated
-  public static class DependencySymbolFileProviderListConverter
-      implements Converter<List<DependencySymbolFileProvider>> {
-
-    @Override
-    public List<DependencySymbolFileProvider> convert(String input) throws OptionsParsingException {
-      if (input.isEmpty()) {
-        return ImmutableList.<DependencySymbolFileProvider>of();
-      }
-      try {
-        ImmutableList.Builder<DependencySymbolFileProvider> builder = ImmutableList.builder();
-        for (String item : input.split(",")) {
-          builder.add(DependencySymbolFileProvider.valueOf(item));
-        }
-        return builder.build();
-      } catch (IllegalArgumentException e) {
-        throw new OptionsParsingException(
-            String.format("invalid DependencyAndroidData: %s", e.getMessage()), e);
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return String.format(
-          "a list of dependency android data in the format: %s[%s]",
-          DependencySymbolFileProvider.commandlineFormat("1"),
-          DependencySymbolFileProvider.commandlineFormat("2"));
-    }
-  }
-
-  /**
    * Converter for {@link Revision}. Relies on {@code Revision#parseRevision(String)} to perform
    * conversion and validation.
    */
@@ -317,18 +278,6 @@ public final class Converters {
     public MergeTypeConverter() {
       super(MergeType.class, "merge type");
     }
-  }
-
-  public static <T> List<T> concatLists(
-      @Nullable List<? extends T> a, @Nullable List<? extends T> b) {
-    @SuppressWarnings("unchecked")
-    List<T> la = (List<T>) a;
-    @SuppressWarnings("unchecked")
-    List<T> lb = (List<T>) b;
-    if (la == null || la.isEmpty()) {
-      return (lb == null || lb.isEmpty()) ? ImmutableList.of() : lb;
-    }
-    return (lb == null || lb.isEmpty()) ? la : ImmutableList.copyOf(Iterables.concat(la, lb));
   }
 
   /**
@@ -473,7 +422,7 @@ public final class Converters {
 
     @Override
     public List<StaticLibrary> convert(String input) throws OptionsParsingException {
-      final Builder<StaticLibrary> builder = ImmutableList.<StaticLibrary>builder();
+      final ImmutableList.Builder<StaticLibrary> builder = ImmutableList.<StaticLibrary>builder();
       for (String path : SPLITTER.splitToList(input)) {
         builder.add(libraryConverter.convert(path));
       }

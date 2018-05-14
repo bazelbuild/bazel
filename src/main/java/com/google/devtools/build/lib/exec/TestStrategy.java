@@ -28,11 +28,13 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.analysis.config.BinTools;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -45,9 +47,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
-import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -61,7 +61,6 @@ import javax.annotation.Nullable;
 
 /** A strategy for executing a {@link TestRunnerAction}. */
 public abstract class TestStrategy implements TestActionContext {
-  public static final String TEST_SETUP_BASENAME = "test-setup.sh";
 
   /**
    * Ensures that all directories used to run test are in the correct state and their content will
@@ -81,27 +80,6 @@ public abstract class TestStrategy implements TestActionContext {
   protected void recreateDirectory(Path directory) throws IOException {
     FileSystemUtils.deleteTree(directory);
     FileSystemUtils.createDirectoryAndParents(directory);
-  }
-
-  /** Converter for the --flaky_test_attempts option. */
-  public static class TestAttemptsConverter extends RangeConverter {
-    public TestAttemptsConverter() {
-      super(1, 10);
-    }
-
-    @Override
-    public Integer convert(String input) throws OptionsParsingException {
-      if ("default".equals(input)) {
-        return -1;
-      } else {
-        return super.convert(input);
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return super.getTypeDescription() + " or the string \"default\"";
-    }
   }
 
   /** An enum for specifying different formats of test output. */
@@ -156,14 +134,11 @@ public abstract class TestStrategy implements TestActionContext {
    * Generates a command line to run for the test action, taking into account coverage and {@code
    * --run_under} settings.
    *
-   * @param coverageScript a script interjected between setup script and rest of command line to
-   *     collect coverage data. If this is an empty string, it is ignored.
    * @param testAction The test action.
    * @return the command line as string list.
    * @throws ExecException 
    */
-  protected ImmutableList<String> getArgs(String coverageScript, TestRunnerAction testAction)
-      throws ExecException {
+  public static ImmutableList<String> getArgs(TestRunnerAction testAction) throws ExecException {
     List<String> args = Lists.newArrayList();
     // TODO(ulfjack): This is incorrect for remote execution, where we need to consider the target
     // configuration, not the machine Bazel happens to run on. Change this to something like:
@@ -174,11 +149,11 @@ public abstract class TestStrategy implements TestActionContext {
       args.add("$0 $*");
     }
 
-    Artifact testSetup = testAction.getRuntimeArtifact(TEST_SETUP_BASENAME);
+    Artifact testSetup = testAction.getTestSetupScript();
     args.add(testSetup.getExecPath().getCallablePathString());
 
     if (testAction.isCoverageMode()) {
-      args.add(coverageScript);
+      args.add(testAction.getCollectCoverageScript().getExecPathString());
     }
 
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
@@ -209,7 +184,7 @@ public abstract class TestStrategy implements TestActionContext {
       // the --run_under parameter and getCommand only returns the first such token.
       boolean needsShell = !command.contains("/");
       if (needsShell) {
-        args.add(testAction.getConfiguration().getShellExecutable().getPathString());
+        args.add(testAction.getShExecutable().getPathString());
         args.add("-c");
         args.add("\"$@\"");
         args.add("/bin/sh"); // Sets $0.
@@ -228,18 +203,32 @@ public abstract class TestStrategy implements TestActionContext {
   @VisibleForTesting /* protected */
   public int getTestAttempts(TestRunnerAction action) {
     return action.getTestProperties().isFlaky()
-        ? getTestAttemptsForFlakyTest()
-        : getTestAttempts(/*defaultTestAttempts=*/ 1);
+        ? getTestAttemptsForFlakyTest(action)
+        : getTestAttempts(action, /*defaultTestAttempts=*/ 1);
   }
 
-  public int getTestAttemptsForFlakyTest() {
-    return getTestAttempts(/*defaultTestAttempts=*/ 3);
+  public int getTestAttemptsForFlakyTest(TestRunnerAction action) {
+    return getTestAttempts(action, /*defaultTestAttempts=*/ 3);
   }
 
-  private int getTestAttempts(int defaultTestAttempts) {
-    return executionOptions.testAttempts == -1
-        ? defaultTestAttempts
-        : executionOptions.testAttempts;
+  private int getTestAttempts(TestRunnerAction action, int defaultTestAttempts) {
+    Label testLabel = action.getOwner().getLabel();
+    return getTestAttemptsPerLabel(executionOptions, testLabel, defaultTestAttempts);
+  }
+
+  private static int getTestAttemptsPerLabel(
+      ExecutionOptions options, Label label, int defaultTestAttempts) {
+    // Check from the last provided, so that the last option provided takes precedence.
+    for (PerLabelOptions perLabelAttempts : Lists.reverse(options.testAttempts)) {
+      if (perLabelAttempts.isIncluded(label)) {
+        String attempts = Iterables.getOnlyElement(perLabelAttempts.getOptions());
+        if ("default".equals(attempts)) {
+          return defaultTestAttempts;
+        }
+        return Integer.parseInt(attempts);
+      }
+    }
+    return defaultTestAttempts;
   }
 
   /**
@@ -248,7 +237,8 @@ public abstract class TestStrategy implements TestActionContext {
    * but ends up with the same effective value as all other rules in that bucket.
    */
   protected final Duration getTimeout(TestRunnerAction testAction) {
-    return executionOptions.testTimeout.get(testAction.getTestProperties().getTimeout());
+    BuildConfiguration configuration = testAction.getConfiguration();
+    return configuration.getTestTimeout().get(testAction.getTestProperties().getTimeout());
   }
 
   /*
@@ -278,11 +268,11 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
-  protected String getTmpDirName(PathFragment execPath, int shard, int run) {
+  public static String getTmpDirName(TestRunnerAction action) {
     Fingerprint digest = new Fingerprint();
-    digest.addPath(execPath);
-    digest.addInt(shard);
-    digest.addInt(run);
+    digest.addPath(action.getExecutionSettings().getExecutable().getExecPath());
+    digest.addInt(action.getShardNum());
+    digest.addInt(action.getRunNumber());
     return digest.hexDigestAndReset();
   }
 
@@ -363,7 +353,7 @@ public abstract class TestStrategy implements TestActionContext {
     // local test sharding.
     long startTime = Profiler.nanoTimeMaybe();
     synchronized (execSettings.getInputManifest()) {
-      Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, testAction);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, testAction.describe());
       updateLocalRunfilesDirectory(
           testAction,
           runfilesDir,
@@ -399,7 +389,8 @@ public abstract class TestStrategy implements TestActionContext {
       // an up-to-date check.
       if (!outputManifest.isSymbolicLink()
           && Arrays.equals(
-              outputManifest.getDigest(), execSettings.getInputManifest().getPath().getDigest())) {
+              outputManifest.getDigest(),
+              actionExecutionContext.getInputPath(execSettings.getInputManifest()).getDigest())) {
         return;
       }
     } catch (IOException e1) {
@@ -414,7 +405,10 @@ public abstract class TestStrategy implements TestActionContext {
                     + execSettings.getExecutable().prettyPrint()
                     + "'."));
 
-    new SymlinkTreeHelper(execSettings.getInputManifest().getPath(), runfilesDir, false)
+    new SymlinkTreeHelper(
+            actionExecutionContext.getInputPath(execSettings.getInputManifest()),
+            runfilesDir,
+            false)
         .createSymlinks(
             testAction,
             actionExecutionContext,

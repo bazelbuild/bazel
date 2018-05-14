@@ -17,12 +17,15 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import javax.annotation.concurrent.Immutable;
 
 /**
  * A {@link TransitiveInfoProvider} that aggregates {@link ProtoJavaApiInfoProvider} for propogation
  * in an aspect.
  */
+@AutoCodec(strategy = Strategy.AUTO_VALUE_BUILDER)
 @Immutable
 @AutoValue
 public abstract class ProtoJavaApiInfoAspectProvider implements TransitiveInfoProvider {

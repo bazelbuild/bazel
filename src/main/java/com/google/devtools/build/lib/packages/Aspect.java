@@ -15,6 +15,13 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -28,9 +35,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Immutable
 public final class Aspect implements DependencyFilter.AttributeInfoProvider {
-
-  /** */
-  public static final String INJECTING_RULE_KIND_PARAMETER_KEY = "$injecting_rule_kind";
 
   /**
    * The aspect definition is a function of the aspect class + its parameters, so we can cache that.
@@ -107,5 +111,41 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
     // All aspect attributes are implicit.
     return false;
+  }
+
+  /** {@link ObjectCodec} for {@link Aspect}. */
+  static class AspectCodec implements ObjectCodec<Aspect> {
+    @Override
+    public Class<Aspect> getEncodedClass() {
+      return Aspect.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, Aspect obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.getDescriptor(), codedOut);
+      boolean nativeAspect = obj.getDescriptor().getAspectClass() instanceof NativeAspectClass;
+      codedOut.writeBoolNoTag(nativeAspect);
+      if (!nativeAspect) {
+        context.serialize(obj.getDefinition(), codedOut);
+      }
+    }
+
+    @Override
+    public Aspect deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      AspectDescriptor aspectDescriptor = context.deserialize(codedIn);
+      if (codedIn.readBool()) {
+        return forNative(
+            (NativeAspectClass) aspectDescriptor.getAspectClass(),
+            aspectDescriptor.getParameters());
+      } else {
+        AspectDefinition aspectDefinition = context.deserialize(codedIn);
+        return forSkylark(
+            (SkylarkAspectClass) aspectDescriptor.getAspectClass(),
+            aspectDefinition,
+            aspectDescriptor.getParameters());
+      }
+    }
   }
 }

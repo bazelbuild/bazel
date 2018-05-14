@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
-import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.skyframe.OutputService;
 import java.util.List;
@@ -57,16 +56,19 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       try {
         if (outputService != null && outputService.canCreateSymlinkTree()) {
           outputService.createSymlinkTree(
-              action.getInputManifest().getPath(),
-              action.getOutputManifest().getPath(),
+              actionExecutionContext.getInputPath(action.getInputManifest()),
+              actionExecutionContext.getInputPath(action.getOutputManifest()),
               action.isFilesetTree(),
               action.getOutputManifest().getExecPath().getParentDirectory());
           return ImmutableList.of();
         } else {
-          SymlinkTreeHelper helper = new SymlinkTreeHelper(
-              action.getInputManifest().getPath(),
-              action.getOutputManifest().getPath().getParentDirectory(),
-              action.isFilesetTree());
+          SymlinkTreeHelper helper =
+              new SymlinkTreeHelper(
+                  actionExecutionContext.getInputPath(action.getInputManifest()),
+                  actionExecutionContext
+                      .getInputPath(action.getOutputManifest())
+                      .getParentDirectory(),
+                  action.isFilesetTree());
           return helper.createSymlinks(
               action,
               actionExecutionContext,

@@ -25,6 +25,8 @@ filegroup(
         "input_jar.cc",
         "input_jar.h",
         "mapped_file.h",
+        "mapped_file_posix.inc",
+        "mapped_file_windows.inc",
         "options.cc",
         "options.h",
         "output_jar.cc",
@@ -48,8 +50,29 @@ cc_binary(
         "//conditions:default": [],
     }),
     linkstatic = 1,
+    # TODO(b/68065069): use singlejar_local except in remote execution
     visibility = ["//visibility:public"],
     deps = [
+        "options",
+        "output_jar",
+        "//third_party/zlib",
+    ],
+)
+
+cc_binary(
+    name = "singlejar_local",
+    srcs = [
+        "singlejar_local_main.cc",
+    ],
+    linkopts = select({
+        "//src/conditions:freebsd": ["-lm"],
+        "//conditions:default": [],
+    }),
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+    deps = [
+        "combiners",
+        "desugar_checking",
         "options",
         "output_jar",
         "//third_party/zlib",
@@ -67,8 +90,24 @@ cc_test(
     deps = [
         ":combiners",
         ":input_jar",
-        "//third_party:gtest",
         "//third_party/zlib",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "desugar_checking_test",
+    srcs = [
+        "combiners_test.cc",
+        ":zip_headers",
+        ":zlib_interface",
+    ],
+    deps = [
+        ":combiners",
+        ":desugar_checking",
+        ":input_jar",
+        "//third_party/zlib",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -84,7 +123,7 @@ cc_test(
         ":input_jar",
         ":test_util",
         "//src/main/cpp/util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -100,7 +139,7 @@ cc_test(
         ":input_jar",
         ":test_util",
         "//src/main/cpp/util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -121,7 +160,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -137,7 +176,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -149,7 +188,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -164,7 +203,7 @@ cc_test(
         ":test_util",
         ":token_stream",
         "//src/main/cpp/util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -202,7 +241,7 @@ cc_test(
         ":output_jar",
         ":test_util",
         "//src/main/cpp/util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -214,7 +253,7 @@ cc_test(
     deps = [
         ":test_util",
         ":token_stream",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -231,8 +270,8 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "//third_party:gtest",
         "//third_party/zlib",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -243,7 +282,9 @@ cc_test(
         "zip_headers_test.cc",
         ":zip_headers",
     ],
-    deps = ["//third_party:gtest"],
+    deps = [
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 cc_test(
@@ -254,8 +295,8 @@ cc_test(
     ],
     deps = [
         ":test_util",
-        "//third_party:gtest",
         "//third_party/zlib",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -289,27 +330,55 @@ cc_library(
 )
 
 cc_library(
+    name = "desugar_checking",
+    srcs = ["desugar_checking.cc"],
+    hdrs = ["desugar_checking.h"],
+    deps = [
+        ":combiners",
+    ],
+)
+
+cc_library(
+    name = "diag",
+    hdrs = ["diag.h"],
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "mapped_file",
+    srcs = select({
+        "//src:windows": ["mapped_file_windows.inc"],
+        "//conditions:default": ["mapped_file_posix.inc"],
+    }),
+    hdrs = ["mapped_file.h"],
+    visibility = ["//visibility:private"],
+    deps = [":diag"],
+)
+
+cc_library(
     name = "input_jar",
     srcs = [
-        "diag.h",
         "input_jar.cc",
-        "mapped_file.h",
     ],
     hdrs = [
         "input_jar.h",
         "zip_headers.h",
+    ],
+    deps = [
+        ":diag",
+        ":mapped_file",
     ],
 )
 
 cc_library(
     name = "options",
     srcs = [
-        "diag.h",
         "options.cc",
         "options.h",
     ],
     hdrs = ["options.h"],
     deps = [
+        ":diag",
         ":token_stream",
     ],
 )
@@ -317,8 +386,6 @@ cc_library(
 cc_library(
     name = "output_jar",
     srcs = [
-        "diag.h",
-        "mapped_file.h",
         "output_jar.cc",
         "output_jar.h",
         ":zip_headers",
@@ -326,7 +393,9 @@ cc_library(
     hdrs = ["output_jar.h"],
     deps = [
         ":combiners",
+        ":diag",
         ":input_jar",
+        ":mapped_file",
         ":options",
         "//src/main/cpp/util",
         "//third_party/zlib",
@@ -339,14 +408,14 @@ cc_library(
     hdrs = ["test_util.h"],
     deps = [
         "//src/main/cpp/util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
 cc_library(
     name = "token_stream",
-    srcs = ["diag.h"],
     hdrs = ["token_stream.h"],
+    deps = [":diag"],
 )
 
 filegroup(

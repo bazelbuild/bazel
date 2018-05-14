@@ -17,19 +17,25 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.profiler.Profiler.ProfiledTaskKinds;
+import com.google.devtools.build.lib.profiler.Profiler.SlowTask;
 import com.google.devtools.build.lib.profiler.analysis.ProfileInfo;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
@@ -201,6 +207,81 @@ public class ProfilerTest extends FoundationTestCase {
   }
 
   @Test
+  public void testGetSlowestTasksCapped() throws Exception {
+    profiler.start(
+        ProfiledTaskKinds.SLOWEST,
+        ByteStreams.nullOutputStream(),
+        "test",
+        /*recordAllDurations=*/ true,
+        BlazeClock.instance(),
+        BlazeClock.instance().nanoTime());
+
+    // Add some fast tasks - these shouldn't show up in the slowest.
+    for (int i = 0; i < ProfilerTask.VFS_STAT.slowestInstancesCount; i++) {
+      profiler.logSimpleTask(
+          /*startTimeNanos=*/ 1,
+          /*stopTimeNanos=*/ ProfilerTask.VFS_STAT.minDuration + 10,
+          ProfilerTask.VFS_STAT,
+          "stat");
+    }
+
+    // Add some slow tasks we expect to show up in the slowest.
+    List<Long> expectedSlowestDurations = new ArrayList<>();
+    for (int i = 0; i < ProfilerTask.VFS_STAT.slowestInstancesCount; i++) {
+      long fakeDuration = ProfilerTask.VFS_STAT.minDuration + i + 10_000;
+      profiler.logSimpleTask(
+          /*startTimeNanos=*/ 1,
+          /*stopTimeNanos=*/ fakeDuration + 1,
+          ProfilerTask.VFS_STAT,
+          "stat");
+      expectedSlowestDurations.add(fakeDuration);
+    }
+
+    // Sprinkle in a whole bunch of fast tasks from different thread ids - necessary because
+    // internally aggregation is sharded across several aggregators, sharded by thread id.
+    // It's possible all these threads wind up in the same shard, we'll take our chances.
+    ImmutableList.Builder<Thread> threadsBuilder = ImmutableList.builder();
+    try {
+      for (int i = 0; i < 32; i++) {
+        Thread thread = new Thread() {
+          @Override
+          public void run() {
+            for (int j = 0; j < 100; j++) {
+              profiler.logSimpleTask(
+                  /*startTimeNanos=*/ 1,
+                  /*stopTimeNanos=*/ ProfilerTask.VFS_STAT.minDuration + j + 1,
+                  ProfilerTask.VFS_STAT,
+                  "stat");
+            }
+          }
+        };
+        threadsBuilder.add(thread);
+        thread.start();
+      }
+    } finally {
+      threadsBuilder.build().forEach(
+          t -> {
+            try {
+              t.join(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+            } catch (InterruptedException e) {
+              t.interrupt();
+              // This'll go ahead and interrupt all the others. The thread we just interrupted is
+              // lightweight enough that it's reasonable to assume it'll exit.
+              Thread.currentThread().interrupt();
+            }
+          });
+    }
+
+    ImmutableList<SlowTask> slowTasks = ImmutableList.copyOf(profiler.getSlowestTasks());
+    assertThat(slowTasks).hasSize(ProfilerTask.VFS_STAT.slowestInstancesCount);
+
+    ImmutableList<Long> slowestDurations = slowTasks.stream()
+        .map(task -> task.getDurationNanos())
+        .collect(ImmutableList.toImmutableList());
+    assertThat(slowestDurations).containsExactlyElementsIn(expectedSlowestDurations);
+  }
+
+  @Test
   public void testProfilerRecordsNothing() throws Exception {
     Path profileData = cacheDir.getRelative("foo");
 
@@ -308,19 +389,25 @@ public class ProfilerTest extends FoundationTestCase {
     thread1.join();
     clock.advanceMillis(1);
     profiler.markPhase(ProfilePhase.ANALYZE);
-    Thread thread2 = new Thread() {
-      @Override public void run() {
-        profiler.startTask(ProfilerTask.TEST, "complex task");
-        for (int i = 0; i < 100; i++) {
-          Profiler.instance().logEvent(ProfilerTask.TEST, "thread2a");
-        }
-        profiler.completeTask(ProfilerTask.TEST);
-        profiler.markPhase(ProfilePhase.EXECUTE);
-        for (int i = 0; i < 100; i++) {
-          Profiler.instance().logEvent(ProfilerTask.TEST, "thread2b");
-        }
-      }
-    };
+    Thread thread2 =
+        new Thread() {
+          @Override
+          public void run() {
+            profiler.startTask(ProfilerTask.TEST, "complex task");
+            for (int i = 0; i < 100; i++) {
+              Profiler.instance().logEvent(ProfilerTask.TEST, "thread2a");
+            }
+            profiler.completeTask(ProfilerTask.TEST);
+            try {
+              profiler.markPhase(ProfilePhase.EXECUTE);
+            } catch (InterruptedException e) {
+              throw new IllegalStateException(e);
+            }
+            for (int i = 0; i < 100; i++) {
+              Profiler.instance().logEvent(ProfilerTask.TEST, "thread2b");
+            }
+          }
+        };
     thread2.start();
     thread2.join();
     profiler.logEvent(ProfilerTask.TEST, "last task");

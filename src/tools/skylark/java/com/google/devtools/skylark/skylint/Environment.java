@@ -14,9 +14,9 @@
 
 package com.google.devtools.skylark.skylint;
 
+import com.google.devtools.build.lib.packages.BazelLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.ASTNode;
-import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.Comment;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.MethodLibrary;

@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Recursive descent parser for LL(2) BUILD language.
@@ -231,6 +232,32 @@ public class Parser {
     return Iterables.getOnlyElement(stmts);
   }
 
+  // stmt ::= simple_stmt
+  //        | def_stmt
+  //        | for_stmt
+  //        | if_stmt
+  private void parseStatement(List<Statement> list, ParsingLevel parsingLevel) {
+    if (token.kind == TokenKind.DEF) {
+      if (parsingLevel == ParsingLevel.LOCAL_LEVEL) {
+        reportError(
+            lexer.createLocation(token.left, token.right),
+            "nested functions are not allowed. Move the function to top-level");
+      }
+      parseFunctionDefStatement(list);
+    } else if (token.kind == TokenKind.IF) {
+      list.add(parseIfStatement());
+    } else if (token.kind == TokenKind.FOR) {
+      if (parsingLevel == ParsingLevel.TOP_LEVEL) {
+        reportError(
+            lexer.createLocation(token.left, token.right),
+            "for loops are not allowed on top-level. Put it into a function");
+      }
+      parseForStatement(list);
+    } else {
+      parseSimpleStatement(list);
+    }
+  }
+
   /** Parses an expression, possibly followed by newline tokens. */
   @VisibleForTesting
   public static Expression parseExpression(ParserInputSource input, EventHandler eventHandler) {
@@ -242,6 +269,30 @@ public class Parser {
     }
     parser.expect(TokenKind.EOF);
     return result;
+  }
+
+  private Expression parseExpression() {
+    return parseExpression(false);
+  }
+
+  // Equivalent to 'testlist' rule in Python grammar. It can parse every kind of
+  // expression. In many cases, we need to use parseNonTupleExpression to avoid ambiguity:
+  //   e.g. fct(x, y)  vs  fct((x, y))
+  //
+  // Tuples can have a trailing comma only when insideParens is true. This prevents bugs
+  // where a one-element tuple is surprisingly created:
+  //   e.g.  foo = f(x),
+  private Expression parseExpression(boolean insideParens) {
+    int start = token.left;
+    Expression expression = parseNonTupleExpression();
+    if (token.kind != TokenKind.COMMA) {
+      return expression;
+    }
+
+    // It's a tuple
+    List<Expression> tuple = parseExprList(insideParens);
+    tuple.add(0, expression); // add the first expression to the front of the tuple
+    return setLocation(ListLiteral.makeTuple(tuple), start, Iterables.getLast(tuple));
   }
 
   private void reportError(Location location, String message) {
@@ -286,7 +337,7 @@ public class Parser {
 
   /**
    * Consume tokens past the first token that has a kind that is in the set of
-   * teminatingTokens.
+   * terminatingTokens.
    * @param terminatingTokens
    * @return the end offset of the terminating token.
    */
@@ -303,7 +354,7 @@ public class Parser {
 
   /**
    * Consume tokens until we reach the first token that has a kind that is in
-   * the set of teminatingTokens.
+   * the set of terminatingTokens.
    * @param terminatingTokens
    * @return the end offset of the terminating token.
    */
@@ -398,12 +449,12 @@ public class Parser {
   }
 
   // Convenience wrapper method around ASTNode.setLocation
-  private <NODE extends ASTNode> NODE setLocation(NODE node, int startOffset, int endOffset) {
+  private <NodeT extends ASTNode> NodeT setLocation(NodeT node, int startOffset, int endOffset) {
     return ASTNode.setLocation(lexer.createLocation(startOffset, endOffset), node);
   }
 
   // Convenience method that uses end offset from the last node.
-  private <NODE extends ASTNode> NODE setLocation(NODE node, int startOffset, ASTNode lastNode) {
+  private <NodeT extends ASTNode> NodeT setLocation(NodeT node, int startOffset, ASTNode lastNode) {
     Preconditions.checkNotNull(lastNode, "can't extract end offset from a null node");
     Preconditions.checkNotNull(lastNode.getLocation(), "lastNode doesn't have a location");
     return setLocation(node, startOffset, lastNode.getLocation().getEndOffset());
@@ -671,7 +722,7 @@ public class Parser {
 
     expect(TokenKind.LBRACKET);
     if (token.kind == TokenKind.COLON) {
-      startExpr = setLocation(new Identifier("None"), token.left, token.right);
+      startExpr = null;
     } else {
       startExpr = parseExpression();
     }
@@ -682,8 +733,8 @@ public class Parser {
       return expr;
     }
     // This is a slice (or substring)
-    Expression endExpr = parseSliceArgument(new Identifier("None"));
-    Expression stepExpr = parseSliceArgument(new IntegerLiteral(1));
+    Expression endExpr = parseSliceArgument();
+    Expression stepExpr = parseSliceArgument();
     Expression expr =
         setLocation(
             new SliceExpression(receiver, startExpr, endExpr, stepExpr), start, token.right);
@@ -693,18 +744,9 @@ public class Parser {
 
   /**
    * Parses {@code [':' [expr]]} which can either be the end or the step argument of a slice
-   * operation. If no such expression is found, this method returns an argument that represents
-   * {@code defaultValue}.
+   * operation. If no such expression is found, this method returns null.
    */
-  private Expression parseSliceArgument(Expression defaultValue) {
-    Expression explicitArg = getSliceEndOrStepExpression();
-    if (explicitArg == null) {
-      return setLocation(defaultValue, token.left, token.right);
-    }
-    return explicitArg;
-  }
-
-  private Expression getSliceEndOrStepExpression() {
+  private @Nullable Expression parseSliceArgument() {
     // There has to be a colon before any end or slice argument.
     // However, if the next token thereafter is another colon or a right bracket, no argument value
     // was specified.
@@ -944,30 +986,6 @@ public class Parser {
     return new BinaryOperatorExpression(operator, expr, secondary);
   }
 
-  private Expression parseExpression() {
-    return parseExpression(false);
-  }
-
-  // Equivalent to 'testlist' rule in Python grammar. It can parse every kind of
-  // expression. In many cases, we need to use parseNonTupleExpression to avoid ambiguity:
-  //   e.g. fct(x, y)  vs  fct((x, y))
-  //
-  // Tuples can have a trailing comma only when insideParens is true. This prevents bugs
-  // where a one-element tuple is surprisingly created:
-  //   e.g.  foo = f(x),
-  private Expression parseExpression(boolean insideParens) {
-    int start = token.left;
-    Expression expression = parseNonTupleExpression();
-    if (token.kind != TokenKind.COMMA) {
-      return expression;
-    }
-
-    // It's a tuple
-    List<Expression> tuple = parseExprList(insideParens);
-    tuple.add(0, expression);  // add the first expression to the front of the tuple
-    return setLocation(ListLiteral.makeTuple(tuple), start, Iterables.getLast(tuple));
-  }
-
   // Equivalent to 'test' rule in Python grammar.
   private Expression parseNonTupleExpression() {
     int start = token.left;
@@ -1029,7 +1047,7 @@ public class Parser {
     return list;
   }
 
-  // load '(' STRING (COMMA [IDENTIFIER EQUALS] STRING)* COMMA? ')'
+  // load '(' STRING (COMMA [IDENTIFIER EQUALS] STRING)+ COMMA? ')'
   private void parseLoad(List<Statement> list) {
     int start = token.left;
     expect(TokenKind.LOAD);
@@ -1040,6 +1058,10 @@ public class Parser {
     }
 
     StringLiteral importString = parseStringLiteral();
+    if (token.kind == TokenKind.RPAREN) {
+      syntaxError(token, "expected at least one symbol to load");
+      return;
+    }
     expect(TokenKind.COMMA);
 
     Map<Identifier, String> symbols = new HashMap<>();
@@ -1322,31 +1344,6 @@ public class Parser {
       parseSimpleStatement(list);
     }
     return list;
-  }
-
-  // stmt ::= simple_stmt
-  //        | def_stmt
-  //        | for_stmt
-  //        | if_stmt
-  private void parseStatement(List<Statement> list, ParsingLevel parsingLevel) {
-    if (token.kind == TokenKind.DEF) {
-      if (parsingLevel == ParsingLevel.LOCAL_LEVEL) {
-        reportError(lexer.createLocation(token.left, token.right),
-            "nested functions are not allowed. Move the function to top-level");
-      }
-      parseFunctionDefStatement(list);
-    } else if (token.kind == TokenKind.IF) {
-      list.add(parseIfStatement());
-    } else if (token.kind == TokenKind.FOR) {
-      if (parsingLevel == ParsingLevel.TOP_LEVEL) {
-        reportError(
-            lexer.createLocation(token.left, token.right),
-            "for loops are not allowed on top-level. Put it into a function");
-      }
-      parseForStatement(list);
-    } else {
-      parseSimpleStatement(list);
-    }
   }
 
   // flow_stmt ::= BREAK | CONTINUE

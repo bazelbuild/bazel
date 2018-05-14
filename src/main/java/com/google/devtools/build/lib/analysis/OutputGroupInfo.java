@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
@@ -39,7 +41,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -57,6 +58,7 @@ import javax.annotation.Nullable;
  * not mentioned on the output.
  */
 @Immutable
+@AutoCodec
 public final class OutputGroupInfo extends NativeInfo
     implements SkylarkIndexable, Iterable<String> {
   public static final String SKYLARK_NAME = "output_groups";
@@ -78,7 +80,7 @@ public final class OutputGroupInfo extends NativeInfo
    * Building these artifacts only results in the compilation (and not e.g. linking) of the
    * associated target. Mostly useful for C++, less so for e.g. Java.
    */
-  public static final String FILES_TO_COMPILE = "files_to_compile" + INTERNAL_SUFFIX;
+  public static final String FILES_TO_COMPILE = "compilation_outputs";
 
   /**
    * These artifacts are the direct requirements for compilation, but building these does not
@@ -121,7 +123,7 @@ public final class OutputGroupInfo extends NativeInfo
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   public OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+    super(SKYLARK_CONSTRUCTOR);
     this.outputGroups = outputGroups;
   }
 
@@ -264,14 +266,14 @@ public final class OutputGroupInfo extends NativeInfo
     }
 
     @Override
-    protected OutputGroupInfo createInstanceFromSkylark(Object[] args, Location loc)
-        throws EvalException {
+    protected OutputGroupInfo createInstanceFromSkylark(
+        Object[] args, Environment env, Location loc) throws EvalException {
 
       @SuppressWarnings("unchecked")
       Map<String, Object> kwargs = (Map<String, Object>) args[0];
 
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
-      for (Entry<String, Object> entry : kwargs.entrySet()) {
+      for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
         builder.put(
             entry.getKey(),
             SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(

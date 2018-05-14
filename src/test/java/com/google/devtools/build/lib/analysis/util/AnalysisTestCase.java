@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -58,6 +59,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -153,8 +155,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     directories =
         new BlazeDirectories(
-            new ServerDirectories(outputBase, outputBase),
+            new ServerDirectories(outputBase, outputBase, outputBase),
             rootDirectory,
+            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
@@ -182,7 +185,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
         BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-        BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+        BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE,
+        DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider));
   }
 
   /**
@@ -194,7 +198,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     PackageFactory pkgFactory =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
-            .build(ruleClassProvider, scratch.getFileSystem());
+            .build(ruleClassProvider);
+    useConfiguration();
     skyframeExecutor =
         createSkyframeExecutor(pkgFactory, ruleClassProvider.getBuildInfoFactories());
 
@@ -219,7 +224,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     loadingPhaseRunner = skyframeExecutor.getLoadingPhaseRunner(
         pkgFactory.getRuleClassNames(), defaultFlags().contains(Flag.SKYFRAME_LOADING_PHASE));
     buildView = new BuildView(directories, ruleClassProvider, skyframeExecutor, null);
-    useConfiguration();
+
   }
 
   protected AnalysisMock getAnalysisMock() {
@@ -234,7 +239,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    * Sets host and target configuration using the specified options, falling back to the default
    * options for unspecified ones, and recreates the build view.
    */
-  protected final void useConfiguration(String... args) throws Exception {
+  public final void useConfiguration(String... args) throws Exception {
     optionsParser =
         OptionsParser.newOptionsParser(
             Iterables.concat(
@@ -389,6 +394,23 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return update(new EventBus(), defaultFlags(), aspects, labels);
   }
 
+  protected ConfiguredTargetAndData getConfiguredTargetAndTarget(String label)
+      throws InterruptedException {
+    return getConfiguredTargetAndTarget(label, getTargetConfiguration());
+  }
+
+  protected ConfiguredTargetAndData getConfiguredTargetAndTarget(
+      String label, BuildConfiguration config) {
+    ensureUpdateWasCalled();
+    Label parsedLabel;
+    try {
+      parsedLabel = Label.parseAbsolute(label);
+    } catch (LabelSyntaxException e) {
+      throw new AssertionError(e);
+    }
+    return skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
+  }
+
   protected Target getTarget(String label) throws InterruptedException {
     try {
       return SkyframeExecutorTestUtils.getExistingTarget(skyframeExecutor,
@@ -398,20 +420,21 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
   }
 
-  protected ConfiguredTarget getConfiguredTarget(String label, BuildConfiguration configuration) {
+  protected final ConfiguredTargetAndData getConfiguredTargetAndData(
+      String label, BuildConfiguration configuration) {
     ensureUpdateWasCalled();
     return getConfiguredTargetForSkyframe(label, configuration);
   }
 
-  private ConfiguredTarget getConfiguredTargetForSkyframe(String label,
-      BuildConfiguration configuration) {
-    Label parsedLabel;
-    try {
-      parsedLabel = Label.parseAbsolute(label);
-    } catch (LabelSyntaxException e) {
-      throw new AssertionError(e);
-    }
-    return skyframeExecutor.getConfiguredTargetForTesting(reporter, parsedLabel, configuration);
+  protected final ConfiguredTargetAndData getConfiguredTargetAndData(String label)
+      throws InterruptedException {
+    return getConfiguredTargetAndData(label, getTargetConfiguration());
+  }
+
+  protected final ConfiguredTarget getConfiguredTarget(
+      String label, BuildConfiguration configuration) {
+    ConfiguredTargetAndData result = getConfiguredTargetAndData(label, configuration);
+    return result == null ? null : result.getConfiguredTarget();
   }
 
   /**
@@ -420,6 +443,22 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    */
   protected ConfiguredTarget getConfiguredTarget(String label) throws InterruptedException {
     return getConfiguredTarget(label, getTargetConfiguration());
+  }
+
+  private ConfiguredTargetAndData getConfiguredTargetForSkyframe(
+      String label, BuildConfiguration configuration) {
+    Label parsedLabel;
+    try {
+      parsedLabel = Label.parseAbsolute(label);
+    } catch (LabelSyntaxException e) {
+      throw new AssertionError(e);
+    }
+    return skyframeExecutor.getConfiguredTargetAndDataForTesting(
+        reporter, parsedLabel, configuration);
+  }
+
+  protected final BuildConfiguration getConfiguration(TransitiveInfoCollection ct) {
+    return skyframeExecutor.getConfiguration(reporter, ct.getConfigurationKey());
   }
 
   /**
@@ -443,7 +482,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .getDerivedArtifact(
             label.getPackageFragment().getRelative(packageRelativePath),
             getTargetConfiguration().getBinDirectory(label.getPackageIdentifier().getRepository()),
-            ConfiguredTargetKey.of(owner));
+            ConfiguredTargetKey.of(
+                owner, skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey())));
   }
 
   protected Set<SkyKey> getSkyframeEvaluatedTargetKeys() {
@@ -482,8 +522,21 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    * Also see {@link AnalysisTestCase#setRulesAndAspectsAvailableInTests(Iterable, Iterable)}.
    */
   protected void setRulesAvailableInTests(RuleDefinition... rules) throws Exception {
+    // Not all of these aspects are needed for all tests, but it makes it simple to offer them all.
     setRulesAndAspectsAvailableInTests(
-        ImmutableList.<NativeAspectClass>of(),
+        ImmutableList.of(
+            TestAspects.SIMPLE_ASPECT,
+            TestAspects.PARAMETRIZED_DEFINITION_ASPECT,
+            TestAspects.ASPECT_REQUIRING_PROVIDER,
+            TestAspects.FALSE_ADVERTISEMENT_ASPECT,
+            TestAspects.ALL_ATTRIBUTES_ASPECT,
+            TestAspects.ALL_ATTRIBUTES_WITH_TOOL_ASPECT,
+            TestAspects.BAR_PROVIDER_ASPECT,
+            TestAspects.EXTRA_ATTRIBUTE_ASPECT,
+            TestAspects.FOO_PROVIDER_ASPECT,
+            TestAspects.ASPECT_REQUIRING_PROVIDER_SETS,
+            TestAspects.WARNING_ASPECT,
+            TestAspects.ERROR_ASPECT),
         ImmutableList.copyOf(rules));
   }
 

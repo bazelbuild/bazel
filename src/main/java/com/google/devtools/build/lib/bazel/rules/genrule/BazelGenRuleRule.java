@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.bazel.rules.genrule;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -45,9 +46,10 @@ public final class BazelGenRuleRule implements RuleDefinition {
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
         .setOutputToGenfiles()
-        .add(attr("$genrule_setup", LABEL)
-            .cfg(HostTransition.INSTANCE)
-            .value(env.getToolsLabel(GENRULE_SETUP_LABEL)))
+        .add(
+            attr("$genrule_setup", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .value(env.getToolsLabel(GENRULE_SETUP_LABEL)))
         .requiresConfigurationFragments(CppConfiguration.class, JavaConfiguration.class)
 
         // TODO(bazel-team): stamping doesn't seem to work. Fix it or remove attribute.
@@ -56,12 +58,13 @@ public final class BazelGenRuleRule implements RuleDefinition {
             attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
                 .value(GenRuleBaseRule.ccToolchainAttribute(env)))
         .add(
-            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)
+            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(GenRuleBaseRule.ccToolchainTypeAttribute(env)))
-        .add(attr(":host_jdk", LABEL)
-            .cfg(HostTransition.INSTANCE)
-            .value(JavaSemantics.hostJdkAttribute(env))
-            .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id()))
+        .add(
+            attr(":host_jdk", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .value(JavaSemantics.hostJdkAttribute(env))
+                .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id()))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .build();
   }

@@ -13,26 +13,31 @@
 // limitations under the License.
 
 package com.google.devtools.build.lib.analysis.skylark;
-
+  
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
+import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelExpander;
 import com.google.devtools.build.lib.analysis.LabelExpander.NotUniqueExpansionException;
+import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
@@ -58,21 +63,27 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -82,101 +93,20 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/** A Skylark API for the ruleContext.
+/**
+ * A Skylark API for the ruleContext.
  *
- * "This object becomes featureless once the rule implementation function that it was created for
+ * <p>"This object becomes featureless once the rule implementation function that it was created for
  * has completed. To achieve this, the {@link #nullify()} should be called once the evaluation of
  * the function is completed. The method both frees memory by deleting all significant fields of the
  * object and makes it impossible to accidentally use this object where it's not supposed to be used
  * (such attempts will result in {@link EvalException}s).
  */
-@SkylarkModule(
-  name = "ctx",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "The context of the rule containing helper functions and "
-          + "information about attributes, depending targets and outputs. "
-          + "You get a ctx object as an argument to the <code>implementation</code> function when "
-          + "you create a rule."
-)
-public final class SkylarkRuleContext implements SkylarkValue {
+public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
-  private static final String DOC_NEW_FILE_TAIL = "Does not actually create a file on the file "
-      + "system, just declares that some action will do so. You must create an action that "
-      + "generates the file. If the file should be visible to other rules, declare a rule output "
-      + "instead when possible. Doing so enables Blaze to associate a label with the file that "
-      + "rules can refer to (allowing finer dependency control) instead of referencing the whole "
-      + "rule.";
-  public static final String EXECUTABLE_DOC =
-      "A <code>struct</code> containing executable files defined in label type "
-          + "attributes marked as <code>executable=True</code>. The struct fields correspond "
-          + "to the attribute names. Each value in the struct is either a <code>file</code> or "
-          + "<code>None</code>. If an optional attribute is not specified in the rule "
-          + "then the corresponding struct value is <code>None</code>. If a label type is not "
-          + "marked as <code>executable=True</code>, no corresponding struct field is generated. "
-          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/actions_run/execute.bzl\">"
-          + "See example of use</a>.";
-  public static final String FILES_DOC =
-      "A <code>struct</code> containing files defined in label or label list "
-          + "type attributes. The struct fields correspond to the attribute names. The struct "
-          + "values are <code>list</code> of <code>file</code>s.  "
-          + "It is a shortcut for:"
-          + "<pre class=language-python>[f for t in ctx.attr.&lt;ATTR&gt; for f in t.files]</pre> "
-          + "In other words, use <code>files</code> to access the "
-          + "<a href=\"../rules.$DOC_EXT#default-outputs\">default output</a> of dependencies. "
-          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/depsets/foo.bzl\">"
-          + "See example of use</a>.";
-  public static final String FILE_DOC =
-      "A <code>struct</code> containing files defined in label type "
-          + "attributes marked as <code>allow_single_file</code>. The struct fields correspond "
-          + "to the attribute names. The struct value is always a <code>file</code> or "
-          + "<code>None</code>. If an optional attribute is not specified in the rule "
-          + "then the corresponding struct value is <code>None</code>. If a label type is not "
-          + "marked as <code>allow_single_file</code>, no corresponding struct field is generated. "
-          + "It is a shortcut for:"
-          + "<pre class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>"
-          + "In other words, use <code>file</code> to access the "
-          + "<a href=\"../rules.$DOC_EXT#default-outputs\">default output</a> of a dependency. "
-          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/expand_template/hello.bzl\">"
-          + "See example of use</a>.";
-  public static final String ATTR_DOC =
-      "A struct to access the values of the attributes. The values are provided by "
-          + "the user (if not, a default value is used). The attributes of the struct and the "
-          + "types of their values correspond to the keys and values of the <code>attrs</code> "
-          + "dict provided to the <code>rule</code> function. "
-          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/attributes/printer.bzl\">"
-          + "See example of use</a>.";
-  public static final String SPLIT_ATTR_DOC =
-      "A struct to access the values of attributes with split configurations. If the attribute is "
-          + "a label list, the value of split_attr is a dict of the keys of the split (as strings) "
-          + "to lists of the ConfiguredTargets in that branch of the split. If the attribute is a "
-          + "label, then the value of split_attr is a dict of the keys of the split (as strings) "
-          + "to single ConfiguredTargets. Attributes with split configurations still appear in the "
-          + "attr struct, but their values will be single lists with all the branches of the split "
-          + "merged together.";
-  public static final String OUTPUTS_DOC =
-      "A pseudo-struct containing all the pre-declared output files."
-          + " It is generated the following way:<br>"
-          + "<ul>" + ""
-          + "<li>For every entry in the rule's <code>outputs</code> dict an attr is generated with "
-          + "the same name and the corresponding <code>file</code> value."
-          + "<li>For every output type attribute a struct attribute is generated with the "
-          + "same name and the corresponding <code>file</code> value or <code>None</code>, "
-          + "if no value is specified in the rule."
-          + "<li>For every output list type attribute a struct attribute is generated with the "
-          + "same name and corresponding <code>list</code> of <code>file</code>s value "
-          + "(an empty list if no value is specified in the rule).</li>"
-          + "<li>DEPRECATED: If the rule is marked as <code>executable=True</code>, a field "
-          + "\"executable\" can be accessed. That will declare the rule's default executable "
-          + "<code>File</code> value. The recommended alternative is to declare an executable with "
-          + "<a href=\"actions.html#declare_file\"><code>ctx.actions.declare_file</code></a> "
-          + "and return it as the <code>executable</code> field of the rule's "
-          + "<a href=\"globals.html#DefaultInfo\"><code>DefaultInfo</code></a> provider."
-          + "</ul>";
   public static final Function<Attribute, Object> ATTRIBUTE_VALUE_EXTRACTOR_FOR_ASPECT =
       new Function<Attribute, Object>() {
         @Nullable
@@ -252,7 +182,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
         }
       }
 
-      Builder<Artifact, Label> artifactLabelMapBuilder = ImmutableMap.builder();
+      ImmutableMap.Builder<Artifact, Label> artifactLabelMapBuilder = ImmutableMap.builder();
       for (Attribute a : attributes) {
         String attrName = a.getName();
         Type<?> type = a.getType();
@@ -494,8 +424,8 @@ public final class SkylarkRuleContext implements SkylarkValue {
             ruleContext.getSplitPrerequisites(attr.getName());
 
         Map<Object, Object> splitPrereqsMap = new LinkedHashMap<>();
-        for (Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> splitPrereq
-            : splitPrereqs.entrySet()) {
+        for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>>
+            splitPrereq : splitPrereqs.entrySet()) {
 
           Object value;
           if (attr.getType() == BuildType.LABEL) {
@@ -549,34 +479,17 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return ruleContext;
   }
 
-  @SkylarkCallable(
-    name = "default_provider",
-    structField = true,
-    doc = "Deprecated. Use <a href=\"globals.html#DefaultInfo\">DefaultInfo</a> instead."
-  )
-  public static Provider getDefaultProvider() {
+  @Override
+  public Provider getDefaultProvider() {
     return DefaultInfo.PROVIDER;
   }
 
-  @SkylarkCallable(
-      name = "actions",
-      structField = true,
-      doc = "Functions to declare files and create actions."
-  )
+  @Override
   public SkylarkActionFactory actions() {
     return actionFactory;
   }
 
-  @SkylarkCallable(name = "created_actions",
-      doc = "For rules with <a href=\"globals.html#rule._skylark_testable\">_skylark_testable"
-          + "</a> set to <code>True</code>, this returns an "
-          + "<a href=\"globals.html#Actions\">Actions</a> provider representing all actions "
-          + "created so far for the current rule. For all other rules, returns <code>None</code>. "
-          + "Note that the provider is not updated when subsequent actions are created, so you "
-          + "will have to call this function again if you wish to inspect them. "
-          + "<br/><br/>"
-          + "This is intended to help write tests for rule-implementation helper functions, which "
-          + "may take in a <code>ctx</code> object and create actions on it.")
+  @Override
   public SkylarkValue createdActions() throws EvalException {
     checkMutable("created_actions");
     if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
@@ -587,13 +500,13 @@ public final class SkylarkRuleContext implements SkylarkValue {
     }
   }
 
-  @SkylarkCallable(name = "attr", structField = true, doc = ATTR_DOC)
+  @Override
   public Info getAttr() throws EvalException {
     checkMutable("attr");
     return attributesCollection.getAttr();
   }
 
-  @SkylarkCallable(name = "split_attr", structField = true, doc = SPLIT_ATTR_DOC)
+  @Override
   public Info getSplitAttr() throws EvalException {
     checkMutable("split_attr");
     if (splitAttributes == null) {
@@ -604,88 +517,63 @@ public final class SkylarkRuleContext implements SkylarkValue {
   }
 
   /** See {@link RuleContext#getExecutablePrerequisite(String, Mode)}. */
-  @SkylarkCallable(name = "executable", structField = true, doc = EXECUTABLE_DOC)
+  @Override
   public Info getExecutable() throws EvalException {
     checkMutable("executable");
     return attributesCollection.getExecutable();
   }
 
   /** See {@link RuleContext#getPrerequisiteArtifact(String, Mode)}. */
-  @SkylarkCallable(name = "file", structField = true, doc = FILE_DOC)
+  @Override
   public Info getFile() throws EvalException {
     checkMutable("file");
     return attributesCollection.getFile();
   }
 
   /** See {@link RuleContext#getPrerequisiteArtifacts(String, Mode)}. */
-  @SkylarkCallable(name = "files", structField = true, doc = FILES_DOC)
+  @Override
   public Info getFiles() throws EvalException {
     checkMutable("files");
     return attributesCollection.getFiles();
   }
 
-  @SkylarkCallable(name = "workspace_name", structField = true,
-      doc = "Returns the workspace name as defined in the WORKSPACE file.")
+  @Override
   public String getWorkspaceName() throws EvalException {
     checkMutable("workspace_name");
     return ruleContext.getWorkspaceName();
   }
 
-  @SkylarkCallable(name = "label", structField = true, doc = "The label of this rule.")
+  @Override
   public Label getLabel() throws EvalException {
     checkMutable("label");
     return ruleContext.getLabel();
   }
 
-  @SkylarkCallable(name = "fragments", structField = true,
-      doc = "Allows access to configuration fragments in target configuration.")
+  @Override
   public FragmentCollection getFragments() throws EvalException {
     checkMutable("fragments");
     return fragments;
   }
 
-  @SkylarkCallable(name = "host_fragments", structField = true,
-      doc = "Allows access to configuration fragments in host configuration.")
+  @Override
   public FragmentCollection getHostFragments() throws EvalException {
     checkMutable("host_fragments");
     return hostFragments;
   }
 
-  @SkylarkCallable(name = "configuration", structField = true,
-      doc = "Returns the default configuration. See the <a href=\"configuration.html\">"
-          + "configuration</a> type for more details.")
+  @Override
   public BuildConfiguration getConfiguration() throws EvalException {
     checkMutable("configuration");
     return ruleContext.getConfiguration();
   }
 
-  @SkylarkCallable(name = "host_configuration", structField = true,
-      doc = "Returns the host configuration. See the <a href=\"configuration.html\">"
-          + "configuration</a> type for more details.")
+  @Override
   public BuildConfiguration getHostConfiguration() throws EvalException {
     checkMutable("host_configuration");
     return ruleContext.getHostConfiguration();
   }
 
-  @SkylarkCallable(name = "coverage_instrumented",
-    doc = "Returns whether code coverage instrumentation should be generated when performing "
-        + "compilation actions for this rule or, if <code>target</code> is provided, the rule "
-        + "specified by that Target. (If a non-rule or a Skylark rule Target is provided, this "
-        + "returns False.) Checks if the sources of the current rule (if no Target is provided) or"
-        + "the sources of Target should be instrumented based on the --instrumentation_filter and"
-        + "--instrument_test_targets config settings. "
-        + "This differs from <code>coverage_enabled</code> in the <a href=\"configuration.html\">"
-        + "configuration</a>, which notes whether coverage data collection is enabled for the "
-        + "entire run, but not whether a specific target should be instrumented.",
-    parameters = {
-      @Param(
-          name = "target",
-          type = TransitiveInfoCollection.class,
-          defaultValue = "None",
-          noneable = true,
-          named = true,
-          doc = "A Target specifying a rule. If not provided, defaults to the current rule.")
-    })
+  @Override
   public boolean instrumentCoverage(Object targetUnchecked) throws EvalException {
     checkMutable("coverage_instrumented");
     BuildConfiguration config = ruleContext.getConfiguration();
@@ -700,35 +588,25 @@ public final class SkylarkRuleContext implements SkylarkValue {
         && InstrumentedFilesCollector.shouldIncludeLocalSources(config, target);
   }
 
-  @SkylarkCallable(name = "features", structField = true,
-      doc = "Returns the set of features that are enabled for this rule."
-  )
+  @Override
   public ImmutableList<String> getFeatures() throws EvalException {
     checkMutable("features");
     return ImmutableList.copyOf(ruleContext.getFeatures());
   }
 
-  @SkylarkCallable(
-    name = "bin_dir",
-    structField = true,
-    doc = "The root corresponding to bin directory."
-  )
+  @Override
   public ArtifactRoot getBinDirectory() throws EvalException {
     checkMutable("bin_dir");
     return getConfiguration().getBinDirectory(ruleContext.getRule().getRepository());
   }
 
-  @SkylarkCallable(
-    name = "genfiles_dir",
-    structField = true,
-    doc = "The root corresponding to genfiles directory."
-  )
+  @Override
   public ArtifactRoot getGenfilesDirectory() throws EvalException {
     checkMutable("genfiles_dir");
     return getConfiguration().getGenfilesDirectory(ruleContext.getRule().getRepository());
   }
 
-  @SkylarkCallable(structField = true, doc = OUTPUTS_DOC)
+  @Override
   public ClassObject outputs() throws EvalException {
     checkMutable("outputs");
     if (outputsObject == null) {
@@ -737,12 +615,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return outputsObject;
   }
 
-  @SkylarkCallable(
-    structField = true,
-    doc =
-        "Returns rule attributes descriptor for the rule that aspect is applied to."
-            + " Only available in aspect implementation functions."
-  )
+  @Override
   public SkylarkAttributesCollection rule() throws EvalException {
     checkMutable("rule");
     if (!isForAspect) {
@@ -752,10 +625,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return ruleAttributesCollection;
   }
 
-  @SkylarkCallable(structField = true,
-      name = "aspect_ids",
-      doc = "Returns a list ids for all aspects applied to the target."
-      + " Only available in aspect implementation functions.")
+  @Override
   public ImmutableList<String> aspectIds() throws EvalException {
     checkMutable("aspect_ids");
     if (!isForAspect) {
@@ -770,16 +640,13 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return result.build();
   }
 
-  @SkylarkCallable(
-    structField = true,
-    doc = "Dictionary (String to String) of configuration variables."
-  )
+  @Override
   public SkylarkDict<String, String> var() throws EvalException {
     checkMutable("var");
     return makeVariables;
   }
 
-  @SkylarkCallable(structField = true, doc = "Toolchains required for this rule.")
+  @Override
   public SkylarkIndexable toolchains() throws EvalException {
     checkMutable("toolchains");
     return ruleContext.getToolchainContext().getResolvedToolchainProviders();
@@ -790,7 +657,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return ruleLabelCanonicalName;
   }
 
-  @SkylarkCallable(doc = "Splits a shell command to a list of tokens.", documented = false)
+  @Override
   public SkylarkList<String> tokenize(String optionString) throws FuncallException, EvalException {
     checkMutable("tokenize");
     List<String> options = new ArrayList<>();
@@ -802,13 +669,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return SkylarkList.createImmutable(options);
   }
 
-  @SkylarkCallable(
-    doc =
-        "Expands all references to labels embedded within a string for all files using a mapping "
-          + "from definition labels (i.e. the label in the output type attribute) to files. "
-          + "Deprecated.",
-    documented = false
-  )
+  @Override
   public String expand(
       @Nullable String expression, SkylarkList<Object> artifacts, Label labelResolver)
       throws EvalException, FuncallException {
@@ -828,91 +689,46 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return isForAspect;
   }
 
-  @SkylarkCallable(
-    name = "new_file",
-    doc =
-        "DEPRECATED. Use <a href=\"actions.html#declare_file\">ctx.actions.declare_file</a>. <br>"
-            + "Creates a file object with the given filename, in the current package. "
-            + DOC_NEW_FILE_TAIL,
-    parameters = {
-      @Param(
-        name = "filename",
-        type = String.class,
-        doc = "The path of the new file, relative to the current package."
-      )
-    }
-  )
+  @Override
   public Artifact newFile(String filename) throws EvalException {
-    SkylarkRuleImplementationFunctions.checkDeprecated(
-        "ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
+    checkDeprecated("ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
     checkMutable("new_file");
     return actionFactory.declareFile(filename, Runtime.NONE);
   }
 
   // Kept for compatibility with old code.
-  @SkylarkCallable(documented = false)
-  public Artifact newFile(ArtifactRoot root, String filename) throws EvalException {
+  @Override
+  public Artifact newFile(FileRootApi root, String filename) throws EvalException {
     checkMutable("new_file");
-    return ruleContext.getPackageRelativeArtifact(filename, root);
+    return ruleContext.getPackageRelativeArtifact(filename, (ArtifactRoot) root);
   }
 
-  @SkylarkCallable(
-      name = "new_file",
-      doc =
-          "Creates a new file object in the same directory as the original file. "
-              + DOC_NEW_FILE_TAIL,
-      parameters = {
-        @Param(
-          name = "sibling_file",
-          type = Artifact.class,
-          doc = "A file that lives in the same directory as the newly created file."
-        ),
-        @Param(
-          name = "basename",
-          type = String.class,
-          doc = "The base name of the newly created file."
-        )
-      }
-    )
-  public Artifact newFile(Artifact baseArtifact, String newBaseName) throws EvalException {
-    SkylarkRuleImplementationFunctions.checkDeprecated(
-        "ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
+  @Override
+  public Artifact newFile(FileApi baseArtifact, String newBaseName) throws EvalException {
+    checkDeprecated("ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
     checkMutable("new_file");
     return actionFactory.declareFile(newBaseName, baseArtifact);
   }
 
   // Kept for compatibility with old code.
-  @SkylarkCallable(documented = false)
-  public Artifact newFile(ArtifactRoot root, Artifact baseArtifact, String suffix)
+  @Override
+  public Artifact newFile(FileRootApi root, FileApi baseArtifact, String suffix)
       throws EvalException {
     checkMutable("new_file");
-    PathFragment original = baseArtifact.getRootRelativePath();
+    PathFragment original = ((Artifact) baseArtifact).getRootRelativePath();
     PathFragment fragment = original.replaceName(original.getBaseName() + suffix);
-    return ruleContext.getDerivedArtifact(fragment, root);
+    return ruleContext.getDerivedArtifact(fragment, (ArtifactRoot) root);
   }
 
-  @SkylarkCallable(
-    name = "experimental_new_directory",
-    documented = false,
-    parameters = {
-      @Param(name = "name", type = String.class),
-      @Param(
-        name = "sibling",
-        type = Artifact.class,
-        defaultValue = "None",
-        noneable = true,
-        named = true
-      )
-    }
-  )
+  @Override
   public Artifact newDirectory(String name, Object siblingArtifactUnchecked) throws EvalException {
-    SkylarkRuleImplementationFunctions.checkDeprecated(
+    checkDeprecated(
         "ctx.actions.declare_directory", "ctx.experimental_new_directory", null, skylarkSemantics);
     checkMutable("experimental_new_directory");
     return actionFactory.declareDirectory(name, siblingArtifactUnchecked);
   }
 
-  @SkylarkCallable(documented = false)
+  @Override
   public boolean checkPlaceholders(String template, SkylarkList<Object> allowedPlaceholders)
       throws EvalException {
     checkMutable("check_placeholders");
@@ -928,26 +744,10 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return true;
   }
 
-  @SkylarkCallable(doc =
-        "<b>Deprecated.</b> Use <code>ctx.var</code> to access the variables instead.<br>"
-      + "Returns a string after expanding all references to \"Make variables\". The variables "
-      + "must have the following format: <code>$(VAR_NAME)</code>. Also, <code>$$VAR_NAME"
-      + "</code> expands to <code>$VAR_NAME</code>. Parameters:"
-      + "<ul><li>The name of the attribute (<code>string</code>). It's only used for error "
-      + "reporting.</li>\n"
-      + "<li>The expression to expand (<code>string</code>). It can contain references to "
-      + "\"Make variables\".</li>\n"
-      + "<li>A mapping of additional substitutions (<code>dict</code> of <code>string</code> : "
-      + "<code>string</code>).</li></ul>\n"
-      + "Examples:"
-      + "<pre class=language-python>\n"
-      + "ctx.expand_make_variables(\"cmd\", \"$(MY_VAR)\", {\"MY_VAR\": \"Hi\"})  # == \"Hi\"\n"
-      + "ctx.expand_make_variables(\"cmd\", \"$$PWD\", {})  # == \"$PWD\"\n"
-      + "</pre>"
-      + "Additional variables may come from other places, such as configurations. Note that "
-      + "this function is experimental.")
-  public String expandMakeVariables(String attributeName, String command,
-      final Map<String, String> additionalSubstitutions) throws EvalException {
+  @Override
+  public String expandMakeVariables(
+      String attributeName, String command, final Map<String, String> additionalSubstitutions)
+      throws EvalException {
     checkMutable("expand_make_variables");
     ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
@@ -973,41 +773,305 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return attributesCollection.getExecutableRunfilesMap().get(executable);
   }
 
-  @SkylarkCallable(
-    name = "info_file",
-    structField = true,
-    documented = false,
-    doc =
-        "Returns the file that is used to hold the non-volatile workspace status for the "
-            + "current build request."
-  )
+  @Override
   public Artifact getStableWorkspaceStatus() throws InterruptedException, EvalException {
     checkMutable("info_file");
     return ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact();
   }
 
-  @SkylarkCallable(
-    name = "version_file",
-    structField = true,
-    documented = false,
-    doc =
-        "Returns the file that is used to hold the volatile workspace status for the "
-            + "current build request."
-  )
+  @Override
   public Artifact getVolatileWorkspaceStatus() throws InterruptedException, EvalException {
     checkMutable("version_file");
     return ruleContext.getAnalysisEnvironment().getVolatileWorkspaceStatusArtifact();
   }
 
-  @SkylarkCallable(
-    name = "build_file_path",
-    structField = true,
-    documented = true,
-    doc = "Returns path to the BUILD file for this rule, relative to the source root."
-  )
+  @Override
   public String getBuildFileRelativePath() throws EvalException {
     checkMutable("build_file_path");
     Package pkg = ruleContext.getRule().getPackage();
     return pkg.getSourceRoot().relativize(pkg.getBuildFile().getPath()).getPathString();
+  }
+
+  /**
+   * A Skylark built-in function to create and register a SpawnAction using a dictionary of
+   * parameters: action( inputs = [input1, input2, ...], outputs = [output1, output2, ...],
+   * executable = executable, arguments = [argument1, argument2, ...], mnemonic = 'Mnemonic',
+   * command = 'command', )
+   */
+  @Override
+  public Runtime.NoneType action(
+      SkylarkList outputs,
+      Object inputs,
+      Object executableUnchecked,
+      Object toolsUnchecked,
+      Object arguments,
+      Object mnemonicUnchecked,
+      Object commandUnchecked,
+      Object progressMessage,
+      Boolean useDefaultShellEnv,
+      Object envUnchecked,
+      Object executionRequirementsUnchecked,
+      Object inputManifestsUnchecked,
+      Location loc,
+      Environment env)
+      throws EvalException {
+    checkDeprecated(
+        "ctx.actions.run or ctx.actions.run_shell", "ctx.action", loc, env.getSemantics());
+    checkMutable("action");
+    if ((commandUnchecked == Runtime.NONE) == (executableUnchecked == Runtime.NONE)) {
+      throw new EvalException(loc, "You must specify either 'command' or 'executable' argument");
+    }
+    boolean hasCommand = commandUnchecked != Runtime.NONE;
+    if (!hasCommand) {
+      actions()
+          .run(
+              outputs,
+              inputs,
+              executableUnchecked,
+              toolsUnchecked,
+              arguments,
+              mnemonicUnchecked,
+              progressMessage,
+              useDefaultShellEnv,
+              envUnchecked,
+              executionRequirementsUnchecked,
+              inputManifestsUnchecked,
+              loc);
+
+    } else {
+      actions()
+          .runShell(
+              outputs,
+              inputs,
+              toolsUnchecked,
+              arguments,
+              mnemonicUnchecked,
+              commandUnchecked,
+              progressMessage,
+              useDefaultShellEnv,
+              envUnchecked,
+              executionRequirementsUnchecked,
+              inputManifestsUnchecked,
+              loc);
+    }
+    return Runtime.NONE;
+  }
+
+  @Override
+  public String expandLocation(String input, SkylarkList targets, Location loc, Environment env)
+      throws EvalException {
+    checkMutable("expand_location");
+    try {
+      return LocationExpander.withExecPaths(
+              getRuleContext(),
+              makeLabelMap(targets.getContents(TransitiveInfoCollection.class, "targets")))
+          .expand(input);
+    } catch (IllegalStateException ise) {
+      throw new EvalException(loc, ise);
+    }
+  }
+
+  @Override
+  public Runtime.NoneType fileAction(
+      FileApi output, String content, Boolean executable, Location loc, Environment env)
+      throws EvalException {
+    checkDeprecated("ctx.actions.write", "ctx.file_action", loc, env.getSemantics());
+    checkMutable("file_action");
+    actions().write(output, content, executable);
+    return Runtime.NONE;
+  }
+
+  @Override
+  public Runtime.NoneType emptyAction(String mnemonic, Object inputs, Location loc, Environment env)
+      throws EvalException {
+    checkDeprecated("ctx.actions.do_nothing", "ctx.empty_action", loc, env.getSemantics());
+    checkMutable("empty_action");
+    actions().doNothing(mnemonic, inputs);
+    return Runtime.NONE;
+  }
+
+  @Override
+  public Runtime.NoneType templateAction(
+      FileApi template,
+      FileApi output,
+      SkylarkDict<?, ?> substitutionsUnchecked,
+      Boolean executable,
+      Location loc,
+      Environment env)
+      throws EvalException {
+    checkDeprecated("ctx.actions.expand_template", "ctx.template_action", loc, env.getSemantics());
+    checkMutable("template_action");
+    actions().expandTemplate(template, output, substitutionsUnchecked, executable);
+    return Runtime.NONE;
+  }
+
+  @Override
+  public Runfiles runfiles(
+      SkylarkList files,
+      Object transitiveFiles,
+      Boolean collectData,
+      Boolean collectDefault,
+      SkylarkDict<?, ?> symlinks,
+      SkylarkDict<?, ?> rootSymlinks,
+      Location loc)
+      throws EvalException, ConversionException {
+    checkMutable("runfiles");
+    Runfiles.Builder builder =
+        new Runfiles.Builder(
+            getRuleContext().getWorkspaceName(), getConfiguration().legacyExternalRunfiles());
+    boolean checkConflicts = false;
+    if (EvalUtils.toBoolean(collectData)) {
+      builder.addRunfiles(getRuleContext(), RunfilesProvider.DATA_RUNFILES);
+    }
+    if (EvalUtils.toBoolean(collectDefault)) {
+      builder.addRunfiles(getRuleContext(), RunfilesProvider.DEFAULT_RUNFILES);
+    }
+    if (!files.isEmpty()) {
+      builder.addArtifacts(files.getContents(Artifact.class, "files"));
+    }
+    if (transitiveFiles != Runtime.NONE) {
+      builder.addTransitiveArtifacts(((SkylarkNestedSet) transitiveFiles).getSet(Artifact.class));
+    }
+    if (!symlinks.isEmpty()) {
+      // If Skylark code directly manipulates symlinks, activate more stringent validity checking.
+      checkConflicts = true;
+      for (Map.Entry<String, Artifact> entry :
+          symlinks.getContents(String.class, Artifact.class, "symlinks").entrySet()) {
+        builder.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());
+      }
+    }
+    if (!rootSymlinks.isEmpty()) {
+      checkConflicts = true;
+      for (Map.Entry<String, Artifact> entry :
+          rootSymlinks.getContents(String.class, Artifact.class, "root_symlinks").entrySet()) {
+        builder.addRootSymlink(PathFragment.create(entry.getKey()), entry.getValue());
+      }
+    }
+    Runfiles runfiles = builder.build();
+    if (checkConflicts) {
+      runfiles.setConflictPolicy(Runfiles.ConflictPolicy.ERROR);
+    }
+    return runfiles;
+  }
+
+  @Override
+  public Tuple<Object> resolveCommand(
+      String command,
+      Object attributeUnchecked,
+      Boolean expandLocations,
+      Object makeVariablesUnchecked,
+      SkylarkList tools,
+      SkylarkDict<?, ?> labelDictUnchecked,
+      SkylarkDict<?, ?> executionRequirementsUnchecked,
+      Location loc,
+      Environment env)
+      throws ConversionException, EvalException {
+    checkMutable("resolve_command");
+    Label ruleLabel = getLabel();
+    Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc, env);
+    // The best way to fix this probably is to convert CommandHelper to Skylark.
+    CommandHelper helper =
+        new CommandHelper(
+            getRuleContext(),
+            tools.getContents(TransitiveInfoCollection.class, "tools"),
+            ImmutableMap.copyOf(labelDict));
+    String attribute = Type.STRING.convertOptional(attributeUnchecked, "attribute", ruleLabel);
+    if (expandLocations) {
+      command =
+          helper.resolveCommandAndExpandLabels(command, attribute, /*allowDataInLabel=*/ false);
+    }
+    if (!EvalUtils.isNullOrNone(makeVariablesUnchecked)) {
+      Map<String, String> makeVariables =
+          Type.STRING_DICT.convert(makeVariablesUnchecked, "make_variables", ruleLabel);
+      command = expandMakeVariables(attribute, command, makeVariables);
+    }
+    List<Artifact> inputs = new ArrayList<>();
+    inputs.addAll(helper.getResolvedTools());
+
+    ImmutableMap<String, String> executionRequirements =
+        ImmutableMap.copyOf(
+            SkylarkDict.castSkylarkDictOrNoneToDict(
+                executionRequirementsUnchecked,
+                String.class,
+                String.class,
+                "execution_requirements"));
+    List<String> argv =
+        helper.buildCommandLine(command, inputs, SCRIPT_SUFFIX, executionRequirements);
+    return Tuple.<Object>of(
+        MutableList.copyOf(env, inputs),
+        MutableList.copyOf(env, argv),
+        helper.getToolsRunfilesSuppliers());
+  }
+
+  /**
+   * Ensures the given {@link Map} has keys that have {@link Label} type and values that have either
+   * {@link Iterable} or {@link SkylarkNestedSet} type, and raises {@link EvalException} otherwise.
+   * Returns a corresponding map where any sets are replaced by iterables.
+   */
+  // TODO(bazel-team): find a better way to typecheck this argument.
+  @SuppressWarnings("unchecked")
+  private static Map<Label, Iterable<Artifact>> checkLabelDict(
+      Map<?, ?> labelDict, Location loc, Environment env) throws EvalException {
+    Map<Label, Iterable<Artifact>> convertedMap = new HashMap<>();
+    for (Map.Entry<?, ?> entry : labelDict.entrySet()) {
+      Object key = entry.getKey();
+      if (!(key instanceof Label)) {
+        throw new EvalException(loc, Printer.format("invalid key %r in 'label_dict'", key));
+      }
+      ImmutableList.Builder<Artifact> files = ImmutableList.builder();
+      Object val = entry.getValue();
+      Iterable<?> valIter;
+      try {
+        valIter = EvalUtils.toIterableStrict(val, loc, env);
+      } catch (EvalException ex) {
+        // EvalException is thrown only if the type is wrong.
+        throw new EvalException(
+            loc, Printer.format("invalid value %r in 'label_dict': " + ex, val));
+      }
+      for (Object file : valIter) {
+        if (!(file instanceof Artifact)) {
+          throw new EvalException(loc, Printer.format("invalid value %r in 'label_dict'", val));
+        }
+        files.add((Artifact) file);
+      }
+      convertedMap.put((Label) key, files.build());
+    }
+    return convertedMap;
+  }
+
+  /** suffix of script to be used in case the command is too long to fit on a single line */
+  private static final String SCRIPT_SUFFIX = ".script.sh";
+
+  private static void checkDeprecated(
+      String newApi, String oldApi, Location loc, SkylarkSemantics semantics) throws EvalException {
+    if (semantics.incompatibleNewActionsApi()) {
+      throw new EvalException(
+          loc,
+          "Use "
+              + newApi
+              + " instead of "
+              + oldApi
+              + ". \n"
+              + "Use --incompatible_new_actions_api=false to temporarily disable this check.");
+    }
+  }
+
+  /**
+   * Builds a map: Label -> List of files from the given labels
+   *
+   * @param knownLabels List of known labels
+   * @return Immutable map with immutable collections as values
+   */
+  private static ImmutableMap<Label, ImmutableCollection<Artifact>> makeLabelMap(
+      Iterable<TransitiveInfoCollection> knownLabels) {
+    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
+
+    for (TransitiveInfoCollection current : knownLabels) {
+      builder.put(
+          AliasProvider.getDependencyLabel(current),
+          ImmutableList.copyOf(current.getProvider(FileProvider.class).getFilesToBuild()));
+    }
+
+    return builder.build();
   }
 }

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -29,16 +30,16 @@ import com.google.devtools.build.lib.runtime.commands.CleanCommand.CleanStarting
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-/**
- * A module that adds the WorkerActionContextProvider to the available action context providers.
- */
+/** A module that adds the WorkerActionContextProvider to the available action context providers. */
 public class WorkerModule extends BlazeModule {
   private CommandEnvironment env;
 
   private WorkerFactory workerFactory;
   private WorkerPool workerPool;
-  private WorkerPoolConfig workerPoolConfig;
+  private ImmutableMap<String, Integer> workerPoolConfig;
   private WorkerOptions options;
 
   @Override
@@ -96,7 +97,18 @@ public class WorkerModule extends BlazeModule {
     workerFactory.setReporter(env.getReporter());
     workerFactory.setOptions(options);
 
-    WorkerPoolConfig newConfig = createWorkerPoolConfig(options);
+    // Use a LinkedHashMap instead of an ImmutableMap.Builder to allow duplicates; the last value
+    // passed wins.
+    LinkedHashMap<String, Integer> newConfigBuilder = new LinkedHashMap<>();
+    for (Map.Entry<String, Integer> entry : options.workerMaxInstances) {
+      newConfigBuilder.put(entry.getKey(), entry.getValue());
+    }
+    if (!newConfigBuilder.containsKey("")) {
+      // Empty string gives the number of workers for any type of worker not explicitly specified.
+      // If no value is given, use the default, 4.
+      newConfigBuilder.put("", 4);
+    }
+    ImmutableMap<String, Integer> newConfig = ImmutableMap.copyOf(newConfigBuilder);
 
     // If the config changed compared to the last run, we have to create a new pool.
     if (workerPoolConfig != null && !workerPoolConfig.equals(newConfig)) {
@@ -105,39 +117,8 @@ public class WorkerModule extends BlazeModule {
 
     if (workerPool == null) {
       workerPoolConfig = newConfig;
-      workerPool = new WorkerPool(workerFactory, workerPoolConfig);
+      workerPool = new WorkerPool(workerFactory, workerPoolConfig, options.highPriorityWorkers);
     }
-  }
-
-  private WorkerPoolConfig createWorkerPoolConfig(WorkerOptions options) {
-    WorkerPoolConfig config = new WorkerPoolConfig();
-
-    // It's better to re-use a worker as often as possible and keep it hot, in order to profit
-    // from JIT optimizations as much as possible.
-    config.setLifo(true);
-
-    // Keep a fixed number of workers running per key.
-    config.setMaxIdlePerKey(options.workerMaxInstances);
-    config.setMaxTotalPerKey(options.workerMaxInstances);
-    config.setMinIdlePerKey(options.workerMaxInstances);
-
-    // Don't limit the total number of worker processes, as otherwise the pool might be full of
-    // e.g. Java workers and could never accommodate another request for a different kind of
-    // worker.
-    config.setMaxTotal(-1);
-
-    // Wait for a worker to become ready when a thread needs one.
-    config.setBlockWhenExhausted(true);
-
-    // Always test the liveliness of worker processes.
-    config.setTestOnBorrow(true);
-    config.setTestOnCreate(true);
-    config.setTestOnReturn(true);
-
-    // No eviction of idle workers.
-    config.setTimeBetweenEvictionRunsMillis(-1);
-
-    return config;
   }
 
   @Override
@@ -149,8 +130,7 @@ public class WorkerModule extends BlazeModule {
 
   @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
-    if (options != null
-        && options.workerQuitAfterBuild) {
+    if (options != null && options.workerQuitAfterBuild) {
       shutdownPool("Build completed, shutting down worker pool...");
     }
   }
@@ -163,9 +143,7 @@ public class WorkerModule extends BlazeModule {
     shutdownPool("Build interrupted, shutting down worker pool...");
   }
 
-  /**
-   * Shuts down the worker pool and sets {#code workerPool} to null.
-   */
+  /** Shuts down the worker pool and sets {#code workerPool} to null. */
   private void shutdownPool(String reason) {
     Preconditions.checkArgument(!reason.isEmpty());
 

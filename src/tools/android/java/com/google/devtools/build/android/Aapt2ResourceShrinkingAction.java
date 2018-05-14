@@ -41,7 +41,6 @@ import java.util.function.Function;
  * Example Usage:
  *   java/com/google/build/android/ResourceShrinkerAction
  *       --aapt2 path to sdk/aapt2
- *       --annotationJar path to sdk/annotationJar
  *       --androidJar path to sdk/androidJar
  *       --shrunkJar path to proguard dead code removal jar
  *       --resources path to processed resources zip
@@ -64,8 +63,6 @@ public class Aapt2ResourceShrinkingAction {
     optionsParser.parseAndExitUponError(args);
     Aapt2ConfigOptions aapt2ConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
     Options options = optionsParser.getOptions(Options.class);
-    options.dependencyManifests =
-        Converters.concatLists(options.dependencyManifests, options.deprecatedDependencyManifests);
     profiler.recordEndOf("flags").startTask("setup");
 
     final ListeningExecutorService executorService = ExecutorServiceCloser.createDefaultService();
@@ -79,7 +76,8 @@ public class Aapt2ResourceShrinkingAction {
               executorService,
               workingResourcesDirectory,
               aapt2ConfigOptions.aapt2,
-              aapt2ConfigOptions.buildToolsVersion);
+              aapt2ConfigOptions.buildToolsVersion,
+              aapt2ConfigOptions.generatePseudoLocale);
       profiler.recordEndOf("setup").startTask("compile");
 
       final ResourcesZip resourcesZip =
@@ -105,9 +103,15 @@ public class Aapt2ResourceShrinkingAction {
               .compile(resourceCompiler, workingResourcesDirectory);
       profiler.recordEndOf("compile");
 
-      ResourceLinker.create(aapt2ConfigOptions.aapt2, scopedTmp.subDirectoryOf("linking"))
+      ResourceLinker.create(
+              aapt2ConfigOptions.aapt2, executorService, scopedTmp.subDirectoryOf("linking"))
           .profileUsing(profiler)
           .dependencies(ImmutableList.of(StaticLibrary.from(aapt2ConfigOptions.androidJar)))
+          .profileUsing(profiler)
+          .outputAsProto(aapt2ConfigOptions.resourceTableAsProto)
+          .buildVersion(aapt2ConfigOptions.buildToolsVersion)
+          .includeOnlyConfigs(aapt2ConfigOptions.resourceConfigs)
+          .debug(aapt2ConfigOptions.debug)
           .link(compiled)
           .copyPackageTo(options.shrunkApk)
           .copyRTxtTo(options.rTxtOutput);

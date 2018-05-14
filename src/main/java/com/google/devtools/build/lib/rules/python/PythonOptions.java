@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -25,8 +24,6 @@ import com.google.devtools.common.options.TriState;
 /** Python-related command-line options. */
 @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class PythonOptions extends FragmentOptions {
-  public static final ObjectCodec<PythonOptions> CODEC = new PythonOptions_AutoCodec();
-
   /**
    * Converter for the --force_python option.
    */
@@ -48,7 +45,6 @@ public class PythonOptions extends FragmentOptions {
   @Option(
     name = "force_python",
     defaultValue = "null",
-    category = "version",
     converter = PythonVersionConverter.class,
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
@@ -59,7 +55,6 @@ public class PythonOptions extends FragmentOptions {
   @Option(
     name = "host_force_python",
     defaultValue = "null",
-    category = "version",
     converter = PythonVersionConverter.class,
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},

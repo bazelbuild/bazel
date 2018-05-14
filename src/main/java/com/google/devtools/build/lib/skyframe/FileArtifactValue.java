@@ -16,18 +16,21 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -111,21 +114,24 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
     }
   }
 
-  static final FileArtifactValue DEFAULT_MIDDLEMAN = new SingletonMarkerValue();
+  @AutoCodec static final FileArtifactValue DEFAULT_MIDDLEMAN = new SingletonMarkerValue();
   /** Data that marks that a file is not present on the filesystem. */
-  @VisibleForTesting
+  @VisibleForTesting @AutoCodec
   public static final FileArtifactValue MISSING_FILE_MARKER = new SingletonMarkerValue();
 
   /**
    * Represents an omitted file -- we are aware of it but it doesn't exist. All access methods are
    * unsupported.
    */
-  static final FileArtifactValue OMITTED_FILE_MARKER = new OmittedFileValue();
+  @AutoCodec static final FileArtifactValue OMITTED_FILE_MARKER = new OmittedFileValue();
 
-  private static final class DirectoryArtifactValue extends FileArtifactValue {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static final class DirectoryArtifactValue extends FileArtifactValue {
     private final long mtime;
 
-    private DirectoryArtifactValue(long mtime) {
+    @AutoCodec.VisibleForSerialization
+    DirectoryArtifactValue(long mtime) {
       this.mtime = mtime;
     }
 
@@ -161,12 +167,15 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
     }
   }
 
-  private static final class RegularFileArtifactValue extends FileArtifactValue {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static final class RegularFileArtifactValue extends FileArtifactValue {
     private final byte[] digest;
     @Nullable private final FileContentsProxy proxy;
     private final long size;
 
-    private RegularFileArtifactValue(byte[] digest, @Nullable FileContentsProxy proxy, long size) {
+    @AutoCodec.VisibleForSerialization
+    RegularFileArtifactValue(byte[] digest, @Nullable FileContentsProxy proxy, long size) {
       this.digest = Preconditions.checkNotNull(digest);
       this.proxy = proxy;
       this.size = size;
@@ -204,7 +213,92 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(this).add("digest", digest).add("size", size).toString();
+      return MoreObjects.toStringHelper(this)
+          .add("digest", BaseEncoding.base16().lowerCase().encode(digest))
+          .add("size", size)
+          .add("proxy", proxy).toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof RegularFileArtifactValue)) {
+        return false;
+      }
+      RegularFileArtifactValue r = (RegularFileArtifactValue) o;
+      return Arrays.equals(digest, r.digest) && Objects.equals(proxy, r.proxy) && size == r.size;
+    }
+
+    @Override
+    public int hashCode() {
+      return (proxy != null ? 127 * proxy.hashCode() : 0)
+          + 37 * Long.hashCode(getSize()) + Arrays.hashCode(getDigest());
+    }
+  }
+
+  static final class RemoteFileArtifactValue extends FileArtifactValue {
+    private final byte[] digest;
+    private final long size;
+    private final long modifiedTime;
+    private final int locationIndex;
+
+    RemoteFileArtifactValue(byte[] digest, long size, long modifiedTime, int locationIndex) {
+      this.digest = digest;
+      this.size = size;
+      this.modifiedTime = modifiedTime;
+      this.locationIndex = locationIndex;
+    }
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
+    public long getSize() {
+      return size;
+    }
+
+    @Override
+    public long getModifiedTime() {
+      return modifiedTime;
+    }
+
+    @Override
+    public int getLocationIndex() {
+      return locationIndex;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof RemoteFileArtifactValue)) {
+        return false;
+      }
+      RemoteFileArtifactValue r = (RemoteFileArtifactValue) o;
+      return Arrays.equals(digest, r.digest)
+          && size == r.size
+          && modifiedTime == r.modifiedTime
+          && locationIndex == r.locationIndex;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(Arrays.hashCode(digest), size, modifiedTime, locationIndex);
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) {
+      throw new UnsupportedOperationException();
     }
   }
 

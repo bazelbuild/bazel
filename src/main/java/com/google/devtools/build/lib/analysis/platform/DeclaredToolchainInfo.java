@@ -18,16 +18,17 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
- * Provider for a toolchain declaration, which assosiates a toolchain type, the execution and target
+ * Provider for a toolchain declaration, which associates a toolchain type, the execution and target
  * constraints, and the actual toolchain label. The toolchain is then available for use but will be
  * lazily resolved only when it is actually needed for toolchain-aware rules. Toolchain definitions
  * are exposed to Skylark and Bazel via {@link ToolchainInfo} providers.
  */
 @AutoValue
+@AutoCodec
 public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
-
   /**
    * The type of the toolchain being declared. This will be a label of a toolchain_type() target.
    */
@@ -43,15 +44,13 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
   public abstract Label toolchainLabel();
 
   /** Returns a new {@link DeclaredToolchainInfo} with the given data. */
+  @AutoCodec.Instantiator
   public static DeclaredToolchainInfo create(
       Label toolchainType,
-      Iterable<ConstraintValueInfo> execConstraints,
-      Iterable<ConstraintValueInfo> targetConstraints,
+      ImmutableList<ConstraintValueInfo> execConstraints,
+      ImmutableList<ConstraintValueInfo> targetConstraints,
       Label toolchainLabel) {
     return new AutoValue_DeclaredToolchainInfo(
-        toolchainType,
-        ImmutableList.copyOf(execConstraints),
-        ImmutableList.copyOf(targetConstraints),
-        toolchainLabel);
+        toolchainType, execConstraints, targetConstraints, toolchainLabel);
   }
 }

@@ -20,13 +20,13 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionTemplate;
+import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpansionException;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.actions.ActionTemplate;
-import com.google.devtools.build.lib.analysis.actions.ActionTemplate.ActionTemplateExpansionException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -57,7 +57,12 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ActionTemplateExpansionFunctionException, InterruptedException {
     ActionTemplateExpansionKey key = (ActionTemplateExpansionKey) skyKey.argument();
-    ActionTemplate actionTemplate = key.getActionTemplate();
+    ActionLookupValue value = (ActionLookupValue) env.getValue(key.getActionLookupKey());
+    if (value == null) {
+      // Shouldn't actually happen in practice, but tolerate.
+      return null;
+    }
+    ActionTemplate<?> actionTemplate = value.getActionTemplate(key.getActionIndex());
 
     // Requests the TreeArtifactValue object for the input TreeArtifact.
     SkyKey artifactValueKey = ArtifactSkyKey.key(actionTemplate.getInputTreeArtifact(), true);
@@ -68,14 +73,14 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       return null;
     }
     Iterable<TreeFileArtifact> inputTreeFileArtifacts = treeArtifactValue.getChildren();
-    Iterable<Action> expandedActions;
+    GeneratingActions generatingActions;
     try {
       // Expand the action template using the list of expanded input TreeFileArtifacts.
-      expandedActions = ImmutableList.<Action>copyOf(
-          actionTemplate.generateActionForInputArtifacts(inputTreeFileArtifacts, key));
       // TODO(rduan): Add a check to verify the inputs of expanded actions are subsets of inputs
       // of the ActionTemplate.
-      checkActionAndArtifactConflicts(expandedActions);
+      generatingActions =
+          checkActionAndArtifactConflicts(
+              actionTemplate.generateActionForInputArtifacts(inputTreeFileArtifacts, key));
     } catch (ActionConflictException e) {
       e.reportTo(env.getListener());
       throw new ActionTemplateExpansionFunctionException(e);
@@ -87,8 +92,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       throw new ActionTemplateExpansionFunctionException(e);
     }
 
-    return new ActionTemplateExpansionValue(
-        actionKeyContext, expandedActions, removeActionsAfterEvaluation.get());
+    return new ActionTemplateExpansionValue(generatingActions, removeActionsAfterEvaluation.get());
   }
 
   /** Exception thrown by {@link ActionTemplateExpansionFunction}. */
@@ -106,7 +110,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
   }
 
-  private void checkActionAndArtifactConflicts(Iterable<Action> actions)
+  private GeneratingActions checkActionAndArtifactConflicts(Iterable<? extends Action> actions)
       throws ActionConflictException, ArtifactPrefixConflictException {
     GeneratingActions generatingActions =
         Actions.findAndThrowActionConflict(actionKeyContext, ImmutableList.copyOf(actions));
@@ -118,6 +122,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     if (!artifactPrefixConflictMap.isEmpty()) {
       throw artifactPrefixConflictMap.values().iterator().next();
     }
+    return generatingActions;
   }
 
   @Nullable

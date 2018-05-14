@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionGraphVisitor;
 import com.google.devtools.build.lib.actions.ActionOwner;
-
 import java.util.List;
 
 /**
@@ -42,7 +41,7 @@ public final class PrintActionVisitor extends ActionGraphVisitor {
     this.target = target;
     this.actionMnemonicMatcher = actionMnemonicMatcher;
     actions = Lists.newArrayList();
-    targetConfigurationChecksum = target.getConfiguration().checksum();
+    targetConfigurationChecksum = target.getConfigurationChecksum();
   }
 
   @Override

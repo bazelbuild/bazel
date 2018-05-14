@@ -17,7 +17,6 @@ import static com.google.devtools.build.lib.syntax.SkylarkType.BOOL;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -34,19 +33,22 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -54,10 +56,183 @@ import javax.annotation.Nullable;
 /** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
 @SkylarkModule(
     name = "JavaInfo",
-    doc = "Encapsulates all information provided by Java rules",
-    category = SkylarkModuleCategory.PROVIDER
-)
+    doc =
+        "Encapsulates all information provided by Java rules. "
+            + "<p>JavaInfo can be created in Skylark by calling constructor "
+            + "<code>JavaInfo(...)</code> "
+            + "with parameters:</p>"
+            + "<table class=\"table table-bordered table-condensed table-params\">"
+            + "  <colgroup>"
+            + "    <col class=\"col-param\">"
+            + "    <col class=\"param-description\">"
+            + "  </colgroup>"
+            + "  <thead>"
+            + "    <tr>"
+            + "      <th>Parameter</th>"
+            + "      <th>Description</th>"
+            + "    </tr>"
+            + "  </thead>"
+            + "  <tbody>"
+            + "    <tr>"
+            + "      <td id=\"JavaInfo.output_jar\">"
+            + "        <code>output_jar</code>"
+            + "      </td>"
+            + "      <td>"
+            + "        <p><code><a class=\"anchor\" href=\"File.html\">File</a></code></p>"
+            + "        <p>The jar that was created as a result of a compilation "
+            + "(e.g. javac, scalac, etc).</p>"
+            + "      </td>"
+            + "    </tr>"
+            + "    <tr>"
+            + "      <td id=\"JavaInfo.compile_jar\">"
+            + "        <code>compile_jar</code>"
+            + "      </td>"
+            + "      <td>"
+            + "        <p><code><a class=\"anchor\" href=\"File.html\">File</a></code></p>"
+            + "        <p>A jar that is added as the compile-time dependency in lieu of "
+            + "<code>output_jar</code>. Typically this is the ijar produced by "
+            + "<code><a class=\"anchor\" href=\"java_common.html#run_ijar\">"
+            + "run_ijar</a></code>. "
+            + "If you cannot use ijar, consider instead using the output of "
+            + "<code><a class=\"anchor\" href=\"java_common.html#stamp_jar\">"
+            + "stamp_ijar</a></code>. "
+            + "If you do not wish to use either, you can simply pass <code>output_jar</code>."
+            + "      </td>"
+            + "    </tr>"
+            + "    <tr>"
+            + "      <td id=\"JavaInfo.source_jar\">"
+            + "        <code>source_jar</code>"
+            + "      </td>"
+            + "      <td>"
+            + "        <p><code><a class=\"anchor\" href=\"File.html\">File</a></code></p>"
+            + "(default = None, optional)</code></p>"
+            + "        <p>The source jar that was used to create the output jar. "
+            + "Use <code><a class=\"anchor\" href=\"java_common.html#pack_sources\">"
+            + "pack_sources</a></code>. to produce this source jar."
+            + "      </td>"
+            + "    </tr>"
+            + "    <tr>"
+            + "      <td id=\"JavaInfo.neverlink\">"
+            + "        <code>neverlink</code>"
+            + "      </td>"
+            + "      <td>"
+            + "        <p><code><a class=\"anchor\" href=\"bool.html\">bool</a> "
+            + "(default = False, optional)</code></p>"
+            + "        <p>If true only use this library for compilation and not at runtime.</p>"
+            + "      </td>"
+            + "    </tr>"
+            + "    <tr>"
+            + "      <td id=\"JavaInfo.deps\">"
+            + "        <code>deps</code>"
+            + "      </td>"
+            + "      <td>"
+            + "        <p><code><a class=\"anchor\" href=\"list.html\">sequence</a> or "
+            + "<a class=\"anchor\" href=\"depset.html\">depset</a> of "
+            + "<a class=\"anchor\" href=\"JavaInfo.html\">JavaInfo</a>s</code></p>"
+            + "        <p>Compile time dependencies that were used to create the output jar.</p>"
+            + "      </td>"
+            + "    </tr>"
+            + "    <tr>"
+            + "      <td id=\"JavaInfo.runtime_deps\">"
+            + "        <code>runtime_deps</code>"
+            + "      </td>"
+            + "      <td>"
+            + "        <p><code><a class=\"anchor\" href=\"list.html\">sequence</a> or "
+            + "<a class=\"anchor\" href=\"depset.html\">depset</a> of "
+            + "<a class=\"anchor\" href=\"JavaInfo.html\">JavaInfo</a>s</code></p>"
+            + "        <p>Runtime dependencies that are needed for this library.</p>"
+            + "      </td>"
+            + "    </tr>"
+            + "    <tr>"
+            + "      <td id=\"JavaInfo.exports\">"
+            + "        <code>exports</code>"
+            + "      </td>"
+            + "      <td>"
+            + "        <p><code><a class=\"anchor\" href=\"list.html\">sequence</a> or "
+            + "<a class=\"anchor\" href=\"depset.html\">depset</a> of "
+            + "<a class=\"anchor\" href=\"JavaInfo.html\">JavaInfo</a>s</code></p>"
+            + "        <p>Libraries to make available for users of this library. See also "
+            + "<a class=\"anchor\" "
+            + "href=\"https://docs.bazel.build/versions/master/be/java.html#java_library.exports\">"
+            + "java_library.exports</a>.</p>"
+            + "      </td>"
+            + "    </tr>"
+            + "    <tr>"
+            + "      <td id=\"JavaInfo.actions\">"
+            + "        <code>actions</code>"
+            + "      </td>"
+            + "      <td>"
+            + "        <p><code><a class=\"anchor\" href=\"actions.html\">actions</a></code></p>"
+            + "        <p>Deprecated. No longer needed when <code>compile_jar</code> and/or "
+            + "<code>source_jar</code> are used. "
+            + "        <p>Used to create the ijar and pack source files to jar actions.</p>"
+            + "      </td>"
+            + "    </tr>"
+            + "    <tr>"
+            + "      <td id=\"JavaInfo.sources\">"
+            + "        <code>sources</code>"
+            + "      </td>"
+            + "      <td>"
+            + "        <p><code><a class=\"anchor\" href=\"list.html\">sequence</a> or "
+            + "<a class=\"anchor\" href=\"depset.html\">depset</a> of "
+            + "<a class=\"anchor\" href=\"File.html\">File</a>s</code></p>"
+            + "        <p>Deprecated. Use <code>source_jar</code> instead. "
+            + "        <p>The sources that were used to create the output jar.</p>"
+            + "      </td>"
+            + "    </tr>"
+            + "    <tr>"
+            + "      <td id=\"JavaInfo.source_jars\">"
+            + "        <code>source_jars</code>"
+            + "      </td>"
+            + "      <td>"
+            + "        <p><code><a class=\"anchor\" href=\"list.html\">sequence</a> or "
+            + "<a class=\"anchor\" href=\"depset.html\">depset</a> of "
+            + "<a class=\"anchor\" href=\"File.html\">File</a>s</code></p>"
+            + "        <p>Deprecated. Use <code>source_jar</code> instead. "
+            + "        <p>The source jars that were used to create the output jar.</p>"
+            + "      </td>"
+            + "    </tr>"
+            + "    <tr>"
+            + "      <td id=\"JavaInfo.use_ijar\">"
+            + "        <code>use_ijar</code>"
+            + "      </td>"
+            + "      <td>"
+            + "        <p><code><a class=\"anchor\" href=\"bool.html\">bool</a> "
+            + "(default = True, optional)</code></p>"
+            + "        <p>Deprecated. Use <code>compile_jar</code> instead. "
+            + "        <p>If an ijar of the output jar should be created and stored in the "
+            + "provider. </p>"
+            + "      </td>"
+            + "    </tr>"
+            + "    <tr>"
+            + "      <td id=\"JavaInfo.java_toolchain\">"
+            + "        <code>java_toolchain</code>"
+            + "      </td>"
+            + "      <td>"
+            + "        <p>Target</p>"
+            + "        <p>Deprecated. No longer needed when <code>compile_jar</code> and/or "
+            + "<code>source_jar</code> are used. "
+            + "        <p>The toolchain to be used for retrieving the ijar tool and packing source "
+            + "files to Jar.</p>"
+            + "      </td>"
+            + "    </tr>"
+            + "    <tr>"
+            + "      <td id=\"JavaInfo.host_javabase\">"
+            + "        <code>host_javabase</code>"
+            + "      </td>"
+            + "      <td>"
+            + "        <p>Target</p>"
+            + "        <p>Deprecated. No longer needed when <code>compile_jar</code> and/or "
+            + "<code>source_jar</code> are used. "
+            + "        <p>The host_javabase to be used for packing source files to Jar.</p>"
+            + "      </td>"
+            + "    </tr>"
+            + "  </tbody>"
+            + "</table>"
+            + "",
+    category = SkylarkModuleCategory.PROVIDER)
 @Immutable
+@AutoCodec
 public final class JavaInfo extends NativeInfo {
 
   public static final String SKYLARK_NAME = "JavaInfo";
@@ -78,64 +253,123 @@ public final class JavaInfo extends NativeInfo {
               /*starArg=*/ false,
               /*kwArg=*/ false,
               "output_jar",
-              "sources",
-              "source_jars",
-              "use_ijar",
+              "compile_jar",
+              "source_jar",
               "neverlink",
               "deps",
               "runtime_deps",
               "exports",
               "actions",
-              "java_toolchain"),
+              "sources",
+              "source_jars",
+              "use_ijar",
+              "java_toolchain",
+              "host_javabase"),
 
           /*defaultValues=*/ Arrays.asList(
-              SkylarkList.createImmutable(Collections.emptyList()), // sources
-              SkylarkList.createImmutable(Collections.emptyList()), // source_jars
-              Boolean.TRUE, // use_ijar
+              Runtime.NONE, // compile_jar
+              Runtime.NONE, // source_jar
               Boolean.FALSE, // neverlink
-              SkylarkList.createImmutable(Collections.emptyList()), // deps
-              SkylarkList.createImmutable(Collections.emptyList()), // runtime_deps
-              SkylarkList.createImmutable(Collections.emptyList()), // exports
+              MutableList.empty(), // deps
+              MutableList.empty(), // runtime_deps
+              MutableList.empty(), // exports
               Runtime.NONE, // actions
-              Runtime.NONE), // java_toolchain
-          /*types=*/ ImmutableList.of(
+              Runtime.NONE, // sources
+              Runtime.NONE, // source_jars
+              Runtime.NONE, // use_ijar
+              Runtime.NONE, // java_toolchain
+              Runtime.NONE), // hostJavabase
+
+          /*types=*/ ImmutableList.<SkylarkType>of(
               SkylarkType.of(Artifact.class), // output_jar
-              SkylarkType.Union.of(SEQUENCE_OF_ARTIFACTS, LIST_OF_ARTIFACTS), // sources
-              SkylarkType.Union.of(SEQUENCE_OF_ARTIFACTS, LIST_OF_ARTIFACTS), // source_jars
-              BOOL, // use_ijar
+              SkylarkType.of(Artifact.class), // compile_jar
+              SkylarkType.of(Artifact.class), // source_jar
               BOOL, // neverlink
               SEQUENCE_OF_JAVA_INFO, // deps
               SEQUENCE_OF_JAVA_INFO, // runtime_deps
               SEQUENCE_OF_JAVA_INFO, // exports
               SkylarkType.of(SkylarkActionFactory.class), // actions
-              SkylarkType.of(ConfiguredTarget.class))); // java_toolchain
+              SkylarkType.Union.of(SEQUENCE_OF_ARTIFACTS, LIST_OF_ARTIFACTS), // sources
+              SkylarkType.Union.of(SEQUENCE_OF_ARTIFACTS, LIST_OF_ARTIFACTS), // source_jars
+              BOOL, // use_ijar
+              SkylarkType.of(ConfiguredTarget.class), // java_toolchain
+              SkylarkType.of(ConfiguredTarget.class))); // hostJavabase
 
   public static final NativeProvider<JavaInfo> PROVIDER =
       new NativeProvider<JavaInfo>(JavaInfo.class, SKYLARK_NAME, SIGNATURE) {
 
         @Override
         @SuppressWarnings("unchecked")
-        protected JavaInfo createInstanceFromSkylark(Object[] args, Location loc)
+        protected JavaInfo createInstanceFromSkylark(Object[] args, Environment env, Location loc)
             throws EvalException {
+          int i = 0;
+          Artifact outputJar = (Artifact) args[i++];
+          @Nullable Artifact compileJar = (Artifact) nullIfNone(args[i++]);
+          @Nullable Artifact sourceJar = (Artifact) nullIfNone(args[i++]);
+          Boolean neverlink = (Boolean) args[i++];
+          SkylarkList<JavaInfo> deps = (SkylarkList<JavaInfo>) args[i++];
+          SkylarkList<JavaInfo> runtimeDeps = (SkylarkList<JavaInfo>) args[i++];
+          SkylarkList<JavaInfo> exports = (SkylarkList<JavaInfo>) args[i++];
+          @Nullable Object actions = nullIfNone(args[i++]);
+          @Nullable SkylarkList<Artifact> sources = (SkylarkList<Artifact>) nullIfNone(args[i++]);
+          @Nullable
+          SkylarkList<Artifact> sourceJars = (SkylarkList<Artifact>) nullIfNone(args[i++]);
+          @Nullable Boolean useIjar = (Boolean) nullIfNone(args[i++]);
+          @Nullable Object javaToolchain = nullIfNone(args[i++]);
+          @Nullable Object hostJavabase = nullIfNone(args[i++]);
 
-          JavaInfo javaInfo =
-              JavaInfoBuildHelper.getInstance()
-                  .createJavaInfo(
-                      (Artifact) args[0],
-                      (SkylarkList<Artifact>) args[1],
-                      (SkylarkList<Artifact>) args[2],
-                      (Boolean) args[3],
-                      (Boolean) args[4],
-                      (SkylarkList<JavaInfo>) args[5],
-                      (SkylarkList<JavaInfo>) args[6],
-                      (SkylarkList<JavaInfo>) args[7],
-                      args[8],
-                      args[9],
-                      loc);
-
-          return javaInfo;
+          boolean hasLegacyArg =
+              actions != null
+                  || sources != null
+                  || sourceJars != null
+                  || useIjar != null
+                  || javaToolchain != null
+                  || hostJavabase != null;
+          if (hasLegacyArg) {
+            if (env.getSemantics().incompatibleDisallowLegacyJavaInfo()) {
+              throw new EvalException(
+                  loc,
+                  "Cannot use deprecated argument when "
+                      + "--incompatible_disallow_legacy_javainfo is set. "
+                      + "Deprecated arguments are 'actions', 'sources', 'source_jars', "
+                      + "'use_ijar', 'java_toolchain', 'host_javabase'.");
+            }
+            boolean hasNewArg = compileJar != null || sourceJar != null;
+            if (hasNewArg) {
+              throw new EvalException(
+                  loc,
+                  "Cannot use deprecated arguments at the same time as "
+                      + "'compile_jar' or 'source_jar'. "
+                      + "Deprecated arguments are 'actions', 'sources', 'source_jars', "
+                      + "'use_ijar', 'java_toolchain', 'host_javabase'.");
+            }
+            return JavaInfoBuildHelper.getInstance()
+                .createJavaInfoLegacy(
+                    outputJar,
+                    sources != null ? sources : MutableList.empty(),
+                    sourceJars != null ? sourceJars : MutableList.empty(),
+                    useIjar != null ? useIjar : true,
+                    neverlink,
+                    deps,
+                    runtimeDeps,
+                    exports,
+                    actions,
+                    javaToolchain,
+                    hostJavabase,
+                    loc);
+          }
+          if (compileJar == null) {
+            throw new EvalException(location, "Expected 'File' for 'compile_jar', found 'None'");
+          }
+          return JavaInfoBuildHelper.getInstance()
+              .createJavaInfo(
+                  outputJar, compileJar, sourceJar, neverlink, deps, runtimeDeps, exports, loc);
         }
       };
+
+  private static Object nullIfNone(Object object) {
+    return object != Runtime.NONE ? object : null;
+  }
 
   public static final JavaInfo EMPTY = JavaInfo.Builder.create().build();
 
@@ -153,6 +387,22 @@ public final class JavaInfo extends NativeInfo {
       );
 
   private final TransitiveInfoProviderMap providers;
+
+  /*
+   * Contains the .jar files to be put on the runtime classpath by the configured target.
+   * <p>Unlike {@link JavaCompilationArgs#getRuntimeJars()}, it does not contain transitive runtime
+   * jars, only those produced by the configured target itself.
+   *
+   * <p>The reason why this field exists is that neverlink libraries do not contain the compiled jar
+   * in {@link JavaCompilationArgs#getRuntimeJars()} and those are sometimes needed, for example,
+   * for Proguarding (the compile time classpath is not enough because that contains only ijars)
+  */
+  private final ImmutableList<Artifact> directRuntimeJars;
+
+  /**
+   * Java constraints (e.g. "android") that are present on the target.
+   */
+  private final ImmutableList<String> javaConstraints;
 
   // Whether or not this library should be used only for compilation and not at runtime.
   private final boolean neverlink;
@@ -183,6 +433,9 @@ public final class JavaInfo extends NativeInfo {
         JavaInfo.fetchProvidersFromList(providers, JavaRunfilesProvider.class);
     List<JavaPluginInfoProvider> javaPluginInfoProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaPluginInfoProvider.class);
+    List<JavaExportsProvider> javaExportsProviders =
+        JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
+
 
     Runfiles mergedRunfiles = Runfiles.EMPTY;
     for (JavaRunfilesProvider javaRunfilesProvider : javaRunfilesProviders) {
@@ -205,6 +458,8 @@ public final class JavaInfo extends NativeInfo {
         .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(mergedRunfiles))
         .addProvider(
             JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
+        .addProvider(JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders))
+        // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
         .build();
   }
 
@@ -250,6 +505,10 @@ public final class JavaInfo extends NativeInfo {
     return javaInfo.getProvider(providerClass);
   }
 
+  public static JavaInfo getJavaInfo(TransitiveInfoCollection target) {
+    return (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+  }
+
   public static <T extends TransitiveInfoProvider> T getProvider(
       Class<T> providerClass, TransitiveInfoProviderMap providerMap) {
     T provider = providerMap.getProvider(providerClass);
@@ -292,10 +551,19 @@ public final class JavaInfo extends NativeInfo {
     return providersList.build();
   }
 
-  private JavaInfo(TransitiveInfoProviderMap providers, boolean neverlink, Location location) {
-    super(PROVIDER, ImmutableMap.of(), location);
+  @VisibleForSerialization
+  @AutoCodec.Instantiator
+  JavaInfo(
+      TransitiveInfoProviderMap providers,
+      ImmutableList<Artifact> directRuntimeJars,
+      boolean neverlink,
+      ImmutableList<String> javaConstraints,
+      Location location) {
+    super(PROVIDER, location);
+    this.directRuntimeJars = directRuntimeJars;
     this.providers = providers;
     this.neverlink = neverlink;
+    this.javaConstraints = javaConstraints;
   }
 
   public Boolean isNeverlink() {
@@ -336,8 +604,7 @@ public final class JavaInfo extends NativeInfo {
     NestedSet<Artifact> compileTimeJars =
         getProviderAsNestedSet(
             JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider::getJavaCompilationArgs,
-            JavaCompilationArgs::getCompileTimeJars);
+            JavaCompilationArgsProvider::getDirectCompileTimeJars);
     return SkylarkNestedSet.of(Artifact.class, compileTimeJars);
   }
 
@@ -354,9 +621,7 @@ public final class JavaInfo extends NativeInfo {
   public SkylarkNestedSet getFullCompileTimeJars() {
     NestedSet<Artifact> fullCompileTimeJars =
         getProviderAsNestedSet(
-            JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider::getJavaCompilationArgs,
-            JavaCompilationArgs::getFullCompileTimeJars);
+            JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::getFullCompileTimeJars);
     return SkylarkNestedSet.of(Artifact.class, fullCompileTimeJars);
   }
 
@@ -406,6 +671,10 @@ public final class JavaInfo extends NativeInfo {
     return getProvider(JavaCompilationInfoProvider.class);
   }
 
+  public ImmutableList<Artifact> getDirectRuntimeJars() {
+    return directRuntimeJars;
+  }
+
   @SkylarkCallable(
     name = "transitive_deps",
     doc = "Returns the transitive set of Jars required to build the target.",
@@ -414,8 +683,7 @@ public final class JavaInfo extends NativeInfo {
   public NestedSet<Artifact> getTransitiveDeps() {
     return getProviderAsNestedSet(
         JavaCompilationArgsProvider.class,
-        JavaCompilationArgsProvider::getRecursiveJavaCompilationArgs,
-        JavaCompilationArgs::getCompileTimeJars);
+        JavaCompilationArgsProvider::getTransitiveCompileTimeJars);
   }
 
   @SkylarkCallable(
@@ -425,9 +693,7 @@ public final class JavaInfo extends NativeInfo {
   )
   public NestedSet<Artifact> getTransitiveRuntimeDeps() {
     return getProviderAsNestedSet(
-        JavaCompilationArgsProvider.class,
-        JavaCompilationArgsProvider::getRecursiveJavaCompilationArgs,
-        JavaCompilationArgs::getRuntimeJars);
+        JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::getRuntimeJars);
   }
 
   @SkylarkCallable(
@@ -454,6 +720,13 @@ public final class JavaInfo extends NativeInfo {
   }
 
   /**
+   * Returns all constraints set on the associated target.
+   */
+  public ImmutableList<String> getJavaConstraints() {
+    return javaConstraints;
+  }
+
+  /**
    * Gets Provider, check it for not null and call function to get NestedSet&lt;S&gt; from it.
    *
    * <p>Gets provider from map. If Provider is null, return default, empty, stabled ordered
@@ -476,21 +749,6 @@ public final class JavaInfo extends NativeInfo {
     }
     return mapper.apply(provider);
   }
-
-  /**
-   * The same as {@link JavaInfo#getProviderAsNestedSet(Class, Function)}, but uses
-   * sequence of two mappers.
-   *
-   * @see JavaInfo#getProviderAsNestedSet(Class, Function)
-   */
-  private <P extends TransitiveInfoProvider, S extends SkylarkValue, V>
-      NestedSet<S> getProviderAsNestedSet(
-          Class<P> providerClass,
-          Function<P, V> firstMapper,
-          Function<V, NestedSet<S>> secondMapper) {
-    return getProviderAsNestedSet(providerClass, firstMapper.andThen(secondMapper));
-  }
-
 
   @Override
   public boolean equals(Object otherObject) {
@@ -515,6 +773,8 @@ public final class JavaInfo extends NativeInfo {
    */
   public static class Builder {
     TransitiveInfoProviderMapBuilder providerMap;
+    private ImmutableList<Artifact> runtimeJars;
+    private ImmutableList<String> javaConstraints;
     private boolean neverlink;
     private Location location = Location.BUILTIN;
 
@@ -523,16 +783,31 @@ public final class JavaInfo extends NativeInfo {
     }
 
     public static Builder create() {
-      return new Builder(new TransitiveInfoProviderMapBuilder());
+      return new Builder(new TransitiveInfoProviderMapBuilder())
+          .setRuntimeJars(ImmutableList.of())
+          .setJavaConstraints(ImmutableList.of());
     }
 
     public static Builder copyOf(JavaInfo javaInfo) {
-      return new Builder(
-          new TransitiveInfoProviderMapBuilder().addAll(javaInfo.getProviders()));
+      return new Builder(new TransitiveInfoProviderMapBuilder().addAll(javaInfo.getProviders()))
+          .setRuntimeJars(javaInfo.getDirectRuntimeJars())
+          .setNeverlink(javaInfo.isNeverlink())
+          .setJavaConstraints(javaInfo.getJavaConstraints())
+          .setLocation(javaInfo.getCreationLoc());
+    }
+
+    public Builder setRuntimeJars(ImmutableList<Artifact> runtimeJars) {
+      this.runtimeJars = runtimeJars;
+      return this;
     }
 
     public Builder setNeverlink(boolean neverlink) {
       this.neverlink = neverlink;
+      return this;
+    }
+
+    public Builder setJavaConstraints(ImmutableList<String> javaConstraints) {
+      this.javaConstraints = javaConstraints;
       return this;
     }
 
@@ -549,7 +824,8 @@ public final class JavaInfo extends NativeInfo {
     }
 
     public JavaInfo build() {
-      return new JavaInfo(providerMap.build(), neverlink, location);
+      return new JavaInfo(providerMap.build(), runtimeJars, neverlink, javaConstraints, location);
     }
   }
 }
+

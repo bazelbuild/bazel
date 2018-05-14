@@ -2,15 +2,7 @@
 #   Zip provides a library for reading and writing zip files, allowing more
 #   advanced manipulation than the JDK equivalents by providing detailed zip
 #   entry data and raw file access.
-package(default_visibility = ["//src:__subpackages__"])
-
-package_group(
-    name = "packages",
-    packages = [
-        "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
-        "//src/java_tools/singlejar/javatests/com/google/devtools/build/zip",
-    ],
-)
+package(default_visibility = ["//src/java_tools/singlejar:singlejar_package_group"])
 
 filegroup(
     name = "srcs",
@@ -26,5 +18,6 @@ filegroup(
 java_library(
     name = "zip",
     srcs = glob(["*.java"]),
+    visibility = ["//visibility:public"],
     deps = ["//third_party:jsr305"],
 )

@@ -91,7 +91,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
   }
 
   @Override
-  public SpawnResult exec(Spawn spawn, SpawnExecutionPolicy policy)
+  public String getName() {
+    return "worker";
+  }
+
+  @Override
+  public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException {
     if (!spawn.getExecutionInfo().containsKey(ExecutionRequirements.SUPPORTS_WORKERS)
         || !spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_WORKERS).equals("1")) {
@@ -100,19 +105,14 @@ final class WorkerSpawnRunner implements SpawnRunner {
       reporter.handle(
           Event.warn(
               String.format(ERROR_MESSAGE_PREFIX + REASON_NO_EXECUTION_INFO, spawn.getMnemonic())));
-      return fallbackRunner.exec(spawn, policy);
+      return fallbackRunner.exec(spawn, context);
     }
 
-    policy.report(ProgressStatus.SCHEDULING, "worker");
-    ActionExecutionMetadata owner = spawn.getResourceOwner();
-    try (ResourceHandle handle =
-        ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
-      policy.report(ProgressStatus.EXECUTING, "worker");
-      return actuallyExec(spawn, policy);
-    }
+    context.report(ProgressStatus.SCHEDULING, getName());
+    return actuallyExec(spawn, context);
   }
 
-  private SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
+  private SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException {
     if (Iterables.isEmpty(spawn.getToolFiles())) {
       throw new UserExecException(
@@ -127,15 +127,15 @@ final class WorkerSpawnRunner implements SpawnRunner {
     ImmutableList<String> workerArgs = splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
     ImmutableMap<String, String> env = spawn.getEnvironment();
 
-    ActionInputFileCache inputFileCache = policy.getActionInputFileCache();
+    ActionInputFileCache inputFileCache = context.getActionInputFileCache();
 
     SortedMap<PathFragment, HashCode> workerFiles =
         WorkerFilesHash.getWorkerFilesWithHashes(
-            spawn, policy.getArtifactExpander(), policy.getActionInputFileCache());
+            spawn, context.getArtifactExpander(), context.getActionInputFileCache());
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
-    Map<PathFragment, Path> inputFiles = SandboxHelpers.getInputFiles(spawn, policy, execRoot);
+    Map<PathFragment, Path> inputFiles = SandboxHelpers.processInputFiles(spawn, context, execRoot);
     Set<PathFragment> outputFiles = SandboxHelpers.getOutputFiles(spawn);
 
     WorkerKey key =
@@ -146,21 +146,20 @@ final class WorkerSpawnRunner implements SpawnRunner {
             spawn.getMnemonic(),
             workerFilesCombinedHash,
             workerFiles,
-            inputFiles,
-            outputFiles,
-            policy.speculating());
+            context.speculating());
 
-    WorkRequest workRequest = createWorkRequest(spawn, policy, flagFiles, inputFileCache);
+    WorkRequest workRequest = createWorkRequest(spawn, context, flagFiles, inputFileCache);
 
     long startTime = System.currentTimeMillis();
-    WorkResponse response = execInWorker(key, workRequest, policy);
+    WorkResponse response = execInWorker(spawn, key, workRequest, context, inputFiles, outputFiles);
     Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
 
-    FileOutErr outErr = policy.getFileOutErr();
+    FileOutErr outErr = context.getFileOutErr();
     response.getOutputBytes().writeTo(outErr.getErrorStream());
 
     int exitCode = response.getExitCode();
     return new SpawnResult.Builder()
+        .setRunnerName(getName())
         .setExitCode(exitCode)
         .setStatus(exitCode == 0 ? SpawnResult.Status.SUCCESS : SpawnResult.Status.NON_ZERO_EXIT)
         .setWallTime(wallTime)
@@ -198,7 +197,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   private WorkRequest createWorkRequest(
       Spawn spawn,
-      SpawnExecutionPolicy policy,
+      SpawnExecutionContext context,
       List<String> flagfiles,
       ActionInputFileCache inputFileCache)
       throws IOException {
@@ -208,7 +207,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
 
     List<ActionInput> inputs =
-        ActionInputHelper.expandArtifacts(spawn.getInputFiles(), policy.getArtifactExpander());
+        ActionInputHelper.expandArtifacts(spawn.getInputFiles(), context.getArtifactExpander());
 
     for (ActionInput input : inputs) {
       byte[] digestBytes = inputFileCache.getMetadata(input).getDigest();
@@ -242,8 +241,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
   static void expandArgument(Path execRoot, String arg, WorkRequest.Builder requestBuilder)
       throws IOException {
     if (arg.startsWith("@") && !arg.startsWith("@@")) {
-      for (String line : Files.readAllLines(
-          Paths.get(execRoot.getRelative(arg.substring(1)).getPathString()), UTF_8)) {
+      for (String line :
+          Files.readAllLines(
+              Paths.get(execRoot.getRelative(arg.substring(1)).getPathString()), UTF_8)) {
         expandArgument(execRoot, line, requestBuilder);
       }
     } else {
@@ -251,11 +251,18 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
   }
 
-  private WorkResponse execInWorker(WorkerKey key, WorkRequest request, SpawnExecutionPolicy policy)
+  private WorkResponse execInWorker(
+      Spawn spawn,
+      WorkerKey key,
+      WorkRequest request,
+      SpawnExecutionContext context,
+      Map<PathFragment, Path> inputFiles,
+      Set<PathFragment> outputFiles)
       throws InterruptedException, ExecException {
     Worker worker = null;
     WorkResponse response;
 
+    ActionExecutionMetadata owner = spawn.getResourceOwner();
     try {
       try {
         worker = workers.borrowObject(key);
@@ -268,54 +275,62 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 .toString());
       }
 
-      try {
-        worker.prepareExecution(key);
-      } catch (IOException e) {
-        throw new UserExecException(
-            ErrorMessage.builder()
-                .message("IOException while preparing the execution environment of a worker:")
-                .logFile(worker.getLogFile())
-                .exception(e)
-                .build()
-                .toString());
+      try (ResourceHandle handle =
+          ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
+        context.report(ProgressStatus.EXECUTING, getName());
+        try {
+          worker.prepareExecution(inputFiles, outputFiles, key.getWorkerFilesWithHashes().keySet());
+        } catch (IOException e) {
+          throw new UserExecException(
+              ErrorMessage.builder()
+                  .message("IOException while preparing the execution environment of a worker:")
+                  .logFile(worker.getLogFile())
+                  .exception(e)
+                  .build()
+                  .toString());
+        }
+
+        try {
+          request.writeDelimitedTo(worker.getOutputStream());
+          worker.getOutputStream().flush();
+        } catch (IOException e) {
+          throw new UserExecException(
+              ErrorMessage.builder()
+                  .message(
+                      "Worker process quit or closed its stdin stream when we tried to send a"
+                          + " WorkRequest:")
+                  .logFile(worker.getLogFile())
+                  .exception(e)
+                  .build()
+                  .toString());
+        }
+
+        RecordingInputStream recordingStream = new RecordingInputStream(worker.getInputStream());
+        recordingStream.startRecording(4096);
+        try {
+          // response can be null when the worker has already closed stdout at this point and thus
+          // the InputStream is at EOF.
+          response = WorkResponse.parseDelimitedFrom(recordingStream);
+        } catch (IOException e) {
+          // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
+          // to stdout - it's probably a stack trace or some kind of error message that will help
+          // the user figure out why the compiler is failing.
+          recordingStream.readRemaining();
+          throw new UserExecException(
+              ErrorMessage.builder()
+                  .message(
+                      "Worker process returned an unparseable WorkResponse!\n\n"
+                          + "Did you try to print something to stdout? Workers aren't allowed to "
+                          + "do this, as it breaks the protocol between Bazel and the worker "
+                          + "process.")
+                  .logText(recordingStream.getRecordedDataAsString())
+                  .exception(e)
+                  .build()
+                  .toString());
+        }
       }
 
-      try {
-        request.writeDelimitedTo(worker.getOutputStream());
-        worker.getOutputStream().flush();
-      } catch (IOException e) {
-        throw new UserExecException(
-            ErrorMessage.builder()
-                .message(
-                    "Worker process quit or closed its stdin stream when we tried to send a"
-                        + " WorkRequest:")
-                .logFile(worker.getLogFile())
-                .exception(e)
-                .build()
-                .toString());
-      }
-
-      RecordingInputStream recordingStream = new RecordingInputStream(worker.getInputStream());
-      recordingStream.startRecording(4096);
-      try {
-        // response can be null when the worker has already closed stdout at this point and thus the
-        // InputStream is at EOF.
-        response = WorkResponse.parseDelimitedFrom(recordingStream);
-      } catch (IOException e) {
-        // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
-        // to stdout - it's probably a stack trace or some kind of error message that will help the
-        // user figure out why the compiler is failing.
-        recordingStream.readRemaining();
-        throw new UserExecException(
-            ErrorMessage.builder()
-                .message("Worker process returned an unparseable WorkResponse:")
-                .logText(recordingStream.getRecordedDataAsString())
-                .exception(e)
-                .build()
-                .toString());
-      }
-
-      policy.lockOutputFiles();
+      context.lockOutputFiles();
 
       if (response == null) {
         throw new UserExecException(
@@ -328,7 +343,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
 
       try {
-        worker.finishExecution(key);
+        worker.finishExecution(execRoot);
       } catch (IOException e) {
         throw new UserExecException(
             ErrorMessage.builder()

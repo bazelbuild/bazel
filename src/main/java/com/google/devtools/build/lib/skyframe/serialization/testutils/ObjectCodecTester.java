@@ -18,15 +18,22 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Utility for testing {@link ObjectCodec} instances. */
 public class ObjectCodecTester<T> {
+  private static final Logger logger = Logger.getLogger(ObjectCodecTester.class.getName());
 
   /** Interface for testing successful deserialization of an object. */
   @FunctionalInterface
@@ -50,19 +57,28 @@ public class ObjectCodecTester<T> {
 
   private final ObjectCodec<T> underTest;
   private final ImmutableList<T> subjects;
+  private final SerializationContext writeContext;
+  private final DeserializationContext readContext;
   private final boolean skipBadDataTest;
   private final VerificationFunction<T> verificationFunction;
+  private final int repetitions;
 
   private ObjectCodecTester(
       ObjectCodec<T> underTest,
       ImmutableList<T> subjects,
+      SerializationContext writeContext,
+      DeserializationContext readContext,
       boolean skipBadDataTest,
-      VerificationFunction<T> verificationFunction) {
+      VerificationFunction<T> verificationFunction,
+      int repetitions) {
     this.underTest = underTest;
     Preconditions.checkState(!subjects.isEmpty(), "No subjects provided");
     this.subjects = subjects;
+    this.writeContext = writeContext;
+    this.readContext = readContext;
     this.skipBadDataTest = skipBadDataTest;
     this.verificationFunction = verificationFunction;
+    this.repetitions = repetitions;
   }
 
   private void runTests() throws Exception {
@@ -75,11 +91,23 @@ public class ObjectCodecTester<T> {
 
   /** Runs serialization/deserialization tests. */
   void testSerializeDeserialize() throws Exception {
-    for (T subject : subjects) {
-      byte[] serialized = toBytes(subject);
-      T deserialized = fromBytes(serialized);
-      verificationFunction.verifyDeserialized(subject, deserialized);
+    Stopwatch timer = Stopwatch.createStarted();
+    int totalBytes = 0;
+    for (int i = 0; i < repetitions; ++i) {
+      for (T subject : subjects) {
+        byte[] serialized = toBytes(subject);
+        totalBytes += serialized.length;
+        T deserialized = fromBytes(serialized);
+        verificationFunction.verifyDeserialized(subject, deserialized);
+      }
     }
+    logger.log(
+        Level.INFO,
+        underTest.getEncodedClass().getSimpleName()
+            + " total serialized bytes = "
+            + totalBytes
+            + ", "
+            + timer);
   }
 
   /** Runs serialized bytes stability tests. */
@@ -95,7 +123,8 @@ public class ObjectCodecTester<T> {
   /** Runs junk-data recognition tests. */
   void testDeserializeJunkData() {
     try {
-      underTest.deserialize(CodedInputStream.newInstance("junk".getBytes(StandardCharsets.UTF_8)));
+      underTest.deserialize(
+          readContext, CodedInputStream.newInstance("junk".getBytes(StandardCharsets.UTF_8)));
       fail("Expected exception");
     } catch (SerializationException | IOException e) {
       // Expected.
@@ -103,20 +132,23 @@ public class ObjectCodecTester<T> {
   }
 
   private T fromBytes(byte[] bytes) throws SerializationException, IOException {
-    return TestUtils.fromBytes(underTest, bytes);
+    return TestUtils.fromBytes(readContext, underTest, bytes);
   }
 
   private byte[] toBytes(T subject) throws IOException, SerializationException {
-    return TestUtils.toBytes(underTest, subject);
+    return TestUtils.toBytes(writeContext, underTest, subject);
   }
 
   /** Builder for {@link ObjectCodecTester}. */
   public static class Builder<T> {
     private final ObjectCodec<T> underTest;
     private final ImmutableList.Builder<T> subjectsBuilder = ImmutableList.builder();
+    private final ImmutableMap.Builder<Class<?>, Object> dependenciesBuilder =
+        ImmutableMap.builder();
     private boolean skipBadDataTest = false;
     private VerificationFunction<T> verificationFunction =
         (original, deserialized) -> assertThat(deserialized).isEqualTo(original);
+    int repetitions = 1;
 
     private Builder(ObjectCodec<T> underTest) {
       this.underTest = underTest;
@@ -131,6 +163,12 @@ public class ObjectCodecTester<T> {
     /** Add subjects to be tested for serialization/deserialization. */
     public Builder<T> addSubjects(ImmutableList<T> subjects) {
       subjectsBuilder.addAll(subjects);
+      return this;
+    }
+
+    /** Add subjects to be tested for serialization/deserialization. */
+    public final <D> Builder<T> addDependency(Class<? super D> type, D dependency) {
+      dependenciesBuilder.put(type, dependency);
       return this;
     }
 
@@ -153,6 +191,11 @@ public class ObjectCodecTester<T> {
       return this;
     }
 
+    public Builder<T> setRepetitions(int repetitions) {
+      this.repetitions = repetitions;
+      return this;
+    }
+
     /** Captures the state of this builder and run all associated tests. */
     public void buildAndRunTests() throws Exception {
       build().runTests();
@@ -163,11 +206,15 @@ public class ObjectCodecTester<T> {
      * individually.
      */
     ObjectCodecTester<T> build() {
+      ImmutableMap<Class<?>, Object> dependencies = dependenciesBuilder.build();
       return new ObjectCodecTester<>(
           underTest,
           subjectsBuilder.build(),
+          new SerializationContext(dependencies),
+          new DeserializationContext(dependencies),
           skipBadDataTest,
-          verificationFunction);
+          verificationFunction,
+          repetitions);
     }
   }
 }

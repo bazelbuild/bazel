@@ -1,7 +1,7 @@
 # Description:
 #   Plugins for the Java library builders, which are used by Bazel to
 #   compile Java source code.
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
 
 java_library(
     name = "plugins",
@@ -64,9 +64,10 @@ load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 
 bootstrap_java_library(
     name = "bootstrap_plugins",
-    srcs = glob(
-        ["**/*.java"],
-    ),
+    srcs = glob([
+        "dependency/*.java",
+        "processing/*.java",
+    ]),
     tags = [
         "manual",
         "nobuilder",

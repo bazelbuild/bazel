@@ -29,7 +29,10 @@ cc_binary(
             "process-wrapper-options.h",
         ],
     }),
-    linkopts = ["-lm"],
+    linkopts = select({
+        "//src/conditions:windows": [],
+        "//conditions:default": ["-lm"],
+    }),
     deps = select({
         "//src/conditions:windows": [],
         "//conditions:default": [

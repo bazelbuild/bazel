@@ -14,12 +14,9 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
-import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -44,38 +41,5 @@ public class ConstraintValueInfoTest extends BuildViewTestCase {
             // Different setting.
             ConstraintValueInfo.create(setting2, makeLabel("//constraint:otherValue")))
         .testEquals();
-  }
-
-  @Test
-  public void constraintValueInfoConstructor() throws Exception {
-    scratch.file(
-        "test/platform/my_constraint_value.bzl",
-        "def _impl(ctx):",
-        "  setting = ctx.attr.setting[platform_common.ConstraintSettingInfo]",
-        "  constraint_value = platform_common.ConstraintValueInfo(",
-        "    label = ctx.label, constraint_setting = setting)",
-        "  return [constraint_value]",
-        "my_constraint_value = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'setting': attr.label(providers = [platform_common.ConstraintSettingInfo]),",
-        "  }",
-        ")");
-    scratch.file(
-        "test/platform/BUILD",
-        "load('//test/platform:my_constraint_value.bzl', 'my_constraint_value')",
-        "constraint_setting(name = 'basic')",
-        "my_constraint_value(",
-        "  name = 'custom',",
-        "  setting = ':basic',",
-        ")");
-
-    ConfiguredTarget value = getConfiguredTarget("//test/platform:custom");
-    assertThat(value).isNotNull();
-    assertThat(PlatformProviderUtils.constraintValue(value)).isNotNull();
-    assertThat(PlatformProviderUtils.constraintValue(value).constraint().label())
-        .isEqualTo(Label.parseAbsolute("//test/platform:basic"));
-    assertThat(PlatformProviderUtils.constraintValue(value).label())
-        .isEqualTo(Label.parseAbsolute("//test/platform:custom"));
   }
 }

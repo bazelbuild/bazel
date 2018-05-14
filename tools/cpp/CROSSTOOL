@@ -673,11 +673,6 @@ toolchain {
     name: 'random_seed'
   }
 
-  # This feature is just for enabling flag_set in action_config for -c and -o options during the transitional period
-  feature {
-    name: 'compile_action_flags_in_flag_set'
-  }
-
   action_config {
     config_name: 'c-compile'
     action_name: 'c-compile'
@@ -848,6 +843,7 @@ toolchain {
       action: 'c++-module-codegen'
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
+      action: 'c++-link-nodeps-dynamic-library'
       flag_group {
         iterate_over: 'sysroot'
         flag: '--sysroot=%{sysroot}'

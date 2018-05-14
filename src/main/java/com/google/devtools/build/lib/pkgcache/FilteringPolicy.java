@@ -15,21 +15,20 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.packages.Target;
-
 import java.io.Serializable;
 
 /**
  * A filtering policy defines how target patterns are matched. For instance, we may wish to select
  * only tests or no tests.
  */
-public interface FilteringPolicy extends Serializable {
+public abstract class FilteringPolicy implements Serializable {
 
   /**
    * Returns true if this target should be retained.
    *
    * @param explicit true iff the label was specified explicitly, as opposed to being discovered by
-   *                 a wildcard.
+   *     a wildcard.
    */
   @ThreadSafety.ThreadSafe
-  boolean shouldRetain(Target target, boolean explicit);
+  public abstract boolean shouldRetain(Target target, boolean explicit);
 }

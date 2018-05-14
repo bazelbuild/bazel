@@ -17,12 +17,14 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
+import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -60,8 +62,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
   @Before
   public final void createResolver() throws Exception {
     dependencyResolver =
-        new DependencyResolver(ruleClassProvider.getDynamicTransitionMapper()) {
-
+        new DependencyResolver() {
           @Override
           protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
             throw new IllegalStateException();
@@ -91,7 +92,9 @@ public class DependencyResolverTest extends AnalysisTestCase {
           @Nullable
           @Override
           protected List<BuildConfiguration> getConfigurations(
-              FragmentClassSet fragments, Iterable<BuildOptions> buildOptions) {
+              FragmentClassSet fragments,
+              Iterable<BuildOptions> buildOptions,
+              BuildOptions defaultBuildOptions) {
             throw new UnsupportedOperationException(
                 "this functionality is covered by analysis-phase integration tests");
           }
@@ -110,7 +113,10 @@ public class DependencyResolverTest extends AnalysisTestCase {
         getHostConfiguration(),
         aspect != null ? Aspect.forNative(aspect) : null,
         ImmutableMap.<Label, ConfigMatchingProvider>of(),
-        /*toolchainContext=*/ null);
+        /*toolchainLabels=*/ ImmutableSet.of(),
+        DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getConfigurationOptions()),
+        /*trimmingTransitionFactory=*/ null);
   }
 
   @SafeVarargs

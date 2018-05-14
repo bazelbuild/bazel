@@ -20,7 +20,7 @@
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 namespace blaze {
 

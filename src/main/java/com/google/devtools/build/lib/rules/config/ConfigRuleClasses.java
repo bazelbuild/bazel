@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -119,10 +119,9 @@ public class ConfigRuleClasses {
     public static final String TARGET_PLATFORMS_ATTRIBUTE = ":target_platforms";
 
     /** Implementation for the :target_platform attribute. */
-    public static final LateBoundDefault<?, List<Label>> TARGET_PLATFORMS =
-        LateBoundDefault.fromTargetConfiguration(
+    public static final LabelListLateBoundDefault<?> TARGET_PLATFORMS =
+        LabelListLateBoundDefault.fromTargetConfiguration(
             PlatformConfiguration.class,
-            ImmutableList.of(),
             (rule, attributes, platformConfig) ->
                 ConfigSettingRule.getTargetPlatformsIfRelevant(attributes, platformConfig));
 

@@ -177,9 +177,15 @@ public class SyntaxTreeVisitor {
 
   public void visit(SliceExpression node) {
     visit(node.getObject());
-    visit(node.getStart());
-    visit(node.getEnd());
-    visit(node.getStep());
+    if (node.getStart() != null) {
+      visit(node.getStart());
+    }
+    if (node.getEnd() != null) {
+      visit(node.getEnd());
+    }
+    if (node.getStep() != null) {
+      visit(node.getStep());
+    }
   }
 
   public void visit(@SuppressWarnings("unused") Comment node) {}

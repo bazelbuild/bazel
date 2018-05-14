@@ -19,9 +19,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Syntax node for dictionary comprehension expressions.
- */
+/** Syntax node for dictionary comprehension expressions. */
 public final class DictComprehension extends AbstractComprehension {
   private final Expression keyExpression;
   private final Expression valueExpression;

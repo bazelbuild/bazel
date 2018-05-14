@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps.ERROR;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Ordering;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
@@ -43,15 +43,19 @@ import com.sun.tools.javac.util.Name;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
-import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import javax.tools.JavaFileObject;
@@ -64,12 +68,14 @@ import javax.tools.JavaFileObject;
  * that come from transitive dependencies (Blaze computes this information).
  */
 public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
+  private static final Attributes.Name TARGET_LABEL = new Attributes.Name("Target-Label");
+  private static final Attributes.Name INJECTING_RULE_KIND =
+      new Attributes.Name("Injecting-Rule-Kind");
 
   @VisibleForTesting
   static String targetMapping =
       "com/google/devtools/build/buildjar/javac/resources/target.properties";
 
-  public static final boolean USE_COLOR = true;
   private ImplicitDependencyExtractor implicitDependencyExtractor;
   private CheckingTreeScanner checkingTreeScanner;
   private final DependencyModule dependencyModule;
@@ -203,18 +209,22 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
               ? null
               // we don't use the target mapping for the target, just the missing deps
               : canonicalizeTarget(dependencyModule.getTargetLabel());
-      LinkedHashSet<JarOwner> canonicalizedMissing = new LinkedHashSet<>();
-      for (JarOwner owner :
-          Ordering.natural().onResultOf(JarOwner.LABEL).immutableSortedCopy(missingTargets)) {
-        // for dependencies that are missing we canonicalize and remap the target so we don't
-        // suggest private build labels.
-        String actualTarget = canonicalizeTarget(remapTarget(owner.label()));
-        canonicalizedMissing.add(JarOwner.create(actualTarget, owner.aspect()));
-      }
+      Set<JarOwner> canonicalizedMissing =
+          missingTargets
+              .stream()
+              .filter(owner -> owner.label().isPresent())
+              .sorted(Comparator.comparing((JarOwner owner) -> owner.label().get()))
+              // for dependencies that are missing we canonicalize and remap the target so we don't
+              // suggest private build labels.
+              .map(
+                  owner ->
+                      owner.withLabel(
+                          owner.label().map(label -> canonicalizeTarget(remapTarget(label)))))
+              .collect(toImmutableSet());
       errWriter.print(
           dependencyModule
               .getFixMessage()
-              .get(canonicalizedMissing, canonicalizedLabel, USE_COLOR));
+              .get(canonicalizedMissing, canonicalizedLabel, dependencyModule));
     }
   }
 
@@ -225,12 +235,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
    */
   private static class CheckingTreeScanner extends TreeScanner {
 
-    private static final String TRANSITIVE_DEP_MESSAGE =
-        "[strict] Using {0} from an indirect dependency (TOOL_INFO: \"{1}\"). "
-            + "See command below **";
-
-    /** Lookup for jars coming from transitive dependencies */
-    private final Map<Path, JarOwner> indirectJarsToTargets;
+    private final ImmutableSet<Path> directJars;
 
     /** Strict deps diagnostics. */
     private final List<SjdDiagnostic> diagnostics;
@@ -249,6 +254,8 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
     private final Set<JarOwner> seenTargets = new HashSet<>();
 
+    private final Set<Path> seenStrictDepsViolatingJars = new HashSet<>();
+
     /** The set of jars on the compilation bootclasspath. */
     private final Set<Path> platformJars;
 
@@ -263,7 +270,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         List<SjdDiagnostic> diagnostics,
         Set<JarOwner> missingTargets,
         Set<Path> platformJars) {
-      this.indirectJarsToTargets = dependencyModule.getIndirectMapping();
+      this.directJars = dependencyModule.directJars();
       this.strictJavaDepsMode = dependencyModule.getStrictJavaDeps();
       this.diagnostics = diagnostics;
       this.missingTargets = missingTargets;
@@ -291,28 +298,39 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
     /**
      * Marks the provided dependency as a direct/explicit dependency. Additionally, if
-     * strict_java_deps is enabled, it emits a [strict] compiler warning/error (behavior to be soon
-     * replaced by the more complete Blaze implementation).
+     * strict_java_deps is enabled, it emits a [strict] compiler warning/error.
      */
     private void collectExplicitDependency(Path jarPath, JCTree node, Symbol sym) {
       if (strictJavaDepsMode.isEnabled() && !isStrictDepsExempt) {
         // Does it make sense to emit a warning/error for this pair of (type, owner)?
         // We want to emit only one error/warning per owner.
-        JarOwner owner = indirectJarsToTargets.get(jarPath);
-        if (owner != null && seenTargets.add(owner)) {
-          // owner is of the form "//label/of:rule <Aspect name>" where <Aspect name> is optional.
-          String canonicalTargetName = canonicalizeTarget(remapTarget(owner.label()));
-          missingTargets.add(owner);
-          String toolInfo =
-              owner.aspect() == null
-                  ? canonicalTargetName
-                  : String.format("%s wrapped in %s", canonicalTargetName, owner.aspect());
-          String used =
-              sym.getSimpleName().contentEquals("package-info")
-                  ? "package " + sym.getEnclosingElement()
-                  : "type " + sym;
-          String message = MessageFormat.format(TRANSITIVE_DEP_MESSAGE, used, toolInfo);
-          diagnostics.add(SjdDiagnostic.create(node.pos, message, source));
+        if (!directJars.contains(jarPath) && seenStrictDepsViolatingJars.add(jarPath)) {
+          // IO cost here is fine because we only hit this path for an explicit dependency
+          // _not_ in the direct jars, i.e. an error
+          JarOwner owner = readJarOwnerFromManifest(jarPath);
+          if (seenTargets.add(owner)) {
+            // owner is of the form "//label/of:rule <Aspect name>" where <Aspect name> is
+            // optional.
+            Optional<String> canonicalTargetName =
+                owner.label().map(label -> canonicalizeTarget(remapTarget(label)));
+            missingTargets.add(owner);
+            String toolInfo =
+                owner.aspect().isPresent()
+                    ? String.format(
+                        "%s wrapped in %s", canonicalTargetName.get(), owner.aspect().get())
+                    : canonicalTargetName.isPresent()
+                        ? canonicalTargetName.get()
+                        : owner.jar().toString();
+            String used =
+                sym.getSimpleName().contentEquals("package-info")
+                    ? "package " + sym.getEnclosingElement()
+                    : "type " + sym;
+            String message =
+                String.format(
+                    "[strict] Using %s from an indirect dependency (TOOL_INFO: \"%s\").%s",
+                    used, toolInfo, (owner.label().isPresent() ? " See command below **" : ""));
+            diagnostics.add(SjdDiagnostic.create(node.pos, message, source));
+          }
         }
       }
 
@@ -328,6 +346,25 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
                 .setKind(Dependency.Kind.EXPLICIT)
                 .build();
         directDependenciesMap.put(jarPath, dep);
+      }
+    }
+
+    private static JarOwner readJarOwnerFromManifest(Path jarPath) {
+      try (JarFile jarFile = new JarFile(jarPath.toFile())) {
+        Manifest manifest = jarFile.getManifest();
+        if (manifest == null) {
+          return JarOwner.create(jarPath);
+        }
+        Attributes attributes = manifest.getMainAttributes();
+        String label = (String) attributes.get(TARGET_LABEL);
+        if (label == null) {
+          return JarOwner.create(jarPath);
+        }
+        String injectingRuleKind = (String) attributes.get(INJECTING_RULE_KIND);
+        return JarOwner.create(jarPath, label, Optional.ofNullable(injectingRuleKind));
+      } catch (IOException e) {
+        // This jar file pretty much has to exist, we just used it in the compiler. Throw unchecked.
+        throw new UncheckedIOException(e);
       }
     }
 
@@ -371,6 +408,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
     @Override
     public void visitPackageDef(JCTree.JCPackageDecl tree) {
+      scan(tree.annotations);
       checkTypeLiteral(tree, tree.packge.package_info);
     }
   }

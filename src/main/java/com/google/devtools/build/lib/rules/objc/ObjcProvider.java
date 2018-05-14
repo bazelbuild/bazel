@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -364,6 +366,7 @@ public final class ObjcProvider extends NativeInfo {
     HAS_WATCH2_EXTENSION,
   }
 
+  private final SkylarkSemantics semantics;
   private final ImmutableMap<Key<?>, NestedSet<?>> items;
 
   // Items which should not be propagated to dependents.
@@ -407,6 +410,19 @@ public final class ObjcProvider extends NativeInfo {
           STRINGS,
           UMBRELLA_HEADER,
           WEAK_SDK_FRAMEWORK,
+          XCASSETS_DIR,
+          XCDATAMODEL,
+          XIB);
+
+  /** Deprecated keys in ObjcProvider pertaining to resource files. */
+  static final ImmutableList<Key<?>> DEPRECATED_RESOURCE_KEYS =
+      ImmutableList.<Key<?>>of(
+          ASSET_CATALOG,
+          BUNDLE_FILE,
+          MERGE_ZIP,
+          ROOT_MERGE_ZIP,
+          STORYBOARD,
+          STRINGS,
           XCASSETS_DIR,
           XCDATAMODEL,
           XIB);
@@ -808,6 +824,10 @@ public final class ObjcProvider extends NativeInfo {
     return null;
   }
 
+  static boolean isDeprecatedResourceKey(Key<?> key) {
+    return DEPRECATED_RESOURCE_KEYS.contains(key);
+  }
+
   // Items which should be passed to strictly direct dependers, but not transitive dependers.
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
 
@@ -815,10 +835,12 @@ public final class ObjcProvider extends NativeInfo {
   public static final NativeProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   private ObjcProvider(
+      SkylarkSemantics semantics,
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems,
       ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+    super(SKYLARK_CONSTRUCTOR);
+    this.semantics = semantics;
     this.items = Preconditions.checkNotNull(items);
     this.nonPropagatedItems = Preconditions.checkNotNull(nonPropagatedItems);
     this.strictDependencyItems = Preconditions.checkNotNull(strictDependencyItems);
@@ -831,6 +853,10 @@ public final class ObjcProvider extends NativeInfo {
   public <E> NestedSet<E> get(Key<E> key) {
     Preconditions.checkNotNull(key);
     NestedSetBuilder<E> builder = new NestedSetBuilder<>(key.order);
+    if (semantics.incompatibleDisableObjcProviderResources()
+        && ObjcProvider.isDeprecatedResourceKey(key)) {
+      return builder.build();
+    }
     if (strictDependencyItems.containsKey(key)) {
       builder.addTransitive((NestedSet<E>) strictDependencyItems.get(key));
     }
@@ -908,17 +934,17 @@ public final class ObjcProvider extends NativeInfo {
    * Subtracts dependency subtrees from this provider and returns the result (subtraction does not
    * mutate this provider). Note that not all provider keys are subtracted; generally only keys
    * which correspond with compiled libraries will be subtracted.
-   * 
-   * <p>This is an expensive operation, as it requires flattening of all nested sets contained
-   * in each provider.
+   *
+   * <p>This is an expensive operation, as it requires flattening of all nested sets contained in
+   * each provider.
    *
    * @param avoidObjcProviders objc providers which contain the dependency subtrees to subtract
    * @param avoidCcProviders cc providers which contain the dependency subtrees to subtract
    */
   // TODO(b/65156211): Investigate subtraction generalized to NestedSet.
   @SuppressWarnings("unchecked") // Due to depending on Key types, when the keys map erases type.
-  public ObjcProvider subtractSubtrees(Iterable<ObjcProvider> avoidObjcProviders,
-      Iterable<CcLinkParamsInfo> avoidCcProviders) {
+  public ObjcProvider subtractSubtrees(
+      Iterable<ObjcProvider> avoidObjcProviders, Iterable<CcLinkingInfo> avoidCcProviders) {
     // LIBRARY and CC_LIBRARY need to be special cased for objc-cc interop.
     // A library which is a dependency of a cc_library may be present in all or any of
     // three possible locations (and may be duplicated!):
@@ -927,9 +953,13 @@ public final class ObjcProvider extends NativeInfo {
     // 3. CcLinkParamsInfo->LibraryToLink->getArtifact()
     // TODO(cpeyser): Clean up objc-cc interop.
     HashSet<PathFragment> avoidLibrariesSet = new HashSet<>();
-    for (CcLinkParamsInfo linkProvider : avoidCcProviders) {
+    for (CcLinkingInfo linkProvider : avoidCcProviders) {
+      CcLinkParamsInfo ccLinkParamsInfo = linkProvider.getCcLinkParamsInfo();
+      if (ccLinkParamsInfo == null) {
+        continue;
+      }
       NestedSet<LibraryToLink> librariesToLink =
-          linkProvider.getCcLinkParams(true, false).getLibraries();
+          ccLinkParamsInfo.getCcLinkParams(true, false).getLibraries();
       for (LibraryToLink libraryToLink : librariesToLink.toList()) {
         avoidLibrariesSet.add(libraryToLink.getArtifact().getRunfilesPath());
       }
@@ -942,7 +972,7 @@ public final class ObjcProvider extends NativeInfo {
         avoidLibrariesSet.add(libraryToAvoid.getRunfilesPath());
       }
     }
-    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
+    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder(semantics);
     for (Key<?> key : getValuedKeys()) {
       if (key == CC_LIBRARY) {
         addTransitiveAndFilter(objcProviderBuilder, CC_LIBRARY,
@@ -1058,9 +1088,14 @@ public final class ObjcProvider extends NativeInfo {
    * several transitive dependencies.
    */
   public static final class Builder {
+    private final SkylarkSemantics skylarkSemantics;
     private final Map<Key<?>, NestedSetBuilder<?>> items = new HashMap<>();
     private final Map<Key<?>, NestedSetBuilder<?>> nonPropagatedItems = new HashMap<>();
     private final Map<Key<?>, NestedSetBuilder<?>> strictDependencyItems = new HashMap<>();
+
+    public Builder(SkylarkSemantics semantics) {
+      this.skylarkSemantics = semantics;
+    }
 
     private static void maybeAddEmptyBuilder(Map<Key<?>, NestedSetBuilder<?>> set, Key<?> key) {
       set.computeIfAbsent(key, k -> new NestedSetBuilder<>(k.order));
@@ -1311,7 +1346,8 @@ public final class ObjcProvider extends NativeInfo {
         strictDependencyBuilder.put(typeEntry.getKey(), typeEntry.getValue().build());
       }
 
-      return new ObjcProvider(propagatedBuilder.build(), nonPropagatedBuilder.build(),
+      return new ObjcProvider(skylarkSemantics,
+          propagatedBuilder.build(), nonPropagatedBuilder.build(),
           strictDependencyBuilder.build());
     }
   }

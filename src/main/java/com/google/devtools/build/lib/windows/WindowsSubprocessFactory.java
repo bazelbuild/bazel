@@ -83,9 +83,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
     // If it's not absolute, then it cannot be longer than MAX_PATH, since MAX_PATH also limits the
     // length of file names.
     PathFragment argv0fragment = PathFragment.create(argv0);
-    return (argv0fragment.isAbsolute())
-        ? argv0fragment.normalize().getPathString().replace('/', '\\')
-        : argv0;
+    return (argv0fragment.isAbsolute()) ? argv0fragment.getPathString().replace('/', '\\') : argv0;
   }
 
   private String getRedirectPath(StreamAction action, File file) {

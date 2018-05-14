@@ -38,7 +38,6 @@ public class BazelStrategyModule extends BlazeModule {
     @Option(
       name = "spawn_strategy",
       defaultValue = "",
-      category = "strategy",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -52,7 +51,6 @@ public class BazelStrategyModule extends BlazeModule {
     @Option(
       name = "genrule_strategy",
       defaultValue = "",
-      category = "strategy",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -67,7 +65,6 @@ public class BazelStrategyModule extends BlazeModule {
       allowMultiple = true,
       converter = AssignmentConverter.class,
       defaultValue = "",
-      category = "strategy",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =

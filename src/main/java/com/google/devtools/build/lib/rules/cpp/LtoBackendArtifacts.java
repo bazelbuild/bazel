@@ -15,13 +15,14 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -35,27 +36,31 @@ import java.util.Map;
  * step process:
  *
  * <ul>
- * <li>1. Bitcode generation (N times). This is produces intermediate LLVM bitcode from a source
- *     file. For this product, it reuses the .o extension.
- * <li>2. Indexing (once on N files). This takes all bitcode .o files, and for each .o file, it
- *     decides from which other .o files symbols can be inlined. In addition, it generates an index
- *     for looking up these symbols, and an imports file for identifying new input files for each
- *     step 3 {@link LtoBackendAction}.
- * <li>3. Backend compile (N times). This is the traditional compilation, and uses the same command
- *     line as the Bitcode generation in 1). Since the compiler has many bit code files available,
- *     it can inline functions and propagate constants across .o files. This step is costly, as it
- *     will do traditional optimization. The result is a .lto.o file, a traditional ELF object file.
- * <li>4. Backend link (once). This is the traditional link, and produces the final executable.
+ *   <li>1. Bitcode generation (N times). This is produces intermediate LLVM bitcode from a source
+ *       file. For this product, it reuses the .o extension.
+ *   <li>2. Indexing (once on N files). This takes all bitcode .o files, and for each .o file, it
+ *       decides from which other .o files symbols can be inlined. In addition, it generates an
+ *       index for looking up these symbols, and an imports file for identifying new input files for
+ *       each step 3 {@link LtoBackendAction}.
+ *   <li>3. Backend compile (N times). This is the traditional compilation, and uses the same
+ *       command line as the Bitcode generation in 1). Since the compiler has many bit code files
+ *       available, it can inline functions and propagate constants across .o files. This step is
+ *       costly, as it will do traditional optimization. The result is a .lto.o file, a traditional
+ *       ELF object file.
+ *   <li>4. Backend link (once). This is the traditional link, and produces the final executable.
  * </ul>
  */
+@AutoCodec
 public final class LtoBackendArtifacts {
   // A file containing mapping of symbol => bitcode file containing the symbol.
+  // It will be null when this is a shared non-lto backend.
   private final Artifact index;
 
   // The bitcode file which is the input of the compile.
   private final Artifact bitcodeFile;
 
   // A file containing a list of bitcode files necessary to run the backend step.
+  // It will be null when this is a shared non-lto backend.
   private final Artifact imports;
 
   // The result of executing the above command line, an ELF object file.
@@ -63,6 +68,21 @@ public final class LtoBackendArtifacts {
 
   // The corresponding dwoFile if fission is used.
   private Artifact dwoFile;
+
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  LtoBackendArtifacts(
+      Artifact index,
+      Artifact bitcodeFile,
+      Artifact imports,
+      Artifact objectFile,
+      Artifact dwoFile) {
+    this.index = index;
+    this.bitcodeFile = bitcodeFile;
+    this.imports = imports;
+    this.objectFile = objectFile;
+    this.dwoFile = dwoFile;
+  }
 
   LtoBackendArtifacts(
       PathFragment ltoOutputRootPrefix,
@@ -144,7 +164,13 @@ public final class LtoBackendArtifacts {
     return dwoFile;
   }
 
-  public void addIndexingOutputs(ImmutableList.Builder<Artifact> builder) {
+  public void addIndexingOutputs(ImmutableSet.Builder<Artifact> builder) {
+    // For objects from linkstatic libraries, we may not be including them in the LTO indexing
+    // step when linked into a test, but rather will use shared non-LTO backends for better
+    // scalability when running large numbers of tests.
+    if (index == null) {
+      return;
+    }
     builder.add(imports);
     builder.add(index);
   }
@@ -182,7 +208,7 @@ public final class LtoBackendArtifacts {
 
     builder.addOutput(objectFile);
 
-    builder.setProgressMessage("LTO Backend Compile %s", objectFile.getFilename());
+    builder.setProgressMessage("LTO Backend Compile %s", objectFile.getExecPath());
     builder.setMnemonic("CcLtoBackendCompile");
 
     // The command-line doesn't specify the full path to clang++, so we set it in the
@@ -190,8 +216,8 @@ public final class LtoBackendArtifacts {
     PathFragment compiler = ccToolchain.getToolPathFragment(Tool.GCC);
 
     builder.setExecutable(compiler);
-    Variables.Builder buildVariablesBuilder =
-        new Variables.Builder(ccToolchain.getBuildVariables());
+    CcToolchainVariables.Builder buildVariablesBuilder =
+        new CcToolchainVariables.Builder(ccToolchain.getBuildVariables());
     if (index != null) {
       buildVariablesBuilder.addStringVariable("thinlto_index", index.getExecPath().toString());
     } else {
@@ -223,7 +249,7 @@ public final class LtoBackendArtifacts {
 
     List<String> execArgs = new ArrayList<>();
     execArgs.addAll(commandLine);
-    Variables buildVariables = buildVariablesBuilder.build();
+    CcToolchainVariables buildVariables = buildVariablesBuilder.build();
     // Feature options should go after --copt for consistency with compile actions.
     execArgs.addAll(featureConfiguration.getCommandLine("lto-backend", buildVariables));
     // If this is a PIC compile (set based on the CppConfiguration), the PIC

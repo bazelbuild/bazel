@@ -33,8 +33,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
-import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,9 +50,9 @@ public class ArtifactFactoryTest {
   private Scratch scratch = new Scratch();
 
   private Path execRoot;
-  private ArtifactRoot clientRoot;
-  private ArtifactRoot clientRoRoot;
-  private ArtifactRoot alienRoot;
+  private Root clientRoot;
+  private Root clientRoRoot;
+  private Root alienRoot;
   private ArtifactRoot outRoot;
 
   private PathFragment fooPath;
@@ -75,9 +73,9 @@ public class ArtifactFactoryTest {
   @Before
   public final void createFiles() throws Exception  {
     execRoot = scratch.dir("/output/workspace");
-    clientRoot = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/client/workspace")));
-    clientRoRoot = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/client/RO/workspace")));
-    alienRoot = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/client/workspace")));
+    clientRoot = Root.fromPath(scratch.dir("/client/workspace"));
+    clientRoRoot = Root.fromPath(scratch.dir("/client/RO/workspace"));
+    alienRoot = Root.fromPath(scratch.dir("/client/workspace"));
     outRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out-root/x/bin"));
 
     fooPath = PathFragment.create("foo");
@@ -97,11 +95,20 @@ public class ArtifactFactoryTest {
   }
 
   private void setupRoots() {
-    Map<PackageIdentifier, ArtifactRoot> packageRootMap = new HashMap<>();
+    Map<PackageIdentifier, Root> packageRootMap = new HashMap<>();
     packageRootMap.put(fooPackage, clientRoot);
     packageRootMap.put(barPackage, clientRoRoot);
     packageRootMap.put(alienPackage, alienRoot);
     artifactFactory.setPackageRoots(packageRootMap::get);
+    Root absoluteRoot = Root.absoluteRoot(clientRoot.asPath().getFileSystem());
+    artifactFactory.setSourceArtifactRoots(
+        ImmutableMap.of(
+            clientRoot,
+            ArtifactRoot.asSourceRoot(clientRoot),
+            clientRoRoot,
+            ArtifactRoot.asSourceRoot(clientRoRoot),
+            absoluteRoot,
+            ArtifactRoot.asSourceRoot(absoluteRoot)));
   }
 
   @Test
@@ -157,7 +164,7 @@ public class ArtifactFactoryTest {
   public void testResolveArtifactWithUpLevelFailsCleanly() throws Exception {
     // We need a package in the root directory to make every exec path (even one with up-level
     // references) be in a package.
-    Map<PackageIdentifier, ArtifactRoot> packageRoots =
+    Map<PackageIdentifier, Root> packageRoots =
         ImmutableMap.of(PackageIdentifier.createInMainRepo(PathFragment.create("")), clientRoot);
     artifactFactory.setPackageRoots(packageRoots::get);
     PathFragment outsideWorkspace = PathFragment.create("../foo");
@@ -194,21 +201,20 @@ public class ArtifactFactoryTest {
 
   @Test
   public void testAbsoluteArtifact() throws Exception {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
-    ArtifactRoot absoluteRoot =
-        ArtifactRoot.asSourceRoot(Root.absoluteRoot(scratch.getFileSystem()));
+    Root absoluteRoot = Root.absoluteRoot(scratch.getFileSystem());
 
-    assertThat(artifactFactory.getSourceArtifact(PathFragment.create("foo"), root).getExecPath())
+    assertThat(
+            artifactFactory.getSourceArtifact(PathFragment.create("foo"), clientRoot).getExecPath())
         .isEqualTo(PathFragment.create("foo"));
     assertThat(
             artifactFactory
                 .getSourceArtifact(PathFragment.create("/foo"), absoluteRoot)
                 .getExecPath())
         .isEqualTo(PathFragment.create("/foo"));
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class,
-        () -> artifactFactory.getSourceArtifact(PathFragment.create("/foo"), root));
-    MoreAsserts.expectThrows(
+        () -> artifactFactory.getSourceArtifact(PathFragment.create("/foo"), clientRoot));
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class,
         () -> artifactFactory.getSourceArtifact(PathFragment.create("foo"), absoluteRoot));
   }
@@ -233,18 +239,17 @@ public class ArtifactFactoryTest {
   }
 
   private static class MockPackageRootResolver implements PackageRootResolver {
-    private Map<PathFragment, ArtifactRoot> packageRoots = Maps.newHashMap();
+    private final Map<PathFragment, Root> packageRoots = Maps.newHashMap();
 
-    public void setPackageRoots(Map<PackageIdentifier, ArtifactRoot> packageRoots) {
-      for (Entry<PackageIdentifier, ArtifactRoot> packageRoot : packageRoots.entrySet()) {
+    public void setPackageRoots(Map<PackageIdentifier, Root> packageRoots) {
+      for (Map.Entry<PackageIdentifier, Root> packageRoot : packageRoots.entrySet()) {
         this.packageRoots.put(packageRoot.getKey().getPackageFragment(), packageRoot.getValue());
       }
     }
 
     @Override
-    public Map<PathFragment, ArtifactRoot> findPackageRootsForFiles(
-        Iterable<PathFragment> execPaths) {
-      Map<PathFragment, ArtifactRoot> result = new HashMap<>();
+    public Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths) {
+      Map<PathFragment, Root> result = new HashMap<>();
       for (PathFragment execPath : execPaths) {
         for (PathFragment dir = execPath.getParentDirectory(); dir != null;
             dir = dir.getParentDirectory()) {
@@ -257,12 +262,6 @@ public class ArtifactFactoryTest {
         }
       }
       return result;
-    }
-
-    @Override
-    @Nullable
-    public Map<PathFragment, ArtifactRoot> findPackageRoots(Iterable<PathFragment> execPaths) {
-      return null; // unused
     }
   }
 }

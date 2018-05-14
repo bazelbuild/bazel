@@ -64,36 +64,4 @@ public class ConstraintTest extends BuildViewTestCase {
     assertThat(PlatformProviderUtils.constraintValue(barValue).label())
         .isEqualTo(Label.parseAbsolute("//constraint:bar"));
   }
-
-  @Test
-  public void testConstraint_skylark() throws Exception {
-
-    scratch.file(
-        "test/platform/constraints.bzl",
-        "def _impl(ctx):",
-        "  constraint_value = ctx.attr.constraint[platform_common.ConstraintValueInfo]",
-        "  return struct(",
-        "    setting = constraint_value.constraint.label,",
-        "    value = constraint_value.label)",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = { 'constraint': attr.label(providers = [platform_common.ConstraintValueInfo])},",
-        ")");
-
-    scratch.file(
-        "test/platform/BUILD",
-        "load('//test/platform:constraints.bzl', 'my_rule')",
-        "my_rule(name = 'r',",
-        "  constraint = '//constraint:foo')");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//test/platform:r");
-    assertThat(configuredTarget).isNotNull();
-
-    Label settingLabel = (Label) configuredTarget.get("setting");
-    assertThat(settingLabel).isNotNull();
-    assertThat(settingLabel).isEqualTo(makeLabel("//constraint:basic"));
-    Label valueLabel = (Label) configuredTarget.get("value");
-    assertThat(valueLabel).isNotNull();
-    assertThat(valueLabel).isEqualTo(makeLabel("//constraint:foo"));
-  }
 }

@@ -14,26 +14,16 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Strings;
-import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Ordering;
-import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
-import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.actions.ActionContextMarker;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
@@ -41,14 +31,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
@@ -60,7 +48,6 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
-import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -74,23 +61,22 @@ import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
-import com.google.devtools.build.lib.exec.FilesetActionContextImpl;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.OutputService;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -102,16 +88,11 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -129,50 +110,6 @@ import java.util.logging.Logger;
  * @see com.google.devtools.build.lib.analysis.BuildView
  */
 public class ExecutionTool {
-  private static class StrategyConverter {
-    private Table<Class<? extends ActionContext>, String, ActionContext> classMap =
-        HashBasedTable.create();
-    private Map<Class<? extends ActionContext>, ActionContext> defaultClassMap =
-        new HashMap<>();
-
-    /**
-     * Aggregates all {@link ActionContext}s that are in {@code contextProviders}.
-     */
-    @SuppressWarnings("unchecked")
-    private StrategyConverter(Iterable<ActionContextProvider> contextProviders) {
-      for (ActionContextProvider provider : contextProviders) {
-        for (ActionContext strategy : provider.getActionContexts()) {
-          ExecutionStrategy annotation =
-              strategy.getClass().getAnnotation(ExecutionStrategy.class);
-          // TODO(ulfjack): Don't silently ignore action contexts without annotation.
-          if (annotation != null) {
-            defaultClassMap.put(annotation.contextType(), strategy);
-
-            for (String name : annotation.name()) {
-              classMap.put(annotation.contextType(), name, strategy);
-            }
-          }
-        }
-      }
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T extends ActionContext> T getStrategy(Class<T> clazz, String name) {
-      return (T) (name.isEmpty() ? defaultClassMap.get(clazz) : classMap.get(clazz, name));
-    }
-
-    private String getValidValues(Class<? extends ActionContext> context) {
-      return Joiner.on(", ").join(Ordering.natural().sortedCopy(classMap.row(context).keySet()));
-    }
-
-    private String getUserFriendlyName(Class<? extends ActionContext> context) {
-      ActionContextMarker marker = context.getAnnotation(ActionContextMarker.class);
-      return marker != null
-          ? marker.name()
-          : context.getSimpleName();
-    }
-  }
-
   static final Logger logger = Logger.getLogger(ExecutionTool.class.getName());
 
   private final CommandEnvironment env;
@@ -182,10 +119,7 @@ public class ExecutionTool {
   private final ActionInputFileCache fileCache;
   private final ActionInputPrefetcher prefetcher;
   private final ImmutableList<ActionContextProvider> actionContextProviders;
-
-  private Map<String, SpawnActionContext> spawnStrategyMap =
-      new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-  private List<ActionContext> strategies = new ArrayList<>();
+  private SpawnActionContextMaps spawnActionContextMaps;
 
   ExecutionTool(CommandEnvironment env, BuildRequest request) throws ExecutorInitException {
     this.env = env;
@@ -200,28 +134,16 @@ public class ExecutionTool {
     for (BlazeModule module : runtime.getBlazeModules()) {
       module.executorInit(env, request, builder);
     }
-    builder.addActionContextProvider(
-        new FilesetActionContextImpl.Provider(env.getReporter(), env.getWorkspaceName()));
     builder.addActionContext(new SymlinkTreeStrategy(
                 env.getOutputService(), env.getBlazeWorkspace().getBinTools()));
     // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
     // these dependencies should be added to the ActionContextConsumer of the module that actually
     // depends on them.
     builder.addActionContextConsumer(
-        new ActionContextConsumer() {
-          @Override
-          public ImmutableMap<String, String> getSpawnActionContexts() {
-            return ImmutableMap.of();
-          }
-
-          @Override
-          public Multimap<Class<? extends ActionContext>, String> getActionContexts() {
-            return ImmutableMultimap.<Class<? extends ActionContext>, String>builder()
-                .put(FilesetActionContext.class, "")
-                .put(WorkspaceStatusAction.Context.class, "")
-                .put(SymlinkTreeActionContext.class, "")
-                .build();
-          }
+        b -> {
+          b.strategyByContextMap()
+              .put(WorkspaceStatusAction.Context.class, "")
+              .put(SymlinkTreeActionContext.class, "");
         });
 
     // Unfortunately, the exec root cache is not shared with caches in the remote execution client.
@@ -229,60 +151,24 @@ public class ExecutionTool {
         new SingleBuildFileCache(
             env.getExecRoot().getPathString(), env.getRuntime().getFileSystem());
     this.prefetcher = builder.getActionInputPrefetcher();
-        
+
     this.actionContextProviders = builder.getActionContextProviders();
     for (ActionContextProvider provider : actionContextProviders) {
       provider.init(fileCache);
     }
 
-    StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
-
+    // There are many different SpawnActions, and we want to control the action context they use
+    // independently from each other, for example, to run genrules locally and Java compile action
+    // in prod. Thus, for SpawnActions, we decide the action context to use not only based on the
+    // context class, but also the mnemonic of the action.
+    SpawnActionContextMaps.Builder spawnActionContextMapsBuilder =
+        new SpawnActionContextMaps.Builder();
     for (ActionContextConsumer consumer : builder.getActionContextConsumers()) {
-      // There are many different SpawnActions, and we want to control the action context they use
-      // independently from each other, for example, to run genrules locally and Java compile action
-      // in prod. Thus, for SpawnActions, we decide the action context to use not only based on the
-      // context class, but also the mnemonic of the action.
-      for (Map.Entry<String, String> entry : consumer.getSpawnActionContexts().entrySet()) {
-        SpawnActionContext context =
-            strategyConverter.getStrategy(SpawnActionContext.class, entry.getValue());
-        if (context == null) {
-          String strategy = Strings.emptyToNull(entry.getKey());
-          throw makeExceptionForInvalidStrategyValue(
-              entry.getValue(),
-              Joiner.on(' ').skipNulls().join(strategy, "spawn"),
-              strategyConverter.getValidValues(SpawnActionContext.class));
-        }
-        spawnStrategyMap.put(entry.getKey(), context);
-      }
-
-      for (Map.Entry<Class<? extends ActionContext>, String> entry :
-          consumer.getActionContexts().entries()) {
-        ActionContext context = strategyConverter.getStrategy(entry.getKey(), entry.getValue());
-        if (context == null) {
-          throw makeExceptionForInvalidStrategyValue(
-              entry.getValue(),
-              strategyConverter.getUserFriendlyName(entry.getKey()),
-              strategyConverter.getValidValues(entry.getKey()));
-        }
-        strategies.add(context);
-      }
+      consumer.populate(spawnActionContextMapsBuilder);
     }
-
-    String testStrategyValue = request.getOptions(ExecutionOptions.class).testStrategy;
-    ActionContext context = strategyConverter.getStrategy(TestActionContext.class,
-        testStrategyValue);
-    if (context == null) {
-      throw makeExceptionForInvalidStrategyValue(testStrategyValue, "test",
-          strategyConverter.getValidValues(TestActionContext.class));
-    }
-    strategies.add(context);
-  }
-
-  private static ExecutorInitException makeExceptionForInvalidStrategyValue(String value,
-      String strategy, String validValues) {
-    return new ExecutorInitException(String.format(
-        "'%s' is an invalid value for %s strategy. Valid values are: %s", value, strategy,
-        validValues), ExitCode.COMMAND_LINE_ERROR);
+    spawnActionContextMaps =
+        spawnActionContextMapsBuilder.build(
+            actionContextProviders, request.getOptions(ExecutionOptions.class).testStrategy);
   }
 
   Executor getExecutor() throws ExecutorInitException {
@@ -304,8 +190,7 @@ public class ExecutionTool {
         env.getEventBus(),
         runtime.getClock(),
         request,
-        strategies,
-        spawnStrategyMap,
+        spawnActionContextMaps,
         actionContextProviders);
   }
 
@@ -367,14 +252,15 @@ public class ExecutionTool {
     // deleted instead.
     Set<BuildConfiguration> targetConfigurations =
         request.getBuildOptions().useTopLevelTargetsForSymlinks()
-        ? analysisResult
-            .getTargetsToBuild()
-            .stream()
-            .map(ConfiguredTarget::getConfiguration)
-            .filter(configuration -> configuration != null)
-            .distinct()
-            .collect(toImmutableSet())
-        : ImmutableSet.copyOf(configurations.getTargetConfigurations());
+            ? analysisResult
+                .getTargetsToBuild()
+                .stream()
+                .map(ConfiguredTarget::getConfigurationKey)
+                .filter(configuration -> configuration != null)
+                .distinct()
+                .map((key) -> env.getSkyframeExecutor().getConfiguration(env.getReporter(), key))
+                .collect(toImmutableSet())
+            : ImmutableSet.copyOf(configurations.getTargetConfigurations());
     String productName = runtime.getProductName();
     String workspaceName = env.getWorkspaceName();
     OutputDirectoryLinksUtils.createOutputDirectoryLinks(
@@ -404,6 +290,7 @@ public class ExecutionTool {
                                   request.getOptionsDescription());
 
     Set<ConfiguredTarget> builtTargets = new HashSet<>();
+    Set<AspectKey> builtAspects = new HashSet<>();
     Collection<AspectValue> aspects = analysisResult.getAspects();
 
     Iterable<Artifact> allArtifactsForProviders =
@@ -454,6 +341,7 @@ public class ExecutionTool {
           analysisResult.getAspects(),
           executor,
           builtTargets,
+          builtAspects,
           request.getBuildOptions().explanationPath != null,
           env.getBlazeWorkspace().getLastExecutionTimeRange(),
           topLevelArtifactContext);
@@ -482,15 +370,17 @@ public class ExecutionTool {
         actionContextProvider.executionPhaseEnding();
       }
 
-      Profiler.instance().markPhase(ProfilePhase.FINISH);
-
       if (buildCompleted) {
         saveActionCache(actionCache);
       }
 
+      env.getEventBus()
+          .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
+
       try (AutoProfiler p = AutoProfiler.profiled("Show results", ProfilerTask.INFO)) {
         buildResult.setSuccessfulTargets(
-            determineSuccessfulTargets(configuredTargets, builtTargets, timer));
+            determineSuccessfulTargets(configuredTargets, builtTargets));
+        buildResult.setSuccessfulAspects(determineSuccessfulAspects(aspects, builtAspects));
         buildResult.setSkippedTargets(analysisResult.getTargetsToSkip());
         BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
         buildResultPrinter.showBuildResult(request, buildResult, configuredTargets,
@@ -518,7 +408,8 @@ public class ExecutionTool {
     }
   }
 
-  private void prepare(PackageRoots packageRoots) throws ExecutorInitException {
+  private void prepare(PackageRoots packageRoots)
+      throws ExecutorInitException, InterruptedException {
     Optional<ImmutableMap<PackageIdentifier, Root>> packageRootMap =
         packageRoots.getPackageRootsMap();
     if (!packageRootMap.isPresent()) {
@@ -639,16 +530,13 @@ public class ExecutionTool {
   }
 
   /**
-   * Computes the result of the build. Sets the list of successful (up-to-date)
-   * targets in the request object.
+   * Computes the result of the build. Sets the list of successful (up-to-date) targets in the
+   * request object.
    *
-   * @param configuredTargets The configured targets whose artifacts are to be
-   *                          built.
-   * @param timer A timer that was started when the execution phase started.
+   * @param configuredTargets The configured targets whose artifacts are to be built.
    */
   private Collection<ConfiguredTarget> determineSuccessfulTargets(
-      Collection<ConfiguredTarget> configuredTargets, Set<ConfiguredTarget> builtTargets,
-      Stopwatch timer) {
+      Collection<ConfiguredTarget> configuredTargets, Set<ConfiguredTarget> builtTargets) {
     // Maintain the ordering by copying builtTargets into a LinkedHashSet in the same iteration
     // order as configuredTargets.
     Collection<ConfiguredTarget> successfulTargets = new LinkedHashSet<>();
@@ -657,9 +545,20 @@ public class ExecutionTool {
         successfulTargets.add(target);
       }
     }
-    env.getEventBus().post(
-        new ExecutionPhaseCompleteEvent(timer.stop().elapsed(MILLISECONDS)));
     return successfulTargets;
+  }
+
+  private Collection<AspectValue> determineSuccessfulAspects(
+      Collection<AspectValue> aspects, Set<AspectKey> builtAspects) {
+    // Maintain the ordering by copying builtTargets into a LinkedHashSet in the same iteration
+    // order as configuredTargets.
+    Collection<AspectValue> successfulAspects = new LinkedHashSet<>();
+    for (AspectValue aspect : aspects) {
+      if (builtAspects.contains(aspect.getKey())) {
+        successfulAspects.add(aspect);
+      }
+    }
+    return successfulAspects;
   }
 
   /** Get action cache if present or reload it from the on-disk cache. */
@@ -726,6 +625,7 @@ public class ExecutionTool {
       resources = LocalHostCapacity.getLocalHostCapacity();
       resourceMgr.setRamUtilizationPercentage(options.ramUtilizationPercentage);
     }
+    resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
 
     resourceMgr.setAvailableResources(ResourceSet.create(
         resources.getMemoryMb(),

@@ -5,6 +5,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/shell/bazel/android:srcs",
         "//src/test/shell/bazel/apple:srcs",
+        "//src/test/shell/bazel/remote:srcs",
         "//src/test/shell/bazel/testdata:srcs",
     ],
     visibility = ["//src/test/shell:__pkg__"],
@@ -49,6 +50,7 @@ filegroup(
     }),
     visibility = [
         "//src/test/shell:__subpackages__",
+        "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:__pkg__",
     ],
 )
 
@@ -92,6 +94,13 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_embedded_skylark_test",
+    size = "medium",
+    srcs = ["bazel_embedded_skylark_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "bazel_random_characters_test",
     size = "large",
     srcs = ["bazel_random_characters_test.sh"],
@@ -102,14 +111,8 @@ sh_test(
 sh_test(
     name = "bazel_java_test",
     size = "large",
+    timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
-    data = [":test-deps"],
-)
-
-sh_test(
-    name = "persistent_test_runner_test",
-    size = "large",
-    srcs = ["persistent_test_runner_test.sh"],
     data = [":test-deps"],
 )
 
@@ -136,10 +139,17 @@ sh_test(
 
 sh_test(
     name = "bazel_test_test",
+    timeout = "long",
     srcs = ["bazel_test_test.sh"],
     data = [":test-deps"],
     shard_count = 3,
     tags = ["local"],
+)
+
+sh_test(
+    name = "bazel_spawnstats_test",
+    srcs = ["bazel_spawnstats_test.sh"],
+    data = [":test-deps"],
 )
 
 sh_test(
@@ -237,7 +247,7 @@ sh_test(
     size = "large",
     srcs = ["external_integration_test.sh"],
     data = [":test-deps"],
-    shard_count = 3,
+    shard_count = 12,
 )
 
 sh_test(
@@ -245,6 +255,15 @@ sh_test(
     size = "medium",
     srcs = ["external_patching_test.sh"],
     data = [":test-deps"],
+    shard_count = 3,
+)
+
+sh_test(
+    name = "external_path_test",
+    size = "medium",
+    srcs = ["external_path_test.sh"],
+    data = [":test-deps"],
+    shard_count = 6,
 )
 
 sh_test(
@@ -291,6 +310,12 @@ sh_test(
 )
 
 sh_test(
+    name = "skylark_prefetching_test",
+    srcs = ["skylark_prefetching_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "external_skylark_load_test",
     size = "large",
     srcs = ["external_skylark_load_test.sh"],
@@ -307,9 +332,9 @@ sh_test(
 )
 
 sh_test(
-    name = "local_action_cache_test",
+    name = "disk_cache_test",
     size = "small",
-    srcs = ["local_action_cache_test.sh"],
+    srcs = ["disk_cache_test.sh"],
     data = [":test-deps"],
 )
 
@@ -361,10 +386,32 @@ sh_test(
 )
 
 sh_test(
+    name = "workspace_resolved_test",
+    size = "medium",
+    srcs = ["workspace_resolved_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "cc_integration_test",
     size = "medium",
     srcs = ["cc_integration_test.sh"],
     data = [":test-deps"],
+)
+
+sh_test(
+    name = "bazel_docker_sandboxing_test",
+    timeout = "eternal",
+    srcs = ["bazel_docker_sandboxing_test.sh"],
+    args = ["$(location //:bazel-distfile)"],
+    data = [
+        ":test-deps",
+        "//:bazel-distfile",
+    ],
+    tags = [
+        "local",
+        "manual",
+    ],
 )
 
 sh_test(
@@ -408,37 +455,6 @@ sh_test(
 )
 
 sh_test(
-    name = "remote_execution_test",
-    size = "large",
-    srcs = ["remote_execution_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/tools/remote:worker",
-    ],
-)
-
-sh_test(
-    name = "remote_execution_http_test",
-    size = "large",
-    srcs = ["remote_execution_http_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/tools/remote:worker",
-    ],
-)
-
-sh_test(
-    name = "remote_execution_sandboxing_test",
-    size = "large",
-    srcs = ["remote_execution_sandboxing_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/test/shell:sandboxing_test_utils.sh",
-        "//src/tools/remote:worker",
-    ],
-)
-
-sh_test(
     name = "client_test",
     size = "medium",
     srcs = ["client_test.sh"],
@@ -457,7 +473,7 @@ sh_test(
     size = "large",
     srcs = ["bazel_repository_cache_test.sh"],
     data = [":test-deps"],
-    shard_count = 4,
+    shard_count = 6,
 )
 
 sh_test(
@@ -524,8 +540,6 @@ sh_test(
     size = "large",
     srcs = ["toolchain_test.sh"],
     data = [":test-deps"],
-    # TODO(b/70984583): remove when no longer flaky
-    flaky = 1,
     shard_count = 5,
 )
 
@@ -558,4 +572,13 @@ sh_test(
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":bazel_bootstrap_distfile_test",
+        ":bazel_windows_example_test",
+    ],
+    visibility = ["//src/test/shell:__pkg__"],
 )

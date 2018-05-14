@@ -16,6 +16,7 @@ package com.google.devtools.build.android.desugar;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.devtools.build.android.desugar.io.BitFlags;
 import java.util.HashMap;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassReader;

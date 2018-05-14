@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -62,7 +63,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     if (fragmentMap == null && fragmentMapFromRuleContext != null) {
       this.fragmentMap = fragmentMapFromRuleContext.apply(ruleContext);
     }
@@ -77,8 +78,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
             == MakeVariableSource.TOOLCHAIN
         && ruleContext
             .getFragment(PlatformConfiguration.class)
-            .getEnabledToolchainTypes()
-            .contains(ruleContext.getLabel())) {
+            .isToolchainTypeEnabled(ruleContext.getLabel())) {
       ResolvedToolchainProviders providers =
           (ResolvedToolchainProviders)
               ruleContext.getToolchainContext().getResolvedToolchainProviders();
@@ -102,7 +102,8 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
     // out the lookup rule -> toolchain rule mapping. For now, it only provides Make variables that
     // come from BuildConfiguration so no need to ask Skyframe.
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addNativeDeclaredProvider(new TemplateVariableInfo(ImmutableMap.copyOf(makeVariables)))
+        .addNativeDeclaredProvider(new TemplateVariableInfo(
+            ImmutableMap.copyOf(makeVariables), ruleContext.getRule().getLocation()))
         .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
   }

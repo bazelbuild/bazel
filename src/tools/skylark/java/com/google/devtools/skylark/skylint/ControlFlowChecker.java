@@ -46,7 +46,8 @@ import javax.annotation.Nullable;
 // TODO(skylark-team): Check for unreachable statements
 public class ControlFlowChecker extends SyntaxTreeVisitor {
   private static final String MISSING_RETURN_VALUE_CATEGORY = "missing-return-value";
-  public static final String UNREACHABLE_STATEMENT_CATEGORY = "unreachable-statement";
+  private static final String UNREACHABLE_STATEMENT_CATEGORY = "unreachable-statement";
+  private static final String NESTED_FUNCTION_CATEGORY = "nested-function";
 
   private final List<Issue> issues = new ArrayList<>();
 
@@ -156,7 +157,17 @@ public class ControlFlowChecker extends SyntaxTreeVisitor {
 
   @Override
   public void visit(FunctionDefStatement node) {
-    Preconditions.checkState(cfi == null);
+    if (cfi != null) {
+      issues.add(
+          Issue.create(
+              NESTED_FUNCTION_CATEGORY,
+              node.getIdentifier()
+                  + " is a nested function which is not allowed."
+                  + " Consider inlining it or moving it to top-level."
+                  + " For more details, have a look at the Skylark documentation.",
+              node.getLocation()));
+      return;
+    }
     cfi = ControlFlowInfo.entry();
     super.visit(node);
     if (cfi.hasReturnWithValue && (!cfi.returnsAlwaysExplicitly || cfi.hasReturnWithoutValue)) {

@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.collect.ImmutableSharedKeyMap;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -24,12 +27,28 @@ import javax.annotation.Nullable;
  * Implementation of {@link TransitiveInfoProvider} that uses {@link ImmutableSharedKeyMap}. For
  * memory efficiency, inheritance is used instead of aggregation as an implementation detail.
  */
-class TransitiveInfoProviderMapImpl
-    extends ImmutableSharedKeyMap<Object, Object>
+@AutoCodec
+class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object, Object>
     implements TransitiveInfoProviderMap {
 
-  TransitiveInfoProviderMapImpl(Map<Object, Object> map) {
-    super(map);
+  @VisibleForSerialization
+  @AutoCodec.Instantiator
+  TransitiveInfoProviderMapImpl(Object[] keys, Object[] values) {
+    super(keys, values);
+  }
+
+  static TransitiveInfoProviderMapImpl create(Map<Object, Object> map) {
+    int count = map.size();
+    Object[] keys = new Object[count];
+    Object[] values = new Object[count];
+    int i = 0;
+    for (Map.Entry<Object, Object> entry : map.entrySet()) {
+      keys[i] = entry.getKey();
+      values[i] = entry.getValue();
+      ++i;
+    }
+    Preconditions.checkArgument(keys.length == values.length);
+    return new TransitiveInfoProviderMapImpl(keys, values);
   }
 
   @SuppressWarnings("unchecked")

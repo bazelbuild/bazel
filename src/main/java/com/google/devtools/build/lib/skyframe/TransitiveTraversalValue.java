@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -38,6 +39,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @ThreadSafe
+@AutoCodec
 public abstract class TransitiveTraversalValue implements SkyValue {
   // A quick-lookup cache that allows us to get the value for a given target kind, assuming no error
   // messages for the target. The number of built-in target kinds is limited, so memory bloat is not
@@ -97,6 +99,7 @@ public abstract class TransitiveTraversalValue implements SkyValue {
     }
   }
 
+  @AutoCodec.Instantiator
   public static TransitiveTraversalValue create(
       AdvertisedProviderSet providers, String kind, @Nullable String firstErrorMessage) {
     TransitiveTraversalValue value =

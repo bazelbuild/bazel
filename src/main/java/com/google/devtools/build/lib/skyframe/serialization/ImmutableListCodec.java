@@ -24,7 +24,7 @@ public class ImmutableListCodec<T> implements ObjectCodec<ImmutableList<T>> {
 
   private final ObjectCodec<T> codec;
 
-  public ImmutableListCodec(ObjectCodec<T> codec) {
+  ImmutableListCodec(ObjectCodec<T> codec) {
     this.codec = codec;
   }
 
@@ -37,16 +37,17 @@ public class ImmutableListCodec<T> implements ObjectCodec<ImmutableList<T>> {
   }
 
   @Override
-  public void serialize(ImmutableList<T> list, CodedOutputStream codedOut)
+  public void serialize(
+      SerializationContext context, ImmutableList<T> list, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     codedOut.writeInt32NoTag(list.size());
     for (T item : list) {
-      codec.serialize(item, codedOut);
+      codec.serialize(context, item, codedOut);
     }
   }
 
   @Override
-  public ImmutableList<T> deserialize(CodedInputStream codedIn)
+  public ImmutableList<T> deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int length = codedIn.readInt32();
     if (length < 0) {
@@ -55,7 +56,7 @@ public class ImmutableListCodec<T> implements ObjectCodec<ImmutableList<T>> {
 
     ImmutableList.Builder<T> builder = ImmutableList.builder();
     for (int i = 0; i < length; i++) {
-      builder.add(codec.deserialize(codedIn));
+      builder.add(codec.deserialize(context, codedIn));
     }
     return builder.build();
   }

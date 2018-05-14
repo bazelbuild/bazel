@@ -106,8 +106,10 @@ class NodeEntryVisitor {
 
   /**
    * Stop any new evaluations from being enqueued. Returns whether this was the first thread to
-   * request a halt. If true, this thread should proceed to throw an exception. If false, another
-   * thread already requested a halt and will throw an exception, and so this thread can simply end.
+   * request a halt.
+   *
+   * <p>If called from within node evaluation, the caller may use the return value to determine
+   * whether it is responsible for throwing an exception to halt evaluation at the executor level.
    */
   boolean preventNewEvaluations() {
     return preventNewEvaluations.compareAndSet(false, true);

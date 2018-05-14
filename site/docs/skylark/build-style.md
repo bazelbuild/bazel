@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Style guide for BUILD files
+title: BUILD Style Guide
 ---
 
-# BUILD file style guide
+# BUILD Style Guide
 
 
 In `BUILD` files, we take the same approach as in Go: We let the machine take care
@@ -15,6 +15,7 @@ code reviews. It also makes it easier for tools to understand, edit, and
 generate `BUILD` files.
 
 `BUILD` file formatting must match the output of `buildifier`.
+
 
 ## Contents
 
@@ -41,7 +42,7 @@ py_test(
         "//foo",
         "//third_party/java/jdk:jdk-k8",
     ],
-    flaky = 1,
+    flaky = True,
     deps = [
         ":check_bar_lib",
         ":foo_data_check",
@@ -142,16 +143,28 @@ dependencies of several targets into a variable reduces maintainability, makes
 it impossible for tools to change the dependencies of a target and can lead to
 unused dependencies.
 
-
 ## Globs
-
-Do not use recursive globs (e.g., `glob(["**/*.java"])`). Recursive globs
-make BUILD files difficult to read, as they skip subdirectories containing
-BUILD files. Non-recursive globs are generally acceptable, see
-language-specific advice below for details.
 
 Indicate "no targets" with `[]`. Do not use a glob that matches nothing: it
 is more error-prone and less obvious than an empty list.
+
+### Recursive
+
+Do not use recursive globs (for example, `glob(["**/*.java"])`).
+
+Recursive globs make BUILD files difficult to reason about because they skip
+subdirectories containing BUILD files.
+
+Recursive globs are generally less efficient than having a BUILD file per
+directory with a dependency graph defined between them as this enables better
+forge caching and parallelism.
+
+We recommend authoring a BUILD file per directory and defining a dependency
+graph between them instead.
+
+### Non-recursive
+
+Non-recursive globs are generally acceptable.
 
 ## Other conventions
 
@@ -165,6 +178,12 @@ is more error-prone and less obvious than an empty list.
  * The value of the name attribute should be a literal constant string (except
    in macros). *Rationale*: External tools use the name attribute to refer a
    rule. They need to find rules without having to interpret code.
+
+ * When setting boolean-type attributes, use boolean values, not integer values.
+   For legacy reasons, rules will still convert integers to booleans as needed,
+   but this is discouraged. *Rationale*: `flaky = 1` could be misread as saying
+   "deflake this target by rerunning it once". `flaky = True` unambiguously says
+   "this test is flaky".
 
 ## Differences with Python style guide
 

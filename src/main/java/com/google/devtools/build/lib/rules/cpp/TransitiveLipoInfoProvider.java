@@ -19,22 +19,26 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * A target that can contribute profiling information to LIPO C++ compilations.
  *
- * <p>This is used in the LIPO context collector tree to collect data from the transitive
- * closure of the :lipo_context_collector target. It is eventually passed to the configured
- * targets in the target configuration through {@link LipoContextProvider}.
+ * <p>This is used in the LIPO context collector tree to collect data from the transitive closure of
+ * the :lipo_context_collector target. It is eventually passed to the configured targets in the
+ * target configuration through {@link LipoContextProvider}.
  */
 @Immutable
+@AutoCodec
 public final class TransitiveLipoInfoProvider implements TransitiveInfoProvider {
+  public static final String LIPO_CONTEXT_COLLECTOR = ":lipo_context_collector";
   public static final TransitiveLipoInfoProvider EMPTY =
       new TransitiveLipoInfoProvider(
           NestedSetBuilder.<IncludeScannable>emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<IncludeScannable> includeScannables;
 
+  @AutoCodec.Instantiator
   public TransitiveLipoInfoProvider(NestedSet<IncludeScannable> includeScannables) {
     this.includeScannables = includeScannables;
   }

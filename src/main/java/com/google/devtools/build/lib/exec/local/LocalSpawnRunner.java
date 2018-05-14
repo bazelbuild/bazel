@@ -22,12 +22,15 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
@@ -48,7 +51,6 @@ import java.time.Duration;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -76,7 +78,6 @@ public class LocalSpawnRunner implements SpawnRunner {
   private final boolean useProcessWrapper;
   private final String processWrapper;
 
-  private final String productName;
   private final LocalEnvProvider localEnvProvider;
 
   // TODO(b/62588075): Move this logic to ProcessWrapperUtil?
@@ -90,7 +91,6 @@ public class LocalSpawnRunner implements SpawnRunner {
       ResourceManager resourceManager,
       boolean useProcessWrapper,
       OS localOs,
-      String productName,
       LocalEnvProvider localEnvProvider) {
     this.execRoot = execRoot;
     this.processWrapper = getProcessWrapper(execRoot, localOs).getPathString();
@@ -98,7 +98,6 @@ public class LocalSpawnRunner implements SpawnRunner {
     this.hostName = NetUtil.getCachedShortHostName();
     this.resourceManager = resourceManager;
     this.useProcessWrapper = useProcessWrapper;
-    this.productName = productName;
     this.localEnvProvider = localEnvProvider;
   }
 
@@ -106,7 +105,6 @@ public class LocalSpawnRunner implements SpawnRunner {
       Path execRoot,
       LocalExecutionOptions localExecutionOptions,
       ResourceManager resourceManager,
-      String productName,
       LocalEnvProvider localEnvProvider) {
     this(
         execRoot,
@@ -114,21 +112,24 @@ public class LocalSpawnRunner implements SpawnRunner {
         resourceManager,
         OS.getCurrent() != OS.WINDOWS && getProcessWrapper(execRoot, OS.getCurrent()).exists(),
         OS.getCurrent(),
-        productName,
         localEnvProvider);
   }
 
   @Override
-  public SpawnResult exec(
-      Spawn spawn,
-      SpawnExecutionPolicy policy) throws IOException, InterruptedException {
+  public String getName() {
+    return "local";
+  }
+
+  @Override
+  public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, InterruptedException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
-    policy.report(ProgressStatus.SCHEDULING, "local");
+    context.report(ProgressStatus.SCHEDULING, getName());
     try (ResourceHandle handle =
         resourceManager.acquireResources(owner, spawn.getLocalResources())) {
-      policy.report(ProgressStatus.EXECUTING, "local");
-      policy.lockOutputFiles();
-      return new SubprocessHandler(spawn, policy).run();
+      context.report(ProgressStatus.EXECUTING, getName());
+      context.lockOutputFiles();
+      return new SubprocessHandler(spawn, context).run();
     }
   }
 
@@ -142,7 +143,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   private final class SubprocessHandler {
     private final Spawn spawn;
-    private final SpawnExecutionPolicy policy;
+    private final SpawnExecutionContext context;
 
     private final long creationTime = System.currentTimeMillis();
     private long stateStartTime = creationTime;
@@ -151,13 +152,11 @@ public class LocalSpawnRunner implements SpawnRunner {
 
     private final int id;
 
-    public SubprocessHandler(
-        Spawn spawn,
-        SpawnExecutionPolicy policy) {
+    public SubprocessHandler(Spawn spawn, SpawnExecutionContext context) {
       Preconditions.checkArgument(!spawn.getArguments().isEmpty());
       this.spawn = spawn;
-      this.policy = policy;
-      this.id = policy.getId();
+      this.context = context;
+      this.id = context.getId();
       setState(State.PARSING);
     }
 
@@ -223,7 +222,7 @@ public class LocalSpawnRunner implements SpawnRunner {
     private SpawnResult start() throws InterruptedException, IOException {
       logger.info(String.format("starting local subprocess #%d, argv: %s", id, debugCmdString()));
 
-      FileOutErr outErr = policy.getFileOutErr();
+      FileOutErr outErr = context.getFileOutErr();
       String actionType = spawn.getResourceOwner().getMnemonic();
       if (localExecutionOptions.allowedLocalAction != null
           && !localExecutionOptions.allowedLocalAction.matcher(actionType).matches()) {
@@ -232,6 +231,7 @@ public class LocalSpawnRunner implements SpawnRunner {
             ("Action type " + actionType + " is not allowed to run locally due to regex filter: "
                 + localExecutionOptions.allowedLocalAction + "\n").getBytes(UTF_8));
         return new SpawnResult.Builder()
+            .setRunnerName(getName())
             .setStatus(Status.EXECUTION_DENIED)
             .setExitCode(LOCAL_EXEC_ERROR)
             .setExecutorHostname(hostName)
@@ -241,20 +241,37 @@ public class LocalSpawnRunner implements SpawnRunner {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
         stepLog(INFO, "prefetching inputs for local execution");
         setState(State.PREFETCHING_LOCAL_INPUTS);
-        policy.prefetchInputs();
+        context.prefetchInputs();
+      }
+
+      for (ActionInput input : spawn.getInputFiles()) {
+        if (input instanceof ParamFileActionInput) {
+          VirtualActionInput virtualActionInput = (VirtualActionInput) input;
+          Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());
+          if (outputPath.exists()) {
+            outputPath.delete();
+          }
+          outputPath.getParentDirectory().createDirectoryAndParents();
+          try (OutputStream outputStream = outputPath.getOutputStream()) {
+            virtualActionInput.writeTo(outputStream);
+          }
+        }
       }
 
       stepLog(INFO, "running locally");
       setState(State.LOCAL_ACTION_RUNNING);
 
       Path tmpDir = createActionTemp(execRoot);
-      Optional<String> statisticsPath = Optional.empty();
+      Path statisticsPath = null;
       try {
         Command cmd;
         OutputStream stdOut;
         OutputStream stdErr;
         Path commandTmpDir = tmpDir.getRelative("work");
         commandTmpDir.createDirectory();
+        Map<String, String> environment =
+            localEnvProvider.rewriteLocalEnv(
+                spawn.getEnvironment(), execRoot, commandTmpDir.getPathString());
         if (useProcessWrapper) {
           // If the process wrapper is enabled, we use its timeout feature, which first interrupts
           // the subprocess and only kills it after a grace period so that the subprocess can output
@@ -267,18 +284,17 @@ public class LocalSpawnRunner implements SpawnRunner {
               ProcessWrapperUtil.commandLineBuilder(processWrapper, spawn.getArguments())
                   .setStdoutPath(getPathOrDevNull(outErr.getOutputPath()))
                   .setStderrPath(getPathOrDevNull(outErr.getErrorPath()))
-                  .setTimeout(policy.getTimeout())
+                  .setTimeout(context.getTimeout())
                   .setKillDelay(Duration.ofSeconds(localExecutionOptions.localSigkillGraceSeconds));
           if (localExecutionOptions.collectLocalExecutionStatistics) {
-            statisticsPath = Optional.of(tmpDir.getRelative("stats.out").getPathString());
-            commandLineBuilder.setStatisticsPath(statisticsPath.get());
+            statisticsPath = tmpDir.getRelative("stats.out");
+            commandLineBuilder.setStatisticsPath(statisticsPath);
           }
           List<String> cmdLine = commandLineBuilder.build();
           cmd =
               new Command(
                   cmdLine.toArray(new String[0]),
-                  localEnvProvider.rewriteLocalEnv(
-                      spawn.getEnvironment(), execRoot, commandTmpDir.getPathString(), productName),
+                  environment,
                   execRoot.getPathFile());
         } else {
           stdOut = outErr.getOutputStream();
@@ -286,10 +302,9 @@ public class LocalSpawnRunner implements SpawnRunner {
           cmd =
               new Command(
                   spawn.getArguments().toArray(new String[0]),
-                  localEnvProvider.rewriteLocalEnv(
-                      spawn.getEnvironment(), execRoot, commandTmpDir.getPathString(), productName),
+                  environment,
                   execRoot.getPathFile(),
-                  policy.getTimeout());
+                  context.getTimeout());
         }
 
         long startTime = System.currentTimeMillis();
@@ -314,6 +329,7 @@ public class LocalSpawnRunner implements SpawnRunner {
               .write(("Action failed to execute: " + msg + "\n").getBytes(UTF_8));
           outErr.getErrorStream().flush();
           return new SpawnResult.Builder()
+              .setRunnerName(getName())
               .setStatus(Status.EXECUTION_FAILED)
               .setExitCode(LOCAL_EXEC_ERROR)
               .setExecutorHostname(hostName)
@@ -324,7 +340,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
         boolean wasTimeout =
             commandResult.getTerminationStatus().timedOut()
-                || (useProcessWrapper && wasTimeout(policy.getTimeout(), wallTime));
+                || (useProcessWrapper && wasTimeout(context.getTimeout(), wallTime));
         int exitCode =
             wasTimeout
                 ? POSIX_TIMEOUT_EXIT_CODE
@@ -335,23 +351,24 @@ public class LocalSpawnRunner implements SpawnRunner {
                 : (exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT);
         SpawnResult.Builder spawnResultBuilder =
             new SpawnResult.Builder()
+                .setRunnerName(getName())
                 .setStatus(status)
                 .setExitCode(exitCode)
                 .setExecutorHostname(hostName)
                 .setWallTime(wallTime);
-        if (statisticsPath.isPresent()) {
-          Optional<ExecutionStatistics.ResourceUsage> resourceUsage =
-              ExecutionStatistics.getResourceUsage(statisticsPath.get());
-          if (resourceUsage.isPresent()) {
-            spawnResultBuilder.setUserTime(resourceUsage.get().getUserExecutionTime());
-            spawnResultBuilder.setSystemTime(resourceUsage.get().getSystemExecutionTime());
-            spawnResultBuilder.setNumBlockOutputOperations(
-                resourceUsage.get().getBlockOutputOperations());
-            spawnResultBuilder.setNumBlockInputOperations(
-                resourceUsage.get().getBlockInputOperations());
-            spawnResultBuilder.setNumInvoluntaryContextSwitches(
-                resourceUsage.get().getInvoluntaryContextSwitches());
-          }
+        if (statisticsPath != null) {
+          ExecutionStatistics.getResourceUsage(statisticsPath)
+              .ifPresent(
+                  resourceUsage -> {
+                    spawnResultBuilder.setUserTime(resourceUsage.getUserExecutionTime());
+                    spawnResultBuilder.setSystemTime(resourceUsage.getSystemExecutionTime());
+                    spawnResultBuilder.setNumBlockOutputOperations(
+                        resourceUsage.getBlockOutputOperations());
+                    spawnResultBuilder.setNumBlockInputOperations(
+                        resourceUsage.getBlockInputOperations());
+                    spawnResultBuilder.setNumInvoluntaryContextSwitches(
+                        resourceUsage.getInvoluntaryContextSwitches());
+                  });
         }
         return spawnResultBuilder.build();
       } finally {
@@ -374,8 +391,8 @@ public class LocalSpawnRunner implements SpawnRunner {
       }
     }
 
-    private String getPathOrDevNull(Path path) {
-      return path == null ? "/dev/null" : path.getPathString();
+    private Path getPathOrDevNull(Path path) {
+      return path == null ? execRoot.getRelative("/dev/null") : path;
     }
 
     private boolean wasTimeout(Duration timeout, Duration wallTime) {

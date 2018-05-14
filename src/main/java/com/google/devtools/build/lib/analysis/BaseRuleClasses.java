@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy.DATA;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -34,23 +33,23 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TestSize;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.util.List;
 
 /**
  * Rule class definitions used by (almost) every rule.
  */
 public class BaseRuleClasses {
-  private static final Attribute.ComputedDefault testonlyDefault =
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final Attribute.ComputedDefault testonlyDefault =
       new Attribute.ComputedDefault() {
         @Override
         public Object getDefault(AttributeMap rule) {
@@ -58,7 +57,8 @@ public class BaseRuleClasses {
         }
       };
 
-  private static final Attribute.ComputedDefault deprecationDefault =
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final Attribute.ComputedDefault deprecationDefault =
       new Attribute.ComputedDefault() {
         @Override
         public Object getDefault(AttributeMap rule) {
@@ -75,17 +75,17 @@ public class BaseRuleClasses {
    * they only run on the target configuration and should not operate on action_listeners and
    * extra_actions themselves (to avoid cycles).
    */
-  @VisibleForTesting
-  static final LateBoundDefault<?, List<Label>> ACTION_LISTENER =
-      LateBoundDefault.fromTargetConfiguration(
+  @AutoCodec @VisibleForTesting
+  static final LabelListLateBoundDefault<?> ACTION_LISTENER =
+      LabelListLateBoundDefault.fromTargetConfiguration(
           BuildConfiguration.class,
-          ImmutableList.of(),
           (rule, attributes, configuration) -> configuration.getActionListeners());
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /** Implementation for the :run_under attribute. */
-  public static final LateBoundDefault<?, Label> RUN_UNDER =
-      LateBoundDefault.fromTargetConfiguration(
+  @AutoCodec
+  public static final LabelLateBoundDefault<?> RUN_UNDER =
+      LabelLateBoundDefault.fromTargetConfiguration(
           BuildConfiguration.class,
           null,
           (rule, attributes, configuration) -> {
@@ -98,7 +98,7 @@ public class BaseRuleClasses {
    */
   public static final class TestBaseRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .requiresConfigurationFragments(TestConfiguration.class)
           .add(
@@ -141,6 +141,14 @@ public class BaseRuleClasses {
               attr("$test_runtime", LABEL_LIST)
                   .cfg(HostTransition.INSTANCE)
                   .value(ImmutableList.of(env.getToolsLabel("//tools/test:runtime"))))
+          .add(attr("$test_setup_script", LABEL)
+              .cfg(HostTransition.INSTANCE)
+              .singleArtifact()
+              .value(env.getToolsLabel("//tools/test:test_setup")))
+          .add(attr("$collect_coverage_script", LABEL)
+              .cfg(HostTransition.INSTANCE)
+              .singleArtifact()
+              .value(env.getToolsLabel("//tools/test:collect_coverage")))
           // Input files for test actions collecting code coverage
           .add(
               attr("$coverage_support", LABEL)
@@ -154,7 +162,11 @@ public class BaseRuleClasses {
 
           // The target itself and run_under both run on the same machine. We use the DATA config
           // here because the run_under acts like a data dependency (e.g. no LIPO optimization).
-          .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER).skipPrereqValidatorCheck())
+          .add(
+              attr(":run_under", LABEL)
+                  .cfg(env.getLipoDataTransition())
+                  .value(RUN_UNDER)
+                  .skipPrereqValidatorCheck())
           .build();
     }
 
@@ -242,7 +254,7 @@ public class BaseRuleClasses {
   public static final class RootRule implements RuleDefinition {
 
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
         return nameAttribute(builder).build();
     }
 
@@ -298,7 +310,7 @@ public class BaseRuleClasses {
    */
   public static final class MakeVariableExpandingRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($make_variable_expanding_rule).ATTRIBUTE(toolchains) -->
           The set of toolchains that supply <a href="${link make-variables}">"Make variables"</a>
@@ -325,10 +337,10 @@ public class BaseRuleClasses {
    */
   public static final class RuleBase implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("deps", LABEL_LIST).legacyAllowAnyFileType())
-          .add(attr("data", LABEL_LIST).cfg(DATA)
+          .add(attr("data", LABEL_LIST).cfg(env.getLipoDataTransition())
               .allowedFileTypes(FileTypeSet.ANY_FILE)
               .dontCheckConstraints())
           .build();
@@ -350,7 +362,7 @@ public class BaseRuleClasses {
   /** A base rule for all binary rules. */
   public static final class BinaryBaseRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("args", STRING_LIST))
           .add(attr("output_licenses", LICENSE))
@@ -374,7 +386,7 @@ public class BaseRuleClasses {
   /** Rule class for rules in error. */
   public static final class ErrorRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder.publicByDefault().build();
     }
 

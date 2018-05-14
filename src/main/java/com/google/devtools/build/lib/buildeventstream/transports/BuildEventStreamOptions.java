@@ -93,6 +93,16 @@ public class BuildEventStreamOptions extends OptionsBase {
   )
   public boolean buildEventJsonFilePathConversion;
 
+  @Option(
+    name = "build_event_publish_all_actions",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    help = "Whether all actions should be published."
+  )
+  public boolean publishAllActions;
+
+  // TODO(ruperts): Remove these public getter methods for consistency with other options classes?
   public String getBuildEventTextFile() {
     return buildEventTextFile;
   }

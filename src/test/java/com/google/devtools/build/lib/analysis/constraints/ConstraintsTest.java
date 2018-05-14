@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.UnknownRuleConfiguredTarget;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -56,7 +55,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   private static final class RuleClassDefaultRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .setUndocumented()
           .compatibleWith(env.getLabel("//buildenv/rule_class_compat:b"))
@@ -88,20 +87,25 @@ public class ConstraintsTest extends AbstractConstraintsTest {
               .compatibleWith(env.getLabel("//buildenv/rule_class_compat:a"))
               .restrictedTo(env.getLabel("//buildenv/rule_class_compat:b")));
 
-  private static final MockRule RULE_WITH_IMPLICIT_AND_LATEBOUND_DEFAULTS = () -> MockRule.define(
-      "rule_with_implicit_and_latebound_deps",
-      (builder, env) ->
-          builder
-              .setUndocumented()
-              .add(Attribute.attr("$implicit", BuildType.LABEL)
-                  .value(Label.parseAbsoluteUnchecked("//helpers:implicit")))
-              .add(Attribute.attr(":latebound", BuildType.LABEL)
-                  .value(
-                      Attribute.LateBoundDefault.fromConstant(
-                          Label.parseAbsoluteUnchecked("//helpers:latebound"))))
-              .add(Attribute.attr("normal", BuildType.LABEL)
-                  .allowedFileTypes(FileTypeSet.NO_FILE)
-                  .value(Label.parseAbsoluteUnchecked("//helpers:default"))));
+  private static final MockRule RULE_WITH_IMPLICIT_AND_LATEBOUND_DEFAULTS =
+      () ->
+          MockRule.define(
+              "rule_with_implicit_and_latebound_deps",
+              (builder, env) ->
+                  builder
+                      .setUndocumented()
+                      .add(
+                          Attribute.attr("$implicit", BuildType.LABEL)
+                              .value(Label.parseAbsoluteUnchecked("//helpers:implicit")))
+                      .add(
+                          Attribute.attr(":latebound", BuildType.LABEL)
+                              .value(
+                                  Attribute.LateBoundDefault.fromConstantForTesting(
+                                      Label.parseAbsoluteUnchecked("//helpers:latebound"))))
+                      .add(
+                          Attribute.attr("normal", BuildType.LABEL)
+                              .allowedFileTypes(FileTypeSet.NO_FILE)
+                              .value(Label.parseAbsoluteUnchecked("//helpers:default"))));
 
   private static final MockRule RULE_WITH_ENFORCED_IMPLICIT_ATTRIBUTE = () -> MockRule.define(
       "rule_with_enforced_implicit_deps",
@@ -155,6 +159,27 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         .setDefaults("a").make();
     new EnvironmentGroupMaker("buildenv/rule_class_restrict").setEnvironments("c", "d")
         .setDefaults("c").make();
+  }
+
+  @Test
+  public void packageErrorOnEnvironmentGroupWithMissingEnvironments() throws Exception {
+    scratch.file("buildenv/envs/BUILD",
+        "environment(name = 'env1')",
+        "environment(name = 'env2')",
+        "environment_group(",
+        "    name = 'envs',",
+        "    environments = [':env1', ':en2'],",
+        "    defaults = [':env1'])");
+    reporter.removeHandler(failFastHandler);
+    assertThat(scratchConfiguredTarget("foo", "g",
+        "genrule("
+            + "    name = 'g',"
+            + "    srcs = [],"
+            + "    outs = ['g.out'],"
+            + "    cmd = '',"
+            + "    restricted_to = ['//buildenv/envs:env1'])"))
+        .isNull();
+    assertContainsEvent("environment //buildenv/envs:en2 does not exist");
   }
 
   /**

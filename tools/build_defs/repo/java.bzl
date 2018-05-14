@@ -178,6 +178,7 @@ _PASS_PROPS = (
     "exports",
     "runtime_deps",
     "deps",
+    "tags",
 )
 
 def _java_import_external(repository_ctx):

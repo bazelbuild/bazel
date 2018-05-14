@@ -92,12 +92,28 @@ public class FileArtifactValueTest {
     Path dir3 = scratchDir("/dir3", 1L);
 
     new EqualsTester()
-        .addEqualityGroup(create(path1), create(path2), create(mtimePath))
+        // We check for ctime and inode equality for paths.
+        .addEqualityGroup(create(path1))
+        .addEqualityGroup(create(path2))
+        .addEqualityGroup(create(mtimePath))
         .addEqualityGroup(create(digestPath))
-        .addEqualityGroup(create(empty1), create(empty2), create(empty3))
+        .addEqualityGroup(create(empty1))
+        .addEqualityGroup(create(empty2))
+        .addEqualityGroup(create(empty3))
+        // We check for mtime equality for directories.
         .addEqualityGroup(create(dir1))
         .addEqualityGroup(create(dir2), create(dir3))
         .testEquals();
+  }
+
+  @Test
+  public void testCtimeInEquality() throws Exception {
+    Path path = scratchFile("/dir/artifact1", 0L, "content");
+    FileArtifactValue before = create(path);
+    clock.advanceMillis(1);
+    path.chmod(0777);
+    FileArtifactValue after = create(path);
+    assertThat(before).isNotEqualTo(after);
   }
 
   @Test

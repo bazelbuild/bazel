@@ -36,6 +36,7 @@ java_library(
         ":deps_collector_api",
         "//src/main/java/com/google/devtools/common/options",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-tree",
@@ -58,7 +59,9 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/dependencies:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/scan:srcs",
     ],
     visibility = ["//src/tools/android/java/com/google/devtools/build/android:__pkg__"],
 )

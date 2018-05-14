@@ -36,7 +36,8 @@ bind(
 http_archive(
     name = "bazel_j2objc",
     url = "https://github.com/google/j2objc/releases/download/2.0.3/j2objc-2.0.3.zip",
-    sha256 = "529ee99e6f0e3f88edef61aeae4f13dc6e5eb8183993ced191338422b0e1fbeb",
+    # Computed using "shasum -a 256 j2objc-2.0.3.zip"
+    sha256 = "a36bac432d0dbd8c98249e484b2b69dd5720afa4abb58711a3c3def1c0bfa21d",
     strip_prefix = "j2objc-2.0.3",
 )
 
@@ -90,54 +91,64 @@ new_local_repository(
     build_file = "./third_party/googleapis/BUILD",
 )
 
+http_archive(
+    name = "desugar_jdk_libs",
+    url = "https://github.com/google/desugar_jdk_libs/archive/f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip",
+    # Computed using "shasum -a 256 <zip>"
+    sha256 = "c80f3f3d442d8a6ca7adc83f90ecd638c3864087fdd6787ffac070b6f1cc8f9b",
+    strip_prefix = "desugar_jdk_libs-f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd",
+)
+
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
 http_file(
     name = "openjdk_linux",
-    sha256 = "7e6284739c0e5b7142bc7a9adc61ced70dc5bb26b130b582b18e809013bcb251",
+    sha256 = "85b81652b3fe8cfb0a2cfb835988672bde7844f613dae5b9487b5b44921a1afd",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-8.23.0.3-jdk8.0.144/zulu8.23.0.3-jdk8.0.144-linux_x64.tar.gz",
-        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.23.0.3-jdk8.0.144/zulu8.23.0.3-jdk8.0.144-linux_x64.tar.gz",
-        "https://cdn.azul.com/zulu/bin/zulu8.23.0.3-jdk8.0.144-linux_x64.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu-8.28.0.1-jdk8.0.163/zulu8.28.0.1-jdk8.0.163-linux_x64.tar.gz",
+        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.28.0.1-jdk8.0.163/zulu8.28.0.1-jdk8.0.163-linux_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu8.28.0.1-jdk8.0.163-linux_x64.tar.gz",
     ],
 )
 
 http_file(
     name = "openjdk_macos",
-    sha256 = "ff533364c9cbd3b271ab5328efe28e2dd6d7bae5b630098a5683f742ecf0709d",
+    sha256 = "292a44695e708a8822b3d0a462faf32887ddb80b56aa91e7598fd4b6f6341f69",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-8.23.0.3-jdk8.0.144/zulu8.23.0.3-jdk8.0.144-macosx_x64.zip",
-        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.23.0.3-jdk8.0.144/zulu8.23.0.3-jdk8.0.144-macosx_x64.zip",
-        "https://cdn.azul.com/zulu/bin/zulu8.23.0.3-jdk8.0.144-macosx_x64.zip",
+        "https://mirror.bazel.build/openjdk/azul-zulu-8.28.0.1-jdk8.0.163/zulu8.28.0.1-jdk8.0.163-macosx_x64.tar.gz",
+        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.28.0.1-jdk8.0.163/zulu8.28.0.1-jdk8.0.163-macosx_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu8.28.0.1-jdk8.0.163-macosx_x64.tar.gz",
     ],
 )
 
 http_file(
     name = "openjdk_win",
-    sha256 = "f1d9d3341ef7c8c9baff3597953e99a6a7c64f8608ee62c03fdd7574b7655c02",
+    sha256 = "0c5ea3634ae7d7851630cf61fdd6344cce110cf9246593345e49fc430bb39442",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-8.23.0.3-jdk8.0.144/zulu8.23.0.3-jdk8.0.144-win_x64.zip",
-        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.23.0.3-jdk8.0.144/zulu8.23.0.3-jdk8.0.144-win_x64.zip",
-        "https://cdn.azul.com/zulu/bin/zulu8.23.0.3-jdk8.0.144-win_x64.zip",
+        "https://mirror.bazel.build/openjdk/azul-zulu-8.28.0.1-jdk8.0.163/zulu8.28.0.1-jdk8.0.163-win_x64.zip",
+        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.28.0.1-jdk8.0.163/zulu8.28.0.1-jdk8.0.163-win_x64.zip",
+        "https://cdn.azul.com/zulu/bin/zulu8.28.0.1-jdk8.0.163-win_x64.zip",
     ],
 )
 
 http_archive(
     name = "bazel_toolchains",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/f3b09700fae5d7b6e659d7cefe0dcc6e8498504c.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/archive/f3b09700fae5d7b6e659d7cefe0dcc6e8498504c.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/44200e0c026d86c53470d107b3697a3e46469c43.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/archive/44200e0c026d86c53470d107b3697a3e46469c43.tar.gz",
     ],
-    strip_prefix = "bazel-toolchains-f3b09700fae5d7b6e659d7cefe0dcc6e8498504c",
-    sha256 = "ed829b5eea8af1f405f4cc3d6ecfc3b1365bb7843171036030a31b5127002311",
+    strip_prefix = "bazel-toolchains-44200e0c026d86c53470d107b3697a3e46469c43",
+    sha256 = "699b55a6916c687f4b7dc092dbbf5f64672cde0dc965f79717735ec4e5416556",
 )
 
+# We're pinning to a commit because this project does not have a recent release.
+# Nothing special about this commit, though.
 http_archive(
-    name = "com_googlesource_code_re2",
+    name = "com_google_googletest",
     urls = [
-        "https://github.com/google/re2/archive/2017-12-01.tar.gz",
+        "https://github.com/google/googletest/archive/dfa853b63d17c787914b663b50c2095a0c5b706e.tar.gz",
     ],
-    strip_prefix = "re2-2017-12-01",
-    sha256 = "62797e7cd7cc959419710cd25b075b5f5b247da0e8214d47bf5af9b32128fb0d",
+    strip_prefix = "googletest-dfa853b63d17c787914b663b50c2095a0c5b706e",
+    sha256 = "313a16fba8f0be8ee20ba9883e044556044cbd1ae6cea532473d163a843ef991",
 )
 
 # For src/test/shell/bazel:bazel_sandboxing_test

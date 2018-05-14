@@ -279,6 +279,20 @@ public class SkylarkListTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testCannotMutateAfterShallowFreeze() throws Exception {
+    Mutability mutability = Mutability.createAllowingShallowFreeze("test");
+    MutableList<Object> list = MutableList.copyOf(mutability, ImmutableList.of(1, 2, 3));
+    list.unsafeShallowFreeze();
+
+    try {
+      list.add(4, null, mutability);
+      fail("expected exception");
+    } catch (EvalException e) {
+      assertThat(e).hasMessage("trying to mutate a frozen object");
+    }
+  }
+
+  @Test
   public void testCopyOfTakesCopy() throws EvalException {
     ArrayList<String> copyFrom = Lists.newArrayList("hi");
     Mutability mutability = Mutability.create("test");
@@ -301,5 +315,16 @@ public class SkylarkListTest extends EvaluationTestCase {
     mutableList.add("added2", /*loc=*/ null, mutability);
     assertThat(wrapped).containsExactly("hi", "added1", "added2").inOrder();
     assertThat(mutableList).containsExactly("hi", "added1", "added2").inOrder();
+  }
+
+  @Test
+  public void testGetSkylarkType_GivesExpectedClassesForListsAndTuples() throws Exception {
+    Class<?> emptyTupleClass = Tuple.empty().getClass();
+    Class<?> tupleClass = Tuple.of(1, "a", "b").getClass();
+    Class<?> mutableListClass = MutableList.copyOf(env, Tuple.of(1, 2, 3)).getClass();
+
+    assertThat(EvalUtils.getSkylarkType(mutableListClass)).isEqualTo(MutableList.class);
+    assertThat(EvalUtils.getSkylarkType(emptyTupleClass)).isEqualTo(Tuple.class);
+    assertThat(EvalUtils.getSkylarkType(tupleClass)).isEqualTo(Tuple.class);
   }
 }

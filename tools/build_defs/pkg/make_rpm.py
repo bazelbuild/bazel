@@ -32,6 +32,8 @@ from third_party.py import gflags
 gflags.DEFINE_string('name', '', 'The name of the software being packaged.')
 gflags.DEFINE_string('version', '',
                      'The version of the software being packaged.')
+gflags.DEFINE_string('release', '',
+                     'The release of the software being packaged.')
 gflags.DEFINE_string('arch', '',
                      'The CPU architecture of the software being packaged.')
 
@@ -39,6 +41,7 @@ gflags.DEFINE_string('spec_file', '',
                      'The file containing the RPM specification.')
 gflags.DEFINE_string('out_file', '',
                      'The destination to save the resulting RPM file to.')
+gflags.DEFINE_boolean('debug', False, 'Print debug messages.')
 
 
 # Setup to safely create a temporary directory and clean it up when done.
@@ -128,6 +131,14 @@ def CopyAndRewrite(input_file, output_file, replacements=None):
 
 
 def Which(program):
+  """Search for the given program in the PATH.
+
+  Args:
+    program: The program to search for.
+
+  Returns:
+    The full path to the program.
+  """
 
   def IsExe(fpath):
     return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
@@ -160,17 +171,31 @@ class RpmBuilder(object):
   TEMP_DIR = 'TMP'
   DIRS = [SOURCE_DIR, BUILD_DIR, TEMP_DIR]
 
-  def __init__(self, name, version, arch):
+  def __init__(self, name, version, release, arch, debug):
     self.name = name
     self.version = GetFlagValue(version)
+    self.release = GetFlagValue(release)
     self.arch = arch
+    self.debug = debug
     self.files = []
     self.rpmbuild_path = FindRpmbuild()
     self.rpm_path = None
 
-  def AddFiles(self, files):
-    """Add a set of files to the current RPM."""
-    self.files += files
+  def AddFiles(self, paths, root=''):
+    """Add a set of files to the current RPM.
+
+    If an item in paths is a directory, its files are recursively added.
+
+    Args:
+      paths: The files to add.
+      root: The root of the filesystem to search for files. Defaults to ''.
+    """
+    for path in paths:
+      full_path = os.path.join(root, path)
+      if os.path.isdir(full_path):
+        self.AddFiles(os.listdir(full_path), full_path)
+      else:
+        self.files.append(full_path)
 
   def SetupWorkdir(self, spec_file, original_dir):
     """Create the needed structure in the workdir."""
@@ -180,11 +205,12 @@ class RpmBuilder(object):
       if not os.path.exists(name):
         os.makedirs(name, 0o777)
 
-    shutil.copy(os.path.join(original_dir, spec_file), os.getcwd())
-
     # Copy the files.
     for f in self.files:
-      shutil.copy(os.path.join(original_dir, f), RpmBuilder.BUILD_DIR)
+      dst_dir = os.path.join(RpmBuilder.BUILD_DIR, os.path.dirname(f))
+      if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir, 0o777)
+      shutil.copy(os.path.join(original_dir, f), dst_dir)
 
     # Copy the spec file, updating with the correct version.
     spec_origin = os.path.join(original_dir, spec_file)
@@ -192,6 +218,8 @@ class RpmBuilder(object):
     replacements = {}
     if self.version:
       replacements['Version:'] = self.version
+    if self.release:
+      replacements['Release:'] = self.release
     CopyAndRewrite(spec_origin, self.spec_file, replacements)
 
   def CallRpmBuild(self, dirname):
@@ -204,6 +232,8 @@ class RpmBuilder(object):
         '--define',
         '_tmppath %s/TMP' % dirname,
         '--bb',
+        '--buildroot',
+        os.path.join(dirname, 'BUILDROOT'),
         self.spec_file,
     ]
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -225,13 +255,15 @@ class RpmBuilder(object):
 
     if self.rpm_path:
       shutil.copy(self.rpm_path, out_file)
-      print('Saved RPM file to %s' % out_file)
+      if self.debug:
+        print('Saved RPM file to %s' % out_file)
     else:
       print('No RPM file created.')
 
   def Build(self, spec_file, out_file):
     """Build the RPM described by the spec_file."""
-    print('Building RPM for %s at %s' % (self.name, out_file))
+    if self.debug:
+      print('Building RPM for %s at %s' % (self.name, out_file))
 
     original_dir = os.getcwd()
     spec_file = os.path.join(original_dir, spec_file)
@@ -246,7 +278,8 @@ class RpmBuilder(object):
 
 def main(argv=()):
   try:
-    builder = RpmBuilder(FLAGS.name, FLAGS.version, FLAGS.arch)
+    builder = RpmBuilder(FLAGS.name, FLAGS.version, FLAGS.release, FLAGS.arch,
+                         FLAGS.debug)
     builder.AddFiles(argv[1:])
     return builder.Build(FLAGS.spec_file, FLAGS.out_file)
   except NoRpmbuildFound:

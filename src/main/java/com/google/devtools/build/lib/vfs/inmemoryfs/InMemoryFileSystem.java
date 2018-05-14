@@ -350,7 +350,8 @@ public class InMemoryFileSystem extends FileSystem {
 
     Stack<String> stack = new Stack<>();
     for (Path p = path; !isRootDirectory(p); p = p.getParentDirectory()) {
-      stack.push(p.getBaseName());
+      String name = baseNameOrWindowsDrive(p);
+      stack.push(name);
     }
 
     InMemoryContentInfo inode = rootInode;
@@ -380,6 +381,13 @@ public class InMemoryFileSystem extends FileSystem {
         List<String> segments = linkTarget.getSegments();
         for (int ii = segments.size() - 1; ii >= 0; --ii) {
           stack.push(segments.get(ii)); // Note this may include ".." segments.
+        }
+        // Push Windows drive if there is one
+        if (linkTarget.isAbsolute()) {
+          String driveStr = linkTarget.getDriveStr();
+          if (driveStr.length() > 1) {
+            stack.push(driveStr);
+          }
         }
       } else {
         inode = child;
@@ -412,7 +420,7 @@ public class InMemoryFileSystem extends FileSystem {
   private synchronized InMemoryContentInfo getNoFollowStatOrOutOfScopeParent(Path path)
       throws IOException  {
     InMemoryDirectoryInfo dirInfo = getDirectory(path.getParentDirectory());
-    return directoryLookup(dirInfo, path.getBaseName(), /*create=*/ false, path);
+    return directoryLookup(dirInfo, baseNameOrWindowsDrive(path), /*create=*/ false, path);
   }
 
   /**
@@ -606,7 +614,7 @@ public class InMemoryFileSystem extends FileSystem {
     InMemoryDirectoryInfo parent;
     synchronized (this) {
       parent = getDirectory(path.getParentDirectory());
-      InMemoryContentInfo child = parent.getChild(path.getBaseName());
+      InMemoryContentInfo child = parent.getChild(baseNameOrWindowsDrive(path));
       if (child != null) { // already exists
         if (child.isDirectory()) {
           return false;
@@ -618,7 +626,7 @@ public class InMemoryFileSystem extends FileSystem {
       InMemoryDirectoryInfo newDir = new InMemoryDirectoryInfo(clock);
       newDir.addChild(".", newDir);
       newDir.addChild("..", parent);
-      insert(parent, path.getBaseName(), newDir, path);
+      insert(parent, baseNameOrWindowsDrive(path), newDir, path);
 
       return true;
     }
@@ -649,10 +657,11 @@ public class InMemoryFileSystem extends FileSystem {
 
     synchronized (this) {
       InMemoryDirectoryInfo parent = getDirectory(path.getParentDirectory());
-      if (parent.getChild(path.getBaseName()) != null) {
+      if (parent.getChild(baseNameOrWindowsDrive(path)) != null) {
         throw Error.EEXIST.exception(path);
       }
-      insert(parent, path.getBaseName(), new InMemoryLinkInfo(clock, targetFragment), path);
+      insert(
+          parent, baseNameOrWindowsDrive(path), new InMemoryLinkInfo(clock, targetFragment), path);
     }
   }
 
@@ -703,11 +712,11 @@ public class InMemoryFileSystem extends FileSystem {
 
     synchronized (this) {
       InMemoryDirectoryInfo parent = getDirectory(path.getParentDirectory());
-      InMemoryContentInfo child = parent.getChild(path.getBaseName());
+      InMemoryContentInfo child = parent.getChild(baseNameOrWindowsDrive(path));
       if (child.isDirectory() && child.getSize() > 2) {
         throw Error.ENOTEMPTY.exception(path);
       }
-      unlink(parent, path.getBaseName(), path);
+      unlink(parent, baseNameOrWindowsDrive(path), path);
       return true;
     }
   }
@@ -780,13 +789,13 @@ public class InMemoryFileSystem extends FileSystem {
       InMemoryDirectoryInfo sourceParent = getDirectory(sourcePath.getParentDirectory());
       InMemoryDirectoryInfo targetParent = getDirectory(targetPath.getParentDirectory());
 
-      InMemoryContentInfo sourceInode = sourceParent.getChild(sourcePath.getBaseName());
+      InMemoryContentInfo sourceInode = sourceParent.getChild(baseNameOrWindowsDrive(sourcePath));
       if (sourceInode == null) {
         throw Error.ENOENT.exception(sourcePath);
       }
-      InMemoryContentInfo targetInode = targetParent.getChild(targetPath.getBaseName());
+      InMemoryContentInfo targetInode = targetParent.getChild(baseNameOrWindowsDrive(targetPath));
 
-      unlink(sourceParent, sourcePath.getBaseName(), sourcePath);
+      unlink(sourceParent, baseNameOrWindowsDrive(sourcePath), sourcePath);
       try {
         // TODO(bazel-team): (2009) test with symbolic links.
 
@@ -802,15 +811,19 @@ public class InMemoryFileSystem extends FileSystem {
           } else if (sourceInode.isDirectory()) {
             throw new IOException(sourcePath + " -> " + targetPath + " (" + Error.ENOTDIR + ")");
           }
-          unlink(targetParent, targetPath.getBaseName(), targetPath);
+          unlink(targetParent, baseNameOrWindowsDrive(targetPath), targetPath);
         }
         sourceInode.movedTo(targetPath);
-        insert(targetParent, targetPath.getBaseName(), sourceInode, targetPath);
+        insert(targetParent, baseNameOrWindowsDrive(targetPath), sourceInode, targetPath);
         return;
 
       } catch (IOException e) {
         sourceInode.movedTo(sourcePath);
-        insert(sourceParent, sourcePath.getBaseName(), sourceInode, sourcePath); // restore source
+        insert(
+            sourceParent,
+            baseNameOrWindowsDrive(sourcePath),
+            sourceInode,
+            sourcePath); // restore source
         throw e;
       }
     }
@@ -828,18 +841,33 @@ public class InMemoryFileSystem extends FileSystem {
     synchronized (this) {
       InMemoryDirectoryInfo linkParent = getDirectory(linkPath.getParentDirectory());
       // Same check used when creating a symbolic link
-      if (linkParent.getChild(linkPath.getBaseName()) != null) {
+      if (linkParent.getChild(baseNameOrWindowsDrive(linkPath)) != null) {
         throw Error.EEXIST.exception(linkPath);
       }
       insert(
           linkParent,
-          linkPath.getBaseName(),
-          getDirectory(originalPath.getParentDirectory()).getChild(originalPath.getBaseName()),
+          baseNameOrWindowsDrive(linkPath),
+          getDirectory(originalPath.getParentDirectory())
+              .getChild(baseNameOrWindowsDrive(originalPath)),
           linkPath);
     }
   }
 
-  private boolean isRootDirectory(Path path) {
-    return path.isRootDirectory();
+  /**
+   * On Unix the root directory is "/". On Windows there isn't one, so we reach null from
+   * getParentDirectory.
+   */
+  private boolean isRootDirectory(@Nullable Path path) {
+    return path == null || path.getPathString().equals("/");
+  }
+
+  /**
+   * Returns either the base name of the path, or the drive (if referring to a Windows drive).
+   *
+   * <p>This allows the file system to treat windows drives much like directories.
+   */
+  private static String baseNameOrWindowsDrive(Path path) {
+    String name = path.getBaseName();
+    return !name.isEmpty() ? name : path.getDriveStr();
   }
 }

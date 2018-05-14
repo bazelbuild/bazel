@@ -105,7 +105,9 @@ public class SdkMavenRepositoryTest extends BuildViewTestCase {
   public void testGeneratedAarImport() throws Exception {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
     Rule aarImport =
-        getConfiguredTarget("//com.google.android:bar-1.0.0").getTarget().getAssociatedRule();
+        getConfiguredTargetAndData("//com.google.android:bar-1.0.0")
+            .getTarget()
+            .getAssociatedRule();
     assertThat(aarImport.getRuleClass()).isEqualTo("aar_import");
     AttributeMap attributes = RawAttributeMapper.of(aarImport);
     assertThat(attributes.get("aar", BuildType.LABEL))
@@ -118,7 +120,9 @@ public class SdkMavenRepositoryTest extends BuildViewTestCase {
   public void testGeneratedJavaImport() throws Exception {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
     Rule javaImport =
-        getConfiguredTarget("//com.google.android:foo-1.0.0").getTarget().getAssociatedRule();
+        getConfiguredTargetAndData("//com.google.android:foo-1.0.0")
+            .getTarget()
+            .getAssociatedRule();
     assertThat(javaImport.getRuleClass()).isEqualTo("java_import");
     AttributeMap attributes = RawAttributeMapper.of(javaImport);
     assertThat(attributes.get("jars", BuildType.LABEL_LIST)).containsExactly(
@@ -130,7 +134,9 @@ public class SdkMavenRepositoryTest extends BuildViewTestCase {
   public void testGeneratedRuleForInvalidPackaging() throws Exception {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
     Rule invalidPackagingGenrule =
-        getConfiguredTarget("//com.google.android:baz-1.0.0").getTarget().getAssociatedRule();
+        getConfiguredTargetAndData("//com.google.android:baz-1.0.0")
+            .getTarget()
+            .getAssociatedRule();
     assertThat(invalidPackagingGenrule.getRuleClass()).isEqualTo("genrule");
     assertThat(RawAttributeMapper.of(invalidPackagingGenrule).get("cmd", Type.STRING))
         .isEqualTo("echo Bazel does not recognize the Maven packaging type for: "

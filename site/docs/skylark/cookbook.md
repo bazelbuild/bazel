@@ -1,9 +1,11 @@
 ---
 layout: documentation
-title: Extensions examples
+title: Extension Examples
 ---
 
-# Extensions examples
+# Extension Examples
+
+**Tip:** For further examples, see the [GitHub repository](https://github.com/bazelbuild/examples/tree/master/rules).
 
 <!-- [TOC] -->
 
@@ -203,7 +205,7 @@ should avoid calling it repeatedly within BUILD file.
 Minimalist example of a rule that does nothing. If you build it, the target will
 succeed (with no generated file).
 
-[See example on github](https://github.com/bazelbuild/examples/tree/master/rules/empty)
+[See example on GitHub](https://github.com/bazelbuild/examples/tree/master/rules/empty)
 
 `empty.bzl`:
 
@@ -227,7 +229,7 @@ empty(name = "nothing")
 
 Example of a rule that shows how to declare attributes and access them.
 
-[See example on github](https://github.com/bazelbuild/examples/tree/master/rules/attributes)
+[See example on GitHub](https://github.com/bazelbuild/examples/tree/master/rules/attributes)
 
 `printer.bzl`:
 
@@ -568,7 +570,7 @@ attributes that are accessed in the function body.
 The example below computes the md5 sum of a file. The file can be preprocessed
 using a filter. The exact dependencies depend on the filter chosen by the user.
 
-[See example on github](https://github.com/bazelbuild/examples/tree/master/rules/computed_dependencies)
+[See example on GitHub](https://github.com/bazelbuild/examples/tree/master/rules/computed_dependencies)
 
 `hash.bzl`:
 
@@ -766,7 +768,7 @@ sum(
 
 This example shows how to create a default executable output.
 
-[See example on github](https://github.com/bazelbuild/examples/tree/master/rules/executable)
+[See example on GitHub](https://github.com/bazelbuild/examples/tree/master/rules/executable)
 
 `extension.bzl`:
 
@@ -797,8 +799,6 @@ executable_rule(name = "my_rule")
 ## <a name="outputs-default"></a>Default outputs
 
 This example shows how to create default outputs for a rule.
-
-[See example on github](https://github.com/bazelbuild/examples/tree/master/rules/default_outputs)
 
 `extension.bzl`:
 
@@ -833,8 +833,6 @@ rule_with_outputs(name = "my_rule")
 This example shows how to create custom (user defined) outputs for a rule.
 This rule takes a list of output file name templates from the user and
 creates each of them containing a "Hello World!" message.
-
-[See example on github](https://github.com/bazelbuild/examples/tree/master/rules/custom_outputs)
 
 `extension.bzl`:
 

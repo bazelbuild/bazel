@@ -265,25 +265,6 @@ function test_build_file_symlinks() {
   expect_log "Empty results"
 }
 
-function test_visibility_edge_causes_cycle() {
-  mkdir -p a b || fail "mkdir failed"
-  echo 'sh_library(name="a", visibility=["//b"])' > a/BUILD
-  echo 'sh_library(name="b", deps=["//a"])' > b/BUILD
-  bazel query 'deps(//a)' >& $TEST_log && fail "Expected failure"
-  expect_log "cycle in dependency graph"
-  expect_log "The cycle is caused by a visibility edge"
-  bazel query 'deps(//b)' >& $TEST_log && fail "Expected failure"
-  expect_log "cycle in dependency graph"
-  expect_log "The cycle is caused by a visibility edge"
-  echo 'sh_library(name="a", visibility=["//b:__pkg__"])' > a/BUILD
-  bazel query 'deps(//a)' >& $TEST_log || fail "Expected success"
-  expect_log "//a:a"
-  expect_not_log "//b:b"
-  bazel query 'deps(//b)' >& $TEST_log || fail "Expected success"
-  expect_log "//a:a"
-  expect_log "//b:b"
-}
-
 # Regression test for bug "ASTFileLookupFunction has an unnoted
 # dependency on the PathPackageLocator".
 function test_incremental_deleting_package_roots() {

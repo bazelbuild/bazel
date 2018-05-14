@@ -25,7 +25,7 @@ import java.util.List;
  */
 @ThreadSafety.Immutable
 @FunctionalInterface
-public interface SplitTransition extends Transition {
+public interface SplitTransition extends ConfigurationTransition {
   /**
    * Return the list of {@code BuildOptions} after splitting; empty if not applicable.
    */

@@ -37,10 +37,10 @@ public class UsageCheckerTest {
 
   @Test
   public void reportUnusedImports() throws Exception {
-    String message = findIssues("load('foo', 'x', 'y', _z = 'Z')").toString();
+    String message = findIssues("load(':foo.bzl', 'x', 'y', _z = 'Z')").toString();
     Truth.assertThat(message)
         .contains(
-            "1:13-1:15: unused binding of 'x'. If you want to re-export a symbol,"
+            "1:18-1:20: unused binding of 'x'. If you want to re-export a symbol,"
                 + " use the following pattern:\n"
                 + "\n"
                 + "load(..., _x = 'x', ...)\n"
@@ -50,7 +50,7 @@ public class UsageCheckerTest {
                 + " [unused-binding]");
     Truth.assertThat(message)
         .contains(
-            "1:18-1:20: unused binding of 'y'. If you want to re-export a symbol,"
+            "1:23-1:25: unused binding of 'y'. If you want to re-export a symbol,"
                 + " use the following pattern:\n"
                 + "\n"
                 + "load(..., _y = 'y', ...)\n"
@@ -58,7 +58,7 @@ public class UsageCheckerTest {
                 + "\n"
                 + "More details in the documentation."
                 + " [unused-binding]");
-    Truth.assertThat(message).contains("1:23-1:24: unused binding of '_z' [unused-binding]");
+    Truth.assertThat(message).contains("1:28-1:29: unused binding of '_z' [unused-binding]");
   }
 
   @Test

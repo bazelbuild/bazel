@@ -21,8 +21,7 @@
 namespace blaze {
 
 int Main(int argc, const char* argv[], WorkspaceLayout* workspace_layout,
-         OptionProcessor* option_processor,
-         std::unique_ptr<blaze_util::LogHandler> log_handler);
+         OptionProcessor* option_processor);
 
 }  // namespace blaze
 

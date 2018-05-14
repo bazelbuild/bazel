@@ -28,11 +28,14 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -40,7 +43,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.junit.Before;
@@ -65,7 +67,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   }
 
   @Override
-  protected EvaluationTestCase createEvaluationTestCase() {
+  protected EvaluationTestCase createEvaluationTestCase(SkylarkSemantics semantics) {
     return new EvaluationTestCase();
   }
 
@@ -86,10 +88,11 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules();
     SkylarkModuleDoc topLevel =
         modules.remove(SkylarkDocumentationCollector.getTopLevelModule().name());
-    for (Entry<String, SkylarkBuiltinMethodDoc> entry : topLevel.getBuiltinMethods().entrySet()) {
+    for (Map.Entry<String, SkylarkBuiltinMethodDoc> entry :
+        topLevel.getBuiltinMethods().entrySet()) {
       docMap.put(entry.getKey(), entry.getValue().getDocumentation());
     }
-    for (Entry<String, SkylarkModuleDoc> entry : modules.entrySet()) {
+    for (Map.Entry<String, SkylarkModuleDoc> entry : modules.entrySet()) {
       docMap.put(entry.getKey(), entry.getValue().getDocumentation());
     }
 
@@ -167,6 +170,81 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     }
   }
 
+  /** MockClassF */
+  @SkylarkModule(name = "MockClassF", doc = "MockClassF")
+  private static class MockClassF {
+    @SkylarkCallable(
+      doc = "MockClassF#test",
+      parameters = {
+        @Param(name = "a", named = false, positional = true),
+        @Param(name = "b", named = true, positional = true),
+        @Param(name = "c", named = true, positional = false),
+        @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+      },
+      extraPositionals = @Param(name = "myArgs")
+    )
+    public Integer test(int a, int b, int c, int d, SkylarkList<?> args) {
+      return 0;
+    }
+  }
+
+  /** MockClassG */
+  @SkylarkModule(name = "MockClassG", doc = "MockClassG")
+  private static class MockClassG {
+    @SkylarkCallable(
+      doc = "MockClassG#test",
+      parameters = {
+        @Param(name = "a", named = false, positional = true),
+        @Param(name = "b", named = true, positional = true),
+        @Param(name = "c", named = true, positional = false),
+        @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+      },
+      extraKeywords = @Param(name = "myKwargs")
+    )
+    public Integer test(int a, int b, int c, int d, SkylarkDict<?, ?> kwargs) {
+      return 0;
+    }
+  }
+
+  /** MockClassH */
+  @SkylarkModule(name = "MockClassH", doc = "MockClassH")
+  private static class MockClassH {
+    @SkylarkCallable(
+      doc = "MockClassH#test",
+      parameters = {
+        @Param(name = "a", named = false, positional = true),
+        @Param(name = "b", named = true, positional = true),
+        @Param(name = "c", named = true, positional = false),
+        @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+      },
+      extraPositionals = @Param(name = "myArgs"),
+      extraKeywords = @Param(name = "myKwargs")
+    )
+    public Integer test(int a, int b, int c, int d, SkylarkList<?> args, SkylarkDict<?, ?> kwargs) {
+      return 0;
+    }
+  }
+
+  /** MockGlobalLibrary */
+  @SkylarkGlobalLibrary
+  private static class MockGlobalLibrary {
+    @SkylarkCallable(
+        name = "MockGlobalCallable",
+        doc = "GlobalCallable documentation",
+        parameters = {
+            @Param(name = "a", named = false, positional = true),
+            @Param(name = "b", named = true, positional = true),
+            @Param(name = "c", named = true, positional = false),
+            @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+        },
+        extraPositionals = @Param(name = "myArgs"),
+        extraKeywords = @Param(name = "myKwargs")
+    )
+    public Integer test(int a, int b, int c, int d, SkylarkList<?> args, SkylarkDict<?, ?> kwargs) {
+      return 0;
+    }
+  }
+
   /** MockClassWithContainerReturnValues */
   @SkylarkModule(name = "MockClassWithContainerReturnValues",
       doc = "MockClassWithContainerReturnValues")
@@ -238,6 +316,79 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
                 + "b, *, c, d=1)");
     assertThat(methodDoc.getParams()).hasSize(3);
   }
+
+  @Test
+  public void testSkylarkCallableParametersAndArgs() throws Exception {
+    Map<String, SkylarkModuleDoc> objects = collect(MockClassF.class);
+    assertThat(objects).hasSize(1);
+    assertThat(objects).containsKey("MockClassF");
+    SkylarkModuleDoc moduleDoc = objects.get("MockClassF");
+    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassF");
+    assertThat(moduleDoc.getMethods()).hasSize(1);
+    SkylarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
+    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassF#test");
+    assertThat(methodDoc.getSignature())
+        .isEqualTo(
+            "<a class=\"anchor\" href=\"int.html\">int</a> "
+                + "MockClassF.test(a, b, *, c, d=1, *myArgs)");
+    assertThat(methodDoc.getParams()).hasSize(5);
+  }
+
+  @Test
+  public void testSkylarkCallableParametersAndKwargs() throws Exception {
+    Map<String, SkylarkModuleDoc> objects = collect(MockClassG.class);
+    assertThat(objects).hasSize(1);
+    assertThat(objects).containsKey("MockClassG");
+    SkylarkModuleDoc moduleDoc = objects.get("MockClassG");
+    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassG");
+    assertThat(moduleDoc.getMethods()).hasSize(1);
+    SkylarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
+    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassG#test");
+    assertThat(methodDoc.getSignature())
+        .isEqualTo(
+            "<a class=\"anchor\" href=\"int.html\">int</a> "
+                + "MockClassG.test(a, b, *, c, d=1, **myKwargs)");
+    assertThat(methodDoc.getParams()).hasSize(5);
+  }
+
+  @Test
+  public void testSkylarkCallableParametersAndArgsAndKwargs() throws Exception {
+    Map<String, SkylarkModuleDoc> objects = collect(MockClassH.class);
+    assertThat(objects).hasSize(1);
+    assertThat(objects).containsKey("MockClassH");
+    SkylarkModuleDoc moduleDoc = objects.get("MockClassH");
+    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassH");
+    assertThat(moduleDoc.getMethods()).hasSize(1);
+    SkylarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
+    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassH#test");
+    assertThat(methodDoc.getSignature())
+        .isEqualTo(
+            "<a class=\"anchor\" href=\"int.html\">int</a> "
+                + "MockClassH.test(a, b, *, c, d=1, *myArgs, **myKwargs)");
+    assertThat(methodDoc.getParams()).hasSize(6);
+  }
+
+  @Test
+  public void testSkylarkGlobalLibraryCallable() throws Exception {
+    Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules();
+    SkylarkModuleDoc topLevel =
+        modules.remove(SkylarkDocumentationCollector.getTopLevelModule().name());
+
+    boolean foundGlobalLibrary = false;
+    for (SkylarkMethodDoc methodDoc : topLevel.getMethods()) {
+      if (methodDoc.getName().equals("MockGlobalCallable")) {
+        assertThat(methodDoc.getDocumentation()).isEqualTo("GlobalCallable documentation");
+        assertThat(methodDoc.getSignature())
+            .isEqualTo(
+                "<a class=\"anchor\" href=\"int.html\">int</a> "
+                    + "MockGlobalCallable(a, b, *, c, d=1, *myArgs, **myKwargs)");
+        foundGlobalLibrary = true;
+        break;
+      }
+    }
+    assertThat(foundGlobalLibrary).isTrue();
+  }
+
 
   @Test
   public void testSkylarkCallableOverriding() throws Exception {

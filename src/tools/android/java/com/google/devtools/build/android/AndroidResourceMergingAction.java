@@ -193,6 +193,26 @@ public class AndroidResourceMergingAction {
       help = "If passed, resource merge conflicts will be treated as errors instead of warnings"
     )
     public boolean throwOnResourceConflict;
+
+    @Option(
+      name = "targetLabel",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A label to add to the output jar's manifest as 'Target-Label'"
+    )
+    public String targetLabel;
+
+    @Option(
+      name = "injectingRuleKind",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A string to add to the output jar's manifest as 'Injecting-Rule-Kind'"
+    )
+    public String injectingRuleKind;
   }
 
   public static void main(String[] args) throws Exception {
@@ -209,7 +229,8 @@ public class AndroidResourceMergingAction {
     Preconditions.checkNotNull(options.primaryManifest);
 
     try (ScopedTemporaryDirectory scopedTmp =
-        new ScopedTemporaryDirectory("android_resource_merge_tmp")) {
+            new ScopedTemporaryDirectory("android_resource_merge_tmp");
+        ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15)) {
       Path tmp = scopedTmp.getPath();
       Path mergedAssets = tmp.resolve("merged_assets");
       Path mergedResources = tmp.resolve("merged_resources");
@@ -243,7 +264,8 @@ public class AndroidResourceMergingAction {
               packageType,
               options.symbolsBinOut,
               resourceClassWriter,
-              options.throwOnResourceConflict);
+              options.throwOnResourceConflict,
+              executorService);
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
@@ -256,16 +278,20 @@ public class AndroidResourceMergingAction {
                 .processManifest(
                     packageType,
                     options.packageForR,
-                    null, /* applicationId */
-                    -1, /* versionCode */
-                    null, /* versionName */
+                    /* applicationId= */ null,
+                    /* versionCode= */ -1,
+                    /* versionName= */ null,
                     mergedData,
                     processedManifest);
         AndroidResourceOutputs.copyManifestToOutput(processedData, options.manifestOutput);
       }
 
       if (options.classJarOutput != null) {
-        AndroidResourceOutputs.createClassJar(generatedSources, options.classJarOutput);
+        AndroidResourceOutputs.createClassJar(
+            generatedSources,
+            options.classJarOutput,
+            options.targetLabel,
+            options.injectingRuleKind);
         logger.fine(
             String.format(
                 "Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
@@ -285,7 +311,7 @@ public class AndroidResourceMergingAction {
         // For now, try compressing the library resources that we pass to the validator. This takes
         // extra CPU resources to pack and unpack (~2x), but can reduce the zip size (~4x).
         ResourcesZip.from(resourcesDir, mergedData.getAssetDir())
-            .writeTo(options.resourcesOutput, true /* compress */);
+            .writeTo(options.resourcesOutput, /* compress= */ true);
         logger.fine(
             String.format(
                 "Create resources.zip finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));

@@ -74,7 +74,7 @@ public class AndroidCommonTest extends BuildViewTestCase {
         "'//java/srcs:gvalid' is misplaced " + descriptionPlural,
         "'//java/srcs:gmix' does not produce any " + descriptionPlural);
     assertSrcsValidity(rule, "//java/srcs:invalid", true,
-        "file '//java/srcs:a.properties' is misplaced here " + descriptionPluralFile,
+        "source file '//java/srcs:a.properties' is misplaced here " + descriptionPluralFile,
         "'//java/srcs:ginvalid' does not produce any " + descriptionPlural);
     assertSrcsValidity(rule, "//java/srcs:mix", true,
         "'//java/srcs:a.properties' does not produce any " + descriptionPlural);

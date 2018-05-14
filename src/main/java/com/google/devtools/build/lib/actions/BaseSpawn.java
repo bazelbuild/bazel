@@ -81,15 +81,15 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ImmutableList<Artifact> getFilesetManifests() {
-    return ImmutableList.<Artifact>of();
-  }
-
-  @Override
   public ImmutableList<String> getArguments() {
     // TODO(bazel-team): this method should be final, as the correct value of the args can be
     // injected in the ctor.
     return arguments;
+  }
+
+  @Override
+  public ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> getFilesetMappings() {
+    return ImmutableMap.of();
   }
 
   @Override

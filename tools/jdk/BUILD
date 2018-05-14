@@ -8,6 +8,7 @@ load(
     "default_java_toolchain",
     "JDK8_JVM_OPTS",
     "JDK9_JVM_OPTS",
+    "DEFAULT_JAVACOPTS",
 )
 
 # Used to distinguish toolchains used for Java development, ie the JavaToolchainProvider.
@@ -184,7 +185,7 @@ alias(
 
 alias(
     name = "host_jdk",
-    actual = "@local_jdk//:jdk",
+    actual = "@embedded_jdk//:jdk",
 )
 
 genrule(
@@ -193,7 +194,7 @@ genrule(
     outs = ["platformclasspath-impl.jar"],
     cmd = """
 set -eu
-TMPDIR=$$(mktemp -d)
+TMPDIR=$$(mktemp -d -t tmp.XXXXXXXX)
 $(JAVABASE)/bin/javac $< -d $$TMPDIR
 $(JAVA) -cp $$TMPDIR DumpPlatformClassPath 8 $@
 rm -rf $$TMPDIR
@@ -212,13 +213,30 @@ genrule(
 )
 
 default_java_toolchain(
-    name = "toolchain_jdk8",
+    name = "toolchain_hostjdk8",
+    bootclasspath = [":bootclasspath"],
+    extclasspath = [":extclasspath"],
     jvm_opts = JDK8_JVM_OPTS,
+    source_version = "8",
+    target_version = "8",
 )
 
 default_java_toolchain(
-    name = "toolchain_jdk9",
+    name = "toolchain_hostjdk9",
+    bootclasspath = [":bootclasspath"],
+    extclasspath = [":extclasspath"],
     jvm_opts = JDK9_JVM_OPTS,
+    source_version = "8",
+    target_version = "8",
+)
+
+default_java_toolchain(
+    name = "toolchain_java9",
+    jvm_opts = JDK9_JVM_OPTS,
+    misc = DEFAULT_JAVACOPTS + [
+        "--release",
+        "9",
+    ],
 )
 
 alias(

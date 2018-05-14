@@ -57,12 +57,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
@@ -117,17 +115,6 @@ public class AndroidResourceProcessor {
       help = "Apk path of previous split (if any)."
     )
     public Path featureAfter;
-
-    @Option(
-      name = "annotationJar",
-      defaultValue = "null",
-      converter = ExistingPathConverter.class,
-      category = "tool",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Annotation Jar for builder invocations."
-    )
-    public Path annotationJar;
 
     @Option(
       name = "androidJar",
@@ -276,8 +263,13 @@ public class AndroidResourceProcessor {
   }
 
   // TODO(bazel-team): Clean up this method call -- 13 params is too many.
-  /** Processes resources for generated sources, configs and packaging resources. */
-  public void processResources(
+  /**
+   * Processes resources for generated sources, configs and packaging resources.
+   *
+   * <p>Returns a post-processed MergedAndroidData. Notably, the resources will be stripped of any
+   * databinding expressions.
+   */
+  public MergedAndroidData processResources(
       Path tempRoot,
       Path aapt,
       Path androidJar,
@@ -306,7 +298,7 @@ public class AndroidResourceProcessor {
             variantType,
             customPackageForR,
             androidManifest,
-            true /* shouldZipDataBindingInfo */);
+            /* shouldZipDataBindingInfo= */ true);
 
     final Path assetsDir = primaryData.getAssetDir();
     if (publicResourcesOut != null) {
@@ -338,24 +330,12 @@ public class AndroidResourceProcessor {
           dependencyData, customPackageForR, androidManifest, sourceOut);
     }
     // Reset the output date stamps.
-    if (proguardOut != null) {
-      Files.setLastModifiedTime(proguardOut, FileTime.fromMillis(0L));
-    }
-    if (mainDexProguardOut != null) {
-      Files.setLastModifiedTime(mainDexProguardOut, FileTime.fromMillis(0L));
-    }
     if (packageOut != null) {
-      Files.setLastModifiedTime(packageOut, FileTime.fromMillis(0L));
       if (!splits.isEmpty()) {
-        Iterable<Path> splitFilenames = findAndRenameSplitPackages(packageOut, splits);
-        for (Path splitFilename : splitFilenames) {
-          Files.setLastModifiedTime(splitFilename, FileTime.fromMillis(0L));
-        }
+        renameSplitPackages(packageOut, splits);
       }
     }
-    if (publicResourcesOut != null && Files.exists(publicResourcesOut)) {
-      Files.setLastModifiedTime(publicResourcesOut, FileTime.fromMillis(0L));
-    }
+    return new MergedAndroidData(resourceDir, assetsDir, androidManifest);
   }
 
   public void runAapt(
@@ -564,7 +544,7 @@ public class AndroidResourceProcessor {
   }
 
   public ResourceSymbols loadResourceSymbolTable(
-      Iterable<SymbolFileProvider> libraries,
+      Iterable<? extends SymbolFileProvider> libraries,
       String appPackageName,
       Path primaryRTxt,
       Multimap<String, ResourceSymbols> libMap)
@@ -576,7 +556,7 @@ public class AndroidResourceProcessor {
     ListeningExecutorService executorService =
         MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(numThreads));
     try (Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
-      for (Entry<String, ListenableFuture<ResourceSymbols>> entry :
+      for (Map.Entry<String, ListenableFuture<ResourceSymbols>> entry :
           ResourceSymbols.loadFrom(libraries, executorService, appPackageName).entries()) {
         libMap.put(entry.getKey(), entry.getValue().get());
       }
@@ -612,13 +592,13 @@ public class AndroidResourceProcessor {
       // Loop on all the package name, merge all the symbols to write, and write.
       for (String packageName : libSymbolMap.keySet()) {
         Collection<ResourceSymbols> symbols = libSymbolMap.get(packageName);
-        fullSymbolValues.writeSourcesTo(sourceOut, packageName, symbols, true /* finalFields */);
+        fullSymbolValues.writeSourcesTo(sourceOut, packageName, symbols, /* finalFields= */ true);
       }
     }
   }
 
-  /** Finds aapt's split outputs and renames them according to the input flags. */
-  private Iterable<Path> findAndRenameSplitPackages(Path packageOut, Iterable<String> splits)
+  /** Renames aapt's split outputs according to the input flags. */
+  private void renameSplitPackages(Path packageOut, Iterable<String> splits)
       throws UnrecognizedSplitsException, IOException {
     String prefix = packageOut.getFileName().toString() + "_";
     // The regex java string literal below is received as [\\{}\[\]*?] by the regex engine,
@@ -635,16 +615,13 @@ public class AndroidResourceProcessor {
     }
     Map<String, String> outputs =
         SplitConfigurationFilter.mapFilenamesToSplitFlags(filenameSuffixes.build(), splits);
-    ImmutableList.Builder<Path> outputPaths = new ImmutableList.Builder<>();
     for (Map.Entry<String, String> splitMapping : outputs.entrySet()) {
       Path resultPath = packageOut.resolveSibling(prefix + splitMapping.getValue());
-      outputPaths.add(resultPath);
       if (!splitMapping.getKey().equals(splitMapping.getValue())) {
         Path sourcePath = packageOut.resolveSibling(prefix + splitMapping.getKey());
         Files.move(sourcePath, resultPath);
       }
     }
-    return outputPaths.build();
   }
 
   /** A logger that will print messages to a target OutputStream. */

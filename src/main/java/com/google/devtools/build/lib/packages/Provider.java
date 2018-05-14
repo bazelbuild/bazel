@@ -15,15 +15,8 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.SkylarkType;
-import javax.annotation.Nullable;
 
 /**
  * Declared Provider (a constructor for {@link Info}).
@@ -39,59 +32,20 @@ import javax.annotation.Nullable;
  * <p>Prefer to use {@link Key} as a serializable identifier of {@link Provider}. In particular,
  * {@link Key} should be used in all data structures exposed to Skyframe.
  */
-@SkylarkModule(
-  name = "Provider",
-  doc =
-      "A constructor for simple value objects, known as provider instances."
-          + "<br>"
-          + "This value has a dual purpose:"
-          + "  <ul>"
-          + "     <li>It is a function that can be called to construct 'struct'-like values:"
-          + "<pre class=\"language-python\">DataInfo = provider()\n"
-          + "d = DataInfo(x = 2, y = 3)\n"
-          + "print(d.x + d.y) # prints 5</pre>"
-          + "     Note: Some providers, defined internally, do not allow instance creation"
-          + "     </li>"
-          + "     <li>It is a <i>key</i> to access a provider instance on a"
-          + "        <a href=\"Target.html\">Target</a>"
-          + "<pre class=\"language-python\">DataInfo = provider()\n"
-          + "def _rule_impl(ctx)\n"
-          + "  ... ctx.attr.dep[DataInfo]</pre>"
-          + "     </li>"
-          + "  </ul>"
-          + "Create a new <code>Provider</code> using the "
-          + "<a href=\"globals.html#provider\">provider</a> function."
-)
 @Immutable
-public abstract class Provider extends BaseFunction {
-
-  /**
-   * Constructs a provider.
-   *
-   * @param name provider name; should be null iff the subclass overrides {@link #getName}
-   * @param signature the signature for calling this provider as a Skylark function (to construct an
-   *     instance of the provider)
-   * @param location the location of this provider's Skylark definition. Use {@link
-   *     Location#BUILTIN} if it is a native provider.
-   */
-  protected Provider(
-      @Nullable String name,
-      FunctionSignature.WithValues<Object, SkylarkType> signature,
-      Location location) {
-    super(name, signature, location);
-  }
+public interface Provider extends ProviderApi {
 
   /**
    * Has this {@link Provider} been exported? All native providers are always exported. Skylark
    * providers are exported if they are assigned to top-level name in a Skylark module.
    */
-  public abstract boolean isExported();
+  boolean isExported();
 
   /** Returns a serializable representation of this {@link Provider}. */
-  public abstract Key getKey();
+  Key getKey();
 
   /** Returns a name of this {@link Provider} that should be used in error messages. */
-  public abstract String getPrintableName();
+  String getPrintableName();
 
   /**
    * Returns an error message format string for instances to use for their {@link
@@ -99,30 +53,14 @@ public abstract class Provider extends BaseFunction {
    *
    * <p>The format string must contain one {@code '%s'} placeholder for the field name.
    */
-  public abstract String getErrorMessageFormatForUnknownField();
-
-  public SkylarkProviderIdentifier id() {
-    return SkylarkProviderIdentifier.forKey(getKey());
-  }
-
-  @Override
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, @Nullable Environment env)
-      throws EvalException, InterruptedException {
-    Location loc = ast != null ? ast.getLocation() : Location.BUILTIN;
-    return createInstanceFromSkylark(args, loc);
+  default String getErrorMessageFormatForUnknownField() {
+    return String.format("'%s' object has no attribute '%%s'", getPrintableName());
   }
 
   /**
-   * Override this method to provide logic that is used to instantiate a declared provider from
-   * Skylark.
-   *
-   * <p>This is a method that is called when a constructor {@code c} is invoked as<br>
-   * {@code c(arg1 = val1, arg2 = val2, ...)}.
-   *
-   * @param args an array of argument values sorted as per the signature ({@see BaseFunction#call})
+   * Returns the location at which provider was defined.
    */
-  protected abstract Info createInstanceFromSkylark(Object[] args, Location loc)
-      throws EvalException;
+  Location getLocation();
 
   /** A serializable representation of {@link Provider}. */
   public abstract static class Key {}

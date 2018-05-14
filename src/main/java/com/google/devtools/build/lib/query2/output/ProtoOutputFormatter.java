@@ -21,6 +21,8 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -39,28 +41,27 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
-import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDependencyMode;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.GeneratedFile;
-import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult.Builder;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Type;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -84,6 +85,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   private boolean relativeLocations = false;
   protected boolean includeDefaultValues = true;
+  private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
   private boolean flattenSelects = true;
 
   protected void setDependencyFilter(QueryOptions options) {
@@ -96,11 +98,22 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   @Override
-  public void setOptions(QueryOptions options, AspectResolver aspectResolver) {
+  public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {
     super.setOptions(options, aspectResolver);
     this.relativeLocations = options.relativeLocations;
     this.includeDefaultValues = options.protoIncludeDefaultValues;
+    this.ruleAttributePredicate = newAttributePredicate(options.protoOutputRuleAttributes);
     this.flattenSelects = options.protoFlattenSelects;
+  }
+
+  private static Predicate<String> newAttributePredicate(List<String> outputAttributes) {
+    if (outputAttributes.equals(ImmutableList.of("all"))) {
+      return Predicates.alwaysTrue();
+    } else if (outputAttributes.isEmpty()) {
+      return Predicates.alwaysFalse();
+    } else {
+      return Predicates.in(ImmutableSet.copyOf(outputAttributes));
+    }
   }
 
   @Override
@@ -108,7 +121,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       final OutputStream out, final QueryOptions options) {
     return new OutputFormatterCallback<Target>() {
 
-      private Builder queryResult;
+      private QueryResult.Builder queryResult;
 
       @Override
       public void start() {
@@ -170,47 +183,23 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       if (includeLocation()) {
         rulePb.setLocation(location);
       }
-      Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();
-      AggregatingAttributeMapper attributeMapper = AggregatingAttributeMapper.of(rule);
-      for (Attribute attr : rule.getAttributes()) {
-        if ((!includeDefaultValues && !rule.isAttributeValueExplicitlySpecified(attr))
-            || !includeAttribute(rule, attr)) {
-          continue;
-        }
-        Object attributeValue;
-        if (flattenSelects || !attributeMapper.isConfigurable(attr.getName())) {
-          attributeValue =
-              flattenAttributeValues(attr.getType(), getPossibleAttributeValues(rule, attr));
-        } else {
-          attributeValue = attributeMapper.getSelectorList(attr.getName(), attr.getType());
-        }
-        Build.Attribute serializedAttribute =
-            AttributeFormatter.getAttributeProto(
-                attr,
-                attributeValue,
-                rule.isAttributeValueExplicitlySpecified(attr),
-                /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
-        rulePb.addAttribute(serializedAttribute);
-        serializedAttributes.put(attr, serializedAttribute);
-      }
-
-      postProcess(rule, rulePb, serializedAttributes);
-
-      Environment env = rule.getRuleClassObject().getRuleDefinitionEnvironment();
-      if (env != null && includeRuleDefinitionEnvironment()) {
+      addAttributes(rulePb, rule);
+      String transitiveHashCode = rule.getRuleClassObject().getRuleDefinitionEnvironmentHashCode();
+      if (transitiveHashCode != null && includeRuleDefinitionEnvironment()) {
         // The RuleDefinitionEnvironment is always defined for Skylark rules and
         // always null for non Skylark rules.
         rulePb.addAttribute(
             Build.Attribute.newBuilder()
                 .setName(RULE_IMPLEMENTATION_HASH_ATTR_NAME)
                 .setType(ProtoUtils.getDiscriminatorFromType(Type.STRING))
-                .setStringValue(env.getTransitiveContentHashCode()));
+                .setStringValue(transitiveHashCode));
       }
 
       ImmutableMultimap<Attribute, Label> aspectsDependencies =
           aspectResolver.computeAspectDependencies(target, dependencyFilter);
       // Add information about additional attributes from aspects.
-      for (Entry<Attribute, Collection<Label>> entry : aspectsDependencies.asMap().entrySet()) {
+      List<Build.Attribute> attributes = new ArrayList<>(aspectsDependencies.asMap().size());
+      for (Map.Entry<Attribute, Collection<Label>> entry : aspectsDependencies.asMap().entrySet()) {
         Attribute attribute = entry.getKey();
         Collection<Label> labels = entry.getValue();
         if (!includeAspectAttribute(attribute, labels)) {
@@ -223,30 +212,32 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                 attributeValue,
                 /*explicitlySpecified=*/ false,
                 /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
-        rulePb.addAttribute(serializedAttribute);
+        attributes.add(serializedAttribute);
       }
+      rulePb.addAllAttribute(attributes.stream().distinct().collect(Collectors.toList()));
       if (includeRuleInputsAndOutputs()) {
         // Add all deps from aspects as rule inputs of current target.
-        for (Label label : aspectsDependencies.values()) {
-          rulePb.addRuleInput(label.toString());
-        }
-
+         aspectsDependencies
+             .values()
+             .stream()
+             .distinct()
+             .forEach(dep -> rulePb.addRuleInput(dep.toString()));
         // Include explicit elements for all direct inputs and outputs of a rule;
         // this goes beyond what is available from the attributes above, since it
         // may also (depending on options) include implicit outputs,
         // host-configuration outputs, and default values.
-        for (Label label : rule.getLabels(dependencyFilter)) {
-          rulePb.addRuleInput(label.toString());
-        }
-        for (OutputFile outputFile : rule.getOutputFiles()) {
-          Label fileLabel = outputFile.getLabel();
-          rulePb.addRuleOutput(fileLabel.toString());
-        }
+        rule.getLabels(dependencyFilter)
+            .stream()
+            .distinct()
+            .forEach(input -> rulePb.addRuleInput(input.toString()));
+        rule.getOutputFiles()
+            .stream()
+            .distinct()
+            .forEach(output -> rulePb.addRuleOutput(output.getLabel().toString()));
       }
       for (String feature : rule.getFeatures()) {
         rulePb.addDefaultSetting(feature);
       }
-
       targetPb.setType(RULE);
       targetPb.setRule(rulePb);
     } else if (target instanceof OutputFile) {
@@ -276,18 +267,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       if (inputFile.getName().equals("BUILD")) {
-        Set<Label> subincludeLabels = new LinkedHashSet<>();
-        subincludeLabels.addAll(aspectResolver == null
-            ? inputFile.getPackage().getSubincludeLabels()
-            : aspectResolver.computeBuildFileDependencies(
-                inputFile.getPackage(), BuildFileDependencyMode.SUBINCLUDE));
-        subincludeLabels.addAll(aspectResolver == null
+        Iterable<Label> skylarkLoadLabels = aspectResolver == null
             ? inputFile.getPackage().getSkylarkFileDependencies()
-            : aspectResolver.computeBuildFileDependencies(
-                inputFile.getPackage(), BuildFileDependencyMode.SKYLARK));
+            : aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
 
-        for (Label skylarkFileDep : subincludeLabels) {
-          input.addSubinclude(skylarkFileDep.toString());
+        for (Label skylarkLoadLabel : skylarkLoadLabels) {
+          input.addSubinclude(skylarkLoadLabel.toString());
         }
 
         for (String feature : inputFile.getPackage().getFeatures()) {
@@ -351,6 +336,40 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     return targetPb.build();
   }
 
+  protected void addAttributes(Build.Rule.Builder rulePb, Rule rule)
+      throws InterruptedException {
+    Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();
+    AggregatingAttributeMapper attributeMapper = AggregatingAttributeMapper.of(rule);
+    for (Attribute attr : rule.getAttributes()) {
+      if (!shouldIncludeAttribute(rule, attr)) {
+        continue;
+      }
+      Object attributeValue;
+      if (flattenSelects || !attributeMapper.isConfigurable(attr.getName())) {
+        attributeValue =
+            flattenAttributeValues(attr.getType(), getPossibleAttributeValues(rule, attr));
+      } else {
+        attributeValue = attributeMapper.getSelectorList(attr.getName(), attr.getType());
+      }
+      Build.Attribute serializedAttribute =
+          AttributeFormatter.getAttributeProto(
+              attr,
+              attributeValue,
+              rule.isAttributeValueExplicitlySpecified(attr),
+              /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
+      serializedAttributes.put(attr, serializedAttribute);
+    }
+    rulePb.addAllAttribute(
+        serializedAttributes.values().stream().distinct().collect(Collectors.toList()));
+
+    postProcess(rule, rulePb, serializedAttributes);
+  }
+
+  protected boolean shouldIncludeAttribute(Rule rule, Attribute attr) {
+    return (includeDefaultValues || rule.isAttributeValueExplicitlySpecified(attr))
+        && includeAttribute(rule, attr);
+  }
+
   private static Object getAspectAttributeValue(Attribute attribute, Collection<Label> labels) {
     Type<?> attributeType = attribute.getType();
     if (attributeType.equals(BuildType.LABEL)) {
@@ -373,7 +392,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   /** Filter out some attributes */
   protected boolean includeAttribute(Rule rule, Attribute attr) {
-    return true;
+    return ruleAttributePredicate.apply(attr.getName());
   }
 
   /** Allow filtering of aspect attributes. */
@@ -453,7 +472,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Map<Object, Object> mergedDict = new HashMap<>();
       for (Object possibleValue : possibleValues) {
         Map<Object, Object> stringDict = (Map<Object, Object>) possibleValue;
-        for (Entry<Object, Object> entry : stringDict.entrySet()) {
+        for (Map.Entry<Object, Object> entry : stringDict.entrySet()) {
           mergedDict.put(entry.getKey(), entry.getValue());
         }
       }

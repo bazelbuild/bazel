@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.io.Serializable;
@@ -33,60 +34,65 @@ import javax.annotation.Nullable;
 /**
  * Function Signatures for BUILD language (same as Python)
  *
- * <p>Skylark's function signatures are just like Python3's.
- * A function may have 6 kinds of arguments:
- * positional mandatory, positional optional, positional rest (aka *star argument),
- * key-only mandatory, key-only optional, key rest (aka **star_star argument).
- * A caller may specify all arguments but the *star and **star_star arguments by name,
- * and thus all mandatory and optional arguments are named arguments.
+ * <p>Skylark's function signatures are just like Python3's. A function may have 6 kinds of
+ * arguments: positional mandatory, positional optional, positional rest (aka *star argument),
+ * key-only mandatory, key-only optional, key rest (aka **star_star argument). A caller may specify
+ * all arguments but the *star and **star_star arguments by name, and thus all mandatory and
+ * optional arguments are named arguments.
  *
- * <p>To enable various optimizations in the argument processing routine,
- * we sort arguments according the following constraints, enabling corresponding optimizations:
+ * <p>To enable various optimizations in the argument processing routine, we sort arguments
+ * according the following constraints, enabling corresponding optimizations:
+ *
  * <ol>
- * <li>The positional mandatories come just before the positional optionals,
- *   so they can be filled in one go.
- * <li>Positionals come first, so it's easy to prepend extra positional arguments such as "self"
- *   to an argument list, and we optimize for the common case of no key-only mandatory parameters.
- *   key-only parameters are thus grouped together.
- *   positional mandatory and key-only mandatory parameters are separate,
- *   but there is no loop over a contiguous chunk of them, anyway.
- * <li>The named are all grouped together, with star and star_star rest arguments coming last.
- * <li>Mandatory arguments in each category (positional and named-only) come before the optional
- *   arguments, for the sake of slightly better clarity to human implementers. This eschews an
- *   optimization whereby grouping optionals together allows to iterate over them in one go instead
- *   of two; however, this relatively minor optimization only matters when keyword arguments are
- *   passed, at which point it is dwarfed by the slowness of keyword processing.
+ *   <li>The positional mandatories come just before the positional optionals, so they can be filled
+ *       in one go.
+ *   <li>Positionals come first, so it's easy to prepend extra positional arguments such as "self"
+ *       to an argument list, and we optimize for the common case of no key-only mandatory
+ *       parameters. key-only parameters are thus grouped together. positional mandatory and
+ *       key-only mandatory parameters are separate, but there is no loop over a contiguous chunk of
+ *       them, anyway.
+ *   <li>The named are all grouped together, with star and star_star rest arguments coming last.
+ *   <li>Mandatory arguments in each category (positional and named-only) come before the optional
+ *       arguments, for the sake of slightly better clarity to human implementers. This eschews an
+ *       optimization whereby grouping optionals together allows to iterate over them in one go
+ *       instead of two; however, this relatively minor optimization only matters when keyword
+ *       arguments are passed, at which point it is dwarfed by the slowness of keyword processing.
  * </ol>
  *
- * <p>Parameters are thus sorted in the following order:
- * positional mandatory arguments (if any), positional optional arguments (if any),
- * key-only mandatory arguments (if any), key-only optional arguments (if any),
- * then star argument (if any), then star_star argument (if any).
+ * <p>Parameters are thus sorted in the following order: positional mandatory arguments (if any),
+ * positional optional arguments (if any), key-only mandatory arguments (if any), key-only optional
+ * arguments (if any), then star argument (if any), then star_star argument (if any).
  */
+@AutoCodec
 @AutoValue
 public abstract class FunctionSignature implements Serializable {
 
-  /**
-   * The shape of a FunctionSignature, without names
-   */
+  /** The shape of a FunctionSignature, without names */
   @AutoValue
+  @AutoCodec
   public abstract static class Shape implements Serializable {
     private static final Interner<Shape> interner = BlazeInterners.newWeakInterner();
 
     /** Create a function signature */
+    @AutoCodec.Instantiator
     public static Shape create(
         int mandatoryPositionals,
         int optionalPositionals,
         int mandatoryNamedOnly,
         int optionalNamedOnly,
-        boolean starArg,
-        boolean kwArg) {
+        boolean hasStarArg,
+        boolean hasKwArg) {
       Preconditions.checkArgument(
           0 <= mandatoryPositionals && 0 <= optionalPositionals
           && 0 <= mandatoryNamedOnly && 0 <= optionalNamedOnly);
-      return interner.intern(new AutoValue_FunctionSignature_Shape(
-          mandatoryPositionals, optionalPositionals,
-          mandatoryNamedOnly, optionalNamedOnly, starArg, kwArg));
+      return interner.intern(
+          new AutoValue_FunctionSignature_Shape(
+              mandatoryPositionals,
+              optionalPositionals,
+              mandatoryNamedOnly,
+              optionalNamedOnly,
+              hasStarArg,
+              hasKwArg));
     }
 
     // These abstract getters specify the actual argument count fields to be defined by AutoValue.
@@ -153,9 +159,10 @@ public abstract class FunctionSignature implements Serializable {
   /**
    * Signatures proper.
    *
-   * <p>A signature is a Shape and an ImmutableList of argument variable names
-   * NB: we assume these lists are short, so we may do linear scans.
+   * <p>A signature is a Shape and an ImmutableList of argument variable names NB: we assume these
+   * lists are short, so we may do linear scans.
    */
+  @AutoCodec.Instantiator
   public static FunctionSignature create(Shape shape, ImmutableList<String> names) {
     Preconditions.checkArgument(names.size() == shape.getArguments());
     return signatureInterner.intern(new AutoValue_FunctionSignature(shape, names(names)));
@@ -187,13 +194,14 @@ public abstract class FunctionSignature implements Serializable {
    *
    * <p>The lists can be null, which is an optimized path for specifying all null values.
    *
-   * <p>Note that if some values can be null (for BuiltinFunction, not for UserDefinedFunction),
-   * you should use an ArrayList; otherwise, we recommend an ImmutableList.
+   * <p>Note that if some values can be null (for BuiltinFunction, not for UserDefinedFunction), you
+   * should use an ArrayList; otherwise, we recommend an ImmutableList.
    *
-   * <p>V is the class of defaultValues and T is the class of types.
-   * When parsing a function definition at compile-time, they are &lt;Expression, Expression&gt;;
-   * when processing a @SkylarkSignature annotation at build-time, &lt;Object, SkylarkType&gt;.
+   * <p>V is the class of defaultValues and T is the class of types. When parsing a function
+   * definition at compile-time, they are &lt;Expression, Expression&gt;; when processing
+   * a @SkylarkSignature annotation at build-time, &lt;Object, SkylarkType&gt;.
    */
+  @AutoCodec
   @AutoValue
   public abstract static class WithValues<V, T> implements Serializable {
 
@@ -232,8 +240,14 @@ public abstract class FunctionSignature implements Serializable {
         copiedTypes.addAll(types);
         convertedTypes = Collections.unmodifiableList(copiedTypes);
       }
-      return new AutoValue_FunctionSignature_WithValues<>(
-          signature, convertedDefaultValues, convertedTypes);
+      return createInternal(signature, convertedDefaultValues, convertedTypes);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static <V, T> WithValues<V, T> createInternal(
+        FunctionSignature signature, @Nullable List<V> defaultValues, @Nullable List<T> types) {
+      return new AutoValue_FunctionSignature_WithValues<>(signature, defaultValues, types);
     }
 
     public static <V, T> WithValues<V, T> create(FunctionSignature signature) {

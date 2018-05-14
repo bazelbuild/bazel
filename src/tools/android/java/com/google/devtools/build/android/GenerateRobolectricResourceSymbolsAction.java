@@ -39,7 +39,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -53,11 +52,12 @@ public class GenerateRobolectricResourceSymbolsAction {
       Logger.getLogger(GenerateRobolectricResourceSymbolsAction.class.getName());
 
   private static final class WriteLibraryRClass implements Callable<Boolean> {
-    private final Entry<String, Collection<ListenableFuture<ResourceSymbols>>> librarySymbolEntry;
+    private final Map.Entry<String, Collection<ListenableFuture<ResourceSymbols>>>
+        librarySymbolEntry;
     private final RClassGenerator generator;
 
     private WriteLibraryRClass(
-        Entry<String, Collection<ListenableFuture<ResourceSymbols>>> librarySymbolEntry,
+        Map.Entry<String, Collection<ListenableFuture<ResourceSymbols>>> librarySymbolEntry,
         RClassGenerator generator) {
       this.librarySymbolEntry = librarySymbolEntry;
       this.generator = generator;
@@ -104,6 +104,26 @@ public class GenerateRobolectricResourceSymbolsAction {
       help = "Path for the generated java class jar."
     )
     public Path classJarOutput;
+
+    @Option(
+      name = "targetLabel",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A label to add to the output jar's manifest as 'Target-Label'"
+    )
+    public String targetLabel;
+
+    @Option(
+      name = "injectingRuleKind",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A string to add to the output jar's manifest as 'Injecting-Rule-Kind'"
+    )
+    public String injectingRuleKind;
   }
 
   public static void main(String[] args) throws Exception {
@@ -165,8 +185,9 @@ public class GenerateRobolectricResourceSymbolsAction {
           libraries.add(library);
         }
         List<ListenableFuture<Boolean>> writeSymbolsTask = new ArrayList<>();
-        for (final Entry<String, Collection<ListenableFuture<ResourceSymbols>>> librarySymbolEntry :
-            ResourceSymbols.loadFrom(libraries, executorService, null).asMap().entrySet()) {
+        for (final Map.Entry<String, Collection<ListenableFuture<ResourceSymbols>>>
+            librarySymbolEntry :
+                ResourceSymbols.loadFrom(libraries, executorService, null).asMap().entrySet()) {
           writeSymbolsTask.add(
               executorService.submit(new WriteLibraryRClass(librarySymbolEntry, generator)));
         }
@@ -176,7 +197,8 @@ public class GenerateRobolectricResourceSymbolsAction {
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      AndroidResourceOutputs.createClassJar(generatedSources, options.classJarOutput);
+      AndroidResourceOutputs.createClassJar(
+          generatedSources, options.classJarOutput, options.targetLabel, options.injectingRuleKind);
       logger.fine(
           String.format("Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 

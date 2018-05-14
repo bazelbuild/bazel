@@ -21,17 +21,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import java.util.HashSet;
 import java.util.List;
@@ -263,6 +264,8 @@ public class DeployArchiveBuilder {
     }
     if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF && usingNativeSinglejar) {
       args.add("--enforce_one_version");
+      // RuleErrors should have been added in Builder.build() before this command
+      // line is invoked.
       Preconditions.checkNotNull(oneVersionWhitelistArtifact);
       args.addExecPath("--one_version_whitelist", oneVersionWhitelistArtifact);
       if (oneVersionEnforcementLevel == OneVersionEnforcementLevel.WARNING) {
@@ -307,7 +310,7 @@ public class DeployArchiveBuilder {
       }
     }
 
-    IterablesChain<Artifact> runtimeJars = runtimeJarsBuilder.build();
+    Iterable<Artifact> runtimeJars = runtimeJarsBuilder.build();
 
     // TODO(kmb): Consider not using getArchiveInputs, specifically because we don't want/need to
     // transform anything but the runtimeClasspath and b/c we currently do it twice here and below
@@ -342,6 +345,11 @@ public class DeployArchiveBuilder {
     }
 
     if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF) {
+      if (oneVersionWhitelistArtifact == null) {
+        OneVersionCheckActionBuilder.addRuleErrorForMissingArtifacts(
+            ruleContext, JavaToolchainProvider.from(ruleContext));
+        return;
+      }
       inputs.add(oneVersionWhitelistArtifact);
     }
     // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
@@ -352,7 +360,8 @@ public class DeployArchiveBuilder {
 
     CommandLine commandLine =
         semantics.buildSingleJarCommandLine(
-            ruleContext.getConfiguration(),
+            CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
+                .getToolchainIdentifier(),
             outputJar,
             javaStartClass,
             deployManifestLines,

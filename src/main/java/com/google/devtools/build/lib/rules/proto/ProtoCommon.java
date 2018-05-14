@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -96,6 +97,43 @@ public class ProtoCommon {
       result.addTransitive(provider.transitiveDescriptorSets());
     }
     return result.build();
+  }
+
+  /**
+   * Returns all proto source roots in this lib and in its transitive dependencies.
+   *
+   * Build will fail if the {@code proto_source_root} of the current lib is different than the
+   * package name.
+   */
+  public static NestedSet<String> collectTransitiveProtoPathFlags(RuleContext ruleContext) {
+    NestedSetBuilder<String> protoPath = NestedSetBuilder.stableOrder();
+
+    // first add the protoSourceRoot of the current target, if any
+    String protoSourceRoot =
+        ruleContext.attributes().get("proto_source_root", Type.STRING);
+    if (protoSourceRoot != null && !protoSourceRoot.isEmpty()) {
+      checkProtoSourceRootIsTheSameAsPackage(protoSourceRoot, ruleContext);
+      protoPath.add(protoSourceRoot);
+    }
+
+    for (ProtoSourcesProvider provider : ruleContext.getPrerequisites(
+            "deps", Mode.TARGET, ProtoSourcesProvider.class)) {
+      protoPath.addTransitive(provider.getTransitiveProtoPathFlags());
+    }
+
+    return protoPath.build();
+  }
+
+  private static void checkProtoSourceRootIsTheSameAsPackage(
+      String protoSourceRoot, RuleContext ruleContext) {
+    if (!ruleContext.getLabel().getPackageName().equals(protoSourceRoot)) {
+      ruleContext.attributeError(
+          "proto_source_root",
+          "proto_source_root must be the same as the package name ("
+              + ruleContext.getLabel().getPackageName() + ")."
+              + " not '" + protoSourceRoot + "'."
+      );
+    }
   }
 
   /**

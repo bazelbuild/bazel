@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.apple.swift;
 
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -25,27 +24,13 @@ import java.util.List;
 /** Command-line options for building with Swift tools. */
 @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class SwiftCommandLineOptions extends FragmentOptions {
-  public static final ObjectCodec<SwiftCommandLineOptions> CODEC =
-      new SwiftCommandLineOptions_AutoCodec();
-
   @Option(
     name = "swiftcopt",
     allowMultiple = true,
     defaultValue = "",
-    category = "flags",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help = "Additional options to pass to Swift compilation."
   )
   public List<String> copts;
-
-  @Option(
-    name = "swift_whole_module_optimization",
-    defaultValue = "false",
-    category = "flags",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-    help = "Whether to enable Whole Module Optimization"
-  )
-  public boolean enableWholeModuleOptimization;
 }

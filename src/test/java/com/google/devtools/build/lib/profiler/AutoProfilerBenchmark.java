@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
  * Microbenchmarks for the overhead of {@link AutoProfiler} over using {@link Profiler} manually.
  */
 public class AutoProfilerBenchmark {
-
-  private final Object obj = new Object();
   private final ProfilerTask profilerTaskType = ProfilerTask.TEST;
 
   @BeforeExperiment
@@ -42,8 +40,7 @@ public class AutoProfilerBenchmark {
   @Benchmark
   void profiledWithAutoProfiler(int reps) {
     for (int i = 0; i < reps; i++) {
-      try (AutoProfiler p = AutoProfiler.profiled(obj, profilerTaskType)) {
-      }
+      try (AutoProfiler p = AutoProfiler.profiled("profiling", profilerTaskType)) {}
     }
   }
 
@@ -51,7 +48,7 @@ public class AutoProfilerBenchmark {
   void profiledManually(int reps) {
     for (int i = 0; i < reps; i++) {
       long startTime = Profiler.nanoTimeMaybe();
-      Profiler.instance().logSimpleTask(startTime, profilerTaskType, obj);
+      Profiler.instance().logSimpleTask(startTime, profilerTaskType, "description");
     }
   }
 }

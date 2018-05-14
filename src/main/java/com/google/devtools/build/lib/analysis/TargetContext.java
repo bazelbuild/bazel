@@ -24,7 +24,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -48,7 +49,7 @@ public class TargetContext {
    * exception of visibility (i.e., visibility is represented here, even though it is a rule
    * attribute in case of a rule). Rule attributes are handled by the {@link RuleContext} subclass.
    */
-  private final List<ConfiguredTargetAndTarget> directPrerequisites;
+  private final List<ConfiguredTargetAndData> directPrerequisites;
 
   private final NestedSet<PackageGroupContents> visibility;
 
@@ -61,7 +62,7 @@ public class TargetContext {
       AnalysisEnvironment env,
       Target target,
       BuildConfiguration configuration,
-      Set<ConfiguredTargetAndTarget> directPrerequisites,
+      Set<ConfiguredTargetAndData> directPrerequisites,
       NestedSet<PackageGroupContents> visibility) {
     this.env = env;
     this.target = target;
@@ -96,6 +97,10 @@ public class TargetContext {
     return configuration;
   }
 
+  public BuildConfigurationValue.Key getConfigurationKey() {
+    return BuildConfigurationValue.key(configuration);
+  }
+
   public NestedSet<PackageGroupContents> getVisibility() {
     return visibility;
   }
@@ -115,9 +120,9 @@ public class TargetContext {
    */
   public TransitiveInfoCollection maybeFindDirectPrerequisite(Label label,
       BuildConfiguration config) {
-    for (ConfiguredTargetAndTarget prerequisite : directPrerequisites) {
+    for (ConfiguredTargetAndData prerequisite : directPrerequisites) {
       if (prerequisite.getTarget().getLabel().equals(label)
-          && (Objects.equal(prerequisite.getConfiguredTarget().getConfiguration(), config))) {
+          && (Objects.equal(prerequisite.getConfiguration(), config))) {
         return prerequisite.getConfiguredTarget();
       }
     }

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy.DATA;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -24,14 +23,13 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for the cc_import rule. */
 public final class CcImportRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         /*<!-- #BLAZE_RULE($cc_import).ATTRIBUTE(static_library) -->
           A single precompiled static library.
@@ -90,13 +88,18 @@ public final class CcImportRule implements RuleDefinition {
         This is useful if your code isn't explicitly called by code in
         the binary, e.g., if your code registers to receive some callback
         provided by some service.
+
+        <p>If alwayslink doesn't work with VS 2017 on Windows, that is due to a
+        [known issue](https://github.com/bazelbuild/bazel/issues/3949),
+        please upgrade your VS 2017 to the latest version.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("alwayslink", BOOLEAN))
         .add(
             attr("data", LABEL_LIST)
-                .cfg(DATA)
+                .cfg(env.getLipoDataTransition())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .dontCheckConstraints())
+        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .build();
   }
 

@@ -314,7 +314,7 @@ def MatchObjectNamesInArchive(xcrunwrapper, archive, object_names):
   """
   ar_contents_cmd = '%s ar -t %s' % (xcrunwrapper, archive)
   real_object_names = subprocess.check_output(ar_contents_cmd, shell=True)
-  expected_object_name_regex = '^(?:%s)_[0-9a-f]{32}.o' % (
+  expected_object_name_regex = r'^(?:%s)(?:_[0-9a-f]{32}(?:-[0-9]+)?)?\.o$' % (
       '|'.join([re.escape(name) for name in object_names]))
   return re.findall(expected_object_name_regex, real_object_names,
                     flags=re.MULTILINE)

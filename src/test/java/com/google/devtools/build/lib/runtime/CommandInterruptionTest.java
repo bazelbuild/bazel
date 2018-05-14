@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -89,11 +91,11 @@ public final class CommandInterruptionTest {
     }
 
     @Override
-    public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+    public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
       CommandState commandState = new CommandState(
           env, options.getOptions(WaitOptions.class).expectInterruption, isTestShuttingDown);
       commandStateHandoff.getAndSet(null).set(commandState);
-      return commandState.waitForExitCodeFromTest();
+      return BlazeCommandResult.exitCode(commandState.waitForExitCodeFromTest());
     }
 
     @Override
@@ -140,9 +142,8 @@ public final class CommandInterruptionTest {
             ImmutableList.of(
                 "snooze",
                 expectInterruption ? "--expect_interruption" : "--noexpect_interruption"),
-            BlazeCommandDispatcher.LockingMode.ERROR_OUT,
             "CommandInterruptionTest",
-            OutErr.SYSTEM_OUT_ERR);
+            OutErr.SYSTEM_OUT_ERR).getExitCode().getNumericExitCode();
       } catch (Exception throwable) {
         if (commandStateHandoff.isDone()) {
           commandStateHandoff.get().completeWithFailure(throwable);
@@ -349,7 +350,8 @@ public final class CommandInterruptionTest {
     isTestShuttingDown = new AtomicBoolean(false);
     String productName = TestConstants.PRODUCT_NAME;
     ServerDirectories serverDirectories =
-        new ServerDirectories(scratch.dir("install"), scratch.dir("output"));
+        new ServerDirectories(
+            scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
             .setFileSystem(scratch.getFileSystem())
@@ -367,11 +369,23 @@ public final class CommandInterruptionTest {
                     builder.addConfigurationOptions(BuildConfiguration.Options.class);
                   }
                 })
+            .addBlazeModule(
+                new BlazeModule() {
+                  @Override
+                  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
+                    return DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+                        runtime.getRuleClassProvider().getConfigurationOptions());
+                  }
+                })
             .build();
     snooze = new WaitForCompletionCommand(isTestShuttingDown);
     dispatcher = new BlazeCommandDispatcher(runtime, snooze);
     BlazeDirectories blazeDirectories =
-        new BlazeDirectories(serverDirectories, scratch.dir("workspace"), productName);
+        new BlazeDirectories(
+            serverDirectories,
+            scratch.dir("workspace"),
+            /* defaultSystemJavabase= */ null,
+            productName);
     runtime.initWorkspace(blazeDirectories, /* binTools= */ null);
   }
 

@@ -333,7 +333,8 @@ public class PackageLookupFunction implements SkyFunction {
       }
 
       if (fileValue.isFile()) {
-        return PackageLookupValue.success(Root.fromPath(repositoryValue.getPath()), buildFileName);
+        return PackageLookupValue.success(
+            repositoryValue, Root.fromPath(repositoryValue.getPath()), buildFileName);
       }
     }
 

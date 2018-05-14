@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.Map;
-import java.util.TreeMap;
 
 /**
  * The value passed to a select({...}) statement, e.g.:
@@ -33,9 +33,12 @@ import java.util.TreeMap;
  *       })
  * </pre>
  */
-@SkylarkModule(name = "selector",
-    doc = "A selector between configuration-dependent entities.",
-    documented = false)
+@SkylarkModule(
+  name = "selector",
+  doc = "A selector between configuration-dependent entities.",
+  documented = false
+)
+@AutoCodec
 public final class SelectorValue implements SkylarkValue {
   // TODO(bazel-team): Selectors are currently split between .packages and .syntax . They should
   // really all be in .packages, but then we'd need to figure out a way how to extend binary
@@ -45,17 +48,12 @@ public final class SelectorValue implements SkylarkValue {
   private final String noMatchError;
 
   public SelectorValue(Map<?, ?> dictionary, String noMatchError) {
-    // Put the dict through a sorting to avoid depending on insertion order.
-    this.dictionary = ImmutableMap.copyOf(new TreeMap<>(dictionary));
+    this.dictionary = ImmutableMap.copyOf(dictionary);
     this.type =
         dictionary.isEmpty() ? Object.class : Iterables.get(dictionary.values(), 0).getClass();
     this.noMatchError = noMatchError;
   }
 
-  /**
-   * Returns an {@link ImmutableMap} containing the entries in the map provided to {@link
-   * #SelectorValue} in sorted order.
-   */
   public ImmutableMap<?, ?> getDictionary() {
     return dictionary;
   }

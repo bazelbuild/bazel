@@ -22,6 +22,7 @@ import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.android.AndroidCompiledDataDeserializer.ReferenceResolver;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
 import com.google.devtools.build.android.FullyQualifiedName.VirtualType;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
@@ -45,8 +46,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import javax.xml.stream.FactoryConfigurationError;
 import javax.xml.stream.XMLEventReader;
@@ -174,13 +173,11 @@ public class DataResourceXml implements DataResource {
       Value protoValue,
       DataSource source,
       ResourceType resourceType,
-      Map<String, Entry<FullyQualifiedName, Boolean>> fullyQualifiedNames)
+      ReferenceResolver packageResolver)
       throws InvalidProtocolBufferException {
     DataResourceXml dataResourceXml =
         createWithNamespaces(
-            source,
-            valueFromProto(protoValue, resourceType, fullyQualifiedNames),
-            Namespaces.empty());
+            source, valueFromProto(protoValue, resourceType, packageResolver), Namespaces.empty());
     return dataResourceXml;
   }
 
@@ -212,9 +209,7 @@ public class DataResourceXml implements DataResource {
   }
 
   private static XmlResourceValue valueFromProto(
-      Value proto,
-      ResourceType resourceType,
-      Map<String, Entry<FullyQualifiedName, Boolean>> fullyQualifiedNames)
+      Value proto, ResourceType resourceType, ReferenceResolver packageResolver)
       throws InvalidProtocolBufferException {
     switch (resourceType) {
       case STYLE:
@@ -226,7 +221,7 @@ public class DataResourceXml implements DataResource {
       case ATTR:
         return AttrXmlResourceValue.from(proto);
       case STYLEABLE:
-        return StyleableXmlResourceValue.from(proto, fullyQualifiedNames);
+        return StyleableXmlResourceValue.from(proto, packageResolver);
       case ID:
         return IdXmlResourceValue.of();
       case DIMEN:
@@ -391,7 +386,7 @@ public class DataResourceXml implements DataResource {
   }
 
   @Override
-  public int serializeTo(DataKey key, DataSourceTable sourceTable, OutputStream outStream)
+  public int serializeTo(DataSourceTable sourceTable, OutputStream outStream)
       throws IOException {
     return xml.serializeTo(sourceTable.getSourceId(source), namespaces, outStream);
   }

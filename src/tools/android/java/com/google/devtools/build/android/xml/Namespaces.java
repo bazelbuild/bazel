@@ -23,7 +23,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -39,7 +38,7 @@ import javax.xml.stream.events.StartElement;
  * resources tag to combining multiple {@link DataResourceXml}s, the Namespaces must be tracked and
  * kept with each value.
  */
-public class Namespaces implements Iterable<Entry<String, String>> {
+public class Namespaces implements Iterable<Map.Entry<String, String>> {
   private static final Logger logger = Logger.getLogger(Namespaces.class.getCanonicalName());
   private static final Namespaces EMPTY_INSTANCE =
       new Namespaces(ImmutableMap.<String, String>of());
@@ -128,7 +127,7 @@ public class Namespaces implements Iterable<Entry<String, String>> {
     // Keeping behavior for backwards compatibility.
     Map<String, String> combinedNamespaces = new LinkedHashMap<>();
     combinedNamespaces.putAll(other.prefixToUri);
-    for (Entry<String, String> namespace : prefixToUri.entrySet()) {
+    for (Map.Entry<String, String> namespace : prefixToUri.entrySet()) {
       String prefix = namespace.getKey();
       String namespaceUri = namespace.getValue();
       if (combinedNamespaces.containsKey(prefix)
@@ -145,7 +144,7 @@ public class Namespaces implements Iterable<Entry<String, String>> {
   }
 
   @Override
-  public Iterator<Entry<String, String>> iterator() {
+  public Iterator<Map.Entry<String, String>> iterator() {
     return prefixToUri.entrySet().iterator();
   }
 

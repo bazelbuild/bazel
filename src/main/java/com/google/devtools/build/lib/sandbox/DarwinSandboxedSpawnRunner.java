@@ -16,17 +16,17 @@ package com.google.devtools.build.lib.sandbox;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
@@ -47,8 +47,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Spawn runner that uses Darwin (macOS) sandboxing to execute a process. */
 @ExecutionStrategy(
@@ -56,7 +56,14 @@ import java.util.Set;
   contextType = SpawnActionContext.class
 )
 final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
-  private static final String SANDBOX_EXEC = "/usr/bin/sandbox-exec";
+
+  /** Path to the {@code getconf} system tool to use. */
+  @VisibleForTesting
+  static String getconfBinary = "/usr/bin/getconf";
+
+  /** Path to the {@code sandbox-exec} system tool to use. */
+  @VisibleForTesting
+  static String sandboxExecBinary = "/usr/bin/sandbox-exec";
 
   public static boolean isSupported(CommandEnvironment cmdEnv) {
     if (OS.getCurrent() != OS.DARWIN) {
@@ -67,7 +74,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     List<String> args = new ArrayList<>();
-    args.add(SANDBOX_EXEC);
+    args.add(sandboxExecBinary);
     args.add("-p");
     args.add("(version 1) (allow default)");
     args.add("/usr/bin/true");
@@ -87,9 +94,10 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private final Path execRoot;
   private final boolean allowNetwork;
-  private final String productName;
   private final Path processWrapper;
-  private final Optional<Duration> timeoutKillDelay;
+  private final Path sandboxBase;
+  private final Duration timeoutKillDelay;
+  private final @Nullable SandboxfsProcess sandboxfsProcess;
 
   /**
    * The set of directories that always should be writable, independent of the Spawn itself.
@@ -101,57 +109,29 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool and the MacOS
-   * {@code sandbox-exec} binary. If a spawn exceeds its timeout, then it will be killed instantly.
-   *
-   * @param cmdEnv the command environment to use
-   * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
-   */
-  DarwinSandboxedSpawnRunner(CommandEnvironment cmdEnv, Path sandboxBase, String productName)
-      throws IOException {
-    this(cmdEnv, sandboxBase, productName, Optional.empty());
-  }
-
-  /**
-   * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool and the MacOS
-   * {@code sandbox-exec} binary. If a spawn exceeds its timeout, then it will be killed after the
-   * specified delay.
-   *
-   * @param cmdEnv the command environment to use
-   * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
-   * @param timeoutKillDelay an additional grace period before killing timing out commands
-   */
-  DarwinSandboxedSpawnRunner(
-      CommandEnvironment cmdEnv, Path sandboxBase, String productName, Duration timeoutKillDelay)
-      throws IOException {
-    this(cmdEnv, sandboxBase, productName, Optional.of(timeoutKillDelay));
-  }
-
-  /**
-   * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool and the MacOS
    * {@code sandbox-exec} binary.
    *
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
-   * @param timeoutKillDelay an optional, additional grace period before killing timing out
-   *     commands. If not present, then no grace period is used and commands are killed instantly.
+   * @param timeoutKillDelay additional grace period before killing timing out commands
+   * @param sandboxfsProcess instance of the sandboxfs process to use; may be null for none, in
+   *     which case the runner uses a symlinked sandbox
    */
   DarwinSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
       Path sandboxBase,
-      String productName,
-      Optional<Duration> timeoutKillDelay)
+      Duration timeoutKillDelay,
+      @Nullable SandboxfsProcess sandboxfsProcess)
       throws IOException {
-    super(cmdEnv, sandboxBase);
+    super(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
-    this.productName = productName;
     this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem());
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
-    this.localEnvProvider = new XCodeLocalEnvProvider(cmdEnv.getClientEnv());
+    this.localEnvProvider = new XcodeLocalEnvProvider(cmdEnv.getClientEnv());
+    this.sandboxBase = sandboxBase;
     this.timeoutKillDelay = timeoutKillDelay;
+    this.sandboxfsProcess = sandboxfsProcess;
   }
 
   private static void addPathToSetIfExists(FileSystem fs, Set<Path> paths, String path)
@@ -199,7 +179,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    */
   private static String getConfStr(String confVar) throws IOException {
     String[] commandArr = new String[2];
-    commandArr[0] = "/usr/bin/getconf";
+    commandArr[0] = getconfBinary;
     commandArr[1] = confVar;
     Command cmd = new Command(commandArr);
     CommandResult res;
@@ -212,19 +192,24 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
-      throws ExecException, IOException, InterruptedException {
-    // Each invocation of "exec" gets its own sandbox.
-    Path sandboxPath = getSandboxRoot();
-    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
+  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, InterruptedException {
+    // Each invocation of "exec" gets its own sandbox base.
+    // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
+    // so we have to prefix our name to turn it into a globally unique value.
+    Path sandboxPath =
+        sandboxBase.getRelative(getName()).getRelative(Integer.toString(context.getId()));
+    sandboxPath.getParentDirectory().createDirectory();
+    sandboxPath.createDirectory();
 
-    // Each sandboxed action runs in its own execroot, so we don't need to make the temp directory's
-    // name unique (like we have to with standalone execution strategy).
-    Path tmpDir = sandboxExecRoot.getRelative("tmp");
+    // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
+    // the normal execroot does.
+    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
+    sandboxExecRoot.getParentDirectory().createDirectory();
+    sandboxExecRoot.createDirectory();
 
     Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(
-            spawn.getEnvironment(), execRoot, tmpDir.getPathString(), productName);
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, "/tmp");
 
     final HashSet<Path> writableDirs = new HashSet<>(alwaysWritableDirs);
     ImmutableSet<Path> extraWritableDirs = getWritableDirs(sandboxExecRoot, environment);
@@ -233,54 +218,79 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
 
     final Path sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");
-    Duration timeout = policy.getTimeout();
+    Duration timeout = context.getTimeout();
 
     ProcessWrapperUtil.CommandLineBuilder processWrapperCommandLineBuilder =
         ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(), spawn.getArguments())
             .setTimeout(timeout);
 
-    if (timeoutKillDelay.isPresent()) {
-      processWrapperCommandLineBuilder.setKillDelay(timeoutKillDelay.get());
-    }
+    processWrapperCommandLineBuilder.setKillDelay(timeoutKillDelay);
 
-    final Optional<String> statisticsPath;
+    final Path statisticsPath;
     if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {
-      statisticsPath = Optional.of(sandboxPath.getRelative("stats.out").getPathString());
-      processWrapperCommandLineBuilder.setStatisticsPath(statisticsPath.get());
+      statisticsPath = sandboxPath.getRelative("stats.out");
+      processWrapperCommandLineBuilder.setStatisticsPath(statisticsPath);
     } else {
-      statisticsPath = Optional.empty();
+      statisticsPath = null;
     }
 
     ImmutableList<String> commandLine =
         ImmutableList.<String>builder()
-            .add(SANDBOX_EXEC)
+            .add(sandboxExecBinary)
             .add("-f")
             .add(sandboxConfigPath.getPathString())
             .addAll(processWrapperCommandLineBuilder.build())
             .build();
 
     boolean allowNetworkForThisSpawn = allowNetwork || Spawns.requiresNetwork(spawn);
-    SandboxedSpawn sandbox =
-        new SymlinkedSandboxedSpawn(
-            sandboxPath,
-            sandboxExecRoot,
-            commandLine,
-            environment,
-            SandboxHelpers.getInputFiles(spawn, policy, execRoot),
-            outputs,
-            writableDirs) {
-          @Override
-          public void createFileSystem() throws IOException {
-            super.createFileSystem();
-            writeConfig(
-                sandboxConfigPath,
-                writableDirs,
-                getInaccessiblePaths(),
-                allowNetworkForThisSpawn,
-                statisticsPath);
-          }
-        };
-    return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout, statisticsPath);
+
+    Map<PathFragment, Path> inputs = SandboxHelpers.processInputFiles(spawn, context, execRoot);
+
+    SandboxedSpawn sandbox;
+    if (sandboxfsProcess != null) {
+      sandbox =
+          new SandboxfsSandboxedSpawn(
+              sandboxfsProcess,
+              sandboxPath,
+              commandLine,
+              environment,
+              inputs,
+              outputs,
+              ImmutableSet.of()) {
+            @Override
+            public void createFileSystem() throws IOException {
+              super.createFileSystem();
+              writeConfig(
+                  sandboxConfigPath,
+                  writableDirs,
+                  getInaccessiblePaths(),
+                  allowNetworkForThisSpawn,
+                  statisticsPath);
+            }
+          };
+    } else {
+      sandbox =
+          new SymlinkedSandboxedSpawn(
+              sandboxPath,
+              sandboxExecRoot,
+              commandLine,
+              environment,
+              inputs,
+              outputs,
+              writableDirs) {
+            @Override
+            public void createFileSystem() throws IOException {
+              super.createFileSystem();
+              writeConfig(
+                  sandboxConfigPath,
+                  writableDirs,
+                  getInaccessiblePaths(),
+                  allowNetworkForThisSpawn,
+                  statisticsPath);
+            }
+          };
+    }
+    return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
   }
 
   private void writeConfig(
@@ -288,7 +298,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Set<Path> writableDirs,
       Set<Path> inaccessiblePaths,
       boolean allowNetwork,
-      Optional<String> statisticsPath)
+      Path statisticsPath)
       throws IOException {
     try (PrintWriter out =
         new PrintWriter(
@@ -313,8 +323,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       for (Path path : writableDirs) {
         out.println("    (subpath \"" + path.getPathString() + "\")");
       }
-      if (statisticsPath.isPresent()) {
-        out.println("    (subpath \"" + statisticsPath + "\")");
+      if (statisticsPath != null) {
+        out.println("    (literal \"" + statisticsPath.getPathString() + "\")");
       }
       out.println(")");
 
@@ -331,7 +341,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  protected String getName() {
+  public String getName() {
     return "darwin-sandbox";
   }
 }

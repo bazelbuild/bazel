@@ -1,7 +1,7 @@
 # Description:
 #   The Java library builders, which are used by Bazel to compile Java
 #   source code.
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
 
 filegroup(
     name = "srcs",
@@ -48,6 +48,10 @@ java_library(
 alias(
     name = "jarhelper",
     actual = "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
+    visibility = [
+        "//src/java_tools/buildjar:buildjar_package_group",
+        "//src/tools/android:__subpackages__",
+    ],
 )
 
 # Bazel's BuildJar
@@ -161,25 +165,6 @@ bootstrap_java_library(
     name = "bootstrap_invalid_command_line_exception",
     srcs = ["InvalidCommandLineException.java"],
     tags = ["manual"],
-)
-
-bootstrap_java_binary(
-    name = "bootstrap",
-    srcs = glob(
-        ["**/*.java"],
-        exclude = [
-            "JarOwner.java",
-            "VanillaJavaBuilder.java",
-            "javac/testing/**",
-        ],
-    ),
-    main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
-    tags = ["manual"],
-    deps = [
-        ":skylark-deps",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:bootstrap_plugins",
-    ],
 )
 
 bootstrap_java_library(

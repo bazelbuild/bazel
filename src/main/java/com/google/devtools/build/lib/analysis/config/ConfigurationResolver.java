@@ -26,10 +26,10 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Event;
@@ -94,7 +94,6 @@ public final class ConfigurationResolver {
    * @param originalDeps the transition requests for each dep under this target's attributes
    * @param hostConfiguration the host configuration
    * @param ruleClassProvider provider for determining the right configuration fragments for deps
-   *
    * @return a mapping from each attribute in the source target to the {@link BuildConfiguration}s
    *     and {@link Label}s for the deps under that attribute. Returns null if not all Skyframe
    *     dependencies are available.
@@ -105,7 +104,8 @@ public final class ConfigurationResolver {
       TargetAndConfiguration ctgValue,
       OrderedSetMultimap<Attribute, Dependency> originalDeps,
       BuildConfiguration hostConfiguration,
-      RuleClassProvider ruleClassProvider)
+      RuleClassProvider ruleClassProvider,
+      BuildOptions defaultBuildOptions)
       throws ConfiguredTargetFunction.DependencyEvaluationException, InterruptedException {
 
     // Maps each Skyframe-evaluated BuildConfiguration to the dependencies that need that
@@ -182,7 +182,7 @@ public final class ConfigurationResolver {
       }
 
       boolean sameFragments = depFragments.equals(ctgFragments.fragmentClasses());
-      Transition transition = dep.getTransition();
+      ConfigurationTransition transition = dep.getTransition();
 
       if (sameFragments) {
         if (transition == NoTransition.INSTANCE) {
@@ -232,10 +232,16 @@ public final class ConfigurationResolver {
       // If we get here, we have to get the configuration from Skyframe.
       for (BuildOptions options : toOptions) {
         if (sameFragments) {
-          keysToEntries.put(BuildConfigurationValue.key(ctgFragments, options), depsEntry);
+          keysToEntries.put(
+              BuildConfigurationValue.key(
+                  ctgFragments, BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
+              depsEntry);
 
         } else {
-          keysToEntries.put(BuildConfigurationValue.key(depFragments, options), depsEntry);
+          keysToEntries.put(
+              BuildConfigurationValue.key(
+                  depFragments, BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
+              depsEntry);
         }
       }
     }
@@ -299,11 +305,11 @@ public final class ConfigurationResolver {
     // Treat this as immutable. The only reason this isn't an ImmutableSet is because it
     // gets bound to a NestedSet.toSet() reference, which returns a Set interface.
     final Set<Class<? extends BuildConfiguration.Fragment>> fragments;
-    final Transition transition;
+    final ConfigurationTransition transition;
     private final int hashCode;
 
     FragmentsAndTransition(Set<Class<? extends BuildConfiguration.Fragment>> fragments,
-        Transition transition) {
+        ConfigurationTransition transition) {
       this.fragments = fragments;
       this.transition = transition;
       hashCode = Objects.hash(this.fragments, this.transition);
@@ -393,7 +399,7 @@ public final class ConfigurationResolver {
       SkyFunction.Environment env, Label dep, BuildConfiguration parentConfig)
       throws InterruptedException {
     if (!parentConfig.trimConfigurations()) {
-      return parentConfig.getAllFragments().keySet();
+      return parentConfig.getFragmentsMap().keySet();
     }
     SkyKey fragmentsKey = TransitiveTargetKey.of(dep);
     TransitiveTargetValue transitiveDepInfo = (TransitiveTargetValue) env.getValue(fragmentsKey);
@@ -415,7 +421,7 @@ public final class ConfigurationResolver {
    */
   @VisibleForTesting
   public static List<BuildOptions> applyTransition(BuildOptions fromOptions,
-      Transition transition,
+      ConfigurationTransition transition,
       Iterable<Class<? extends BuildConfiguration.Fragment>> requiredFragments,
       RuleClassProvider ruleClassProvider, boolean trimResults) {
     List<BuildOptions> result;
@@ -458,7 +464,7 @@ public final class ConfigurationResolver {
       throws ConfiguredTargetFunction.DependencyEvaluationException {
     Set<String> ctgFragmentNames = new HashSet<>();
     for (BuildConfiguration.Fragment fragment :
-        ctgValue.getConfiguration().getAllFragments().values()) {
+        ctgValue.getConfiguration().getFragmentsMap().values()) {
       ctgFragmentNames.add(fragment.getClass().getSimpleName());
     }
     Set<String> depFragmentNames = new HashSet<>();

@@ -107,7 +107,7 @@ new_local_repository(
 example:
 
 ```python
-java_library(
+cc_library(
     name = "some-lib",
     srcs = glob(["**"]),
     visibility = ["//visibility:public"],

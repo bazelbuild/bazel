@@ -15,6 +15,8 @@ java_library_srcs(
 
 java_proto_library(
     name = "build_event_stream_java_proto",
+    # The Bazel IntelliJ plugin uses this.
+    visibility = ["//visibility:public"],
     deps = ["build_event_stream_proto"],
 )
 

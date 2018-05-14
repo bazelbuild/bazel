@@ -28,9 +28,9 @@ Bazel offers the following advantages:
     speed up your builds, you can set up your project to build in a  highly
     parallel and incremental fashion.
 
-*   **Bazel is multi-platform.** Bazel can build binaries and deployable
-    packages for multiple platforms, including desktop, server, and mobile,
-    from the same project.
+*   **Bazel is multi-platform.** Bazel runs on Linux, macOS, and Windows. Bazel
+    can build binaries and deployable packages for multiple platforms, including
+    desktop, server, and mobile, from the same project.
 
 *   **Bazel scales.** Bazel maintains agility while handling builds with 100k+
     source files. It works with multiple repositories and user bases in the tens
@@ -38,17 +38,6 @@ Bazel offers the following advantages:
 
 *   **Bazel is extensible.** You can extend Bazel to support your language of
     choice.
-
-
-# What does Bazel support?
-
-Bazel supports the following:
-
-*  **Programming languages**: Java, C++, Objective-C, Python, JavaScript, Go
-
-*  **Operating systems**: Linux, macOS, Windows
-
-*  **Target platforms**: Linux, macOS, Windows, Android, iOS, Google App Engine
 
 
 # How do I use Bazel?
@@ -99,15 +88,15 @@ When running a build or a test, Bazel does the following:
 
 Since all previous build work is cached, Bazel can identify and reuse cached
 artifacts and only rebuild or retest what's changed. To further enforce
-correctness, you can set up Bazel to run builds and tests [hermetically](https://docs.bazel.build/versions/master/bazel-user-manual.html#sandboxing)
-through sandboxing, minimizing skew and maximizing [reproducibility](https://docs.bazel.build/versions/master/bazel-user-manual.html#correctness).
+correctness, you can set up Bazel to run builds and tests [hermetically](https://docs.bazel.build/versions/master/user-manual.html#sandboxing)
+through sandboxing, minimizing skew and maximizing [reproducibility](https://docs.bazel.build/versions/master/user-manual.html#correctness).
 
 
 ## What is the action graph?
 
 The action graph represents the build artifacts, the relationships between them,
 and the build actions that Bazel will perform. Thanks to this graph, Bazel can
-[track](https://docs.bazel.build/versions/master/bazel-user-manual.html#build-consistency-and-incremental-builds)
+[track](https://docs.bazel.build/versions/master/user-manual.html#build-consistency-and-incremental-builds)
 changes to file content as well as changes to actions, such as build or test
 commands, and know what build work has previously been done. The graph also
 enables you to easily [trace dependencies](https://docs.bazel.build/versions/master/query-how-to.html)

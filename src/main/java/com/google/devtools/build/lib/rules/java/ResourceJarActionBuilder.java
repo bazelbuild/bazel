@@ -21,10 +21,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -135,7 +135,7 @@ public class ResourceJarActionBuilder {
     // the params file in situations where it is required for --min_param_file_size.
     if (sizeGreaterThanOrEqual(
             Iterables.concat(messages, resources.values(), resourceJars, classpathResources), 10)
-        || ruleContext.getConfiguration().getMinParamFileSize() < 10000) {
+        || ruleContext.getConfiguration().getCommandLineLimits().maxLength < 10000) {
       paramFileInfo = ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).build();
     }
     ruleContext.registerAction(

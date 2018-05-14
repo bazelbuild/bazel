@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -241,11 +242,12 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Artifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+  public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
-    return trackArtifactAndOrigin(
-        artifactFactory.getTreeArtifact(rootRelativePath, root, getOwner()),
-        extendedSanityChecks ? new Throwable() : null);
+    return (SpecialArtifact)
+        trackArtifactAndOrigin(
+            artifactFactory.getTreeArtifact(rootRelativePath, root, getOwner()),
+            extendedSanityChecks ? new Throwable() : null);
   }
 
   @Override

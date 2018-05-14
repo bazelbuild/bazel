@@ -29,16 +29,26 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
 
 /**
  * Rule definition for {@code java_toolchain}
  */
-public final class JavaToolchainRule implements RuleDefinition {
+public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDefinition {
+
+  private final Class<C> ruleClass;
+
+  public static <C extends JavaToolchain> JavaToolchainRule create(Class<C> ruleClass){
+      return new JavaToolchainRule(ruleClass);
+  }
+
+  private JavaToolchainRule(Class<C> ruleClass) {
+    this.ruleClass = ruleClass;
+  }
+
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(JavaConfiguration.class)
         /* <!-- #BLAZE_RULE(java_plugin).ATTRIBUTE(output_licenses) -->
@@ -221,7 +231,7 @@ public final class JavaToolchainRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("java_toolchain")
         .ancestors(BaseRuleClasses.BaseRule.class)
-        .factoryClass(JavaToolchain.class)
+        .factoryClass(ruleClass)
         .build();
   }
 }
@@ -246,7 +256,7 @@ java_toolchain(
     bootclasspath = ["//tools/jdk:bootclasspath"],
     encoding = "UTF-8",
     xlint = [ "classfile", "divzero", "empty", "options", "path" ],
-    misc = [ "-g" ],
+    javacopts = [ "-g" ],
     javabuilder = ":JavaBuilder_deploy.jar",
 )
 </pre>

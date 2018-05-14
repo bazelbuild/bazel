@@ -45,6 +45,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
+  String preludeLabelRelativePath;
+
   @Before
   public final void preparePackageLoading() throws Exception  {
     Path alternativeRoot = scratch.dir("/root_2");
@@ -65,6 +67,8 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
             ImmutableMap.<String, String>of(),
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
+    this.preludeLabelRelativePath =
+        getRuleClassProvider().getPreludeLabel().toPathFragment().toString();
   }
 
   @Test
@@ -99,7 +103,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadFromSkylarkFileInRemoteRepo() throws Exception {
-    scratch.deleteFile("tools/build_rules/prelude_blaze");
+    scratch.deleteFile(preludeLabelRelativePath);
     scratch.overwriteFile("WORKSPACE",
         "local_repository(",
         "    name = 'a_remote_repo',",
@@ -238,7 +242,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadFromExternalRepoInWorkspaceFileAllowed() throws Exception {
-    scratch.deleteFile("tools/build_rules/prelude_blaze");
+    scratch.deleteFile(preludeLabelRelativePath);
     scratch.overwriteFile("WORKSPACE",
         "local_repository(",
         "    name = 'a_remote_repo',",

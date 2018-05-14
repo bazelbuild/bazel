@@ -452,7 +452,7 @@ public abstract class BlazeOptionHandler {
       for (ParsedOptionDescription configInstance : configInstances) {
         String configValueToExpand = (String) configInstance.getConvertedValue();
         List<String> expansion = getExpansion(eventHandler, commandToRcArgs, configValueToExpand);
-        optionsParser.parseArgsFixedAsExpansionOfOption(
+        optionsParser.parseArgsAsExpansionOfOption(
             configInstance, String.format("expanded from --%s", configValueToExpand), expansion);
       }
 
@@ -541,7 +541,13 @@ public abstract class BlazeOptionHandler {
               // we will only accept --config=value, and will not accept value on a following line.
               int charOfConfigValue = arg.indexOf('=');
               if (charOfConfigValue < 0) {
-                throw new OptionsParsingException("Config flag was provided without a value.");
+                throw new OptionsParsingException(
+                    String.format(
+                        "In file %s, the definition of config %s expands to another config "
+                            + "that either has no value or is not in the form --config=value. For "
+                            + "recursive config definitions, please do not provide the value in a "
+                            + "separate token, such as in the form '--config value'.",
+                        rcArgs.rcFile, configToExpand));
               }
               String newConfigValue = arg.substring(charOfConfigValue + 1);
               LinkedHashSet<String> extendedConfigAncestorSet =

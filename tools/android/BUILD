@@ -1,23 +1,6 @@
 package(default_visibility = ["//tools:__pkg__"])
 
 py_binary(
-    name = "merge_manifests",
-    srcs = [
-        "android_permissions.py",
-        "merge_manifests.py",
-    ],
-    deps = [
-        "//third_party/py/gflags",
-    ],
-)
-
-py_test(
-    name = "merge_manifests_test",
-    srcs = ["merge_manifests_test.py"],
-    deps = [":merge_manifests"],
-)
-
-py_binary(
     name = "build_incremental_dexmanifest",
     srcs = [":build_incremental_dexmanifest.py"],
 )
@@ -196,6 +179,15 @@ py_test(
     ],
 )
 
+genrule(
+    name = "desugar_jdk_libs",
+    srcs = ["@desugar_jdk_libs"],
+    outs = ["desugar_jdk_libs.jar"],
+    cmd = "cp $< $@",
+    output_to_bindir = 1,
+    visibility = ["//visibility:private"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + ["//tools/android/emulator:srcs"],
@@ -209,7 +201,10 @@ filegroup(
             "*_test.py",
             "*_test.sh",
         ],
-    ) + ["//tools/android/emulator:embedded_tools"],
+    ) + [
+        ":desugar_jdk_libs.jar",
+        "//tools/android/emulator:embedded_tools",
+    ],
 )
 
 # Exported for AndroidSdkRepositoryTest to use it instead of mocking it out.

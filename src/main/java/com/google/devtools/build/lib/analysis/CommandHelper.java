@@ -34,7 +34,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /**
@@ -130,7 +129,7 @@ public final class CommandHelper {
     this.toolsRunfilesSuppliers = SkylarkList.createImmutable(toolsRunfilesBuilder.build());
     ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> labelMapBuilder =
         ImmutableMap.builder();
-    for (Entry<Label, Collection<Artifact>> entry : tempLabelMap.entrySet()) {
+    for (Map.Entry<Label, Collection<Artifact>> entry : tempLabelMap.entrySet()) {
       labelMapBuilder.put(entry.getKey(), ImmutableList.copyOf(entry.getValue()));
     }
     this.labelMap = labelMapBuilder.build();
@@ -306,6 +305,7 @@ public final class CommandHelper {
   private PathFragment shellPath(Map<String, String> executionInfo) {
     // Use vanilla /bin/bash for actions running on mac machines.
     return executionInfo.containsKey(ExecutionRequirements.REQUIRES_DARWIN)
-        ? PathFragment.create("/bin/bash") : ruleContext.getConfiguration().getShellExecutable();
+        ? PathFragment.create("/bin/bash")
+        : ShToolchain.getPathOrError(ruleContext);
   }
 }

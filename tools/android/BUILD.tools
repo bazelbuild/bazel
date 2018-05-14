@@ -5,6 +5,8 @@ alias(
     actual = "//external:android/sdk",
 )
 
+android_tools_defaults_jar(name = "android_jar")
+
 android_library(
     name = "incremental_stub_application",
     exports = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_stub_application"],
@@ -36,6 +38,11 @@ alias(
 )
 
 alias(
+    name = "dexbuilder_after_proguard",
+    actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexBuilder",
+)
+
+alias(
     name = "dexmerger",
     actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileMerger",
 )
@@ -45,9 +52,16 @@ alias(
     actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileSplitter",
 )
 
-alias(
+sh_binary(
     name = "desugar_java8",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar",
+    srcs = ["desugar.sh"],
+    data = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+)
+
+alias(
+    name = "aar_import_deps_checker",
+    actual = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker_embedded",
+    visibility = ["//visibility:public"]
 )
 
 alias(
@@ -116,6 +130,115 @@ genrule(
     visibility = ["//visibility:private"],
 )
 
+java_import(
+    name = "desugared_java8_legacy_apis",
+    jars = [":ijar_desugared_java8_legacy_libs"],
+    neverlink = 1,
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "ijar_desugared_java8_legacy_libs",
+    srcs = ["desugared_java8_legacy_libs"],
+    outs = ["desugared_java8_legacy_libs-ijar.jar"],
+    cmd = "$(location //third_party/ijar) $< $@",
+    tools = ["//third_party/ijar"],
+    visibility = ["//visibility:private"],
+)
+
+sh_binary(
+    name = "build_java8_legacy_dex",
+    srcs = ["build_java8_legacy_dex.sh"],
+    data = [":java8_legacy_dex"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "java8_legacy_dex",
+    srcs = ["desugared_java8_legacy_libs"],
+    outs = ["java8_legacy.dex.zip"],
+    cmd = """$(location :dexer) --dex "--output=$@" $<""",
+    tools = [":dexer"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "desugared_java8_legacy_libs",
+    srcs = ["desugared_java8_legacy_libs.jar"],
+    visibility = ["//visibility:private"],
+)
+
+genrule(
+    name = "desugar_java8_legacy_libs",
+    srcs = ["desugar_jdk_libs.jar"],
+    outs = ["desugared_java8_legacy_libs.jar"],
+    cmd = """
+    classpath=()
+    for j in $(locations //tools/jdk:bootclasspath); do
+      classpath+=("--classpath_entry")
+      classpath+=("$${j}")
+    done
+    $(location :desugar_java8) \
+        --input $< \
+        --output $@ \
+        "$${classpath[@]}" \
+        --core_library --allow_empty_bootclasspath \
+        --nobest_effort_tolerate_missing_deps \
+        --noemit_dependency_metadata_as_needed \
+        --nodesugar_try_with_resources_if_needed \
+        --desugar_supported_core_libs \
+        --rewrite_core_library_prefix java/lang/Double8 \
+        --rewrite_core_library_prefix java/lang/Integer8 \
+        --rewrite_core_library_prefix java/lang/Long8 \
+        --rewrite_core_library_prefix java/lang/Math8 \
+        --rewrite_core_library_prefix java/time/ \
+        --rewrite_core_library_prefix java/util/stream/ \
+        --rewrite_core_library_prefix java/util/function/ \
+        --rewrite_core_library_prefix java/util/Arrays8 \
+        --rewrite_core_library_prefix java/util/Comparators \
+        --rewrite_core_library_prefix java/util/Date8 \
+        --rewrite_core_library_prefix java/util/DoubleSummaryStatistics \
+        --rewrite_core_library_prefix java/util/IntSummaryStatistics \
+        --rewrite_core_library_prefix java/util/LinkedHashSet8 \
+        --rewrite_core_library_prefix java/util/LongSummaryStatistics \
+        --rewrite_core_library_prefix java/util/Objects \
+        --rewrite_core_library_prefix java/util/Optional \
+        --rewrite_core_library_prefix java/util/PrimitiveIterator \
+        --rewrite_core_library_prefix java/util/SortedSet\$$1 \
+        --rewrite_core_library_prefix java/util/Spliterator \
+        --rewrite_core_library_prefix java/util/StringJoiner \
+        --rewrite_core_library_prefix java/util/TimeZone8 \
+        --rewrite_core_library_prefix java/util/Tripwire \
+        --retarget_core_library_member "java/util/Arrays#stream->java/util/Arrays8" \
+        --retarget_core_library_member "java/util/Arrays#spliterator->java/util/Arrays8" \
+        --retarget_core_library_member "java/util/LinkedHashSet#spliterator->java/util/LinkedHashSet8" \
+        --emulate_core_library_interface java/util/Collection \
+        --emulate_core_library_interface java/util/Map \
+        --emulate_core_library_interface java/util/Map\$$Entry \
+        --emulate_core_library_interface java/util/Iterator \
+        --emulate_core_library_interface java/util/Comparator \
+        --dont_rewrite_core_library_invocation "java/util/Iterator#remove" """,
+    tools = [
+        ":desugar_java8",
+        "//tools/jdk:bootclasspath",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+# No-one should depend on this but :desugared_java8_legacy_libs above
+exports_files(["desugar_jdk_libs.jar"],
+    visibility = ["//visibility:private"],
+)
+
+# Mirrors @<repo>//:dx_binary generated by android_sdk_repository rule without
+# needing the SDK repo's name (typically @androidsdk but not required).
+java_binary(
+    name = "dexer",
+    main_class = "com.android.dx.command.Main",
+    runtime_deps = ["//external:android/dx_jar_import"],
+    visibility = ["//visibility:private"],
+)
+
 alias(
     name = "IdlClass",
     actual = "//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass",
@@ -125,17 +248,6 @@ py_binary(
     name = "instrumentation_test_check",
     srcs = ["instrumentation_test_check.py"],
     deps = ["//third_party/py/gflags"],
-)
-
-py_binary(
-    name = "merge_manifests",
-    srcs = [
-        "android_permissions.py",
-        "merge_manifests.py",
-    ],
-    deps = [
-        "//third_party/py/gflags",
-    ],
 )
 
 py_binary(
@@ -278,7 +390,6 @@ android_sdk(
     aidl = ":error_message",
     android_jar = ":error_message.jar",
     shrinked_android_jar = ":error_message.jar",
-    annotations_jar = ":error_message.jar",
     main_dex_classes = ":error_message",
     apksigner = ":error_message",
     zipalign = ":error_message",

@@ -21,15 +21,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.TreeTraverser;
+import com.google.common.graph.Traverser;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -40,6 +42,7 @@ import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -53,9 +56,12 @@ import javax.annotation.Nullable;
  * computing and caching Merkle hashes on all objects.
  */
 @ThreadSafe
-public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.TreeNode> {
+public final class TreeNodeRepository {
   // In this implementation, symlinks are NOT followed when expanding directory artifacts
   public static final Symlinks SYMLINK_POLICY = Symlinks.NOFOLLOW;
+
+  private final Traverser<TreeNode> traverser =
+      Traverser.forTree((TreeNode node) -> children(node));
 
   /**
    * A single node in a hierarchical directory structure. Leaves are the Artifacts, although we only
@@ -110,14 +116,17 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
           return false;
         }
         ChildEntry other = (ChildEntry) o;
-        // Pointer comparisons only, because both the Path segments and the TreeNodes are interned.
-        return other.segment == segment && other.child == child;
+        // Pointer comparison for the TreeNode as it is interned
+        return other.segment.equals(segment) && other.child == child;
       }
 
       @Override
       public int hashCode() {
         return Objects.hash(segment, child);
       }
+
+      public static Comparator<ChildEntry> segmentOrder =
+          Comparator.comparing(ChildEntry::getSegment);
     }
 
     // Should only be called by the TreeNodeRepository.
@@ -229,14 +238,13 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     return inputFileCache;
   }
 
-  @Override
   public Iterable<TreeNode> children(TreeNode node) {
     return Iterables.transform(node.getChildEntries(), TreeNode.ChildEntry::getChild);
   }
 
   /** Traverse the directory structure in order (pre-order tree traversal). */
   public Iterable<TreeNode> descendants(TreeNode node) {
-    return preOrderTraversal(node);
+    return traverser.depthFirstPreOrder(node);
   }
 
   /**
@@ -310,10 +318,17 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
       // Leaf node reached. Must be unique.
       Preconditions.checkArgument(
           inputsStart == inputsEnd - 1, "Encountered two inputs with the same path.");
-      // TODO: check that the actionInput is a single file!
       ActionInput input = inputs.get(inputsStart);
-      Path leafPath = execRoot.getRelative(input.getExecPathString());
-      if (leafPath.isDirectory()) {
+      try {
+        if (!(input instanceof VirtualActionInput)
+            && Preconditions.checkNotNull(inputFileCache.getMetadata(input))
+                .getType()
+                .isDirectory()) {
+          Path leafPath = execRoot.getRelative(input.getExecPathString());
+          return interner.intern(new TreeNode(buildInputDirectoryEntries(leafPath), input));
+        }
+      } catch (DigestOfDirectoryException e) {
+        Path leafPath = execRoot.getRelative(input.getExecPathString());
         return interner.intern(new TreeNode(buildInputDirectoryEntries(leafPath), input));
       }
       return interner.intern(new TreeNode(input));
@@ -322,7 +337,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     String segment = segments.get(inputsStart).get(segmentIndex);
     for (int inputIndex = inputsStart; inputIndex < inputsEnd; ++inputIndex) {
       if (inputIndex + 1 == inputsEnd
-          || segment != segments.get(inputIndex + 1).get(segmentIndex)) {
+          || !segment.equals(segments.get(inputIndex + 1).get(segmentIndex))) {
         entries.add(
             new TreeNode.ChildEntry(
                 segment,
@@ -333,6 +348,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
         }
       }
     }
+    Collections.sort(entries, TreeNode.ChildEntry.segmentOrder);
     return interner.intern(new TreeNode(entries, null));
   }
 

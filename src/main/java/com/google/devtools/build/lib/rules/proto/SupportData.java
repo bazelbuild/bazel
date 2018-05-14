@@ -21,21 +21,28 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * A helper class for the *Support classes containing some data from ProtoLibrary.
- */
+/** A helper class for the *Support classes containing some data from ProtoLibrary. */
+@AutoCodec
 @AutoValue
 @Immutable
 public abstract class SupportData {
+  @AutoCodec.Instantiator
   public static SupportData create(
       Predicate<TransitiveInfoCollection> nonWeakDepsPredicate,
-      ImmutableList<Artifact> protoSources,
+      ImmutableList<Artifact> directProtoSources,
       NestedSet<Artifact> protosInDirectDeps,
       NestedSet<Artifact> transitiveImports,
+      NestedSet<String> transitiveProtoPathFlags,
       boolean hasProtoSources) {
     return new AutoValue_SupportData(
-        nonWeakDepsPredicate, protoSources, transitiveImports, protosInDirectDeps, hasProtoSources);
+        nonWeakDepsPredicate,
+        directProtoSources,
+        transitiveImports,
+        protosInDirectDeps,
+        transitiveProtoPathFlags,
+        hasProtoSources);
   }
 
   public abstract Predicate<TransitiveInfoCollection> getNonWeakDepsPredicate();
@@ -48,6 +55,12 @@ public abstract class SupportData {
    * .proto files in the direct dependencies of this proto_library. Used for strict deps checking.
    */
   public abstract NestedSet<Artifact> getProtosInDirectDeps();
+
+  /**
+   * Directories of .proto sources collected from the transitive closure. These flags will be passed
+   * to {@code protoc} in the specified order, via the {@code --proto_path} flag.
+   */
+  public abstract NestedSet<String> getTransitiveProtoPathFlags();
 
   public abstract boolean hasProtoSources();
 

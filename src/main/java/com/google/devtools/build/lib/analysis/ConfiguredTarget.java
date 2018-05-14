@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -45,24 +44,11 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject,
    */
   String FILES_FIELD = "files";
 
-  /**
-   * Returns the {@link Target} with which this {@link ConfiguredTarget} is associated.
-   *
-   * <p>Do not add new usages if possible. Prefer {@link #getLabel}, or use {@code
-   * ConfiguredTargetAndTarget} objects.
-   */
-  @Deprecated
-  Target getTarget();
-
-  /**
-   * <p>Returns the {@link BuildConfiguration} for which this {@link ConfiguredTarget} is
-   * defined. Configuration is defined for all configured targets with exception
-   * of the {@link InputFileConfiguredTarget} for which it is always
-   * <b>null</b>.</p>
-   */
-  @Override
-  @Nullable
-  BuildConfiguration getConfiguration();
+  default String getConfigurationChecksum() {
+    return getConfigurationKey() == null
+        ? null
+        : getConfigurationKey().getOptionsDiff().getChecksum();
+  }
 
   /**
    * Returns keys for a legacy Skylark provider.

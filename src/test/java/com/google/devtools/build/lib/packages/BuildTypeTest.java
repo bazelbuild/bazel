@@ -54,6 +54,21 @@ public class BuildTypeTest {
   }
 
   @Test
+  public void testKeepsDictOrdering() throws Exception {
+    Map<Object, String> input = new ImmutableMap.Builder<Object, String>()
+        .put("c", "//c")
+        .put("b", "//b")
+        .put("a", "//a")
+        .put("f", "//f")
+        .put("e", "//e")
+        .put("d", "//d")
+        .build();
+
+    assertThat(BuildType.LABEL_DICT_UNARY.convert(input, null, null).keySet())
+        .containsExactly("c", "b", "a", "f", "e", "d").inOrder();
+  }
+
+  @Test
   public void testLabelKeyedStringDictConvertsToMapFromLabelToString() throws Exception {
     Map<Object, String> input = new ImmutableMap.Builder<Object, String>()
         .put("//absolute:label", "absolute value")

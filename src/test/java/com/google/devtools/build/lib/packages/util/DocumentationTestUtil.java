@@ -18,12 +18,14 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.devtools.build.docgen.DocCheckerUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.exec.TestPolicy;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BuiltinCommandModule;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
+import com.google.devtools.build.lib.runtime.commands.RunCommand;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.HashSet;
@@ -34,6 +36,12 @@ import java.util.regex.Pattern;
 
 /** Utility functions for validating correctness of Bazel documentation. */
 public abstract class DocumentationTestUtil {
+
+  private static final class DummyBuiltinCommandModule extends BuiltinCommandModule {
+    DummyBuiltinCommandModule() {
+      super(new RunCommand(TestPolicy.EMPTY_POLICY));
+    }
+  }
 
   private DocumentationTestUtil() {}
 
@@ -69,7 +77,7 @@ public abstract class DocumentationTestUtil {
 
     // collect all command options
     ServerBuilder serverBuilder = new ServerBuilder();
-    new BuiltinCommandModule().serverInit(null, serverBuilder);
+    new DummyBuiltinCommandModule().serverInit(null, serverBuilder);
     for (BlazeModule module : blazeModules) {
       module.serverInit(null, serverBuilder);
     }

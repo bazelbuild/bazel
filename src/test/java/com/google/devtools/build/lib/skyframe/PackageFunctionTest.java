@@ -696,7 +696,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage).contains("nope");
     assertThat(errorInfo.getException()).isInstanceOf(NoSuchPackageException.class);
-    assertThat(errorInfo.getException()).hasCauseThat().isSameAs(exn);
+    assertThat(errorInfo.getException()).hasCauseThat().isInstanceOf(IOException.class);
   }
 
   @Test
@@ -714,7 +714,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage).contains("nope");
     assertThat(errorInfo.getException()).isInstanceOf(NoSuchPackageException.class);
-    assertThat(errorInfo.getException()).hasCauseThat().isSameAs(exn);
+    assertThat(errorInfo.getException()).hasCauseThat().isInstanceOf(IOException.class);
   }
 
   private static class CustomInMemoryFs extends InMemoryFileSystem {

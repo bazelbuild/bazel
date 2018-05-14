@@ -61,4 +61,23 @@ function test_allow_custom_manifest_name() {
     "Failed to build android_binary with custom Android manifest file name"
 }
 
+function test_legacy_multidex() {
+  create_new_workspace
+  setup_android_sdk_support
+  create_android_binary
+  mkdir -p java/bazel/multidex
+  cat > java/bazel/multidex/BUILD <<EOF
+android_binary(
+    name = "bin",
+    manifest = "AndroidManifest.xml",
+    multidex = "legacy",
+    deps = ["//java/bazel:lib"],
+)
+EOF
+  cat > java/bazel/multidex/AndroidManifest.xml <<EOF
+<manifest package="bazel.multidex" />
+EOF
+  assert_build //java/bazel/multidex:bin
+}
+
 run_suite "Android integration tests"

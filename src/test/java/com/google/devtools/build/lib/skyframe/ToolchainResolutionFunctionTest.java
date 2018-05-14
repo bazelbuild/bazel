@@ -16,16 +16,18 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
-import com.google.common.truth.DefaultSubject;
-import com.google.common.truth.Subject;
-import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
-import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
+import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -37,9 +39,34 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link ToolchainResolutionValue} and {@link ToolchainResolutionFunction}. */
 @RunWith(JUnit4.class)
 public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
+  private static final ConfiguredTargetKey LINUX_CTKEY =
+      ConfiguredTargetKey.of(Label.parseAbsoluteUnchecked("//linux:key"), null, false);
+  private static final ConfiguredTargetKey MAC_CTKEY =
+      ConfiguredTargetKey.of(Label.parseAbsoluteUnchecked("//mac:key"), null, false);
+
+  private static ConfiguredTargetValue createConfiguredTargetValue(
+      ConfiguredTarget configuredTarget) {
+    return new NonRuleConfiguredTargetValue(
+        configuredTarget,
+        GeneratingActions.EMPTY,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*removeActionsAfterEvaluation=*/ false);
+  }
 
   private EvaluationResult<ToolchainResolutionValue> invokeToolchainResolution(SkyKey key)
       throws InterruptedException {
+    ConfiguredTarget mockLinuxTarget = mock(ConfiguredTarget.class);
+    when(mockLinuxTarget.get(PlatformInfo.SKYLARK_CONSTRUCTOR)).thenReturn(linuxPlatform);
+    ConfiguredTarget mockMacTarget = mock(ConfiguredTarget.class);
+    when(mockMacTarget.get(PlatformInfo.SKYLARK_CONSTRUCTOR)).thenReturn(macPlatform);
+    getSkyframeExecutor()
+        .getDifferencerForTesting()
+        .inject(
+            ImmutableMap.of(
+                LINUX_CTKEY,
+                createConfiguredTargetValue(mockLinuxTarget),
+                MAC_CTKEY,
+                createConfiguredTargetValue(mockMacTarget)));
 
     try {
       getSkyframeExecutor().getSkyframeBuildView().enableAnalysis(true);
@@ -51,40 +78,50 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   }
 
   @Test
-  public void testResolution() throws Exception {
+  public void testResolution_singleExecutionPlatform() throws Exception {
     SkyKey key =
-        ToolchainResolutionValue.key(targetConfig, testToolchainType, linuxPlatform, macPlatform);
+        ToolchainResolutionValue.key(
+            targetConfigKey, testToolchainType, LINUX_CTKEY, ImmutableList.of(MAC_CTKEY));
     EvaluationResult<ToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasNoError();
 
     ToolchainResolutionValue toolchainResolutionValue = result.get(key);
-    assertThat(toolchainResolutionValue.toolchainLabel())
-        .isEqualTo(makeLabel("//toolchain:toolchain_2_impl"));
+    assertThat(toolchainResolutionValue.availableToolchainLabels())
+        .containsExactly(MAC_CTKEY, makeLabel("//toolchain:toolchain_2_impl"));
   }
 
   @Test
-  public void testResolution_flagOverride() throws Exception {
-    // Add extra toolchain.
-    scratch.file(
-        "extra/BUILD",
-        "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
-        "test_toolchain(",
-        "  name='extra_toolchain_impl',",
-        "  data = 'extra')");
-
-    useConfiguration(
-        "--toolchain_resolution_override=" + testToolchainType + "=//extra:extra_toolchain_impl");
+  public void testResolution_multipleExecutionPlatforms() throws Exception {
+    addToolchain(
+        "extra",
+        "extra_toolchain",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    rewriteWorkspace(
+        "register_toolchains(",
+        "'//toolchain:toolchain_1',",
+        "'//toolchain:toolchain_2',",
+        "'//extra:extra_toolchain')");
 
     SkyKey key =
-        ToolchainResolutionValue.key(targetConfig, testToolchainType, linuxPlatform, macPlatform);
+        ToolchainResolutionValue.key(
+            targetConfigKey,
+            testToolchainType,
+            LINUX_CTKEY,
+            ImmutableList.of(LINUX_CTKEY, MAC_CTKEY));
     EvaluationResult<ToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasNoError();
 
     ToolchainResolutionValue toolchainResolutionValue = result.get(key);
-    assertThat(toolchainResolutionValue.toolchainLabel())
-        .isEqualTo(makeLabel("//extra:extra_toolchain_impl"));
+    assertThat(toolchainResolutionValue.availableToolchainLabels())
+        .containsExactly(
+            LINUX_CTKEY,
+            makeLabel("//extra:extra_toolchain_impl"),
+            MAC_CTKEY,
+            makeLabel("//toolchain:toolchain_2_impl"));
   }
 
   @Test
@@ -93,7 +130,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     rewriteWorkspace();
 
     SkyKey key =
-        ToolchainResolutionValue.key(targetConfig, testToolchainType, linuxPlatform, macPlatform);
+        ToolchainResolutionValue.key(
+            targetConfigKey, testToolchainType, LINUX_CTKEY, ImmutableList.of(MAC_CTKEY));
     EvaluationResult<ToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result)
@@ -104,117 +142,31 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   }
 
   @Test
-  public void testResolveConstraints() throws Exception {
-    ConstraintSettingInfo setting1 =
-        ConstraintSettingInfo.create(makeLabel("//constraint:setting1"));
-    ConstraintSettingInfo setting2 =
-        ConstraintSettingInfo.create(makeLabel("//constraint:setting2"));
-    ConstraintValueInfo constraint1a =
-        ConstraintValueInfo.create(setting1, makeLabel("//constraint:value1a"));
-    ConstraintValueInfo constraint1b =
-        ConstraintValueInfo.create(setting1, makeLabel("//constraint:value1b"));
-    ConstraintValueInfo constraint2a =
-        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value2a"));
-    ConstraintValueInfo constraint2b =
-        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value2b"));
-
-    Label toolchainType1 = makeLabel("//toolchain:type1");
-    Label toolchainType2 = makeLabel("//toolchain:type2");
-
-    DeclaredToolchainInfo toolchain1a =
-        DeclaredToolchainInfo.create(
-            toolchainType1,
-            ImmutableList.of(constraint1a, constraint2a),
-            ImmutableList.of(constraint1a, constraint2a),
-            makeLabel("//toolchain:toolchain1a"));
-    DeclaredToolchainInfo toolchain1b =
-        DeclaredToolchainInfo.create(
-            toolchainType1,
-            ImmutableList.of(constraint1a, constraint2b),
-            ImmutableList.of(constraint1a, constraint2b),
-            makeLabel("//toolchain:toolchain1b"));
-    DeclaredToolchainInfo toolchain2a =
-        DeclaredToolchainInfo.create(
-            toolchainType2,
-            ImmutableList.of(constraint1b, constraint2a),
-            ImmutableList.of(constraint1b, constraint2a),
-            makeLabel("//toolchain:toolchain2a"));
-    DeclaredToolchainInfo toolchain2b =
-        DeclaredToolchainInfo.create(
-            toolchainType2,
-            ImmutableList.of(constraint1b, constraint2b),
-            ImmutableList.of(constraint1b, constraint2b),
-            makeLabel("//toolchain:toolchain2b"));
-
-    ImmutableList<DeclaredToolchainInfo> allToolchains =
-        ImmutableList.of(toolchain1a, toolchain1b, toolchain2a, toolchain2b);
-
-    assertToolchainResolution(
-            toolchainType1,
-            ImmutableList.of(constraint1a, constraint2a),
-            ImmutableList.of(constraint1a, constraint2a),
-            allToolchains)
-        .isEqualTo(toolchain1a);
-    assertToolchainResolution(
-            toolchainType1,
-            ImmutableList.of(constraint1a, constraint2b),
-            ImmutableList.of(constraint1a, constraint2b),
-            allToolchains)
-        .isEqualTo(toolchain1b);
-    assertToolchainResolution(
-            toolchainType2,
-            ImmutableList.of(constraint1b, constraint2a),
-            ImmutableList.of(constraint1b, constraint2a),
-            allToolchains)
-        .isEqualTo(toolchain2a);
-    assertToolchainResolution(
-            toolchainType2,
-            ImmutableList.of(constraint1b, constraint2b),
-            ImmutableList.of(constraint1b, constraint2b),
-            allToolchains)
-        .isEqualTo(toolchain2b);
-
-    // No toolchains of type.
-    assertToolchainResolution(
-            makeLabel("//toolchain:type3"),
-            ImmutableList.of(constraint1a, constraint2a),
-            ImmutableList.of(constraint1a, constraint2a),
-            allToolchains)
-        .isNull();
-  }
-
-  private Subject<DefaultSubject, Object> assertToolchainResolution(
-      Label toolchainType,
-      Iterable<ConstraintValueInfo> targetConstraints,
-      Iterable<ConstraintValueInfo> execConstraints,
-      ImmutableList<DeclaredToolchainInfo> toolchains)
-      throws Exception {
-
-    PlatformInfo execPlatform =
-        PlatformInfo.builder()
-            .setLabel(makeLabel("//platform:exec"))
-            .addConstraints(execConstraints)
-            .build();
-    PlatformInfo targetPlatform =
-        PlatformInfo.builder()
-            .setLabel(makeLabel("//platform:target"))
-            .addConstraints(targetConstraints)
-            .build();
-
-    DeclaredToolchainInfo resolvedToolchain =
-        ToolchainResolutionFunction.resolveConstraints(
-            toolchainType, execPlatform, targetPlatform, toolchains, null);
-    return assertThat(resolvedToolchain);
-  }
-
-  @Test
   public void testToolchainResolutionValue_equalsAndHashCode() {
     new EqualsTester()
         .addEqualityGroup(
-            ToolchainResolutionValue.create(makeLabel("//test:toolchain_impl_1")),
-            ToolchainResolutionValue.create(makeLabel("//test:toolchain_impl_1")))
+            ToolchainResolutionValue.create(
+                ImmutableMap.of(LINUX_CTKEY, makeLabel("//test:toolchain_impl_1"))),
+            ToolchainResolutionValue.create(
+                ImmutableMap.of(LINUX_CTKEY, makeLabel("//test:toolchain_impl_1"))))
+        // Different execution platform, same label.
         .addEqualityGroup(
-            ToolchainResolutionValue.create(makeLabel("//test:toolchain_impl_2")),
-            ToolchainResolutionValue.create(makeLabel("//test:toolchain_impl_2")));
+            ToolchainResolutionValue.create(
+                ImmutableMap.of(MAC_CTKEY, makeLabel("//test:toolchain_impl_1"))))
+        // Same execution platform, different label.
+        .addEqualityGroup(
+            ToolchainResolutionValue.create(
+                ImmutableMap.of(LINUX_CTKEY, makeLabel("//test:toolchain_impl_2"))))
+        // Different execution platform, different label.
+        .addEqualityGroup(
+            ToolchainResolutionValue.create(
+                ImmutableMap.of(MAC_CTKEY, makeLabel("//test:toolchain_impl_2"))))
+        // Multiple execution platforms.
+        .addEqualityGroup(
+            ToolchainResolutionValue.create(
+                ImmutableMap.<ConfiguredTargetKey, Label>builder()
+                    .put(LINUX_CTKEY, makeLabel("//test:toolchain_impl_1"))
+                    .put(MAC_CTKEY, makeLabel("//test:toolchain_impl_1"))
+                    .build()));
   }
 }

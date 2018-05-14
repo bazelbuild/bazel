@@ -1,4 +1,6 @@
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = [
+    "//src/java_tools/junitrunner:junitrunner_package_group",
+])
 
 # Internal code for the JUnit runner that does not depend on JUnit 4.
 # Code used by the JUnit runner that does depend on JUnit 4

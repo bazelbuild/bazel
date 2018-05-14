@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -75,6 +76,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
 
   @Before
   public final void createExecutorAndContext() throws Exception {
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     context =
         new ActionExecutionContext(
@@ -85,7 +87,9 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             null,
             new FileOutErr(),
             ImmutableMap.<String, String>of(),
-            null);
+            ImmutableMap.of(),
+            null,
+            /*actionFileSystem=*/ null);
   }
 
   @Test

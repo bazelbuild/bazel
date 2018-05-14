@@ -42,17 +42,21 @@ public class QueryOutputUtils {
      * output everything in one batch. This happens when the QueryEnvironment does not
      * support streaming but we don't care about ordered results.
      */
-    boolean orderedResults = !shouldStreamResults(queryOptions, formatter);
-    if (orderedResults) {
-      formatter.output(queryOptions,
-          ((DigraphQueryEvalResult<Target>) result).getGraph().extractSubgraph(targetsResult),
-          outputStream, aspectResolver);
-    } else {
+    if (shouldStreamResults(queryOptions, formatter)) {
       StreamedFormatter streamedFormatter = (StreamedFormatter) formatter;
       streamedFormatter.setOptions(queryOptions, aspectResolver);
       OutputFormatterCallback.processAllTargets(
           streamedFormatter.createPostFactoStreamCallback(outputStream, queryOptions),
           targetsResult);
+    } else {
+      @SuppressWarnings("unchecked")
+      DigraphQueryEvalResult<Target> digraphQueryEvalResult =
+          (DigraphQueryEvalResult<Target>) result;
+      formatter.output(
+          queryOptions,
+          digraphQueryEvalResult.getGraph().extractSubgraph(targetsResult),
+          outputStream,
+          aspectResolver);
     }
   }
 }

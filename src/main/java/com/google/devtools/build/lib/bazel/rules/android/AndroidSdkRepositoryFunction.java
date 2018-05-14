@@ -105,7 +105,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
           new EvalException(
               rule.getLocation(),
               "Either the path attribute of android_sdk_repository or the ANDROID_HOME environment "
-                  + " variable must be set."),
+                  + "variable must be set."),
           Transience.PERSISTENT);
     }
 

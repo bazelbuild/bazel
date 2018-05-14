@@ -14,13 +14,11 @@
 
 package com.google.devtools.build.android;
 
-import com.android.repository.Revision;
 import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.Converters.RevisionConverter;
 import com.google.devtools.build.android.Converters.UnvalidatedAndroidDirectoriesConverter;
+import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -28,7 +26,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.io.Closeable;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -60,28 +57,6 @@ public class CompileLibraryResourcesAction {
       help = "Path to write the zip of compiled resources."
     )
     public Path output;
-
-    @Option(
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      name = "aapt2",
-      defaultValue = "null",
-      converter = ExistingPathConverter.class,
-      category = "tool",
-      help = "Aapt2 tool location for resource compilation."
-    )
-    public Path aapt2;
-
-    @Option(
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      name = "buildToolsVersion",
-      defaultValue = "null",
-      converter = RevisionConverter.class,
-      category = "config",
-      help = "Version of the build tools (e.g. aapt) being used, e.g. 23.0.2"
-    )
-    public Revision buildToolsVersion;
 
     @Option(
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -120,24 +95,26 @@ public class CompileLibraryResourcesAction {
               + " This value is required for processing data binding."
     )
     public Path dataBindingInfoOut;
+
   }
 
   static final Logger logger = Logger.getLogger(CompileLibraryResourcesAction.class.getName());
 
   public static void main(String[] args) throws Exception {
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
+    OptionsParser optionsParser =
+        OptionsParser.newOptionsParser(Options.class, Aapt2ConfigOptions.class);
     optionsParser.enableParamsFileSupport(
         new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
     optionsParser.parseAndExitUponError(args);
 
     Options options = optionsParser.getOptions(Options.class);
+    Aapt2ConfigOptions aapt2Options = optionsParser.getOptions(Aapt2ConfigOptions.class);
 
     Preconditions.checkNotNull(options.resources);
     Preconditions.checkNotNull(options.output);
-    Preconditions.checkNotNull(options.aapt2);
+    Preconditions.checkNotNull(aapt2Options.aapt2);
 
-    final ListeningExecutorService defaultService = ExecutorServiceCloser.createDefaultService();
-    try (Closeable serviceCloser = ExecutorServiceCloser.createWith(defaultService);
+    try (ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15);
         ScopedTemporaryDirectory scopedTmp =
             new ScopedTemporaryDirectory("android_resources_tmp")) {
       final Path tmp = scopedTmp.getPath();
@@ -147,7 +124,11 @@ public class CompileLibraryResourcesAction {
 
       final ResourceCompiler compiler =
           ResourceCompiler.create(
-              defaultService, compiledResources, options.aapt2, options.buildToolsVersion);
+              executorService,
+              compiledResources,
+              aapt2Options.aapt2,
+              aapt2Options.buildToolsVersion,
+              aapt2Options.generatePseudoLocale);
       options
           .resources
           .toData(options.manifest)

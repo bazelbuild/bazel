@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -43,6 +42,8 @@ public final class SymlinkTreeHelperTest {
     Path execRoot = fs.getPath("/my/workspace");
     Path inputManifestPath = execRoot.getRelative("input_manifest");
     ActionInput inputManifest = ActionInputHelper.fromPath(inputManifestPath.asFragment());
+    BinTools binTools =
+        BinTools.forUnitTesting(execRoot, ImmutableList.of(SymlinkTreeHelper.BUILD_RUNFILES));
     Spawn spawn =
         new SymlinkTreeHelper(
             inputManifestPath,
@@ -51,7 +52,7 @@ public final class SymlinkTreeHelperTest {
         .createSpawn(
             owner,
             execRoot,
-            BinTools.forUnitTesting(execRoot, ImmutableList.of(SymlinkTreeHelper.BUILD_RUNFILES)),
+            binTools,
             ImmutableMap.of(),
             inputManifest);
     assertThat(spawn.getResourceOwner()).isSameAs(owner);
@@ -60,7 +61,8 @@ public final class SymlinkTreeHelperTest {
         ExecutionRequirements.LOCAL, "",
         ExecutionRequirements.NO_CACHE, "",
         ExecutionRequirements.NO_SANDBOX, "");
-    assertThat(spawn.getInputFiles()).containsExactly(inputManifest);
+    assertThat(spawn.getInputFiles())
+        .containsExactly(inputManifest, binTools.getActionInput(SymlinkTreeHelper.BUILD_RUNFILES));
     // At this time, the spawn does not declare any output files.
     assertThat(spawn.getOutputFiles()).isEmpty();
   }

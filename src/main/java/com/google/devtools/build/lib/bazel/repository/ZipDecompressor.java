@@ -124,14 +124,17 @@ public class ZipDecompressor implements Decompressor {
       // For symlinks, the "compressed data" is actually the target name.
       int read = reader.getInputStream(entry).read(buffer);
       Preconditions.checkState(read == buffer.length);
-      PathFragment target = PathFragment.create(new String(buffer, Charset.defaultCharset()))
-          .normalize();
-      if (!target.isNormalized()) {
-        throw new IOException("Zip entries cannot refer to files outside of their directory: "
-            + reader.getFilename() + " has a symlink to " + target);
+      PathFragment target = PathFragment.create(new String(buffer, Charset.defaultCharset()));
+      if (target.containsUplevelReferences()) {
+        PathFragment pointsTo = strippedRelativePath.getParentDirectory().getRelative(target);
+        if (pointsTo.containsUplevelReferences()) {
+          throw new IOException("Zip entries cannot refer to files outside of their directory: "
+              + reader.getFilename() + " has a symlink " + strippedRelativePath + " pointing to "
+              + target);
+        }
       }
       if (target.isAbsolute()) {
-        target = target.relativeTo(PathFragment.ROOT_DIR);
+        target = target.relativeTo("/");
         target = destinationDirectory.getRelative(target).asFragment();
       }
       outputPath.createSymbolicLink(target);

@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -36,8 +37,8 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.lang.reflect.Method;
@@ -86,7 +87,7 @@ public class TestRuleClassProvider {
    */
   public static final class TestingDummyRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .setUndocumented()
           .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
@@ -113,12 +114,13 @@ public class TestRuleClassProvider {
 
     @Override
     public ConfiguredTarget create(RuleContext ruleContext)
-        throws InterruptedException, RuleErrorException {
+        throws InterruptedException, RuleErrorException, ActionConflictException {
       Map<String, String> variables = ruleContext.attributes().get("variables", Type.STRING_DICT);
       return new RuleConfiguredTargetBuilder(ruleContext)
           .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
           .addProvider(RunfilesProvider.EMPTY)
-          .addNativeDeclaredProvider(new TemplateVariableInfo(ImmutableMap.copyOf(variables)))
+          .addNativeDeclaredProvider(
+              new TemplateVariableInfo(ImmutableMap.copyOf(variables), Location.BUILTIN))
           .build();
     }
   }
@@ -128,7 +130,7 @@ public class TestRuleClassProvider {
    */
   public static final class MakeVariableTesterRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           .advertiseProvider(TemplateVariableInfo.class)
           .add(attr("variables", Type.STRING_DICT))

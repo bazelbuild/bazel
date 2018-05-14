@@ -15,14 +15,19 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildFileName;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nullable;
 
 /**
  * A value that represents a package lookup result.
@@ -37,10 +42,15 @@ import com.google.devtools.build.skyframe.SkyValue;
  */
 public abstract class PackageLookupValue implements SkyValue {
 
+  @AutoCodec
   public static final NoBuildFilePackageLookupValue NO_BUILD_FILE_VALUE =
       new NoBuildFilePackageLookupValue();
+
+  @AutoCodec
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
       new DeletedPackageLookupValue();
+
+  @AutoCodec
   public static final NoRepositoryPackageLookupValue NO_SUCH_REPOSITORY_VALUE =
       new NoRepositoryPackageLookupValue();
 
@@ -61,8 +71,13 @@ public abstract class PackageLookupValue implements SkyValue {
   protected PackageLookupValue() {
   }
 
+  public static PackageLookupValue success(
+      RepositoryValue repository, Root root, BuildFileName buildFileName) {
+    return new SuccessfulPackageLookupValue(repository, root, buildFileName);
+  }
+
   public static PackageLookupValue success(Root root, BuildFileName buildFileName) {
-    return new SuccessfulPackageLookupValue(root, buildFileName);
+    return new SuccessfulPackageLookupValue(null, root, buildFileName);
   }
 
   public static PackageLookupValue invalidPackageName(String errorMsg) {
@@ -112,20 +127,63 @@ public abstract class PackageLookupValue implements SkyValue {
     return key(PackageIdentifier.createInMainRepo(directory));
   }
 
-  public static SkyKey key(PackageIdentifier pkgIdentifier) {
+  public static Key key(PackageIdentifier pkgIdentifier) {
     Preconditions.checkArgument(!pkgIdentifier.getRepository().isDefault());
-    return LegacySkyKey.create(SkyFunctions.PACKAGE_LOOKUP, pkgIdentifier);
+    return Key.create(pkgIdentifier);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<PackageIdentifier> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(PackageIdentifier arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(PackageIdentifier arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.PACKAGE_LOOKUP;
+    }
   }
 
   /** Successful lookup value. */
+  @AutoCodec
   public static class SuccessfulPackageLookupValue extends PackageLookupValue {
 
+    /**
+     * The repository value the meaning of the path depends on (e.g., an external repository
+     * controlling a symbolic link the path goes trough). Can be {@code null}, if does not depend
+     * on such a repository; will always be {@code null} for packages in the main repository.
+     */
+    @Nullable private final RepositoryValue repository;
     private final Root root;
     private final BuildFileName buildFileName;
 
-    private SuccessfulPackageLookupValue(Root root, BuildFileName buildFileName) {
+    @AutoCodec.Instantiator
+    @AutoCodec.VisibleForSerialization
+    SuccessfulPackageLookupValue(
+        @Nullable RepositoryValue repository, Root root, BuildFileName buildFileName) {
+      this.repository = repository;
       this.root = root;
       this.buildFileName = buildFileName;
+    }
+
+    SuccessfulPackageLookupValue(Root root, BuildFileName buildFileName) {
+      this.repository = null;
+      this.root = root;
+      this.buildFileName = buildFileName;
+    }
+
+    @Nullable
+    public RepositoryValue repository() {
+      return repository;
     }
 
     @Override
@@ -159,12 +217,14 @@ public abstract class PackageLookupValue implements SkyValue {
         return false;
       }
       SuccessfulPackageLookupValue other = (SuccessfulPackageLookupValue) obj;
-      return root.equals(other.root) && buildFileName == other.buildFileName;
+      return root.equals(other.root)
+          && buildFileName == other.buildFileName
+          && Objects.equal(repository, other.repository);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(root.hashCode(), buildFileName.hashCode());
+      return Objects.hashCode(root.hashCode(), buildFileName.hashCode(), repository);
     }
   }
 
@@ -188,7 +248,6 @@ public abstract class PackageLookupValue implements SkyValue {
 
   /** Marker value for no build file found. */
   public static class NoBuildFilePackageLookupValue extends UnsuccessfulPackageLookupValue {
-
     private NoBuildFilePackageLookupValue() {
     }
 
@@ -204,11 +263,14 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   /** Value indicating the package name was in error. */
+  @AutoCodec
   public static class InvalidNamePackageLookupValue extends UnsuccessfulPackageLookupValue {
 
     private final String errorMsg;
 
-    private InvalidNamePackageLookupValue(String errorMsg) {
+    @AutoCodec.Instantiator
+    @AutoCodec.VisibleForSerialization
+    InvalidNamePackageLookupValue(String errorMsg) {
       this.errorMsg = errorMsg;
     }
 
@@ -243,13 +305,16 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   /** Value indicating the package name was in error. */
+  @AutoCodec
   public static class IncorrectRepositoryReferencePackageLookupValue
       extends UnsuccessfulPackageLookupValue {
 
     private final PackageIdentifier invalidPackageIdentifier;
     private final PackageIdentifier correctedPackageIdentifier;
 
-    private IncorrectRepositoryReferencePackageLookupValue(
+    @AutoCodec.Instantiator
+    @AutoCodec.VisibleForSerialization
+    IncorrectRepositoryReferencePackageLookupValue(
         PackageIdentifier invalidPackageIdentifier, PackageIdentifier correctedPackageIdentifier) {
       this.invalidPackageIdentifier = invalidPackageIdentifier;
       this.correctedPackageIdentifier = correctedPackageIdentifier;
@@ -306,7 +371,6 @@ public abstract class PackageLookupValue implements SkyValue {
 
   /** Marker value for a deleted package. */
   public static class DeletedPackageLookupValue extends UnsuccessfulPackageLookupValue {
-
     private DeletedPackageLookupValue() {
     }
 
@@ -326,7 +390,6 @@ public abstract class PackageLookupValue implements SkyValue {
    * specifies a non-existent repository.
    */
   public static class NoRepositoryPackageLookupValue extends UnsuccessfulPackageLookupValue {
-
     private NoRepositoryPackageLookupValue() {}
 
     @Override

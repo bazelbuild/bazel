@@ -29,10 +29,11 @@ import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
-import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.Builder;
+import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -279,11 +280,11 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       stringValue = Integer.toString(item.getPrim().getData());
     } else {
       throw new IllegalArgumentException(
-          String.format("'%s' is not a valid resource type.", resourceType));
+          String.format("'%s' with value %s is not a simple resource type.", resourceType, proto));
     }
 
     return of(
-        Type.valueOf(resourceType.toString().toUpperCase()),
+        Type.valueOf(resourceType.toString().toUpperCase(Locale.ENGLISH)),
         ImmutableMap.of(),
         stringValue);
   }
@@ -298,7 +299,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       throws IOException {
     SerializeFormat.DataValue.Builder builder =
         XmlResourceValues.newSerializableDataValueBuilder(sourceId);
-    Builder xmlValueBuilder =
+    DataValueXml.Builder xmlValueBuilder =
         builder
             .getXmlValueBuilder()
             .putAllNamespace(namespaces.asMap())

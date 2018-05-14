@@ -17,6 +17,8 @@ java_library(
     ),
     deps = [
         ":abstract-blaze-query-env",
+        ":aspect-resolver",
+        ":common-query-options",
         ":fake-load-target",
         ":query-engine",
         ":query-output",
@@ -26,6 +28,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/graph",
         "//src/main/java/com/google/devtools/build/lib/profiler",
@@ -33,6 +36,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:analysis_java_proto",
+        "//src/main/protobuf:build_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -40,9 +45,18 @@ java_library(
 
 java_library(
     name = "query-output",
-    srcs = glob(["output/*.java"]),
+    srcs = glob(
+        ["output/*.java"],
+        exclude = [
+            "output/AspectResolver.java",
+            "output/PresciseAspectResolver.java",
+            "output/ConservativeAspectResolver.java",
+            "output/NullAspectResolver.java",
+        ],
+    ),
     deps = [
         ":abstract-blaze-query-env",
+        ":aspect-resolver",
         ":common-query-options",
         ":fake-load-target",
         ":query-engine",
@@ -80,8 +94,31 @@ java_library(
         "CommonQueryOptions.java",
     ],
     deps = [
+        ":aspect-resolver",
         ":query-engine",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:build_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "aspect-resolver",
+    srcs = [
+        "output/AspectResolver.java",
+        "output/ConservativeAspectResolver.java",
+        "output/NullAspectResolver.java",
+        "output/PreciseAspectResolver.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

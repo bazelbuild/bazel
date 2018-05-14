@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
  * Depth-first implementation of cycle detection after a {@link ParallelEvaluator} evaluation has
  * completed with at least one root unfinished.
  */
-class SimpleCycleDetector implements CycleDetector {
+public class SimpleCycleDetector implements CycleDetector {
   private static final Logger logger = Logger.getLogger(SimpleCycleDetector.class.getName());
 
   @Override
@@ -77,8 +77,7 @@ class SimpleCycleDetector implements CycleDetector {
    * value is popped, we know that all the children are finished. We would use null instead, but
    * ArrayDeque does not permit null elements.
    */
-  private static final SkyKey CHILDREN_FINISHED =
-      LegacySkyKey.create(SkyFunctionName.create("MARKER"), "MARKER");
+  private static final SkyKey CHILDREN_FINISHED = () -> null;
 
   /** The max number of cycles we will report to the user for a given root, to avoid OOMing. */
   private static final int MAX_CYCLES = 20;

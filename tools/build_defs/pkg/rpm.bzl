@@ -14,6 +14,7 @@
 """Rules to create RPM archives."""
 
 rpm_filetype = [".rpm"]
+
 spec_filetype = [".spec"]
 
 def _pkg_rpm_impl(ctx):
@@ -22,7 +23,7 @@ def _pkg_rpm_impl(ctx):
   files = []
   args = ["--name=" + ctx.label.name]
 
-  # Version can be specified by a file or inlined
+  # Version can be specified by a file or inlined.
   if ctx.attr.version_file:
     if ctx.attr.version:
       fail("Both version and version_file attributes were specified")
@@ -30,29 +31,53 @@ def _pkg_rpm_impl(ctx):
     files += [ctx.file.version_file]
   elif ctx.attr.version:
     args += ["--version=" + ctx.attr.version]
-  else:
-    fail("Neither version_file nor version attribute was specified")
+
+  # Release can be specified by a file or inlined.
+  if ctx.attr.release_file:
+    if ctx.attr.release:
+      fail("Both release and release_file attributes were specified")
+    args += ["--release=@" + ctx.file.release_file.path]
+    files += [ctx.file.release_file]
+  elif ctx.attr.release:
+    args += ["--release=" + ctx.attr.release]
 
   if ctx.attr.architecture:
     args += ["--arch=" + ctx.attr.architecture]
 
-  if ctx.attr.spec_file:
-    args += ["--spec_file=" + ctx.file.spec_file.path]
-    files += [ctx.file.spec_file]
-  else:
+  if not ctx.attr.spec_file:
     fail("spec_file was not specified")
+
+  # Expand the spec file template.
+  spec_file = ctx.actions.declare_file("%s.spec" % ctx.label.name)
+  # Create the default substitutions based on the data files.
+  substitutions = {}
+  for data_file in ctx.files.data:
+    key = "{%s}" % data_file.basename
+    substitutions[key] = data_file.path
+  ctx.actions.expand_template(
+    template = ctx.file.spec_file,
+    output = spec_file,
+    substitutions = substitutions)
+  args += ["--spec_file=" + spec_file.path]
+  files += [spec_file]
 
   args += ["--out_file=" + ctx.outputs.rpm.path]
 
   # Add data files.
-  files += [ctx.file.changelog] + ctx.files.data
-  args += [ctx.file.changelog.path]
+  if ctx.file.changelog:
+    files += [ctx.file.changelog]
+    args += [ctx.file.changelog.path]
+  files += ctx.files.data
+
   for f in ctx.files.data:
     args += [f.path]
 
+  if ctx.attr.debug:
+    args += ["--debug"]
+
   # Call the generator script.
   # TODO(katre): Generate a source RPM.
-  ctx.action(
+  ctx.actions.run(
       executable = ctx.executable._make_rpm,
       use_default_shell_env = True,
       arguments = args,
@@ -61,49 +86,110 @@ def _pkg_rpm_impl(ctx):
       mnemonic = "MakeRpm")
 
   # Link the RPM to the expected output name.
-  ctx.action(
-      command = "ln -s %s %s" % (ctx.outputs.rpm.basename, ctx.outputs.out.path),
+  ctx.actions.run(
+      executable = "ln",
+      arguments = [
+        "-s",
+        ctx.outputs.rpm.basename,
+        ctx.outputs.out.path,
+      ],
       inputs = [ctx.outputs.rpm],
       outputs = [ctx.outputs.out])
 
+  # Link the RPM to the RPM-recommended output name.
+  if "rpm_nvra" in dir(ctx.outputs):
+    ctx.actions.run(
+        executable = "ln",
+        arguments = [
+          "-s",
+          ctx.outputs.rpm.basename,
+          ctx.outputs.rpm_nvra.path,
+        ],
+        inputs = [ctx.outputs.rpm],
+        outputs = [ctx.outputs.rpm_nvra])
+
+def _pkg_rpm_outputs(version, release):
+  outputs = {
+      "out": "%{name}.rpm",
+      "rpm": "%{name}-%{architecture}.rpm",
+  }
+
+  # The "rpm_nvra" output follows the recommended package naming convention of
+  # Name-Version-Release.Arch.rpm
+  # See http://ftp.rpm.org/max-rpm/ch-rpm-file-format.html
+  if version and release:
+    outputs["rpm_nvra"] = "%{name}-%{version}-%{release}.%{architecture}.rpm"
+
+  return outputs
+
 # Define the rule.
 pkg_rpm = rule(
-    implementation = _pkg_rpm_impl,
     attrs = {
-        "spec_file" : attr.label(mandatory=True, allow_files=spec_filetype, single_file=True),
-        "architecture": attr.string(default="all"),
-        "version_file": attr.label(allow_files=True, single_file=True),
+        "spec_file": attr.label(
+            mandatory = True,
+            allow_files = spec_filetype,
+            single_file = True,
+        ),
+        "architecture": attr.string(default = "all"),
+        "version_file": attr.label(
+            allow_files = True,
+            single_file = True,
+        ),
         "version": attr.string(),
-        "changelog" : attr.label(mandatory=True, allow_files=True, single_file=True),
-        "data": attr.label_list(mandatory=True, allow_files=True),
+        "changelog": attr.label(
+            allow_files = True,
+            single_file = True,
+        ),
+        "data": attr.label_list(
+            mandatory = True,
+            allow_files = True,
+        ),
+        "release_file": attr.label(allow_files=True, single_file=True),
+        "release": attr.string(),
+        "debug": attr.bool(default=False),
 
         # Implicit dependencies.
         "_make_rpm": attr.label(
-            default=Label("//tools/build_defs/pkg:make_rpm"),
-            cfg="host",
-            executable=True,
-            allow_files=True),
+            default = Label("//tools/build_defs/pkg:make_rpm"),
+            cfg = "host",
+            executable = True,
+            allow_files = True,
+        ),
     },
-    outputs = {
-        "out": "%{name}.rpm",
-        "rpm": "%{name}-%{architecture}.rpm",
-    },
-    executable = False)
+    executable = False,
+    outputs = _pkg_rpm_outputs,
+    implementation = _pkg_rpm_impl,
+)
+
 """Creates an RPM format package from the data files.
 
 This runs rpmbuild (and requires it to be installed beforehand) to generate
 an RPM package based on the spec_file and data attributes.
 
+Two outputs are guaranteed to be produced: "%{name}.rpm", and
+"%{name}-%{architecture}.rpm". If the "version" and "release" arguments are
+non-empty, a third output will be produced, following the RPM-recommended
+N-V-R.A format (Name-Version-Release.Architecture.rpm).
+
 Args:
   spec_file: The RPM spec file to use. If the version or version_file
-    attributes are provided, the Version in the spec will be overwritten.
-    Any Sources listed in the spec file must be provided as data dependencies.
+    attributes are provided, the Version in the spec will be overwritten,
+    and likewise behaviour with release and release_file. Any Sources listed
+    in the spec file must be provided as data dependencies.
+    The base names of data dependencies can be replaced with the actual location
+    using "{basename}" syntax.
   version: The version of the package to generate. This will overwrite any
     Version provided in the spec file. Only specify one of version and
     version_file.
   version_file: A file containing the version of the package to generate. This
     will overwrite any Version provided in the spec file. Only specify one of
     version and version_file.
+  release: The release of the package to generate. This will overwrite any
+    release provided in the spec file. Only specify one of release and
+    release_file.
+  release_file: A file containing the release of the package to generate. This
+    will overwrite any release provided in the spec file. Only specify one of
+    release and release_file.
   changelog: A changelog file to include. This will not be written to the spec
     file, which should only list changes to the packaging, not the software itself.
   data: List all files to be included in the package here.

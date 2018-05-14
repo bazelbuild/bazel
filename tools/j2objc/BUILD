@@ -23,7 +23,11 @@ filegroup(
     srcs = ["j2objc_header_map.py"],
 )
 
-filegroup(
-    name = "j2objc_proto_blacklist",
-    srcs = ["dummy.proto"],
+proto_lang_toolchain(
+    name = "j2objc_proto_toolchain",
+    blacklisted_protos = [],
+    command_line = "--PLUGIN_j2objc_out=file_dir_mapping,generate_class_mappings:$(OUT)",
+    plugin = "//third_party/java/j2objc:proto_plugin",
+    runtime = "//third_party/java/j2objc:proto_runtime",
+    visibility = ["//visibility:public"],
 )

@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /** Writes out an R.java source. */
 public class RSourceGenerator {
@@ -62,7 +61,7 @@ public class RSourceGenerator {
 
   private void writeSource(
       String packageName,
-      Iterable<Entry<ResourceType, Map<String, FieldInitializer>>> initializersToWrite)
+      Iterable<Map.Entry<ResourceType, Map<String, FieldInitializer>>> initializersToWrite)
       throws IOException {
     String packageDir = packageName.replace('.', '/');
     Path packagePath = outputBasePath.resolve(packageDir);
@@ -82,10 +81,10 @@ public class RSourceGenerator {
       writer.write(" */\n");
       writer.write(String.format("package %s;\n", packageName));
       writer.write("public final class R {\n");
-      for (Entry<ResourceType, Map<String, FieldInitializer>> entry : initializersToWrite) {
+      for (Map.Entry<ResourceType, Map<String, FieldInitializer>> entry : initializersToWrite) {
         writer.write(
             String.format("    public static final class %s {\n", entry.getKey().getName()));
-        for (Entry<String, FieldInitializer> fieldEntry : entry.getValue().entrySet()) {
+        for (Map.Entry<String, FieldInitializer> fieldEntry : entry.getValue().entrySet()) {
           fieldEntry.getValue().writeInitSource(fieldEntry.getKey(), writer, finalFields);
         }
         writer.write("    }\n");

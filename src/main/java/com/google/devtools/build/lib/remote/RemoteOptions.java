@@ -27,7 +27,6 @@ public final class RemoteOptions extends OptionsBase {
     name = "remote_http_cache",
     oldName = "remote_rest_cache",
     defaultValue = "null",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -39,7 +38,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "remote_rest_cache_pool_size",
     defaultValue = "20",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Size of the HTTP pool for making requests to the REST cache.",
@@ -52,7 +50,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "remote_executor",
     defaultValue = "null",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "HOST or HOST:PORT of a remote execution endpoint."
@@ -62,7 +59,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "remote_cache",
     defaultValue = "null",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "HOST or HOST:PORT of a remote caching endpoint."
@@ -72,7 +68,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "remote_timeout",
     defaultValue = "60",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "The maximum number of seconds to wait for remote execution and cache calls."
@@ -82,7 +77,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "remote_accept_cached",
     defaultValue = "true",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Whether to accept remotely cached action results."
@@ -92,7 +86,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "remote_local_fallback",
     defaultValue = "false",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Whether to fall back to standalone local execution strategy if remote execution fails."
@@ -102,7 +95,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "remote_upload_local_results",
     defaultValue = "true",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Whether to upload locally executed action results to the remote cache."
@@ -112,7 +104,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "remote_instance_name",
     defaultValue = "",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Value to pass as instance_name in the remote execution API."
@@ -122,7 +113,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "experimental_remote_retry",
     defaultValue = "true",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Whether to retry transient remote execution/cache errors."
@@ -132,7 +122,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "experimental_remote_retry_start_delay_millis",
     defaultValue = "100",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "The initial delay before retrying a transient error."
@@ -142,7 +131,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "experimental_remote_retry_max_delay_millis",
     defaultValue = "5000",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "The maximum delay before retrying a transient error."
@@ -152,7 +140,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "experimental_remote_retry_max_attempts",
     defaultValue = "5",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "The maximum number of attempts to retry a transient error."
@@ -162,7 +149,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "experimental_remote_retry_multiplier",
     defaultValue = "2",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "The multiplier by which to increase the retry delay on transient errors."
@@ -172,7 +158,6 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "experimental_remote_retry_jitter",
     defaultValue = "0.1",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "The random factor to apply to retry delays on transient errors."
@@ -182,45 +167,66 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "experimental_remote_spawn_cache",
     defaultValue = "false",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Whether to use the experimental spawn cache infrastructure for remote caching. "
-        + "Enabling this flag makes Bazel ignore any setting for remote_executor."
+    help =
+        "Whether to use the experimental spawn cache infrastructure for remote caching. "
+            + "Enabling this flag makes Bazel ignore any setting for remote_executor."
   )
   public boolean experimentalRemoteSpawnCache;
 
-  // TODO(davido): Find a better place for this and the next option.
   @Option(
-    name = "experimental_local_disk_cache",
-    defaultValue = "false",
-    category = "remote",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Whether to use the experimental local disk cache."
-  )
-  public boolean experimentalLocalDiskCache;
-
-  @Option(
-    name = "experimental_local_disk_cache_path",
+    name = "disk_cache",
     defaultValue = "null",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     converter = OptionsUtils.PathFragmentConverter.class,
-    help = "A file path to a local disk cache."
+    help =
+        "A path to a directory where Bazel can read and write actions and action outputs. "
+            + "If the directory does not exist, it will be created."
   )
-  public PathFragment experimentalLocalDiskCachePath;
+  public PathFragment diskCache;
 
   @Option(
     name = "experimental_guard_against_concurrent_changes",
     defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Turn this off to disable checking the ctime of input files of an action before "
+            + "uploading it to a remote cache. There may be cases where the Linux kernel delays "
+            + "writing of files, which could cause false positives."
+  )
+  public boolean experimentalGuardAgainstConcurrentChanges;
+
+  @Option(
+    name = "experimental_remote_grpc_log",
+    defaultValue = "",
     category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Turn this off to disable checking the ctime of input files of an action before "
-        + "uploading it to a remote cache. There may be cases where the Linux kernel delays "
-        + "writing of files, which could cause false positives."
+    help =
+        "If specified, a path to a file to log gRPC call related details. This log consists "
+            + "of a sequence of serialized "
+            + "com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry "
+            + "protobufs with each message prefixed by a varint denoting the size of the following "
+            + "serialized protobuf message, as performed by the method "
+            + "LogEntry.writeDelimitedTo(OutputStream)."
   )
-  public boolean experimentalGuardAgainstConcurrentChanges;
+  public String experimentalRemoteGrpcLog;
+
+  @Option(
+    name = "remote_allow_symlink_upload",
+    defaultValue = "true",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EXECUTION},
+    help =
+        "If true, upload action symlink outputs to the remote cache. "
+            + "The remote cache currently doesn't support symlinks, "
+            + "so symlink outputs are converted into regular files. "
+            + "If this option is not enabled, "
+            + "otherwise cachable actions that output symlinks will fail."
+  )
+  public boolean allowSymlinkUpload;
 }

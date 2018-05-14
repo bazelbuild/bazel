@@ -16,11 +16,14 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skyframe.LegacySkyKey;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** A repository's name and directory. */
@@ -121,7 +124,28 @@ public abstract class RepositoryValue implements SkyValue {
     return new NoRepositoryValue(repositoryName);
   }
 
-  public static SkyKey key(RepositoryName repositoryName) {
-    return LegacySkyKey.create(SkyFunctions.REPOSITORY, repositoryName);
+  public static Key key(RepositoryName repositoryName) {
+    return Key.create(repositoryName);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<RepositoryName> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(RepositoryName arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(RepositoryName arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.REPOSITORY;
+    }
   }
 }

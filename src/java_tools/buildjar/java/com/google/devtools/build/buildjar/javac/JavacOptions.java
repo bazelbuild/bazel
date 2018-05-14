@@ -243,22 +243,28 @@ public final class JavacOptions {
         case "-source":
           if (remaining.hasNext()) {
             source = remaining.next();
+            release = null;
           }
           return true;
         case "-target":
           if (remaining.hasNext()) {
             target = remaining.next();
+            release = null;
           }
           return true;
         case "--release":
           if (remaining.hasNext()) {
             release = remaining.next();
+            source = null;
+            target = null;
           }
           return true;
         default: // fall out
       }
       if (option.startsWith("--release=")) {
         release = option.substring("--release=".length());
+        source = null;
+        target = null;
         return true;
       }
       return false;

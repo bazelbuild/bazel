@@ -22,7 +22,15 @@ source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 function get_tar_listing() {
   local input=$1
   local test_data="${TEST_DATA_DIR}/${input}"
+  # We strip unused prefixes rather than dropping "v" flag for tar, because we
+  # want to preserve symlink information.
   tar tvf "${test_data}" | sed -e 's/^.*:00 //'
+}
+
+function get_tar_verbose_listing() {
+  local input=$1
+  local test_data="${TEST_DATA_DIR}/${input}"
+  TZ="UTC" tar tvf "${test_data}"
 }
 
 function get_tar_owner() {
@@ -147,6 +155,14 @@ function test_tar() {
   check_eq "./
 ./not-etc/
 ./not-etc/mapped-filename.conf" "$(get_tar_listing test-tar-files_dict.tar)"
+  check_eq "drwxr-xr-x 0/0               0 1970-01-01 00:00 ./
+-rwxrwxrwx 0/0               0 1970-01-01 00:00 ./a
+-rwxrwxrwx 0/0               0 1970-01-01 00:00 ./b" \
+      "$(get_tar_verbose_listing test-tar-empty_files.tar)"
+  check_eq "drwxr-xr-x 0/0               0 1970-01-01 00:00 ./
+drwxrwxrwx 0/0               0 1970-01-01 00:00 ./tmp/
+drwxrwxrwx 0/0               0 1970-01-01 00:00 ./pmt/" \
+      "$(get_tar_verbose_listing test-tar-empty_dirs.tar)"
 }
 
 function test_deb() {

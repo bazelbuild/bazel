@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -113,21 +112,6 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testToolchainSelectionWithoutPlatforms() throws Exception {
-    useConfiguration("--experimental_platforms=//mock_platform:mock-piii-platform");
-    ConfiguredTarget target =
-        ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
-            .setList("srcs", "a.cc")
-            .write();
-    ResolvedToolchainProviders providers =
-        (ResolvedToolchainProviders)
-            getRuleContext(target).getToolchainContext().getResolvedToolchainProviders();
-    ToolchainInfo toolchain =
-        providers.getForToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
-    assertThat(toolchain.getFieldNames()).isEmpty();
-  }
-
-  @Test
   public void testCToolchainSelectionFromCcToolchainAttrs() throws Exception {
     useConfiguration(
         "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
@@ -143,7 +127,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
     CcToolchainProvider toolchain =
         (CcToolchainProvider)
             providers.getForToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
-    assertThat(toolchain.getToolchain().getTargetCpu()).isEqualTo("piii");
+    assertThat(toolchain.getToolchainIdentifier()).endsWith("piii");
   }
 
   @Test
@@ -159,6 +143,8 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         "cc_toolchain(",
         "   name = 'incomplete_cc-compiler-piii',",
         "   cpu = 'piii',",
+        "   ar_files = 'ar-piii',",
+        "   as_files = 'as-piii',",
         "   compiler_files = 'compile-piii',",
         "   dwp_files = 'dwp-piii',",
         "   linker_files = 'link-piii',",

@@ -26,11 +26,14 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.TransitiveTraversalFunction.FirstErrorMessageAccumulator;
+import com.google.devtools.build.lib.util.GroupedList;
+import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.util.Collection;
-import java.util.Map.Entry;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -65,9 +68,9 @@ public class TransitiveTraversalFunction
       FirstErrorMessageAccumulator accumulator,
       EventHandler eventHandler,
       TargetAndErrorIfAny targetAndErrorIfAny,
-      Iterable<Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
+      Iterable<Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
           depEntries) {
-    for (Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
+    for (Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
         depEntries) {
       TransitiveTraversalValue transitiveTraversalValue;
       try {
@@ -128,6 +131,63 @@ public class TransitiveTraversalFunction
   TargetMarkerValue getTargetMarkerValue(SkyKey targetMarkerKey, Environment env)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
     return TargetMarkerFunction.computeTargetMarkerValue(targetMarkerKey, env);
+  }
+
+  @Override
+  Collection<SkyKey> getLabelDepKeys(
+      SkyFunction.Environment env, TargetAndErrorIfAny targetAndErrorIfAny)
+      throws InterruptedException {
+    // As a performance optimization we may already know the deps we are  about to request from
+    // last time #compute was called. By requesting these from the environment, we can avoid
+    // repeating the label visitation step. For TransitiveTraversalFunction#compute, the label deps
+    // dependency group is requested immediately after the package.
+    //
+    // IMPORTANT: No other package values should be requested inside
+    // TransitiveTraversalFunction#compute from this point forward.
+    Collection<SkyKey> oldDepKeys = getDepsAfterLastPackageDep(env, /*offset=*/ 1);
+    return oldDepKeys == null ? super.getLabelDepKeys(env, targetAndErrorIfAny) : oldDepKeys;
+  }
+
+  @Override
+  Iterable<SkyKey> getStrictLabelAspectDepKeys(
+      SkyFunction.Environment env,
+      Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap,
+      TargetAndErrorIfAny targetAndErrorIfAny)
+      throws InterruptedException {
+    // As a performance optimization we may already know the deps we are  about to request from
+    // last time #compute was called. By requesting these from the environment, we can avoid
+    // repeating the label visitation step. For TransitiveTraversalFunction#compute, the label
+    // aspect deps dependency group is requested two groups after the package.
+    Collection<SkyKey> oldAspectDepKeys = getDepsAfterLastPackageDep(env, /*offset=*/ 2);
+    return oldAspectDepKeys == null
+        ? super.getStrictLabelAspectDepKeys(env, depMap, targetAndErrorIfAny)
+        : oldAspectDepKeys;
+  }
+
+  @Nullable
+  private static Collection<SkyKey> getDepsAfterLastPackageDep(
+      SkyFunction.Environment env, int offset) {
+    GroupedList<SkyKey> temporaryDirectDeps = env.getTemporaryDirectDeps();
+    if (temporaryDirectDeps == null) {
+      return null;
+    }
+    int lastPackageDepIndex = getLastPackageValueIndex(temporaryDirectDeps);
+    if (lastPackageDepIndex == -1
+        || temporaryDirectDeps.listSize() <= lastPackageDepIndex + offset) {
+      return null;
+    }
+    return temporaryDirectDeps.get(lastPackageDepIndex + offset);
+  }
+
+  private static int getLastPackageValueIndex(GroupedList<SkyKey> directDeps) {
+    int directDepsNumGroups = directDeps.listSize();
+    for (int i = directDepsNumGroups - 1; i >= 0; i--) {
+      List<SkyKey> depGroup = directDeps.get(i);
+      if (depGroup.size() == 1 && depGroup.get(0).functionName().equals(SkyFunctions.PACKAGE)) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   /**

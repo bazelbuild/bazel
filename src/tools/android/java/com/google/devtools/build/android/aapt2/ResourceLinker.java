@@ -20,23 +20,57 @@ import com.android.repository.Revision;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AaptCommandBuilder;
 import com.google.devtools.build.android.AndroidResourceOutputs;
 import com.google.devtools.build.android.Profiler;
+import com.google.devtools.build.android.aapt2.ResourceCompiler.CompiledType;
+import com.google.devtools.build.android.ziputils.DirectoryEntry;
+import com.google.devtools.build.android.ziputils.ZipIn;
+import com.google.devtools.build.android.ziputils.ZipOut;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** Performs linking of {@link CompiledResources} using aapt2. */
 public class ResourceLinker {
+
+  private static final Predicate<String> IS_JAR = s -> s.endsWith(".jar");
+  private boolean debug;
+  private static final Predicate<DirectoryEntry> IS_FLAT_FILE =
+      h -> h.getFilename().endsWith(".flat");
+
+  private static final Predicate<DirectoryEntry> COMMENT_ABSENT =
+      h -> Strings.isNullOrEmpty(h.getComment());
+
+  private static final Predicate<DirectoryEntry> USE_GENERATED =
+      COMMENT_ABSENT.or(
+          h -> ResourceCompiler.getCompiledType(h.getFilename()) == CompiledType.GENERATED);
+
+  private static final Predicate<DirectoryEntry> USE_DEFAULT =
+      COMMENT_ABSENT.or(
+          h -> ResourceCompiler.getCompiledType(h.getComment()) != CompiledType.GENERATED);
+
+  private static final ImmutableSet<String> PSEUDO_LOCALE_FILTERS =
+      ImmutableSet.of("en_XA", "ar_XB");
 
   /** Represents errors thrown during linking. */
   public static class LinkError extends Aapt2Exception {
@@ -45,18 +79,24 @@ public class ResourceLinker {
       super(e);
     }
 
-    public static LinkError of(IOException e) {
+    public static LinkError of(Throwable e) {
       return new LinkError(e);
     }
   }
+
+  private boolean generatePseudoLocale;
 
   private static Logger logger = Logger.getLogger(ResourceLinker.class.getName());
 
   private final Path aapt2;
 
+  private final ListeningExecutorService executorService;
   private final Path workingDirectory;
 
   private List<StaticLibrary> linkAgainst = ImmutableList.of();
+
+  private String customPackage;
+  private boolean outputAsProto;
 
   private Revision buildToolsVersion;
   private List<String> densities = ImmutableList.of();
@@ -69,14 +109,22 @@ public class ResourceLinker {
   private List<Path> assetDirs = ImmutableList.of();
   private boolean conditionalKeepRules = false;
 
-  private ResourceLinker(Path aapt2, Path workingDirectory) {
+  private ResourceLinker(
+      Path aapt2, ListeningExecutorService executorService, Path workingDirectory) {
     this.aapt2 = aapt2;
+    this.executorService = executorService;
     this.workingDirectory = workingDirectory;
   }
 
-  public static ResourceLinker create(Path aapt2, Path workingDirectory) {
+  public static ResourceLinker create(
+      Path aapt2, ListeningExecutorService executorService, Path workingDirectory) {
     Preconditions.checkArgument(Files.exists(workingDirectory));
-    return new ResourceLinker(aapt2, workingDirectory);
+    return new ResourceLinker(aapt2, executorService, workingDirectory);
+  }
+
+  public ResourceLinker includeGeneratedLocales(boolean generatePseudoLocale) {
+    this.generatePseudoLocale = generatePseudoLocale;
+    return this;
   }
 
   public ResourceLinker profileUsing(Profiler profiler) {
@@ -106,6 +154,11 @@ public class ResourceLinker {
     return this;
   }
 
+  public ResourceLinker debug(boolean debug) {
+    this.debug = debug;
+    return this;
+  }
+
   public ResourceLinker conditionalKeepRules(boolean conditionalKeepRules) {
     this.conditionalKeepRules = conditionalKeepRules;
     return this;
@@ -116,8 +169,18 @@ public class ResourceLinker {
     return this;
   }
 
+  public ResourceLinker customPackage(String customPackage) {
+    this.customPackage = customPackage;
+    return this;
+  }
+
   public ResourceLinker filterToDensity(List<String> densities) {
     this.densities = densities;
+    return this;
+  }
+
+  public ResourceLinker outputAsProto(boolean outputAsProto) {
+    this.outputAsProto = outputAsProto;
     return this;
   }
 
@@ -127,32 +190,29 @@ public class ResourceLinker {
    *
    * @throws IOException
    */
-  public StaticLibrary linkStatically(CompiledResources resources) {
-    final Path outPath = workingDirectory.resolve("lib.apk");
-    final Path rTxt = workingDirectory.resolve("R.txt");
-    final Path sourceJar = workingDirectory.resolve("r.srcjar");
-    Path javaSourceDirectory = workingDirectory.resolve("java");
-
+  public StaticLibrary linkStatically(CompiledResources compiled) {
     try {
+      final Path outPath = workingDirectory.resolve("lib.apk");
+      final Path rTxt = workingDirectory.resolve("R.txt");
+      final Path sourceJar = workingDirectory.resolve("r.srcjar");
+      Path javaSourceDirectory = workingDirectory.resolve("java");
       profiler.startTask("linkstatic");
-      final List<String> compiledResourcePaths =
-          include
-              .stream()
-              .map(compiledResources -> compiledResources.getZip().toString())
-              .collect(toList());
       final Collection<String> pathsToLinkAgainst = StaticLibrary.toPathStrings(linkAgainst);
-      logger.fine(
+      logger.finer(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
               .forVariantType(VariantType.LIBRARY)
               .add("link")
-              .add("--manifest", resources.getManifest())
+              .add("--manifest", compiled.getManifest())
               .add("--static-lib")
               .add("--no-static-lib-packages")
+              .add("--custom-package", customPackage)
               .whenVersionIsAtLeast(new Revision(23))
               .thenAdd("--no-version-vectors")
-              .add("-R", resources.getZip())
-              .addRepeated("-R", compiledResourcePaths)
+              .when(outputAsProto)
+              .thenAdd("--proto-format")
+              .addParameterableRepeated(
+                  "-R", compiledResourcesToPaths(compiled, IS_FLAT_FILE), workingDirectory)
               .addRepeated("-I", pathsToLinkAgainst)
               .add("--auto-add-overlay")
               .add("-o", outPath)
@@ -160,44 +220,104 @@ public class ResourceLinker {
               .thenAdd("--java", javaSourceDirectory)
               .when(linkAgainst.size() == 1) // If using all compiled resources, generates R.txt
               .thenAdd("--output-text-symbols", rTxt)
-              .execute(String.format("Statically linking %s", resources)));
+              .execute(String.format("Statically linking %s", compiled)));
       profiler.recordEndOf("linkstatic");
       // working around aapt2 not producing transitive R.txt and R.java
       if (linkAgainst.size() > 1) {
         profiler.startTask("rfix");
-        logger.fine(
+        logger.finer(
             new AaptCommandBuilder(aapt2)
                 .forBuildToolsVersion(buildToolsVersion)
                 .forVariantType(VariantType.LIBRARY)
                 .add("link")
-                .add("--manifest", resources.getManifest())
+                .add("--manifest", compiled.getManifest())
                 .add("--no-static-lib-packages")
                 .whenVersionIsAtLeast(new Revision(23))
                 .thenAdd("--no-version-vectors")
+                .when(outputAsProto)
+                .thenAdd("--proto-format")
                 // only link against jars
-                .addRepeated(
-                    "-I",
-                    pathsToLinkAgainst.stream().filter(s -> s.endsWith(".jar")).collect(toList()))
+                .addRepeated("-I", pathsToLinkAgainst.stream().filter(IS_JAR).collect(toList()))
                 .add("-R", outPath)
                 // only include non-jars
                 .addRepeated(
-                    "-R",
-                    pathsToLinkAgainst.stream().filter(s -> !s.endsWith(".jar")).collect(toList()))
+                    "-R", pathsToLinkAgainst.stream().filter(IS_JAR.negate()).collect(toList()))
                 .add("--auto-add-overlay")
                 .add("-o", outPath.resolveSibling("transitive.apk"))
                 .add("--java", javaSourceDirectory)
                 .add("--output-text-symbols", rTxt)
-                .execute(String.format("Generating R files %s", resources)));
+                .execute(String.format("Generating R files %s", compiled)));
         profiler.recordEndOf("rfix");
       }
 
       profiler.startTask("sourcejar");
-      AndroidResourceOutputs.createSrcJar(javaSourceDirectory, sourceJar, true /* staticIds */);
+      AndroidResourceOutputs.createSrcJar(javaSourceDirectory, sourceJar, /* staticIds= */ true);
       profiler.recordEndOf("sourcejar");
       return StaticLibrary.from(outPath, rTxt, ImmutableList.of(), sourceJar);
     } catch (IOException e) {
       throw LinkError.of(e);
     }
+  }
+
+  private List<String> compiledResourcesToPaths(
+      CompiledResources compiled, Predicate<DirectoryEntry> shouldKeep) throws IOException {
+    // Using sequential streams to maintain the overlay order for aapt2.
+    return Stream.concat(include.stream(), Stream.of(compiled))
+        .sequential()
+        .map(CompiledResources::getZip)
+        .map(z -> executorService.submit(() -> filterZip(z, shouldKeep)))
+        .map(rethrowLinkError(Future::get))
+        // the process will always take as long as the longest Future
+        .map(Path::toString)
+        .collect(toList());
+  }
+
+  private Path filterZip(Path path, Predicate<DirectoryEntry> shouldKeep) throws IOException {
+    Path outPath =
+        workingDirectory
+            .resolve("filtered")
+            // make absolute paths relative so that resolve will make a new path.
+            .resolve(path.isAbsolute() ? path.subpath(1, path.getNameCount()) : path);
+    // TODO(74258184): How can this path already exist?
+    if (Files.exists(outPath)) {
+      return outPath;
+    }
+    Files.createDirectories(outPath.getParent());
+    try (FileChannel inChannel = FileChannel.open(path, StandardOpenOption.READ);
+        FileChannel outChannel =
+            FileChannel.open(outPath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+      final ZipIn zipIn = new ZipIn(inChannel, path.toString());
+      final ZipOut zipOut = new ZipOut(outChannel, outPath.toString());
+      zipIn.scanEntries(
+          (in, header, dirEntry, data) -> {
+            if (shouldKeep.test(dirEntry)) {
+              zipOut.nextEntry(dirEntry);
+              zipOut.write(header);
+              zipOut.write(data);
+            }
+          });
+      zipOut.close();
+    }
+    return outPath;
+  }
+
+  private static <T, R> Function<T, R> rethrowLinkError(CheckedFunction<T, R> checked) {
+    return (T arg) -> {
+      try {
+        return checked.apply(arg);
+      } catch (ExecutionException e) {
+        throw LinkError.of(Optional.ofNullable(e.getCause()).orElse(e)); // unwrap
+      } catch (IOException e) {
+        throw LinkError.of(e);
+      } catch (Throwable e) { // unexpected error, rethrow for debugging.
+        throw new RuntimeException(e);
+      }
+    };
+  }
+
+  @FunctionalInterface
+  private interface CheckedFunction<T, R> {
+    R apply(T arg) throws Throwable;
   }
 
   public PackagedResources link(CompiledResources compiled) {
@@ -210,7 +330,7 @@ public class ResourceLinker {
       Path resourceIds = workingDirectory.resolve("ids.txt");
 
       profiler.startTask("fulllink");
-      logger.finer(
+      logger.fine(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
               .forVariantType(VariantType.DEFAULT)
@@ -219,11 +339,16 @@ public class ResourceLinker {
               .thenAdd("--no-version-vectors")
               // Turn off namespaced resources
               .add("--no-static-lib-packages")
+              .when(outputAsProto)
+              .thenAdd("--proto-format")
               .when(Objects.equals(logger.getLevel(), Level.FINE))
               .thenAdd("-v")
               .add("--manifest", compiled.getManifest())
               // Enables resource redefinition and merging
               .add("--auto-add-overlay")
+              .when(debug)
+              .thenAdd("--debug-mode")
+              .add("--custom-package", customPackage)
               .when(densities.size() == 1)
               .thenAddRepeated("--preferred-density", densities)
               .add("--stable-ids", compiled.getStableIds())
@@ -234,13 +359,15 @@ public class ResourceLinker {
                           compiled.getAssetsStrings().stream())
                       .collect(toList()))
               .addRepeated("-I", StaticLibrary.toPathStrings(linkAgainst))
-              .addRepeated(
+              .addParameterableRepeated(
                   "-R",
-                  include
-                      .stream()
-                      .map(compiledResources -> compiledResources.getZip().toString())
-                      .collect(toList()))
-              .add("-R", compiled.getZip())
+                  compiledResourcesToPaths(
+                      compiled,
+                      generatePseudoLocale
+                              && resourceConfigs.stream().anyMatch(PSEUDO_LOCALE_FILTERS::contains)
+                          ? IS_FLAT_FILE.and(USE_GENERATED)
+                          : IS_FLAT_FILE.and(USE_DEFAULT)),
+                  workingDirectory)
               // Never compress apks.
               .add("-0", "apk")
               // Add custom no-compress extensions.
@@ -264,11 +391,13 @@ public class ResourceLinker {
             outPath, rTxt, proguardConfig, mainDexProguard, javaSourceDirectory, resourceIds);
       }
       final Path optimized = workingDirectory.resolve("optimized.apk");
-      logger.finer(
+      logger.fine(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
               .forVariantType(VariantType.DEFAULT)
               .add("optimize")
+              .when(Objects.equals(logger.getLevel(), Level.FINE))
+              .thenAdd("-v")
               .add("--target-densities", densities.stream().collect(Collectors.joining(",")))
               .add("-o", optimized)
               .add(outPath.toString())

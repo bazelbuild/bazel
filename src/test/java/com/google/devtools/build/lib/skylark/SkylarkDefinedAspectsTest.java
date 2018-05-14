@@ -358,6 +358,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     Info names = target.get(providerKey);
     assertThat((Iterable<?>) names.getValue("dir"))
         .containsExactly(
+            "actions",
             "aspect_provider",
             "data_runfiles",
             "default_runfiles",
@@ -374,6 +375,39 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         "def _impl(target, ctx):",
         "   f = target.output_group('_hidden_top_level" + INTERNAL_SUFFIX + "')",
+        "   return struct(output_groups = { 'my_result' : f })",
+        "",
+        "MyAspect = aspect(",
+        "   implementation=_impl,",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "java_library(",
+        "     name = 'xxx',",
+        "     srcs = ['A.java'],",
+        ")");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
+    AspectValue aspectValue = analysisResult.getAspects().iterator().next();
+    OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(
+        aspectValue.getConfiguredAspect());
+
+    assertThat(outputGroupInfo).isNotNull();
+    NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
+    assertThat(names).isNotEmpty();
+    NestedSet<Artifact> expectedSet = OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
+        .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
+    assertThat(names).containsExactlyElementsIn(expectedSet);
+  }
+
+  @Test
+  public void aspectWithOutputGroupsExplicitParamName() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   f = target.output_group(group_name = '_hidden_top_level" + INTERNAL_SUFFIX + "')",
         "   return struct(output_groups = { 'my_result' : f })",
         "",
         "MyAspect = aspect(",
@@ -1191,10 +1225,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
-    assertContainsEvent(
-        "Every .bzl file must have a corresponding package, but 'foo' does not have one. "
-            + "Please create a BUILD file in the same or any parent directory. "
-            + "Note that this BUILD file does not need to do anything except exist.");
+    assertContainsEvent("Extension file not found. Unable to load package for '//foo:aspect.bzl'");
   }
 
   @Test

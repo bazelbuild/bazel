@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.rules.sh;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -30,7 +31,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 public class ShLibrary implements RuleConfiguredTargetFactory {
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws RuleErrorException {
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list())
         .addAll(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET).list())

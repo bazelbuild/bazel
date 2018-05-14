@@ -15,8 +15,9 @@
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -27,116 +28,95 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 
 /** Static utilities for AutoCodec processors. */
 class AutoCodecUtil {
   // Synthesized classes will have `_AutoCodec` suffix added.
-  public static final String GENERATED_CLASS_NAME_SUFFIX = "AutoCodec";
+  private static final String GENERATED_CLASS_NAME_SUFFIX = "AutoCodec";
   static final Class<AutoCodec> ANNOTATION = AutoCodec.class;
-
-  /**
-   * Initializes a builder for a class implementing {@link ObjectCodec}.
-   *
-   * @param encodedType type being serialized
-   */
-  static TypeSpec.Builder initializeCodecClassBuilder(TypeElement encodedType) {
-    return initializeCodecClassBuilder(encodedType, null);
-  }
 
   /**
    * Initializes a builder for a class of the appropriate type.
    *
-   * <p>If the dependency is non-null, then the type is {@link InjectingObjectCodec} otherwise
-   * {@link ObjectCodec}.
-   *
    * @param encodedType type being serialized
-   * @param dependency type being injected or null
    */
   static TypeSpec.Builder initializeCodecClassBuilder(
-      TypeElement encodedType, @Nullable TypeElement dependency) {
+      TypeElement encodedType, ProcessingEnvironment env) {
     TypeSpec.Builder builder = TypeSpec.classBuilder(getCodecName(encodedType));
-    if (dependency == null) {
-      return builder.addSuperinterface(
-          ParameterizedTypeName.get(
-              ClassName.get(ObjectCodec.class), TypeName.get(encodedType.asType())));
-    }
     return builder.addSuperinterface(
         ParameterizedTypeName.get(
-            ClassName.get(InjectingObjectCodec.class),
-            TypeName.get(encodedType.asType()),
-            TypeName.get(dependency.asType())));
+            ClassName.get(ObjectCodec.class),
+            TypeName.get(env.getTypeUtils().erasure(encodedType.asType()))));
   }
 
-  static MethodSpec.Builder initializeGetEncodedClassMethod(TypeElement encodedType) {
+  static MethodSpec.Builder initializeGetEncodedClassMethod(
+      TypeElement encodedType, ProcessingEnvironment env) {
     return MethodSpec.methodBuilder("getEncodedClass")
         .addModifiers(Modifier.PUBLIC)
         .addAnnotation(Override.class)
         .returns(
             ParameterizedTypeName.get(
-                ClassName.get(Class.class), TypeName.get(encodedType.asType())));
-  }
-
-  static MethodSpec.Builder initializeSerializeMethodBuilder(TypeElement encodedType) {
-    return initializeSerializeMethodBuilder(encodedType, null);
+                ClassName.get(Class.class),
+                TypeName.get(env.getTypeUtils().erasure(encodedType.asType()))));
   }
 
   /**
-   * Initializes the appropriate deserialize method based on presence of dependency.
-   *
-   * <p>{@link InjectingObjectCodec#serialize} if dependency is non-null and {@link
-   * ObjectCodec#serialize} otherwise.
+   * Initializes the deserialize method.
    *
    * @param encodedType type being serialized
-   * @param dependency type being injected
    */
   static MethodSpec.Builder initializeSerializeMethodBuilder(
-      TypeElement encodedType, @Nullable TypeElement dependency) {
+      TypeElement encodedType, ProcessingEnvironment env) {
     MethodSpec.Builder builder =
         MethodSpec.methodBuilder("serialize")
             .addModifiers(Modifier.PUBLIC)
             .returns(void.class)
             .addAnnotation(Override.class)
             .addException(SerializationException.class)
-            .addException(IOException.class);
-    if (dependency != null) {
-      builder.addParameter(TypeName.get(dependency.asType()), "dependency");
-    }
-    return builder
-        .addParameter(TypeName.get(encodedType.asType()), "input")
-        .addParameter(CodedOutputStream.class, "codedOut");
-  }
-
-  /** Initializes {@link ObjectCodec#deserialize}. */
-  static MethodSpec.Builder initializeDeserializeMethodBuilder(TypeElement encodedType) {
-    return initializeDeserializeMethodBuilder(encodedType, null);
+            .addException(IOException.class)
+            .addParameter(SerializationContext.class, "context")
+            .addParameter(TypeName.get(env.getTypeUtils().erasure(encodedType.asType())), "input")
+            .addParameter(CodedOutputStream.class, "codedOut");
+    return builder;
   }
 
   /**
-   * Initializes the appropriate deserialize method based on presence of dependency.
-   *
-   * <p>{@link InjectingObjectCodec#deserialize} if dependency is non-null and {@link
-   * ObjectCodec#deserialize} otherwise.
+   * Initializes the deserialize method.
    *
    * @param encodedType type being serialized
-   * @param dependency type being injected
    */
   static MethodSpec.Builder initializeDeserializeMethodBuilder(
-      TypeElement encodedType, @Nullable TypeElement dependency) {
+      TypeElement encodedType, ProcessingEnvironment env) {
     MethodSpec.Builder builder =
         MethodSpec.methodBuilder("deserialize")
             .addModifiers(Modifier.PUBLIC)
-            .returns(TypeName.get(encodedType.asType()))
+            .returns(TypeName.get(env.getTypeUtils().erasure(encodedType.asType())))
             .addAnnotation(Override.class)
             .addException(SerializationException.class)
-            .addException(IOException.class);
-    if (dependency != null) {
-      builder.addParameter(TypeName.get(dependency.asType()), "dependency");
-    }
-    return builder.addParameter(CodedInputStream.class, "codedIn");
+            .addException(IOException.class)
+            .addParameter(DeserializationContext.class, "context")
+            .addParameter(CodedInputStream.class, "codedIn");
+    return builder;
+  }
+
+  /**
+   * Returns a class name generated from the given {@code element}.
+   *
+   * <p>For {@code Foo.Bar} this is {@code Foo_Bar_suffix}.
+   */
+  static String getGeneratedName(Element element, String suffix) {
+    ImmutableList.Builder<String> classNamesBuilder = new ImmutableList.Builder<>();
+    classNamesBuilder.add(suffix);
+    do {
+      classNamesBuilder.add(element.getSimpleName().toString());
+      element = element.getEnclosingElement();
+    } while (element instanceof TypeElement);
+    return classNamesBuilder.build().reverse().stream().collect(Collectors.joining("_"));
   }
 
   /**
@@ -145,12 +125,14 @@ class AutoCodecUtil {
    * <p>For {@code Foo.Bar} this is {@code Foo_Bar_AutoCodec}.
    */
   private static String getCodecName(Element element) {
-    ImmutableList.Builder<String> classNamesBuilder = new ImmutableList.Builder<>();
-    classNamesBuilder.add(GENERATED_CLASS_NAME_SUFFIX);
-    do {
-      classNamesBuilder.add(element.getSimpleName().toString());
-      element = element.getEnclosingElement();
-    } while (element instanceof TypeElement);
-    return classNamesBuilder.build().reverse().stream().collect(Collectors.joining("_"));
+    return getGeneratedName(element, GENERATED_CLASS_NAME_SUFFIX);
+  }
+
+  static TypeMirror getType(Class<?> clazz, ProcessingEnvironment env) {
+    return env.getElementUtils().getTypeElement((clazz.getCanonicalName())).asType();
+  }
+
+  static boolean isSubType(TypeMirror type, Class<?> clazz, ProcessingEnvironment env) {
+    return env.getTypeUtils().isSubtype(type, getType(clazz, env));
   }
 }

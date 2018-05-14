@@ -14,12 +14,12 @@
 package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * No-op configuration transition.
- */
+/** No-op configuration transition. */
 public final class NoTransition implements PatchTransition {
-  public static final NoTransition INSTANCE = new NoTransition();
+
+  @AutoCodec public static final NoTransition INSTANCE = new NoTransition();
 
   private NoTransition() {}
 

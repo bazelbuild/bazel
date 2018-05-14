@@ -301,3 +301,15 @@ function get_bind_target() {
   $BAZEL --bazelrc=${BAZELRC} --nomaster_bazelrc ${BAZEL_DIR_STARTUP_OPTIONS} \
     query "deps($1, 1) - $1"
 }
+
+# Create a link for a directory on the filesystem
+function link_dir() {
+  local source=$1
+  local dest=$2
+
+  if [[ "${PLATFORM}" == "windows" ]]; then
+    cmd.exe /C "mklink /J \"$(cygpath -w "$dest")\" \"$(cygpath -w "$source")\""
+  else
+    ln -s "${source}" "${dest}"
+  fi
+}

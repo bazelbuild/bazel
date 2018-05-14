@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 import static com.google.devtools.build.lib.rules.proto.ProtoCommon.areDepsStrict;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -28,6 +27,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -35,7 +36,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.LazyString;
 import java.util.Collection;
 import java.util.HashSet;
@@ -76,39 +77,8 @@ public class ProtoCompileActionBuilder {
   private Iterable<String> additionalCommandLineArguments;
   private Iterable<FilesToRunProvider> additionalTools;
 
-  /** Build a proto compiler commandline argument for use in setXParameter methods. */
-  public static String buildProtoArg(String arg, String value, Iterable<String> flags) {
-    return String.format(
-        "--%s=%s%s", arg, (isEmpty(flags) ? "" : Joiner.on(',').join(flags) + ":"), value);
-  }
-
-  public ProtoCompileActionBuilder setRuleContext(RuleContext ruleContext) {
-    this.ruleContext = ruleContext;
-    return this;
-  }
-
-  public ProtoCompileActionBuilder setSupportData(SupportData supportData) {
-    this.supportData = supportData;
-    return this;
-  }
-
-  public ProtoCompileActionBuilder setLanguage(String language) {
-    this.language = language;
-    return this;
-  }
-
-  public ProtoCompileActionBuilder setLangPrefix(String langPrefix) {
-    this.langPrefix = langPrefix;
-    return this;
-  }
-
   public ProtoCompileActionBuilder allowServices(boolean hasServices) {
     this.hasServices = hasServices;
-    return this;
-  }
-
-  public ProtoCompileActionBuilder setOutputs(Iterable<Artifact> outputs) {
-    this.outputs = outputs;
     return this;
   }
 
@@ -164,28 +134,33 @@ public class ProtoCompileActionBuilder {
   }
 
   /** Static class to avoid keeping a reference to this builder after build() is called. */
-  private static class LazyLangPluginFlag extends LazyString {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class LazyLangPluginFlag extends LazyString {
     private final String langPrefix;
-    private final Supplier<String> langPluginParameter1;
+    private final Supplier<String> langPluginParameter;
 
-    LazyLangPluginFlag(String langPrefix, Supplier<String> langPluginParameter1) {
+    @AutoCodec.VisibleForSerialization
+    LazyLangPluginFlag(String langPrefix, Supplier<String> langPluginParameter) {
       this.langPrefix = langPrefix;
-      this.langPluginParameter1 = langPluginParameter1;
+      this.langPluginParameter = langPluginParameter;
     }
 
     @Override
     public String toString() {
-      return String.format("--%s_out=%s", langPrefix, langPluginParameter1.get());
+      return String.format("--%s_out=%s", langPrefix, langPluginParameter.get());
     }
   }
 
-  private static class LazyCommandLineExpansion extends LazyString {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class LazyCommandLineExpansion extends LazyString {
     // E.g., --java_out=%s
     private final String template;
     private final Map<String, ? extends CharSequence> variableValues;
 
-    private LazyCommandLineExpansion(
-        String template, Map<String, ? extends CharSequence> variableValues) {
+    @AutoCodec.VisibleForSerialization
+    LazyCommandLineExpansion(String template, Map<String, ? extends CharSequence> variableValues) {
       this.template = template;
       this.variableValues = variableValues;
     }
@@ -344,9 +319,6 @@ public class ProtoCompileActionBuilder {
     return result;
   }
 
-  @VisibleForTesting
-  static class ProtoCommandLineArgv {}
-
   /** Signifies that a prerequisite could not be satisfied. */
   private static class MissingPrerequisiteException extends Exception {}
 
@@ -358,7 +330,8 @@ public class ProtoCompileActionBuilder {
       NestedSet<Artifact> protosInDirectDeps,
       Artifact output,
       boolean allowServices,
-      NestedSet<Artifact> transitiveDescriptorSets) {
+      NestedSet<Artifact> transitiveDescriptorSets,
+      NestedSet<String> protoSourceRoots) {
     if (protosToCompile.isEmpty()) {
       ruleContext.registerAction(
           FileWriteAction.createEmptyWithInputs(
@@ -373,6 +346,7 @@ public class ProtoCompileActionBuilder {
             protosToCompile,
             transitiveSources,
             protosInDirectDeps,
+            protoSourceRoots,
             ruleContext.getLabel(),
             ImmutableList.of(output),
             "Descriptor Set",
@@ -395,9 +369,9 @@ public class ProtoCompileActionBuilder {
             // A rule that concatenates the artifacts from ctx.deps.proto.transitive_descriptor_sets
             // provides similar results.
             "--descriptor_set_out=$(OUT)",
-            null /* pluginExecutable */,
-            null /* runtime */,
-            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* blacklistedProtos */),
+            /* pluginExecutable= */ null,
+            /* runtime= */ null,
+            /* blacklistedProtos= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER)),
         outReplacement);
   }
 
@@ -419,6 +393,7 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> protosToCompile,
       NestedSet<Artifact> transitiveSources,
       NestedSet<Artifact> protosInDirectDeps,
+      NestedSet<String> protoSourceRoots,
       Label ruleLabel,
       Iterable<Artifact> outputs,
       String flavorName,
@@ -430,6 +405,7 @@ public class ProtoCompileActionBuilder {
             protosToCompile,
             transitiveSources,
             protosInDirectDeps,
+            protoSourceRoots,
             ruleLabel,
             outputs,
             flavorName,
@@ -446,6 +422,7 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> protosToCompile,
       NestedSet<Artifact> transitiveSources,
       @Nullable NestedSet<Artifact> protosInDirectDeps,
+      NestedSet<String> protoSourceRoots,
       Label ruleLabel,
       Iterable<Artifact> outputs,
       String flavorName,
@@ -480,6 +457,7 @@ public class ProtoCompileActionBuilder {
                 toolchainInvocations,
                 protosToCompile,
                 transitiveSources,
+                protoSourceRoots,
                 areDepsStrict(ruleContext) ? protosInDirectDeps : null,
                 ruleLabel,
                 allowServices,
@@ -516,11 +494,15 @@ public class ProtoCompileActionBuilder {
       List<ToolchainInvocation> toolchainInvocations,
       Iterable<Artifact> protosToCompile,
       NestedSet<Artifact> transitiveSources,
+      NestedSet<String> transitiveProtoPathFlags,
       @Nullable NestedSet<Artifact> protosInDirectDeps,
       Label ruleLabel,
       boolean allowServices,
       ImmutableList<String> protocOpts) {
     CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
+
+    cmdLine.addAll(
+        VectorArg.of(transitiveProtoPathFlags).mapped(EXPAND_TRANSITIVE_PROTO_PATH_FLAGS));
 
     // A set to check if there are multiple invocations with the same name.
     HashSet<String> invocationNames = new HashSet<>();
@@ -577,15 +559,14 @@ public class ProtoCompileActionBuilder {
       CustomCommandLine.Builder commandLine,
       @Nullable NestedSet<Artifact> protosInDirectDependencies,
       NestedSet<Artifact> transitiveImports) {
-    commandLine.addAll(
-        VectorArg.of(transitiveImports).mapped(ProtoCompileActionBuilder::transitiveImportArg));
+    commandLine.addAll(VectorArg.of(transitiveImports).mapped(EXPAND_TRANSITIVE_IMPORT_ARG));
     if (protosInDirectDependencies != null) {
       if (!protosInDirectDependencies.isEmpty()) {
         commandLine.addAll(
             "--direct_dependencies",
             VectorArg.join(":")
                 .each(protosInDirectDependencies)
-                .mapped(ProtoCompileActionBuilder::getPathIgnoringRepository));
+                .mapped(EXPAND_TO_PATH_IGNORING_REPOSITORY));
       } else {
         // The proto compiler requires an empty list to turn on strict deps checking
         commandLine.add("--direct_dependencies=");
@@ -593,9 +574,19 @@ public class ProtoCompileActionBuilder {
     }
   }
 
-  private static String transitiveImportArg(Artifact artifact) {
-    return "-I" + getPathIgnoringRepository(artifact) + "=" + artifact.getExecPathString();
-  }
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final CommandLineItem.MapFn<String> EXPAND_TRANSITIVE_PROTO_PATH_FLAGS =
+      (flag, args) -> args.accept("--proto_path=" + flag);
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final CommandLineItem.MapFn<Artifact> EXPAND_TRANSITIVE_IMPORT_ARG =
+      (artifact, args) ->
+          args.accept(
+              "-I" + getPathIgnoringRepository(artifact) + "=" + artifact.getExecPathString());
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final CommandLineItem.MapFn<Artifact> EXPAND_TO_PATH_IGNORING_REPOSITORY =
+      (artifact, args) -> args.accept(getPathIgnoringRepository(artifact));
 
   /**
    * Gets the artifact's path relative to the root, ignoring the external repository the artifact is

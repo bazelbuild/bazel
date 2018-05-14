@@ -50,7 +50,7 @@ public class FilesetManifestTest {
 
   private void scratchFile(String file, String... lines) throws Exception {
     Path path = fs.getPath(file);
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeLinesAs(path, StandardCharsets.UTF_8, lines);
   }
 
@@ -62,7 +62,7 @@ public class FilesetManifestTest {
     Artifact artifact =
         new Artifact(fs.getPath("/root/foo"), ArtifactRoot.asSourceRoot(Root.fromPath(execRoot)));
     FilesetManifest manifest =
-        FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", IGNORE);
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries()).isEmpty();
   }
 
@@ -78,7 +78,7 @@ public class FilesetManifestTest {
         ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", IGNORE);
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries())
         .containsExactly(PathFragment.create("out/foo/bar"), "/dir/file");
   }
@@ -97,7 +97,7 @@ public class FilesetManifestTest {
         ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", IGNORE);
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries())
         .containsExactly(
             PathFragment.create("out/foo/bar"), "/dir/file",
@@ -116,7 +116,7 @@ public class FilesetManifestTest {
         ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", IGNORE);
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries())
         .containsExactly(PathFragment.create("out/foo/bar"), "/some");
   }
@@ -134,7 +134,7 @@ public class FilesetManifestTest {
         ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", IGNORE);
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries()).containsExactly(PathFragment.create("out/foo/bar"), null);
   }
 
@@ -150,7 +150,7 @@ public class FilesetManifestTest {
         ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     try {
-      FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", IGNORE);
+      FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
       fail();
     } catch (IOException e) {
       assertThat(e)
@@ -173,7 +173,7 @@ public class FilesetManifestTest {
         ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     try {
-      FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", ERROR);
+      FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", ERROR);
       fail();
     } catch (IOException e) {
       assertThat(e).hasMessageThat().isEqualTo("runfiles target is not absolute: foo");
@@ -194,7 +194,7 @@ public class FilesetManifestTest {
         ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", IGNORE);
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries())
         .containsExactly(PathFragment.create("out/foo/foo"), "/foo/bar");
   }
@@ -213,11 +213,53 @@ public class FilesetManifestTest {
         ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", RESOLVE);
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
     assertThat(manifest.getEntries())
         .containsExactly(
             PathFragment.create("out/foo/bar"), "/foo/bar",
             PathFragment.create("out/foo/foo"), "/foo/bar");
+  }
+
+  @Test
+  public void testManifestWithResolvedRelativeSymlinkWithDotSlash() throws Exception {
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar ./foo",
+        "<some digest>",
+        "workspace/foo /foo/bar",
+        "<some digest>");
+
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
+    FilesetManifest manifest =
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
+    assertThat(manifest.getEntries())
+        .containsExactly(
+            PathFragment.create("out/foo/bar"), "/foo/bar",
+            PathFragment.create("out/foo/foo"), "/foo/bar");
+  }
+
+  @Test
+  public void testManifestWithResolvedRelativeSymlinkWithDotDotSlash() throws Exception {
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar/bar ../foo/foo",
+        "<some digest>",
+        "workspace/foo/foo /foo/bar",
+        "<some digest>");
+
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
+    FilesetManifest manifest =
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
+    assertThat(manifest.getEntries())
+        .containsExactly(
+            PathFragment.create("out/foo/bar/bar"), "/foo/bar",
+            PathFragment.create("out/foo/foo/foo"), "/foo/bar");
   }
 
   @Test
@@ -232,7 +274,7 @@ public class FilesetManifestTest {
         ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     try {
-      FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", RESOLVE);
+      FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
       fail();
     } catch (IOException e) {
       assertThat(e).hasMessageThat()
@@ -257,7 +299,7 @@ public class FilesetManifestTest {
         ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", IGNORE);
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries())
         .containsExactly(
             PathFragment.create("out/foo/bar"), "/foo/bar");

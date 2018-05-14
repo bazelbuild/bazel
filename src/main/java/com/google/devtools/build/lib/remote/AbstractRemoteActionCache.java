@@ -15,12 +15,16 @@ package com.google.devtools.build.lib.remote;
 
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.Command;
 import com.google.devtools.remoteexecution.v1test.Digest;
@@ -44,9 +48,11 @@ import javax.annotation.Nullable;
 /** A cache for storing artifacts (input and output) as well as the output of running an action. */
 @ThreadSafety.ThreadSafe
 public abstract class AbstractRemoteActionCache implements AutoCloseable {
+  protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
 
-  public AbstractRemoteActionCache(DigestUtil digestUtil) {
+  public AbstractRemoteActionCache(RemoteOptions options, DigestUtil digestUtil) {
+    this.options = options;
     this.digestUtil = digestUtil;
   }
 
@@ -92,7 +98,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       Collection<Path> files,
       FileOutErr outErr,
       boolean uploadAction)
-      throws IOException, InterruptedException;
+      throws ExecException, IOException, InterruptedException;
 
   /**
    * Download a remote blob to a local destination.
@@ -131,13 +137,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
         downloadFile(path, file.getDigest(), file.getIsExecutable(), file.getContent());
       }
       for (OutputDirectory dir : result.getOutputDirectoriesList()) {
-        Digest treeDigest = dir.getTreeDigest();
-        byte[] b = downloadBlob(treeDigest);
-        Digest receivedTreeDigest = digestUtil.compute(b);
-        if (!receivedTreeDigest.equals(treeDigest)) {
-          throw new IOException(
-              "Digest does not match " + receivedTreeDigest + " != " + treeDigest);
-        }
+        byte[] b = downloadBlob(dir.getTreeDigest());
         Tree tree = Tree.parseFrom(b);
         Map<Digest, Directory> childrenMap = new HashMap<>();
         for (Directory child : tree.getChildrenList()) {
@@ -215,7 +215,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * Download a file (that is not a directory). If the {@code content} is not given, the content is
    * fetched from the digest.
    */
-  protected void downloadFile(
+  public void downloadFile(
       Path path, Digest digest, boolean isExecutable, @Nullable ByteString content)
       throws IOException, InterruptedException {
     FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
@@ -258,12 +258,12 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     }
   }
 
-  /**
-   * The UploadManifest is used to mutualize upload between the RemoteActionCache implementations.
-   */
-  public class UploadManifest {
+  /** UploadManifest adds output metadata to a {@link ActionResult}. */
+  static class UploadManifest {
+    private final DigestUtil digestUtil;
     private final ActionResult.Builder result;
     private final Path execRoot;
+    private final boolean allowSymlinks;
     private final Map<Digest, Path> digestToFile;
     private final Map<Digest, Chunker> digestToChunkers;
 
@@ -271,33 +271,45 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
      * Create an UploadManifest from an ActionResult builder and an exec root. The ActionResult
      * builder is populated through a call to {@link #addFile(Digest, Path)}.
      */
-    public UploadManifest(ActionResult.Builder result, Path execRoot) {
+    public UploadManifest(
+        DigestUtil digestUtil, ActionResult.Builder result, Path execRoot, boolean allowSymlinks) {
+      this.digestUtil = digestUtil;
       this.result = result;
       this.execRoot = execRoot;
+      this.allowSymlinks = allowSymlinks;
 
       this.digestToFile = new HashMap<>();
       this.digestToChunkers = new HashMap<>();
     }
 
     /**
-     * Add a collection of files (and directories) to the UploadManifest. Adding a directory has the
+     * Add a collection of files or directories to the UploadManifest. Adding a directory has the
      * effect of 1) uploading a {@link Tree} protobuf message from which the whole structure of the
      * directory, including the descendants, can be reconstructed and 2) uploading all the
      * non-directory descendant files.
+     *
+     * <p>Attempting to a upload symlink results in a {@link
+     * com.google.build.lib.actions.ExecException}, since cachable actions shouldn't emit symlinks.
      */
-    public void addFiles(Collection<Path> files) throws IOException, InterruptedException {
+    public void addFiles(Collection<Path> files)
+        throws ExecException, IOException, InterruptedException {
       for (Path file : files) {
         // TODO(ulfjack): Maybe pass in a SpawnResult here, add a list of output files to that, and
         // rely on the local spawn runner to stat the files, instead of statting here.
-        if (!file.exists()) {
+        FileStatus stat = file.statIfFound(Symlinks.NOFOLLOW);
+        if (stat == null) {
           // We ignore requested results that have not been generated by the action.
           continue;
         }
-        if (file.isDirectory()) {
+        if (stat.isDirectory()) {
           addDirectory(file);
-        } else {
-          Digest digest = digestUtil.compute(file);
+        } else if (stat.isFile()) {
+          Digest digest = digestUtil.compute(file, stat.getSize());
           addFile(digest, file);
+        } else if (allowSymlinks && stat.isSymbolicLink()) {
+          addFile(digestUtil.compute(file), file);
+        } else {
+          illegalOutput(file);
         }
       }
     }
@@ -326,7 +338,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       digestToFile.put(digest, file);
     }
 
-    private void addDirectory(Path dir) throws IOException {
+    private void addDirectory(Path dir) throws ExecException, IOException {
       Tree.Builder tree = Tree.newBuilder();
       Directory root = computeDirectory(dir, tree);
       tree.setRoot(root);
@@ -345,7 +357,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       digestToChunkers.put(chunker.digest(), chunker);
     }
 
-    private Directory computeDirectory(Path path, Tree.Builder tree) throws IOException {
+    private Directory computeDirectory(Path path, Tree.Builder tree)
+        throws ExecException, IOException {
       Directory.Builder b = Directory.newBuilder();
 
       List<Dirent> sortedDirent = new ArrayList<>(path.readdir(TreeNodeRepository.SYMLINK_POLICY));
@@ -358,14 +371,27 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
           Directory dir = computeDirectory(child, tree);
           b.addDirectoriesBuilder().setName(name).setDigest(digestUtil.compute(dir));
           tree.addChildren(dir);
-        } else {
+        } else if (dirent.getType() == Dirent.Type.FILE
+            || (dirent.getType() == Dirent.Type.SYMLINK && allowSymlinks)) {
           Digest digest = digestUtil.compute(child);
           b.addFilesBuilder().setName(name).setDigest(digest).setIsExecutable(child.isExecutable());
           digestToFile.put(digest, child);
+        } else {
+          illegalOutput(child);
         }
       }
 
       return b.build();
+    }
+
+    private void illegalOutput(Path what) throws ExecException, IOException {
+      String kind = what.isSymbolicLink() ? "symbolic link" : "special file";
+      throw new UserExecException(
+          String.format(
+              "Output %s is a %s. Only regular files and directories may be "
+                  + "uploaded to a remote cache. "
+                  + "Change the file type or use --remote_allow_symlink_upload.",
+              what.relativeTo(execRoot), kind));
     }
   }
 

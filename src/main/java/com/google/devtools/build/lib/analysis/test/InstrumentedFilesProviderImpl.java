@@ -17,11 +17,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 
-/**
- * An implementation class for the InstrumentedFilesProvider interface.
- */
+/** An implementation class for the InstrumentedFilesProvider interface. */
+@AutoCodec
 public final class InstrumentedFilesProviderImpl implements InstrumentedFilesProvider {
   public static final InstrumentedFilesProvider EMPTY =
       new InstrumentedFilesProviderImpl(

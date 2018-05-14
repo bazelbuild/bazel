@@ -24,36 +24,38 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 
 /**
  * Rule definition for genquery the rule.
  */
 public final class GenQueryRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(scope) -->
-        The scope of the query. The query is not allowed to
-        touch targets outside the transitive closure of these targets.
+        The scope of the query. The query is not allowed to touch targets outside the transitive
+        closure of these targets.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("scope", LABEL_LIST).mandatory().legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(strict) -->
-        If true, targets whose queries escape the transitive closure of their
-        scopes will fail to build. If false, Blaze will print a warning and skip
-        whatever query path led it outside of the scope, while completing the rest
-        of the query.
+        If true, targets whose queries escape the transitive closure of their scopes will fail to
+        build. If false, Blaze will print a warning and skip whatever query path led it outside of
+        the scope, while completing the rest of the query.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("strict", BOOLEAN).value(true))
         /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(expression) -->
-        The query to be executed.
+        The query to be executed. In contrast to the command line and other places in BUILD files,
+        labels here are resolved relative to the root directory of the workspace. For example, the
+        label <code>:b</code> in this attribute in the file <code>a/BUILD</code> will refer to the
+        target <code>//:b</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("expression", STRING).mandatory())
         /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(opts) -->
-        The options that are passed to the query engine.
-        These correspond to the command line options that can be passed to
-        <code>blaze query</code>. The only query options that are not allowed here
-        are <code>--keep_going</code> and <code>--order_output</code>.
+        The options that are passed to the query engine. These correspond to the command line
+        options that can be passed to <code>blaze query</code>. Some query options are not allowed
+        here: <code>--keep_going</code>, <code>--query_file</code>, <code>--universe_scope</code>,
+        <code>--order_results</code> and <code>--order_output</code>. Options not specified here
+        will have their default values just like on the command line of <code>blaze query</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("opts", STRING_LIST))
         .build();

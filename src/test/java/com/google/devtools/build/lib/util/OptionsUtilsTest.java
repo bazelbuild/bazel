@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
 import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentListConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
@@ -41,7 +42,6 @@ public class OptionsUtilsTest {
   public static class IntrospectionExample extends OptionsBase {
     @Option(
       name = "alpha",
-      category = "one",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "alpha"
@@ -50,7 +50,6 @@ public class OptionsUtilsTest {
 
     @Option(
       name = "beta",
-      category = "one",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "beta"
@@ -107,7 +106,6 @@ public class OptionsUtilsTest {
   public static class BooleanOpts extends OptionsBase {
     @Option(
       name = "b_one",
-      category = "xyz",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "true"
@@ -116,7 +114,6 @@ public class OptionsUtilsTest {
 
     @Option(
       name = "b_two",
-      category = "123", // Not printed in usage messages!
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "false"
@@ -166,6 +163,10 @@ public class OptionsUtilsTest {
     return new PathFragmentListConverter().convert(input);
   }
 
+  private PathFragment convertOne(String input) throws Exception {
+    return new PathFragmentConverter().convert(input);
+  }
+
   @Test
   public void emptyStringYieldsEmptyList() throws Exception {
     assertThat(convert("")).isEqualTo(list());
@@ -183,10 +184,21 @@ public class OptionsUtilsTest {
 
   @Test
   public void multiplePaths() throws Exception {
-    assertThat(convert("foo:/bar/baz:.:/tmp/bang"))
+    assertThat(convert("~/foo:foo:/bar/baz:.:/tmp/bang"))
         .containsExactly(
-            fragment("foo"), fragment("/bar/baz"), fragment("."), fragment("/tmp/bang"))
+            fragment(System.getProperty("user.home") + "/foo"),
+            fragment("foo"),
+            fragment("/bar/baz"),
+            fragment("."),
+            fragment("/tmp/bang"))
         .inOrder();
+  }
+
+  @Test
+  public void singlePath() throws Exception {
+    assertThat(convertOne("foo")).isEqualTo(fragment("foo"));
+    assertThat(convertOne("foo/bar/baz")).isEqualTo(fragment("foo/bar/baz"));
+    assertThat(convertOne("~/foo")).isEqualTo(fragment(System.getProperty("user.home") + "/foo"));
   }
 
   @Test

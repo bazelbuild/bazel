@@ -46,6 +46,6 @@ public interface PackageRoots {
      * the {@code packageIdentifier} given does not correspond to any packages.
      */
     @Nullable
-    ArtifactRoot getRootForPackage(PackageIdentifier packageIdentifier);
+    Root getRootForPackage(PackageIdentifier packageIdentifier);
   }
 }

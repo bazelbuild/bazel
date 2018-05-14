@@ -20,23 +20,26 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
 /**
- * Action to create an executable symbolic link. It includes additional
- * validation that symlink target is indeed an executable file.
+ * Action to create an executable symbolic link. It includes additional validation that symlink
+ * target is indeed an executable file.
  */
+@AutoCodec
 public final class ExecutableSymlinkAction extends SymlinkAction {
 
-  public ExecutableSymlinkAction(ActionOwner owner, Artifact input, Artifact output) {
-    super(owner, input, output, "Symlinking " + owner.getLabel());
+  @AutoCodec.Instantiator
+  public ExecutableSymlinkAction(ActionOwner owner, Artifact primaryInput, Artifact primaryOutput) {
+    super(owner, primaryInput, primaryOutput, "Symlinking " + owner.getLabel());
   }
 
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
-    Path inputPath = getPrimaryInput().getPath();
+    Path inputPath = actionExecutionContext.getInputPath(getPrimaryInput());
     try {
       // Validate that input path is a file with the executable bit is set.
       if (!inputPath.isFile()) {

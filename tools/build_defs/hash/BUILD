@@ -21,3 +21,13 @@ exports_files(
     ["hash.bzl"],
     visibility = ["//visibility:public"],
 )
+
+sh_test(
+    name = "sha256_test",
+    size = "small",
+    srcs = ["sha256_test.sh"],
+    data = ["sha256"],
+    # TODO(laszlocsomor): use the runfiles library after
+    # https://github.com/bazelbuild/bazel/issues/4460 is fixed for sh_*
+    tags = ["-no_windows"],
+)

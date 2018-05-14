@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -53,35 +52,48 @@ public final class RdepsFunction extends AllRdepsFunction {
 
   @Override
   public <T> QueryTaskFuture<Void> eval(
-      final QueryEnvironment<T> env,
-      final VariableContext<T> context,
-      final QueryExpression expression,
-      final List<Argument> args,
-      final Callback<T> callback) {
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
+      List<Argument> args,
+      Callback<T> callback) {
     boolean isDepthUnbounded = args.size() == 2;
-    return (isDepthUnbounded && env instanceof StreamableQueryEnvironment)
-        ? ((StreamableQueryEnvironment<T>) env)
-            .getRdepsUnboundedInUniverseParallel(expression, context, args, callback)
-        : evalWithBoundedDepth(env, context, expression, args, callback);
+    int depth = isDepthUnbounded ? Integer.MAX_VALUE : args.get(2).getInteger();
+    QueryExpression universeExpression = args.get(0).getExpression();
+    QueryExpression argumentExpression = args.get(1).getExpression();
+    if (env instanceof StreamableQueryEnvironment) {
+      StreamableQueryEnvironment<T> streamableEnv = (StreamableQueryEnvironment<T>) env;
+      return isDepthUnbounded
+          ? streamableEnv.getRdepsUnboundedParallel(
+              argumentExpression, universeExpression, context, callback)
+          : streamableEnv.getRdepsBoundedParallel(
+              argumentExpression, depth, universeExpression, context, callback);
+    } else {
+      return evalWithBoundedDepth(
+          env, expression, context, argumentExpression, depth, universeExpression, callback);
+    }
   }
 
   /**
    * Compute the transitive closure of the universe, then breadth-first search from the argument
    * towards the universe while staying within the transitive closure.
    */
-  public static <T> QueryTaskFuture<Void> evalWithBoundedDepth(
+  private static <T> QueryTaskFuture<Void> evalWithBoundedDepth(
       QueryEnvironment<T> env,
+      QueryExpression rdepsFunctionExpressionForErrorMessages,
       VariableContext<T> context,
-      QueryExpression expression,
-      final List<Argument> args,
+      QueryExpression argumentExpression,
+      int depth,
+      QueryExpression universeExpression,
       Callback<T> callback) {
     QueryTaskFuture<ThreadSafeMutableSet<T>> universeValueFuture =
-        QueryUtil.evalAll(env, context, args.get(0).getExpression());
+        QueryUtil.evalAll(env, context, universeExpression);
     Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> evalInUniverseAsyncFunction =
         universeValue -> {
           Predicate<T> universe;
           try {
-            env.buildTransitiveClosure(expression, universeValue, Integer.MAX_VALUE);
+            env.buildTransitiveClosure(
+                rdepsFunctionExpressionForErrorMessages, universeValue, Integer.MAX_VALUE);
             universe = Predicates.in(env.getTransitiveClosure(universeValue));
           } catch (InterruptedException e) {
             return env.immediateCancelledFuture();
@@ -89,8 +101,8 @@ public final class RdepsFunction extends AllRdepsFunction {
             return env.immediateFailedFuture(e);
           }
 
-          return AllRdepsFunction.evalRdeps(
-              env, context, args.subList(1, args.size()), callback, Optional.of(universe));
+          return AllRdepsFunction.eval(
+              env, argumentExpression, universe, context, callback, depth);
         };
 
     return env.transformAsync(universeValueFuture, evalInUniverseAsyncFunction);

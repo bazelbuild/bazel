@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.profiler;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -157,13 +158,13 @@ public class AutoProfiler implements AutoCloseable {
   }
 
   /**
-   * Returns an {@link AutoProfiler} that, when closed, records the elapsed time using
-   * {@link Profiler}.
+   * Returns an {@link AutoProfiler} that, when closed, records the elapsed time using {@link
+   * Profiler}.
    *
    * <p>The returned {@link AutoProfiler} is thread-safe.
    */
-  public static AutoProfiler profiled(Object object, ProfilerTask profilerTaskType) {
-    return create(new ProfilingElapsedTimeReceiver(object, profilerTaskType));
+  public static AutoProfiler profiled(String description, ProfilerTask profilerTaskType) {
+    return create(new ProfilingElapsedTimeReceiver(description, profilerTaskType));
   }
 
   /**
@@ -332,20 +333,21 @@ public class AutoProfiler implements AutoCloseable {
 
   private static class ProfilingElapsedTimeReceiver implements ElapsedTimeReceiver {
     private final long startTimeNanos;
-    private final Object object;
+    private final String description;
     private final ProfilerTask profilerTaskType;
 
-    private ProfilingElapsedTimeReceiver(Object object, ProfilerTask profilerTaskType) {
+    private ProfilingElapsedTimeReceiver(String description, ProfilerTask profilerTaskType) {
       this.startTimeNanos = Profiler.nanoTimeMaybe();
-      this.object = object;
+      this.description = description;
       this.profilerTaskType = profilerTaskType;
     }
 
     @Override
     public void accept(long elapsedTimeNanos) {
       if (elapsedTimeNanos > 0) {
-        Profiler.instance().logSimpleTaskDuration(startTimeNanos, elapsedTimeNanos,
-            profilerTaskType, object);
+        Profiler.instance()
+            .logSimpleTaskDuration(
+                startTimeNanos, Duration.ofNanos(elapsedTimeNanos), profilerTaskType, description);
       }
     }
   }

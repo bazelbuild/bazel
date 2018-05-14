@@ -67,24 +67,39 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testDefaultsMembership() throws Exception {
+  public void defaultsMembership() throws Exception {
     assertThat(group.getDefaults()).isEqualTo(ImmutableSet.of(Label.parseAbsolute("//pkg:foo")));
   }
 
   @Test
-  public void testIsDefault() throws Exception {
-    assertThat(group.isDefault(Label.parseAbsolute("//pkg:foo"))).isTrue();
-    assertThat(group.isDefault(Label.parseAbsolute("//pkg:bar"))).isFalse();
-    assertThat(group.isDefault(Label.parseAbsolute("//pkg:baz"))).isFalse();
-    assertThat(group.isDefault(Label.parseAbsolute("//pkg:not_in_group"))).isFalse();
+  public void isDefault() throws Exception {
+    EnvironmentLabels unpackedGroup = group.getEnvironmentLabels();
+    assertThat(unpackedGroup.isDefault(Label.parseAbsolute("//pkg:foo"))).isTrue();
+    assertThat(unpackedGroup.isDefault(Label.parseAbsolute("//pkg:bar"))).isFalse();
+    assertThat(unpackedGroup.isDefault(Label.parseAbsolute("//pkg:baz"))).isFalse();
+    assertThat(unpackedGroup.isDefault(Label.parseAbsolute("//pkg:not_in_group"))).isFalse();
   }
 
   @Test
-  public void testFulfillers() throws Exception {
-    assertThat(group.getFulfillers(Label.parseAbsolute("//pkg:baz")))
+  public void fulfillers() throws Exception {
+    EnvironmentLabels unpackedGroup = group.getEnvironmentLabels();
+    assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:baz")))
         .containsExactly(Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//pkg:bar"));
-    assertThat(group.getFulfillers(Label.parseAbsolute("//pkg:bar")))
+    assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:bar")))
         .containsExactly(Label.parseAbsolute("//pkg:foo"));
-    assertThat(group.getFulfillers(Label.parseAbsolute("//pkg:foo"))).isEmpty();
+    assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:foo"))).isEmpty();
+  }
+
+  @Test
+  public void emptyGroupsNotAllowed() throws Exception {
+    Path buildfile = scratch.file(
+        "a/BUILD",
+        "environment_group(name = 'empty_group', environments = [], defaults = [])");
+    reporter.removeHandler(failFastHandler);
+    Package emptyGroupPkg = packageFactory.createPackageForTesting(
+        PackageIdentifier.createInMainRepo("a"), buildfile, getPackageManager(), reporter);
+    assertThat(emptyGroupPkg.containsErrors()).isTrue();
+    assertContainsEvent(
+        "environment group empty_group must contain at least one environment");
   }
 }

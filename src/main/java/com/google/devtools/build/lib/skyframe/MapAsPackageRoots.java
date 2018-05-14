@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Root;
@@ -41,12 +40,12 @@ public class MapAsPackageRoots implements PackageRoots {
 
   @Override
   public PackageRootLookup getPackageRootLookup() {
-    Map<Root, ArtifactRoot> rootMap = new HashMap<>();
-    Map<PackageIdentifier, ArtifactRoot> realPackageRoots = new HashMap<>();
+    Map<Root, Root> rootMap = new HashMap<>();
+    Map<PackageIdentifier, Root> realPackageRoots = new HashMap<>();
     for (Map.Entry<PackageIdentifier, Root> entry : packageRootsMap.entrySet()) {
-      ArtifactRoot root = rootMap.get(entry.getValue());
+      Root root = rootMap.get(entry.getValue());
       if (root == null) {
-        root = ArtifactRoot.asSourceRoot(entry.getValue());
+        root = entry.getValue();
         rootMap.put(entry.getValue(), root);
       }
       realPackageRoots.put(entry.getKey(), root);

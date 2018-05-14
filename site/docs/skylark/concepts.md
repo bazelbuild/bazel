@@ -1,15 +1,15 @@
 ---
 layout: documentation
-title: Extensions - Overview
+title: Extension Overview
 ---
 
-# Overview
+# Extension Overview
 
 <!-- [TOC] -->
 
 ## Loading an extension
 
-Extensions are files with the `.bzl` extension. Use the `load` statement to
+Bazel extensions are files ending in `.bzl`. Use the `load` statement to
 import a symbol from an extension.
 
 ```python
@@ -22,6 +22,11 @@ functions or constants (e.g. a string, a list, etc.). Multiple symbols can be
 imported by using additional arguments to the call to `load`. Arguments must
 be string literals (no variable) and `load` statements must appear at
 top-level, i.e. they cannot be in a function body.
+
+The first argument of `load` is a [label](https://docs.bazel.build/versions/master/build-ref.html#labels)
+identifying a `.bzl` file. If it is a relative label, it is resolved with
+respect to the package (not directory) containing the current `.bzl` file.
+Relative labels in `load` statements should use a leading `:`.
 
 `load` also supports aliases, i.e. you can assign different names to the
 imported symbols.

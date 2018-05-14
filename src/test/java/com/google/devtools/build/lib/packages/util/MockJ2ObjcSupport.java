@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages.util;
 
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
 /**
@@ -24,13 +25,15 @@ public final class MockJ2ObjcSupport {
    * Setup the support for building with J2ObjC.
    */
   public static void setup(MockToolsConfig config) throws IOException {
-    config.create("third_party/java/j2objc/jre_emul.jar");
-    config.create("third_party/java/j2objc/jre.h");
-    config.create("third_party/java/j2objc/jre.m");
-    config.create("third_party/java/j2objc/runtime.h");
-    config.create("third_party/java/j2objc/runtime.m");
-    config.create("third_party/java/j2objc/proto_plugin_binary");
-    config.create("third_party/java/j2objc/BUILD",
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/jre_emul.jar");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/jre.h");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/jre.m");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/runtime.h");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/runtime.m");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/proto_plugin_binary");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
         "",
@@ -65,7 +68,8 @@ public final class MockJ2ObjcSupport {
         "    name = 'proto_plugin',",
         "    srcs = ['proto_plugin_binary'])");
 
-    config.create("tools/j2objc/BUILD",
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
         "filegroup(",
@@ -74,28 +78,37 @@ public final class MockJ2ObjcSupport {
         "filegroup(",
         "    name = 'j2objc_header_map',",
         "    srcs = ['j2objc_header_map.py'])",
+        "proto_lang_toolchain(",
+        "    name = 'j2objc_proto_toolchain',",
+        "    blacklisted_protos = [':j2objc_proto_blacklist'],",
+        "    command_line = '--PLUGIN_j2objc_out=file_dir_mapping,generate_class_mappings:$(OUT)',",
+        "    visibility = ['//visibility:public'],",
+        "    plugin = '//third_party/java/j2objc:proto_plugin',",
+        "    runtime = '//third_party/java/j2objc:proto_runtime',",
+        ")",
         "exports_files(['j2objc_deploy.jar'])",
         "filegroup(",
         "    name = 'j2objc_proto_blacklist',",
-        "    srcs = ['//tools/j2objc/proto:blacklisted.proto'])");
+        "    srcs = [",
+        "        '" + TestConstants.TOOLS_REPOSITORY + "//tools/j2objc/proto:blacklisted.proto'",
+        "    ])");
 
-    config.create("tools/j2objc/proto/BUILD",
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/proto/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "proto_library(name = 'blacklisted',",
-        "              srcs = ['blacklisted.proto'],",
-        "              java_api_version = 2,",
-        "              j2objc_api_version = 1)");
+        "              srcs = ['blacklisted.proto'])");
 
-    config.create("tools/j2objc/proto/blacklisted.proto");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/proto/blacklisted.proto");
 
     if (config.isRealFileSystem()) {
-      config.linkTool("tools/j2objc/j2objc_deploy.jar");
-      config.linkTool("tools/j2objc/j2objc_wrapper.py");
-      config.linkTool("tools/j2objc/j2objc_header_map.py");
+      config.linkTool(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_deploy.jar");
+      config.linkTool(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_wrapper.py");
+      config.linkTool(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_header_map.py");
     } else {
-      config.create("tools/j2objc/j2objc_deploy.jar");
-      config.create("tools/j2objc/j2objc_wrapper.py");
-      config.create("tools/j2objc/j2objc_header_map.py");
+      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_deploy.jar");
+      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_wrapper.py");
+      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_header_map.py");
     }
   }
 }

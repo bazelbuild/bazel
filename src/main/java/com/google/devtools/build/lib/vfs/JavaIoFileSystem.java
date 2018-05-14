@@ -281,7 +281,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
       throws IOException {
     java.nio.file.Path nioPath = getNioPath(linkPath);
     try {
-      Files.createSymbolicLink(nioPath, Paths.get(targetFragment.getPathString()));
+      Files.createSymbolicLink(nioPath, Paths.get(targetFragment.getSafePathString()));
     } catch (java.nio.file.FileAlreadyExistsException e) {
       throw new IOException(linkPath + ERR_FILE_EXISTS);
     } catch (java.nio.file.AccessDeniedException e) {
@@ -303,7 +303,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     } catch (java.nio.file.NoSuchFileException e) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_READLINK, nioPath);
+      profiler.logSimpleTask(startTime, ProfilerTask.VFS_READLINK, path.getPathString());
     }
   }
 
@@ -337,7 +337,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     try {
       return stat(path, followSymlinks).getSize();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, path);
+      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.getPathString());
     }
   }
 

@@ -19,13 +19,11 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -39,9 +37,6 @@ import com.google.devtools.common.options.OptionMetadataTag;
 @AutoCodec
 @Immutable
 public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
-  public static final ObjectCodec<BazelPythonConfiguration> CODEC =
-      new BazelPythonConfiguration_AutoCodec();
-
   /**
   * A path converter for python3 path
   */
@@ -63,18 +58,15 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
   /** Bazel-specific Python configuration options. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static final class Options extends FragmentOptions {
-    public static final ObjectCodec<Options> CODEC =
-        new BazelPythonConfiguration_Options_AutoCodec();
-
     @Option(
       name = "python2_path",
       defaultValue = "python",
-      category = "version",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = { OptionMetadataTag.DEPRECATED },
-      help = "Local path to the Python2 executable. "
-                + "Deprecated, please use python_path or python_top instead."
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help =
+          "Local path to the Python2 executable. "
+              + "Deprecated, please use python_path or python_top instead."
     )
     public String python2Path;
 
@@ -82,35 +74,31 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
       name = "python3_path",
       converter = Python3PathConverter.class,
       defaultValue = "auto",
-      category = "version",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = { OptionMetadataTag.DEPRECATED },
-      help = "Local path to the Python3 executable. "
-                + "Deprecated, please use python_path or python_top instead."
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help =
+          "Local path to the Python3 executable. "
+              + "Deprecated, please use python_path or python_top instead."
     )
     public String python3Path;
 
     @Option(
-        name = "python_top",
-        converter = LabelConverter.class,
-        defaultValue = "null",
-        category = "version",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-        help =
-            "The label of py_runtime rule used for the Python interpreter invoked by Bazel."
+      name = "python_top",
+      converter = LabelConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "The label of py_runtime rule used for the Python interpreter invoked by Bazel."
     )
     public Label pythonTop;
 
     @Option(
-        name = "python_path",
-        defaultValue = "python",
-        category = "version",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-        help =
-            "The absolute path of the Python interpreter invoked by Bazel."
+      name = "python_path",
+      defaultValue = "python",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "The absolute path of the Python interpreter invoked by Bazel."
     )
     public String pythonPath;
 
@@ -137,7 +125,7 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
    */
   public static final class Loader implements ConfigurationFragmentFactory {
     @Override
-    public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
+    public Fragment create(BuildOptions buildOptions)
         throws InvalidConfigurationException {
       BazelPythonConfiguration pythonConfiguration
           = new BazelPythonConfiguration(buildOptions.get(Options.class));
@@ -164,7 +152,7 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
 
   private final Options options;
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   BazelPythonConfiguration(Options options) {
     this.options = options;
   }

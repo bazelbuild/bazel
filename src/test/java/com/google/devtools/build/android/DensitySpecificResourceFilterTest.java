@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import java.io.IOException;
@@ -254,7 +253,7 @@ public class DensitySpecificResourceFilterTest {
   }
 
   private ImmutableList <Path> createFiles(String... pathStrings) throws IOException {
-    Builder<Path> paths = ImmutableList.builder();
+    ImmutableList.Builder<Path> paths = ImmutableList.builder();
     for (String pathString : pathStrings) {
       final Path path = tmp.resolve(pathString);
       Files.createDirectories(path.getParent());

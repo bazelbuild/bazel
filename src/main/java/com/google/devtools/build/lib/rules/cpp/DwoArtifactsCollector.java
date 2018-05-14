@@ -93,7 +93,7 @@ public class DwoArtifactsCollector {
   /**
    * Returns a new instance that collects direct outputs and transitive dependencies.
    *
-   * @param compilationOutputs the output compilation context for the owning target
+   * @param compilationOutputs the {@code CcCompilationOutputs} for the owning target
    * @param deps which of the target's transitive info collections should be visited
    */
   public static DwoArtifactsCollector transitiveCollector(
@@ -113,7 +113,7 @@ public class DwoArtifactsCollector {
   /**
    * Returns a new instance that collects direct outputs only.
    *
-   * @param compilationOutputs the output compilation context for the owning target
+   * @param compilationOutputs the output {@code CcCompilationOutputs} for the owning target
    */
   public static DwoArtifactsCollector directCollector(
       CcCompilationOutputs compilationOutputs,

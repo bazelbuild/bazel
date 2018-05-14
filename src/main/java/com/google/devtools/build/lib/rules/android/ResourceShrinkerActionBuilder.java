@@ -17,16 +17,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
-import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.util.OS;
 import java.util.Collections;
@@ -38,7 +37,7 @@ public class ResourceShrinkerActionBuilder {
   private Artifact resourceFilesZip;
   private Artifact shrunkJar;
   private Artifact proguardMapping;
-  private ResourceContainer primaryResources;
+  private ValidatedAndroidData primaryResources;
   private ResourceDependencies dependencyResources;
   private Artifact resourceApkOut;
   private Artifact shrunkResourcesOut;
@@ -52,7 +51,7 @@ public class ResourceShrinkerActionBuilder {
   private ResourceFilterFactory resourceFilterFactory;
 
   /** @param ruleContext The RuleContext of the owning rule. */
-  public ResourceShrinkerActionBuilder(RuleContext ruleContext) throws RuleErrorException {
+  public ResourceShrinkerActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.spawnActionBuilder = new SpawnAction.Builder();
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
@@ -91,10 +90,10 @@ public class ResourceShrinkerActionBuilder {
   }
 
   /**
-   * @param primary The fully processed {@link ResourceContainer} of the resources to be shrunk.
+   * @param primary The fully processed {@link ValidatedAndroidData} of the resources to be shrunk.
    *     Must contain both an R.txt and merged manifest.
    */
-  public ResourceShrinkerActionBuilder withPrimary(ResourceContainer primary) {
+  public ResourceShrinkerActionBuilder withPrimary(ValidatedAndroidData primary) {
     checkNotNull(primary);
     checkNotNull(primary.getManifest());
     checkNotNull(primary.getRTxt());
@@ -132,7 +131,7 @@ public class ResourceShrinkerActionBuilder {
     return this;
   }
 
-  public Artifact build() throws RuleErrorException {
+  public Artifact build() {
     ImmutableList.Builder<Artifact> inputs = ImmutableList.builder();
     ImmutableList.Builder<Artifact> outputs = ImmutableList.builder();
 
@@ -150,9 +149,6 @@ public class ResourceShrinkerActionBuilder {
       commandLine.add("--tool").add("SHRINK").add("--");
       commandLine.addExecPath("--aapt", aapt.getExecutable());
     }
-
-    commandLine.addExecPath("--annotationJar", sdk.getAnnotationsJar());
-    inputs.add(sdk.getAnnotationsJar());
 
     commandLine.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
@@ -239,7 +235,7 @@ public class ResourceShrinkerActionBuilder {
 
   private ImmutableList<Artifact> getManifests(ResourceDependencies resourceDependencies) {
     ImmutableList.Builder<Artifact> manifests = ImmutableList.builder();
-    for (ResourceContainer resources : resourceDependencies.getResourceContainers()) {
+    for (ValidatedAndroidData resources : resourceDependencies.getResourceContainers()) {
       if (resources.getManifest() != null) {
         manifests.add(resources.getManifest());
       }
@@ -248,10 +244,10 @@ public class ResourceShrinkerActionBuilder {
   }
 
   private ImmutableList<String> getResourcePackages(
-      ResourceContainer primaryResources, ResourceDependencies resourceDependencies) {
+      ValidatedAndroidData primaryResources, ResourceDependencies resourceDependencies) {
     ImmutableList.Builder<String> resourcePackages = ImmutableList.builder();
     resourcePackages.add(primaryResources.getJavaPackage());
-    for (ResourceContainer resources : resourceDependencies.getResourceContainers()) {
+    for (ValidatedAndroidData resources : resourceDependencies.getResourceContainers()) {
       resourcePackages.add(resources.getJavaPackage());
     }
     return resourcePackages.build();

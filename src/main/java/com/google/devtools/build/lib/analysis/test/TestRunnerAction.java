@@ -32,15 +32,15 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.ImmutableIterable;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -71,13 +71,15 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   private static final String GUID = "cc41f9d0-47a6-11e7-8726-eb6ce83a8cc8";
 
-  private final NestedSet<Artifact> runtime;
+  private final Artifact testSetupScript;
+  private final Artifact collectCoverageScript;
   private final BuildConfiguration configuration;
   private final TestConfiguration testConfiguration;
   private final Artifact testLog;
   private final Artifact cacheStatus;
   private final PathFragment testWarningsPath;
   private final PathFragment unusedRunfilesLogPath;
+  private final PathFragment shExecutable;
   private final PathFragment splitLogsPath;
   private final PathFragment splitLogsDir;
   private final PathFragment undeclaredOutputsDir;
@@ -123,17 +125,18 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   /**
-   * Create new TestRunnerAction instance. Should not be called directly.
-   * Use {@link TestActionBuilder} instead.
+   * Create new TestRunnerAction instance. Should not be called directly. Use {@link
+   * TestActionBuilder} instead.
    *
-   * @param shardNum The shard number. Must be 0 if totalShards == 0
-   *     (no sharding). Otherwise, must be >= 0 and < totalShards.
+   * @param shardNum The shard number. Must be 0 if totalShards == 0 (no sharding). Otherwise, must
+   *     be >= 0 and < totalShards.
    * @param runNumber test run number
    */
   TestRunnerAction(
       ActionOwner owner,
       Iterable<Artifact> inputs,
-      NestedSet<Artifact> runtime,   // Must be a subset of inputs
+      Artifact testSetupScript, // Must be in inputs
+      @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
       Artifact testLog,
       Artifact cacheStatus,
       Artifact coverageArtifact,
@@ -144,6 +147,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       int runNumber,
       BuildConfiguration configuration,
       String workspaceName,
+      PathFragment shExecutable,
       boolean useTestRunner) {
     super(
         owner,
@@ -151,7 +155,9 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
         // Note that this action only cares about the runfiles, not the mapping.
         new RunfilesSupplierImpl(PathFragment.create("runfiles"), executionSettings.getRunfiles()),
         list(testLog, cacheStatus, coverageArtifact));
-    this.runtime = runtime;
+    Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
+    this.testSetupScript = testSetupScript;
+    this.collectCoverageScript = collectCoverageScript;
     this.configuration = Preconditions.checkNotNull(configuration);
     this.testConfiguration =
         Preconditions.checkNotNull(configuration.getFragment(TestConfiguration.class));
@@ -177,6 +183,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     this.testWarningsPath = baseDir.getChild("test.warnings");
     this.unusedRunfilesLogPath = baseDir.getChild("test.unused_runfiles_log");
     this.testStderr = baseDir.getChild("test.err");
+    this.shExecutable = shExecutable;
     this.splitLogsDir = baseDir.getChild("test.raw_splitlogs");
     // See note in {@link #getSplitLogsPath} on the choice of file name.
     this.splitLogsPath = splitLogsDir.getChild("test.splitlogs");
@@ -229,31 +236,79 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     return outputs;
   }
 
+  /**
+   * Returns the list of mappings from file name constants to output files. This method checks the
+   * file system for existence of these output files, so it must only be used after test execution.
+   */
+  // TODO(ulfjack): Instead of going to local disk here, use SpawnResult (add list of files there).
+  public ImmutableList<Pair<String, Path>> getTestOutputsMapping(Path execRoot) {
+    ImmutableList.Builder<Pair<String, Path>> builder = ImmutableList.builder();
+    if (getTestLog().getPath().exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_LOG, getTestLog().getPath()));
+    }
+    if (getCoverageData() != null && getCoverageData().getPath().exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE, getCoverageData().getPath()));
+    }
+    if (execRoot != null) {
+      ResolvedPaths resolvedPaths = resolve(execRoot);
+      if (resolvedPaths.getXmlOutputPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.TEST_XML, resolvedPaths.getXmlOutputPath()));
+      }
+      if (resolvedPaths.getSplitLogsPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.SPLIT_LOGS, resolvedPaths.getSplitLogsPath()));
+      }
+      if (resolvedPaths.getTestWarningsPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.TEST_WARNINGS,
+              resolvedPaths.getTestWarningsPath()));
+      }
+      if (resolvedPaths.getUndeclaredOutputsZipPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_ZIP,
+            resolvedPaths.getUndeclaredOutputsZipPath()));
+      }
+      if (resolvedPaths.getUndeclaredOutputsManifestPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_MANIFEST,
+            resolvedPaths.getUndeclaredOutputsManifestPath()));
+      }
+      if (resolvedPaths.getUndeclaredOutputsAnnotationsPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS,
+            resolvedPaths.getUndeclaredOutputsAnnotationsPath()));
+      }
+      if (resolvedPaths.getUnusedRunfilesLogPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.UNUSED_RUNFILES_LOG,
+            resolvedPaths.getUnusedRunfilesLogPath()));
+      }
+      if (resolvedPaths.getInfrastructureFailureFile().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.TEST_INFRASTRUCTURE_FAILURE,
+            resolvedPaths.getInfrastructureFailureFile()));
+      }
+    }
+    return builder.build();
+  }
+
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext)
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
       throws CommandLineExpansionException {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    f.addStrings(executionSettings.getArgs().arguments());
-    f.addString(executionSettings.getTestFilter() == null ? "" : executionSettings.getTestFilter());
+    fp.addString(GUID);
+    fp.addStrings(executionSettings.getArgs().arguments());
+    fp.addString(
+        executionSettings.getTestFilter() == null ? "" : executionSettings.getTestFilter());
     RunUnder runUnder = executionSettings.getRunUnder();
-    f.addString(runUnder == null ? "" : runUnder.getValue());
-    f.addStringMap(extraTestEnv);
+    fp.addString(runUnder == null ? "" : runUnder.getValue());
+    fp.addStringMap(extraTestEnv);
     // TODO(ulfjack): It might be better for performance to hash the action and test envs in config,
     // and only add a hash here.
-    configuration.getActionEnvironment().addTo(f);
-    configuration.getTestActionEnvironment().addTo(f);
+    configuration.getActionEnvironment().addTo(fp);
+    configuration.getTestActionEnvironment().addTo(fp);
     // The 'requiredClientEnvVariables' are handled by Skyframe and don't need to be added here.
-    f.addString(testProperties.getSize().toString());
-    f.addString(testProperties.getTimeout().toString());
-    f.addStrings(testProperties.getTags());
-    f.addInt(testProperties.isLocal() ? 1 : 0);
-    f.addInt(shardNum);
-    f.addInt(executionSettings.getTotalShards());
-    f.addInt(runNumber);
-    f.addInt(testConfiguration.getRunsPerTestForLabel(getOwner().getLabel()));
-    f.addInt(configuration.isCodeCoverageEnabled() ? 1 : 0);
-    return f.hexDigestAndReset();
+    fp.addString(testProperties.getSize().toString());
+    fp.addString(testProperties.getTimeout().toString());
+    fp.addStrings(testProperties.getTags());
+    fp.addInt(testProperties.isLocal() ? 1 : 0);
+    fp.addInt(shardNum);
+    fp.addInt(executionSettings.getTotalShards());
+    fp.addInt(runNumber);
+    fp.addInt(testConfiguration.getRunsPerTestForLabel(getOwner().getLabel()));
+    fp.addInt(configuration.isCodeCoverageEnabled() ? 1 : 0);
   }
 
   @Override
@@ -408,6 +463,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   public void setupEnvVariables(Map<String, String> env, Duration timeout) {
+    env.put("TEST_TARGET", Label.print(getOwner().getLabel()));
     env.put("TEST_SIZE", getTestProperties().getSize().toString());
     env.put("TEST_TIMEOUT", Long.toString(timeout.getSeconds()));
     env.put("TEST_WORKSPACE", getRunfilesPrefix());
@@ -451,11 +507,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       env.put("TEST_SHARD_STATUS_FILE", getTestShard().getPathString());
     }
     env.put("XML_OUTPUT_FILE", getXmlOutputPath().getPathString());
-
-    if (!isEnableRunfiles()) {
-      // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
-      env.put("RUNFILES_MANIFEST_ONLY", "1");
-    }
 
     if (isCoverageMode()) {
       // Instruct remote-runtest.sh/local-runtest.sh not to cd into the runfiles directory.
@@ -693,18 +744,16 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     return getOutputs();
   }
 
-  public Artifact getRuntimeArtifact(String basename) throws ExecException {
-    for (Artifact runtimeArtifact : runtime) {
-      if (runtimeArtifact.getExecPath().getBaseName().equals(basename)) {
-        return runtimeArtifact;
-      }
-    }
+  public Artifact getTestSetupScript() {
+    return testSetupScript;
+  }
 
-    throw new UserExecException("'" + basename + "' not found in test runtime");
+  @Nullable public Artifact getCollectCoverageScript() {
+    return collectCoverageScript;
   }
 
   public PathFragment getShExecutable() {
-    return configuration.getShellExecutable();
+    return shExecutable;
   }
 
   public ImmutableMap<String, String> getLocalShellEnvironment() {

@@ -23,7 +23,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.java.JavaUtil;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
@@ -33,7 +34,7 @@ import javax.annotation.Nullable;
 /** The resources contributed by a single target. */
 @AutoValue
 @Immutable
-public abstract class ResourceContainer {
+public abstract class ResourceContainer implements ValidatedAndroidData {
   /** The type of resource in question: either asset or a resource. */
   public enum ResourceType {
     ASSETS("assets"),
@@ -55,55 +56,60 @@ public abstract class ResourceContainer {
   @Nullable
   public abstract String getJavaPackage();
 
+  @Override
   @Nullable
   public abstract Artifact getApk();
 
+  @Override
+  public ProcessedAndroidManifest getProcessedManifest() {
+    return new ProcessedAndroidManifest(getManifest(), getJavaPackage(), isManifestExported());
+  }
+
+  @Override
   public abstract Artifact getManifest();
 
+  @Override
   @Nullable
   public abstract Artifact getJavaSourceJar();
 
   @Nullable
   public abstract Artifact getJavaClassJar();
 
-  abstract ImmutableList<Artifact> getAssets();
+  @Override
+  public ImmutableList<Artifact> getAssets() {
+    return getAndroidAssets().getAssets();
+  }
+
+  public abstract AndroidAssets getAndroidAssets();
+
+  @Override
+  public ImmutableList<Artifact> getResources() {
+    return getAndroidResources().getResources();
+  }
 
   @VisibleForTesting
-  public abstract ImmutableList<Artifact> getResources();
+  public abstract AndroidResources getAndroidResources();
 
+  /** @deprecated We are moving towards decoupling assets and resources */
+  @Deprecated
   public ImmutableList<Artifact> getArtifacts(ResourceType resourceType) {
     return resourceType == ResourceType.ASSETS ? getAssets() : getResources();
   }
 
+  @Override
   public Iterable<Artifact> getArtifacts() {
     return Iterables.concat(getAssets(), getResources());
   }
 
-  /**
-   * Gets the directories containing the assets.
-   *
-   * <p>TODO(b/30308041): Stop using these directories, and remove this code.
-   *
-   * @deprecated We are moving towards passing around the actual artifacts, rather than the
-   *     directories that contain them. If the resources were provided with a glob() that excludes
-   *     some files, the resource directory will still contain those files, resulting in unwanted
-   *     inputs.
-   */
-  @Deprecated
-  abstract ImmutableList<PathFragment> getAssetsRoots();
+  @Override
+  public ImmutableList<PathFragment> getResourceRoots() {
+    return getAndroidResources().getResourceRoots();
+  }
 
-  /**
-   * Gets the directories containing the resources.
-   *
-   * <p>TODO(b/30308041): Stop using these directories, and remove this code.
-   *
-   * @deprecated We are moving towards passing around the actual artifacts, rather than the
-   *     directories that contain them. If the resources were provided with a glob() that excludes
-   *     some files, the resource directory will still contain those files, resulting in unwanted
-   *     inputs.
-   */
-  @Deprecated
-  abstract ImmutableList<PathFragment> getResourcesRoots();
+  @Override
+  public ImmutableList<PathFragment> getAssetRoots() {
+    return getAndroidAssets().getAssetRoots();
+  }
 
   /**
    * Gets the directories containing the resources of a specific type.
@@ -117,9 +123,10 @@ public abstract class ResourceContainer {
    */
   @Deprecated
   public ImmutableList<PathFragment> getRoots(ResourceType resourceType) {
-    return resourceType == ResourceType.ASSETS ? getAssetsRoots() : getResourcesRoots();
+    return resourceType == ResourceType.ASSETS ? getAssetRoots() : getResourceRoots();
   }
 
+  @Override
   public abstract boolean isManifestExported();
 
   @Nullable
@@ -139,6 +146,11 @@ public abstract class ResourceContainer {
 
   @Nullable
   public abstract Artifact getAapt2JavaSourceJar();
+
+  @Nullable
+  @Override
+  @Deprecated
+  public abstract Artifact getMergedResources();
 
   // The limited hashCode and equals behavior is necessary to avoid duplication when building with
   // fat_apk_cpu set. Artifacts generated in different configurations will naturally be different
@@ -172,40 +184,25 @@ public abstract class ResourceContainer {
    * Returns a copy of this container with filtered resources, or the original if no resources
    * should be filtered. The original container is unchanged.
    */
-  public ResourceContainer filter(ResourceFilter filter, boolean isDependency) {
-    Optional<ImmutableList<Artifact>> filteredResources =
-        filter.maybeFilter(getResources(), isDependency);
+  public ResourceContainer filter(
+      RuleErrorConsumer errorConsumer, ResourceFilter filter, boolean isDependency)
+      throws RuleErrorException {
+    Optional<? extends AndroidResources> filteredResources =
+        getAndroidResources().maybeFilter(errorConsumer, filter, isDependency);
 
     if (!filteredResources.isPresent()) {
       // No filtering was done; return this container
       return this;
     }
-
-    // If the resources were filtered, also filter the resource roots
-    ImmutableList.Builder<PathFragment> filteredResourcesRootsBuilder = ImmutableList.builder();
-    for (PathFragment resourceRoot : getResourcesRoots()) {
-      for (Artifact resource : filteredResources.get()) {
-        if (resource.getRootRelativePath().startsWith(resourceRoot)) {
-          filteredResourcesRootsBuilder.add(resourceRoot);
-          break;
-        }
-      }
-    }
-
-    return toBuilder()
-        .setResources(filteredResources.get())
-        .setResourcesRoots(filteredResourcesRootsBuilder.build())
-        .build();
+    return toBuilder().setAndroidResources(filteredResources.get()).build();
   }
 
   /** Creates a new builder with default values. */
   public static Builder builder() {
     return new AutoValue_ResourceContainer.Builder()
         .setJavaPackageFrom(Builder.JavaPackageSource.MANIFEST)
-        .setAssets(ImmutableList.<Artifact>of())
-        .setResources(ImmutableList.<Artifact>of())
-        .setAssetsRoots(ImmutableList.<PathFragment>of())
-        .setResourcesRoots(ImmutableList.<PathFragment>of());
+        .setAndroidAssets(AndroidAssets.empty())
+        .setAndroidResources(AndroidResources.empty());
   }
 
   /**
@@ -279,19 +276,6 @@ public abstract class ResourceContainer {
       return this.setJavaPackage(javaPackageOverride);
     }
 
-    /**
-     * Sets the assets, resources, asset roots, and resource roots from the given local resource
-     * container.
-     *
-     * <p>This will override any of these values which were previously set directly.
-     */
-    public Builder setAssetsAndResourcesFrom(LocalResourceContainer data) {
-      return this.setAssets(data.getAssets())
-          .setResources(data.getResources())
-          .setAssetsRoots(data.getAssetRoots())
-          .setResourcesRoots(data.getResourceRoots());
-    }
-
     public abstract Builder setLabel(Label label);
 
     abstract Builder setJavaPackage(@Nullable String javaPackage);
@@ -307,13 +291,9 @@ public abstract class ResourceContainer {
 
     public abstract Builder setJavaClassJar(@Nullable Artifact javaClassJar);
 
-    public abstract Builder setAssets(ImmutableList<Artifact> assets);
+    public abstract Builder setAndroidAssets(AndroidAssets assets);
 
-    public abstract Builder setResources(ImmutableList<Artifact> resources);
-
-    public abstract Builder setAssetsRoots(ImmutableList<PathFragment> assetsRoots);
-
-    public abstract Builder setResourcesRoots(ImmutableList<PathFragment> resourcesRoots);
+    public abstract Builder setAndroidResources(AndroidResources resources);
 
     public abstract Builder setManifestExported(boolean manifestExported);
 
@@ -328,6 +308,8 @@ public abstract class ResourceContainer {
     public abstract Builder setAapt2JavaSourceJar(@Nullable Artifact javaSourceJar);
 
     public abstract Builder setAapt2RTxt(@Nullable Artifact rTxt);
+
+    public abstract Builder setMergedResources(@Nullable Artifact mergedResources);
 
     abstract ResourceContainer autoBuild();
 
@@ -358,21 +340,8 @@ public abstract class ResourceContainer {
       if (hasCustomPackage(ruleContext)) {
         return ruleContext.attributes().get("custom_package", Type.STRING);
       }
-      Artifact rJavaSrcJar = getJavaSourceJar();
-      // TODO(bazel-team): JavaUtil.getJavaPackageName does not check to see if the path is valid.
-      // So we need to check for the JavaRoot.
-      if (JavaUtil.getJavaRoot(rJavaSrcJar.getExecPath()) == null) {
-        ruleContext.ruleError(
-            "The location of your BUILD file determines the Java package used for "
-                + "Android resource processing. A directory named \"java\" or \"javatests\" will "
-                + "be used as your Java source root and the path of your BUILD file relative to "
-                + "the Java source root will be used as the package for Android resource "
-                + "processing. The Java source root could not be determined for \""
-                + ruleContext.getPackageDirectory()
-                + "\". Move your BUILD file under a java or javatests directory, or set the "
-                + "'custom_package' attribute.");
-      }
-      return JavaUtil.getJavaPackageName(rJavaSrcJar.getExecPath());
+
+      return AndroidManifest.getJavaPackageFromPath(ruleContext, getJavaSourceJar().getExecPath());
     }
 
     private static boolean hasCustomPackage(RuleContext ruleContext) {

@@ -53,7 +53,12 @@ struct GlobalVariables {
   // Used to make concurrent invocations of this program safe.
   std::string lockfile;  // = <output_base>/lock
 
-  std::string jvm_log_file;  // = <output_base>/server/jvm.out
+  // Whrere to write the server's JVM's output. Default value is
+  // <output_base>/server/jvm.out.
+  std::string jvm_log_file;
+
+  // Whether or not the jvm_log_file should be opened with O_APPEND.
+  bool jvm_log_file_append;
 
   std::string cwd;
 

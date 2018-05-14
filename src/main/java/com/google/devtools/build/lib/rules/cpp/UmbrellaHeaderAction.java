@@ -110,18 +110,16 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    f.addPath(umbrellaHeader.getExecPath());
-    f.addInt(publicHeaders.size());
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
+    fp.addPath(umbrellaHeader.getExecPath());
+    fp.addInt(publicHeaders.size());
     for (Artifact artifact : publicHeaders) {
-      f.addPath(artifact.getExecPath());
+      fp.addPath(artifact.getExecPath());
     }
-    f.addInt(additionalExportedHeaders.size());
+    fp.addInt(additionalExportedHeaders.size());
     for (PathFragment path : additionalExportedHeaders) {
-      f.addPath(path);
+      fp.addPath(path);
     }
-    return f.hexDigestAndReset();
   }
 }

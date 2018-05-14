@@ -15,11 +15,8 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -29,34 +26,32 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Sets.SetView;
-import com.google.common.collect.Streams;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SingleVariables;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringChunk;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import java.util.Stack;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
@@ -103,231 +98,105 @@ public class CcToolchainFeatures implements Serializable {
       "Toolchain must provide artifact_name_pattern for category %s";
 
   /** Error message thrown when a toolchain enables two features that provide the same string. */
-  @VisibleForTesting static final String COLLIDING_PROVIDES_ERROR =
+  public static final String COLLIDING_PROVIDES_ERROR =
       "Symbol %s is provided by all of the following features: %s";
 
   /**
-   * A piece of a single string value.
-   *
-   * <p>A single value can contain a combination of text and variables (for example "-f
-   * %{var1}/%{var2}"). We split the string into chunks, where each chunk represents either a text
-   * snippet, or a variable that is to be replaced.
-   */
-  interface StringChunk {
-    
-    /**
-     * Expands this chunk.
-     *
-     * @param variables binding of variable names to their values for a single flag expansion.
-     * @param flag the flag content to append to.
-     */
-    void expand(Variables variables, StringBuilder flag);
-  }
-  
-  /**
-   * A plain text chunk of a string (containing no variables).
-   */
-  @Immutable
-  private static class StringLiteralChunk implements StringChunk, Serializable {
-    private final String text;
-    
-    private StringLiteralChunk(String text) {
-      this.text = text;
-    }
-    
-    @Override
-    public void expand(Variables variables, StringBuilder flag) {
-      flag.append(text);
-    }
-  }
-  
-  /**
-   * A chunk of a string value into which a variable should be expanded.
-   */
-  @Immutable
-  private static class VariableChunk implements StringChunk, Serializable {
-    private final String variableName;
-    
-    private VariableChunk(String variableName) {
-      this.variableName = variableName;
-    }
-    
-    @Override
-    public void expand(Variables variables, StringBuilder stringBuilder) {
-      // We check all variables in FlagGroup.expandCommandLine.
-      // If we arrive here with the variable not being available, the variable was provided, but
-      // the nesting level of the NestedSequence was deeper than the nesting level of the flag
-      // groups.
-      stringBuilder.append(variables.getStringVariable(variableName));
-    }
-  }
-  
-  /**
-   * Parser for toolchain string values.
-   *
-   * <p>A string value contains a snippet of text supporting variable expansion. For example, a
-   * string value "-f %{var1}/%{var2}" will expand the values of the variables "var1" and "var2" in
-   * the corresponding places in the string.
-   *
-   * <p>The {@code StringValueParser} takes a string and parses it into a list of {@link
-   * StringChunk} objects, where each chunk represents either a snippet of text or a variable to be
-   * expanded. In the above example, the resulting chunks would be ["-f ", var1, "/", var2].
-   *
-   * <p>In addition to the list of chunks, the {@link StringValueParser} also provides the set of
-   * variables necessary for the expansion of this flag via {@link #getUsedVariables}.
-   *
-   * <p>To get a literal percent character, "%%" can be used in the string.
-   */
-  static class StringValueParser {
-
-    private final String value;
-    
-    /**
-     * The current position in {@value} during parsing.
-     */
-    private int current = 0;
-    
-    private final ImmutableList.Builder<StringChunk> chunks = ImmutableList.builder();
-    private final ImmutableSet.Builder<String> usedVariables = ImmutableSet.builder();
-    
-    StringValueParser(String value) throws InvalidConfigurationException {
-      this.value = value;
-      parse();
-    }
-    
-    /** @return the parsed chunks for this string. */
-    ImmutableList<StringChunk> getChunks() {
-      return chunks.build();
-    }
-    
-    /** @return all variable names needed to expand this string. */
-    ImmutableSet<String> getUsedVariables() {
-      return usedVariables.build();
-    }
-    
-    /**
-     * Parses the string.
-     * 
-     * @throws InvalidConfigurationException if there is a parsing error.
-     */
-    private void parse() throws InvalidConfigurationException {
-      while (current < value.length()) {
-        if (atVariableStart()) {
-          parseVariableChunk();
-        } else {
-          parseStringChunk();
-        }
-      }
-    }
-    
-    /**
-     * @return whether the current position is the start of a variable.
-     */
-    private boolean atVariableStart() {
-      // We parse a variable when value starts with '%', but not '%%'.
-      return value.charAt(current) == '%'
-          && (current + 1 >= value.length() || value.charAt(current + 1) != '%');
-    }
-    
-    /**
-     * Parses a chunk of text until the next '%', which indicates either an escaped literal '%'
-     * or a variable. 
-     */
-    private void parseStringChunk() {
-      int start = current;
-      // We only parse string chunks starting with '%' if they also start with '%%'.
-      // In that case, we want to have a single '%' in the string, so we start at the second
-      // character.
-      // Note that for strings like "abc%%def" this will lead to two string chunks, the first
-      // referencing the subtring "abc", and a second referencing the substring "%def".
-      if (value.charAt(current) == '%') {
-        current = current + 1;
-        start = current;
-      }
-      current = value.indexOf('%', current + 1);
-      if (current == -1) {
-        current = value.length();
-      }
-      final String text = value.substring(start, current);
-      chunks.add(new StringLiteralChunk(text));
-    }
-    
-    /**
-     * Parses a variable to be expanded.
-     * 
-     * @throws InvalidConfigurationException if there is a parsing error.
-     */
-    private void parseVariableChunk() throws InvalidConfigurationException {
-      current = current + 1;
-      if (current >= value.length() || value.charAt(current) != '{') {
-        abort("expected '{'");
-      }
-      current = current + 1;
-      if (current >= value.length() || value.charAt(current) == '}') {
-        abort("expected variable name");
-      }
-      int end = value.indexOf('}', current);
-      final String name = value.substring(current, end);
-      usedVariables.add(name);
-      chunks.add(new VariableChunk(name));
-      current = end + 1;
-    }
-    
-    /**
-     * @throws InvalidConfigurationException with the given error text, adding information about
-     * the current position in the string.
-     */
-    private void abort(String error) throws InvalidConfigurationException {
-      throw new InvalidConfigurationException("Invalid toolchain configuration: " + error
-          + " at position " + current + " while parsing a flag containing '" + value + "'");
-    }
-  }
-  
-  /**
-   * A flag or flag group that can be expanded under a set of variables.
-   */
-  interface Expandable {
-    /**
-     * Expands the current expandable under the given {@code view}, adding new flags to {@code
-     * commandLine}.
-     *
-     * <p>The {@code variables} controls which variables are visible during the expansion and allows
-     * to recursively expand nested flag groups.
-     */
-    void expand(Variables variables, @Nullable ArtifactExpander expander, List<String> commandLine);
-  }
-
-  /**
    * A single flag to be expanded under a set of variables.
-   *
-   * <p>TODO(bazel-team): Consider specializing Flag for the simple case that a flag is just a bit
-   * of text.
    */
   @Immutable
-  private static class Flag implements Serializable, Expandable {
+  @AutoCodec
+  @VisibleForSerialization
+  static class Flag implements Serializable, Expandable {
     private final ImmutableList<StringChunk> chunks;
-    
-    private Flag(ImmutableList<StringChunk> chunks) {
+
+    @VisibleForSerialization
+    Flag(ImmutableList<StringChunk> chunks) {
       this.chunks = chunks;
     }
 
     /** Expand this flag into a single new entry in {@code commandLine}. */
     @Override
     public void expand(
-        Variables variables, @Nullable ArtifactExpander expander, List<String> commandLine) {
+        CcToolchainVariables variables,
+        @Nullable ArtifactExpander expander,
+        List<String> commandLine) {
       StringBuilder flag = new StringBuilder();
       for (StringChunk chunk : chunks) {
-        chunk.expand(variables, flag);
+        flag.append(chunk.expand(variables));
       }
       commandLine.add(flag.toString());
     }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof Flag) {
+        Flag that = (Flag) object;
+        return Iterables.elementsEqual(chunks, that.chunks);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(chunks);
+    }
+
+    /** A single environment key/value pair to be expanded under a set of variables. */
+    private static Expandable create(ImmutableList<StringChunk> chunks) {
+      if (chunks.size() == 1) {
+        return new SingleChunkFlag(chunks.get(0));
+      }
+      return new Flag(chunks);
+    }
+
+    /** Optimization for single-chunk case */
+    @Immutable
+    @AutoCodec
+    @VisibleForSerialization
+    static class SingleChunkFlag implements Serializable, Expandable {
+      private final StringChunk chunk;
+
+      @VisibleForSerialization
+      SingleChunkFlag(StringChunk chunk) {
+        this.chunk = chunk;
+      }
+
+      @Override
+      public void expand(
+          CcToolchainVariables variables,
+          @Nullable ArtifactExpander artifactExpander,
+          List<String> commandLine) {
+        commandLine.add(chunk.expand(variables));
+      }
+
+      @Override
+      public boolean equals(Object o) {
+        if (this == o) {
+          return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+          return false;
+        }
+        SingleChunkFlag that = (SingleChunkFlag) o;
+        return chunk.equals(that.chunk);
+      }
+
+      @Override
+      public int hashCode() {
+        return chunk.hashCode();
+      }
+    }
   }
-  
-  /**
-   * A single environment key/value pair to be expanded under a set of variables.
-   */
+
+  /** A single environment key/value pair to be expanded under a set of variables. */
   @Immutable
-  private static class EnvEntry implements Serializable {
+  @AutoCodec
+  @VisibleForSerialization
+  static class EnvEntry implements Serializable {
     private final String key;
     private final ImmutableList<StringChunk> valueChunks;
 
@@ -337,21 +206,49 @@ public class CcToolchainFeatures implements Serializable {
       this.valueChunks = parser.getChunks();
     }
 
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    EnvEntry(String key, ImmutableList<StringChunk> valueChunks) {
+      this.key = key;
+      this.valueChunks = valueChunks;
+    }
+
     /**
-     * Adds the key/value pair this object represents to the given map of environment variables.
-     * The value of the entry is expanded with the given {@code variables}.
+     * Adds the key/value pair this object represents to the given map of environment variables. The
+     * value of the entry is expanded with the given {@code variables}.
      */
-    public void addEnvEntry(Variables variables, ImmutableMap.Builder<String, String> envBuilder) {
+    public void addEnvEntry(
+        CcToolchainVariables variables, ImmutableMap.Builder<String, String> envBuilder) {
       StringBuilder value = new StringBuilder();
       for (StringChunk chunk : valueChunks) {
-        chunk.expand(variables, value);
+        value.append(chunk.expand(variables));
       }
       envBuilder.put(key, value.toString());
+    }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof EnvEntry) {
+        EnvEntry that = (EnvEntry) object;
+        return Objects.equals(key, that.key)
+            && Iterables.elementsEqual(valueChunks, that.valueChunks);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(key, valueChunks);
     }
   }
 
   @Immutable
-  private static class VariableWithValue {
+  @AutoCodec
+  @VisibleForSerialization
+  static class VariableWithValue {
     public final String variable;
     public final String value;
 
@@ -366,7 +263,9 @@ public class CcToolchainFeatures implements Serializable {
    * and the flag_group will be expanded repeatedly for every value in the sequence.
    */
   @Immutable
-  private static class FlagGroup implements Serializable, Expandable {
+  @AutoCodec
+  @VisibleForSerialization
+  static class FlagGroup implements Serializable, Expandable {
     private final ImmutableList<Expandable> expandables;
     private String iterateOverVariable;
     private final ImmutableSet<String> expandIfAllAvailable;
@@ -387,7 +286,7 @@ public class CcToolchainFeatures implements Serializable {
       }
       for (String flag : flags) {
         StringValueParser parser = new StringValueParser(flag);
-        expandables.add(new Flag(parser.getChunks()));
+        expandables.add(Flag.create(parser.getChunks()));
       }
       for (CToolchain.FlagGroup group : groups) {
         FlagGroup subgroup = new FlagGroup(group);
@@ -410,16 +309,38 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
 
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    public FlagGroup(
+        ImmutableList<Expandable> expandables,
+        String iterateOverVariable,
+        ImmutableSet<String> expandIfAllAvailable,
+        ImmutableSet<String> expandIfNoneAvailable,
+        String expandIfTrue,
+        String expandIfFalse,
+        VariableWithValue expandIfEqual) {
+      this.expandables = expandables;
+      this.iterateOverVariable = iterateOverVariable;
+      this.expandIfAllAvailable = expandIfAllAvailable;
+      this.expandIfNoneAvailable = expandIfNoneAvailable;
+      this.expandIfTrue = expandIfTrue;
+      this.expandIfFalse = expandIfFalse;
+      this.expandIfEqual = expandIfEqual;
+    }
+
     @Override
     public void expand(
-        Variables variables, @Nullable ArtifactExpander expander, final List<String> commandLine) {
+        CcToolchainVariables variables,
+        @Nullable ArtifactExpander expander,
+        final List<String> commandLine) {
       if (!canBeExpanded(variables, expander)) {
         return;
       }
       if (iterateOverVariable != null) {
-        for (VariableValue variableValue :
+        for (CcToolchainVariables.VariableValue variableValue :
             variables.getSequenceVariable(iterateOverVariable, expander)) {
-          Variables nestedVariables = new Variables(variables, iterateOverVariable, variableValue);
+          CcToolchainVariables nestedVariables =
+              new SingleVariables(variables, iterateOverVariable, variableValue);
           for (Expandable expandable : expandables) {
             expandable.expand(nestedVariables, expander, commandLine);
           }
@@ -431,7 +352,8 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
 
-    private boolean canBeExpanded(Variables variables, @Nullable ArtifactExpander expander) {
+    private boolean canBeExpanded(
+        CcToolchainVariables variables, @Nullable ArtifactExpander expander) {
       for (String variable : expandIfAllAvailable) {
         if (!variables.isAvailable(variable, expander)) {
           return false;
@@ -479,23 +401,55 @@ public class CcToolchainFeatures implements Serializable {
      * </ul>
      */
     private void expandCommandLine(
-        Variables variables, @Nullable ArtifactExpander expander, final List<String> commandLine) {
+        CcToolchainVariables variables,
+        @Nullable ArtifactExpander expander,
+        final List<String> commandLine) {
       expand(variables, expander, commandLine);
+    }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof FlagGroup) {
+        FlagGroup that = (FlagGroup) object;
+        return Iterables.elementsEqual(expandables, that.expandables)
+            && Objects.equals(iterateOverVariable, that.iterateOverVariable)
+            && Iterables.elementsEqual(expandIfAllAvailable, that.expandIfAllAvailable)
+            && Iterables.elementsEqual(expandIfNoneAvailable, that.expandIfNoneAvailable)
+            && Objects.equals(expandIfTrue, that.expandIfTrue)
+            && Objects.equals(expandIfFalse, that.expandIfFalse)
+            && Objects.equals(expandIfEqual, that.expandIfEqual);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(
+          expandables,
+          iterateOverVariable,
+          expandIfAllAvailable,
+          expandIfNoneAvailable,
+          expandIfTrue,
+          expandIfFalse,
+          expandIfEqual);
     }
   }
 
   private static boolean isWithFeaturesSatisfied(
-      Collection<CToolchain.WithFeatureSet> withFeatureSets, Set<String> enabledFeatureNames) {
+      Collection<WithFeatureSet> withFeatureSets, Set<String> enabledFeatureNames) {
     if (withFeatureSets.isEmpty()) {
       return true;
     }
-    for (CToolchain.WithFeatureSet featureSet : withFeatureSets) {
+    for (WithFeatureSet featureSet : withFeatureSets) {
       boolean negativeMatch =
           featureSet
-              .getNotFeatureList()
+              .getNotFeatures()
               .stream()
               .anyMatch(notFeature -> enabledFeatureNames.contains(notFeature));
-      boolean positiveMatch = enabledFeatureNames.containsAll(featureSet.getFeatureList());
+      boolean positiveMatch = enabledFeatureNames.containsAll(featureSet.getFeatures());
 
       if (!negativeMatch && positiveMatch) {
         return true;
@@ -504,16 +458,16 @@ public class CcToolchainFeatures implements Serializable {
     return false;
   }
 
-  /**
-   * Groups a set of flags to apply for certain actions.
-   */
+  /** Groups a set of flags to apply for certain actions. */
   @Immutable
-  private static class FlagSet implements Serializable {
+  @AutoCodec
+  @VisibleForSerialization
+  static class FlagSet implements Serializable {
     private final ImmutableSet<String> actions;
     private final ImmutableSet<String> expandIfAllAvailable;
-    private final ImmutableSet<CToolchain.WithFeatureSet> withFeatureSets;
+    private final ImmutableSet<WithFeatureSet> withFeatureSets;
     private final ImmutableList<FlagGroup> flagGroups;
-    
+
     private FlagSet(CToolchain.FlagSet flagSet) throws InvalidConfigurationException {
       this(flagSet, ImmutableSet.copyOf(flagSet.getActionList()));
     }
@@ -525,7 +479,11 @@ public class CcToolchainFeatures implements Serializable {
         throws InvalidConfigurationException {
       this.actions = actions;
       this.expandIfAllAvailable = ImmutableSet.copyOf(flagSet.getExpandIfAllAvailableList());
-      this.withFeatureSets = ImmutableSet.copyOf(flagSet.getWithFeatureList());
+      ImmutableSet.Builder<WithFeatureSet> featureSetBuilder = ImmutableSet.builder();
+      for (CToolchain.WithFeatureSet withFeatureSet : flagSet.getWithFeatureList()) {
+        featureSetBuilder.add(new WithFeatureSet(withFeatureSet));
+      }
+      this.withFeatureSets = featureSetBuilder.build();
       ImmutableList.Builder<FlagGroup> builder = ImmutableList.builder();
       for (CToolchain.FlagGroup flagGroup : flagSet.getFlagGroupList()) {
         builder.add(new FlagGroup(flagGroup));
@@ -533,10 +491,23 @@ public class CcToolchainFeatures implements Serializable {
       this.flagGroups = builder.build();
     }
 
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    FlagSet(
+        ImmutableSet<String> actions,
+        ImmutableSet<String> expandIfAllAvailable,
+        ImmutableSet<WithFeatureSet> withFeatureSets,
+        ImmutableList<FlagGroup> flagGroups) {
+      this.actions = actions;
+      this.expandIfAllAvailable = expandIfAllAvailable;
+      this.withFeatureSets = withFeatureSets;
+      this.flagGroups = flagGroups;
+    }
+
     /** Adds the flags that apply to the given {@code action} to {@code commandLine}. */
     private void expandCommandLine(
         String action,
-        Variables variables,
+        CcToolchainVariables variables,
         Set<String> enabledFeatureNames,
         @Nullable ArtifactExpander expander,
         List<String> commandLine) {
@@ -555,16 +526,79 @@ public class CcToolchainFeatures implements Serializable {
         flagGroup.expandCommandLine(variables, expander, commandLine);
       }
     }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (object instanceof FlagSet) {
+        FlagSet that = (FlagSet) object;
+        return Iterables.elementsEqual(actions, that.actions)
+            && Iterables.elementsEqual(expandIfAllAvailable, that.expandIfAllAvailable)
+            && Iterables.elementsEqual(withFeatureSets, that.withFeatureSets)
+            && Iterables.elementsEqual(flagGroups, that.flagGroups);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(actions, expandIfAllAvailable, withFeatureSets, flagGroups);
+    }
   }
-  
-  /**
-   * Groups a set of environment variables to apply for certain actions.
-   */
+
   @Immutable
-  private static class EnvSet implements Serializable {
+  @AutoCodec
+  @VisibleForSerialization
+  static class WithFeatureSet implements Serializable {
+    private final ImmutableSet<String> features;
+    private final ImmutableSet<String> notFeatures;
+
+    private WithFeatureSet(CToolchain.WithFeatureSet withFeatureSet) {
+      this.features = ImmutableSet.copyOf(withFeatureSet.getFeatureList());
+      this.notFeatures = ImmutableSet.copyOf(withFeatureSet.getNotFeatureList());
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    WithFeatureSet(ImmutableSet<String> features, ImmutableSet<String> notFeatures) {
+      this.features = features;
+      this.notFeatures = notFeatures;
+    }
+
+    public ImmutableSet<String> getFeatures() {
+      return features;
+    }
+
+    public ImmutableSet<String> getNotFeatures() {
+      return notFeatures;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof WithFeatureSet) {
+        WithFeatureSet that = (WithFeatureSet) object;
+        return Iterables.elementsEqual(features, that.features)
+            && Iterables.elementsEqual(notFeatures, that.notFeatures);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(features, notFeatures);
+    }
+  }
+
+  /** Groups a set of environment variables to apply for certain actions. */
+  @Immutable
+  @AutoCodec
+  @VisibleForSerialization
+  static class EnvSet implements Serializable {
     private final ImmutableSet<String> actions;
     private final ImmutableList<EnvEntry> envEntries;
-    private final ImmutableSet<CToolchain.WithFeatureSet> withFeatureSets;
+    private final ImmutableSet<WithFeatureSet> withFeatureSets;
 
     private EnvSet(CToolchain.EnvSet envSet) throws InvalidConfigurationException {
       this.actions = ImmutableSet.copyOf(envSet.getActionList());
@@ -572,17 +606,33 @@ public class CcToolchainFeatures implements Serializable {
       for (CToolchain.EnvEntry envEntry : envSet.getEnvEntryList()) {
         builder.add(new EnvEntry(envEntry));
       }
+      ImmutableSet.Builder<WithFeatureSet> withFeatureSetsBuilder = ImmutableSet.builder();
+      for (CToolchain.WithFeatureSet withFeatureSet : envSet.getWithFeatureList()) {
+        withFeatureSetsBuilder.add(new WithFeatureSet(withFeatureSet));
+      }
+
       this.envEntries = builder.build();
-      this.withFeatureSets = ImmutableSet.copyOf(envSet.getWithFeatureList());
+      this.withFeatureSets = withFeatureSetsBuilder.build();
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    EnvSet(
+        ImmutableSet<String> actions,
+        ImmutableList<EnvEntry> envEntries,
+        ImmutableSet<WithFeatureSet> withFeatureSets) {
+      this.actions = actions;
+      this.envEntries = envEntries;
+      this.withFeatureSets = withFeatureSets;
     }
 
     /**
-     * Adds the environment key/value pairs that apply to the given {@code action} to
-     * {@code envBuilder}.
+     * Adds the environment key/value pairs that apply to the given {@code action} to {@code
+     * envBuilder}.
      */
     private void expandEnvironment(
         String action,
-        Variables variables,
+        CcToolchainVariables variables,
         Set<String> enabledFeatureNames,
         ImmutableMap.Builder<String, String> envBuilder) {
       if (!actions.contains(action)) {
@@ -595,15 +645,34 @@ public class CcToolchainFeatures implements Serializable {
         envEntry.addEnvEntry(variables, envBuilder);
       }
     }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof EnvSet) {
+        EnvSet that = (EnvSet) object;
+        return Iterables.elementsEqual(actions, that.actions)
+            && Iterables.elementsEqual(envEntries, that.envEntries)
+            && Iterables.elementsEqual(withFeatureSets, that.withFeatureSets);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(actions, envEntries, withFeatureSets);
+    }
   }
 
   /**
-   * An interface for classes representing crosstool messages that can activate eachother
-   * using 'requires' and 'implies' semantics.
+   * An interface for classes representing crosstool messages that can activate each other using
+   * 'requires' and 'implies' semantics.
    *
    * <p>Currently there are two types of CrosstoolActivatable: Feature and ActionConfig.
    */
-  private interface CrosstoolSelectable {
+  interface CrosstoolSelectable {
 
     /**
      * Returns the name of this selectable.
@@ -611,11 +680,11 @@ public class CcToolchainFeatures implements Serializable {
     String getName();
   }
 
-  /**
-   * Contains flags for a specific feature.
-   */
+  /** Contains flags for a specific feature. */
   @Immutable
-  private static class Feature implements Serializable, CrosstoolSelectable {
+  @AutoCodec
+  @VisibleForSerialization
+  static class Feature implements Serializable, CrosstoolSelectable {
     private final String name;
     private final ImmutableList<FlagSet> flagSets;
     private final ImmutableList<EnvSet> envSets;
@@ -635,6 +704,14 @@ public class CcToolchainFeatures implements Serializable {
       this.envSets = envSetBuilder.build();
     }
 
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    Feature(String name, ImmutableList<FlagSet> flagSets, ImmutableList<EnvSet> envSets) {
+      this.name = name;
+      this.flagSets = flagSets;
+      this.envSets = envSets;
+    }
+
     @Override
     public String getName() {
       return name;
@@ -643,7 +720,7 @@ public class CcToolchainFeatures implements Serializable {
     /** Adds environment variables for the given action to the provided builder. */
     private void expandEnvironment(
         String action,
-        Variables variables,
+        CcToolchainVariables variables,
         Set<String> enabledFeatureNames,
         ImmutableMap.Builder<String, String> envBuilder) {
       for (EnvSet envSet : envSets) {
@@ -654,7 +731,7 @@ public class CcToolchainFeatures implements Serializable {
     /** Adds the flags that apply to the given {@code action} to {@code commandLine}. */
     private void expandCommandLine(
         String action,
-        Variables variables,
+        CcToolchainVariables variables,
         Set<String> enabledFeatureNames,
         @Nullable ArtifactExpander expander,
         List<String> commandLine) {
@@ -662,33 +739,59 @@ public class CcToolchainFeatures implements Serializable {
         flagSet.expandCommandLine(action, variables, enabledFeatureNames, expander, commandLine);
       }
     }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof Feature) {
+        Feature that = (Feature) object;
+        return name.equals(that.name)
+            && Iterables.elementsEqual(flagSets, that.flagSets)
+            && Iterables.elementsEqual(envSets, that.envSets);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(name, flagSets, envSets);
+    }
   }
 
   /**
-   * An executable to be invoked by a blaze action.  Can carry information on its platform
+   * An executable to be invoked by a blaze action. Can carry information on its platform
    * restrictions.
    */
   @Immutable
-  static class Tool {
-    private final String toolPathString;
+  public static class Tool {
+    private final PathFragment toolPathFragment;
     private final ImmutableSet<String> executionRequirements;
+    private final ImmutableSet<WithFeatureSet> withFeatureSetSets;
 
-    private Tool(CToolchain.Tool tool) {
-      toolPathString = tool.getToolPath();
+    private Tool(
+        CToolchain.Tool tool,
+        PathFragment crosstoolTop,
+        ImmutableSet<WithFeatureSet> withFeatureSetSets) {
+      this.withFeatureSetSets = withFeatureSetSets;
+      toolPathFragment = crosstoolTop.getRelative(tool.getToolPath());
       executionRequirements = ImmutableSet.copyOf(tool.getExecutionRequirementList());
     }
 
     @VisibleForTesting
-    public Tool(String toolPathString, ImmutableSet<String> executionRequirements) {
-      this.toolPathString = toolPathString;
+    public Tool(
+        PathFragment toolPathFragment,
+        ImmutableSet<String> executionRequirements,
+        ImmutableSet<WithFeatureSet> withFeatureSetSets) {
+      this.toolPathFragment = toolPathFragment;
       this.executionRequirements = executionRequirements;
+      this.withFeatureSetSets = withFeatureSetSets;
     }
 
-    /**
-     * Returns the path to this action's tool relative to the provided crosstool path.
-     */
-    PathFragment getToolPath(PathFragment crosstoolTopPathFragment) {
-      return crosstoolTopPathFragment.getRelative(toolPathString);
+    /** Returns the path to this action's tool relative to the provided crosstool path. */
+    public PathFragment getToolPathFragment() {
+      return toolPathFragment;
     }
 
     /**
@@ -697,31 +800,38 @@ public class CcToolchainFeatures implements Serializable {
     ImmutableSet<String> getExecutionRequirements() {
       return executionRequirements;
     }
+
+    /**
+     * Returns a set of {@link WithFeatureSet} instances used to decide whether to use this tool
+     * given a set of enabled features.
+     */
+    public ImmutableSet<WithFeatureSet> getWithFeatureSetSets() {
+      return withFeatureSetSets;
+    }
   }
-  
-  
+
   /**
    * A container for information on a particular blaze action.
    *
-   * <p>An ActionConfig can select a tool for its blaze action based on the set of active
-   * features.  Internally, an ActionConfig maintains an ordered list (the order being that of the
-   * list of tools in the crosstool action_config message) of such tools and the feature sets for
-   * which they are valid.  For a given feature configuration, the ActionConfig will consider the
-   * first tool in that list with a feature set that matches the configuration to be the tool for
-   * its blaze action.
+   * <p>An ActionConfig can select a tool for its blaze action based on the set of active features.
+   * Internally, an ActionConfig maintains an ordered list (the order being that of the list of
+   * tools in the crosstool action_config message) of such tools and the feature sets for which they
+   * are valid. For a given feature configuration, the ActionConfig will consider the first tool in
+   * that list with a feature set that matches the configuration to be the tool for its blaze
+   * action.
    *
-   * <p>ActionConfigs can be activated by features.  That is, a particular feature can cause an
-   * ActionConfig to be applied in its "implies" field.  Blaze may include certain actions in
-   * the action graph only if a corresponding ActionConfig is activated in the toolchain - this
-   * provides the crosstool with a mechanism for adding certain actions to the action graph based
-   * on feature configuration.
+   * <p>ActionConfigs can be activated by features. That is, a particular feature can cause an
+   * ActionConfig to be applied in its "implies" field. Blaze may include certain actions in the
+   * action graph only if a corresponding ActionConfig is activated in the toolchain - this provides
+   * the crosstool with a mechanism for adding certain actions to the action graph based on feature
+   * configuration.
    *
-   * <p>It is invalid for a toolchain to contain two action configs for the same blaze action.  In
+   * <p>It is invalid for a toolchain to contain two action configs for the same blaze action. In
    * that case, blaze will throw an error when it consumes the crosstool.
    */
   @Immutable
+  @AutoCodec
   static class ActionConfig implements Serializable, CrosstoolSelectable {
-
     public static final String FLAG_SET_WITH_ACTION_ERROR =
         "action_config %s specifies actions.  An action_config's flag sets automatically apply "
             + "to the configured action.  Thus, you must not specify action lists in an "
@@ -729,14 +839,27 @@ public class CcToolchainFeatures implements Serializable {
 
     private final String configName;
     private final String actionName;
-    private final List<CToolchain.Tool> tools;
+    private final ImmutableList<Tool> tools;
     private final ImmutableList<FlagSet> flagSets;
 
-    private ActionConfig(CToolchain.ActionConfig actionConfig)
+    private ActionConfig(CToolchain.ActionConfig actionConfig, PathFragment crosstoolTop)
         throws InvalidConfigurationException {
       this.configName = actionConfig.getConfigName();
       this.actionName = actionConfig.getActionName();
-      this.tools = actionConfig.getToolList();
+      this.tools =
+          actionConfig
+              .getToolList()
+              .stream()
+              .map(
+                  t ->
+                      new Tool(
+                          t,
+                          crosstoolTop,
+                          t.getWithFeatureList()
+                              .stream()
+                              .map(f -> new WithFeatureSet(f))
+                              .collect(ImmutableSet.toImmutableSet())))
+              .collect(ImmutableList.toImmutableList());
 
       ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
       for (CToolchain.FlagSet flagSet : actionConfig.getFlagSetList()) {
@@ -750,6 +873,19 @@ public class CcToolchainFeatures implements Serializable {
       this.flagSets = flagSetBuilder.build();
     }
 
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    ActionConfig(
+        String configName,
+        String actionName,
+        ImmutableList<Tool> tools,
+        ImmutableList<FlagSet> flagSets) {
+      this.configName = configName;
+      this.actionName = actionName;
+      this.tools = tools;
+      this.flagSets = flagSets;
+    }
+
     @Override
     public String getName() {
       return configName;
@@ -758,7 +894,7 @@ public class CcToolchainFeatures implements Serializable {
     /**
      * Returns the name of the blaze action this action config applies to.
      */
-    private String getActionName() {
+    String getActionName() {
       return actionName;
     }
 
@@ -767,14 +903,13 @@ public class CcToolchainFeatures implements Serializable {
      * of enabled features.
      */
     private Tool getTool(final Set<String> enabledFeatureNames) {
-      Optional<CToolchain.Tool> tool =
-          Iterables.tryFind(
-              tools,
-              input -> {
-                return isWithFeaturesSatisfied(input.getWithFeatureList(), enabledFeatureNames);
-              });
+      Optional<Tool> tool =
+          tools
+              .stream()
+              .filter(t -> isWithFeaturesSatisfied(t.getWithFeatureSetSets(), enabledFeatureNames))
+              .findFirst();
       if (tool.isPresent()) {
-        return new Tool(tool.get());
+        return tool.get();
       } else {
         throw new IllegalArgumentException(
             "Matching tool for action "
@@ -786,7 +921,7 @@ public class CcToolchainFeatures implements Serializable {
 
     /** Adds the flags that apply to this action to {@code commandLine}. */
     private void expandCommandLine(
-        Variables variables,
+        CcToolchainVariables variables,
         Set<String> enabledFeatureNames,
         @Nullable ArtifactExpander expander,
         List<String> commandLine) {
@@ -835,914 +970,30 @@ public class CcToolchainFeatures implements Serializable {
      */
     public String getArtifactName(Map<String, String> variables) {
       StringBuilder resultBuilder = new StringBuilder();
-      Variables artifactNameVariables =
-          new Variables.Builder().addAllStringVariables(variables).build();
+      CcToolchainVariables artifactNameVariables =
+          new CcToolchainVariables.Builder().addAllStringVariables(variables).build();
       for (StringChunk chunk : chunks) {
-        chunk.expand(artifactNameVariables, resultBuilder);
+        resultBuilder.append(chunk.expand(artifactNameVariables));
       }
       String result = resultBuilder.toString();
       return result.charAt(0) == '/' ? result.substring(1) : result;
     }
   }
-  
-  /**
-   * Configured build variables usable by the toolchain configuration.
-   *
-   * <p>TODO(b/32655571): Investigate cleanup once implicit iteration is not needed. Variables
-   * instance could serve as a top level View used to expand all flag_groups.
-   */
+
+  /** Captures the set of enabled features and action configs for a rule. */
   @Immutable
-  public static class Variables {
-   
-    /** An empty variables instance. */
-    public static final Variables EMPTY = new Variables.Builder().build();
-
-    /**
-     * Retrieves a {@link StringSequence} variable named {@code variableName} from {@code variables}
-     * and converts it into a list of plain strings.
-     *
-     * <p>Throws {@link ExpansionException} when the variable is not a {@link StringSequence}.
-     */
-    public static final ImmutableList<String> toStringList(
-        CcToolchainFeatures.Variables variables, String variableName) {
-      return Streams
-          .stream(variables.getSequenceVariable(variableName))
-          .map(variable -> variable.getStringValue(variableName))
-          .collect(ImmutableList.toImmutableList());
-    }
-
-    public Variables getParent() {
-      return parent;
-    }
-
-    /**
-     * Value of a build variable exposed to the CROSSTOOL used for flag expansion.
-     *
-     * <p>{@link VariableValue} represent either primitive values or an arbitrarily deeply nested
-     * recursive structures or sequences. Since there are builds with millions of values, some
-     * implementations might exist only to optimize memory usage.
-     *
-     * <p>Implementations must be immutable and without any side-effects. They will be expanded and
-     * queried multiple times.
-     */
-    interface VariableValue {
-
-      /**
-       * Returns string value of the variable, if the variable type can be converted to string (e.g.
-       * StringValue), or throw exception if it cannot (e.g. Sequence).
-       *
-       * @param variableName name of the variable value at hand, for better exception message.
-       */
-      String getStringValue(String variableName);
-
-      /**
-       * Returns Iterable value of the variable, if the variable type can be converted to a Iterable
-       * (e.g. Sequence), or throw exception if it cannot (e.g. StringValue).
-       *
-       * @param variableName name of the variable value at hand, for better exception message.
-       */
-      Iterable<? extends VariableValue> getSequenceValue(String variableName);
-
-      /**
-       * Returns value of the field, if the variable is of struct type or throw exception if it is
-       * not or no such field exists.
-       *
-       * @param variableName name of the variable value at hand, for better exception message.
-       */
-      VariableValue getFieldValue(String variableName, String field);
-
-      VariableValue getFieldValue(
-          String variableName, String field, @Nullable ArtifactExpander expander);
-
-      /** Returns true if the variable is truthy */
-      boolean isTruthy();
-    }
-
-    /**
-     * Adapter for {@link VariableValue} predefining error handling methods. Override {@link
-     * #getVariableTypeName()}, {@link #isTruthy()}, and one of {@link #getFieldValue(String,
-     * String)}, {@link #getSequenceValue(String)}, or {@link #getStringValue(String)}, and you'll
-     * get error handling for the other methods for free.
-     */
-    abstract static class VariableValueAdapter implements VariableValue {
-
-      /** Returns human-readable variable type name to be used in error messages. */
-      public abstract String getVariableTypeName();
-
-      @Override
-      public abstract boolean isTruthy();
-
-      @Override
-      public VariableValue getFieldValue(String variableName, String field) {
-        return getFieldValue(variableName, field, null);
-      }
-
-      @Override
-      public VariableValue getFieldValue(
-          String variableName, String field, @Nullable ArtifactExpander expander) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
-                    + "%s, expected structure",
-                variableName, field, variableName, getVariableTypeName()));
-      }
-
-      @Override
-      public String getStringValue(String variableName) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
-                    + "found %s",
-                variableName, getVariableTypeName()));
-      }
-
-      @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
-                    + "found %s",
-                variableName, getVariableTypeName()));
-      }
-    }
-
-    /** Interface for VariableValue builders */
-    public interface VariableValueBuilder {
-      VariableValue build();
-    }
-
-    /** Builder for StringSequence. */
-    public static class StringSequenceBuilder implements VariableValueBuilder {
-
-      private final ImmutableList.Builder<String> values = ImmutableList.builder();
-
-      /** Adds a value to the sequence. */
-      public StringSequenceBuilder addValue(String value) {
-        values.add(value);
-        return this;
-      }
-
-      /** Returns an immutable string sequence. */
-      @Override
-      public StringSequence build() {
-        return new StringSequence(values.build());
-      }
-    }
-
-    /** Builder for Sequence. */
-    public static class SequenceBuilder implements VariableValueBuilder {
-
-      private final ImmutableList.Builder<VariableValue> values = ImmutableList.builder();
-
-      /** Adds a value to the sequence. */
-      public SequenceBuilder addValue(VariableValue value) {
-        values.add(value);
-        return this;
-      }
-
-      /** Adds a value to the sequence. */
-      public SequenceBuilder addValue(VariableValueBuilder value) {
-        Preconditions.checkArgument(value != null, "Cannot use null builder for a sequence value");
-        values.add(value.build());
-        return this;
-      }
-
-      /** Returns an immutable sequence. */
-      @Override
-      public Sequence build() {
-        return new Sequence(values.build());
-      }
-    }
-
-    /** Builder for StructureValue. */
-    public static class StructureBuilder implements VariableValueBuilder {
-
-      private final ImmutableMap.Builder<String, VariableValue> fields = ImmutableMap.builder();
-
-      /** Adds a field to the structure. */
-      public StructureBuilder addField(String name, VariableValue value) {
-        fields.put(name, value);
-        return this;
-      }
-
-      /** Adds a field to the structure. */
-      public StructureBuilder addField(String name, VariableValueBuilder valueBuilder) {
-        Preconditions.checkArgument(
-            valueBuilder != null,
-            "Cannot use null builder to get a field value for field '%s'",
-            name);
-        fields.put(name, valueBuilder.build());
-        return this;
-      }
-
-      /** Adds a field to the structure. */
-      public StructureBuilder addField(String name, String value) {
-        fields.put(name, new StringValue(value));
-        return this;
-      }
-
-      /** Adds a field to the structure. */
-      public StructureBuilder addField(String name, ImmutableList<String> values) {
-        fields.put(name, new StringSequence(values));
-        return this;
-      }
-
-      /** Returns an immutable structure. */
-      @Override
-      public StructureValue build() {
-        return new StructureValue(fields.build());
-      }
-    }
-
-    /**
-     * Lazily computed string sequence. Exists as a memory optimization. Make sure the {@param
-     * supplier} doesn't capture anything that shouldn't outlive analysis phase (e.g. {@link
-     * RuleContext}).
-     */
-    private static final class LazyStringSequence extends VariableValueAdapter {
-
-      private final Supplier<ImmutableList<String>> supplier;
-
-      private LazyStringSequence(Supplier<ImmutableList<String>> supplier) {
-        this.supplier = Preconditions.checkNotNull(supplier);
-      }
-
-      @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        return supplier
-            .get()
-            .stream()
-            .map(flag -> new StringValue(flag))
-            .collect(ImmutableList.toImmutableList());
-      }
-
-      @Override
-      public String getVariableTypeName() {
-        return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return !supplier.get().isEmpty();
-      }
-    }
-
-    /**
-     * A sequence of structure values. Exists as a memory optimization - a typical build can contain
-     * millions of feature values, so getting rid of the overhead of {@code StructureValue} objects
-     * significantly reduces memory overhead.
-     */
-    @Immutable
-    public static class LibraryToLinkValue extends VariableValueAdapter {
-
-      public static final String OBJECT_FILES_FIELD_NAME = "object_files";
-      public static final String NAME_FIELD_NAME = "name";
-      public static final String TYPE_FIELD_NAME = "type";
-      public static final String IS_WHOLE_ARCHIVE_FIELD_NAME = "is_whole_archive";
-
-      private static final String LIBRARY_TO_LINK_VARIABLE_TYPE_NAME = "structure (LibraryToLink)";
-
-      private enum Type {
-        OBJECT_FILE("object_file"),
-        OBJECT_FILE_GROUP("object_file_group"),
-        INTERFACE_LIBRARY("interface_library"),
-        STATIC_LIBRARY("static_library"),
-        DYNAMIC_LIBRARY("dynamic_library"),
-        VERSIONED_DYNAMIC_LIBRARY("versioned_dynamic_library");
-
-        private final String name;
-
-        Type(String name) {
-          this.name = name;
-        }
-      }
-
-      private final String name;
-      private final Artifact directory;
-      private final ImmutableList<String> objectFiles;
-      private final boolean isWholeArchive;
-      private final Type type;
-
-      public static LibraryToLinkValue forDynamicLibrary(String name) {
-        return new LibraryToLinkValue(
-            Preconditions.checkNotNull(name), null, null, false, Type.DYNAMIC_LIBRARY);
-      }
-
-      public static LibraryToLinkValue forVersionedDynamicLibrary(
-          String name) {
-        return new LibraryToLinkValue(
-            Preconditions.checkNotNull(name), null, null, false, Type.VERSIONED_DYNAMIC_LIBRARY);
-      }
-
-      public static LibraryToLinkValue forInterfaceLibrary(String name) {
-        return new LibraryToLinkValue(
-            Preconditions.checkNotNull(name), null, null, false, Type.INTERFACE_LIBRARY);
-      }
-
-      public static LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
-        return new LibraryToLinkValue(
-            Preconditions.checkNotNull(name), null, null, isWholeArchive, Type.STATIC_LIBRARY);
-      }
-
-      public static LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
-        return new LibraryToLinkValue(
-            Preconditions.checkNotNull(name), null, null, isWholeArchive, Type.OBJECT_FILE);
-      }
-
-      public static LibraryToLinkValue forObjectFileGroup(
-          ImmutableList<String> objects, boolean isWholeArchive) {
-        Preconditions.checkNotNull(objects);
-        Preconditions.checkArgument(!objects.isEmpty());
-        return new LibraryToLinkValue(null, null, objects, isWholeArchive, Type.OBJECT_FILE_GROUP);
-      }
-
-      public static LibraryToLinkValue forObjectDirectory(
-          Artifact directory, boolean isWholeArchive) {
-        Preconditions.checkNotNull(directory);
-        Preconditions.checkArgument(directory.isTreeArtifact());
-        return new LibraryToLinkValue(
-            null, directory, null, isWholeArchive, Type.OBJECT_FILE_GROUP);
-      }
-
-      private LibraryToLinkValue(
-          String name,
-          Artifact directory,
-          ImmutableList<String> objectFiles,
-          boolean isWholeArchive,
-          Type type) {
-        this.name = name;
-        this.directory = directory;
-        this.objectFiles = objectFiles;
-        this.isWholeArchive = isWholeArchive;
-        this.type = type;
-      }
-
-      @Override
-      public VariableValue getFieldValue(
-          String variableName, String field, @Nullable ArtifactExpander expander) {
-        Preconditions.checkNotNull(field);
-        if (NAME_FIELD_NAME.equals(field) && !type.equals(Type.OBJECT_FILE_GROUP)) {
-          return new StringValue(name);
-        } else if (OBJECT_FILES_FIELD_NAME.equals(field) && type.equals(Type.OBJECT_FILE_GROUP)) {
-          ImmutableList.Builder<String> expandedObjectFiles = ImmutableList.builder();
-          if (objectFiles != null) {
-            expandedObjectFiles.addAll(objectFiles);
-          } else if (directory != null) {
-            if (expander != null) {
-              List<Artifact> artifacts = new ArrayList<>();
-              expander.expand(directory, artifacts);
-
-              expandedObjectFiles.addAll(
-                  Iterables.transform(artifacts, artifact -> artifact.getExecPathString()));
-            } else {
-              expandedObjectFiles.add(directory.getExecPathString());
-            }
-          }
-          return new StringSequence(expandedObjectFiles.build());
-        } else if (TYPE_FIELD_NAME.equals(field)) {
-          return new StringValue(type.name);
-        } else if (IS_WHOLE_ARCHIVE_FIELD_NAME.equals(field)) {
-          return new IntegerValue(isWholeArchive ? 1 : 0);
-        } else {
-          return null;
-        }
-      }
-
-      @Override
-      public String getVariableTypeName() {
-        return LIBRARY_TO_LINK_VARIABLE_TYPE_NAME;
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return true;
-      }
-    }
-
-    /** Sequence of arbitrary VariableValue objects. */
-    @Immutable
-    private static final class Sequence extends VariableValueAdapter {
-
-      private static final String SEQUENCE_VARIABLE_TYPE_NAME = "sequence";
-
-      private final ImmutableList<VariableValue> values;
-
-      public Sequence(ImmutableList<VariableValue> values) {
-        this.values = values;
-      }
-
-      @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        return values;
-      }
-
-      @Override
-      public String getVariableTypeName() {
-        return SEQUENCE_VARIABLE_TYPE_NAME;
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return values.isEmpty();
-      }
-    }
-
-    /**
-     * A sequence of structure values. Exists as a memory optimization - a typical build can contain
-     * millions of feature values, so getting rid of the overhead of {@code StructureValue} objects
-     * significantly reduces memory overhead.
-     */
-    @Immutable
-    private static final class StructureSequence extends VariableValueAdapter {
-
-      private final ImmutableList<ImmutableMap<String, VariableValue>> values;
-
-      private StructureSequence(ImmutableList<ImmutableMap<String, VariableValue>> values) {
-        Preconditions.checkNotNull(values);
-        this.values = values;
-      }
-
-      @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        final ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
-        for (ImmutableMap<String, VariableValue> value : values) {
-          sequences.add(new StructureValue(value));
-        }
-        return sequences.build();
-      }
-
-      @Override
-      public String getVariableTypeName() {
-        return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return !values.isEmpty();
-      }
-    }
-
-    /**
-     * A sequence of simple string values. Exists as a memory optimization - a typical build can
-     * contain millions of feature values, so getting rid of the overhead of {@code StringValue}
-     * objects significantly reduces memory overhead.
-     */
-    @Immutable
-    static final class StringSequence extends VariableValueAdapter {
-
-      private final Iterable<String> values;
-
-      public StringSequence(Iterable<String> values) {
-        Preconditions.checkNotNull(values);
-        this.values = values;
-      }
-
-      @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        final ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
-        for (String value : values) {
-          sequences.add(new StringValue(value));
-        }
-        return sequences.build();
-      }
-
-      @Override
-      public String getVariableTypeName() {
-        return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return !Iterables.isEmpty(values);
-      }
-    }
-
-    /**
-     * Single structure value. Be careful not to create sequences of single structures, as the
-     * memory overhead is prohibitively big. Use optimized {@link StructureSequence} instead.
-     */
-    @Immutable
-    private static final class StructureValue extends VariableValueAdapter {
-
-      private static final String STRUCTURE_VARIABLE_TYPE_NAME = "structure";
-
-      private final ImmutableMap<String, VariableValue> value;
-
-      public StructureValue(ImmutableMap<String, VariableValue> value) {
-        this.value = value;
-      }
-
-      @Override
-      public VariableValue getFieldValue(
-          String variableName, String field, @Nullable ArtifactExpander expander) {
-        if (value.containsKey(field)) {
-          return value.get(field);
-        } else {
-          return null;
-        }
-      }
-
-      @Override
-      public String getVariableTypeName() {
-        return STRUCTURE_VARIABLE_TYPE_NAME;
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return !value.isEmpty();
-      }
-    }
-
-    /**
-     * The leaves in the variable sequence node tree are simple string values. Note that this should
-     * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
-     */
-    @Immutable
-    private static final class StringValue extends VariableValueAdapter {
-
-      private static final String STRING_VARIABLE_TYPE_NAME = "string";
-
-      private final String value;
-
-      public StringValue(String value) {
-        Preconditions.checkNotNull(value, "Cannot create StringValue from null");
-        this.value = value;
-      }
-
-      @Override
-      public String getStringValue(String variableName) {
-        return value;
-      }
-
-      @Override
-      public String getVariableTypeName() {
-        return STRING_VARIABLE_TYPE_NAME;
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return !value.isEmpty();
-      }
-    }
-
-    /**
-     * The leaves in the variable sequence node tree are simple integer values. Note that this
-     * should never live outside of {@code expand}, as the object overhead is prohibitively
-     * expensive.
-     */
-    @Immutable
-    static final class IntegerValue extends VariableValueAdapter {
-
-      private static final String INTEGER_VALUE_TYPE_NAME = "integer";
-      private final int value;
-
-      public IntegerValue(int value) {
-        this.value = value;
-      }
-
-      @Override
-      public String getStringValue(String variableName) {
-        return Integer.toString(value);
-      }
-
-      @Override
-      public String getVariableTypeName() {
-        return INTEGER_VALUE_TYPE_NAME;
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return value != 0;
-      }
-    }
-
-    /**
-     * Builder for {@code Variables}.
-     */
-    // TODO(b/65472725): Forbid sequences with empty string in them.
-    public static class Builder {
-      private final Map<String, VariableValue> variablesMap = new LinkedHashMap<>();
-      private final Map<String, String> stringVariablesMap = new LinkedHashMap<>();
-      private final Variables parent;
-
-      public Builder() {
-        parent = null;
-      }
-
-      public Builder(@Nullable Variables parent) {
-        this.parent = parent;
-      }
-
-      /** Add an integer variable that expands {@code name} to {@code value}. */
-      public Builder addIntegerVariable(String name, int value) {
-        variablesMap.put(name, new IntegerValue(value));
-        return this;
-      }
-
-      /** Add a string variable that expands {@code name} to {@code value}. */
-      public Builder addStringVariable(String name, String value) {
-        checkVariableNotPresentAlready(name);
-        Preconditions.checkNotNull(
-            value, "Cannot set null as a value for variable '%s'", name);
-        stringVariablesMap.put(name, value);
-        return this;
-      }
-
-      /** Overrides a variable to expands {@code name} to {@code value} instead. */
-      public Builder overrideStringVariable(String name, String value) {
-        Preconditions.checkNotNull(
-            value, "Cannot set null as a value for variable '%s'", name);
-        stringVariablesMap.put(name, value);
-        return this;
-      }
-
-      /** Overrides a variable to expands {@code name} to {@code value} instead. */
-      public Builder overrideLazyStringSequenceVariable(
-          String name, Supplier<ImmutableList<String>> supplier) {
-        Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
-        variablesMap.put(name, new LazyStringSequence(supplier));
-        return this;
-      }
-
-      /**
-       * Add a sequence variable that expands {@code name} to {@code values}.
-       *
-       * <p>Accepts values as ImmutableSet. As ImmutableList has smaller memory footprint, we copy
-       * the values into a new list.
-       */
-      public Builder addStringSequenceVariable(String name, ImmutableSet<String> values) {
-        checkVariableNotPresentAlready(name);
-        Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
-        builder.addAll(values);
-        variablesMap.put(name, new StringSequence(builder.build()));
-        return this;
-      }
-
-      /**
-       * Add a sequence variable that expands {@code name} to {@code values}.
-       *
-       * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
-       */
-      public Builder addStringSequenceVariable(String name, NestedSet<String> values) {
-        checkVariableNotPresentAlready(name);
-        Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-        variablesMap.put(name, new StringSequence(values));
-        return this;
-      }
-
-      /**
-       * Add a sequence variable that expands {@code name} to {@code values}.
-       *
-       * <p>Accepts values as Iterable. The iterable is stored directly, not cloned, not iterated.
-       * Be mindful of memory consumption of the particular Iterable. Prefer ImmutableList, or
-       * be sure that the iterable always returns the same elements in the same order, without any
-       * side effects.
-       */
-      public Builder addStringSequenceVariable(String name, Iterable<String> values) {
-        checkVariableNotPresentAlready(name);
-        Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-        variablesMap.put(name, new StringSequence(values));
-        return this;
-      }
-
-      public Builder addLazyStringSequenceVariable(
-          String name, Supplier<ImmutableList<String>> supplier) {
-        checkVariableNotPresentAlready(name);
-        Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
-        variablesMap.put(name, new LazyStringSequence(supplier));
-        return this;
-      }
-
-      /**
-       * Add a variable built using {@code VariableValueBuilder} api that expands {@code name} to
-       * the value returned by the {@code builder}.
-       */
-      public Builder addCustomBuiltVariable(String name, Variables.VariableValueBuilder builder) {
-        checkVariableNotPresentAlready(name);
-        Preconditions.checkNotNull(
-            builder,
-            "Cannot use null builder to get variable value for variable '%s'",
-            name);
-        variablesMap.put(name, builder.build());
-        return this;
-      }
-
-      /** Add all string variables in a map. */
-      public Builder addAllStringVariables(Map<String, String> variables) {
-        for (String name : variables.keySet()) {
-          checkVariableNotPresentAlready(name);
-        }
-        stringVariablesMap.putAll(variables);
-        return this;
-      }
-
-      private void checkVariableNotPresentAlready(String name) {
-        Preconditions.checkNotNull(name);
-        Preconditions.checkArgument(
-            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
-        Preconditions.checkArgument(
-            !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
-      }
-
-      /**
-       * Adds all variables to this builder. Cannot override already added variables. Does not add
-       * variables defined in the {@code parent} variables.
-       */
-      public Builder addAllNonTransitive(Variables variables) {
-        SetView<String> intersection =
-            Sets.intersection(variables.variablesMap.keySet(), variablesMap.keySet());
-        SetView<String> stringIntersection =
-            Sets.intersection(variables.stringVariablesMap.keySet(), stringVariablesMap.keySet());
-        Preconditions.checkArgument(
-            intersection.isEmpty(), "Cannot overwrite existing variables: %s", intersection);
-        Preconditions.checkArgument(
-            stringIntersection.isEmpty(),
-            "Cannot overwrite existing variables: %s", stringIntersection);
-        this.variablesMap.putAll(variables.variablesMap);
-        this.stringVariablesMap.putAll(variables.stringVariablesMap);
-        return this;
-      }
-
-      /**
-       * Add all variables to this builder, possibly overriding variables already present in the
-       * builder. Use cautiously, prefer {@code addAllNonTransitive} if possible.
-       * TODO(b/32893861) Clean 'module_files' to be registered only once and remove this method.
-       */
-      Builder addAndOverwriteAll(Variables overwrittenVariables) {
-        this.variablesMap.putAll(overwrittenVariables.variablesMap);
-        this.stringVariablesMap.putAll(overwrittenVariables.stringVariablesMap);
-        return this;
-      }
-
-      /** @return a new {@Variables} object. */
-      public Variables build() {
-        return new Variables(
-            parent, ImmutableMap.copyOf(variablesMap), ImmutableMap.copyOf(stringVariablesMap));
-      }
-    }
-    
-    /**
-     * A group of extra {@code Variable} instances, packaged as logic for adding to a
-     * {@code Builder}
-     */
-    public interface VariablesExtension {
-      void addVariables(Builder builder);
-    }
-    
-    private final ImmutableMap<String, VariableValue> variablesMap;
-    private final ImmutableMap<String, String> stringVariablesMap;
-    private final Variables parent;
-
-    private Variables(
-        Variables parent,
-        ImmutableMap<String, VariableValue> variablesMap,
-        ImmutableMap<String, String> stringVariablesMap) {
-      this.variablesMap = variablesMap;
-      this.stringVariablesMap = stringVariablesMap;
-      this.parent = parent;
-    }
-
-    /**
-     * Creates a variables instance nested under the @param parent, and binds variable named @param
-     * name to @param value
-     */
-    private Variables(Variables parent, String name, VariableValue value) {
-      this.variablesMap = ImmutableMap.of(name, value);
-      this.stringVariablesMap = ImmutableMap.of();
-      this.parent = parent;
-    }
-
-    /**
-     * Get a variable value named @param name. Supports accessing fields in structures (e.g.
-     * 'libraries_to_link.interface_libraries')
-     *
-     * @throws ExpansionException when no such variable or no such field are present, or when
-     *     accessing a field of non-structured variable
-     */
-    public VariableValue getVariable(String name) {
-      return lookupVariable(name, true, null);
-    }
-
-    public VariableValue getVariable(String name, @Nullable ArtifactExpander expander) {
-      return lookupVariable(name, true, expander);
-    }
-
-    /**
-     * Lookup a variable named @param name or return a reason why the variable was not found.
-     * Supports accessing fields in structures.
-     *
-     * @return Pair<VariableValue, String> returns either (variable value, null) or (null, string
-     *     reason why variable was not found)
-     */
-    private VariableValue lookupVariable(
-        String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander) {
-      VariableValue nonStructuredVariable = getNonStructuredVariable(name);
-      if (nonStructuredVariable != null) {
-        return nonStructuredVariable;
-      }
-      VariableValue structuredVariable =
-          getStructureVariable(name, throwOnMissingVariable, expander);
-      if (structuredVariable != null) {
-        return structuredVariable;
-      } else if (throwOnMissingVariable) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot find variable named '%s'.", name));
-      } else {
-        return null;
-      }
-    }
-
-    private VariableValue getNonStructuredVariable(String name) {
-      if (variablesMap.containsKey(name)) {
-        return variablesMap.get(name);
-      }
-      if (stringVariablesMap.containsKey(name)) {
-        return new StringValue(stringVariablesMap.get(name));
-      }
-
-      if (parent != null) {
-        return parent.getNonStructuredVariable(name);
-      }
-
-      return null;
-    }
-
-    private VariableValue getStructureVariable(
-        String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander) {
-      if (!name.contains(".")) {
-        return null;
-      }
-
-      Stack<String> fieldsToAccess = new Stack<>();
-      String structPath = name;
-      VariableValue variable;
-
-      do {
-        fieldsToAccess.push(structPath.substring(structPath.lastIndexOf('.') + 1));
-        structPath = structPath.substring(0, structPath.lastIndexOf('.'));
-        variable = getNonStructuredVariable(structPath);
-      } while (variable == null && structPath.contains("."));
-
-      if (variable == null) {
-        return null;
-      }
-
-      while (!fieldsToAccess.empty()) {
-        String field = fieldsToAccess.pop();
-        variable = variable.getFieldValue(structPath, field, expander);
-        if (variable == null) {
-          if (throwOnMissingVariable) {
-            throw new ExpansionException(
-                String.format(
-                    "Invalid toolchain configuration: Cannot expand variable '%s.%s': structure %s "
-                        + "doesn't have a field named '%s'",
-                    structPath, field, structPath, field));
-          } else {
-            return null;
-          }
-        }
-      }
-      return variable;
-    }
-
-    public String getStringVariable(String variableName) {
-      return getVariable(variableName, null).getStringValue(variableName);
-    }
-
-    public String getStringVariable(String variableName, @Nullable ArtifactExpander expander) {
-      return getVariable(variableName, expander).getStringValue(variableName);
-    }
-
-    public Iterable<? extends VariableValue> getSequenceVariable(String variableName) {
-      return getVariable(variableName, null).getSequenceValue(variableName);
-    }
-
-    public Iterable<? extends VariableValue> getSequenceVariable(
-        String variableName, @Nullable ArtifactExpander expander) {
-      return getVariable(variableName, expander).getSequenceValue(variableName);
-    }
-
-    /** Returns whether {@code variable} is set. */
-    boolean isAvailable(String variable) {
-      return isAvailable(variable, null);
-    }
-
-    boolean isAvailable(String variable, @Nullable ArtifactExpander expander) {
-      return lookupVariable(variable, false, expander) != null;
-    }
-  }
-  
-  /**
-   * Captures the set of enabled features and action configs for a rule.
-   */
-  @Immutable
+  @AutoCodec
+  @SkylarkModule(
+    name = "feature_configuration",
+    documented = false,
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "Class used to construct command lines from CROSSTOOL features."
+  )
   public static class FeatureConfiguration {
     private final ImmutableSet<String> enabledFeatureNames;
-    private final Iterable<Feature> enabledFeatures;
+    private final ImmutableList<Feature> enabledFeatures;
     private final ImmutableSet<String> enabledActionConfigActionNames;
-    
+
     private final ImmutableMap<String, ActionConfig> actionConfigByActionName;
 
     /**
@@ -1753,32 +1004,25 @@ public class CcToolchainFeatures implements Serializable {
     public static final FeatureConfiguration EMPTY = new FeatureConfiguration();
 
     protected FeatureConfiguration() {
-      this(
-          ImmutableList.of(),
-          ImmutableList.of(),
-          ImmutableMap.of());
+      this(ImmutableList.of(), ImmutableSet.of(), ImmutableMap.of());
     }
 
-    private FeatureConfiguration(
-        Iterable<Feature> enabledFeatures,
-        Iterable<ActionConfig> enabledActionConfigs,
+    @AutoCodec.Instantiator
+    FeatureConfiguration(
+        ImmutableList<Feature> enabledFeatures,
+        ImmutableSet<String> enabledActionConfigActionNames,
         ImmutableMap<String, ActionConfig> actionConfigByActionName) {
       this.enabledFeatures = enabledFeatures;
-      
+
       this.actionConfigByActionName = actionConfigByActionName;
       ImmutableSet.Builder<String> featureBuilder = ImmutableSet.builder();
       for (Feature feature : enabledFeatures) {
         featureBuilder.add(feature.getName());
       }
       this.enabledFeatureNames = featureBuilder.build();
-      
-      ImmutableSet.Builder<String> actionConfigBuilder = ImmutableSet.builder();
-      for (ActionConfig actionConfig : enabledActionConfigs) {
-        actionConfigBuilder.add(actionConfig.getActionName());
-      }
-      this.enabledActionConfigActionNames = actionConfigBuilder.build();
+      this.enabledActionConfigActionNames = enabledActionConfigActionNames;
     }
-    
+
     /**
      * @return whether the given {@code feature} is enabled.
      */
@@ -1797,12 +1041,12 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /** @return the command line for the given {@code action}. */
-    public List<String> getCommandLine(String action, Variables variables) {
+    public List<String> getCommandLine(String action, CcToolchainVariables variables) {
       return getCommandLine(action, variables, null);
     }
 
     public List<String> getCommandLine(
-        String action, Variables variables, @Nullable ArtifactExpander expander) {
+        String action, CcToolchainVariables variables, @Nullable ArtifactExpander expander) {
       List<String> commandLine = new ArrayList<>();
       if (actionIsConfigured(action)) {
         actionConfigByActionName
@@ -1819,12 +1063,12 @@ public class CcToolchainFeatures implements Serializable {
 
     /** @return the flags expanded for the given {@code action} in per-feature buckets. */
     public ImmutableList<Pair<String, List<String>>> getPerFeatureExpansions(
-        String action, Variables variables) {
+        String action, CcToolchainVariables variables) {
       return getPerFeatureExpansions(action, variables, null);
     }
 
     public ImmutableList<Pair<String, List<String>>> getPerFeatureExpansions(
-        String action, Variables variables, @Nullable ArtifactExpander expander) {
+        String action, CcToolchainVariables variables, @Nullable ArtifactExpander expander) {
       ImmutableList.Builder<Pair<String, List<String>>> perFeatureExpansions =
           ImmutableList.builder();
       if (actionIsConfigured(action)) {
@@ -1844,18 +1088,17 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /** @return the environment variables (key/value pairs) for the given {@code action}. */
-    ImmutableMap<String, String> getEnvironmentVariables(String action, Variables variables) {
+    public ImmutableMap<String, String> getEnvironmentVariables(
+        String action, CcToolchainVariables variables) {
       ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
       for (Feature feature : enabledFeatures) {
         feature.expandEnvironment(action, variables, enabledFeatureNames, envBuilder);
       }
       return envBuilder.build();
     }
-  
-    /**
-     * Returns a given action's tool under this FeatureConfiguration.
-     */
-    Tool getToolForAction(String actionName) {
+
+    /** Returns a given action's tool under this FeatureConfiguration. */
+    public Tool getToolForAction(String actionName) {
       Preconditions.checkArgument(
           actionConfigByActionName.containsKey(actionName),
           "Action %s does not have an enabled configuration in the toolchain.",
@@ -1863,11 +1106,40 @@ public class CcToolchainFeatures implements Serializable {
       ActionConfig actionConfig = actionConfigByActionName.get(actionName);
       return actionConfig.getTool(enabledFeatureNames);
     }
+
+    @Override
+    public boolean equals(Object object) {
+      if (object == this) {
+        return true;
+      }
+      if (object instanceof FeatureConfiguration) {
+        FeatureConfiguration that = (FeatureConfiguration) object;
+        return Objects.equals(actionConfigByActionName, that.actionConfigByActionName)
+            && Iterables.elementsEqual(
+                enabledActionConfigActionNames, that.enabledActionConfigActionNames)
+            && Iterables.elementsEqual(enabledFeatureNames, that.enabledFeatureNames)
+            && Iterables.elementsEqual(enabledFeatures, that.enabledFeatures);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(
+          actionConfigByActionName,
+          enabledActionConfigActionNames,
+          enabledFeatureNames,
+          enabledFeatures);
+    }
+
+    public ImmutableSet<String> getEnabledFeatureNames() {
+      return enabledFeatureNames;
+    }
   }
 
   /** All artifact name patterns defined in this feature configuration. */
   private final ImmutableList<ArtifactNamePattern> artifactNamePatterns;
-  
+
   /**
    * All features and action configs in the order in which they were specified in the configuration.
    *
@@ -1938,7 +1210,8 @@ public class CcToolchainFeatures implements Serializable {
    * @throws InvalidConfigurationException if the configuration has logical errors.
    */
   @VisibleForTesting
-  public CcToolchainFeatures(CToolchain toolchain) throws InvalidConfigurationException {
+  public CcToolchainFeatures(CToolchain toolchain, PathFragment crosstoolTop)
+      throws InvalidConfigurationException {
     // Build up the feature/action config graph.  We refer to features/action configs as
     // 'selectables'.
     // First, we build up the map of name -> selectables in one pass, so that earlier selectables
@@ -1960,7 +1233,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     for (CToolchain.ActionConfig toolchainActionConfig : toolchain.getActionConfigList()) {
-      ActionConfig actionConfig = new ActionConfig(toolchainActionConfig);
+      ActionConfig actionConfig = new ActionConfig(toolchainActionConfig, crosstoolTop);
       selectablesBuilder.add(actionConfig);
       selectablesByName.put(actionConfig.getName(), actionConfig);
       actionConfigsByActionName.put(actionConfig.getActionName(), actionConfig);
@@ -2123,7 +1396,17 @@ public class CcToolchainFeatures implements Serializable {
       throws CollidingProvidesException {
     // Command line flags will be output in the order in which they are specified in the toolchain
     // configuration.
-    return new FeatureSelection(requestedSelectables).run();
+    return new FeatureSelection(
+            requestedSelectables,
+            selectablesByName,
+            selectables,
+            provides,
+            implies,
+            impliedBy,
+            requires,
+            requiredBy,
+            actionConfigsByActionName)
+        .run();
   }
 
   public ImmutableList<String> getDefaultFeaturesAndActionConfigs() {
@@ -2188,192 +1471,5 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
     return false;
-  }
-
-  /**
-   * Implements the feature selection algorithm.
-   *
-   * <p>Feature selection is done by first enabling all features reachable by an 'implies' edge, and
-   * then iteratively pruning features that have unmet requirements.
-   */
-  private class FeatureSelection {
-    
-    /**
-     * The selectables Bazel would like to enable; either because they are supported and generally
-     * useful, or because the user required them (for example through the command line).
-     */
-    private final ImmutableSet<CrosstoolSelectable> requestedSelectables;
-    
-    /**
-     * The currently enabled selectable; during feature selection, we first put all selectables
-     * reachable via an 'implies' edge into the enabled selectable set, and than prune that set
-     * from selectables that have unmet requirements.
-     */
-    private final Set<CrosstoolSelectable> enabled = new HashSet<>();
-
-    private FeatureSelection(ImmutableSet<String> requestedFeatures) {
-      ImmutableSet.Builder<CrosstoolSelectable> builder = ImmutableSet.builder();
-      for (String name : requestedFeatures) {
-        if (selectablesByName.containsKey(name)) {
-          builder.add(selectablesByName.get(name));
-        }
-      }
-      this.requestedSelectables = builder.build();
-    }
-
-    /**
-     * @return a {@code FeatureConfiguration} that reflects the set of activated features and action
-     *     configs.
-     */
-    private FeatureConfiguration run() throws CollidingProvidesException {
-      for (CrosstoolSelectable selectable : requestedSelectables) {
-        enableAllImpliedBy(selectable);
-      }
-
-      disableUnsupportedActivatables();
-      ImmutableList.Builder<CrosstoolSelectable> enabledActivatablesInOrderBuilder =
-          ImmutableList.builder();
-      for (CrosstoolSelectable selectable : selectables) {
-        if (enabled.contains(selectable)) {
-          enabledActivatablesInOrderBuilder.add(selectable);
-        }
-      }
-
-      ImmutableList<CrosstoolSelectable> enabledActivatablesInOrder =
-          enabledActivatablesInOrderBuilder.build();
-      Iterable<Feature> enabledFeaturesInOrder =
-          Iterables.filter(enabledActivatablesInOrder, Feature.class);
-      Iterable<ActionConfig> enabledActionConfigsInOrder =
-          Iterables.filter(enabledActivatablesInOrder, ActionConfig.class);
-
-      for (String provided : provides.keys()) {
-        List<String> conflicts = new ArrayList<>();
-        for (CrosstoolSelectable selectableProvidingString : provides.get(provided)) {
-          if (enabledActivatablesInOrder.contains(selectableProvidingString)) {
-            conflicts.add(selectableProvidingString.getName());
-          }
-        }
-
-        if (conflicts.size() > 1) {
-          throw new CollidingProvidesException(String.format(COLLIDING_PROVIDES_ERROR,
-              provided, Joiner.on(" ").join(conflicts)));
-        }
-      }
-
-      return new FeatureConfiguration(
-          enabledFeaturesInOrder,
-          enabledActionConfigsInOrder,
-          actionConfigsByActionName);
-    }
-
-    /**
-     * Transitively and unconditionally enable all selectables implied by the given selectable
-     * and the selectable itself to the enabled selectable set.
-     */
-    private void enableAllImpliedBy(CrosstoolSelectable selectable) {
-      if (enabled.contains(selectable)) {
-        return;
-      }
-      enabled.add(selectable);
-      for (CrosstoolSelectable implied : implies.get(selectable)) {
-        enableAllImpliedBy(implied);
-      }
-    }
-    
-    /**
-     * Remove all unsupported features from the enabled feature set.
-     */
-    private void disableUnsupportedActivatables() {
-      Queue<CrosstoolSelectable> check = new ArrayDeque<>(enabled);
-      while (!check.isEmpty()) {
-        checkActivatable(check.poll());
-      }
-    }
-
-    /**
-     * Check if the given selectable is still satisfied within the set of currently enabled
-     * selectables.
-     *
-     * <p>If it is not, remove the selectable from the set of enabled selectables, and re-check
-     * all selectables that may now also become disabled.
-     */
-    private void checkActivatable(CrosstoolSelectable selectable) {
-      if (!enabled.contains(selectable) || isSatisfied(selectable)) {
-        return;
-      }
-      enabled.remove(selectable);
-
-      // Once we disable a selectable, we have to re-check all selectables that can be affected
-      // by that removal.
-      // 1. A selectable that implied the current selectable is now going to be disabled.
-      for (CrosstoolSelectable impliesCurrent : impliedBy.get(selectable)) {
-        checkActivatable(impliesCurrent);
-      }
-      // 2. A selectable that required the current selectable may now be disabled, depending on
-      // whether the requirement was optional.
-      for (CrosstoolSelectable requiresCurrent : requiredBy.get(selectable)) {
-        checkActivatable(requiresCurrent);
-      }
-      // 3. A selectable that this selectable implied may now be disabled if no other selectables
-      // also implies it.
-      for (CrosstoolSelectable implied : implies.get(selectable)) {
-        checkActivatable(implied);
-      }
-    }
-
-    /**
-     * @return whether all requirements of the selectable are met in the set of currently enabled
-     * selectables.
-     */
-    private boolean isSatisfied(CrosstoolSelectable selectable) {
-      return (requestedSelectables.contains(selectable)
-              || isImpliedByEnabledActivatable(selectable))
-          && allImplicationsEnabled(selectable)
-          && allRequirementsMet(selectable);
-    }
-    
-    /**
-     * @return whether a currently enabled selectable implies the given selectable.
-     */
-    private boolean isImpliedByEnabledActivatable(CrosstoolSelectable selectable) {
-      return !Collections.disjoint(impliedBy.get(selectable), enabled);
-    }
-        
-    /**
-     * @return whether all implications of the given feature are enabled.
-     */
-    private boolean allImplicationsEnabled(CrosstoolSelectable selectable) {
-      for (CrosstoolSelectable implied : implies.get(selectable)) {
-        if (!enabled.contains(implied)) {
-          return false;
-        }
-      }
-      return true;
-    }
-    
-    /**
-     * @return whether all requirements are enabled.
-     *
-     * <p>This implies that for any of the selectable sets all of the specified selectable
-     *   are enabled.
-     */
-    private boolean allRequirementsMet(CrosstoolSelectable feature) {
-      if (!requires.containsKey(feature)) {
-        return true;
-      }
-      for (ImmutableSet<CrosstoolSelectable> requiresAllOf : requires.get(feature)) {
-        boolean requirementMet = true;
-        for (CrosstoolSelectable required : requiresAllOf) {
-          if (!enabled.contains(required)) {
-            requirementMet = false;
-            break;
-          }
-        }
-        if (requirementMet) {
-          return true;
-        }
-      }
-      return false;
-    }
   }
 }

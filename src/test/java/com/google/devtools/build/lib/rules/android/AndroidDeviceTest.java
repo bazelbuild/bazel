@@ -573,4 +573,33 @@ public class AndroidDeviceTest extends BuildViewTestCase {
         "    vm_heap = 256",
         ")");
   }
+
+  @Test
+  public void testAndroidDeviceBrokerInfoExposedToSkylark() throws Exception {
+    scratch.file(
+        "tools/android/emulated_device/BUILD",
+        "android_device(",
+        "   name = 'nexus_6', ",
+        "   ram = 2048, ",
+        "   horizontal_resolution = 720, ",
+        "   vertical_resolution = 1280, ",
+        "   cache = 32, ",
+        "   system_image = '" + SYSTEM_IMAGE_LABEL + "',",
+        "   screen_density = 280, ",
+        "   vm_heap = 256,",
+        "   tags = ['requires-kvm']",
+        ")");
+    scratch.file(
+        "javatests/com/app/skylarktest/skylarktest.bzl",
+        "mystring = provider(fields = ['content'])",
+        "def _impl(ctx):",
+        "  return [mystring(content = ctx.attr.dep[AndroidDeviceBrokerInfo])]",
+        "skylarktest = rule(implementation=_impl, attrs = {'dep': attr.label()})");
+    scratch.file(
+        "javatests/com/app/skylarktest/BUILD",
+        "load(':skylarktest.bzl', 'skylarktest')",
+        "skylarktest(name = 'mytest', dep = '//tools/android/emulated_device:nexus_6')");
+    ConfiguredTarget ct = getConfiguredTarget("//javatests/com/app/skylarktest:mytest");
+    assertThat(ct).isNotNull();
+  }
 }

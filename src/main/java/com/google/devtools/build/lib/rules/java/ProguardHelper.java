@@ -244,16 +244,41 @@ public abstract class ProguardHelper {
    */
   public static ImmutableList<Artifact> collectTransitiveProguardSpecs(
       RuleContext ruleContext, Iterable<Artifact> specsToInclude) {
+    return collectTransitiveProguardSpecs(
+        ruleContext,
+        Iterables.concat(
+            specsToInclude,
+            ruleContext.getPrerequisiteArtifacts(":extra_proguard_specs", Mode.TARGET).list()),
+        ruleContext.attributes().has(PROGUARD_SPECS, BuildType.LABEL_LIST)
+            ? ruleContext.getPrerequisiteArtifacts(PROGUARD_SPECS, Mode.TARGET).list()
+            : ImmutableList.<Artifact>of(),
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.class));
+  }
+
+  /**
+   * Retrieves the full set of proguard specs that should be applied to this binary, including the
+   * specs passed in, if Proguard should run on the given rule.
+   *
+   * <p>Unlike {@link #collectTransitiveProguardSpecs(RuleContext, Iterable)}, this method requires
+   * values to be passed in explicitly, and does not extract them from rule attributes.
+   *
+   * <p>If Proguard shouldn't be applied, or the legacy link mode is used and there are no
+   * proguard_specs on this rule, an empty list will be returned, regardless of any given specs or
+   * specs from dependencies. {@link
+   * com.google.devtools.build.lib.rules.android.AndroidBinary#createAndroidBinary} relies on that
+   * behavior.
+   */
+  public static ImmutableList<Artifact> collectTransitiveProguardSpecs(
+      RuleContext ruleContext,
+      Iterable<Artifact> specsToInclude,
+      ImmutableList<Artifact> localProguardSpecs,
+      Iterable<ProguardSpecProvider> proguardDeps) {
     JavaOptimizationMode optMode = getJavaOptimizationMode(ruleContext);
     if (optMode == JavaOptimizationMode.NOOP) {
       return ImmutableList.of();
     }
 
-    ImmutableList<Artifact> proguardSpecs =
-        ruleContext.attributes().has(PROGUARD_SPECS, BuildType.LABEL_LIST)
-            ? ruleContext.getPrerequisiteArtifacts(PROGUARD_SPECS, Mode.TARGET).list()
-            : ImmutableList.<Artifact>of();
-    if (optMode == JavaOptimizationMode.LEGACY && proguardSpecs.isEmpty()) {
+    if (optMode == JavaOptimizationMode.LEGACY && localProguardSpecs.isEmpty()) {
       return ImmutableList.of();
     }
 
@@ -261,12 +286,9 @@ public abstract class ProguardHelper {
     // flags since those flags would override the desired optMode
     ImmutableSortedSet.Builder<Artifact> builder =
         ImmutableSortedSet.orderedBy(Artifact.EXEC_PATH_COMPARATOR)
-            .addAll(proguardSpecs)
-            .addAll(specsToInclude)
-            .addAll(
-                ruleContext.getPrerequisiteArtifacts(":extra_proguard_specs", Mode.TARGET).list());
-    for (ProguardSpecProvider dep :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.class)) {
+            .addAll(localProguardSpecs)
+            .addAll(specsToInclude);
+    for (ProguardSpecProvider dep : proguardDeps) {
       builder.addAll(dep.getTransitiveProguardSpecs());
     }
 

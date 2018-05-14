@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -20,14 +21,18 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.protobuf.TextFormat;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,16 +41,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** An instance (in the Skylark sense, not Java) of a {@link Provider}. */
-@SkylarkModule(
-  name = "struct",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "A generic object with fields. See the global <a href=\"globals.html#struct\"><code>struct"
-          + "</code></a> function for more details."
-          + "<p>Structs fields cannot be reassigned once the struct is created. Two structs are "
-          + "equal if they have the same fields and if corresponding field values are equal."
-)
-public abstract class Info implements ClassObject, SkylarkValue, Serializable {
+public abstract class Info implements ClassObject, StructApi, Serializable {
 
   /** The {@link Provider} that describes the type of this instance. */
   private final Provider provider;
@@ -55,7 +51,7 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
    *
    * <p>Built-in provider instances may use {@link Location#BUILTIN}.
    */
-  private final Location location;
+  @VisibleForSerialization protected final Location location;
 
   /**
    * Constructs an {@link Info}.
@@ -81,7 +77,7 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
     for (Map.Entry<String, Object> e : values.entrySet()) {
       builder.put(
           Attribute.getSkylarkName(e.getKey()),
-          SkylarkType.convertToSkylark(e.getValue(), /*env=*/ null));
+          SkylarkType.convertToSkylark(e.getValue(), (Environment) null));
     }
     return builder.build();
   }
@@ -107,14 +103,17 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   public abstract boolean hasField(String name);
 
   /**
-   * {@inheritDoc}
-   *
-   * <p>Overrides {@link ClassObject#getValue(String)}, but does not allow {@link EvalException} to
-   * be thrown.
+   * <p>Wraps {@link ClassObject#getValue(String)}, returning null in cases where
+   * {@link EvalException} would have been thrown.
    */
-  @Nullable
-  @Override
-  public abstract Object getValue(String name);
+  @VisibleForTesting
+  public Object getValueOrNull(String name) {
+    try {
+      return getValue(name);
+    } catch (EvalException e) {
+      return null;
+    }
+  }
 
   /**
    * Returns the result of {@link #getValue(String)}, cast as the given type, throwing {@link
@@ -171,7 +170,7 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
       return false;
     }
     for (String field : getFieldNames()) {
-      if (!this.getValue(field).equals(other.getValue(field))) {
+      if (!Objects.equal(this.getValueOrNull(field), other.getValueOrNull(field))) {
         return false;
       }
     }
@@ -186,7 +185,7 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
     objectsToHash.add(provider);
     for (String field : fields) {
       objectsToHash.add(field);
-      objectsToHash.add(getValue(field));
+      objectsToHash.add(getValueOrNull(field));
     }
     return Objects.hashCode(objectsToHash.toArray());
   }
@@ -207,9 +206,148 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
       first = false;
       printer.append(fieldName);
       printer.append(" = ");
-      printer.repr(getValue(fieldName));
+      printer.repr(getValueOrNull(fieldName));
     }
     printer.append(")");
+  }
+
+  @Override
+  public String toProto(Location loc) throws EvalException {
+    StringBuilder sb = new StringBuilder();
+    printProtoTextMessage(this, sb, 0, loc);
+    return sb.toString();
+  }
+
+  private void printProtoTextMessage(
+      ClassObject object, StringBuilder sb, int indent, Location loc) throws EvalException {
+    // For determinism sort the fields alphabetically.
+    List<String> fields = new ArrayList<>(object.getFieldNames());
+    Collections.sort(fields);
+    for (String field : fields) {
+      printProtoTextMessage(field, object.getValue(field), sb, indent, loc);
+    }
+  }
+
+  private void printProtoTextMessage(
+      String key, Object value, StringBuilder sb, int indent, Location loc, String container)
+      throws EvalException {
+    if (value instanceof ClassObject) {
+      print(sb, key + " {", indent);
+      printProtoTextMessage((ClassObject) value, sb, indent + 1, loc);
+      print(sb, "}", indent);
+    } else if (value instanceof String) {
+      print(
+          sb,
+          key + ": \"" + escapeDoubleQuotesAndBackslashesAndNewlines((String) value) + "\"",
+          indent);
+    } else if (value instanceof Integer) {
+      print(sb, key + ": " + value, indent);
+    } else if (value instanceof Boolean) {
+      // We're relying on the fact that Java converts Booleans to Strings in the same way
+      // as the protocol buffers do.
+      print(sb, key + ": " + value, indent);
+    } else {
+      throw new EvalException(
+          loc,
+          "Invalid text format, expected a struct, a string, a bool, or an int but got a "
+              + EvalUtils.getDataTypeName(value)
+              + " for "
+              + container
+              + " '"
+              + key
+              + "'");
+    }
+  }
+
+  private void printProtoTextMessage(
+      String key, Object value, StringBuilder sb, int indent, Location loc)
+      throws EvalException {
+    if (value instanceof SkylarkList) {
+      for (Object item : ((SkylarkList) value)) {
+        // TODO(bazel-team): There should be some constraint on the fields of the structs
+        // in the same list but we ignore that for now.
+        printProtoTextMessage(key, item, sb, indent, loc, "list element in struct field");
+      }
+    } else {
+      printProtoTextMessage(key, value, sb, indent, loc, "struct field");
+    }
+  }
+
+  private void print(StringBuilder sb, String text, int indent) {
+    for (int i = 0; i < indent; i++) {
+      sb.append("  ");
+    }
+    sb.append(text);
+    sb.append("\n");
+  }
+
+  /**
+   * Escapes the given string for use in proto/JSON string.
+   *
+   * <p>This escapes double quotes, backslashes, and newlines.
+   */
+  private static String escapeDoubleQuotesAndBackslashesAndNewlines(String string) {
+    return TextFormat.escapeDoubleQuotesAndBackslashes(string).replace("\n", "\\n");
+  }
+
+  @Override
+  public String toJson(Location loc) throws EvalException {
+    StringBuilder sb = new StringBuilder();
+    printJson(this, sb, loc, "struct field", null);
+    return sb.toString();
+  }
+
+  private void printJson(
+      Object value, StringBuilder sb, Location loc, String container, String key)
+      throws EvalException {
+    if (value == Runtime.NONE) {
+      sb.append("null");
+    } else if (value instanceof ClassObject) {
+      sb.append("{");
+
+      String join = "";
+      for (String field : ((ClassObject) value).getFieldNames()) {
+        sb.append(join);
+        join = ",";
+        sb.append("\"");
+        sb.append(field);
+        sb.append("\":");
+        printJson(((ClassObject) value).getValue(field), sb, loc, "struct field", field);
+      }
+      sb.append("}");
+    } else if (value instanceof List) {
+      sb.append("[");
+      String join = "";
+      for (Object item : ((List) value)) {
+        sb.append(join);
+        join = ",";
+        printJson(item, sb, loc, "list element in struct field", key);
+      }
+      sb.append("]");
+    } else if (value instanceof String) {
+      sb.append("\"");
+      sb.append(jsonEscapeString((String) value));
+      sb.append("\"");
+    } else if (value instanceof Integer || value instanceof Boolean) {
+      sb.append(value);
+    } else {
+      String errorMessage =
+          "Invalid text format, expected a struct, a string, a bool, or an int "
+              + "but got a "
+              + EvalUtils.getDataTypeName(value)
+              + " for "
+              + container;
+      if (key != null) {
+        errorMessage += " '" + key + "'";
+      }
+      throw new EvalException(loc, errorMessage);
+    }
+  }
+
+  private String jsonEscapeString(String string) {
+    return escapeDoubleQuotesAndBackslashesAndNewlines(string)
+        .replace("\r", "\\r")
+        .replace("\t", "\\t");
   }
 
   @Override

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
@@ -34,14 +33,12 @@ import java.util.List;
 @AutoCodec
 @Immutable
 public class PythonConfiguration extends BuildConfiguration.Fragment {
-  public static final ObjectCodec<PythonConfiguration> CODEC = new PythonConfiguration_AutoCodec();
-
   private final boolean ignorePythonVersionAttribute;
   private final PythonVersion defaultPythonVersion;
   private final TriState buildPythonZip;
   private final boolean buildTransitiveRunfilesTrees;
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   PythonConfiguration(
       PythonVersion defaultPythonVersion,
       boolean ignorePythonVersionAttribute,

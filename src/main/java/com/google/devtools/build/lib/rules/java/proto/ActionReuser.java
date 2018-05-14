@@ -74,8 +74,7 @@ public class ActionReuser {
             JavaCompilationArgs.builder().merge(directJars).build(),
             transitiveJars.build(),
             NestedSetBuilder.create(
-                Order.STABLE_ORDER, directJars.getCompileTimeDependencyArtifact()),
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+                Order.STABLE_ORDER, directJars.getCompileTimeDependencyArtifact()));
 
     TransitiveInfoProviderMapBuilder javaProvidersBuilder =
         new TransitiveInfoProviderMapBuilder()
@@ -104,7 +103,7 @@ public class ActionReuser {
                 transitiveOutputJars.build(),
                 createNonStrictCompilationArgsProvider(
                     javaProtoLibraryAspectProviders,
-                    JavaCompilationArgs.builder().merge(directJars).build(),
+                    compilationArgsProvider,
                     javaApi.getProtoRuntimeImmutable())));
     return true;
   }

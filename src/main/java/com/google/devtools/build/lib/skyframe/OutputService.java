@@ -44,11 +44,6 @@ public interface OutputService {
   String getFilesSystemName();
 
   /**
-   * @return true if the output service uses FUSE
-   */
-  boolean usesFuse();
-
-  /**
    * @return a human-readable, one word name for the service
    */
   String getName();

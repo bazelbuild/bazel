@@ -15,11 +15,10 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.JRE_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -46,20 +46,58 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
   public static final ImmutableList<String> J2OBJC_SUPPORTED_RULES =
       ImmutableList.of("java_import", "java_library", "proto_library");
 
-  private ObjcCommon common(RuleContext ruleContext) {
+  private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
+    List<ConfiguredTargetAndData> deps =
+        ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", Mode.TARGET);
+    List<ConfiguredTargetAndData> jreDeps =
+        ruleContext.getPrerequisiteConfiguredTargetAndTargets("jre_deps", Mode.TARGET);
+
+    ImmutableList.Builder<ObjcProvider> repropagatedModuleMapsProviders =
+        new ImmutableList.Builder<>();
+
+    // In order to support strict Obj-C deps from Swift, we need to repropagate the module maps of
+    // targets that swift_libraries cannot directly depend on, like java_library. So we repropagate
+    // for any dependency *except* j2objc_library (which are detected by looking for
+    // J2ObjcEntryClassProvider). This keeps dependencies between j2objc_libraries strict (Swift
+    // can't indirectly depend on a j2objc_library through another one), but ensures that the
+    // underlying java_library/proto_library dependencies can be imported.
+    for (ConfiguredTargetAndData dep : deps) {
+      ConfiguredTarget target = dep.getConfiguredTarget();
+      if (target.getProvider(J2ObjcEntryClassProvider.class) == null) {
+        ObjcProvider objcProvider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+        if (objcProvider != null) {
+          repropagatedModuleMapsProviders.add(objcProvider);
+        }
+      }
+    }
+
+    // JRE deps are objc_libraries, so always repropagate them.
+    for (ConfiguredTargetAndData dep : jreDeps) {
+      ConfiguredTarget target = dep.getConfiguredTarget();
+      ObjcProvider objcProvider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+      if (objcProvider != null) {
+        repropagatedModuleMapsProviders.add(objcProvider);
+      }
+    }
+
+    // Adding the deps and jreDeps here is still required to propagate the rest of the dependencies'
+    // providers' information up the tree (whether transitively or only to direct dependencies,
+    // depending on the key in question). The repropagated module map providers merely decide which
+    // providers should *also* have their module maps re-propagated to the next direct dependency.
     return new ObjcCommon.Builder(ruleContext)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
-        .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
-        .addDeps(ruleContext.getPrerequisites("jre_deps", Mode.TARGET))
+        .addDeps(deps)
+        .addDeps(jreDeps)
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setHasModuleMap()
+        .addRepropagatedModuleMapObjcProviders(repropagatedModuleMapsProviders.build())
         .build();
   }
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     checkAttributes(ruleContext);
 
     if (ruleContext.hasErrors()) {
@@ -71,24 +109,12 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addEntryClasses(ruleContext.attributes().get("entry_classes", Type.STRING_LIST))
         .build();
 
-    Iterable<ObjcProvider> jreDeps =
-        ruleContext.getPrerequisites("jre_deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
-    ObjcProvider.Builder objcProviderBuilder =
-        new ObjcProvider.Builder()
-            .addTransitiveAndPropagate(jreDeps)
-            .addTransitiveAndPropagate(
-                ruleContext.getPrerequisites(
-                    "deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR));
-    for (ObjcProvider prereq : jreDeps) {
-      objcProviderBuilder.addTransitiveAndPropagate(JRE_LIBRARY, prereq.get(LIBRARY));
-    }
-
-    ObjcProvider objcProvider = objcProviderBuilder.build();
+    ObjcCommon common = common(ruleContext);
+    ObjcProvider objcProvider = common.getObjcProvider();
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
         ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
 
-    ObjcCommon common = common(ruleContext);
     CompilationArtifacts moduleMapCompilationArtifacts =
         new CompilationArtifacts.Builder()
             .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
@@ -100,7 +126,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .doNotUsePch()
         .build()
         .registerFullyLinkAction(
-            common.getObjcProvider(),
+            objcProvider,
             ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
         .registerGenerateModuleMapAction(moduleMapCompilationArtifacts)
         .validateAttributes();
@@ -130,7 +156,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     // We add another header search path with gen root if we have generated sources to translate.
     for (Artifact sourceToTranslate : sourcesToTranslate) {
       if (!sourceToTranslate.isSourceArtifact()) {
-        headerSearchPaths.add(PathFragment.create(objcFileRootExecPath, genRoot));
+        headerSearchPaths.add(objcFileRootExecPath.getRelative(genRoot));
         return headerSearchPaths.build();
       }
     }

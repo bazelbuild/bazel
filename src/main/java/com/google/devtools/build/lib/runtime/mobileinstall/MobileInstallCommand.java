@@ -20,6 +20,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction.StartType;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
@@ -72,6 +74,7 @@ public class MobileInstallCommand implements BlazeCommand {
    */
   public enum Mode {
     CLASSIC("classic", null),
+    CLASSIC_INTERNAL_TEST("classic_internal_test_DO_NOT_USE", null),
     SKYLARK("skylark", "MIASPECT"),
     SKYLARK_INCREMENTAL_RES("skylark_incremental_res", "MIRESASPECT");
 
@@ -109,7 +112,6 @@ public class MobileInstallCommand implements BlazeCommand {
     @Option(
       name = "split_apks",
       defaultValue = "false",
-      category = "mobile-install",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -121,10 +123,8 @@ public class MobileInstallCommand implements BlazeCommand {
 
     @Option(
       name = "incremental",
-      category = "mobile-install",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       help =
           "Whether to do an incremental install. If true, try to avoid unnecessary additional "
@@ -136,7 +136,6 @@ public class MobileInstallCommand implements BlazeCommand {
 
     @Option(
       name = "mode",
-      category = "mobile-install",
       defaultValue = "classic",
       converter = ModeConverter.class,
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -153,7 +152,6 @@ public class MobileInstallCommand implements BlazeCommand {
 
     @Option(
       name = "mobile_install_aspect",
-      category = "mobile-install",
       defaultValue = "@android_test_support//tools/android/mobile_install:mobile-install.bzl",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
@@ -167,16 +165,18 @@ public class MobileInstallCommand implements BlazeCommand {
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
 
   @Override
-  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
     Options mobileInstallOptions = options.getOptions(Options.class);
     WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
 
-    if (mobileInstallOptions.mode == Mode.CLASSIC) {
-      // Notify internal users that classic mode is deprecated. Use mobile_install_aspect as a proxy
-      // for internal vs external users.
-      if (!mobileInstallOptions.mobileInstallAspect.startsWith("@")) {
-        env.getReporter().handle(Event.warn(
-            "mobile-install --mode=classic is deprecated. This option will go away soon."));
+    if (mobileInstallOptions.mode == Mode.CLASSIC
+        || mobileInstallOptions.mode == Mode.CLASSIC_INTERNAL_TEST) {
+      // Notify internal users that classic mode is no longer supported.
+      if (mobileInstallOptions.mode == Mode.CLASSIC
+          && !mobileInstallOptions.mobileInstallAspect.startsWith("@")) {
+        env.getReporter().handle(Event.error(
+            "mobile-install --mode=classic is no longer supported"));
+        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
       if (adbOptions.start == StartType.WARM && !mobileInstallOptions.incremental) {
         env.getReporter().handle(Event.warn(
@@ -193,7 +193,8 @@ public class MobileInstallCommand implements BlazeCommand {
               env.getReporter().getOutErr(),
               env.getCommandId(),
               env.getCommandStartTime());
-      return new BuildTool(env).processRequest(request, null).getExitCondition();
+      ExitCode exitCode = new BuildTool(env).processRequest(request, null).getExitCondition();
+      return BlazeCommandResult.exitCode(exitCode);
     }
 
     // This list should look like: ["//executable:target", "arg1", "arg2"]
@@ -202,7 +203,7 @@ public class MobileInstallCommand implements BlazeCommand {
     // The user must at least specify an executable target.
     if (targetAndArgs.isEmpty()) {
       env.getReporter().handle(Event.error("Must specify a target to run"));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
     List<String> targets = ImmutableList.of(targetAndArgs.get(0));
@@ -222,24 +223,27 @@ public class MobileInstallCommand implements BlazeCommand {
 
     if (!result.getSuccess()) {
       env.getReporter().handle(Event.error("Build failed. Not running target"));
-      return result.getExitCondition();
+      return BlazeCommandResult.exitCode(result.getExitCondition());
     }
 
     Collection<ConfiguredTarget> targetsBuilt = result.getSuccessfulTargets();
     if (targetsBuilt == null) {
       env.getReporter().handle(Event.error(NO_TARGET_MESSAGE));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
     if (targetsBuilt.size() != 1) {
       env.getReporter().handle(Event.error(SINGLE_TARGET_MESSAGE));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
     ConfiguredTarget targetToRun = Iterables.getOnlyElement(targetsBuilt);
 
     List<String> cmdLine = new ArrayList<>();
     // TODO(bazel-team): Get the executable path from the filesToRun provider from the aspect.
+    BuildConfiguration configuration =
+        env.getSkyframeExecutor()
+            .getConfiguration(env.getReporter(), targetToRun.getConfigurationKey());
     cmdLine.add(
-        targetToRun.getConfiguration().getBinFragment().getPathString()
+        configuration.getBinFragment().getPathString()
             + "/"
             + targetToRun.getLabel().toPathFragment().getPathString()
             + "_mi/launcher");
@@ -299,7 +303,7 @@ public class MobileInstallCommand implements BlazeCommand {
           .execute(outErr.getOutputStream(), outErr.getErrorStream())
           .getTerminationStatus()
           .getExitCode();
-      return ExitCode.SUCCESS;
+      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
     } catch (BadExitStatusException e) {
       String message =
           "Non-zero return code '"
@@ -307,13 +311,13 @@ public class MobileInstallCommand implements BlazeCommand {
               + "' from command: "
               + e.getMessage();
       env.getReporter().handle(Event.error(message));
-      return ExitCode.RUN_FAILURE;
+      return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
     } catch (AbnormalTerminationException e) {
       // The process was likely terminated by a signal in this case.
-      return ExitCode.INTERRUPTED;
+      return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
     } catch (CommandException e) {
       env.getReporter().handle(Event.error("Error running program: " + e.getMessage()));
-      return ExitCode.RUN_FAILURE;
+      return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
     }
   }
 
@@ -321,7 +325,7 @@ public class MobileInstallCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) {
     Options options = optionsParser.getOptions(Options.class);
     try {
-      if (options.mode == Mode.CLASSIC) {
+      if (options.mode == Mode.CLASSIC || options.mode == Mode.CLASSIC_INTERNAL_TEST) {
         String outputGroup =
             options.splitApks
                 ? "mobile_install_split" + INTERNAL_SUFFIX

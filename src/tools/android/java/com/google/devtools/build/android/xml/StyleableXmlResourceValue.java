@@ -19,8 +19,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.android.AndroidCompiledDataDeserializer.ReferenceResolver;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.ValuesResourceDefinition;
 import com.google.devtools.build.android.AndroidResourceSymbolSink;
@@ -36,7 +36,6 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
 
@@ -63,20 +62,20 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public class StyleableXmlResourceValue implements XmlResourceValue {
 
-  static final Function<Entry<FullyQualifiedName, Boolean>, SerializeFormat.DataKey>
+  static final Function<Map.Entry<FullyQualifiedName, Boolean>, SerializeFormat.DataKey>
       FULLY_QUALIFIED_NAME_TO_DATA_KEY =
-          new Function<Entry<FullyQualifiedName, Boolean>, SerializeFormat.DataKey>() {
+          new Function<Map.Entry<FullyQualifiedName, Boolean>, SerializeFormat.DataKey>() {
             @Override
-            public SerializeFormat.DataKey apply(Entry<FullyQualifiedName, Boolean> input) {
+            public SerializeFormat.DataKey apply(Map.Entry<FullyQualifiedName, Boolean> input) {
               return input.getKey().toSerializedBuilder().setReference(input.getValue()).build();
             }
           };
 
-  static final Function<SerializeFormat.DataKey, Entry<FullyQualifiedName, Boolean>>
+  static final Function<SerializeFormat.DataKey, Map.Entry<FullyQualifiedName, Boolean>>
       DATA_KEY_TO_FULLY_QUALIFIED_NAME =
-          new Function<SerializeFormat.DataKey, Entry<FullyQualifiedName, Boolean>>() {
+          new Function<SerializeFormat.DataKey, Map.Entry<FullyQualifiedName, Boolean>>() {
             @Override
-            public Entry<FullyQualifiedName, Boolean> apply(SerializeFormat.DataKey input) {
+            public Map.Entry<FullyQualifiedName, Boolean> apply(SerializeFormat.DataKey input) {
               FullyQualifiedName key = FullyQualifiedName.fromProto(input);
               return new SimpleEntry<FullyQualifiedName, Boolean>(key, input.getReference());
             }
@@ -95,7 +94,7 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
 
   private static Map<FullyQualifiedName, Boolean> createAttrDefinitionMap(
       FullyQualifiedName[] attrNames, Boolean definitionType) {
-    Builder<FullyQualifiedName, Boolean> builder = ImmutableMap.builder();
+    ImmutableMap.Builder<FullyQualifiedName, Boolean> builder = ImmutableMap.builder();
     for (FullyQualifiedName attrName : attrNames) {
       builder.put(attrName, definitionType);
     }
@@ -121,7 +120,7 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
             .startTag("declare-styleable")
             .named(key)
             .closeTag();
-    for (Entry<FullyQualifiedName, Boolean> entry : attrs.entrySet()) {
+    for (Map.Entry<FullyQualifiedName, Boolean> entry : attrs.entrySet()) {
       if (entry.getValue().booleanValue()) {
         // Move the attr definition to this styleable.
         definition = definition.adopt(entry.getKey());
@@ -164,17 +163,17 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
             Iterables.transform(proto.getReferencesList(), DATA_KEY_TO_FULLY_QUALIFIED_NAME)));
   }
 
-  public static XmlResourceValue from(
-      Value proto, Map<String, Entry<FullyQualifiedName, Boolean>> fullyQualifiedNames) {
+  public static XmlResourceValue from(Value proto, ReferenceResolver packageResolver) {
     Map<FullyQualifiedName, Boolean> attributes = new HashMap<>();
 
     Styleable styleable = proto.getCompoundValue().getStyleable();
     for (Styleable.Entry entry : styleable.getEntryList()) {
-      String attrName = entry.getAttr().getName();
-
-      Entry<FullyQualifiedName, Boolean> fqnEntry = fullyQualifiedNames.get(attrName);
-      attributes.put(fqnEntry.getKey(), fqnEntry.getValue());
-      fqnEntry.setValue(false);
+      final FullyQualifiedName reference = packageResolver.parse(entry.getAttr().getName());
+      final boolean shouldInline = packageResolver.shouldInline(reference);
+      attributes.put(reference, shouldInline);
+      if (shouldInline) {
+        packageResolver.markInlined(reference);
+      }
     }
 
     return of(ImmutableMap.copyOf(attributes));
@@ -202,12 +201,12 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   /**
    * Combines this instance with another {@link StyleableXmlResourceValue}.
    *
-   * Defining two Styleables (undocumented in the official Android Docs) with the same
-   * {@link FullyQualifiedName} results in a single Styleable containing a union of all the
-   * attribute references.
+   * <p>Defining two Styleables (undocumented in the official Android Docs) with the same {@link
+   * FullyQualifiedName} results in a single Styleable containing a union of all the attribute
+   * references.
    *
-   * @param value Another {@link StyleableXmlResourceValue} with the same
-   *     {@link FullyQualifiedName}.
+   * @param value Another {@link StyleableXmlResourceValue} with the same {@link
+   *     FullyQualifiedName}.
    * @return {@link StyleableXmlResourceValue} containing a sorted union of the attribute
    *     references.
    * @throws IllegalArgumentException if value is not an {@link StyleableXmlResourceValue}.
@@ -220,7 +219,7 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
     StyleableXmlResourceValue styleable = (StyleableXmlResourceValue) value;
     Map<FullyQualifiedName, Boolean> combined = new LinkedHashMap<>();
     combined.putAll(attrs);
-    for (Entry<FullyQualifiedName, Boolean> attr : styleable.attrs.entrySet()) {
+    for (Map.Entry<FullyQualifiedName, Boolean> attr : styleable.attrs.entrySet()) {
       if (combined.containsKey(attr.getKey())) {
         // if either attr is defined in the styleable, the attr will be defined in the styleable.
         if (attr.getValue() || combined.get(attr.getKey())) {

@@ -84,6 +84,22 @@ public class RepositoryCacheTest {
   }
 
   /**
+   * Test that the put mehtod without cache key correctly stores the downloaded file into the cache.
+   */
+  @Test
+  public void testPutCacheValueWithoutHash() throws IOException {
+    String cacheKey = repositoryCache.put(downloadedFile, KeyType.SHA256);
+    assertThat(cacheKey).isEqualTo(downloadedFileSha256);
+
+    Path cacheEntry =
+        KeyType.SHA256.getCachePath(contentAddressableCachePath).getChild(downloadedFileSha256);
+    Path cacheValue = cacheEntry.getChild(RepositoryCache.DEFAULT_CACHE_FILENAME);
+
+    assertThat(FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()))
+        .isEqualTo(FileSystemUtils.readContent(cacheValue, Charset.defaultCharset()));
+  }
+
+  /**
    * Test that the put method is idempotent, i.e. two successive put calls
    * should not affect the final state in the cache.
    */

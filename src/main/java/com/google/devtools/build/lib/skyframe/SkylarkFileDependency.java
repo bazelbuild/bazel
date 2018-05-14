@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
 /**
@@ -24,6 +25,7 @@ import java.util.Objects;
  *
  * <p>The dependency structure must be acyclic.
  */
+@AutoCodec
 public class SkylarkFileDependency {
 
   private final Label label;

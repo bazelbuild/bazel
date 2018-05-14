@@ -22,13 +22,12 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcLibraryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
 /** Rule definition for the cc_library rule. */
 public final class BazelCcLibraryRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         // TODO: Google cc_library overrides documentation for:
         // deps, data, linkopts, defines, srcs; override here too?
@@ -41,14 +40,13 @@ public final class BazelCcLibraryRule implements RuleDefinition {
         This is useful if your code isn't explicitly called by code in
         the binary, e.g., if your code registers to receive some callback
         provided by some service.
+
+        <p>If alwayslink doesn't work with VS 2017 on Windows, that is due to a
+        [known issue](https://github.com/bazelbuild/bazel/issues/3949),
+        please upgrade your VS 2017 to the latest version.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(
-            attr("alwayslink", BOOLEAN)
-                .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
-        .override(
-            attr("linkstatic", BOOLEAN)
-                .value(false)
-                .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
+        .add(attr("alwayslink", BOOLEAN))
+        .override(attr("linkstatic", BOOLEAN).value(false))
         .build();
   }
 

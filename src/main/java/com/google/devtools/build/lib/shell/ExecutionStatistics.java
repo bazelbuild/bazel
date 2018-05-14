@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.shell;
 
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedInputStream;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -29,16 +29,17 @@ public final class ExecutionStatistics {
    * @param executionStatisticsProtoPath path to a materialized ExecutionStatistics proto
    * @return a {@link ResourceUsage} object containing execution statistics, if available
    */
-  public static Optional<ResourceUsage> getResourceUsage(String executionStatisticsProtoPath)
+  public static Optional<ResourceUsage> getResourceUsage(Path executionStatisticsProtoPath)
       throws IOException {
-    InputStream protoInputStream =
-        new BufferedInputStream(new FileInputStream(executionStatisticsProtoPath));
-    com.google.devtools.build.lib.shell.Protos.ExecutionStatistics executionStatisticsProto =
-        com.google.devtools.build.lib.shell.Protos.ExecutionStatistics.parseFrom(protoInputStream);
-    if (executionStatisticsProto.hasResourceUsage()) {
-      return Optional.of(new ResourceUsage(executionStatisticsProto.getResourceUsage()));
-    } else {
-      return Optional.empty();
+    try (InputStream protoInputStream =
+        new BufferedInputStream(executionStatisticsProtoPath.getInputStream())) {
+      Protos.ExecutionStatistics executionStatisticsProto =
+          Protos.ExecutionStatistics.parseFrom(protoInputStream);
+      if (executionStatisticsProto.hasResourceUsage()) {
+        return Optional.of(new ResourceUsage(executionStatisticsProto.getResourceUsage()));
+      } else {
+        return Optional.empty();
+      }
     }
   }
 
@@ -47,11 +48,10 @@ public final class ExecutionStatistics {
    * call.
    */
   public static class ResourceUsage {
-    private final com.google.devtools.build.lib.shell.Protos.ResourceUsage resourceUsageProto;
+    private final Protos.ResourceUsage resourceUsageProto;
 
     /** Provides resource usage statistics via a ResourceUsage proto object. */
-    public ResourceUsage(
-        com.google.devtools.build.lib.shell.Protos.ResourceUsage resourceUsageProto) {
+    public ResourceUsage(Protos.ResourceUsage resourceUsageProto) {
       this.resourceUsageProto = resourceUsageProto;
     }
 

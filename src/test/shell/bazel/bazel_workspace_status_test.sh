@@ -48,7 +48,7 @@ EOF
 function test_workspace_status_parameters() {
   create_new_workspace
 
-  local cmd=$TEST_TMPDIR/status.sh
+  local cmd=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat > $cmd <<EOF
 #!/bin/bash
 
@@ -74,7 +74,7 @@ EOF
 function test_workspace_status_cpp() {
   create_new_workspace
 
-  local cmd=$TEST_TMPDIR/status.sh
+  local cmd=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat > $cmd <<EOF
 #!/bin/bash
 
@@ -127,21 +127,22 @@ genrule(
 )
 EOF
 
-  bazel build --workspace_status_command=$TEST_TMPDIR/wsc.sh --stamp //:a &> $TEST_log \
+  bazel build --workspace_status_command=$TEST_TMPDIR/wscmissing.sh --stamp //:a &> $TEST_log \
     && fail "build succeeded"
-  expect_log "wsc.sh: No such file or directory\|wsc.sh: not found"
+  expect_log "wscmissing.sh: No such file or directory\|wscmissing.sh: not found"
 }
 
 
 function test_stable_and_volatile_status() {
   create_new_workspace
-  cat >$TEST_TMPDIR/wsc.sh <<EOF
+  local wsc=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
+  cat >$wsc <<EOF
 #!/bin/bash
 
 cat $TEST_TMPDIR/status
 EOF
 
-  chmod +x $TEST_TMPDIR/wsc.sh
+  chmod +x $wsc
 
   cat > BUILD <<'EOF'
 genrule(
@@ -157,7 +158,7 @@ STABLE_NAME alice
 NUMBER 1
 EOF
 
-  bazel build --workspace_status_command=$TEST_TMPDIR/wsc.sh --stamp //:a || fail "build failed"
+  bazel build --workspace_status_command=$wsc --stamp //:a || fail "build failed"
   assert_contains "STABLE_NAME alice" bazel-genfiles/ao
   assert_contains "NUMBER 1" bazel-genfiles/ao
 
@@ -168,7 +169,7 @@ NUMBER 2
 EOF
 
   # Changes to volatile fields should not result in a rebuild
-  bazel build --workspace_status_command=$TEST_TMPDIR/wsc.sh --stamp //:a || fail "build failed"
+  bazel build --workspace_status_command=$wsc --stamp //:a || fail "build failed"
   assert_contains "STABLE_NAME alice" bazel-genfiles/ao
   assert_contains "NUMBER 1" bazel-genfiles/ao
 
@@ -178,9 +179,53 @@ NUMBER 3
 EOF
 
   # Changes to stable fields should result in a rebuild
-  bazel build --workspace_status_command=$TEST_TMPDIR/wsc.sh --stamp //:a || fail "build failed"
+  bazel build --workspace_status_command=$wsc --stamp //:a || fail "build failed"
   assert_contains "STABLE_NAME bob" bazel-genfiles/ao
   assert_contains "NUMBER 3" bazel-genfiles/ao
+
+}
+
+function test_env_var_in_workspace_status() {
+  create_new_workspace
+  local wsc=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
+  cat >$wsc <<'EOF'
+#!/bin/bash
+
+echo "STABLE_ENV" ${STABLE_VAR}
+echo "VOLATILE_ENV" ${VOLATILE_VAR}
+EOF
+
+  chmod +x $wsc
+
+  cat > BUILD <<'EOF'
+genrule(
+    name = "a",
+    srcs = [],
+    outs = ["ao"],
+    cmd="(echo volatile; cat bazel-out/volatile-status.txt; echo; echo stable; cat bazel-out/stable-status.txt; echo) > $@",
+    stamp=1)
+EOF
+
+  STABLE_VAR=alice VOLATILE_VAR=one bazel build --workspace_status_command=$wsc --stamp //:a || fail "build failed"
+  assert_contains "STABLE_ENV alice" bazel-out/stable-status.txt
+  assert_contains "VOLATILE_ENV one" bazel-out/volatile-status.txt
+  assert_contains "STABLE_ENV alice" bazel-genfiles/ao
+  assert_contains "VOLATILE_ENV one" bazel-genfiles/ao
+
+  # Changes to the env var should be reflected into the stable-status file, and thus trigger a rebuild
+  STABLE_VAR=bob VOLATILE_VAR=two bazel build --workspace_status_command=$wsc --stamp //:a || fail "build failed"
+  assert_contains "STABLE_ENV bob" bazel-out/stable-status.txt
+  assert_contains "VOLATILE_ENV two" bazel-out/volatile-status.txt
+  assert_contains "STABLE_ENV bob" bazel-genfiles/ao
+  assert_contains "VOLATILE_ENV two" bazel-genfiles/ao
+
+  # Changes to volatile fields should not result in a rebuild (but should update the stable & volatile status files)
+  STABLE_VAR=bob VOLATILE_VAR=three bazel build --workspace_status_command=$wsc --stamp //:a || fail "build failed"
+  assert_contains "STABLE_ENV bob" bazel-out/stable-status.txt
+  assert_contains "VOLATILE_ENV three" bazel-out/volatile-status.txt
+  # We did not rebuild, so the output remains at the previous values
+  assert_contains "STABLE_ENV bob" bazel-genfiles/ao
+  assert_contains "VOLATILE_ENV two" bazel-genfiles/ao
 
 }
 

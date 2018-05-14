@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.hamcrest.CoreMatchers.startsWith;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Rule;
@@ -64,25 +64,6 @@ public class SkylarkImportsTest {
     validAbsoluteLabelTest("@my_repo//some/skylark:file.bzl",
         /*expected label*/ "@my_repo//some/skylark:file.bzl",
         /*expected path*/ "/some/skylark/file.bzl");
-  }
-
-  @Test
-  public void testValidAbsolutePath() throws Exception {
-    String pathToTest = "/some/skylark/file";
-    SkylarkImport importForPath = SkylarkImports.create(pathToTest);
-
-    assertThat(importForPath.hasAbsolutePath()).named("hasAbsolutePath()").isTrue();
-    assertThat(importForPath.getImportString()).named("getImportString()").isEqualTo(pathToTest);
-
-    Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
-    assertThat(importForPath.getAbsolutePath()).named("getAbsolutePath()")
-        .isEqualTo(PathFragment.create("//some/skylark/file.bzl"));
-
-     assertThat(importForPath.asPathFragment()).named("asPathFragment()")
-        .isEqualTo(PathFragment.create("/some/skylark/file.bzl"));
-
-    thrown.expect(IllegalStateException.class);
-    importForPath.getLabel(irrelevantContainingFile);
   }
 
   private void validRelativeLabelTest(String labelString,
@@ -137,40 +118,6 @@ public class SkylarkImportsTest {
         /*expected path*/ "subdir/containing/file.bzl");
   }
 
-  private void validRelativePathTest(String pathString, String containingLabelString,
-      String expectedLabelString, String expectedPathString) throws Exception {
-    SkylarkImport importForPath = SkylarkImports.create(pathString);
-
-    assertThat(importForPath.hasAbsolutePath()).named("hasAbsolutePath()").isFalse();
-
-    // The import label is relative to the parent's directory not the parent's package.
-    Label containingLabel = Label.parseAbsolute(containingLabelString);
-    assertThat(importForPath.getLabel(containingLabel)).named("getLabel()")
-        .isEqualTo(Label.parseAbsolute(expectedLabelString));
-
-    assertThat(importForPath.asPathFragment()).named("asPathFragment()")
-        .isEqualTo(PathFragment.create(expectedPathString));
-
-    thrown.expect(IllegalStateException.class);
-    importForPath.getAbsolutePath();
-  }
-
-  @Test
-  public void testValidRelativePathInPackageDir() throws Exception {
-    validRelativePathTest("file",
-        /*containing*/ "//some/skylark:BUILD",
-        /*expected label*/ "//some/skylark:file.bzl",
-        /*expected path*/ "file.bzl");
-  }
-
-  @Test
-  public void testValidRelativePathInPackageSubdir() throws Exception {
-    validRelativePathTest("file",
-        /*containing*/ "//some/path/to:skylark/parent.bzl",
-        /*expected label*/ "//some/path/to:skylark/file.bzl",
-        /*expected path*/ "file.bzl");
-  }
-
   private void invalidImportTest(String importString, String expectedMsgPrefix) throws Exception {
     thrown.expect(SkylarkImportSyntaxException.class);
     thrown.expectMessage(startsWith(expectedMsgPrefix));
@@ -181,6 +128,11 @@ public class SkylarkImportsTest {
   public void testInvalidAbsoluteLabelSyntax() throws Exception {
     // final '/' is illegal
     invalidImportTest("//some/skylark/:file.bzl", SkylarkImports.INVALID_LABEL_PREFIX);
+  }
+
+  @Test
+  public void testInvalidPathSyntax() throws Exception {
+    invalidImportTest("some/path/foo.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
   }
 
   @Test
@@ -227,17 +179,14 @@ public class SkylarkImportsTest {
   @Test
   public void testInvalidRelativePathInvalidFilename() throws Exception {
     // tab character is invalid
-    invalidImportTest("\tfile", SkylarkImports.INVALID_FILENAME_PREFIX);
+    invalidImportTest("\tfile", SkylarkImports.INVALID_PATH_SYNTAX);
   }
 
   @Test
   public void serialization() throws Exception {
-    ObjectCodecTester.newBuilder(SkylarkImport.CODEC)
-        .addSubjects(
+    new SerializationTester(
             SkylarkImports.create("//some/skylark:file.bzl"),
-            SkylarkImports.create("/some/skylark/file"),
-            SkylarkImports.create(":subdirectory/containing/file.bzl"),
-            SkylarkImports.create("file"))
-        .buildAndRunTests();
+            SkylarkImports.create(":subdirectory/containing/file.bzl"))
+        .runTests();
   }
 }

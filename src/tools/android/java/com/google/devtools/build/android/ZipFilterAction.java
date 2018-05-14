@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.singlejar.ZipCombiner;
 import com.google.devtools.build.singlejar.ZipCombiner.OutputMode;
-import com.google.devtools.build.singlejar.ZipEntryFilter;
 import com.google.devtools.build.zip.ZipFileEntry;
 import com.google.devtools.build.zip.ZipReader;
 import java.io.IOException;
@@ -67,7 +66,7 @@ import java.util.regex.Pattern;
  *      --filterTypes [fileExtension[,fileExtension]...]
  *      --explicitFilters [fileRegex[,fileRegex]...]
  *      --outputMode [DONT_CARE|FORCE_DEFLATE|FORCE_STORED]
- *      --errorOnHashMismatch
+ *      --checkHashMismatch [IGNORE|WARN|ERROR]
  * </pre>
  */
 public class ZipFilterAction {
@@ -213,6 +212,10 @@ public class ZipFilterAction {
   }
 
   public static void main(String[] args) throws IOException {
+    System.exit(run(args));
+  }
+
+  static int run(String[] args) throws IOException {
     Options options = new Options();
     new JCommander(options).parse(args);
     logger.fine(
@@ -241,7 +244,7 @@ public class ZipFilterAction {
     if (options.errorOnHashMismatch) {
       options.hashMismatchCheckMode = HashMismatchCheckMode.ERROR;
     }
-    ZipEntryFilter entryFilter =
+    ZipFilterEntryFilter entryFilter =
         new ZipFilterEntryFilter(
             explicitFilter, entriesToOmit, inputEntries.build(), options.hashMismatchCheckMode);
 
@@ -250,5 +253,6 @@ public class ZipFilterAction {
       combiner.addZip(options.inputZip.toFile());
     }
     logger.fine(String.format("Filtering completed in %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
+    return entryFilter.sawErrors() ? 1 : 0;
   }
 }

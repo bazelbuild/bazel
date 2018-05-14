@@ -21,7 +21,10 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.unix.ProcMeminfoParser;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -146,6 +149,9 @@ public class ResourceManager {
   public static final int DEFAULT_RAM_UTILIZATION_PERCENTAGE = 67;
   private int ramUtilizationPercentage = DEFAULT_RAM_UTILIZATION_PERCENTAGE;
 
+  // Determines if local memory estimates are used.
+  private boolean localMemoryEstimate = false;
+
   private ResourceManager() {
     requestList = new LinkedList<>();
   }
@@ -193,6 +199,14 @@ public class ResourceManager {
   }
 
   /**
+   * If set to true, then resource acquisition will query the currently available memory, rather
+   * than counting it against the fixed maximum size.
+   */
+  public void setUseLocalMemoryEstimate(boolean value) {
+    localMemoryEstimate = value;
+  }
+
+  /**
    * Acquires requested resource set. Will block if resource is not available.
    * NB! This method must be thread-safe!
    */
@@ -203,7 +217,7 @@ public class ResourceManager {
     Preconditions.checkState(
         !threadHasResources(), "acquireResources with existing resource lock during %s", owner);
 
-    AutoProfiler p = profiled(owner, ProfilerTask.ACTION_LOCK);
+    AutoProfiler p = profiled(owner.describe(), ProfilerTask.ACTION_LOCK);
     CountDownLatch latch = null;
     try {
       latch = acquire(resources);
@@ -300,7 +314,7 @@ public class ResourceManager {
         threadHasResources(), "releaseResources without resource lock during %s", owner);
 
     boolean isConflict = false;
-    AutoProfiler p = profiled(owner, ProfilerTask.ACTION_RELEASE);
+    AutoProfiler p = profiled(owner.describe(), ProfilerTask.ACTION_RELEASE);
     try {
       isConflict = release(resources);
     } finally {
@@ -392,6 +406,31 @@ public class ResourceManager {
     double availableIo = availableResources.getIoUsage();
     int availableLocalTestCount = availableResources.getLocalTestCount();
 
+    double remainingRam = availableRam - usedRam;
+
+    if (localMemoryEstimate && OS.getCurrent() == OS.LINUX) {
+      try {
+        ProcMeminfoParser memInfo = new ProcMeminfoParser();
+        double totalFreeRam = memInfo.getFreeRamKb() / 1024;
+        double reserveMemory =
+            staticResources.getMemoryMb() * (100.0 - this.ramUtilizationPercentage) / 100.0;
+        remainingRam = totalFreeRam - reserveMemory;
+      } catch (IOException e) {
+        // If we get an error trying to determine the currently free
+        // system memory for any reason, just continue on.  It is not
+        // terribly clear what could cause this, aside from an
+        // unexpected ABI breakage in the linux kernel or an OS-level
+        // misconfiguration such as not having permissions to read
+        // /proc/meminfo.
+        //
+        // remainingRam is initialized to a value that results in
+        // behavior as if localMemoryEstimate was disabled.
+      } catch (ProcMeminfoParser.KeywordNotFoundException e) {
+        // Similarly fall back to the non-localMemoryEstimate
+        // behavior.
+      }
+    }
+
     // Resources are considered available if any one of the conditions below is true:
     // 1) If resource is not requested at all, it is available.
     // 2) If resource is not used at the moment, it is considered to be
@@ -400,7 +439,7 @@ public class ResourceManager {
     // resources even if it requests more than available.
     // 3) If used resource amount is less than total available resource amount.
     boolean cpuIsAvailable = cpu == 0.0 || usedCpu == 0.0 || usedCpu + cpu <= availableCpu;
-    boolean ramIsAvailable = ram == 0.0 || usedRam == 0.0 || usedRam + ram <= availableRam;
+    boolean ramIsAvailable = ram == 0.0 || usedRam == 0.0 || ram <= remainingRam;
     boolean ioIsAvailable = io == 0.0 || usedIo == 0.0 || usedIo + io <= availableIo;
     boolean localTestCountIsAvailable = localTestCount == 0 || usedLocalTestCount == 0
         || usedLocalTestCount + localTestCount <= availableLocalTestCount;

@@ -1,13 +1,13 @@
 ---
 layout: documentation
-title: Skylark Linter Documentation
+title: Skylint
 ---
 
-# Skylark Linter Documentation
+# Skylint
 
 [Style guide](https://docs.bazel.build/versions/master/skylark/bzl-style.html)
 
-This document explains how to use the Skylark linter.
+This document explains how to use Skylint, the Skylark linter.
 
 <!-- [TOC] -->
 
@@ -95,9 +95,10 @@ See [documentation on depsets](depsets.md) for background and examples of use.
 
 ### Docstrings
 
-<a name="missing-docstring"></a>
+<a name="missing-module-docstring"></a>
+<a name="missing-function-docstring"></a>
 <a name="bad-docstring-format"></a>
-Categories: [missing-docstring] [bad-docstring-format]
+Categories: [missing-module-docstring] [missing-function-docstring] [bad-docstring-format]
 
 The Skylark conventions for docstrings are similar to the [the Python
 conventions](https://google.github.io/styleguide/pyguide.html?showone=Comments#Comments).
@@ -113,6 +114,8 @@ blank line. Their contents are indented by two spaces.
 Example:
 
 ```
+"""This module contains some docstrings examples."""
+
 def example_function1():
   """Illustrates the usage of a one-line function docstring."""
 
@@ -135,7 +138,7 @@ def example_function2(foo, bar):
   Deprecated:
     This function is deprecated for <reason>. Use <alternative> instead.
   """
-  return 'baz'
+  return "baz"
 ```
 
 #### Indentation
@@ -359,6 +362,11 @@ foo = _foo
 ```
 
 This way, the name is still re-exported but doesn't generate a warning.
+
+### Deprecated API [deprecated-api]
+
+See [documentation](https://docs.bazel.build/versions/master/skylark/lib/ctx.html)
+for more information.
 
 ### Miscellaneous lints
 

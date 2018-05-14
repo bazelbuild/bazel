@@ -21,12 +21,16 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
-import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
+import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
 /**
@@ -37,16 +41,19 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   private final AbstractRemoteActionCache cache;
   private final GrpcRemoteExecutor executor;
   private final DigestUtil digestUtil;
+  private final Path logDir;
 
   RemoteActionContextProvider(
       CommandEnvironment env,
       @Nullable AbstractRemoteActionCache cache,
       @Nullable GrpcRemoteExecutor executor,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      Path logDir) {
     this.env = env;
     this.executor = executor;
     this.cache = cache;
     this.digestUtil = digestUtil;
+    this.logDir = logDir;
   }
 
   @Override
@@ -57,7 +64,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     String buildRequestId = env.getBuildRequestId().toString();
     String commandId = env.getCommandId().toString();
 
-    if (remoteOptions.experimentalRemoteSpawnCache || remoteOptions.experimentalLocalDiskCache) {
+    if (remoteOptions.experimentalRemoteSpawnCache || remoteOptions.diskCache != null) {
       RemoteSpawnCache spawnCache =
           new RemoteSpawnCache(
               env.getExecRoot(),
@@ -65,7 +72,6 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               cache,
               buildRequestId,
               commandId,
-              executionOptions.verboseFailures,
               env.getReporter(),
               digestUtil);
       return ImmutableList.of(spawnCache);
@@ -81,7 +87,8 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               commandId,
               cache,
               executor,
-              digestUtil);
+              digestUtil,
+              logDir);
       return ImmutableList.of(new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner));
     }
   }
@@ -91,14 +98,15 @@ final class RemoteActionContextProvider extends ActionContextProvider {
         env.getOptions().getOptions(LocalExecutionOptions.class);
     LocalEnvProvider localEnvProvider =
         OS.getCurrent() == OS.DARWIN
-            ? new XCodeLocalEnvProvider(env.getClientEnv())
-            : LocalEnvProvider.UNMODIFIED;
+            ? new XcodeLocalEnvProvider(env.getClientEnv())
+            : (OS.getCurrent() == OS.WINDOWS
+                ? new WindowsLocalEnvProvider(env.getClientEnv())
+                : new PosixLocalEnvProvider(env.getClientEnv()));
     return
         new LocalSpawnRunner(
             env.getExecRoot(),
             localExecutionOptions,
             ResourceManager.instance(),
-            env.getRuntime().getProductName(),
             localEnvProvider);
   }
 

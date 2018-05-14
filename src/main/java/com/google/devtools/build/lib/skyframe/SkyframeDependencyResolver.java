@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -45,8 +44,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
 
   private final Environment env;
 
-  public SkyframeDependencyResolver(Environment env, DynamicTransitionMapper transitionMapper) {
-    super(transitionMapper);
+  public SkyframeDependencyResolver(Environment env) {
     this.env = env;
   }
 
@@ -126,11 +124,15 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
   @Nullable
   @Override
   protected List<BuildConfiguration> getConfigurations(
-      FragmentClassSet fragments, Iterable<BuildOptions> buildOptions)
+      FragmentClassSet fragments,
+      Iterable<BuildOptions> buildOptions,
+      BuildOptions defaultBuildOptions)
       throws InvalidConfigurationException, InterruptedException {
     List<SkyKey> keys = new ArrayList<>();
     for (BuildOptions options : buildOptions) {
-      keys.add(BuildConfigurationValue.key(fragments, options));
+      keys.add(
+          BuildConfigurationValue.key(
+              fragments, BuildOptions.diffForReconstruction(defaultBuildOptions, options)));
     }
     Map<SkyKey, ValueOrException<InvalidConfigurationException>> configValues =
         env.getValuesOrThrow(keys, InvalidConfigurationException.class);

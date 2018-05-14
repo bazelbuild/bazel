@@ -15,12 +15,12 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -51,7 +51,8 @@ public final class DefaultInfo extends NativeInfo {
   public static final NativeProvider<NativeInfo> PROVIDER =
       new NativeProvider<NativeInfo>(NativeInfo.class, SKYLARK_NAME) {
         @Override
-        protected NativeInfo createInstanceFromSkylark(Object[] args, Location loc) {
+        protected NativeInfo createInstanceFromSkylark(
+            Object[] args, Environment env, Location loc) {
           @SuppressWarnings("unchecked")
           Map<String, Object> kwargs = (Map<String, Object>) args[0];
           return new NativeInfo(this, kwargs, loc);
@@ -62,8 +63,7 @@ public final class DefaultInfo extends NativeInfo {
       RunfilesProvider runfilesProvider,
       FileProvider fileProvider,
       FilesToRunProvider filesToRunProvider) {
-    // Fields map is not used here to prevent memory regression
-    super(PROVIDER, ImmutableMap.<String, Object>of());
+    super(PROVIDER);
     this.runfilesProvider = runfilesProvider;
     this.fileProvider = fileProvider;
     this.filesToRunProvider = filesToRunProvider;

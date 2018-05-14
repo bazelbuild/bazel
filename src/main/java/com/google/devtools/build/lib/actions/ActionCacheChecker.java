@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
-import com.google.devtools.build.lib.actions.cache.ActionCache.Entry;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -151,15 +150,16 @@ public class ActionCacheChecker {
    * @param entry cached action information.
    * @param action action to be validated.
    * @param actionInputs the inputs of the action. Normally just the result of action.getInputs(),
-   * but if this action doesn't yet know its inputs, we check the inputs from the cache.
+   *     but if this action doesn't yet know its inputs, we check the inputs from the cache.
    * @param metadataHandler provider of metadata for the artifacts this action interacts with.
-   * @param checkOutput true to validate output artifacts, Otherwise, just
-   *                    validate inputs.
-   *
+   * @param checkOutput true to validate output artifacts, Otherwise, just validate inputs.
    * @return true if at least one artifact has changed, false - otherwise.
    */
   private boolean validateArtifacts(
-      Entry entry, Action action, Iterable<Artifact> actionInputs, MetadataHandler metadataHandler,
+      ActionCache.Entry entry,
+      Action action,
+      Iterable<Artifact> actionInputs,
+      MetadataHandler metadataHandler,
       boolean checkOutput) {
     Iterable<Artifact> artifacts = checkOutput
         ? Iterables.concat(action.getOutputs(), actionInputs)

@@ -1,6 +1,6 @@
 # Description:
 # JavaBuilder and java tools used by Bazel
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = [":buildjar_package_group"])
 
 filegroup(
     name = "srcs",
@@ -13,17 +13,28 @@ filegroup(
         "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/bazel:srcs",
         "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/turbine:srcs",
     ],
+    visibility = ["//:__subpackages__"],
+)
+
+package_group(
+    name = "buildjar_package_group",
+    packages = [
+        "//src/java_tools/buildjar/...",
+        "//src/tools/android/...",
+    ],
 )
 
 java_binary(
     name = "JavaBuilder",
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
+    visibility = ["//visibility:public"],
     runtime_deps = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar"],
 )
 
 java_binary(
     name = "VanillaJavaBuilder",
     main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
+    visibility = ["//visibility:public"],
     runtime_deps = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:vanilla_java_builder"],
 )
 
@@ -31,24 +42,24 @@ filegroup(
     name = "JavaBuilderDeploy",
     srcs = [":JavaBuilder_deploy.jar"],
     tags = ["manual"],
-)
-
-filegroup(
-    name = "bootstrap_deploy.jar",
-    srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_deploy.jar"],
-    tags = ["manual"],
+    visibility = [
+        ":buildjar_package_group",
+        "//src:__pkg__",
+    ],
 )
 
 filegroup(
     name = "bootstrap_VanillaJavaBuilder_deploy.jar",
     srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_VanillaJavaBuilder_deploy.jar"],
     tags = ["manual"],
+    visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "bootstrap_genclass_deploy.jar",
     srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:bootstrap_genclass_deploy.jar"],
     tags = ["manual"],
+    visibility = ["//visibility:public"],
 )
 
 java_library(
@@ -71,7 +82,7 @@ java_toolchain(
     extclasspath = [],
     genclass = ["bootstrap_genclass_deploy.jar"],
     ijar = ["//third_party/ijar"],
-    javabuilder = ["bootstrap_deploy.jar"],
+    javabuilder = ["bootstrap_VanillaJavaBuilder_deploy.jar"],
     javac = ["//third_party/java/jdk/langtools:javac_jar"],
     jvm_opts = [
         # Prevent "Could not reserve enough space for object heap" errors on Windows.

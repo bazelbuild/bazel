@@ -17,17 +17,18 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -51,9 +52,11 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.BUILTIN,
   doc = "A BUILD target identifier."
 )
+@AutoCodec
 @Immutable
 @ThreadSafe
-public final class Label implements Comparable<Label>, Serializable, SkylarkValue, SkyKey {
+public final class Label
+    implements Comparable<Label>, Serializable, SkylarkValue, SkyKey, CommandLineItem {
   public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
   public static final PathFragment WORKSPACE_FILE_NAME = PathFragment.create("WORKSPACE");
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
@@ -79,8 +82,6 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
   public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
   public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
       SkyFunctionName.create("TRANSITIVE_TRAVERSAL");
-
-  public static final LabelCodec CODEC = LabelCodec.INSTANCE;
 
   private static final Interner<Label> LABEL_INTERNER = BlazeInterners.newWeakInterner();
 
@@ -184,10 +185,11 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
    * Similar factory to above, but does not perform target name validation.
    *
    * <p>Only call this method if you know what you're doing; in particular, don't call it on
-   * arbitrary {@code targetName} inputs
+   * arbitrary {@code name} inputs
    */
-  public static Label createUnvalidated(PackageIdentifier packageId, String targetName) {
-    return LABEL_INTERNER.intern(new Label(packageId, StringCanonicalizer.intern(targetName)));
+  @AutoCodec.Instantiator
+  public static Label createUnvalidated(PackageIdentifier packageIdentifier, String name) {
+    return LABEL_INTERNER.intern(new Label(packageIdentifier, name));
   }
 
   /**
@@ -289,7 +291,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
     return new LabelSerializationProxy(getUnambiguousCanonicalForm());
   }
 
-  private void readObject(ObjectInputStream stream) throws InvalidObjectException {
+  private void readObject(ObjectInputStream unusedStream) throws InvalidObjectException {
     throw new InvalidObjectException("Serialization is allowed only by proxy");
   }
 
@@ -343,8 +345,17 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
     return packageIdentifier.getPackageFragment();
   }
 
-  /** Returns the label as a path fragment, using the package and the label name. */
+  /**
+   * Returns the label as a path fragment, using the package and the label name.
+   *
+   * <p>Make sure that the label refers to a file. Non-file labels do not necessarily have
+   * PathFragment representations.
+   */
   public PathFragment toPathFragment() {
+    // PathFragments are normalized, so if we do this on a non-file target named '.'
+    // then the package would be returned. Detect this and throw.
+    // A target named '.' can never refer to a file.
+    Preconditions.checkArgument(!name.equals("."));
     return packageIdentifier.getPackageFragment().getRelative(name);
   }
 
@@ -571,6 +582,11 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
   @Override
   public void str(SkylarkPrinter printer) {
     printer.append(getCanonicalForm());
+  }
+
+  @Override
+  public String expandToCommandLine() {
+    return getCanonicalForm();
   }
 
   /**

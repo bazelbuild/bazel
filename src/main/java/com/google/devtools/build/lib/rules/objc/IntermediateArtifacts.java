@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
-import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -34,8 +32,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 // TODO(bazel-team): This should really be named DerivedArtifacts as it contains methods for
 // final as well as intermediate artifacts.
 public final class IntermediateArtifacts {
-  private static final PathFragment OBJS = PathFragment.create("_objs");
-
   static final String LINKMAP_SUFFIX = ".linkmap";
 
   /**
@@ -267,36 +263,9 @@ public final class IntermediateArtifacts {
         "lib%s%s.a", basename, archiveFileNameSuffix)));
   }
 
-  private Artifact inUniqueObjsDir(Artifact source, String extension) {
-    PathFragment uniqueDir = OBJS.getRelative(ruleContext.getLabel().getName());
-    PathFragment sourceFile = uniqueDir.getRelative(source.getRootRelativePath());
-    PathFragment scopeRelativePath = FileSystemUtils.replaceExtension(sourceFile, extension);
-    return scopedArtifact(scopeRelativePath);
-  }
-
-  /**
-   * The artifact for the .o file that should be generated when compiling the {@code source}
-   * artifact.
-   */
-  public Artifact objFile(Artifact source) {
-    if (source.isTreeArtifact()) {
-      return CppHelper.getCompileOutputTreeArtifact(ruleContext, source);
-    } else {
-      return inUniqueObjsDir(source, ".o");
-    }
-  }
-
   /** The artifact for the .headers file output by the header thinning action for this source. */
-  public Artifact headersListFile(Artifact source) {
-    return inUniqueObjsDir(source, ".headers_list");
-  }
-
-  /**
-   * The artifact for the .gcno file that should be generated when compiling the {@code source}
-   * artifact.
-   */
-  public Artifact gcnoFile(Artifact source) {
-     return inUniqueObjsDir(source, ".gcno");
+  public Artifact headersListFile(Artifact objectFile) {
+    return ruleContext.getRelatedArtifact(objectFile.getRootRelativePath(), ".headers_list");
   }
 
   /**
@@ -416,11 +385,6 @@ public final class IntermediateArtifacts {
     return appendExtension("_runner.sh");
   }
 
-  /** Dependency file that is generated when compiling the {@code source} artifact. */
-  public DotdFile dotdFile(Artifact source) {
-    return new DotdFile(inUniqueObjsDir(source, ".d"));
-  }
-
   /**
    * {@link CppModuleMap} that provides the clang module map for this target.
    */
@@ -431,9 +395,9 @@ public final class IntermediateArtifacts {
             .toString()
             .replace("//", "")
             .replace("@", "")
+            .replace("-", "_")
             .replace("/", "_")
             .replace(":", "_");
- 
     Optional<Artifact> customModuleMap = CompilationSupport.getCustomModuleMap(ruleContext);
     if (customModuleMap.isPresent()) {
       return new CppModuleMap(customModuleMap.get(), moduleName);

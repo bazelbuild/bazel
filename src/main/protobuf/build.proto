@@ -21,7 +21,6 @@ package blaze_query;
 
 // option cc_api_version = 2;
 // option java_api_version = 1;
-// option py_api_version = 1;
 
 option java_package = "com.google.devtools.build.lib.query2.proto.proto2api";
 
@@ -332,7 +331,8 @@ message Rule {
   optional string skylark_environment_hash_code = 12;
 }
 
-// A pairing of attribute name and a Skylark aspect that is applied to that attribute.
+// A pairing of attribute name and a Skylark aspect that is applied to that
+// attribute.
 message AttributeAspect {
   required string attribute_name = 1;
   required SkylarkAspect aspect = 2;
@@ -400,10 +400,10 @@ message SourceFile {
   // machine-parseable form.
   optional Location DEPRECATED_parseable_location = 7;
 
-  // Labels of files that are transitively subincluded in this BUILD file. This
-  // is present only when the SourceFile represents a BUILD file that
-  // subincludes other files. The subincluded file can be either a Python
-  // preprocessed build extension or a Skylark file.
+  // Labels of .bzl (Skylark) files that are transitively loaded in this BUILD
+  // file. This is present only when the SourceFile represents a BUILD file that
+  // loaded .bzl files.
+  // TODO(bazel-team): Rename this field.
   repeated string subinclude = 3;
 
   // Labels of package groups that are mentioned in the visibility declaration

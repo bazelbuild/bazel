@@ -60,8 +60,8 @@ public class FunctionExpression extends QueryExpression {
   }
 
   @Override
-  public <T> T accept(QueryExpressionVisitor<T> visitor) {
-    return visitor.visit(this);
+  public <T, C> T accept(QueryExpressionVisitor<T, C> visitor, C context) {
+    return visitor.visit(this, context);
   }
 
   @Override

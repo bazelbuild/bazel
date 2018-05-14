@@ -15,20 +15,24 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
 /**
  * Runfiles a target contributes to targets that depend on it.
  *
- * <p>The set of runfiles contributed can be different if the dependency is through a
- * <code>data</code> attribute (note that this is just a rough approximation of the reality --
- * rule implementations are free to request the data runfiles at any time)
+ * <p>The set of runfiles contributed can be different if the dependency is through a <code>data
+ * </code> attribute (note that this is just a rough approximation of the reality -- rule
+ * implementations are free to request the data runfiles at any time)
  */
 @Immutable
+@AutoCodec
 public final class RunfilesProvider implements TransitiveInfoProvider {
   private final Runfiles defaultRunfiles;
   private final Runfiles dataRunfiles;
 
-  private RunfilesProvider(Runfiles defaultRunfiles, Runfiles dataRunfiles) {
+  @VisibleForSerialization
+  RunfilesProvider(Runfiles defaultRunfiles, Runfiles dataRunfiles) {
     this.defaultRunfiles = defaultRunfiles;
     this.dataRunfiles = dataRunfiles;
   }

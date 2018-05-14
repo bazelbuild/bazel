@@ -80,7 +80,7 @@ directory structure:
 
 ```
 └── my-project
-    ├── third_party
+    ├── legacy
     │   └── some_lib
     │       ├── BUILD
     │       ├── include
@@ -90,17 +90,17 @@ directory structure:
 ```
 
 Bazel will expect `some_lib.h` to be included as
-`third_party/some_lib/include/some_lib.h`, but suppose `some_lib.cc` includes
+`legacy/some_lib/include/some_lib.h`, but suppose `some_lib.cc` includes
 `"include/some_lib.h"`.  To make that include path valid,
-`third_party/some_lib/BUILD` will need to specify that the `some_lib/`
+`legacy/some_lib/BUILD` will need to specify that the `some_lib/`
 directory is an include directory:
 
 ```python
 cc_library(
     name = "some_lib",
     srcs = ["some_lib.cc"],
-    hdrs = ["some_lib.h"],
-    copts = ["-Ithird_party/some_lib"],
+    hdrs = ["include/some_lib.h"],
+    copts = ["-Ilegacy/some_lib/include"],
 )
 ```
 

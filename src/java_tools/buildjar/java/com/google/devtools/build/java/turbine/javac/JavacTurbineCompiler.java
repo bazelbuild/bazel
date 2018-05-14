@@ -40,11 +40,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import javax.tools.Diagnostic;
+import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 
 /** Performs a javac-based turbine compilation given a {@link JavacTurbineCompileRequest}. */
@@ -55,6 +59,7 @@ public class JavacTurbineCompiler {
     Map<String, byte[]> files = new LinkedHashMap<>();
     Status status;
     StringWriter sw = new StringWriter();
+    ImmutableList.Builder<FormattedDiagnostic> diagnostics = ImmutableList.builder();
     Context context = new Context();
 
     try (PrintWriter pw = new PrintWriter(sw)) {
@@ -67,9 +72,9 @@ public class JavacTurbineCompiler {
                 .getTask(
                     pw,
                     fm,
-                    null /*diagnostics*/,
+                    diagnostic -> diagnostics.add(formatDiagnostic(diagnostic)),
                     request.javacOptions(),
-                    ImmutableList.of() /*classes*/,
+                    /* classes= */ ImmutableList.of(),
                     fm.getJavaFileObjectsFromPaths(request.sources()),
                     context);
 
@@ -81,7 +86,11 @@ public class JavacTurbineCompiler {
         fm.setContext(context);
         fm.setLocationFromPaths(StandardLocation.SOURCE_PATH, Collections.<Path>emptyList());
         fm.setLocationFromPaths(StandardLocation.CLASS_PATH, request.classPath());
-        fm.setLocationFromPaths(StandardLocation.PLATFORM_CLASS_PATH, request.bootClassPath());
+        // The bootclasspath may legitimately be empty if --release is being used.
+        Collection<Path> bootClassPath = request.bootClassPath();
+        if (!bootClassPath.isEmpty()) {
+          fm.setLocationFromPaths(StandardLocation.PLATFORM_CLASS_PATH, bootClassPath);
+        }
         fm.setLocationFromPaths(
             StandardLocation.ANNOTATION_PROCESSOR_PATH, request.processorClassPath());
         fm.setLocationFromPaths(StandardLocation.CLASS_OUTPUT, ImmutableList.of(classes));
@@ -107,7 +116,23 @@ public class JavacTurbineCompiler {
       }
     }
 
-    return new JavacTurbineCompileResult(ImmutableMap.copyOf(files), status, sw, context);
+    return new JavacTurbineCompileResult(
+        ImmutableMap.copyOf(files), status, sw.toString(), diagnostics.build(), context);
+  }
+
+  private static FormattedDiagnostic formatDiagnostic(
+      Diagnostic<? extends JavaFileObject> diagnostic) {
+    StringBuilder message = new StringBuilder();
+    if (diagnostic.getSource() != null) {
+      message.append(diagnostic.getSource().getName());
+      if (diagnostic.getLineNumber() != -1) {
+        message.append(':').append(diagnostic.getLineNumber());
+      }
+      message.append(": ");
+    }
+    message.append(diagnostic.getKind().toString().toLowerCase(Locale.getDefault()));
+    message.append(": ").append(diagnostic.getMessage(Locale.getDefault()));
+    return new FormattedDiagnostic(diagnostic, message.toString());
   }
 
   /** Mask the annotation processor classpath to avoid version skew. */

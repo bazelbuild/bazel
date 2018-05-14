@@ -25,11 +25,13 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -65,6 +67,9 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ParallelEvaluatorTest {
+  private static final SkyFunctionName CHILD_TYPE = SkyFunctionName.create("child");
+  private static final SkyFunctionName PARENT_TYPE = SkyFunctionName.create("parent");
+
   protected ProcessableGraph graph;
   protected IntVersion graphVersion = IntVersion.of(0);
   protected GraphTester tester = new GraphTester();
@@ -101,7 +106,8 @@ public class ParallelEvaluatorTest {
         ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
         keepGoing,
         150,
-        revalidationReceiver);
+        revalidationReceiver,
+        GraphInconsistencyReceiver.THROWING);
   }
 
   private ParallelEvaluator makeEvaluator(ProcessableGraph graph,
@@ -773,14 +779,23 @@ public class ParallelEvaluatorTest {
 
   @Test
   public void errorBubblesToParentsOfTopLevelValue() throws Exception {
-    graph = new InMemoryGraphImpl();
     SkyKey parentKey = GraphTester.toSkyKey("parent");
-    final SkyKey errorKey = GraphTester.toSkyKey("error");
-    final CountDownLatch latch = new CountDownLatch(1);
+    SkyKey errorKey = GraphTester.toSkyKey("error");
+    CountDownLatch latch = new CountDownLatch(1);
+    graph =
+        new NotifyingHelper.NotifyingProcessableGraph(
+            new InMemoryGraphImpl(),
+            (key, type, order, context) -> {
+              if (key.equals(errorKey)
+                  && parentKey.equals(context)
+                  && type == EventType.ADD_REVERSE_DEP
+                  && order == Order.AFTER) {
+                latch.countDown();
+              }
+            });
     tester.getOrCreate(errorKey).setBuilder(new ChainedFunction(null, /*waitToFinish=*/latch, null,
         false, /*value=*/null, ImmutableList.<SkyKey>of()));
-    tester.getOrCreate(parentKey).setBuilder(new ChainedFunction(/*notifyStart=*/latch, null, null,
-        false, new StringValue("unused"), ImmutableList.of(errorKey)));
+    tester.getOrCreate(parentKey).addDependency(errorKey).setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result = eval( /*keepGoing=*/false,
         ImmutableList.of(parentKey, errorKey));
     assertWithMessage(result.toString()).that(result.errorMap().size()).isEqualTo(2);
@@ -1539,8 +1554,6 @@ public class ParallelEvaluatorTest {
 
   @Test
   public void testFunctionCrashTrace() throws Exception {
-    final SkyFunctionName childType = SkyFunctionName.create("child");
-    final SkyFunctionName parentType = SkyFunctionName.create("parent");
 
     class ChildFunction implements SkyFunction {
       @Override
@@ -1554,7 +1567,7 @@ public class ParallelEvaluatorTest {
     class ParentFunction implements SkyFunction {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-        SkyValue dep = env.getValue(LegacySkyKey.create(childType, "billy the kid"));
+        SkyValue dep = env.getValue(ChildKey.create("billy the kid"));
         if (dep == null) {
           return null;
         }
@@ -1564,13 +1577,14 @@ public class ParallelEvaluatorTest {
       @Override public String extractTag(SkyKey skyKey) { return null; }
     }
 
-    ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions = ImmutableMap.of(
-        childType, new ChildFunction(),
-        parentType, new ParentFunction());
+    ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions =
+        ImmutableMap.of(
+            CHILD_TYPE, new ChildFunction(),
+            PARENT_TYPE, new ParentFunction());
     ParallelEvaluator evaluator = makeEvaluator(new InMemoryGraphImpl(), skyFunctions, false);
 
     try {
-      evaluator.eval(ImmutableList.of(LegacySkyKey.create(parentType, "octodad")));
+      evaluator.eval(ImmutableList.of(ParentKey.create("octodad")));
       fail();
     } catch (RuntimeException e) {
       assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("I WANT A PONY!!!");
@@ -2308,5 +2322,39 @@ public class ParallelEvaluatorTest {
   public void unhandledTransitiveErrorsDuringNormalEvaluation_ExplicitPropagation()
       throws Exception {
     runUnhandledTransitiveErrors(/*keepGoing=*/true, /*explicitlyPropagateError=*/true);
+  }
+
+  private static class ChildKey extends AbstractSkyKey<String> {
+    private static final Interner<ChildKey> interner = BlazeInterners.newWeakInterner();
+
+    private ChildKey(String arg) {
+      super(arg);
+    }
+
+    static ChildKey create(String arg) {
+      return interner.intern(new ChildKey(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return CHILD_TYPE;
+    }
+  }
+
+  private static class ParentKey extends AbstractSkyKey<String> {
+    private static final Interner<ParentKey> interner = BlazeInterners.newWeakInterner();
+
+    private ParentKey(String arg) {
+      super(arg);
+    }
+
+    private static ParentKey create(String arg) {
+      return interner.intern(new ParentKey(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return PARENT_TYPE;
+    }
   }
 }

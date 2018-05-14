@@ -238,6 +238,122 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
   }
 
+  @Test
+  public void testProtoSourceRootWithoutDeps() throws Exception {
+    useConfiguration("--proto_compiler=//proto:compiler");
+    scratch.file(
+        "x/foo/BUILD",
+        "proto_library(",
+        "    name = 'nodeps',",
+        "    srcs = ['foo/nodeps.proto'],",
+        "    proto_source_root = 'x/foo',",
+        ")"
+    );
+    ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:nodeps");
+    ProtoSourcesProvider sourcesProvider = protoTarget.getProvider(ProtoSourcesProvider.class);
+    assertThat(sourcesProvider.getTransitiveProtoPathFlags()).containsExactly("x/foo");
+
+    SupportData supportData =
+        protoTarget.getProvider(ProtoSupportDataProvider.class).getSupportData();
+    assertThat(supportData.getTransitiveProtoPathFlags()).containsExactly("x/foo");
+
+    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:nodeps"))
+        .getRemainingArguments())
+        .contains("--proto_path=x/foo");
+  }
+
+  @Test
+  public void testProtoSourceRootWithoutDeps_notPackageName() throws Exception {
+    useConfiguration("--proto_compiler=//proto:compiler");
+    scratch.file(
+        "x/foo/BUILD",
+        "proto_library(",
+        "    name = 'nodeps',",
+        "    srcs = ['foo/nodeps.proto'],",
+        "    proto_source_root = 'something/else',",
+        ")"
+    );
+
+    try {
+      getConfiguredTarget("//x/foo:nodeps");
+    } catch (AssertionError error) {
+      assertThat(error)
+          .hasMessageThat()
+          .contains("proto_source_root must be the same as the package name (x/foo)");
+      return;
+    }
+    throw new Exception("Target should have failed building.");
+  }
+
+  @Test
+  public void testProtoSourceRootWithDepsDuplicate() throws Exception {
+    useConfiguration("--proto_compiler=//proto:compiler");
+    scratch.file(
+        "x/foo/BUILD",
+        "proto_library(",
+        "    name = 'withdeps',",
+        "    srcs = ['foo/withdeps.proto'],",
+        "    proto_source_root = 'x/foo',",
+        "    deps = [':dep'],",
+        ")",
+        "proto_library(",
+        "    name = 'dep',",
+        "    srcs = ['foo/dep.proto'],",
+        "    proto_source_root = 'x/foo',",
+        ")"
+    );
+    ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:withdeps");
+    ProtoSourcesProvider sourcesProvider = protoTarget.getProvider(ProtoSourcesProvider.class);
+    assertThat(sourcesProvider.getTransitiveProtoPathFlags()).containsExactly("x/foo");
+
+    SupportData supportData =
+        protoTarget.getProvider(ProtoSupportDataProvider.class).getSupportData();
+    assertThat(supportData.getTransitiveProtoPathFlags()).containsExactly("x/foo");
+
+    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:withdeps"))
+        .getRemainingArguments())
+        .contains("--proto_path=x/foo");
+  }
+
+  @Test
+  public void testProtoSourceRootWithDeps() throws Exception {
+    useConfiguration("--proto_compiler=//proto:compiler");
+    scratch.file(
+        "x/foo/BUILD",
+        "proto_library(",
+        "    name = 'withdeps',",
+        "    srcs = ['foo/withdeps.proto'],",
+        "    proto_source_root = 'x/foo',",
+        "    deps = ['//x/bar:dep', ':dep'],",
+        ")",
+        "proto_library(",
+        "    name = 'dep',",
+        "    srcs = ['foo/dep.proto'],",
+        ")"
+    );
+    scratch.file(
+        "x/bar/BUILD",
+        "proto_library(",
+        "    name = 'dep',",
+        "    srcs = ['foo/dep.proto'],",
+        "    proto_source_root = 'x/bar',",
+        ")"
+    );
+    ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:withdeps");
+    ProtoSourcesProvider sourcesProvider = protoTarget.getProvider(ProtoSourcesProvider.class);
+    assertThat(sourcesProvider.getTransitiveProtoPathFlags())
+        .containsExactly("x/foo", "x/bar");
+
+    SupportData supportData =
+        protoTarget.getProvider(ProtoSupportDataProvider.class).getSupportData();
+    assertThat(supportData.getTransitiveProtoPathFlags())
+        .containsExactly("x/foo", "x/bar");
+
+    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:withdeps"))
+        .getRemainingArguments())
+        .containsAllOf("--proto_path=x/foo", "--proto_path=x/bar");
+  }
+
   private Artifact getDescriptorOutput(String label) throws Exception {
     return getFirstArtifactEndingWith(getFilesToBuild(getConfiguredTarget(label)), ".proto.bin");
   }

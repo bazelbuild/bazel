@@ -52,4 +52,5 @@ enum OptionMetadataTag {
   DEPRECATED = 2;
   HIDDEN = 3;
   INTERNAL = 4;
+  TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES = 5;
 }

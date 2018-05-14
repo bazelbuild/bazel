@@ -21,10 +21,11 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.analysis.actions.ActionTemplate;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -38,8 +39,8 @@ import java.util.List;
  */
 public final class CppCompileActionTemplate implements ActionTemplate<CppCompileAction> {
   private final CppCompileActionBuilder cppCompileActionBuilder;
-  private final Artifact sourceTreeArtifact;
-  private final Artifact outputTreeArtifact;
+  private final SpecialArtifact sourceTreeArtifact;
+  private final SpecialArtifact outputTreeArtifact;
   private final CcToolchainProvider toolchain;
   private final Iterable<ArtifactCategory> categories;
   private final ActionOwner actionOwner;
@@ -48,6 +49,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
 
   /**
    * Creates an CppCompileActionTemplate.
+   *
    * @param sourceTreeArtifact the TreeArtifact that contains source files to compile.
    * @param outputTreeArtifact the TreeArtifact that contains compilation outputs.
    * @param cppCompileActionBuilder An almost completely configured {@link CppCompileActionBuilder}
@@ -59,8 +61,8 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
    * @param actionOwner the owner of this {@link ActionTemplate}.
    */
   CppCompileActionTemplate(
-      Artifact sourceTreeArtifact,
-      Artifact outputTreeArtifact,
+      SpecialArtifact sourceTreeArtifact,
+      SpecialArtifact outputTreeArtifact,
       CppCompileActionBuilder cppCompileActionBuilder,
       CcToolchainProvider toolchain,
       Iterable<ArtifactCategory> categories,
@@ -102,8 +104,8 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
     builder.setSourceFile(sourceTreeFileArtifact);
     builder.setOutputs(outputTreeFileArtifact, null);
 
-    CcToolchainFeatures.Variables.Builder buildVariables =
-        new CcToolchainFeatures.Variables.Builder(cppCompileActionBuilder.getVariables());
+    CcToolchainVariables.Builder buildVariables =
+        new CcToolchainVariables.Builder(cppCompileActionBuilder.getVariables());
     buildVariables.overrideStringVariable(
         "source_file", sourceTreeFileArtifact.getExecPathString());
     buildVariables.overrideStringVariable(

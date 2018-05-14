@@ -38,6 +38,15 @@ public interface VirtualActionInput extends ActionInput {
   ByteString getBytes() throws IOException;
 
   /**
+   * Returns the Metadata for this input if available. Null otherwise.
+   *
+   * @throws IOException
+   */
+  default Metadata getMetadata() throws IOException {
+    return null;
+  }
+
+  /**
    * In some cases, we want empty files in the runfiles tree that have no corresponding artifact. We
    * use instances of this class to represent those files.
    */

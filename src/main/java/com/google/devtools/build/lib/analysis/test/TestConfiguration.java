@@ -18,9 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.RunsPerTestConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -28,28 +26,26 @@ import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
+import java.util.Collections;
 import java.util.List;
 
 /** Test-related options. */
+@AutoCodec
 public class TestConfiguration extends Fragment {
-
   /** Command-line options. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class TestOptions extends FragmentOptions {
-    public static final ObjectCodec<TestOptions> CODEC =
-        new TestConfiguration_TestOptions_AutoCodec();
-
     @Option(
       name = "test_filter",
       allowMultiple = false,
       defaultValue = "null",
-      category = "testing",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -61,7 +57,6 @@ public class TestConfiguration extends Fragment {
     @Option(
       name = "cache_test_results",
       defaultValue = "auto",
-      category = "testing",
       abbrev = 't', // it's useful to toggle this on/off quickly
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -80,7 +75,6 @@ public class TestConfiguration extends Fragment {
     @Option(
       name = "test_result_expiration",
       defaultValue = "-1", // No expiration by defualt.
-      category = "testing",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "This option is deprecated and has no effect."
@@ -91,7 +85,6 @@ public class TestConfiguration extends Fragment {
       name = "test_arg",
       allowMultiple = true,
       defaultValue = "",
-      category = "testing",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -105,7 +98,6 @@ public class TestConfiguration extends Fragment {
     @Option(
       name = "test_sharding_strategy",
       defaultValue = "explicit",
-      category = "testing",
       converter = TestActionBuilder.ShardingStrategyConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -123,7 +115,6 @@ public class TestConfiguration extends Fragment {
       name = "runs_per_test",
       allowMultiple = true,
       defaultValue = "1",
-      category = "testing",
       converter = RunsPerTestConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -146,7 +137,7 @@ public class TestConfiguration extends Fragment {
   /** Configuration loader for test options */
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
-    public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
+    public Fragment create(BuildOptions buildOptions)
         throws InvalidConfigurationException {
       return new TestConfiguration(buildOptions.get(TestOptions.class));
     }
@@ -207,5 +198,59 @@ public class TestConfiguration extends Fragment {
       }
     }
     return 1;
+  }
+
+  /**
+   * Option converter that han handle two styles of value for "--runs_per_test":
+   *
+   * <ul>
+   *   <li>--runs_per_test=NUMBER: Run each test NUMBER times.
+   *   <li>--runs_per_test=test_regex@NUMBER: Run each test that matches test_regex NUMBER times.
+   *       This form can be repeated with multiple regexes.
+   * </ul>
+   */
+  public static class RunsPerTestConverter extends PerLabelOptions.PerLabelOptionsConverter {
+    @Override
+    public PerLabelOptions convert(String input) throws OptionsParsingException {
+      try {
+        return parseAsInteger(input);
+      } catch (NumberFormatException ignored) {
+        return parseAsRegex(input);
+      }
+    }
+
+    private PerLabelOptions parseAsInteger(String input)
+        throws NumberFormatException, OptionsParsingException {
+      int numericValue = Integer.parseInt(input);
+      if (numericValue <= 0) {
+        throw new OptionsParsingException("'" + input + "' should be >= 1");
+      } else {
+        RegexFilter catchAll =
+            new RegexFilter(Collections.singletonList(".*"), Collections.<String>emptyList());
+        return new PerLabelOptions(catchAll, Collections.singletonList(input));
+      }
+    }
+
+    private PerLabelOptions parseAsRegex(String input) throws OptionsParsingException {
+      PerLabelOptions testRegexps = super.convert(input);
+      if (testRegexps.getOptions().size() != 1) {
+        throw new OptionsParsingException("'" + input + "' has multiple runs for a single pattern");
+      }
+      String runsPerTest = Iterables.getOnlyElement(testRegexps.getOptions());
+      try {
+        int numericRunsPerTest = Integer.parseInt(runsPerTest);
+        if (numericRunsPerTest <= 0) {
+          throw new OptionsParsingException("'" + input + "' has a value < 1");
+        }
+      } catch (NumberFormatException e) {
+        throw new OptionsParsingException("'" + input + "' has a non-numeric value", e);
+      }
+      return testRegexps;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a positive integer or test_regex@runs. This flag may be passed more than once";
+    }
   }
 }

@@ -20,9 +20,12 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -33,8 +36,8 @@ import java.util.Map;
  * An {@link ActionTemplate} that expands into {@link SpawnAction}s at execution time.
  */
 public final class SpawnActionTemplate implements ActionTemplate<SpawnAction> {
-  private final Artifact inputTreeArtifact;
-  private final Artifact outputTreeArtifact;
+  private final SpecialArtifact inputTreeArtifact;
+  private final SpecialArtifact outputTreeArtifact;
   private final NestedSet<Artifact> commonInputs;
   private final NestedSet<Artifact> allInputs;
   private final NestedSet<Artifact> commonTools;
@@ -64,8 +67,8 @@ public final class SpawnActionTemplate implements ActionTemplate<SpawnAction> {
 
   private SpawnActionTemplate(
       ActionOwner actionOwner,
-      Artifact inputTreeArtifact,
-      Artifact outputTreeArtifact,
+      SpecialArtifact inputTreeArtifact,
+      SpecialArtifact outputTreeArtifact,
       NestedSet<Artifact> commonInputs,
       NestedSet<Artifact> commonTools,
       OutputPathMapper outputPathMapper,
@@ -126,8 +129,7 @@ public final class SpawnActionTemplate implements ActionTemplate<SpawnAction> {
     // Note that we pass in nulls below because SpawnActionTemplate does not support param file, and
     // it does not use any default value for executable or shell environment. They must be set
     // explicitly via builder method #setExecutable and #setEnvironment.
-    return actionBuilder.buildSpawnAction(
-        getOwner(), actionBuilder.buildCommandLineWithoutParamsFiles(), /*configEnv=*/ null);
+    return actionBuilder.buildForActionTemplate(getOwner());
   }
 
   /**
@@ -201,9 +203,7 @@ public final class SpawnActionTemplate implements ActionTemplate<SpawnAction> {
 
   @Override
   public Iterable<String> getClientEnvironmentVariables() {
-    return spawnActionBuilder
-        .buildSpawnAction(getOwner(), CommandLine.of(ImmutableList.of()), null)
-        .getClientEnvironmentVariables();
+    return spawnActionBuilder.buildForActionTemplate(getOwner()).getClientEnvironmentVariables();
   }
 
   @Override
@@ -229,19 +229,19 @@ public final class SpawnActionTemplate implements ActionTemplate<SpawnAction> {
     private CustomCommandLine commandLineTemplate;
     private PathFragment executable;
 
-    private final Artifact inputTreeArtifact;
-    private final Artifact outputTreeArtifact;
+    private final SpecialArtifact inputTreeArtifact;
+    private final SpecialArtifact outputTreeArtifact;
     private final NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.stableOrder();
     private final SpawnAction.Builder spawnActionBuilder;
 
     /**
      * Creates a {@link SpawnActionTemplate} builder.
-     * 
+     *
      * @param inputTreeArtifact the required input TreeArtifact.
      * @param outputTreeArtifact the required output TreeArtifact.
      */
-    public Builder(Artifact inputTreeArtifact, Artifact outputTreeArtifact) {
+    public Builder(SpecialArtifact inputTreeArtifact, SpecialArtifact outputTreeArtifact) {
       Preconditions.checkState(
           inputTreeArtifact.isTreeArtifact() && outputTreeArtifact.isTreeArtifact(),
           "Either %s or %s is not a TreeArtifact",

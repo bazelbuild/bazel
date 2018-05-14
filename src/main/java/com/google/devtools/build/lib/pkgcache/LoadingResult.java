@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.Target;
-
 import java.util.Collection;
 
 /**
@@ -62,5 +62,16 @@ public final class LoadingResult {
   /** The name of the local workspace. */
   public String getWorkspaceName() {
     return workspaceName;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(LoadingResult.class)
+        .add("hasTargetPatternError", hasTargetPatternError)
+        .add("hasLoadingError", hasLoadingError)
+        .add("targetsToAnalyze", targetsToAnalyze)
+        .add("testsToRun", testsToRun)
+        .add("workspaceName", workspaceName)
+        .toString();
   }
 }

@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -22,7 +24,10 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.Map;
@@ -36,14 +41,14 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
   /**
    * Constructs an {@link ObjcCommon} instance based on the attributes of the given rule context.
    */
-  private ObjcCommon common(RuleContext ruleContext) {
+  private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
     return new ObjcCommon.Builder(ruleContext)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .addDefines(ruleContext.getExpander().withDataLocations().tokenized("defines"))
         .setCompilationArtifacts(CompilationSupport.compilationArtifacts(ruleContext))
-        .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
+        .addDeps(ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", Mode.TARGET))
         .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
         .addDepObjcProviders(
             ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
@@ -58,7 +63,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     validateAttributes(ruleContext);
 
     ObjcCommon common = common(ruleContext);
@@ -67,10 +72,12 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addAll(common.getCompiledArchive().asSet());
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
+    ImmutableList.Builder<Artifact> objectFilesCollector = ImmutableList.builder();
     CompilationSupport compilationSupport =
         new CompilationSupport.Builder()
             .setRuleContext(ruleContext)
             .setOutputGroupCollector(outputGroupCollector)
+            .setObjectFilesCollector(objectFilesCollector)
             .build();
 
     compilationSupport
@@ -87,16 +94,33 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
       .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
           J2ObjcEntryClassProvider.class)).build();
+    CcCompilationContext ccCompilationContext =
+        new CcCompilationContext.Builder(ruleContext)
+            .addDeclaredIncludeSrcs(
+                CompilationAttributes.Builder.fromRuleContext(ruleContext)
+                    .build()
+                    .hdrs()
+                    .toCollection())
+            .addTextualHdrs(common.getTextualHdrs())
+            .addDeclaredIncludeSrcs(common.getTextualHdrs())
+            .build();
+
+    CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
+    ccCompilationInfoBuilder.setCcCompilationContext(ccCompilationContext);
+
+    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
+    ccLinkingInfoBuilder.setCcLinkParamsInfo(
+        new CcLinkParamsInfo(new ObjcLibraryCcLinkParamsStore(common)));
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(common.getObjcProvider())
+        .addNativeDeclaredProvider(ccCompilationInfoBuilder.build())
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addProvider(
             InstrumentedFilesProvider.class,
-            compilationSupport.getInstrumentedFilesProvider(common))
-        .addNativeDeclaredProvider(
-            new CcLinkParamsInfo(new ObjcLibraryCcLinkParamsStore(common)))
+            compilationSupport.getInstrumentedFilesProvider(objectFilesCollector.build()))
+        .addNativeDeclaredProvider(ccLinkingInfoBuilder.build())
         .addOutputGroups(outputGroupCollector)
         .build();
   }

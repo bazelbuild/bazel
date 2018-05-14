@@ -22,25 +22,25 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.TreeMap;
 
 /**
@@ -71,18 +71,19 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     MultiArchSplitTransitionProvider.validateMinimumOs(ruleContext);
     PlatformType platformType = MultiArchSplitTransitionProvider.getPlatformType(ruleContext);
 
-    ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap =
-        ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
+    ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndData>
+        configToCTATDepsCollectionMap =
+            ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration("deps", Mode.SPLIT);
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> configToObjcAvoidDepsMap =
         ruleContext.getPrerequisitesByConfiguration(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
             Mode.SPLIT, ObjcProvider.SKYLARK_CONSTRUCTOR);
-    ImmutableListMultimap<BuildConfiguration, CcLinkParamsInfo> configToCcAvoidDepsMap =
-        ruleContext.getPrerequisitesByConfiguration(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
-            Mode.SPLIT, CcLinkParamsInfo.PROVIDER);
+    ImmutableListMultimap<BuildConfiguration, CcLinkingInfo> configToCcAvoidDepsMap =
+        ruleContext.getPrerequisitesByConfiguration(
+            AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME, Mode.SPLIT, CcLinkingInfo.PROVIDER);
     Iterable<ObjcProtoProvider> avoidProtoProviders =
         ruleContext.getPrerequisites(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME, Mode.TARGET,
             ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
@@ -100,14 +101,15 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         NestedSetBuilder.<Artifact>stableOrder()
             .add(ruleIntermediateArtifacts.combinedArchitectureArchive());
 
-    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
+    ObjcProvider.Builder objcProviderBuilder =
+        new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getSkylarkSemantics());
 
     ImmutableListMultimap<BuildConfiguration, ObjcProtoProvider> objcProtoProvidersMap =
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT,
             ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
-    for (Entry<BuildConfiguration, CcToolchainProvider> childConfigAndToolchain :
+    for (Map.Entry<BuildConfiguration, CcToolchainProvider> childConfigAndToolchain :
         childConfigurationsAndToolchains.entrySet()) {
       BuildConfiguration childConfig = childConfigAndToolchain.getKey();
       CcToolchainProvider childToolchain = childConfigAndToolchain.getValue();
@@ -134,7 +136,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               ruleContext,
               childConfig,
               intermediateArtifacts,
-              nullToEmptyList(configToDepsCollectionMap.get(childConfig)),
+              nullToEmptyList(configToCTATDepsCollectionMap.get(childConfig)),
               protosObjcProvider);
       ObjcProvider objcProvider =
           common.getObjcProvider().subtractSubtrees(configToObjcAvoidDepsMap.get(childConfig),
@@ -206,8 +208,8 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
-      List<TransitiveInfoCollection> propagatedDeps,
-      Optional<ObjcProvider> protosObjcProvider) {
+      List<ConfiguredTargetAndData> propagatedConfigredTargetAndTargetDeps,
+      Optional<ObjcProvider> protosObjcProvider) throws InterruptedException {
 
     CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder().build();
 
@@ -215,7 +217,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .setCompilationArtifacts(compilationArtifacts)
-        .addDeps(propagatedDeps)
+        .addDeps(propagatedConfigredTargetAndTargetDeps)
         .addDepObjcProviders(protosObjcProvider.asSet())
         .setIntermediateArtifacts(intermediateArtifacts)
         .setAlwayslink(false)

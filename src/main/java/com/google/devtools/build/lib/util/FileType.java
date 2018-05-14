@@ -19,17 +19,18 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.concurrent.Immutable;
 
-/**
- * A base class for FileType matchers.
- */
+/** A base class for FileType matchers. */
 @Immutable
 public abstract class FileType implements Predicate<String> {
   // A special file type
+  @AutoCodec @VisibleForSerialization
   public static final FileType NO_EXTENSION =
       new FileType() {
         @Override
@@ -40,36 +41,69 @@ public abstract class FileType implements Predicate<String> {
       };
 
   public static FileType of(final String ext) {
-    return new FileType() {
-      @Override
-      public boolean apply(String path) {
-        return path.endsWith(ext);
-      }
-
-      @Override
-      public List<String> getExtensions() {
-        return ImmutableList.of(ext);
-      }
-    };
+    return new SingletonFileType(ext);
   }
 
-  public static FileType of(final Iterable<String> extensions) {
-    return new FileType() {
-      @Override
-      public boolean apply(String path) {
-        for (String ext : extensions) {
-          if (path.endsWith(ext)) {
-            return true;
-          }
-        }
-        return false;
-      }
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static final class SingletonFileType extends FileType {
+    private final String ext;
 
-      @Override
-      public List<String> getExtensions() {
-        return ImmutableList.copyOf(extensions);
+    @AutoCodec.VisibleForSerialization
+    SingletonFileType(String ext) {
+      this.ext = ext;
+    }
+
+    @Override
+    public boolean apply(String path) {
+      return path.endsWith(ext);
+    }
+
+    @Override
+    public List<String> getExtensions() {
+      return ImmutableList.of(ext);
+    }
+  }
+
+  public static FileType of(final List<String> extensions) {
+    return new ListFileType(ImmutableList.copyOf(extensions));
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static final class ListFileType extends FileType {
+    private final ImmutableList<String> extensions;
+
+    @AutoCodec.VisibleForSerialization
+    ListFileType(ImmutableList<String> extensions) {
+      this.extensions = Preconditions.checkNotNull(extensions);
+    }
+
+    @Override
+    public boolean apply(String path) {
+      for (String ext : extensions) {
+        if (path.endsWith(ext)) {
+          return true;
+        }
       }
-    };
+      return false;
+    }
+
+    @Override
+    public List<String> getExtensions() {
+      return ImmutableList.copyOf(extensions);
+    }
+
+    @Override
+    public int hashCode() {
+      return extensions.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return (obj instanceof ListFileType
+          && this.extensions.equals(((ListFileType) obj).extensions));
+    }
   }
 
   public static FileType of(final String... extensions) {

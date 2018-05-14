@@ -17,19 +17,21 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * A target that provides .dwo files which can be combined into a .dwp packaging step. See
  * https://gcc.gnu.org/wiki/DebugFission for details.
  */
 @Immutable
+@AutoCodec
 public final class CppDebugFileProvider implements TransitiveInfoProvider {
-
   private final NestedSet<Artifact> transitiveDwoFiles;
   private final NestedSet<Artifact> transitivePicDwoFiles;
 
-  public CppDebugFileProvider(NestedSet<Artifact> transitiveDwoFiles,
-      NestedSet<Artifact> transitivePicDwoFiles) {
+  @AutoCodec.Instantiator
+  public CppDebugFileProvider(
+      NestedSet<Artifact> transitiveDwoFiles, NestedSet<Artifact> transitivePicDwoFiles) {
     this.transitiveDwoFiles = transitiveDwoFiles;
     this.transitivePicDwoFiles = transitivePicDwoFiles;
   }

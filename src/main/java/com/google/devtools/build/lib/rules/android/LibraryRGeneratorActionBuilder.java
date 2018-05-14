@@ -19,11 +19,11 @@ import com.google.common.base.Strings;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 /** Builder for the action that generates the R class for libraries. */
 public class LibraryRGeneratorActionBuilder {
   private String javaPackage;
-  private Iterable<ResourceContainer> deps = ImmutableList.<ResourceContainer>of();
+  private Iterable<ValidatedAndroidData> deps = ImmutableList.of();
   private ResourceContainer resourceContainer;
   private Artifact rJavaClassJar;
 
@@ -63,7 +63,7 @@ public class LibraryRGeneratorActionBuilder {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
     FilesToRunProvider executable =
         ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST);
-    inputs.addAll(executable.getRunfilesSupport().getRunfilesArtifactsWithoutMiddlemen());
+    inputs.addAll(executable.getRunfilesSupport().getRunfilesArtifacts());
 
     builder.add("--tool").add("GENERATE_LIBRARY_R").add("--");
 
@@ -71,17 +71,18 @@ public class LibraryRGeneratorActionBuilder {
       builder.add("--packageForR", javaPackage);
     }
 
-    FluentIterable<ResourceContainer> symbolProviders =
+    FluentIterable<ValidatedAndroidData> symbolProviders =
         FluentIterable.from(deps).append(resourceContainer);
 
     if (!symbolProviders.isEmpty()) {
       ImmutableList<Artifact> symbols =
-          symbolProviders.stream().map(ResourceContainer::getSymbols).collect(toImmutableList());
+          symbolProviders.stream().map(ValidatedAndroidData::getSymbols).collect(toImmutableList());
       builder.addExecPaths("--symbols", symbols);
       inputs.addTransitive(NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, symbols));
     }
 
     builder.addExecPath("--classJarOutput", rJavaClassJar);
+    builder.addLabel("--targetLabel", ruleContext.getLabel());
 
     builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());

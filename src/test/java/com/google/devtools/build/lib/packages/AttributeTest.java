@@ -223,7 +223,7 @@ public class AttributeTest {
       assertThat(childAttr1.getAllowedRuleClassesPredicate()).isEqualTo(Predicates.alwaysTrue());
       assertThat(childAttr1.isMandatory()).isTrue();
       assertThat(childAttr1.isNonEmpty()).isFalse();
-      assertThat(childAttr1.getAspects(null /* rule */)).hasSize(1);
+      assertThat(childAttr1.getAspects(/* rule= */ null)).hasSize(1);
     }
 
     {
@@ -240,7 +240,7 @@ public class AttributeTest {
           .isEqualTo(ruleClasses.asPredicateOfRuleClass());
       assertThat(childAttr2.isMandatory()).isTrue();
       assertThat(childAttr2.isNonEmpty()).isTrue();
-      assertThat(childAttr2.getAspects(null /* rule */)).hasSize(2);
+      assertThat(childAttr2.getAspects(/* rule= */ null)).hasSize(2);
     }
 
     // Check if the parent attribute is unchanged

@@ -18,7 +18,6 @@ import static java.util.stream.Collectors.toList;
 
 import com.android.utils.StdLogger;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AndroidResourceProcessingAction.Options;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.CompiledResources;
@@ -29,7 +28,6 @@ import com.google.devtools.build.android.aapt2.StaticLibrary;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import com.google.devtools.common.options.TriState;
-import java.io.Closeable;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,7 +41,6 @@ import java.util.List;
  *   java/com/google/build/android/Aapt2ResourcePackagingAction\
  *      --sdkRoot path/to/sdk\
  *      --aapt path/to/sdk/aapt\
- *      --annotationJar path/to/sdk/annotationJar\
  *      --adb path/to/sdk/adb\
  *      --zipAlign path/to/sdk/zipAlign\
  *      --androidJar path/to/sdk/androidJar\
@@ -73,7 +70,8 @@ public class Aapt2ResourcePackagingAction {
     options = optionsParser.getOptions(Options.class);
 
     try (ScopedTemporaryDirectory scopedTmp =
-        new ScopedTemporaryDirectory("android_resources_tmp")) {
+            new ScopedTemporaryDirectory("android_resources_tmp");
+        ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15)) {
       final Path tmp = scopedTmp.getPath();
       final Path mergedAssets = tmp.resolve("merged_assets");
       final Path mergedResources = tmp.resolve("merged_resources");
@@ -86,16 +84,6 @@ public class Aapt2ResourcePackagingAction {
           Files.createDirectories(tmp.resolve("android_data_binding_resources"));
       final Path compiledResources = Files.createDirectories(tmp.resolve("compiled"));
       final Path linkedOut = Files.createDirectories(tmp.resolve("linked"));
-
-      final List<String> densities;
-      if (options.densities.isEmpty()) {
-        // aapt2 always needs to filter on densities, as the resource filtering from analysis is
-        // disregarded.
-        // TODO(b/70335064): Remove this once we never filter in analysis when building for aapt2.
-        densities = options.densitiesForManifest;
-      } else {
-        densities = options.densities;
-      }
 
       profiler.recordEndOf("setup").startTask("merging");
 
@@ -116,24 +104,26 @@ public class Aapt2ResourcePackagingAction {
                   null /* cruncher. Aapt2 automatically chooses to crunch or not. */,
                   options.packageType,
                   options.symbolsOut,
-                  null /* rclassWriter */,
+                  /* rclassWriter= */ null,
                   dataDeserializer,
-                  options.throwOnResourceConflict)
+                  options.throwOnResourceConflict,
+                  executorService)
               .filter(
-                  new DensitySpecificResourceFilter(densities, filteredResources, mergedResources),
-                  new DensitySpecificManifestProcessor(densities, densityManifest));
+                  new DensitySpecificResourceFilter(
+                      options.densities, filteredResources, mergedResources),
+                  new DensitySpecificManifestProcessor(options.densities, densityManifest));
 
       profiler.recordEndOf("merging");
 
-      final ListeningExecutorService executorService = ExecutorServiceCloser.createDefaultService();
-      try (final Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
+     
         profiler.startTask("compile");
-        final ResourceCompiler compiler =
-            ResourceCompiler.create(
-                executorService,
-                compiledResources,
-                aaptConfigOptions.aapt2,
-                aaptConfigOptions.buildToolsVersion);
+      final ResourceCompiler compiler =
+          ResourceCompiler.create(
+              executorService,
+              compiledResources,
+              aaptConfigOptions.aapt2,
+              aaptConfigOptions.buildToolsVersion,
+              aaptConfigOptions.generatePseudoLocale);
 
         CompiledResources compiled =
             options
@@ -152,7 +142,7 @@ public class Aapt2ResourcePackagingAction {
                                 processedManifest))
                 .processManifest(
                     manifest ->
-                        new DensitySpecificManifestProcessor(densities, densityManifest)
+                        new DensitySpecificManifestProcessor(options.densities, densityManifest)
                             .process(manifest));
         profiler.recordEndOf("compile").startTask("link");
         // Write manifestOutput now before the dummy manifest is created.
@@ -173,36 +163,38 @@ public class Aapt2ResourcePackagingAction {
                 .collect(toList());
         assetDirs.addAll(options.primaryData.assetDirs);
 
-        final PackagedResources packagedResources =
-            ResourceLinker.create(aaptConfigOptions.aapt2, linkedOut)
-                .profileUsing(profiler)
-                .dependencies(ImmutableList.of(StaticLibrary.from(aaptConfigOptions.androidJar)))
-                .include(compiledResourceDeps)
-                .withAssets(assetDirs)
-                .buildVersion(aaptConfigOptions.buildToolsVersion)
-                .conditionalKeepRules(aaptConfigOptions.conditionalKeepRules == TriState.YES)
-                .filterToDensity(densities)
-                .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
-                .link(compiled)
-                .copyPackageTo(options.packagePath)
-                .copyProguardTo(options.proguardOutput)
-                .copyMainDexProguardTo(options.mainDexProguardOutput)
-                .createSourceJar(options.srcJarOutput)
-                .copyRTxtTo(options.rOutput);
+      final PackagedResources packagedResources =
+          ResourceLinker.create(aaptConfigOptions.aapt2, executorService, linkedOut)
+              .profileUsing(profiler)
+              .customPackage(options.packageForR)
+              .outputAsProto(aaptConfigOptions.resourceTableAsProto)
+              .dependencies(ImmutableList.of(StaticLibrary.from(aaptConfigOptions.androidJar)))
+              .include(compiledResourceDeps)
+              .withAssets(assetDirs)
+              .buildVersion(aaptConfigOptions.buildToolsVersion)
+              .conditionalKeepRules(aaptConfigOptions.conditionalKeepRules == TriState.YES)
+              .filterToDensity(options.densities)
+              .debug(aaptConfigOptions.debug)
+              .includeGeneratedLocales(aaptConfigOptions.generatePseudoLocale)
+              .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
+              .link(compiled)
+              .copyPackageTo(options.packagePath)
+              .copyProguardTo(options.proguardOutput)
+              .copyMainDexProguardTo(options.mainDexProguardOutput)
+              .createSourceJar(options.srcJarOutput)
+              .copyRTxtTo(options.rOutput);
         profiler.recordEndOf("link");
         if (options.resourcesOutput != null) {
           profiler.startTask("package");
-          // The compiled resources and the merged resources should be the same.
-          // TODO(corysmith): Decompile or otherwise provide the exact resources in the apk.
-          ResourcesZip.fromApk(
-                  mergedAndroidData.getResourceDir(),
-                  packagedResources.getApk(),
-                  packagedResources.getResourceIds())
-              .writeTo(options.resourcesOutput, false /* compress */);
+        // The compiled resources and the merged resources should be the same.
+        // TODO(corysmith): Decompile or otherwise provide the exact resources in the apk.
+        ResourcesZip.fromApk(
+                mergedAndroidData.getResourceDir(),
+                packagedResources.getApk(),
+                packagedResources.getResourceIds())
+            .writeTo(options.resourcesOutput, /* compress= */ false);
           profiler.recordEndOf("package");
         }
       }
     }
   }
-
-}

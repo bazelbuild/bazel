@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
@@ -90,7 +89,7 @@ public final class SymlinkTreeHelper {
   public void createSymlinksUsingCommand(
       Path execRoot, BuildConfiguration config, BinTools binTools)
           throws CommandException {
-    List<String> argv = getSpawnArgumentList(execRoot, binTools);
+    List<String> argv = getSpawnArgumentList(execRoot, binTools.getExecPath(BUILD_RUNFILES));
     CommandBuilder builder = new CommandBuilder();
     builder.addArgs(argv);
     builder.setWorkingDir(execRoot);
@@ -114,22 +113,23 @@ public final class SymlinkTreeHelper {
       Artifact inputManifestArtifact,
       boolean enableRunfiles)
           throws ExecException, InterruptedException {
-    Preconditions.checkState(inputManifestArtifact.getPath().equals(inputManifest));
+    Preconditions.checkState(
+        actionExecutionContext.getInputPath(inputManifestArtifact).equals(inputManifest));
     if (enableRunfiles) {
+      Spawn spawn =
+          createSpawn(
+              owner,
+              actionExecutionContext.getExecRoot(),
+              binTools,
+              shellEnvironment,
+              inputManifestArtifact);
       return actionExecutionContext
-          .getSpawnActionContext(owner.getMnemonic())
-          .exec(
-              createSpawn(
-                  owner,
-                  actionExecutionContext.getExecRoot(),
-                  binTools,
-                  shellEnvironment,
-                  inputManifestArtifact),
-              actionExecutionContext);
+          .getSpawnActionContext(spawn)
+          .exec(spawn, actionExecutionContext);
     } else {
       // Pretend we created the runfiles tree by copying the manifest
       try {
-        FileSystemUtils.createDirectoryAndParents(symlinkTreeRoot);
+        symlinkTreeRoot.createDirectoryAndParents();
         FileSystemUtils.copyFile(inputManifest, symlinkTreeRoot.getChild("MANIFEST"));
       } catch (IOException e) {
         throw new UserExecException(e.getMessage(), e);
@@ -145,15 +145,16 @@ public final class SymlinkTreeHelper {
       BinTools binTools,
       ImmutableMap<String, String> environment,
       ActionInput inputManifestArtifact) {
+    ActionInput buildRunfiles = binTools.getActionInput(BUILD_RUNFILES);
     return new SimpleSpawn(
         owner,
-        getSpawnArgumentList(execRoot, binTools),
+        getSpawnArgumentList(execRoot, buildRunfiles.getExecPath()),
         environment,
         ImmutableMap.of(
             ExecutionRequirements.LOCAL, "",
             ExecutionRequirements.NO_CACHE, "",
             ExecutionRequirements.NO_SANDBOX, ""),
-        ImmutableList.of(inputManifestArtifact),
+        ImmutableList.of(inputManifestArtifact, buildRunfiles),
         /*outputs=*/ ImmutableList.of(),
         RESOURCE_SET);
   }
@@ -161,12 +162,9 @@ public final class SymlinkTreeHelper {
   /**
    * Returns the complete argument list build-runfiles has to be called with.
    */
-  private ImmutableList<String> getSpawnArgumentList(Path execRoot, BinTools binTools) {
-    PathFragment path = binTools.getExecPath(BUILD_RUNFILES);
-    Preconditions.checkNotNull(path, BUILD_RUNFILES + " not found in embedded tools");
-
+  private ImmutableList<String> getSpawnArgumentList(Path execRoot, PathFragment buildRunfiles) {
     List<String> args = Lists.newArrayList();
-    args.add(path.getPathString());
+    args.add(buildRunfiles.getPathString());
 
     if (filesetTree) {
       args.add("--allow_relative");

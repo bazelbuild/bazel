@@ -20,24 +20,33 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.IntegerValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.LibraryToLinkValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.SequenceBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequenceBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StructureBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValueBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.IntegerValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequenceBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StructureBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValueBuilder;
+import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.protobuf.TextFormat;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -46,11 +55,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for toolchain features.
- */
+/** Tests for toolchain features. */
 @RunWith(JUnit4.class)
-public class CcToolchainFeaturesTest {
+public class CcToolchainFeaturesTest extends FoundationTestCase {
 
   /**
    * Creates a {@code Variables} configuration from a list of key/value pairs.
@@ -58,7 +65,7 @@ public class CcToolchainFeaturesTest {
    * <p>If there are multiple entries with the same key, the variable will be treated as sequence
    * type.
    */
-  private Variables createVariables(String... entries) {
+  private CcToolchainVariables createVariables(String... entries) {
     if (entries.length % 2 != 0) {
       throw new IllegalArgumentException(
           "createVariables takes an even number of arguments (key/value pairs)");
@@ -67,7 +74,7 @@ public class CcToolchainFeaturesTest {
     for (int i = 0; i < entries.length; i += 2) {
       entryMap.put(entries[i], entries[i + 1]);
     }
-    Variables.Builder variables = new Variables.Builder();
+    CcToolchainVariables.Builder variables = new CcToolchainVariables.Builder();
     for (String name : entryMap.keySet()) {
       Collection<String> value = entryMap.get(name);
       if (value.size() == 1) {
@@ -85,7 +92,8 @@ public class CcToolchainFeaturesTest {
   public static CcToolchainFeatures buildFeatures(String... toolchain) throws Exception {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
-    return new CcToolchainFeatures(toolchainBuilder.buildPartial());
+    return new CcToolchainFeatures(
+        toolchainBuilder.buildPartial(), PathFragment.create("crosstool/"));
   }
 
   private Set<String> getEnabledFeatures(CcToolchainFeatures features,
@@ -99,6 +107,72 @@ public class CcToolchainFeaturesTest {
       }
     }
     return enabledFeatures.build();
+  }
+
+  private Artifact scratchArtifact(String s) {
+    Path execRoot = outputBase.getRelative("exec");
+    Path outputRoot = execRoot.getRelative("out");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outputRoot);
+    try {
+      return new Artifact(scratch.overwriteFile(outputRoot.getRelative(s).toString()), root);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Test
+  public void testFeatureConfigurationCodec() throws Exception {
+    FeatureConfiguration emptyConfiguration =
+        buildFeatures("").getFeatureConfiguration(ImmutableSet.of());
+    FeatureConfiguration emptyFeatures =
+        buildFeatures("feature {name: 'a'}", "feature {name: 'b'}")
+            .getFeatureConfiguration(ImmutableSet.of("a", "b"));
+    FeatureConfiguration featuresWithFlags =
+        buildFeatures(
+                "feature {",
+                "   name: 'a'",
+                "   flag_set {",
+                "      action: 'action-a'",
+                "      flag_group { flag: 'flag-a'}",
+                "   }",
+                "   flag_set {",
+                "      action: 'action-b'",
+                "      flag_group { flag: 'flag-b'}",
+                "   }",
+                "}",
+                "feature {",
+                "   name: 'b'",
+                "   flag_set {",
+                "      action: 'action-c'",
+                "      flag_group { flag: 'flag-c'}",
+                "   }",
+                "}")
+            .getFeatureConfiguration(ImmutableSet.of("a", "b"));
+    FeatureConfiguration featureWithEnvSet =
+        buildFeatures(
+                "feature {",
+                "   name: 'a'",
+                "   env_set {",
+                "      action: 'action-a'",
+                "      env_entry { key: 'foo', value: 'bar'}",
+                "      env_entry { key: 'baz', value: 'zee'}",
+                "   }",
+                "}")
+            .getFeatureConfiguration(ImmutableSet.of("a"));
+
+    new SerializationTester(emptyConfiguration, emptyFeatures, featuresWithFlags, featureWithEnvSet)
+        .runTests();
+  }
+
+  @Test
+  public void testCrosstoolProtoCanBeSerialized() throws Exception {
+    ObjectCodecs objectCodecs =
+        new ObjectCodecs(AutoRegistry.get().getBuilder().build(), ImmutableMap.of());
+    objectCodecs.serialize(CToolchain.WithFeatureSet.getDefaultInstance());
+    objectCodecs.serialize(CToolchain.VariableWithValue.getDefaultInstance());
+    objectCodecs.serialize(CToolchain.FlagGroup.getDefaultInstance());
+    objectCodecs.serialize(CToolchain.FlagSet.getDefaultInstance());
+    objectCodecs.serialize(CToolchain.EnvSet.getDefaultInstance());
   }
 
   @Test
@@ -227,7 +301,11 @@ public class CcToolchainFeaturesTest {
     return getExpansionOfFlag(value, createVariables());
   }
 
-  private List<String> getCommandLineForFlagGroups(String groups, Variables variables)
+  private String getExpansionOfFlag(String value, CcToolchainVariables variables) throws Exception {
+    return getCommandLineForFlag(value, variables).get(0);
+  }
+
+  private List<String> getCommandLineForFlagGroups(String groups, CcToolchainVariables variables)
       throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
@@ -242,12 +320,9 @@ public class CcToolchainFeaturesTest {
     return configuration.getCommandLine(CppCompileAction.CPP_COMPILE, variables);
   }
 
-  private List<String> getCommandLineForFlag(String value, Variables variables) throws Exception {
+  private List<String> getCommandLineForFlag(String value, CcToolchainVariables variables)
+      throws Exception {
     return getCommandLineForFlagGroups("flag_group { flag: '" + value + "' }", variables);
-  }
-
-  private String getExpansionOfFlag(String value, Variables variables) throws Exception {
-    return getCommandLineForFlag(value, variables).get(0);
   }
 
   private String getFlagParsingError(String value) throws Exception {
@@ -260,7 +335,8 @@ public class CcToolchainFeaturesTest {
     }
   }
 
-  private String getFlagExpansionError(String value, Variables variables) throws Exception {
+  private String getFlagExpansionError(String value, CcToolchainVariables variables)
+      throws Exception {
     try {
       getExpansionOfFlag(value, variables);
       fail("Expected ExpansionException");
@@ -270,7 +346,7 @@ public class CcToolchainFeaturesTest {
     }
   }
 
-  private String getFlagGroupsExpansionError(String flagGroups, Variables variables)
+  private String getFlagGroupsExpansionError(String flagGroups, CcToolchainVariables variables)
       throws Exception {
     try {
       getCommandLineForFlagGroups(flagGroups, variables).get(0);
@@ -296,7 +372,7 @@ public class CcToolchainFeaturesTest {
     assertThat(
             getCommandLineForFlagGroups(
                 "flag_group{ iterate_over: 'v' flag: '%{v}' }",
-                new Variables.Builder()
+                new CcToolchainVariables.Builder()
                     .addStringSequenceVariable("v", ImmutableList.<String>of())
                     .build()))
         .isEmpty();
@@ -309,23 +385,24 @@ public class CcToolchainFeaturesTest {
     assertThat(
             getCommandLineForFlagGroups(
                 "flag_group { iterate_over: 'lazy' flag: '-lazy-%{lazy}' }",
-                new Variables.Builder()
+                new CcToolchainVariables.Builder()
                     .addLazyStringSequenceVariable("lazy", () -> ImmutableList.of("a", "b", "c"))
                     .build()))
         .containsExactly("-lazy-a", "-lazy-b", "-lazy-c")
         .inOrder();
   }
 
-  private Variables createStructureSequenceVariables(String name, StructureBuilder... values) {
+  private CcToolchainVariables createStructureSequenceVariables(
+      String name, StructureBuilder... values) {
     SequenceBuilder builder = new SequenceBuilder();
     for (StructureBuilder value : values) {
       builder.addValue(value.build());
     }
-    return new Variables.Builder().addCustomBuiltVariable(name, builder).build();
+    return new CcToolchainVariables.Builder().addCustomBuiltVariable(name, builder).build();
   }
 
-  private Variables createStructureVariables(String name, StructureBuilder value) {
-    return new Variables.Builder().addCustomBuiltVariable(name, value).build();
+  private CcToolchainVariables createStructureVariables(String name, StructureBuilder value) {
+    return new CcToolchainVariables.Builder().addCustomBuiltVariable(name, value).build();
   }
 
   @Test
@@ -446,7 +523,7 @@ public class CcToolchainFeaturesTest {
                     + "    }"
                     + "  }"
                     + "}",
-                new Variables.Builder()
+                new CcToolchainVariables.Builder()
                     .addCustomBuiltVariable(
                         "struct",
                         new StructureBuilder()
@@ -467,7 +544,7 @@ public class CcToolchainFeaturesTest {
                     + "}",
                 createStructureVariables(
                     "struct",
-                    new Variables.StructureBuilder()
+                    new CcToolchainVariables.StructureBuilder()
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
         .containsExactly("-AfooValue", "-BbarValue");
@@ -484,7 +561,7 @@ public class CcToolchainFeaturesTest {
                     + "}",
                 createStructureVariables(
                     "struct",
-                    new Variables.StructureBuilder()
+                    new CcToolchainVariables.StructureBuilder()
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
         .isEmpty();
@@ -527,7 +604,7 @@ public class CcToolchainFeaturesTest {
                     + "}",
                 createStructureVariables(
                     "struct",
-                    new Variables.StructureBuilder()
+                    new CcToolchainVariables.StructureBuilder()
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
         .containsExactly("-AfooValue", "-BbarValue");
@@ -543,7 +620,8 @@ public class CcToolchainFeaturesTest {
                     + "  flag: '-B%{struct.bar}'"
                     + "}",
                 createStructureVariables(
-                    "struct", new Variables.StructureBuilder().addField("bar", "barValue"))))
+                    "struct",
+                    new CcToolchainVariables.StructureBuilder().addField("bar", "barValue"))))
         .isEmpty();
   }
 
@@ -561,7 +639,8 @@ public class CcToolchainFeaturesTest {
                     + "  }"
                     + "}",
                 createStructureVariables(
-                    "struct", new Variables.StructureBuilder().addField("bar", "barValue"))))
+                    "struct",
+                    new CcToolchainVariables.StructureBuilder().addField("bar", "barValue"))))
         .containsExactly("-BbarValue");
   }
 
@@ -630,7 +709,7 @@ public class CcToolchainFeaturesTest {
                     + "}",
                 createStructureVariables(
                     "struct",
-                    new Variables.StructureBuilder()
+                    new CcToolchainVariables.StructureBuilder()
                         .addField("bool", new IntegerValue(1))
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
@@ -653,7 +732,7 @@ public class CcToolchainFeaturesTest {
                     + "}",
                 createStructureVariables(
                     "struct",
-                    new Variables.StructureBuilder()
+                    new CcToolchainVariables.StructureBuilder()
                         .addField("bool", new IntegerValue(0))
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
@@ -766,8 +845,8 @@ public class CcToolchainFeaturesTest {
     }
   }
 
-  private Variables createNestedVariables(String name, int depth, int count) {
-    return new Variables.Builder()
+  private CcToolchainVariables createNestedVariables(String name, int depth, int count) {
+    return new CcToolchainVariables.Builder()
         .addCustomBuiltVariable(name, createNestedSequence(depth, count, ""))
         .build();
   }
@@ -1350,8 +1429,7 @@ public class CcToolchainFeaturesTest {
                 "   implies: 'action-a'",
                 "}")
             .getFeatureConfiguration(ImmutableSet.of("activates-action-a"));
-    PathFragment crosstoolPath = PathFragment.create("crosstool/");
-    PathFragment toolPath = configuration.getToolForAction("action-a").getToolPath(crosstoolPath);
+    PathFragment toolPath = configuration.getToolForAction("action-a").getToolPathFragment();
     assertThat(toolPath.toString()).isEqualTo("crosstool/toolchain/a");
   }
 
@@ -1399,65 +1477,42 @@ public class CcToolchainFeaturesTest {
             "  implies: 'action-a'",
             "}");
 
-    PathFragment crosstoolPath = PathFragment.create("crosstool/");
-
     FeatureConfiguration featureAConfiguration =
         toolchainFeatures.getFeatureConfiguration(
             ImmutableSet.of("feature-a", "activates-action-a"));
-    assertThat(
-            featureAConfiguration
-                .getToolForAction("action-a")
-                .getToolPath(crosstoolPath)
-                .toString())
+    assertThat(featureAConfiguration.getToolForAction("action-a").getToolPathFragment().toString())
         .isEqualTo("crosstool/toolchain/feature-a-and-not-c");
 
     FeatureConfiguration featureAAndCConfiguration =
         toolchainFeatures.getFeatureConfiguration(
             ImmutableSet.of("feature-a", "feature-c", "activates-action-a"));
     assertThat(
-            featureAAndCConfiguration
-                .getToolForAction("action-a")
-                .getToolPath(crosstoolPath)
-                .toString())
+            featureAAndCConfiguration.getToolForAction("action-a").getToolPathFragment().toString())
         .isEqualTo("crosstool/toolchain/feature-b-or-c");
 
     FeatureConfiguration featureBConfiguration =
         toolchainFeatures.getFeatureConfiguration(
             ImmutableSet.of("feature-b", "activates-action-a"));
-    assertThat(
-            featureBConfiguration
-                .getToolForAction("action-a")
-                .getToolPath(crosstoolPath)
-                .toString())
+    assertThat(featureBConfiguration.getToolForAction("action-a").getToolPathFragment().toString())
         .isEqualTo("crosstool/toolchain/feature-b-or-c");
 
     FeatureConfiguration featureCConfiguration =
         toolchainFeatures.getFeatureConfiguration(
             ImmutableSet.of("feature-c", "activates-action-a"));
-    assertThat(
-            featureCConfiguration
-                .getToolForAction("action-a")
-                .getToolPath(crosstoolPath)
-                .toString())
+    assertThat(featureCConfiguration.getToolForAction("action-a").getToolPathFragment().toString())
         .isEqualTo("crosstool/toolchain/feature-b-or-c");
 
     FeatureConfiguration featureAAndBConfiguration =
         toolchainFeatures.getFeatureConfiguration(
             ImmutableSet.of("feature-a", "feature-b", "activates-action-a"));
     assertThat(
-            featureAAndBConfiguration
-                .getToolForAction("action-a")
-                .getToolPath(crosstoolPath)
-                .toString())
+            featureAAndBConfiguration.getToolForAction("action-a").getToolPathFragment().toString())
         .isEqualTo("crosstool/toolchain/features-a-and-b");
 
     FeatureConfiguration noFeaturesConfiguration =
         toolchainFeatures.getFeatureConfiguration(ImmutableSet.of("activates-action-a"));
     assertThat(
-            noFeaturesConfiguration
-                .getToolForAction("action-a")
-                .getToolPath(crosstoolPath)
-                .toString())
+            noFeaturesConfiguration.getToolForAction("action-a").getToolPathFragment().toString())
         .isEqualTo("crosstool/toolchain/default");
   }
 
@@ -1481,13 +1536,11 @@ public class CcToolchainFeaturesTest {
             "  implies: 'action-a'",
             "}");
 
-    PathFragment crosstoolPath = PathFragment.create("crosstool/");
-
     FeatureConfiguration noFeaturesConfiguration =
         toolchainFeatures.getFeatureConfiguration(ImmutableSet.of("activates-action-a"));
 
     try {
-      noFeaturesConfiguration.getToolForAction("action-a").getToolPath(crosstoolPath);
+      noFeaturesConfiguration.getToolForAction("action-a").getToolPathFragment();
       fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertThat(e)
@@ -1626,19 +1679,24 @@ public class CcToolchainFeaturesTest {
                 .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.OBJECT_FILES_FIELD_NAME))
         .isNull();
 
+    ImmutableList<Artifact> testArtifacts =
+        ImmutableList.of(scratchArtifact("foo"), scratchArtifact("bar"));
+
     assertThat(
-            LibraryToLinkValue.forObjectFileGroup(ImmutableList.of("foo", "bar"), false)
+            LibraryToLinkValue.forObjectFileGroup(testArtifacts, false)
                 .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.NAME_FIELD_NAME))
         .isNull();
     Iterable<? extends VariableValue> objects =
-        LibraryToLinkValue.forObjectFileGroup(ImmutableList.of("foo", "bar"), false)
+        LibraryToLinkValue.forObjectFileGroup(testArtifacts, false)
             .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.OBJECT_FILES_FIELD_NAME)
             .getSequenceValue(LibraryToLinkValue.OBJECT_FILES_FIELD_NAME);
     ImmutableList.Builder<String> objectNames = ImmutableList.builder();
     for (VariableValue object : objects) {
       objectNames.add(object.getStringValue("name"));
     }
-    assertThat(objectNames.build()).containsExactly("foo", "bar");
+    assertThat(objectNames.build())
+        .containsExactlyElementsIn(
+            Iterables.transform(testArtifacts, testArtifact -> testArtifact.getExecPathString()));
   }
 
   @Test

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
@@ -21,7 +22,7 @@ import java.io.ObjectOutputStream;
  * bloat.
  */
 public final class EmptySkyValue implements SkyValue {
-  public static final EmptySkyValue INSTANCE = new EmptySkyValue();
+  @AutoCodec public static final EmptySkyValue INSTANCE = new EmptySkyValue();
 
   private EmptySkyValue() {}
 

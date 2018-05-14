@@ -20,16 +20,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -44,9 +41,6 @@ public class LateBoundSplitUtil {
   /** A custom {@link FragmentOptions} with the option to be split. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class TestOptions extends FragmentOptions { // public for options loader
-    public static final ObjectCodec<TestOptions> CODEC =
-        new LateBoundSplitUtil_TestOptions_AutoCodec();
-
     @Option(
       name = "foo",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -56,23 +50,21 @@ public class LateBoundSplitUtil {
     public String fooFlag;
   }
 
-  /**
-   * The split.
-   */
-  private static final SplitTransition SIMPLE_SPLIT =
-      (SplitTransition) buildOptions -> {
-        BuildOptions split1 = buildOptions.clone();
-        split1.get(TestOptions.class).fooFlag = "one";
-        BuildOptions split2 = buildOptions.clone();
-        split2.get(TestOptions.class).fooFlag = "two";
-        return ImmutableList.of(split1, split2);
-      };
+  /** The split. */
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final SplitTransition SIMPLE_SPLIT =
+      (SplitTransition)
+          buildOptions -> {
+            BuildOptions split1 = buildOptions.clone();
+            split1.get(TestOptions.class).fooFlag = "one";
+            BuildOptions split2 = buildOptions.clone();
+            split2.get(TestOptions.class).fooFlag = "two";
+            return ImmutableList.of(split1, split2);
+          };
 
   /** The {@link BuildConfiguration.Fragment} that contains the options. */
   @AutoCodec
   static class TestFragment extends BuildConfiguration.Fragment {
-    public static final ObjectCodec<TestFragment> CODEC =
-        new LateBoundSplitUtil_TestFragment_AutoCodec();
   }
 
   /**
@@ -80,9 +72,7 @@ public class LateBoundSplitUtil {
    */
   static class FragmentLoader implements ConfigurationFragmentFactory {
     @Override
-    public BuildConfiguration.Fragment create(ConfigurationEnvironment env,
-        BuildOptions buildOptions)
-        throws InvalidConfigurationException {
+    public BuildConfiguration.Fragment create(BuildOptions buildOptions) {
       return new TestFragment();
     }
 
@@ -111,7 +101,7 @@ public class LateBoundSplitUtil {
                                 .allowedRuleClasses(Attribute.ANY_RULE)
                                 .cfg(SIMPLE_SPLIT)
                                 .value(
-                                    Attribute.LateBoundDefault.fromConstant(
+                                    Attribute.LateBoundDefault.fromConstantForTesting(
                                         Label.parseAbsoluteUnchecked("//foo:latebound_dep"))))
                         .requiresConfigurationFragments(TestFragment.class);
                   });

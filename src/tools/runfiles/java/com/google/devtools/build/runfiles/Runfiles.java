@@ -14,8 +14,14 @@
 
 package com.google.devtools.build.runfiles;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -27,11 +33,22 @@ import java.util.Map;
  *   Runfiles runfiles = Runfiles.create();
  *   File p = new File(runfiles.rlocation("io_bazel/src/bazel"));
  * </pre>
+ *
+ * <p>If you want to start subprocesses that also need runfiles, you need to set the right
+ * environment variables for them:
+ *
+ * <pre>
+ *   String path = r.rlocation("path/to/binary");
+ *   ProcessBuilder pb = new ProcessBuilder(path);
+ *   pb.environment().putAll(r.getEnvVars());
+ *   ...
+ *   Process p = pb.start();
+ * </pre>
  */
 public abstract class Runfiles {
 
   // Package-private constructor, so only package-private classes may extend it.
-  Runfiles() {}
+  private Runfiles() {}
 
   /**
    * Returns a new {@link Runfiles} instance.
@@ -57,15 +74,15 @@ public abstract class Runfiles {
    * key's value in {@code env}.
    *
    * <p>Otherwise this method returns a directory-based implementation. The directory's path is
-   * defined by the "RUNFILES_DIR" or "TEST_SRCDIR" key's value in {@code env}, in this priority
-   * order.
+   * defined by the value in {@code env} under the "RUNFILES_DIR" key, or if absent, then under the
+   * "JAVA_RUNFILES" key.
    *
    * <p>Note about performance: the manifest-based implementation eagerly reads and caches the whole
    * manifest file upon instantiation.
    *
    * @throws IOException if RUNFILES_MANIFEST_ONLY=1 is in {@code env} but there's no
-   *     "RUNFILES_MANIFEST_FILE", or if neither "RUNFILES_DIR" nor "TEST_SRCDIR" is in {@code env},
-   *     or if some IO error occurs
+   *     "RUNFILES_MANIFEST_FILE", "RUNFILES_DIR", or "JAVA_RUNFILES" key in {@code env} or their
+   *     values are empty, or some IO error occurs
    */
   public static Runfiles create(Map<String, String> env) throws IOException {
     if (isManifestOnly(env)) {
@@ -89,18 +106,35 @@ public abstract class Runfiles {
    *
    * @param path runfiles-root-relative path of the runfile
    * @throws IllegalArgumentException if {@code path} fails validation, for example if it's null or
-   *     empty, it's absolute or contains uplevel references
+   *     empty, or not normalized (contains "./", "../", or "//")
    */
   public final String rlocation(String path) {
     Util.checkArgument(path != null);
     Util.checkArgument(!path.isEmpty());
-    Util.checkArgument(!path.contains(".."), "path contains uplevel references: \"%s\"", path);
     Util.checkArgument(
-        !new File(path).isAbsolute() && path.charAt(0) != File.separatorChar,
-        "path is absolute: \"%s\"",
+        !path.startsWith("../")
+            && !path.contains("/..")
+            && !path.startsWith("./")
+            && !path.contains("/./")
+            && !path.endsWith("/.")
+            && !path.contains("//"),
+        "path is not normalized: \"%s\"",
         path);
+    Util.checkArgument(
+        !path.startsWith("\\"), "path is absolute without a drive letter: \"%s\"", path);
+    if (new File(path).isAbsolute()) {
+      return path;
+    }
     return rlocationChecked(path);
   }
+
+  /**
+   * Returns environment variables for subprocesses.
+   *
+   * <p>The caller should add the returned key-value pairs to the environment of subprocesses in
+   * case those subprocesses are also Bazel-built binaries that need to use runfiles.
+   */
+  public abstract Map<String, String> getEnvVars();
 
   /** Returns true if the platform supports runfiles only via manifests. */
   private static boolean isManifestOnly(Map<String, String> env) {
@@ -118,18 +152,107 @@ public abstract class Runfiles {
   }
 
   private static String getRunfilesDir(Map<String, String> env) throws IOException {
-    // On Linux and macOS, Bazel sets RUNFILES_DIR and TEST_SRCDIR.
-    // Google-internal Blaze sets only TEST_SRCDIR.
     String value = env.get("RUNFILES_DIR");
     if (Util.isNullOrEmpty(value)) {
-      value = env.get("TEST_SRCDIR");
+      value = env.get("JAVA_RUNFILES");
     }
     if (Util.isNullOrEmpty(value)) {
       throw new IOException(
-          "Cannot find runfiles: $RUNFILES_DIR and $TEST_SRCDIR are both unset or empty");
+          "Cannot find runfiles: $RUNFILES_DIR and $JAVA_RUNFILES are both unset or empty");
     }
     return value;
   }
 
   abstract String rlocationChecked(String path);
+
+  /** {@link Runfiles} implementation that parses a runfiles-manifest file to look up runfiles. */
+  private static final class ManifestBased extends Runfiles {
+    private final Map<String, String> runfiles;
+    private final String manifestPath;
+
+    ManifestBased(String manifestPath) throws IOException {
+      Util.checkArgument(manifestPath != null);
+      Util.checkArgument(!manifestPath.isEmpty());
+      this.manifestPath = manifestPath;
+      this.runfiles = loadRunfiles(manifestPath);
+    }
+
+    private static Map<String, String> loadRunfiles(String path) throws IOException {
+      HashMap<String, String> result = new HashMap<>();
+      try (BufferedReader r =
+          new BufferedReader(
+              new InputStreamReader(new FileInputStream(path), StandardCharsets.UTF_8))) {
+        String line = null;
+        while ((line = r.readLine()) != null) {
+          int index = line.indexOf(' ');
+          String runfile = (index == -1) ? line : line.substring(0, index);
+          String realPath = (index == -1) ? line : line.substring(index + 1);
+          result.put(runfile, realPath);
+        }
+      }
+      return Collections.unmodifiableMap(result);
+    }
+
+    private static String findRunfilesDir(String manifest) {
+      if (manifest.endsWith("/MANIFEST")
+          || manifest.endsWith("\\MANIFEST")
+          || manifest.endsWith(".runfiles_manifest")) {
+        String path = manifest.substring(0, manifest.length() - 9);
+        if (new File(path).isDirectory()) {
+          return path;
+        }
+      }
+      return "";
+    }
+
+    @Override
+    public String rlocationChecked(String path) {
+      return runfiles.get(path);
+    }
+
+    @Override
+    public Map<String, String> getEnvVars() {
+      HashMap<String, String> result = new HashMap<>(4);
+      result.put("RUNFILES_MANIFEST_ONLY", "1");
+      result.put("RUNFILES_MANIFEST_FILE", manifestPath);
+      String runfilesDir = findRunfilesDir(manifestPath);
+      result.put("RUNFILES_DIR", runfilesDir);
+      // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can pick up RUNFILES_DIR.
+      result.put("JAVA_RUNFILES", runfilesDir);
+      return result;
+    }
+  }
+
+  /** {@link Runfiles} implementation that appends runfiles paths to the runfiles root. */
+  private static final class DirectoryBased extends Runfiles {
+    private final String runfilesRoot;
+
+    DirectoryBased(String runfilesDir) throws IOException {
+      Util.checkArgument(!Util.isNullOrEmpty(runfilesDir));
+      Util.checkArgument(new File(runfilesDir).isDirectory());
+      this.runfilesRoot = runfilesDir;
+    }
+
+    @Override
+    String rlocationChecked(String path) {
+      return runfilesRoot + "/" + path;
+    }
+
+    @Override
+    public Map<String, String> getEnvVars() {
+      HashMap<String, String> result = new HashMap<>(2);
+      result.put("RUNFILES_DIR", runfilesRoot);
+      // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can pick up RUNFILES_DIR.
+      result.put("JAVA_RUNFILES", runfilesRoot);
+      return result;
+    }
+  }
+
+  static Runfiles createManifestBasedForTesting(String manifestPath) throws IOException {
+    return new ManifestBased(manifestPath);
+  }
+
+  static Runfiles createDirectoryBasedForTesting(String runfilesDir) throws IOException {
+    return new DirectoryBased(runfilesDir);
+  }
 }

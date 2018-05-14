@@ -64,7 +64,7 @@ public class CollectionUtilsTest {
     NestedSet<Integer> ns2 = NestedSetBuilder.<Integer>linkOrder().add(1).add(2).add(3).build();
     assertThat(CollectionUtils.isImmutable(ns2)).isTrue();
 
-    IterablesChain<Integer> chain = IterablesChain.<Integer>builder().addElement(1).build();
+    Iterable<Integer> chain = IterablesChain.<Integer>builder().addElement(1).build();
 
     assertThat(CollectionUtils.isImmutable(chain)).isTrue();
 

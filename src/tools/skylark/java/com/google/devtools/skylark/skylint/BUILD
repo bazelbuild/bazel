@@ -16,6 +16,8 @@ java_library(
     srcs = glob(["**/*.java"]),
     visibility = ["//src/tools/skylark/javatests/com/google/devtools/skylark/skylint:__pkg__"],
     deps = [
+        # TODO(bazel-team): Once BazelLibrary has a Build API interface, depend
+        # on lib:skylarkbuildapi instead of on lib:packages.
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//third_party:guava",

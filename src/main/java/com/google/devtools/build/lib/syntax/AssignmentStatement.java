@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import java.io.IOException;
 
-/**
- * Syntax node for an assignment statement.
- */
+/** Syntax node for an assignment statement. */
 public final class AssignmentStatement extends Statement {
 
   private final LValue lvalue;

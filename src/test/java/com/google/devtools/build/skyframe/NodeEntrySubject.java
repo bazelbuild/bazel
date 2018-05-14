@@ -48,6 +48,6 @@ class NodeEntrySubject extends Subject<NodeEntrySubject, NodeEntry> {
   }
 
   private String detail(String descriptor) {
-    return descriptor + " for" + getDisplaySubject();
+    return descriptor + " for" + actualAsString();
   }
 }

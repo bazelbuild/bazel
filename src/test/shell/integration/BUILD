@@ -166,6 +166,7 @@ sh_test(
 sh_test(
     name = "incompatible_changes_conflict_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["incompatible_changes_conflict_test.sh"],
     data = [":test-deps"],
 )
@@ -242,6 +243,7 @@ sh_test(
 sh_test(
     name = "build_event_stream_test",
     size = "medium",
+    timeout = "long",
     srcs = ["build_event_stream_test.sh"],
     data = [":test-deps"],
     shard_count = 2,
@@ -282,9 +284,16 @@ sh_test(
 )
 
 sh_test(
-    name = "logging_test",
+    name = "server_logging_test",
     size = "medium",
-    srcs = ["logging_test.sh"],
+    srcs = ["server_logging_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "client_test",
+    size = "medium",
+    srcs = ["client_test.sh"],
     data = [":test-deps"],
 )
 
@@ -362,6 +371,13 @@ sh_test(
     name = "prelude_test",
     size = "medium",
     srcs = ["prelude_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "sandboxfs_test",
+    size = "medium",
+    srcs = ["sandboxfs_test.sh"],
     data = [":test-deps"],
 )
 

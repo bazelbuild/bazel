@@ -37,6 +37,15 @@ public class TestOptions extends OptionsBase {
   )
   public String testString;
 
+  @Option(
+    name = "test_string_null_by_default",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.NO_OP},
+    defaultValue = "null",
+    help = "a string-valued option that has the special string 'null' as its default."
+  )
+  public String testStringNullByDefault;
+
   /*
    * Repeated flags
    */

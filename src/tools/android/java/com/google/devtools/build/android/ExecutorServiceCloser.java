@@ -13,15 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /** Shutdowns and verifies that no tasks are running in the executor service. */
-final class ExecutorServiceCloser implements Closeable {
+final class ExecutorServiceCloser implements Closeable, ListeningExecutorService {
   private final ListeningExecutorService executorService;
 
   private ExecutorServiceCloser(ListeningExecutorService executorService) {
@@ -37,7 +44,12 @@ final class ExecutorServiceCloser implements Closeable {
     }
   }
 
-  public static Closeable createWith(ListeningExecutorService executorService) {
+  public static ExecutorServiceCloser createWithFixedPoolOf(int numThreads) {
+    return new ExecutorServiceCloser(
+        MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(numThreads)));
+  }
+
+  public static ExecutorServiceCloser createWith(ListeningExecutorService executorService) {
     return new ExecutorServiceCloser(executorService);
   }
 
@@ -53,5 +65,77 @@ final class ExecutorServiceCloser implements Closeable {
     final ListeningExecutorService executorService =
         MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(numThreads));
     return executorService;
+  }
+
+  // Delegate methods below
+
+  @Override
+  public <T> ListenableFuture<T> submit(Callable<T> task) {
+    return executorService.submit(task);
+  }
+
+  @Override
+  public ListenableFuture<?> submit(Runnable task) {
+    return executorService.submit(task);
+  }
+
+  @Override
+  public <T> ListenableFuture<T> submit(Runnable task, T result) {
+    return executorService.submit(task, result);
+  }
+
+  @Override
+  public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks)
+      throws InterruptedException {
+    return executorService.invokeAll(tasks);
+  }
+
+  @Override
+  public <T> List<Future<T>> invokeAll(
+      Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit)
+      throws InterruptedException {
+    return executorService.invokeAll(tasks, timeout, unit);
+  }
+
+  @Override
+  public void shutdown() {
+    executorService.shutdown();
+  }
+
+  @Override
+  public List<Runnable> shutdownNow() {
+    return executorService.shutdownNow();
+  }
+
+  @Override
+  public boolean isShutdown() {
+    return executorService.isShutdown();
+  }
+
+  @Override
+  public boolean isTerminated() {
+    return executorService.isTerminated();
+  }
+
+  @Override
+  public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+    return executorService.awaitTermination(timeout, unit);
+  }
+
+  @Override
+  public <T> T invokeAny(Collection<? extends Callable<T>> tasks)
+      throws InterruptedException, ExecutionException {
+    return executorService.invokeAny(tasks);
+  }
+
+  @Override
+  public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    return executorService.invokeAny(tasks, timeout, unit);
+  }
+
+  @Override
+  public void execute(Runnable command) {
+    executorService.execute(command);
   }
 }

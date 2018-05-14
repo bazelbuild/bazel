@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
@@ -45,9 +45,7 @@ public final class MutabilityTest {
 
   private void assertCheckMutableFailsBecauseFrozen(Freezable value, Mutability mutability) {
     MutabilityException expected =
-        expectThrows(
-            MutabilityException.class,
-            () -> Mutability.checkMutable(value, mutability));
+        assertThrows(MutabilityException.class, () -> Mutability.checkMutable(value, mutability));
     assertThat(expected).hasMessageThat().contains("trying to mutate a frozen object");
   }
 
@@ -150,9 +148,7 @@ public final class MutabilityTest {
     mutability.lock(dummy, locA);
     mutability.lock(dummy, locB);
     MutabilityException expected =
-        expectThrows(
-            MutabilityException.class,
-            () -> Mutability.checkMutable(dummy, mutability));
+        assertThrows(MutabilityException.class, () -> Mutability.checkMutable(dummy, mutability));
     assertThat(expected).hasMessageThat().contains(
         "trying to mutate a locked object (is it currently being iterated over by a for loop or "
             + "comprehension?)\nObject locked at the following location(s): /a:1, /b:1");
@@ -167,9 +163,7 @@ public final class MutabilityTest {
 
     mutability.lock(dummy, locA);
     IllegalArgumentException expected =
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> mutability.unlock(dummy, locB));
+        assertThrows(IllegalArgumentException.class, () -> mutability.unlock(dummy, locB));
     assertThat(expected).hasMessageThat().contains(
         "trying to unlock an object for a location at which it was not locked (/b:1)");
   }
@@ -194,9 +188,8 @@ public final class MutabilityTest {
     DummyFreezable dummy = new DummyFreezable(mutability1);
 
     IllegalArgumentException expected =
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> Mutability.checkMutable(dummy, mutability2));
+        assertThrows(
+            IllegalArgumentException.class, () -> Mutability.checkMutable(dummy, mutability2));
     assertThat(expected).hasMessageThat().contains(
         "trying to mutate an object from a different context");
   }
@@ -209,9 +202,7 @@ public final class MutabilityTest {
     Location loc = Location.fromPathFragment(PathFragment.create("/a"));
 
     IllegalArgumentException expected =
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> mutability2.lock(dummy, loc));
+        assertThrows(IllegalArgumentException.class, () -> mutability2.lock(dummy, loc));
     assertThat(expected).hasMessageThat().contains(
         "trying to lock an object from a different context");
   }
@@ -224,9 +215,7 @@ public final class MutabilityTest {
     Location loc = Location.fromPathFragment(PathFragment.create("/a"));
 
     IllegalArgumentException expected =
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> mutability2.unlock(dummy, loc));
+        assertThrows(IllegalArgumentException.class, () -> mutability2.unlock(dummy, loc));
     assertThat(expected).hasMessageThat().contains(
         "trying to unlock an object from a different context");
   }
@@ -240,10 +229,30 @@ public final class MutabilityTest {
 
     mutability1.lock(dummy, loc);
     IllegalArgumentException expected =
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> mutability2.isLocked(dummy));
+        assertThrows(IllegalArgumentException.class, () -> mutability2.isLocked(dummy));
     assertThat(expected).hasMessageThat().contains(
         "trying to check the lock of an object from a different context");
+  }
+
+  @Test
+  public void checkUnsafeShallowFreezePrecondition_FailsWhenAlreadyFrozen() throws Exception {
+    Mutability mutability = Mutability.create("test").freeze();
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Freezable.checkUnsafeShallowFreezePrecondition(new DummyFreezable(mutability)));
+  }
+
+  @Test
+  public void checkUnsafeShallowFreezePrecondition_FailsWhenDisallowed() throws Exception {
+    Mutability mutability = Mutability.create("test");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Freezable.checkUnsafeShallowFreezePrecondition(new DummyFreezable(mutability)));
+  }
+
+  @Test
+  public void checkUnsafeShallowFreezePrecondition_SucceedsWhenAllowed() throws Exception {
+    Mutability mutability = Mutability.createAllowingShallowFreeze("test");
+    Freezable.checkUnsafeShallowFreezePrecondition(new DummyFreezable(mutability));
   }
 }

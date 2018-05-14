@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -130,7 +132,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return null;
     }
 
@@ -233,9 +235,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public String computeKey(ActionKeyContext actionKeyContext) {
-      return "";
-    }
+    public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {}
 
     @Override
     public Artifact getVolatileStatus() {
@@ -331,7 +331,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return null;
     }
 

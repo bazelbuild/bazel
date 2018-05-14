@@ -68,12 +68,6 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     block.variables.addAll(builtinVariables);
     block.readOnlyVariables.addAll(builtinVariables);
     semantics = env.getSemantics();
-
-    // If the flag is set to false, it should be allowed to have `set`
-    // in non-executable parts of the code.
-    if (!env.getSemantics().incompatibleDisallowUncalledSetConstructor()) {
-      block.variables.add("set");
-    }
   }
 
   @Override
@@ -143,13 +137,9 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   @Override
   public void visit(AbstractComprehension node) {
-    if (semantics.incompatibleComprehensionVariablesDoNotLeak()) {
-      openBlock();
-      super.visit(node);
-      closeBlock();
-    } else {
-      super.visit(node);
-    }
+    openBlock();
+    super.visit(node);
+    closeBlock();
   }
 
   @Override
@@ -171,13 +161,11 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   @Override
   public void visit(IfStatement node) {
-    if (semantics.incompatibleDisallowToplevelIfStatement() && isTopLevel()) {
+    if (isTopLevel()) {
       throw new ValidationException(
           node.getLocation(),
           "if statements are not allowed at the top level. You may move it inside a function "
-          + "or use an if expression (x if condition else y). "
-          + "Use --incompatible_disallow_toplevel_if_statement=false to temporarily disable "
-          + "this check.");
+          + "or use an if expression (x if condition else y).");
     }
     super.visit(node);
   }

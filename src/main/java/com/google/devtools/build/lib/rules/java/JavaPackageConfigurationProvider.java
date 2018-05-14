@@ -20,14 +20,17 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 
 /** A provider for Java per-package configuration. */
+@AutoCodec
 @AutoValue
 @Immutable
 public abstract class JavaPackageConfigurationProvider implements TransitiveInfoProvider {
 
   /** Creates a {@link JavaPackageConfigurationProvider}. */
+  @AutoCodec.Instantiator
   public static JavaPackageConfigurationProvider create(
       List<PackageSpecificationProvider> packageSpecifications, List<String> javacopts) {
     return new AutoValue_JavaPackageConfigurationProvider(packageSpecifications, javacopts);

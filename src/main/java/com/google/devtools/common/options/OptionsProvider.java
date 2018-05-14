@@ -73,11 +73,13 @@ public interface OptionsProvider extends OptionsClassProvider {
   List<OptionValueDescription> asListOfOptionValues();
 
   /**
-   * Canonicalizes the list of options that this OptionsParser has parsed. The
-   * contract is that if the returned set of options is passed to an options
-   * parser with the same options classes, then that will have the same effect
-   * as using the original args (which are passed in here), except for cosmetic
-   * differences.
+   * Canonicalizes the list of options that this OptionsParser has parsed.
+   *
+   * <p>The contract is that if the returned set of options is passed to an options parser with the
+   * same options classes, then that will have the same effect as using the original args (which are
+   * passed in here), except for cosmetic differences. We do not guarantee that the 'canonical' list
+   * is unique, since some flags may have effects unknown to the parser (--config, for Bazel), so we
+   * do not reorder flags to further simplify the list.
    */
   List<String> canonicalize();
 }

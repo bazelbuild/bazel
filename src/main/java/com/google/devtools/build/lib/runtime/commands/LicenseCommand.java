@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -52,7 +53,7 @@ public class LicenseCommand implements BlazeCommand {
   }
 
   @Override
-  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
     env.getEventBus().post(new NoBuildEvent());
     OutErr outErr = env.getReporter().getOutErr();
 
@@ -81,7 +82,7 @@ public class LicenseCommand implements BlazeCommand {
       printJavaLicenseFiles(outErr, bundledJre);
     }
 
-    return ExitCode.SUCCESS;
+    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
 
   private static void printJavaLicenseFiles(OutErr outErr, Path bundledJdkOrJre) {

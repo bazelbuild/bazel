@@ -100,12 +100,12 @@ def _impl(ctx):
   # Bad, has to iterate over entire depset to get length
   if len(files) == 0:
     args.add("--files")
-    args.add(files)
+    args.add_all(files)
 
   # Good, O(1)
   if files:
     args.add("--files")
-    args.add(files)
+    args.add_all(files)
 ```
 
 ## Use `ctx.actions.args()` for command lines
@@ -154,15 +154,18 @@ def _impl(ctx):
   args.add("--foo")
   args.add(file)
 
+  # Use format if you prefer ["--foo=<file path>"] to ["--foo", <file path>]
+  args.add(format="--foo=%s", value=file)
+
   # Bad, makes a giant string of a whole depset
   args.add(" ".join(["-I%s" % file.short_path for file in files])
 
   # Good, only stores a reference to the depset
-  args.add(files, format="-I%s", map_fn=_to_short_path)
+  args.add_all(files, format_each="-I%s", map_each=_to_short_path)
 
-# Function passed to map_fn above
-def _to_short_path(files):
-  return [file.short_path for file in files]
+# Function passed to map_each above
+def _to_short_path(f):
+  return f.short_path
 ```
 
 ## Transitive action inputs should be depsets
@@ -207,7 +210,6 @@ You must pass these two startup flags to *every* Bazel invocation:
   ```
   **NOTE**: The bazel repository comes with an allocation instrumenter.
   Make sure to adjust '$(BAZEL)' for your repository location.
--->
 
 These start the server in memory tracking mode. If you forget these for even
 one Bazel invocation the server will restart and you will have to start over.
@@ -260,7 +262,6 @@ Next, we use the `pprof` tool to investigate the heap. A good starting point is
 getting a flame graph by using `pprof -flame $HOME/prof.gz`.
 
   You can get `pprof` from https://github.com/google/pprof.
--->
 
 In this case we get a text dump of the hottest call sites annotated with lines:
 

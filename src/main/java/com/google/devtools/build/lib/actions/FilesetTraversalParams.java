@@ -17,12 +17,16 @@ import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Parameters of a filesystem traversal requested by a Fileset rule.
@@ -60,15 +64,24 @@ public interface FilesetTraversalParams {
    * The root directory of a {@link DirectTraversal}.
    *
    * <ul>
-   * <li>The root of package traversals is the package directory, i.e. the parent of the BUILD file.
-   * <li>The root of "recursive" directory traversals is the directory's path.
-   * <li>The root of "file" traversals is the path of the file (or directory, or symlink) itself.
+   *   <li>The root of package traversals is the package directory, i.e. the parent of the BUILD
+   *       file.
+   *   <li>The root of "recursive" directory traversals is the directory's path.
+   *   <li>The root of "file" traversals is the path of the file (or directory, or symlink) itself.
    * </ul>
    *
    * <p>For the meaning of "recursive" and "file" traversals see {@link DirectTraversal}.
    */
+  @AutoCodec
   @AutoValue
   abstract class DirectTraversalRoot {
+
+    /**
+     * Returns the output Artifact corresponding to this traversal, if present. Only present when
+     * traversing a generated output.
+     */
+    @Nullable
+    public abstract Artifact getOutputArtifact();
 
     /**
      * Returns the root part of the full path.
@@ -90,18 +103,51 @@ public interface FilesetTraversalParams {
       return RootedPath.toRootedPath(getRootPart(), getRelativePart());
     }
 
+    @Override
+    public boolean equals(Object o) {
+      if (o == this) {
+        return true;
+      }
+      if (o instanceof FilesetTraversalParams.DirectTraversalRoot) {
+        FilesetTraversalParams.DirectTraversalRoot that =
+            (FilesetTraversalParams.DirectTraversalRoot) o;
+        // Careful! We must compare the artifact owners, which the default {@link Artifact#equals()}
+        // method does not do. See the comments on {@link ArtifactSkyKey} and http://b/73738481.
+        return Artifact.equalWithOwner(this.getOutputArtifact(), that.getOutputArtifact())
+            && (this.getRootPart().equals(that.getRootPart()))
+            && (this.getRelativePart().equals(that.getRelativePart()));
+      }
+      return false;
+    }
+
     @Memoized
     @Override
     public abstract int hashCode();
 
-    static DirectTraversalRoot forPackage(Artifact buildFile) {
-      return new AutoValue_FilesetTraversalParams_DirectTraversalRoot(
-          buildFile.getRoot().getRoot(), buildFile.getRootRelativePath().getParentDirectory());
+    public static DirectTraversalRoot forPackage(Artifact buildFile) {
+      return create(
+          null,
+          buildFile.getRoot().getRoot(),
+          buildFile.getRootRelativePath().getParentDirectory());
     }
 
-    static DirectTraversalRoot forFileOrDirectory(Artifact fileOrDirectory) {
+    public static DirectTraversalRoot forFileOrDirectory(Artifact fileOrDirectory) {
+      return create(
+          fileOrDirectory.isSourceArtifact() ? null : fileOrDirectory,
+          fileOrDirectory.getRoot().getRoot(),
+          fileOrDirectory.getRootRelativePath());
+    }
+
+    public static DirectTraversalRoot forRootedPath(RootedPath newPath) {
+      return create(null, newPath.getRoot(), newPath.getRootRelativePath());
+    }
+
+    @Instantiator
+    @VisibleForSerialization
+    static DirectTraversalRoot create(
+        @Nullable Artifact outputArtifact, Root rootPart, PathFragment relativePart) {
       return new AutoValue_FilesetTraversalParams_DirectTraversalRoot(
-          fileOrDirectory.getRoot().getRoot(), fileOrDirectory.getRootRelativePath());
+          outputArtifact, rootPart, relativePart);
     }
   }
 
@@ -123,6 +169,7 @@ public interface FilesetTraversalParams {
    * <p>See {@link DirectTraversal#getRoot()} for more details.
    */
   @AutoValue
+  @AutoCodec
   abstract class DirectTraversal {
 
     /** Returns the root of the traversal; see {@link DirectTraversalRoot}. */
@@ -189,11 +236,12 @@ public interface FilesetTraversalParams {
       return fp.digestAndReset();
     }
 
+    @AutoCodec.Instantiator
     static DirectTraversal getDirectTraversal(
         DirectTraversalRoot root,
         boolean isPackage,
-        boolean followSymlinks,
-        PackageBoundaryMode pkgBoundaryMode,
+        boolean followingSymlinks,
+        PackageBoundaryMode packageBoundaryMode,
         boolean isRecursive,
         boolean isGenerated) {
       return new AutoValue_FilesetTraversalParams_DirectTraversal(
@@ -201,8 +249,8 @@ public interface FilesetTraversalParams {
           isPackage,
           isRecursive,
           isGenerated,
-          followSymlinks,
-          pkgBoundaryMode);
+          followingSymlinks,
+          packageBoundaryMode);
     }
   }
 
@@ -213,7 +261,7 @@ public interface FilesetTraversalParams {
   PathFragment getDestPath();
 
   /** Returns a list of file basenames to be excluded from the output. May be empty. */
-  Set<String> getExcludedFiles();
+  ImmutableSortedSet<String> getExcludedFiles();
 
   /**
    * Returns the parameters of the direct traversal request, if any.

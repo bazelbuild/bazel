@@ -20,8 +20,9 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -80,7 +81,8 @@ public class CleanCommandRecommendsAsyncTest {
     String productName = TestConstants.PRODUCT_NAME;
     Scratch scratch = new Scratch();
     ServerDirectories serverDirectories =
-        new ServerDirectories(scratch.dir("install"), scratch.dir("output"));
+        new ServerDirectories(
+            scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
             .setFileSystem(scratch.getFileSystem())
@@ -98,13 +100,25 @@ public class CleanCommandRecommendsAsyncTest {
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
                   }
                 })
+            .addBlazeModule(
+                new BlazeModule() {
+                  @Override
+                  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
+                    return DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+                        runtime.getRuleClassProvider().getConfigurationOptions());
+                  }
+                })
             .build();
     BlazeDirectories directories =
-        new BlazeDirectories(serverDirectories, scratch.dir("workspace"), productName);
+        new BlazeDirectories(
+            serverDirectories,
+            scratch.dir("workspace"),
+            /* defaultSystemJavabase= */ null,
+            productName);
     runtime.initWorkspace(directories, /* binTools= */ null);
 
     BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, new CleanCommand(os));
-    dispatcher.exec(commandLine, LockingMode.ERROR_OUT, "test", outErr);
+    dispatcher.exec(commandLine, "test", outErr);
     String output = outErr.toString();
 
     if (expectSuggestion) {

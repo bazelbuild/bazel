@@ -195,8 +195,14 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testSlashOperatorIsForbidden() throws Exception {
+    newTest("--incompatible_disallow_slash_operator=true")
+        .testIfErrorContains("The `/` operator has been removed.", "5 / 2");
+  }
+
+  @Test
   public void testDivision() throws Exception {
-    newTest()
+    newTest("--incompatible_disallow_slash_operator=false")
         .testStatement("6 / 2", 3)
         .testStatement("6 / 4", 1)
         .testStatement("3 / 6", 0)
@@ -224,7 +230,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testCheckedArithmetic() throws Exception {
-    new SkylarkTest("--incompatible_checked_arithmetic=true")
+    new SkylarkTest()
         .testIfErrorContains("integer overflow", "2000000000 + 2000000000")
         .testIfErrorContains("integer overflow", "1234567890 * 987654321")
         .testIfErrorContains("integer overflow", "- 2000000000 - 2000000000")
@@ -384,15 +390,9 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictWithDuplicatedKey() throws Exception {
-    new SkylarkTest("--incompatible_dict_literal_has_no_duplicates=true")
+    new SkylarkTest()
         .testIfErrorContains(
             "Duplicated key \"str\" when creating dictionary", "{'str': 1, 'x': 2, 'str': 3}");
-  }
-
-  @Test
-  public void testDictAllowDuplicatedKey() throws Exception {
-    new SkylarkTest("--incompatible_dict_literal_has_no_duplicates=false")
-        .testStatement("{'str': 1, 'x': 2, 'str': 3}", ImmutableMap.of("str", 3, "x", 2));
   }
 
   @Test
@@ -673,12 +673,14 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testDictKeysTooManyArgs() throws Exception {
     newTest().testIfExactError(
-        "too many (2) positional arguments in call to keys(self: dict)", "{'a': 1}.keys('abc')");
+        "expected no more than 0 positional arguments, but got 1, "
+            + "in method call keys(string) of 'dict'", "{'a': 1}.keys('abc')");
   }
 
   @Test
   public void testDictKeysTooManyKeyArgs() throws Exception {
-    newTest().testIfExactError("unexpected keyword 'arg' in call to keys(self: dict)",
+    newTest().testIfExactError(
+        "unexpected keyword 'arg', in method call keys(string arg) of 'dict'",
         "{'a': 1}.keys(arg='abc')");
   }
 
@@ -691,8 +693,8 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testArgBothPosKey() throws Exception {
     newTest().testIfErrorContains(
-        "arguments 'old', 'new' passed both by position and by name "
-        + "in call to replace(self: string, ",
-        "'banana'.replace('a', 'o', 3, old='a', new=4)");
+        "got multiple values for keyword argument 'old', "
+            + "in method call replace(string, string, int, string old) of 'string'",
+        "'banana'.replace('a', 'o', 3, old='a')");
   }
 }

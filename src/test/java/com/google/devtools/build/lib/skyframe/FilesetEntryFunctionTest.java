@@ -90,12 +90,13 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     ExternalFilesHelper externalFilesHelper =
-        new ExternalFilesHelper(
+        ExternalFilesHelper.createForTesting(
             pkgLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             new BlazeDirectories(
-                new ServerDirectories(outputBase, outputBase),
+                new ServerDirectories(outputBase, outputBase, outputBase),
                 rootDirectory,
+                /* defaultSystemJavabase= */ null,
                 TestConstants.PRODUCT_NAME));
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();

@@ -89,13 +89,49 @@ public class BadOperationCheckerTest {
         .contains(
             "2:1-2:9: '+' operator is deprecated");
 
+    Truth.assertThat(findIssues("foo = depset()", "bar = foo", "bar + baz").toString())
+        .contains(
+            "3:1-3:9: '+' operator is deprecated");
+
     Truth.assertThat(findIssues("foo = depset()", "foo += bar").toString())
         .contains(
-            "2:1-2:10: '+' operator is deprecated");
+            "2:1-2:10: '+=' operator is deprecated");
 
     Truth.assertThat(findIssues("foo += depset()").toString())
         .contains(
-            "1:1-1:15: '+' operator is deprecated");
+            "1:1-1:15: '+=' operator is deprecated");
+  }
+
+  @Test
+  public void dictPlusOperator() {
+    Truth.assertThat(findIssues("foo + dict()").toString())
+        .contains(
+            "1:1-1:12: '+' operator is deprecated and should not be used on dictionaries "
+            + "[deprecated-plus-dict]");
+
+    Truth.assertThat(findIssues("foo = dict()", "foo + bar").toString())
+        .contains(
+            "2:1-2:9: '+' operator is deprecated");
+
+    Truth.assertThat(findIssues("foo = dict()", "bar = foo", "bar + baz").toString())
+        .contains(
+            "3:1-3:9: '+' operator is deprecated");
+
+    Truth.assertThat(findIssues("foo = dict()", "foo += bar").toString())
+        .contains(
+            "2:1-2:10: '+=' operator is deprecated");
+
+    Truth.assertThat(findIssues("foo += dict()").toString())
+        .contains(
+            "1:1-1:13: '+=' operator is deprecated");
+
+    Truth.assertThat(findIssues("foo += { 5:3 }").toString())
+        .contains(
+            "1:1-1:14: '+=' operator is deprecated");
+
+    Truth.assertThat(findIssues("foo = { 5:3 }", "bar = foo", "bar + baz").toString())
+        .contains(
+            "3:1-3:9: '+' operator is deprecated");
   }
 
   @Test
@@ -108,5 +144,12 @@ public class BadOperationCheckerTest {
   public void plusOperatorNoIssue() {
     Truth.assertThat(findIssues("foo + bar")).isEmpty();
     Truth.assertThat(findIssues("foo += bar")).isEmpty();
+  }
+
+  @Test
+  public void divisionOperator() {
+    Truth.assertThat(findIssues("5 / 2").toString())
+        .contains("1:1-1:5: '/' operator is deprecated");
+    Truth.assertThat(findIssues("5 // 2")).isEmpty();
   }
 }

@@ -18,12 +18,12 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -102,7 +102,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         eventCollector,
         "The revision of the Android NDK referenced by android_ndk_repository rule 'androidndk' "
             + "could not be determined (the revision string found is 'not a valid release string')."
-            + " Defaulting to revision 14.");
+            + " Bazel will attempt to treat the NDK as if it was r16.");
   }
 
   @Test
@@ -128,7 +128,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         eventCollector,
         "The revision of the Android NDK referenced by android_ndk_repository rule 'androidndk' "
             + "could not be determined (the revision string found is 'invalid package revision'). "
-            + "Defaulting to revision 14.");
+            + "Bazel will attempt to treat the NDK as if it was r16.");
   }
 
   @Test
@@ -145,15 +145,16 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "/ndk/source.properties",
         "Pkg.Desc = Android NDK",
-        "Pkg.Revision = 15.0.3675639-beta2");
+        "Pkg.Revision = 17.0.3675639-beta2");
     invalidatePackages();
 
     assertThat(getConfiguredTarget("@androidndk//:files")).isNotNull();
     MoreAsserts.assertContainsEvent(
         eventCollector,
         "The major revision of the Android NDK referenced by android_ndk_repository rule "
-            + "'androidndk' is 15. The major revisions supported by Bazel are [10, 11, 12, 13, 14]."
-            + " Defaulting to revision 14.");
+            + "'androidndk' is 17. The major revisions supported by Bazel are "
+            + "[10, 11, 12, 13, 14, 15, 16]. Bazel will attempt to treat the NDK as if it was "
+            + "r16.");
   }
 
   @Test
@@ -169,7 +170,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         ")");
     invalidatePackages();
 
-    ConfiguredTarget cpufeatures = getConfiguredTarget("@androidndk//:cpufeatures");
+    ConfiguredTargetAndData cpufeatures = getConfiguredTargetAndData("@androidndk//:cpufeatures");
     assertThat(cpufeatures).isNotNull();
     AttributeContainer attributes =
         cpufeatures.getTarget().getAssociatedRule().getAttributeContainer();

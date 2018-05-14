@@ -39,12 +39,11 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.PackageNameConstraint;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
@@ -77,8 +76,7 @@ public class BazelJavaRuleClasses {
           JavaSemantics.JAVA_LIBRARY_SOURCE_JAR);
 
   public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_CC_LINK_PARAMS =
-      ImmutableList.of(
-          SkylarkProviderIdentifier.forKey(CcLinkParamsInfo.PROVIDER.getKey()));
+      ImmutableList.of(SkylarkProviderIdentifier.forKey(CcLinkingInfo.PROVIDER.getKey()));
 
   /**
    * Meant to be the value of {@code mandatoryProvidersLists} in order for the rule to provide only
@@ -92,7 +90,7 @@ public class BazelJavaRuleClasses {
    */
   public static final class JavaBaseRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr(":jvm", LABEL)
               .value(JavaSemantics.jvmAttribute(env))
@@ -135,7 +133,7 @@ public class BazelJavaRuleClasses {
    */
   public static final class JavaRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the target.
@@ -288,7 +286,7 @@ public class BazelJavaRuleClasses {
   public static final class BaseJavaBinaryRule implements RuleDefinition {
 
     @Override
-    public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
       Label launcher = env.getLauncherLabel();
       if (launcher != null) {
         builder.add(attr("$launcher", LABEL).cfg(HostTransition.INSTANCE).value(launcher));

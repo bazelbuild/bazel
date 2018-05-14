@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.util.io.LoggingTerminalWriter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -167,6 +168,38 @@ public class ExperimentalEventHandler implements EventHandler {
     }
   }
 
+  /**
+   * An output stream that wraps another output stream and that fully buffers writes until flushed.
+   */
+  private static class FullyBufferedOutputStream extends ByteArrayOutputStream {
+    /** The (possibly unbuffered) stream wrapped by this one. */
+    private final OutputStream wrapped;
+
+    /**
+     * Constructs a new fully-buffered output stream that wraps an unbuffered one.
+     *
+     * @param wrapped the (possibly unbuffered) stream wrapped by this one
+     */
+    FullyBufferedOutputStream(OutputStream wrapped) {
+      this.wrapped = wrapped;
+    }
+
+    @Override
+    public void flush() throws IOException {
+      super.flush();
+      try {
+        writeTo(wrapped);
+        wrapped.flush();
+      } finally {
+        // If we failed to write our current buffered contents to the output, there is not much
+        // we can do because reporting an error would require another write, and that write would
+        // probably fail. So, instead, we silently discard whatever was previously buffered in the
+        // hopes that the data itself was what caused the problem.
+        reset();
+      }
+    }
+  }
+
   public ExperimentalEventHandler(
       OutErr outErr, BlazeCommandEventHandler.Options options, Clock clock) {
     this.outputLimit = options.experimentalUiLimitConsoleOutput;
@@ -181,7 +214,11 @@ public class ExperimentalEventHandler implements EventHandler {
       this.outErr = outErr;
     }
     this.cursorControl = options.useCursorControl();
-    this.terminal = new AnsiTerminal(this.outErr.getErrorStream());
+    // This class constructs complex, multi-line ANSI terminal sequences. Sending each individual
+    // write to the console directly causes flicker, so we use a fully-buffered stream to ensure
+    // each update is sent with just one write. (This means that the implementation in this file
+    // must be explicit about calling terminal.flush() every time an update has to be presented.)
+    this.terminal = new AnsiTerminal(new FullyBufferedOutputStream(this.outErr.getErrorStream()));
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.showProgress = options.showProgress;
     this.progressInTermTitle = options.progressInTermTitle && options.useCursorControl();
@@ -493,7 +530,26 @@ public class ExperimentalEventHandler implements EventHandler {
       buildRunning = false;
     }
     stopUpdateThread();
-    flushStdOutStdErrBuffers();
+    synchronized (this) {
+      try {
+        // If a progress bar is currently present, clean it and redraw it.
+        boolean progressBarPresent = numLinesProgressBar > 0;
+        if (progressBarPresent) {
+          clearProgressBar();
+        }
+        terminal.flush();
+        boolean incompleteLine = flushStdOutStdErrBuffers();
+        if (incompleteLine) {
+          crlf();
+        }
+        if (progressBarPresent) {
+          addProgressBar();
+        }
+        terminal.flush();
+      } catch (IOException e) {
+        logger.warning("IO Error writing to output stream: " + e);
+      }
+    }
   }
 
   @Subscribe
@@ -517,8 +573,7 @@ public class ExperimentalEventHandler implements EventHandler {
     synchronized (this) {
       buildRunning = true;
     }
-    stopUpdateThread();
-    flushStdOutStdErrBuffers();
+    completeBuild();
     try {
       terminal.resetTerminal();
       terminal.flush();

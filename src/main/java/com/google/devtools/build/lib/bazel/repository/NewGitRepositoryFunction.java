@@ -19,8 +19,12 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.NewRepositoryFileHandler;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.util.Map;
 
 /**
@@ -35,6 +39,22 @@ public class NewGitRepositoryFunction extends GitRepositoryFunction {
   public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
       BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
+    // Deprecation in favor of the Skylark variant.
+    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (skylarkSemantics == null) {
+      return null;
+    }
+    if (skylarkSemantics.incompatibleRemoveNativeGitRepository()) {
+      throw new RepositoryFunctionException(
+          new EvalException(null,
+              "The native git_repository rule is deprecated."
+              + " load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"git_repository\") for a"
+              + " replacement."
+              + "\nUse --incompatible_remove_native_git_repository=false to temporarily continue"
+              + " using the native rule."),
+          Transience.PERSISTENT);
+    }
+
     NewRepositoryFileHandler fileHandler = new NewRepositoryFileHandler(directories.getWorkspace());
     if (!fileHandler.prepareFile(rule, env)) {
       return null;

@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import java.util.Collection;
-import java.util.Map.Entry;
+import java.util.Map;
 
 /**
  * Helpers for implementing rules which export Proguard specs.
@@ -68,7 +68,7 @@ public final class ProguardLibrary {
   public NestedSet<Artifact> collectProguardSpecs(Multimap<Mode, String> attributes) {
     NestedSetBuilder<Artifact> specsBuilder = NestedSetBuilder.naiveLinkOrder();
 
-    for (Entry<Mode, String> attribute : attributes.entries()) {
+    for (Map.Entry<Mode, String> attribute : attributes.entries()) {
       specsBuilder.addTransitive(
           collectProguardSpecsFromAttribute(attribute.getValue(), attribute.getKey()));
     }
@@ -89,7 +89,7 @@ public final class ProguardLibrary {
   /**
    * Collects the unvalidated proguard specs exported by this rule.
    */
-  private Collection<Artifact> collectLocalProguardSpecs() {
+  public ImmutableList<Artifact> collectLocalProguardSpecs() {
     if (!ruleContext.attributes().has(LOCAL_SPEC_ATTRIBUTE, BuildType.LABEL_LIST)) {
       return ImmutableList.of();
     }

@@ -26,33 +26,46 @@ nav: docs
            <h3>Home</h3>
             <ul class="sidebar-nav">
               <li><a href="/versions/{{ site.version }}/bazel-overview.html">Bazel Overview</a></li>
+              <li><a href="/versions/{{ site.version }}/getting-started.html">Getting Started</a></li>
               <li><a href="/versions/{{ site.version }}/experimental.html">Experimental Features</a></li>
-            </ul>
-
-            <h3>Installing Bazel</h3>
-           <ul class="sidebar-nav">
-              <li><a href="/versions/{{ site.version }}/install.html">Installation Overview</a></li>
-              <li><a href="/versions/{{ site.version }}/install-ubuntu.html">Installing on Ubuntu</a></li>
-              <li><a href="/versions/{{ site.version }}/install-redhat.html">Installing on Fedora/CentOS</a></li>
-              <li><a href="/versions/{{ site.version }}/install-os-x.html">Installing on macOS</a></li>
-              <li><a href="/versions/{{ site.version }}/install-windows.html">Installing on Windows</a></li>
-              <li><a href="/versions/{{ site.version }}/install-compile-source.html">Compiling from Source</a></li>
-              <li><a href="/versions/{{ site.version }}/ide.html">Integrating with IDEs</a></li>
-            </ul>
-
-          <h3>Tutorials</h3>
-           <ul class="sidebar-nav">
-              <li><a href="/versions/{{ site.version }}/tutorial/java.html">Building a Java Project</a></li>
-              <li><a href="/versions/{{ site.version }}/tutorial/cpp.html">Building a C++ Project</a></li>
-              <li><a href="/versions/{{ site.version }}/tutorial/android-app.html">Building an Android App</a></li>
-              <li><a href="/versions/{{ site.version }}/tutorial/ios-app.html">Building an iOS App</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/tutorial-sharing-variables.html">Sharing Variables</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/tutorial-creating-a-macro.html">Creating Macros</a></li>
             </ul>
 
            <h3>Using Bazel</h3>
             <ul class="sidebar-nav">
-              <li><a href="/versions/{{ site.version }}/getting-started.html">Getting Started</a></li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#installing-menu" aria-expanded="false"
+                    aria-controls="installing-menu">
+                  Installing Bazel<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="installing-menu">
+                   <li><a href="/versions/{{ site.version }}/install.html">Installation Overview</a></li>
+                   <li><a href="/versions/{{ site.version }}/install-ubuntu.html">Installing on Ubuntu</a></li>
+                   <li><a href="/versions/{{ site.version }}/install-redhat.html">Installing on Fedora/CentOS</a></li>
+                   <li><a href="/versions/{{ site.version }}/install-os-x.html">Installing on macOS</a></li>
+                   <li><a href="/versions/{{ site.version }}/install-windows.html">Installing on Windows</a></li>
+                   <li><a href="/versions/{{ site.version }}/install-compile-source.html">Compiling from Source</a></li>
+                   <li><a href="/versions/{{ site.version }}/ide.html">Integrating with IDEs</a></li>
+                 </ul>
+                </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#tutorials-menu" aria-expanded="false"
+                    aria-controls="tutorials-menu">
+                  Tutorials<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="tutorials-menu">
+                   <li><a href="/versions/{{ site.version }}/tutorial/java.html">Building a Java Project</a></li>
+                   <li><a href="/versions/{{ site.version }}/tutorial/cpp.html">Building a C++ Project</a></li>
+                   <li><a href="/versions/{{ site.version }}/tutorial/android-app.html">Building an Android App</a></li>
+                   <li><a href="/versions/{{ site.version }}/tutorial/ios-app.html">Building an iOS App</a></li>
+                   <li><a href="/versions/{{ site.version }}/skylark/tutorial-sharing-variables.html">Sharing Variables</a></li>
+                   <li><a href="/versions/{{ site.version }}/skylark/tutorial-creating-a-macro.html">Creating a Macro</a></li>
+                 </ul>
+              </li>
+
               <li><a href="/versions/{{ site.version }}/user-manual.html">User Manual</a></li>
 
               <li>
@@ -109,6 +122,7 @@ nav: docs
               <li><a href="/versions/{{ site.version }}/query-how-to.html">Querying Builds</a></li>
               <li><a href="/versions/{{ site.version }}/test-encyclopedia.html">Writing Tests</a></li>
               <li><a href="/versions/{{ site.version }}/best-practices.html">Best Practices</a></li>
+              <li><a href="/versions/{{ site.version }}/remote-caching.html">Remote Caching</a></li>
              </ul>
 
           <h3>Reference</h3>
@@ -159,7 +173,7 @@ nav: docs
                     </ul></li>
                </ul></li>
 
-             <li><a href="/versions/{{ site.version }}/skylark/build-style.html">BUILD File Reference</a></li>
+             <li><a href="/versions/{{ site.version }}/skylark/build-style.html">BUILD Style Guide</a></li>
              <li><a href="/versions/{{ site.version }}/command-line-reference.html">Command Line Reference</a></li>
              <li><a href="/versions/{{ site.version }}/build-event-protocol.html">Build Event Protocol</a></li>
              <li><a href="/versions/{{ site.version }}/query.html">Bazel Query Language</a></li>
@@ -170,7 +184,7 @@ nav: docs
 
             <h3>Extending Bazel</h3>
            <ul class="sidebar-nav">
-              <li><a href="/versions/{{ site.version }}/skylark/concepts.html">Overview</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/concepts.html">Extension Overview</a></li>
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
@@ -184,6 +198,7 @@ nav: docs
                   <li><a href="/versions/{{ site.version }}/skylark/depsets.html">Depsets</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/aspects.html">Aspects</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/repository_rules.html">Repository Rules</a></li>
+                  <li><a href="/versions/{{ site.version }}/skylark/faq.html">FAQ</a></li>
                 </ul>
               </li>
 
@@ -194,8 +209,9 @@ nav: docs
                   Best Practices<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="skylark-practices">
-                  <li><a href="/versions/{{ site.version }}/skylark/bzl-style.html">Readability Guidelines</a></li>
+                  <li><a href="/versions/{{ site.version }}/skylark/bzl-style.html">.bzl Style Guide</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/backward-compatibility.html">Backward Compatibility</a></li>
+                  <li><a href="/versions/{{ site.version }}/skylark/testing.html">Testing</a></li>
                   <li><a href="https://skydoc.bazel.build" target="_blank">Documenting Rules</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/skylint.html">Linter</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/performance.html">Optimizing Performance</a></li>
@@ -205,7 +221,7 @@ nav: docs
 
               <li><a href="https://github.com/bazelbuild/examples/tree/master/rules">Examples</a></li>
               <li><a href="/versions/{{ site.version }}/skylark/lib/skylark-overview.html">API Reference</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/language.html">Skylark Language Reference</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/language.html">Skylark Language</a></li>
             </ul>
           </nav>
         </div>
@@ -223,7 +239,7 @@ nav: docs
                 && window.location.pathname.lastIndexOf('/skylark/lib/') == -1) {
               var docFile = window.location.pathname.match(versionDocsURLRegex)[1];
               // some pages are not using markdown :(
-              if (docFile !== 'bazel-user-manual.html'
+              if (docFile !== 'user-manual.html'
                   && docFile !== 'build-ref.html'
                   && docFile !== 'query.html'
                   && docFile !== 'test-encyclopedia.html') {

@@ -50,8 +50,7 @@ public class StrictDepsUtils {
       return JavaCompilationArgsProvider.create(
           nonStrictDirectJars.build(),
           strictCompProvider.getRecursiveJavaCompilationArgs(),
-          strictCompProvider.getCompileTimeJavaDependencyArtifacts(),
-          strictCompProvider.getRunTimeJavaDependencyArtifacts());
+          strictCompProvider.getCompileTimeJavaDependencyArtifacts());
     }
   }
 
@@ -62,13 +61,13 @@ public class StrictDepsUtils {
    */
   public static JavaCompilationArgs createNonStrictCompilationArgsProvider(
       Iterable<JavaProtoLibraryAspectProvider> deps,
-      JavaCompilationArgs directJars,
+      JavaCompilationArgsProvider directJars,
       ImmutableList<TransitiveInfoCollection> protoRuntimes) {
     JavaCompilationArgs.Builder result = JavaCompilationArgs.builder();
     for (JavaProtoLibraryAspectProvider p : deps) {
       result.addTransitiveArgs(p.getNonStrictCompArgs(), BOTH);
     }
-    result.addTransitiveArgs(directJars, BOTH);
+    result.addTransitiveCompilationArgs(directJars, /* recursive= */ false, BOTH);
     for (TransitiveInfoCollection t : protoRuntimes) {
       JavaCompilationArgsProvider p = JavaInfo.getProvider(JavaCompilationArgsProvider.class, t);
       if (p != null) {

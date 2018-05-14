@@ -38,9 +38,14 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -85,7 +90,6 @@ public final class PrintActionCommand implements BlazeCommand {
       name = "print_action_mnemonics",
       allowMultiple = true,
       defaultValue = "",
-      category = "print_action",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -96,7 +100,7 @@ public final class PrintActionCommand implements BlazeCommand {
   }
 
   @Override
-  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
     LoadingOptions loadingOptions =
         options.getOptions(LoadingOptions.class);
 
@@ -104,7 +108,7 @@ public final class PrintActionCommand implements BlazeCommand {
     PrintActionRunner runner = new PrintActionRunner(loadingOptions.compileOneDependency, options,
         env.getReporter().getOutErr(),
         options.getResidue(), Sets.newHashSet(printActionOptions.printActionMnemonics));
-    return runner.printActionsForTargets(env);
+    return BlazeCommandResult.exitCode(runner.printActionsForTargets(env));
   }
 
   /**
@@ -126,8 +130,7 @@ public final class PrintActionCommand implements BlazeCommand {
       this.options = options;
       this.outErr = outErr;
       this.requestedTargets = requestedTargets;
-      KeepGoingOption keepGoingOption = options.getOptions(KeepGoingOption.class);
-      keepGoing = keepGoingOption.keepGoing;
+      keepGoing = options.getOptions(KeepGoingOption.class).keepGoing;
       summaryBuilder = ExtraActionSummary.newBuilder();
       actionMnemonicMatcher = new Predicate<ActionAnalysisMetadata>() {
         @Override
@@ -182,12 +185,25 @@ public final class PrintActionCommand implements BlazeCommand {
             if (compileOneDependency) {
               gatherActionsForFiles(
                   configuredTarget,
+                  env,
                   actionGraph,
                   env.getSkyframeExecutor().getActionKeyContext(),
                   targets);
             } else {
+              Target target = null;
+              try {
+                target =
+                    env.getPackageManager()
+                        .getTarget(env.getReporter(), configuredTarget.getLabel());
+              } catch (NoSuchTargetException | NoSuchPackageException | InterruptedException e) {
+                env.getReporter().handle(Event.error("Failed to find target to gather actions."));
+                return null;
+              }
               gatherActionsForTarget(
-                  configuredTarget, actionGraph, env.getSkyframeExecutor().getActionKeyContext());
+                  configuredTarget,
+                  target,
+                  actionGraph,
+                  env.getSkyframeExecutor().getActionKeyContext());
             }
           } catch (CommandLineExpansionException e) {
             env.getReporter().handle(Event.error(null, "Error expanding command line: " + e));
@@ -206,6 +222,7 @@ public final class PrintActionCommand implements BlazeCommand {
 
     private BuildResult gatherActionsForFiles(
         ConfiguredTarget configuredTarget,
+        CommandEnvironment env,
         ActionGraph actionGraph,
         ActionKeyContext actionKeyContext,
         List<String> files)
@@ -213,16 +230,17 @@ public final class PrintActionCommand implements BlazeCommand {
       Set<String> filesDesired = new LinkedHashSet<>(files);
       ActionFilter filter = new DefaultActionFilter(filesDesired, actionMnemonicMatcher);
 
-      gatherActionsForFile(configuredTarget, filter, actionGraph, actionKeyContext);
+      gatherActionsForFile(configuredTarget, filter, env, actionGraph, actionKeyContext);
       return null;
     }
 
     private void gatherActionsForTarget(
         ConfiguredTarget configuredTarget,
+        Target target,
         ActionGraph actionGraph,
         ActionKeyContext actionKeyContext)
         throws CommandLineExpansionException {
-      if (!(configuredTarget.getTarget() instanceof Rule)) {
+      if (!(target instanceof Rule)) {
         return;
       }
 
@@ -252,6 +270,7 @@ public final class PrintActionCommand implements BlazeCommand {
     private void gatherActionsForFile(
         ConfiguredTarget configuredTarget,
         ActionFilter filter,
+        CommandEnvironment env,
         ActionGraph actionGraph,
         ActionKeyContext actionKeyContext)
         throws CommandLineExpansionException {
@@ -264,7 +283,7 @@ public final class PrintActionCommand implements BlazeCommand {
 
       for (Artifact artifact : artifacts) {
         ActionAnalysisMetadata action = actionGraph.getGeneratingAction(artifact);
-        if (filter.shouldOutput(action, configuredTarget, actionGraph)) {
+        if (filter.shouldOutput(action, configuredTarget, env)) {
           if (action instanceof Action) {
             DetailedExtraActionInfo.Builder detail = DetailedExtraActionInfo.newBuilder();
             detail.setAction(((Action) action).getExtraActionInfo(actionKeyContext));
@@ -281,24 +300,25 @@ public final class PrintActionCommand implements BlazeCommand {
 
   /** Filter for extra actions. */
   private interface ActionFilter {
-    /**
-     * Returns true if the given action is not null and should be printed.
-     */
-    boolean shouldOutput(ActionAnalysisMetadata action, ConfiguredTarget configuredTarget,
-        ActionGraph actionGraph);
+    /** Returns true if the given action is not null and should be printed. */
+    boolean shouldOutput(
+        ActionAnalysisMetadata action, ConfiguredTarget configuredTarget, CommandEnvironment env);
   }
 
   /**
    * C++ headers are not plain vanilla action inputs: they do not show up in Action.getInputs(),
    * since the actual set of header files is the one discovered during include scanning.
    *
-   * <p>However, since there is a scheduling dependency on the header files, we can use the
-   * system to implement said scheduling dependency to figure them out. Thus, we go a-fishing in
-   * the action graph reaching through error propagating middlemen: one of these exists for each
-   * {@code CppCompilationContext} in the transitive closure of the rule.
+   * <p>However, since there is a scheduling dependency on the header files, we can use the system
+   * to implement said scheduling dependency to figure them out. Thus, we go a-fishing in the action
+   * graph reaching through error propagating middlemen: one of these exists for each {@code
+   * CcCompilationContext} in the transitive closure of the rule.
    */
-   private static void expandRecursiveHelper(ActionGraph actionGraph, Iterable<Artifact> artifacts,
-       Set<Artifact> visited, Set<Artifact> result) {
+  private static void expandRecursiveHelper(
+      ActionGraph actionGraph,
+      Iterable<Artifact> artifacts,
+      Set<Artifact> visited,
+      Set<Artifact> result) {
     for (Artifact artifact : artifacts) {
       if (!visited.add(artifact)) {
         continue;
@@ -343,14 +363,17 @@ public final class PrintActionCommand implements BlazeCommand {
     }
 
     @Override
-    public boolean shouldOutput(ActionAnalysisMetadata action, ConfiguredTarget configuredTarget,
-        ActionGraph actionGraph) {
+    public boolean shouldOutput(
+        ActionAnalysisMetadata action, ConfiguredTarget configuredTarget, CommandEnvironment env) {
       if (action == null) {
         return false;
       }
       // Check all the inputs for the configured target against the file we want argv for.
       Set<Artifact> expandedArtifacts = Sets.newHashSet();
-      expandRecursive(actionGraph, action.getInputs(), expandedArtifacts);
+      expandRecursive(
+          env.getSkyframeExecutor().getActionGraph(env.getReporter()),
+          action.getInputs(),
+          expandedArtifacts);
       for (Artifact input : expandedArtifacts) {
         if (filesDesired.remove(input.getRootRelativePath().getSafePathString())) {
           return actionMnemonicMatcher.apply(action);
@@ -360,11 +383,21 @@ public final class PrintActionCommand implements BlazeCommand {
       // C++ header files show up in the dependency on the Target, but not the ConfiguredTarget, so
       // we also check the target's header files there.
       RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
-      if (!ruleConfiguredTarget.getTarget().isAttrDefined("hdrs", BuildType.LABEL_LIST)) {
+      Rule rule;
+      try {
+        rule =
+            (Rule)
+                env.getPackageManager().getTarget(env.getReporter(), configuredTarget.getLabel());
+      } catch (NoSuchTargetException | NoSuchPackageException | InterruptedException e) {
+        env.getReporter().handle(Event.error("Failed to find target to determine output."));
         return false;
       }
-      List<Label> hdrs = ruleConfiguredTarget.getAttributeMapper()
-          .get("hdrs", BuildType.LABEL_LIST);
+      if (!rule.isAttrDefined("hdrs", BuildType.LABEL_LIST)) {
+        return false;
+      }
+      List<Label> hdrs =
+          ConfiguredAttributeMapper.of(rule, ruleConfiguredTarget.getConfigConditions())
+              .get("hdrs", BuildType.LABEL_LIST);
       if (hdrs != null) {
         for (Label hdrLabel : hdrs) {
           if (filesDesired.remove(hdrLabel.toPathFragment().getPathString())) {

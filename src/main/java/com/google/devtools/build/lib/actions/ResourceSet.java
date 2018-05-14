@@ -16,19 +16,20 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 /**
- * Instances of this class represent an estimate of the resource consumption
- * for a particular Action, or the total available resources.  We plan to
- * use this to do smarter scheduling of actions, for example making sure
- * that we don't schedule jobs concurrently if they would use so much
- * memory as to cause the machine to thrash.
+ * Instances of this class represent an estimate of the resource consumption for a particular
+ * Action, or the total available resources. We plan to use this to do smarter scheduling of
+ * actions, for example making sure that we don't schedule jobs concurrently if they would use so
+ * much memory as to cause the machine to thrash.
  */
 @Immutable
+@AutoCodec
 public class ResourceSet {
 
   /** For actions that consume negligible resources. */
@@ -48,7 +49,7 @@ public class ResourceSet {
    * workstation.
    */
   private final double ioUsage;
-  
+
   private ResourceSet(double memoryMb, double cpuUsage, double ioUsage, int localTestCount) {
     this.memoryMb = memoryMb;
     this.cpuUsage = cpuUsage;
@@ -79,12 +80,13 @@ public class ResourceSet {
 
   /**
    * Returns a new ResourceSet with the provided values for memoryMb, cpuUsage, ioUsage, and
-   * localTestCount. Most action resource definitions should use
-   * {@link #createWithRamCpuIo(double, double, double)} or {@link #createWithLocalTestCount(int)}.
-   * Use this method primarily when constructing ResourceSets that represent available resources.
+   * localTestCount. Most action resource definitions should use {@link #createWithRamCpuIo(double,
+   * double, double)} or {@link #createWithLocalTestCount(int)}. Use this method primarily when
+   * constructing ResourceSets that represent available resources.
    */
-  public static ResourceSet create(double memoryMb, double cpuUsage, double ioUsage,
-      int localTestCount) {
+  @AutoCodec.Instantiator
+  public static ResourceSet create(
+      double memoryMb, double cpuUsage, double ioUsage, int localTestCount) {
     if (memoryMb == 0 && cpuUsage == 0 && ioUsage == 0 && localTestCount == 0) {
       return ZERO;
     }

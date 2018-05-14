@@ -17,22 +17,26 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.actions.CustomCommandLine.builder;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Consumer;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -169,14 +173,14 @@ public class CustomCommandLineTest {
         .inOrder();
     assertThat(
             builder()
-                .addAll(VectorArg.of(list(foo("1"), foo("2"))).mapped(Foo::str))
+                .addAll(VectorArg.of(list(foo("1"), foo("2"))).mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("1", "2")
         .inOrder();
     assertThat(
             builder()
-                .addAll(VectorArg.of(nestedSet(foo("1"), foo("2"))).mapped(Foo::str))
+                .addAll(VectorArg.of(nestedSet(foo("1"), foo("2"))).mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("1", "2")
@@ -211,14 +215,15 @@ public class CustomCommandLineTest {
         .inOrder();
     assertThat(
             builder()
-                .addAll("--arg", VectorArg.of(list(foo("1"), foo("2"))).mapped(Foo::str))
+                .addAll("--arg", VectorArg.of(list(foo("1"), foo("2"))).mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("--arg", "1", "2")
         .inOrder();
     assertThat(
             builder()
-                .addAll("--arg", VectorArg.of(nestedSet(foo("1"), foo("2"))).mapped(Foo::str))
+                .addAll(
+                    "--arg", VectorArg.of(nestedSet(foo("1"), foo("2"))).mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("--arg", "1", "2")
@@ -272,14 +277,17 @@ public class CustomCommandLineTest {
         .inOrder();
     assertThat(
             builder()
-                .addAll(VectorArg.join(":").each(list(foo("1"), foo("2"))).mapped(Foo::str))
+                .addAll(VectorArg.join(":").each(list(foo("1"), foo("2"))).mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("1:2")
         .inOrder();
     assertThat(
             builder()
-                .addAll(VectorArg.join(":").each(nestedSet(foo("1"), foo("2"))).mapped(Foo::str))
+                .addAll(
+                    VectorArg.join(":")
+                        .each(nestedSet(foo("1"), foo("2")))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("1:2")
@@ -337,7 +345,8 @@ public class CustomCommandLineTest {
     assertThat(
             builder()
                 .addAll(
-                    "--arg", VectorArg.join(":").each(list(foo("1"), foo("2"))).mapped(Foo::str))
+                    "--arg",
+                    VectorArg.join(":").each(list(foo("1"), foo("2"))).mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("--arg", "1:2")
@@ -346,7 +355,9 @@ public class CustomCommandLineTest {
             builder()
                 .addAll(
                     "--arg",
-                    VectorArg.join(":").each(nestedSet(foo("1"), foo("2"))).mapped(Foo::str))
+                    VectorArg.join(":")
+                        .each(nestedSet(foo("1"), foo("2")))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("--arg", "1:2")
@@ -404,7 +415,10 @@ public class CustomCommandLineTest {
         .inOrder();
     assertThat(
             builder()
-                .addAll(VectorArg.format("-D%s").each(list(foo("1"), foo("2"))).mapped(Foo::str))
+                .addAll(
+                    VectorArg.format("-D%s")
+                        .each(list(foo("1"), foo("2")))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("-D1", "-D2")
@@ -412,7 +426,9 @@ public class CustomCommandLineTest {
     assertThat(
             builder()
                 .addAll(
-                    VectorArg.format("-D%s").each(nestedSet(foo("1"), foo("2"))).mapped(Foo::str))
+                    VectorArg.format("-D%s")
+                        .each(nestedSet(foo("1"), foo("2")))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("-D1", "-D2")
@@ -472,7 +488,9 @@ public class CustomCommandLineTest {
             builder()
                 .addAll(
                     "--arg",
-                    VectorArg.format("-D%s").each(list(foo("1"), foo("2"))).mapped(Foo::str))
+                    VectorArg.format("-D%s")
+                        .each(list(foo("1"), foo("2")))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("--arg", "-D1", "-D2")
@@ -481,7 +499,9 @@ public class CustomCommandLineTest {
             builder()
                 .addAll(
                     "--arg",
-                    VectorArg.format("-D%s").each(nestedSet(foo("1"), foo("2"))).mapped(Foo::str))
+                    VectorArg.format("-D%s")
+                        .each(nestedSet(foo("1"), foo("2")))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("--arg", "-D1", "-D2")
@@ -546,7 +566,7 @@ public class CustomCommandLineTest {
                     VectorArg.format("-D%s")
                         .join(":")
                         .each(list(foo("1"), foo("2")))
-                        .mapped(Foo::str))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("-D1:-D2")
@@ -557,7 +577,7 @@ public class CustomCommandLineTest {
                     VectorArg.format("-D%s")
                         .join(":")
                         .each(nestedSet(foo("1"), foo("2")))
-                        .mapped(Foo::str))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("-D1:-D2")
@@ -624,7 +644,7 @@ public class CustomCommandLineTest {
                     VectorArg.format("-D%s")
                         .join(":")
                         .each(list(foo("1"), foo("2")))
-                        .mapped(Foo::str))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("--arg", "-D1:-D2")
@@ -636,7 +656,7 @@ public class CustomCommandLineTest {
                     VectorArg.format("-D%s")
                         .join(":")
                         .each(nestedSet(foo("1"), foo("2")))
-                        .mapped(Foo::str))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("--arg", "-D1:-D2")
@@ -694,7 +714,10 @@ public class CustomCommandLineTest {
         .inOrder();
     assertThat(
             builder()
-                .addAll(VectorArg.addBefore("-D").each(list(foo("1"), foo("2"))).mapped(Foo::str))
+                .addAll(
+                    VectorArg.addBefore("-D")
+                        .each(list(foo("1"), foo("2")))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("-D", "1", "-D", "2")
@@ -702,7 +725,9 @@ public class CustomCommandLineTest {
     assertThat(
             builder()
                 .addAll(
-                    VectorArg.addBefore("-D").each(nestedSet(foo("1"), foo("2"))).mapped(Foo::str))
+                    VectorArg.addBefore("-D")
+                        .each(nestedSet(foo("1"), foo("2")))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("-D", "1", "-D", "2")
@@ -768,7 +793,7 @@ public class CustomCommandLineTest {
                     VectorArg.addBefore("-D")
                         .format("D%s")
                         .each(list(foo("1"), foo("2")))
-                        .mapped(Foo::str))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("-D", "D1", "-D", "D2")
@@ -779,26 +804,11 @@ public class CustomCommandLineTest {
                     VectorArg.addBefore("-D")
                         .format("D%s")
                         .each(nestedSet(foo("1"), foo("2")))
-                        .mapped(Foo::str))
+                        .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
         .containsExactly("-D", "D1", "-D", "D2")
         .inOrder();
-  }
-
-  @Test
-  public void testCustomMultiArgs() {
-    CustomCommandLine cl =
-        builder()
-            .addCustomMultiArgv(
-                new CustomMultiArgv() {
-                  @Override
-                  public ImmutableList<String> argv() {
-                    return ImmutableList.of("--arg1", "--arg2");
-                  }
-                })
-            .build();
-    assertThat(cl.arguments()).containsExactly("--arg1", "--arg2").inOrder();
   }
 
   @Test
@@ -865,7 +875,6 @@ public class CustomCommandLineTest {
             .addExecPaths("foo", NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .addAll("foo", VectorArg.of((NestedSet<String>) null))
             .addAll("foo", VectorArg.of(NestedSetBuilder.<String>emptySet(Order.STABLE_ORDER)))
-            .addCustomMultiArgv(null)
             .addPlaceholderTreeArtifactExecPath("foo", null)
             .build();
     assertThat(cl.arguments()).isEmpty();
@@ -873,8 +882,8 @@ public class CustomCommandLineTest {
 
   @Test
   public void testTreeFileArtifactExecPathArgs() {
-    Artifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
-    Artifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
+    SpecialArtifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
+    SpecialArtifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
 
     CustomCommandLine commandLineTemplate =
         builder()
@@ -900,6 +909,43 @@ public class CustomCommandLineTest {
   }
 
   @Test
+  public void testKeyComputation() {
+    NestedSet<String> values = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
+    ImmutableList<CustomCommandLine> commandLines =
+        ImmutableList.<CustomCommandLine>builder()
+            .add(builder().add("arg").build())
+            .add(builder().addFormatted("--foo=%s", "arg").build())
+            .add(builder().addPrefixed("--foo=%s", "arg").build())
+            .add(builder().addAll(values).build())
+            .add(builder().addAll(VectorArg.addBefore("--foo=%s").each(values)).build())
+            .add(builder().addAll(VectorArg.join("--foo=%s").each(values)).build())
+            .add(builder().addAll(VectorArg.format("--foo=%s").each(values)).build())
+            .add(
+                builder()
+                    .addAll(VectorArg.of(values).mapped((s, args) -> args.accept(s + "_mapped")))
+                    .build())
+            .build();
+
+    // Ensure all these command lines have distinct keys
+    ActionKeyContext actionKeyContext = new ActionKeyContext();
+    Map<String, CustomCommandLine> digests = new HashMap<>();
+    for (CustomCommandLine commandLine : commandLines) {
+      Fingerprint fingerprint = new Fingerprint();
+      commandLine.addToFingerprint(actionKeyContext, fingerprint);
+      String digest = fingerprint.hexDigestAndReset();
+      CustomCommandLine previous = digests.putIfAbsent(digest, commandLine);
+      if (previous != null) {
+        fail(
+            String.format(
+                "Found two command lines with identical digest %s: '%s' and '%s'",
+                digest,
+                Joiner.on(' ').join(previous.arguments()),
+                Joiner.on(' ').join(commandLine.arguments())));
+      }
+    }
+  }
+
+  @Test
   public void testTreeFileArtifactArgThrowWithoutSubstitution() {
     Artifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
     Artifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
@@ -918,10 +964,9 @@ public class CustomCommandLineTest {
     }
   }
 
-  private Artifact createTreeArtifact(String rootRelativePath) {
+  private SpecialArtifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
     return new SpecialArtifact(
-        rootDir.getRoot().getRelative(relpath),
         rootDir,
         rootDir.getExecPath().getRelative(relpath),
         ArtifactOwner.NullArtifactOwner.INSTANCE,
@@ -929,7 +974,7 @@ public class CustomCommandLineTest {
   }
 
   private TreeFileArtifact createTreeFileArtifact(
-      Artifact inputTreeArtifact, String parentRelativePath) {
+      SpecialArtifact inputTreeArtifact, String parentRelativePath) {
     return ActionInputHelper.treeFileArtifact(
         inputTreeArtifact,
         PathFragment.create(parentRelativePath));
@@ -954,8 +999,8 @@ public class CustomCommandLineTest {
       this.str = str;
     }
 
-    static String str(Foo foo) {
-      return foo.str;
+    static void expandToStr(Foo foo, Consumer<String> args) {
+      args.accept(foo.str);
     }
   }
 }

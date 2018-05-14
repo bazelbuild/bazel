@@ -14,7 +14,7 @@ cc_test(
     deps = [
         "//src/main/cpp/util",
         "//src/main/cpp/util:md5",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -32,7 +32,7 @@ cc_test(
     deps = [
         ":test_util",
         "//src/main/cpp/util:file",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ] + select({
         "//src/conditions:windows": [
             ":windows_test_util",
@@ -48,8 +48,9 @@ cc_test(
     deps = [
         "//src/main/cpp:blaze_util",
         "//src/main/cpp/util:bazel_log_handler",
+        "//src/main/cpp/util:file",
         "//src/main/cpp/util:logging",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -58,7 +59,7 @@ cc_test(
     srcs = ["numbers_test.cc"],
     deps = [
         "//src/main/cpp/util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -68,7 +69,7 @@ cc_test(
     shard_count = 2,
     deps = [
         "//src/main/cpp/util:strings",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -99,7 +100,7 @@ cc_test(
     deps = select({
         "//src/conditions:windows": [
             ":windows_test_util",
-            "//third_party:gtest",
+            "@com_google_googletest//:gtest_main",
         ],
         "//conditions:default": [],
     }),

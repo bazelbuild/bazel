@@ -15,14 +15,13 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
@@ -46,16 +45,19 @@ import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -430,10 +432,11 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testNonLabelAttrWithProviders() throws Exception {
     checkErrorContains(
-        "unexpected keyword 'providers' in call to string", "attr.string(providers = ['a'])");
+        "unexpected keyword 'providers', in method call string(list providers)",
+        "attr.string(providers = ['a'])");
   }
 
-  private static final RuleClass.ConfiguredTargetFactory<Object, Object>
+  private static final RuleClass.ConfiguredTargetFactory<Object, Object, Exception>
       DUMMY_CONFIGURED_TARGET_FACTORY =
           ruleContext -> {
             throw new IllegalStateException();
@@ -483,24 +486,24 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testLabelAttrDefaultValueAsStringBadValue() throws Exception {
     checkErrorContains(
         "invalid label '/foo:bar' in parameter 'default' of attribute 'label': "
-            + "invalid label: /foo:bar",
+            + "invalid target name '/foo:bar'",
         "attr.label(default = '/foo:bar')");
 
     checkErrorContains(
         "invalid label '/bar:foo' in element 1 of parameter 'default' of attribute "
-            + "'label_list': invalid label: /bar:foo",
+            + "'label_list': invalid target name '/bar:foo'",
         "attr.label_list(default = ['//foo:bar', '/bar:foo'])");
 
     checkErrorContains(
-        "invalid label '/bar:foo' in dict key element: invalid label: /bar:foo",
+        "invalid label '/bar:foo' in dict key element: invalid target name '/bar:foo'",
         "attr.label_keyed_string_dict(default = {'//foo:bar': 'a', '/bar:foo': 'b'})");
   }
 
   @Test
   public void testAttrDefaultValueBadType() throws Exception {
     checkErrorContains(
-        "argument 'default' has type 'int', but should be 'string'\n"
-            + "in call to builtin function attr.string(*, default, doc, mandatory, values)",
+        "expected value of type 'string' for parameter 'default', "
+            + "in method call string(int default) of 'attr (a language module)'",
         "attr.string(default = 1)");
   }
 
@@ -528,7 +531,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testAttrBadKeywordArguments() throws Exception {
     checkErrorContains(
-        "unexpected keyword 'bad_keyword' in call to string", "attr.string(bad_keyword = '')");
+        "unexpected keyword 'bad_keyword', in method call string(string bad_keyword) "
+            + "of 'attr (a language module)'",
+        "attr.string(bad_keyword = '')");
   }
 
   @Test
@@ -540,7 +545,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testAttrCfgData() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'data', allow_files = True)");
-    assertThat(attr.getConfigurationTransition()).isEqualTo(ConfigurationTransitionProxy.DATA);
+    assertThat(attr.getConfigurationTransition()).isEqualTo(DisableLipoTransition.INSTANCE);
   }
 
   @Test
@@ -588,8 +593,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testAttrDocValueBadType() throws Exception {
     checkErrorContains(
-        "argument 'doc' has type 'int', but should be 'string'\n"
-            + "in call to builtin function attr.string(*, default, doc, mandatory, values)",
+        "expected value of type 'string' for parameter 'doc', "
+            + "in method call string(int doc) of 'attr (a language module)'",
         "attr.string(doc = 1)");
   }
 
@@ -608,8 +613,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testLateBoundAttrWorksWithOnlyLabel() throws Exception {
     checkEvalError(
-        "argument 'default' has type 'function', but should be 'string'\n"
-            + "in call to builtin function attr.string(*, default, doc, mandatory, values)",
+        "expected value of type 'string' for parameter 'default', "
+            + "in method call string(function default) of 'attr (a language module)'",
         "def attr_value(cfg): return 'a'",
         "attr.string(default=attr_value)");
   }
@@ -732,7 +737,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testRuleBadTypeForDoc() throws Exception {
     registerDummyUserDefinedFunction();
     checkErrorContains(
-        "argument 'doc' has type 'int', but should be 'string'",
+        "expected string for 'doc' while calling rule but got int instead",
         "rule(impl, doc = 1)");
   }
 
@@ -787,6 +792,15 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     Object result = evalRuleClassCode("FileType(['.css'])");
     SkylarkFileType fts = (SkylarkFileType) result;
     assertThat(fts.getExtensions()).isEqualTo(ImmutableList.of(".css"));
+  }
+
+  @Test
+  public void testFileTypeIsDisabled() throws Exception {
+    SkylarkSemantics semantics =
+        SkylarkSemantics.DEFAULT_SEMANTICS.toBuilder().incompatibleDisallowFileType(true).build();
+    EvalException expected =
+        assertThrows(EvalException.class, () -> evalRuleClassCode(semantics, "FileType(['.css'])"));
+    assertThat(expected).hasMessageThat().contains("FileType function is not available.");
   }
 
   @Test
@@ -911,8 +925,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testLabelAttrWrongDefault() throws Exception {
     checkErrorContains(
-        "expected value of type 'string' for parameter 'default' of attribute 'label', "
-            + "but got 123 (int)",
+        "expected value of type 'Label or string or LateBoundDefault or "
+            + "function or NoneType' for parameter 'default', in method call "
+            + "label(int default) of 'attr (a language module)'",
         "attr.label(default = 123)");
   }
 
@@ -1307,7 +1322,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void declaredProvidersBadTypeForDoc() throws Exception {
     checkErrorContains(
-        "argument 'doc' has type 'int', but should be 'string'",
+        "expected string for 'doc' while calling provider but got int instead",
         "provider(doc = 1)");
   }
 
@@ -1435,7 +1450,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     );
     MoreAsserts.assertContainsEvent(ev.getEventCollector(),
         " Illegal argument: element in 'provides' is of unexpected type."
-            + " Should be list of providers, but got int. ");
+            + " Should be list of providers, but got item of type int. ");
   }
 
   @Test
@@ -1450,7 +1465,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void aspectBadTypeForDoc() throws Exception {
     registerDummyUserDefinedFunction();
     checkErrorContains(
-        "argument 'doc' has type 'int', but should be 'string'",
+        "expected string for 'doc' while calling aspect but got int instead",
         "aspect(impl, doc = 1)");
   }
 
@@ -1599,9 +1614,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
       "my_rule(name = 'main', exe = ':tool.sh')"
     );
 
-    AssertionError expected = expectThrows(
-        AssertionError.class,
-        () -> createRuleContext("//third_party/foo:main"));
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> createRuleContext("//third_party/foo:main"));
     assertThat(expected).hasMessageThat()
         .contains("cfg parameter is mandatory when executable=True is provided.");
   }

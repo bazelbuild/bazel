@@ -35,6 +35,7 @@ function fail_if_no_android_ndk() {
 function create_android_binary() {
   mkdir -p java/bazel
   cat > java/bazel/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
 aar_import(
     name = "aar",
     aar = "sample.aar",

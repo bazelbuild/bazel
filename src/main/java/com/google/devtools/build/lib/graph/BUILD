@@ -13,6 +13,7 @@ java_library(
     name = "graph",
     srcs = glob(["*.java"]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

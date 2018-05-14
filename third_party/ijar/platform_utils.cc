@@ -30,6 +30,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/logging.h"
 
 namespace devtools_ijar {
 
@@ -38,8 +39,10 @@ using std::string;
 bool stat_file(const char* path, Stat* result) {
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
   std::wstring wpath;
-  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath)) {
-    blaze_util::pdie(255, "stat_file: AsAbsoluteWindowsPath(%s)", path);
+  std::string error;
+  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
+    BAZEL_DIE(255) << "stat_file: AsAbsoluteWindowsPath(" << path
+                   << ") failed: " << error;
   }
   bool success = false;
   BY_HANDLE_FILE_INFORMATION info;

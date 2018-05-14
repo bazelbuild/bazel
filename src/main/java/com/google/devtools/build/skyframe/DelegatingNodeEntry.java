@@ -141,6 +141,11 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
+  public void resetForRestartFromScratch() {
+    getDelegate().resetForRestartFromScratch();
+  }
+
+  @Override
   public Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
     return getDelegate().addTemporaryDirectDeps(helper);
   }

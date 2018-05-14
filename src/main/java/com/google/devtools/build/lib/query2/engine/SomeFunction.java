@@ -64,11 +64,10 @@ class SomeFunction implements QueryFunction {
           @Override
           public void process(Iterable<T> partialResult)
               throws QueryException, InterruptedException {
-            if (someFound.get() || Iterables.isEmpty(partialResult)) {
+            if (Iterables.isEmpty(partialResult) || !someFound.compareAndSet(false, true)) {
               return;
             }
             callback.process(ImmutableSet.of(partialResult.iterator().next()));
-            someFound.set(true);
           }
         });
     return env.whenSucceedsCall(

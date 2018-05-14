@@ -14,43 +14,21 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static org.junit.Assert.fail;
-
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.cmdline.RepositoryNameCodec;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
-import java.io.IOException;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link RepositoryNameCodec}. */
+/** Tests for codec for {@link RepositoryName}. */
 @RunWith(JUnit4.class)
-public class RepositoryNameCodecTest extends AbstractObjectCodecTest<RepositoryName> {
-
-  // Set 0th byte (isMain) false, so that we'll try to read a string from the rest of the
-  // data and fail.
-  public static final byte[] INVALID_ENCODED_REPOSITORY_NAME = new byte[] {0, 10, 9, 8, 7};
-
-  public RepositoryNameCodecTest() throws LabelSyntaxException {
-    super(
-        new RepositoryNameCodec(),
-        RepositoryName.create(RepositoryName.DEFAULT.getName()),
-        RepositoryName.create(RepositoryName.MAIN.getName()),
-        RepositoryName.create("@externalandshouldntexistinthisworkspace"));
-  }
-
-  // The default bad data test from AbstractObjectCodecTest doesn't play nice with boolean prefixed
-  // encodings.
-  @Override
+public class RepositoryNameCodecTest {
   @Test
-  public void testDeserializeBadDataThrowsSerializationException() {
-    try {
-      fromBytes(INVALID_ENCODED_REPOSITORY_NAME);
-      fail("Expected exception");
-    } catch (SerializationException | IOException e) {
-      // Expected.
-    }
+  public void testCodec() throws Exception {
+    new SerializationTester(
+            RepositoryName.create(RepositoryName.DEFAULT.getName()),
+            RepositoryName.create(RepositoryName.MAIN.getName()),
+            RepositoryName.create("@externalandshouldntexistinthisworkspace"))
+        .runTests();
   }
 }

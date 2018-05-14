@@ -22,49 +22,49 @@ set -u
 DISTFILE=$(rlocation io_bazel/${1#./})
 shift 1
 
-if [ "${JAVA_VERSION:-}" == "1.7" ] ; then
-  echo "Warning: bootstrapping not tested for java 1.7"
-  exit 0
-fi
-
 # Load the test setup defined in the parent directory
 source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# sha1sum is easily twice as fast as shasum, but not always available on macOS.
+if hash sha1sum 2>/dev/null; then
+  shasum="sha1sum"
+elif hash shasum 2>/dev/null; then
+  shasum="shasum"
+else
+  fail "Could not find sha1sum or shasum on the PATH"
+fi
+
 function hash_outputs() {
-  [ -n "${BAZEL_TEST_XTRACE:-}" ] && set +x  # Avoid garbage in the output
   # runfiles/MANIFEST & runfiles_manifest contain absolute path, ignore.
   # ar on OS-X is non-deterministic, ignore .a files.
-  for i in $(find bazel-bin/ -type f -a \! -name MANIFEST -a \! -name '*.runfiles_manifest' -a \! -name '*.a'); do
-    sha256sum $i
-  done
-  for i in $(find bazel-genfiles/ -type f); do
-    sha256sum $i
-  done
-  [ -n "${BAZEL_TEST_XTRACE:-}" ] && set -x
-}
-
-function get_outputs_sum() {
-  hash_outputs | sort -k 2
+  find bazel-bin/ bazel-genfiles/ \
+      -type f \
+      -a \! -name MANIFEST \
+      -a \! -name '*.runfiles_manifest' \
+      -a \! -name '*.a' \
+      -exec $shasum {} + \
+      | awk '{print $2, $1}' \
+      | sort \
+      | sed "s://:/:"
 }
 
 function test_determinism()  {
-    local olddir=$(pwd)
-    WRKDIR=$(mktemp -d ${TEST_TMPDIR}/bazelbootstrap.XXXXXXXX)
-    mkdir -p "${WRKDIR}" || fail "Could not create workdir"
-    trap "rm -rf \"$WRKDIR\"" EXIT
-    cd "${WRKDIR}" || fail "Could not change to work directory"
-    unzip -q ${DISTFILE}
-    # Compile bazel a first time
-    bazel build --nostamp src:bazel
-    cp bazel-bin/src/bazel bazel1
-    get_outputs_sum >"${TEST_TMPDIR}/sum1"
-    ./bazel1 clean --expunge
-    ./bazel1 build --nostamp src:bazel
-    get_outputs_sum >"${TEST_TMPDIR}/sum2"
-    if ! (diff -q "${TEST_TMPDIR}/sum1" "${TEST_TMPDIR}/sum2"); then
-      diff -U0 "${TEST_TMPDIR}/sum1" "${TEST_TMPDIR}/sum2" >$TEST_log
-      fail "Non deterministic outputs found!"
+    local workdir="${TEST_TMPDIR}/workdir"
+    mkdir "${workdir}" || fail "Could not create work directory"
+    cd "${workdir}" || fail "Could not change to work directory"
+    unzip -q "${DISTFILE}"
+
+    # Build Bazel once.
+    bazel --output_base="${TEST_TMPDIR}/out1" build --nostamp //src:bazel
+    hash_outputs >"${TEST_TMPDIR}/sum1"
+
+    # Build Bazel twice.
+    bazel-bin/src/bazel --output_base="${TEST_TMPDIR}/out2" build --nostamp //src:bazel
+    hash_outputs >"${TEST_TMPDIR}/sum2"
+
+    if ! diff -U0 "${TEST_TMPDIR}/sum1" "${TEST_TMPDIR}/sum2" >$TEST_log; then
+      fail "Non-deterministic outputs found!"
     fi
 }
 

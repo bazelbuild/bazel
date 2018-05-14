@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.desugar.io.BitFlags;
 import java.util.ArrayList;
 import java.util.Optional;
 import javax.annotation.Nullable;

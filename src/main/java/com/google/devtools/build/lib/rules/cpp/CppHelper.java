@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -25,7 +27,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.Expander;
@@ -37,7 +41,6 @@ import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -57,18 +60,17 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -109,25 +111,27 @@ public class CppHelper {
    * Merges the STL and toolchain contexts into context builder. The STL is automatically determined
    * using the ":stl" attribute.
    */
-  public static void mergeToolchainDependentContext(RuleContext ruleContext,
-      CcToolchainProvider toolchain, Builder contextBuilder) {
+  public static void mergeToolchainDependentCcCompilationContext(
+      RuleContext ruleContext,
+      CcToolchainProvider toolchain,
+      CcCompilationContext.Builder ccCompilationContextBuilder) {
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
       TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
       if (stl != null) {
-        // TODO(bazel-team): Clean this up.
-        contextBuilder.addSystemIncludeDir(
-            stl.getLabel().getPackageIdentifier().getPathUnderExecRoot().getRelative("gcc3"));
-        CppCompilationContext provider = stl.getProvider(CppCompilationContext.class);
-        if (provider == null) {
-          ruleContext.ruleError("Unable to merge the STL '" + stl.getLabel()
-              + "' and toolchain contexts");
+        CcCompilationInfo ccCompilationInfo = stl.get(CcCompilationInfo.PROVIDER);
+        CcCompilationContext ccCompilationContext =
+            ccCompilationInfo != null ? ccCompilationInfo.getCcCompilationContext() : null;
+        if (ccCompilationContext == null) {
+          ruleContext.ruleError(
+              "Unable to merge the STL '" + stl.getLabel() + "' and toolchain contexts");
           return;
         }
-        contextBuilder.mergeDependentContext(provider);
+        ccCompilationContextBuilder.mergeDependentCcCompilationContext(ccCompilationContext);
       }
     }
     if (toolchain != null) {
-      contextBuilder.mergeDependentContext(toolchain.getCppCompilationContext());
+      ccCompilationContextBuilder.mergeDependentCcCompilationContext(
+          toolchain.getCcCompilationContext());
     }
   }
 
@@ -157,8 +161,7 @@ public class CppHelper {
             == MakeVariableSource.TOOLCHAIN)
         && (ruleContext
             .getFragment(PlatformConfiguration.class)
-            .getEnabledToolchainTypes()
-            .contains(toolchainType));
+            .isToolchainTypeEnabled(toolchainType));
   }
 
   /**
@@ -241,77 +244,23 @@ public class CppHelper {
   }
 
   /**
-   * Returns the default options to use for compiling C, C++, and assembler. This is just the
-   * options that should be used for all three languages. There may be additional C-specific or
-   * C++-specific options that should be used, in addition to the ones returned by this method.
-   */
-  //TODO(b/70784100): Figure out if these methods can be moved to CcToolchainProvider.
-  public static ImmutableList<String> getCompilerOptions(
-      CppConfiguration config, CcToolchainProvider toolchain, Iterable<String> features) {
-    ImmutableList.Builder<String> coptsBuilder =
-        ImmutableList.<String>builder()
-            .addAll(toolchain.getToolchainCompilerFlags())
-            .addAll(toolchain.getCFlagsByCompilationMode().get(config.getCompilationMode()))
-            .addAll(toolchain.getLipoCFlags().get(config.getLipoMode()));
-
-    if (config.isOmitfp()) {
-      coptsBuilder.add("-fomit-frame-pointer");
-      coptsBuilder.add("-fasynchronous-unwind-tables");
-      coptsBuilder.add("-DNO_FRAME_POINTER");
-    }
-
-    FlagList compilerFlags =
-        new FlagList(
-            coptsBuilder.build(),
-            FlagList.convertOptionalOptions(toolchain.getOptionalCompilerFlags()),
-            ImmutableList.copyOf(config.getCopts()));
-
-    return compilerFlags.evaluate(features);
-  }
-
-  /**
-   * Returns the list of additional C++-specific options to use for compiling C++. These should be
-   * go on the command line after the common options returned by {@link #getCompilerOptions}.
-   */
-  public static ImmutableList<String> getCxxOptions(
-      CppConfiguration config, CcToolchainProvider toolchain, Iterable<String> features) {
-    ImmutableList.Builder<String> cxxOptsBuilder =
-        ImmutableList.<String>builder()
-            .addAll(toolchain.getToolchainCxxFlags())
-            .addAll(toolchain.getCxxFlagsByCompilationMode().get(config.getCompilationMode()))
-            .addAll(toolchain.getLipoCxxFlags().get(config.getLipoMode()));
-
-    FlagList cxxFlags =
-        new FlagList(
-            cxxOptsBuilder.build(),
-            FlagList.convertOptionalOptions(toolchain.getOptionalCxxFlags()),
-            ImmutableList.copyOf(config.getCxxopts()));
-
-    return cxxFlags.evaluate(features);
-  }
-
-  /**
    * Returns the immutable list of linker options for fully statically linked outputs. Does not
    * include command-line options passed via --linkopt or --linkopts.
    *
    * @param config the CppConfiguration for this build
    * @param toolchain the c++ toolchain
-   * @param features default settings affecting this link
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
   public static ImmutableList<String> getFullyStaticLinkOptions(
-      CppConfiguration config,
-      CcToolchainProvider toolchain,
-      Iterable<String> features,
-      Boolean sharedLib) {
+      CppConfiguration config, CcToolchainProvider toolchain, boolean sharedLib) {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
-          toolchain.getMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode()),
-          features);
+          toolchain.getLegacyMostlyStaticLinkFlags(
+              config.getCompilationMode(), config.getLipoMode()));
     } else {
       return toolchain
-          .getFullyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
-          .evaluate(features);
+          .getLegacyFullyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
+          .evaluate();
     }
   }
 
@@ -321,25 +270,24 @@ public class CppHelper {
    *
    * @param config the CppConfiguration for this build
    * @param toolchain the c++ toolchain
-   * @param features default settings affecting this link
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
   public static ImmutableList<String> getMostlyStaticLinkOptions(
       CppConfiguration config,
       CcToolchainProvider toolchain,
-      Iterable<String> features,
-      Boolean sharedLib) {
+      boolean sharedLib,
+      boolean shouldStaticallyLinkCppRuntimes) {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
-          toolchain.supportsEmbeddedRuntimes()
-              ? toolchain.getMostlyStaticSharedLinkFlags(
+          shouldStaticallyLinkCppRuntimes
+              ? toolchain.getLegacyMostlyStaticSharedLinkFlags(
                   config.getCompilationMode(), config.getLipoMode())
-              : toolchain.getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()),
-          features);
+              : toolchain.getLegacyDynamicLinkFlags(
+                  config.getCompilationMode(), config.getLipoMode()));
     } else {
       return toolchain
-          .getMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
-          .evaluate(features);
+          .getLegacyMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
+          .evaluate();
     }
   }
 
@@ -349,22 +297,19 @@ public class CppHelper {
    *
    * @param config the CppConfiguration for this build
    * @param toolchain the c++ toolchain
-   * @param features default settings affecting this link
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
   public static ImmutableList<String> getDynamicLinkOptions(
       CppConfiguration config,
       CcToolchainProvider toolchain,
-      Iterable<String> features,
       Boolean sharedLib) {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
-          toolchain.getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()),
-          features);
+          toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()));
     } else {
       return toolchain
-          .getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode())
-          .evaluate(features);
+          .getLegacyDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode())
+          .evaluate();
     }
   }
 
@@ -486,6 +431,38 @@ public class CppHelper {
   }
 
   /**
+   * Convenience function for finding the dynamic runtime inputs for the current toolchain. Useful
+   * for non C++ rules that link against the C++ runtime.
+   */
+  public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputs(
+      RuleContext ruleContext) {
+    CcToolchainProvider defaultToolchain =
+        getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
+    if (defaultToolchain == null) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
+    return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
+  }
+
+  /**
+   * Convenience function for finding the static runtime inputs for the current toolchain. Useful
+   * for non C++ rules that link against the C++ runtime.
+   */
+  public static NestedSet<Artifact> getDefaultCcToolchainStaticRuntimeInputs(
+      RuleContext ruleContext) {
+    CcToolchainProvider defaultToolchain =
+        getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
+    if (defaultToolchain == null) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
+    return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
+  }
+
+  /**
    * Makes sure that the given info collection has a {@link CcToolchainProvider} (gives an error
    * otherwise), and returns a reference to that {@link CcToolchainProvider}. The method will only
    * return {@code null}, if the toolchain attribute is undefined for the rule class.
@@ -507,7 +484,7 @@ public class CppHelper {
     // TODO(b/65835260): Remove this conditional once j2objc can learn the toolchain type.
     if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)) {
       toolchainType =
-          ruleContext.attributes().get(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL);
+          ruleContext.attributes().get(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL);
     } else {
       toolchainType = null;
     }
@@ -526,8 +503,7 @@ public class CppHelper {
     if (toolchainType != null
         && ruleContext
             .getFragment(PlatformConfiguration.class)
-            .getEnabledToolchainTypes()
-            .contains(toolchainType)) {
+            .isToolchainTypeEnabled(toolchainType)) {
       return getToolchainFromPlatformConstraints(ruleContext, toolchainType);
     }
     return getToolchainFromCrosstoolTop(ruleContext, dep);
@@ -566,27 +542,49 @@ public class CppHelper {
   }
 
   /**
+   * A header that has been grepped for #include statements. Includes the original header as well as
+   * a stripped version of that header that contains only #include statements.
+   */
+  @AutoCodec
+  @AutoValue
+  abstract static class PregreppedHeader {
+    @AutoCodec.Instantiator
+    static PregreppedHeader create(Artifact originalHeader, Artifact greppedHeader) {
+      return new AutoValue_CppHelper_PregreppedHeader(originalHeader, greppedHeader);
+    }
+
+    /** Returns the original header, before grepping. */
+    abstract Artifact originalHeader();
+
+    /** Returns the grepped header, which contains only #include statements. */
+    abstract Artifact greppedHeader();
+  }
+
+  /**
    * Creates a grep-includes ExtractInclusions action for generated sources/headers in the
-   * needsIncludeScanning() BuildConfiguration case. Returns a map from original header
-   * Artifact to the output Artifact of grepping over it. The return value only includes
-   * entries for generated sources or headers when --extract_generated_inclusions is enabled.
+   * needsIncludeScanning() BuildConfiguration case. Returns a map from original header Artifact to
+   * the output Artifact of grepping over it. The return value only includes entries for generated
+   * sources or headers when --extract_generated_inclusions is enabled.
    *
-   * <p>Previously, incremental rebuilds redid all include scanning work
-   * for a given .cc source in serial. For high-latency file systems, this could cause
-   * performance problems if many headers are generated.
+   * <p>Previously, incremental rebuilds redid all include scanning work for a given .cc source in
+   * serial. For high-latency file systems, this could cause performance problems if many headers
+   * are generated.
    */
   @Nullable
-  public static final Map<Artifact, Artifact> createExtractInclusions(
+  public static final List<PregreppedHeader> createExtractInclusions(
       RuleContext ruleContext, CppSemantics semantics, Iterable<Artifact> prerequisites) {
-    Map<Artifact, Artifact> extractions = new HashMap<>();
+    List<PregreppedHeader> extractions = new ArrayList<>();
+    HashSet<Artifact> alreadyProcessedHeaders = new HashSet<>();
     for (Artifact prerequisite : prerequisites) {
-      if (extractions.containsKey(prerequisite)) {
+      if (alreadyProcessedHeaders.contains(prerequisite)) {
         // Don't create duplicate actions just because user specified same header file twice.
         continue;
       }
+      alreadyProcessedHeaders.add(prerequisite);
+
       Artifact scanned = createExtractInclusions(ruleContext, semantics, prerequisite);
       if (scanned != null) {
-        extractions.put(prerequisite, scanned);
+        extractions.add(PregreppedHeader.create(prerequisite, scanned));
       }
     }
     return extractions;
@@ -607,8 +605,10 @@ public class CppHelper {
         && !prerequisite.isSourceArtifact()
         && CPP_FILETYPES.matches(prerequisite.getFilename())) {
       Artifact scanned = getIncludesOutput(ruleContext, prerequisite);
+      Artifact grepIncludes = ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST);
       ruleContext.registerAction(
-          new ExtractInclusionAction(ruleContext.getActionOwner(), prerequisite, scanned));
+          new ExtractInclusionAction(
+              ruleContext.getActionOwner(), prerequisite, scanned, grepIncludes));
       return scanned;
     }
     return null;
@@ -616,9 +616,8 @@ public class CppHelper {
 
   private static Artifact getIncludesOutput(RuleContext ruleContext, Artifact src) {
     Preconditions.checkArgument(!src.isSourceArtifact(), src);
-    return ruleContext.getShareableArtifact(
-        src.getRootRelativePath().replaceName(src.getFilename() + GREPPED_INCLUDES_SUFFIX),
-        src.getRoot());
+    return ruleContext.getGenfilesArtifact(
+        src.getRootRelativePath().replaceName(src.getFilename() + GREPPED_INCLUDES_SUFFIX));
   }
 
   /**
@@ -650,8 +649,8 @@ public class CppHelper {
   }
 
   /**
-   * Emits a warning on the rule if there are identical linkstamp artifacts with different
-   * compilation contexts.
+   * Emits a warning on the rule if there are identical linkstamp artifacts with different {@code
+   * CcCompilationContext}s.
    */
   public static void checkLinkstampsUnique(RuleErrorConsumer listener, CcLinkParams linkParams) {
     Map<Artifact, NestedSet<Artifact>> result = new LinkedHashMap<>();
@@ -710,48 +709,44 @@ public class CppHelper {
    * "Provide a way to turn off -fPIC for targets that can't be built that way").
    *
    * @param ruleContext the context of the rule to check
-   * @param forBinary true if compiling for a binary, false if for a shared library
    * @return true if this rule's compilations should apply -fPIC, false otherwise
    */
-  public static boolean usePic(
-      RuleContext ruleContext, CcToolchainProvider toolchain, boolean forBinary) {
-    if (CcCommon.noCoptsMatches("-fPIC", ruleContext)) {
-      return false;
-    }
-    CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
-    return forBinary ? usePicObjectsForBinaries(config, toolchain) : needsPic(config, toolchain);
+  public static boolean usePicForDynamicLibraries(
+      RuleContext ruleContext, CcToolchainProvider toolchain) {
+    return ruleContext.getFragment(CppConfiguration.class).forcePic()
+        || toolchain.toolchainNeedsPic();
   }
 
   /** Returns whether binaries must be compiled with position independent code. */
-  public static boolean usePicForBinaries(CppConfiguration config, CcToolchainProvider toolchain) {
-    return toolchain.toolchainNeedsPic() && config.getCompilationMode() != CompilationMode.OPT;
-  }
-
-  /** Returns true iff we should use ".pic.o" files when linking executables. */
-  public static boolean usePicObjectsForBinaries(
-      CppConfiguration config, CcToolchainProvider toolchain) {
-    return config.forcePic() || usePicForBinaries(config, toolchain);
+  public static boolean usePicForBinaries(RuleContext ruleContext, CcToolchainProvider toolchain) {
+    CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
+    if (CcCommon.noCoptsMatches("-fPIC", ruleContext)) {
+      return false;
+    }
+    return config.forcePic()
+        || (toolchain.toolchainNeedsPic() && config.getCompilationMode() != CompilationMode.OPT);
   }
 
   /**
    * Returns true if shared libraries must be compiled with position independent code for the build
    * implied by the given config and toolchain.
    */
-  public static boolean needsPic(CppConfiguration config, CcToolchainProvider toolchain) {
-    return config.forcePic() || toolchain.toolchainNeedsPic();
-  }
 
   /**
    * Returns the LIPO context provider for configured target,
    * or null if such a provider doesn't exist.
    */
   public static LipoContextProvider getLipoContextProvider(RuleContext ruleContext) {
-    if (ruleContext.getRule().getAttributeDefinition(":lipo_context_collector") == null) {
+    if (ruleContext
+            .getRule()
+            .getAttributeDefinition(TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR)
+        == null) {
       return null;
     }
 
     TransitiveInfoCollection dep =
-        ruleContext.getPrerequisite(":lipo_context_collector", Mode.DONT_CHECK);
+        ruleContext.getPrerequisite(
+            TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, Mode.DONT_CHECK);
     return (dep != null) ? dep.getProvider(LipoContextProvider.class) : null;
   }
 
@@ -910,12 +905,13 @@ public class CppHelper {
     Tool stripTool =
         Preconditions.checkNotNull(
             featureConfiguration.getToolForAction(CppCompileAction.STRIP_ACTION_NAME));
-    Variables variables =
-        new Variables.Builder(toolchain.getBuildVariables())
-            .addStringVariable(CppModel.OUTPUT_FILE_VARIABLE_NAME, output.getExecPathString())
+    CcToolchainVariables variables =
+        new CcToolchainVariables.Builder(toolchain.getBuildVariables())
+            .addStringVariable(
+                StripBuildVariables.OUTPUT_FILE.getVariableName(), output.getExecPathString())
             .addStringSequenceVariable(
-                CppModel.STRIPOPTS_VARIABLE_NAME, cppConfiguration.getStripOpts())
-            .addStringVariable(CppModel.INPUT_FILE_VARIABLE_NAME, input.getExecPathString())
+                StripBuildVariables.STRIPOPTS.getVariableName(), cppConfiguration.getStripOpts())
+            .addStringVariable(CcCommon.INPUT_FILE_VARIABLE_NAME, input.getExecPathString())
             .build();
     ImmutableList<String> commandLine =
         ImmutableList.copyOf(
@@ -930,7 +926,7 @@ public class CppHelper {
             .addTransitiveInputs(toolchain.getStrip())
             .addOutput(output)
             .useDefaultShellEnvironment()
-            .setExecutable(stripTool.getToolPath(cppConfiguration.getCrosstoolTopPathFragment()))
+            .setExecutable(stripTool.getToolPathFragment())
             .setExecutionInfo(executionInfoBuilder.build())
             .setProgressMessage("Stripping %s for %s", output.prettyPrint(), context.getLabel())
             .setMnemonic("CcStrip")
@@ -942,7 +938,10 @@ public class CppHelper {
   public static void maybeAddStaticLinkMarkerProvider(RuleConfiguredTargetBuilder builder,
       RuleContext ruleContext) {
     boolean staticallyLinked = false;
-    if (ruleContext.getFragment(CppConfiguration.class).hasStaticLinkOption()) {
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    if (ruleContext.getFeatures().contains("fully_static_link")) {
+      staticallyLinked = true;
+    } else if (cppConfiguration.hasStaticLinkOption()) {
       staticallyLinked = true;
     } else if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)
         && ruleContext.attributes().get("linkopts", Type.STRING_LIST).contains("-static")) {
@@ -962,18 +961,12 @@ public class CppHelper {
   }
 
   /** Returns the corresponding compiled TreeArtifact given the source TreeArtifact. */
-  public static Artifact getCompileOutputTreeArtifact(
-      RuleContext ruleContext, Artifact sourceTreeArtifact, boolean usePic) {
+  public static SpecialArtifact getCompileOutputTreeArtifact(
+      RuleContext ruleContext, Artifact sourceTreeArtifact, String outputName, boolean usePic) {
     PathFragment objectDir = getObjDirectory(ruleContext.getLabel(), usePic);
-    PathFragment rootRelativePath = sourceTreeArtifact.getRootRelativePath();
-    return ruleContext.getTreeArtifact(
-        objectDir.getRelative(rootRelativePath), sourceTreeArtifact.getRoot());
-  }
 
-  /** Returns the corresponding compiled TreeArtifact given the source TreeArtifact. */
-  public static Artifact getCompileOutputTreeArtifact(
-      RuleContext ruleContext, Artifact sourceTreeArtifact) {
-    return getCompileOutputTreeArtifact(ruleContext, sourceTreeArtifact, false);
+    return ruleContext.getTreeArtifact(
+        objectDir.getRelative(outputName), sourceTreeArtifact.getRoot());
   }
 
   static String getArtifactNameForCategory(
@@ -1038,30 +1031,19 @@ public class CppHelper {
       argv.addDynamicString(objectFile.getExecPathString());
     }
 
-    Artifact paramFile =
-        ruleContext.getDerivedArtifact(
-            ParameterFile.derivePath(defFile.getRootRelativePath()), defFile.getRoot());
-
-    ruleContext.registerAction(
-        new ParameterFileWriteAction(
-            ruleContext.getActionOwner(),
-            paramFile,
-            argv.build(),
-            ParameterFile.ParameterFileType.SHELL_QUOTED,
-            UTF_8));
-
     ruleContext.registerAction(
         new SpawnAction.Builder()
-            .addInput(paramFile)
             .addInputs(objectFiles)
             .addOutput(defFile)
             .setExecutable(defParser)
             .useDefaultShellEnvironment()
             .addCommandLine(
-                CustomCommandLine.builder()
-                    .addExecPath(defFile)
-                    .addDynamicString(dllName)
-                    .addPrefixedExecPath("@", paramFile)
+                CustomCommandLine.builder().addExecPath(defFile).addDynamicString(dllName).build())
+            .addCommandLine(
+                argv.build(),
+                ParamFileInfo.builder(ParameterFile.ParameterFileType.SHELL_QUOTED)
+                    .setCharset(UTF_8)
+                    .setUseAlways(true)
                     .build())
             .setMnemonic("DefParser")
             .build(ruleContext));
@@ -1095,11 +1077,4 @@ public class CppHelper {
     return toolchain.supportsInterfaceSharedObjects() && config.getUseInterfaceSharedObjects();
   }
 
-  /**
-   * Returns true if Fission is specified and supported by the CROSSTOOL for the build implied by
-   * the given configuration and toolchain.
-   */
-  public static boolean useFission(CppConfiguration config, CcToolchainProvider toolchain) {
-    return config.fissionIsActiveForCurrentCompilationMode() && toolchain.supportsFission();
-  }
 }

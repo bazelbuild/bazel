@@ -55,26 +55,6 @@ function test_build_app() {
       || fail "should generate lib.a"
 }
 
-# Bazel caches mappings for ios sdk locations for local host execution.
-# Verify that multiple invocations (with primed cache) work.
-function test_xcrun_cache() {
-  setup_objc_test_support
-  make_lib
-
-  ! ls bazel-out/__xcruncache || fail "clean build should not have cache file"
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      //ios:lib >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-out/__xcruncache || fail "xcrun cache should be present"
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      //ios:lib >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-out/ios_x86_64-fastbuild/bin/ios/liblib.a \
-      || fail "should generate lib.a"
-  ls bazel-out/__xcruncache || fail "xcrun cache should be present"
-
-  bazel clean
-  ! ls bazel-bin/__xcruncache || fail "xcrun cache should be removed on clean"
-}
-
 function test_invalid_ios_sdk_version() {
   setup_objc_test_support
   make_lib

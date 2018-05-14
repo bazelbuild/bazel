@@ -18,15 +18,17 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
-import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** Utility for generating a call to the one-version binary. */
 public final class OneVersionCheckActionBuilder {
@@ -76,13 +78,7 @@ public final class OneVersionCheckActionBuilder {
     Artifact oneVersionTool = javaToolchain.getOneVersionBinary();
     Artifact oneVersionWhitelist = javaToolchain.getOneVersionWhitelist();
     if (oneVersionTool == null || oneVersionWhitelist == null) {
-      ruleContext.ruleError(
-          String.format(
-              "one version enforcement was requested but it is not supported by the current "
-                  + "Java toolchain '%s'; see the "
-                  + "java_toolchain.oneversion and java_toolchain.oneversion_whitelist "
-                  + "attributes",
-              javaToolchain.getToolchainLabel()));
+      addRuleErrorForMissingArtifacts(ruleContext, javaToolchain);
       return outputArtifact;
     }
 
@@ -110,13 +106,25 @@ public final class OneVersionCheckActionBuilder {
     return outputArtifact;
   }
 
-  public static VectorArg<String> jarAndTargetVectorArg(NestedSet<Artifact> jarsToCheck) {
-    return VectorArg.of(jarsToCheck).mapped(OneVersionCheckActionBuilder::jarAndTargetArg);
+  public static void addRuleErrorForMissingArtifacts(
+      RuleContext ruleContext, JavaToolchainProvider javaToolchain) {
+    ruleContext.ruleError(
+        String.format(
+            "one version enforcement was requested but it is not supported by the current "
+                + "Java toolchain '%s'; see the "
+                + "java_toolchain.oneversion and java_toolchain.oneversion_whitelist "
+                + "attributes",
+            javaToolchain.getToolchainLabel()));
   }
 
-  private static String jarAndTargetArg(Artifact jar) {
-    return jar.getExecPathString() + "," + getArtifactOwnerGeneralizedLabel(jar);
+  static VectorArg<String> jarAndTargetVectorArg(NestedSet<Artifact> jarsToCheck) {
+    return VectorArg.of(jarsToCheck).mapped(EXPAND_TO_JAR_AND_TARGET);
   }
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final CommandLineItem.MapFn<Artifact> EXPAND_TO_JAR_AND_TARGET =
+      (jar, args) ->
+          args.accept(jar.getExecPathString() + "," + getArtifactOwnerGeneralizedLabel(jar));
 
   private static String getArtifactOwnerGeneralizedLabel(Artifact artifact) {
     Label label = checkNotNull(artifact.getArtifactOwner(), artifact).getLabel();

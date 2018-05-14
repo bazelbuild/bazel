@@ -17,12 +17,14 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
@@ -63,22 +65,27 @@ public class ActionExecutionValue implements SkyValue {
    */
   private final ImmutableMap<Artifact, FileArtifactValue> additionalOutputData;
 
+  @Nullable private final ImmutableList<FilesetOutputSymlink> outputSymlinks;
+
   /**
    * @param artifactData Map from Artifacts to corresponding FileValues.
    * @param treeArtifactData All tree artifact data.
    * @param additionalOutputData Map from Artifacts to values if the FileArtifactValue for this
    *     artifact cannot be derived from the corresponding FileValue (see {@link
-   *     ActionMetadataHandler#getAdditionalOutputData} for when this is necessary).
-   *     These output data are not used by the {@link FilesystemValueChecker}
-   *     to invalidate ActionExecutionValues.
+   *     ActionMetadataHandler#getAdditionalOutputData} for when this is necessary). These output
+   *     data are not used by the {@link FilesystemValueChecker} to invalidate
+   *     ActionExecutionValues.
+   * @param outputSymlinks This represents the SymlinkTree which is the output of a fileset action.
    */
   ActionExecutionValue(
       Map<Artifact, FileValue> artifactData,
       Map<Artifact, TreeArtifactValue> treeArtifactData,
-      Map<Artifact, FileArtifactValue> additionalOutputData) {
+      Map<Artifact, FileArtifactValue> additionalOutputData,
+      @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks) {
     this.artifactData = ImmutableMap.<Artifact, FileValue>copyOf(artifactData);
     this.additionalOutputData = ImmutableMap.copyOf(additionalOutputData);
     this.treeArtifactData = ImmutableMap.copyOf(treeArtifactData);
+    this.outputSymlinks = outputSymlinks;
   }
 
   /**
@@ -124,6 +131,11 @@ public class ActionExecutionValue implements SkyValue {
     return treeArtifactData;
   }
 
+  @Nullable
+  ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
+    return outputSymlinks;
+  }
+
   /**
    * @param lookupKey A {@link SkyKey} whose argument is an {@code ActionLookupKey}, whose
    *     corresponding {@code ActionLookupValue} contains the action to be executed.
@@ -132,9 +144,8 @@ public class ActionExecutionValue implements SkyValue {
    */
   @ThreadSafe
   @VisibleForTesting
-  public static SkyKey key(SkyKey lookupKey, int index) {
-    return LegacySkyKey.create(
-        SkyFunctions.ACTION_EXECUTION, new ActionLookupData(lookupKey, index));
+  public static SkyKey key(ActionLookupValue.ActionLookupKey lookupKey, int index) {
+    return ActionLookupData.create(lookupKey, index);
   }
 
   @Override

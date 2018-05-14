@@ -1,0 +1,8 @@
+Compiled from "UnusedSyntheticCloseResourceMethod.java"
+public class com.google.devtools.build.android.desugar.testdata.UnusedSyntheticCloseResourceMethod {
+  public com.google.devtools.build.android.desugar.testdata.UnusedSyntheticCloseResourceMethod();
+    Code:
+       0: aload_0
+       1: invokespecial #9                  // Method java/lang/Object."<init>":()V
+       4: return
+}

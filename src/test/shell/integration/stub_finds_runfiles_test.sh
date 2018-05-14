@@ -32,10 +32,11 @@ if [ $# -ge 1 ]; then
   shift
 fi
 
-#### TESTS #############################################################
+#### HELPER FUNCTIONS ##################################################
 
-mkdir pkg pkg/java
-cat > pkg/BUILD << 'EOF'
+function set_up() {
+  mkdir -p pkg pkg/java
+  cat > pkg/BUILD << 'EOF'
 java_binary(name = "javabin",
             main_class = "ExitZero",
             srcs = [ "java/ExitZero.java", ])
@@ -68,75 +69,99 @@ genrule(name = "genrule_runs_pybin",
         outs = [ "dummy2", ],
         cmd = "$(location :pybin) && $(location :sh_runs_pybin) && >$@")
 EOF
-cat > pkg/java/ExitZero.java << 'EOF'
+  cat > pkg/java/ExitZero.java << 'EOF'
 public class ExitZero {
   public static void main(String[] args) { }
 }
 EOF
-touch pkg/pybin.py
-touch pkg/pytest.py
-cat > pkg/sh_runs_javabin.sh << 'EOF'
+  touch pkg/pybin.py
+  touch pkg/pytest.py
+  cat > pkg/sh_runs_javabin.sh << 'EOF'
 #!/bin/sh
 exec $0.runfiles/*/pkg/javabin
 EOF
-cat > pkg/sh_runs_javatest.sh << 'EOF'
+  cat > pkg/sh_runs_javatest.sh << 'EOF'
 #!/bin/sh
 exec $TEST_SRCDIR/*/pkg/javatest
 EOF
-cat > pkg/sh_runs_pybin.sh << 'EOF'
+  cat > pkg/sh_runs_pybin.sh << 'EOF'
 #!/bin/sh
 exec $0.runfiles/*/pkg/pybin
 EOF
-cat > pkg/sh_runs_pytest.sh << 'EOF'
+  cat > pkg/sh_runs_pytest.sh << 'EOF'
 #!/bin/sh
 exec $TEST_SRCDIR/*/pkg/pytest
 EOF
-chmod +x pkg/*.sh
+  chmod +x pkg/*.sh
+}
 
-# Drop environment variable (set by the test runner for this test)
-# which will interfere with directly invoking the tests we have just built.
-unset TEST_SRCDIR
+function tear_down() {
+  rm -rf pkg pkg/java
+}
 
-bazel build //pkg:javabin
-${PRODUCT_NAME}-bin/pkg/javabin
-bazel run //pkg:javabin
-${PRODUCT_NAME}-bin/pkg/javabin.runfiles/*/pkg/javabin
+#### TESTS #############################################################
 
-bazel build //pkg:javatest
-${PRODUCT_NAME}-bin/pkg/javatest
-bazel run //pkg:javatest
-${PRODUCT_NAME}-bin/pkg/javatest.runfiles/*/pkg/javatest
-bazel test --test_strategy="$test_strategy" //pkg:javatest
+function test_javabin() {
+  bazel build //pkg:javabin > $TEST_log
+  ${PRODUCT_NAME}-bin/pkg/javabin
+  bazel run //pkg:javabin
+  ${PRODUCT_NAME}-bin/pkg/javabin.runfiles/*/pkg/javabin
+}
 
-bazel build //pkg:pybin
-${PRODUCT_NAME}-bin/pkg/pybin
-bazel run //pkg:pybin
-${PRODUCT_NAME}-bin/pkg/pybin.runfiles/*/pkg/pybin
+function test_javatest() {
+  bazel build //pkg:javatest
+  ${PRODUCT_NAME}-bin/pkg/javatest
+  bazel run //pkg:javatest
+  ${PRODUCT_NAME}-bin/pkg/javatest.runfiles/*/pkg/javatest
+  bazel test --test_strategy="$test_strategy" //pkg:javatest
+}
 
-bazel build //pkg:pytest
-${PRODUCT_NAME}-bin/pkg/pytest
-bazel run //pkg:pytest
-${PRODUCT_NAME}-bin/pkg/pytest.runfiles/*/pkg/pytest
-bazel test --test_strategy="$test_strategy" //pkg:pytest
+function test_pybin() {
+  bazel build //pkg:pybin
+  ${PRODUCT_NAME}-bin/pkg/pybin
+  bazel run //pkg:pybin
+  ${PRODUCT_NAME}-bin/pkg/pybin.runfiles/*/pkg/pybin
+}
 
-bazel build //pkg:sh_runs_javabin
-${PRODUCT_NAME}-bin/pkg/sh_runs_javabin
-bazel run //pkg:sh_runs_javabin
+function test_pytest() {
+  bazel build //pkg:pytest
+  ${PRODUCT_NAME}-bin/pkg/pytest
+  bazel run //pkg:pytest
+  ${PRODUCT_NAME}-bin/pkg/pytest.runfiles/*/pkg/pytest
+  bazel test --test_strategy="$test_strategy" //pkg:pytest
+}
 
-bazel build //pkg:sh_runs_javatest
-bazel test --test_strategy="$test_strategy" //pkg:sh_runs_javatest
+function test_sh_runs_javabin() {
+  bazel build //pkg:sh_runs_javabin
+  ${PRODUCT_NAME}-bin/pkg/sh_runs_javabin
+  bazel run //pkg:sh_runs_javabin
+}
 
-bazel build //pkg:sh_runs_pybin
-${PRODUCT_NAME}-bin/pkg/sh_runs_pybin
-bazel run //pkg:sh_runs_pybin
+function test_sh_runs_javatest() {
+  bazel build //pkg:sh_runs_javatest
+  bazel test --test_strategy="$test_strategy" //pkg:sh_runs_javatest
+}
 
-bazel build //pkg:sh_runs_pytest
-bazel test --test_strategy="$test_strategy" //pkg:sh_runs_pytest
+function test_sh_runs_pybin() {
+  bazel build //pkg:sh_runs_pybin
+  ${PRODUCT_NAME}-bin/pkg/sh_runs_pybin
+  bazel run //pkg:sh_runs_pybin
+}
 
-bazel clean
-bazel build --genrule_strategy="$genrule_strategy" //pkg:genrule_runs_pybin
+function test_sh_runs_pytest() {
+  bazel build //pkg:sh_runs_pytest
+  bazel test --test_strategy="$test_strategy" //pkg:sh_runs_pytest
+}
 
-bazel clean
-bazel build --genrule_strategy="$genrule_strategy" //pkg:genrule_runs_javabin
+function test_genrule_runs_pybin() {
+  bazel clean
+  bazel build --genrule_strategy="$genrule_strategy" //pkg:genrule_runs_pybin
+}
 
-echo PASS
+function test_genrule_runs_javabin() {
+  bazel clean
+  bazel build --genrule_strategy="$genrule_strategy" //pkg:genrule_runs_javabin
+}
+
+run_suite "stub_finds_runfiles_test"
+

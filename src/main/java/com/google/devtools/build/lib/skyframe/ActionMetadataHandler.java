@@ -23,6 +23,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
 import com.google.devtools.build.lib.actions.cache.Metadata;
@@ -166,7 +167,7 @@ public class ActionMetadataHandler implements MetadataHandler {
       return null;
     }
 
-    return Preconditions.checkNotNull(inputArtifactData.get(input), input);
+    return inputArtifactData.get(input);
   }
 
   @Override
@@ -192,7 +193,7 @@ public class ActionMetadataHandler implements MetadataHandler {
       checkInconsistentData(artifact, oldValue, value);
       return metadataFromValue(value);
     } else if (artifact.isTreeArtifact()) {
-      TreeArtifactValue setValue = getTreeArtifactValue(artifact);
+      TreeArtifactValue setValue = getTreeArtifactValue((SpecialArtifact) artifact);
       if (setValue != null && setValue != TreeArtifactValue.MISSING_TREE_ARTIFACT) {
         return setValue.getMetadata();
       }
@@ -290,7 +291,7 @@ public class ActionMetadataHandler implements MetadataHandler {
     return contents;
   }
 
-  private TreeArtifactValue getTreeArtifactValue(Artifact artifact) throws IOException {
+  private TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact) throws IOException {
     TreeArtifactValue value = outputTreeArtifactData.get(artifact);
     if (value != null) {
       return value;
@@ -384,7 +385,7 @@ public class ActionMetadataHandler implements MetadataHandler {
     return TreeArtifactValue.create(values);
   }
 
-  private TreeArtifactValue constructTreeArtifactValueFromFilesystem(Artifact artifact)
+  private TreeArtifactValue constructTreeArtifactValueFromFilesystem(SpecialArtifact artifact)
       throws IOException {
     Preconditions.checkState(artifact.isTreeArtifact(), artifact);
 
@@ -463,6 +464,45 @@ public class ActionMetadataHandler implements MetadataHandler {
         // Ignore exceptions for empty files, as above.
       }
     }
+  }
+
+  @Override
+  public void injectRemoteFile(
+      Artifact output, byte[] digest, long size, long modifiedTime, int locationIndex) {
+    Preconditions.checkState(
+        executionMode.get(), "Tried to inject %s outside of execution.", output);
+    Preconditions.checkArgument(
+        locationIndex != 0 || size == 0,
+        "output = %s, size = %s, locationIndex =%s",
+        output,
+        size,
+        locationIndex);
+
+    // TODO(shahan): there are a couple of things that could reduce memory usage
+    // 1. We might be able to skip creating an entry in `outputArtifactData` and only create
+    // the `FileArtifactValue`, but there are likely downstream consumers that expect it that
+    // would need to be cleaned up.
+    // 2. Instead of creating an `additionalOutputData` entry, we could add the extra
+    // `locationIndex` to `FileStateValue`.
+    try {
+      injectOutputData(
+          output,
+          new FileArtifactValue.RemoteFileArtifactValue(digest, size, modifiedTime, locationIndex));
+    } catch (IOException e) {
+      throw new IllegalStateException(e); // Should never happen.
+    }
+  }
+
+  public void injectOutputData(Artifact output, FileArtifactValue artifactValue)
+      throws IOException {
+    Preconditions.checkState(injectedFiles.add(output), output);
+    // While `artifactValue` carries the important information, the control flow of `getMetadata`
+    // requires an entry in `outputArtifactData` to access `additionalOutputData`, so a
+    // `PLACEHOLDER` is added to `outputArtifactData`.
+    FileValue oldFileValue = outputArtifactData.putIfAbsent(output, FileValue.PLACEHOLDER);
+    checkInconsistentData(output, oldFileValue, FileValue.PLACEHOLDER);
+    FileArtifactValue oldArtifactValue = additionalOutputData.putIfAbsent(output, artifactValue);
+    checkInconsistentData(output, oldArtifactValue, artifactValue);
   }
 
   @Override
@@ -600,7 +640,7 @@ public class ActionMetadataHandler implements MetadataHandler {
     }
   }
 
-  private void setTreeReadOnlyAndExecutable(Artifact parent, PathFragment subpath)
+  private void setTreeReadOnlyAndExecutable(SpecialArtifact parent, PathFragment subpath)
       throws IOException {
     Path path = parent.getPath().getRelative(subpath);
     if (path.isDirectory()) {

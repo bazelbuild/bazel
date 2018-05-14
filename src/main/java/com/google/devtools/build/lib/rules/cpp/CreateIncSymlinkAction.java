@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -35,9 +36,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.SortedMap;
 
-/**
- * This action creates a set of symbolic links.
- */
+/** This action creates a set of symbolic links. */
+@AutoCodec
 @Immutable
 public final class CreateIncSymlinkAction extends AbstractAction {
   private final ImmutableSortedMap<Artifact, Artifact> symlinks;
@@ -68,8 +68,8 @@ public final class CreateIncSymlinkAction extends AbstractAction {
       throws ActionExecutionException {
     try {
       for (Map.Entry<Artifact, Artifact> entry : symlinks.entrySet()) {
-        Path symlink = entry.getKey().getPath();
-        symlink.createSymbolicLink(entry.getValue().getPath());
+        Path symlink = actionExecutionContext.getInputPath(entry.getKey());
+        symlink.createSymbolicLink(actionExecutionContext.getInputPath(entry.getValue()));
       }
     } catch (IOException e) {
       String message = "IO Error while creating symlink";
@@ -84,13 +84,11 @@ public final class CreateIncSymlinkAction extends AbstractAction {
   }
 
   @Override
-  public String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint key = new Fingerprint();
+  public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     for (Map.Entry<Artifact, Artifact> entry : symlinks.entrySet()) {
-      key.addPath(entry.getKey().getPath());
-      key.addPath(entry.getValue().getPath());
+      fp.addPath(entry.getKey().getExecPath());
+      fp.addPath(entry.getValue().getExecPath());
     }
-    return key.hexDigestAndReset();
   }
 
   @Override

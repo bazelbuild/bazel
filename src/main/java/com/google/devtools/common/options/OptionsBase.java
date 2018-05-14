@@ -20,7 +20,6 @@ import java.lang.reflect.Field;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * Base class for all options classes. Extend this class, adding public instance fields annotated
@@ -93,7 +92,7 @@ public abstract class OptionsBase {
   public final String cacheKey() {
     StringBuilder result = new StringBuilder(getClass().getName()).append("{");
 
-    for (Entry<String, Object> entry : asMap().entrySet()) {
+    for (Map.Entry<String, Object> entry : asMap().entrySet()) {
       result.append(entry.getKey()).append("=");
 
       Object value = entry.getValue();

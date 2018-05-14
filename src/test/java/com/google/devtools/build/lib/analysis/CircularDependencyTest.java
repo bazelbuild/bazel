@@ -27,10 +27,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -236,8 +235,8 @@ public class CircularDependencyTest extends BuildViewTestCase {
 
   /** A late bound dependency which depends on the 'dep' label if the 'define' is in --defines. */
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
-  private static final LateBoundDefault<BuildConfiguration, Label> LATE_BOUND_DEP =
-      LateBoundDefault.fromTargetConfiguration(
+  private static final LabelLateBoundDefault<BuildConfiguration> LATE_BOUND_DEP =
+      LabelLateBoundDefault.fromTargetConfiguration(
           BuildConfiguration.class,
           null,
           (rule, attributes, config) ->

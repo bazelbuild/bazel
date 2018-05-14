@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.buildjar.javac.plugins.errorprone;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
@@ -42,22 +41,20 @@ import java.util.List;
 public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
 
   private final ScannerSupplier scannerSupplier;
-  private final boolean testOnly;
 
   /**
    * Constructs an {@link ErrorPronePlugin} instance with the set of checks that are enabled as
    * errors in open-source Error Prone.
    */
-  public ErrorPronePlugin(boolean testOnly) {
-    this(testOnly, BuiltInCheckerSuppliers.errorChecks());
+  public ErrorPronePlugin() {
+    this(BuiltInCheckerSuppliers.errorChecks());
   }
 
   /**
    * Constructs an {@link ErrorPronePlugin} with the set of checks that are enabled in {@code
    * scannerSupplier}.
    */
-  public ErrorPronePlugin(boolean testOnly, ScannerSupplier scannerSupplier) {
-    this.testOnly = testOnly;
+  public ErrorPronePlugin(ScannerSupplier scannerSupplier) {
     this.scannerSupplier = scannerSupplier;
   }
 
@@ -76,9 +73,6 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
     ImmutableList.Builder<String> epArgs = ImmutableList.<String>builder().addAll(args);
     // allow javacopts that reference unknown error-prone checks
     epArgs.add("-XepIgnoreUnknownCheckNames");
-    if (testOnly()) {
-      epArgs.add(COMPILING_TEST_ONLY_CODE_ARG);
-    }
     return processEpOptions(epArgs.build())
         // TODO(glorioso): This post-filtering shouldn't be needed except that the bazel dependency
         // on error prone doesn't yet know about -XepCompilingTestOnlyCode.
@@ -120,10 +114,5 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
       // terminate with Result.ABNORMAL
       throw e;
     }
-  }
-  
-  @VisibleForTesting
-  public boolean testOnly() {
-    return testOnly;
   }
 }

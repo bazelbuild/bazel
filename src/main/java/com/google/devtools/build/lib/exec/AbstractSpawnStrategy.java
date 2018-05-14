@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
@@ -30,17 +31,16 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
-import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -73,9 +73,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       actionExecutionContext.reportSubcommand(spawn);
     }
     final Duration timeout = Spawns.getTimeout(spawn);
-    SpawnExecutionPolicy policy =
-        new SpawnExecutionPolicyImpl(
-            spawn, actionExecutionContext, writeOutputFiles, timeout);
+    SpawnExecutionContext context =
+        new SpawnExecutionContextImpl(spawn, actionExecutionContext, writeOutputFiles, timeout);
     // TODO(ulfjack): Provide a way to disable the cache. We don't want the RemoteSpawnStrategy to
     // check the cache twice. Right now that can't happen because this is hidden behind an
     // experimental flag.
@@ -86,21 +85,45 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       cache = SpawnCache.NO_CACHE;
     }
     SpawnResult spawnResult;
+    ExecException ex = null;
     try {
-      try (CacheHandle cacheHandle = cache.lookup(spawn, policy)) {
+      try (CacheHandle cacheHandle = cache.lookup(spawn, context)) {
         if (cacheHandle.hasResult()) {
           spawnResult = Preconditions.checkNotNull(cacheHandle.getResult());
         } else {
           // Actual execution.
-          spawnResult = spawnRunner.exec(spawn, policy);
+          spawnResult = spawnRunner.exec(spawn, context);
           if (cacheHandle.willStore()) {
-            cacheHandle.store(
-                spawnResult, listExistingOutputFiles(spawn, actionExecutionContext.getExecRoot()));
+            cacheHandle.store(spawnResult);
           }
         }
       }
     } catch (IOException e) {
       throw new EnvironmentalExecException("Unexpected IO error.", e);
+    } catch (SpawnExecException e) {
+      ex = e;
+      spawnResult = e.getSpawnResult();
+      // Log the Spawn and re-throw.
+    }
+
+    SpawnLogContext spawnLogContext = actionExecutionContext.getContext(SpawnLogContext.class);
+    if (spawnLogContext != null) {
+      try {
+        spawnLogContext.logSpawn(
+            spawn,
+            actionExecutionContext.getActionInputFileCache(),
+            context.getInputMapping(),
+            context.getTimeout(),
+            spawnResult);
+      } catch (IOException e) {
+        actionExecutionContext
+            .getEventHandler()
+            .handle(
+                Event.warn("Exception " + e + " while logging properties of " + spawn.toString()));
+      }
+    }
+    if (ex != null) {
+      throw ex;
     }
 
     if (spawnResult.status() != Status.SUCCESS) {
@@ -119,20 +142,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     return ImmutableList.of(spawnResult);
   }
 
-  private List<Path> listExistingOutputFiles(Spawn spawn, Path execRoot) {
-    ArrayList<Path> outputFiles = new ArrayList<>();
-    for (ActionInput output : spawn.getOutputFiles()) {
-      Path outputPath = execRoot.getRelative(output.getExecPathString());
-      // TODO(ulfjack): Store the actual list of output files in SpawnResult and use that instead
-      // of statting the files here again.
-      if (outputPath.exists()) {
-        outputFiles.add(outputPath);
-      }
-    }
-    return outputFiles;
-  }
-
-  private final class SpawnExecutionPolicyImpl implements SpawnExecutionPolicy {
+  private final class SpawnExecutionContextImpl implements SpawnExecutionContext {
     private final Spawn spawn;
     private final ActionExecutionContext actionExecutionContext;
     private final AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles;
@@ -143,7 +153,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     // TODO(ulfjack): Guard against client modification of this map.
     private SortedMap<PathFragment, ActionInput> lazyInputMapping;
 
-    public SpawnExecutionPolicyImpl(
+    public SpawnExecutionContextImpl(
         Spawn spawn,
         ActionExecutionContext actionExecutionContext,
         AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles,
@@ -207,25 +217,31 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
       if (lazyInputMapping == null) {
-        lazyInputMapping = spawnInputExpander.getInputMapping(
-            spawn,
-            actionExecutionContext.getArtifactExpander(),
-            actionExecutionContext.getActionInputFileCache(),
-            actionExecutionContext.getContext(FilesetActionContext.class));
+        lazyInputMapping =
+            spawnInputExpander.getInputMapping(
+                spawn,
+                actionExecutionContext.getArtifactExpander(),
+                actionExecutionContext.getActionInputFileCache());
       }
       return lazyInputMapping;
     }
 
     @Override
     public void report(ProgressStatus state, String name) {
+      ActionExecutionMetadata action = spawn.getResourceOwner();
+      if (action.getOwner() == null) {
+        return;
+      }
+
       // TODO(ulfjack): We should report more details to the UI.
       EventBus eventBus = actionExecutionContext.getEventBus();
       switch (state) {
         case EXECUTING:
-          eventBus.post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), name));
+        case CHECKING_CACHE:
+          eventBus.post(ActionStatusMessage.runningStrategy(action, name));
           break;
         case SCHEDULING:
-          eventBus.post(ActionStatusMessage.schedulingStrategy(spawn.getResourceOwner()));
+          eventBus.post(ActionStatusMessage.schedulingStrategy(action));
           break;
         default:
           break;

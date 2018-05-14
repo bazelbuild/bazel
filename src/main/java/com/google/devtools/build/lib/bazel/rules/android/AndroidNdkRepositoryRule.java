@@ -21,11 +21,9 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceConfiguredTargetFactory;
@@ -38,19 +36,15 @@ public class AndroidNdkRepositoryRule implements RuleDefinition {
   public static final String NAME = "android_ndk_repository";
 
   private static final Function<? super Rule, Map<String, Label>> BINDINGS_FUNCTION =
-      rule -> {
-        String defaultToolchainName =
-            AndroidNdkRepositoryFunction.createToolchainName(StlImpls.DEFAULT_STL_NAME);
-
-        return ImmutableMap.of(
-            "android/crosstool",
-            Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:" + defaultToolchainName),
-            "android_ndk_for_testing",
-            Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:files"));
-      };
+      rule ->
+          ImmutableMap.of(
+              "android/crosstool",
+              Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:default_crosstool"),
+              "android_ndk_for_testing",
+              Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:files"));
 
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .setWorkspaceOnly()
         .setExternalBindingsFunction(BINDINGS_FUNCTION)
@@ -85,7 +79,7 @@ public class AndroidNdkRepositoryRule implements RuleDefinition {
 /*<!-- #BLAZE_RULE (NAME = android_ndk_repository, TYPE = OTHER, FAMILY = Android) -->
 
 <p>Configures Bazel to use an Android NDK to support building Android targets with native
-code. NDK versions 10, 11, 12, 13 and 14 are currently supported.
+code. NDK versions 10 up to 16 are currently supported.
 
 <p>Note that building for Android also requires an <code>android_sdk_repository</code> rule in your
 <code>WORKSPACE</code> file.

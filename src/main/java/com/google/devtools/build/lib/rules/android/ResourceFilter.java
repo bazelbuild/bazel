@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -63,17 +65,18 @@ public class ResourceFilter {
     return Optional.of(NestedSetBuilder.wrap(artifacts.getOrder(), filtered));
   }
 
-  public NestedSet<ResourceContainer> filterDependencyContainers(
-      NestedSet<ResourceContainer> resourceContainers) {
+  public NestedSet<ValidatedAndroidData> filterDependencyContainers(
+      RuleErrorConsumer errorConsumer, NestedSet<ValidatedAndroidData> resourceContainers)
+      throws RuleErrorException {
     if (isEmpty) {
       return resourceContainers;
     }
 
-    NestedSetBuilder<ResourceContainer> builder =
+    NestedSetBuilder<ValidatedAndroidData> builder =
         new NestedSetBuilder<>(resourceContainers.getOrder());
 
-    for (ResourceContainer container : resourceContainers) {
-      builder.add(container.filter(this, /* isDependency = */ true));
+    for (ValidatedAndroidData container : resourceContainers) {
+      builder.add(container.filter(errorConsumer, this, /* isDependency = */ true));
     }
 
     return builder.build();

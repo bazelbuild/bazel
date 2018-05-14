@@ -18,14 +18,24 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -33,12 +43,24 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.After;
 import org.junit.Before;
 
 /** Base class for tests that work with resource artifacts. */
-public abstract class ResourceTestBase {
+public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
   public static final String RESOURCE_ROOT = "java/android/res";
+
+  private static final ImmutableSet<String> TOOL_FILENAMES =
+      ImmutableSet.of(
+          "static_aapt_tool",
+          "aapt.static",
+          "aapt",
+          "aapt2",
+          "empty.sh",
+          "android_blaze.jar",
+          "android.jar",
+          "ResourceProcessorBusyBox_deploy.jar");
 
   private static final ArtifactOwner OWNER = () -> {
     try {
@@ -183,6 +205,67 @@ public abstract class ResourceTestBase {
   public Artifact getResource(String pathString) {
     Path path = fileSystem.getPath("/" + RESOURCE_ROOT + "/" + pathString);
     return new Artifact(
-        path, root, root.getExecPath().getRelative(root.getRoot().relativize(path)), OWNER);
+        root, root.getExecPath().getRelative(root.getRoot().relativize(path)), OWNER);
+  }
+
+  /**
+   * Gets a RuleContext that can be used to register actions and test that they are created
+   * correctly.
+   *
+   * <p>Takes in a dummy target which will be used to configure the RuleContext's {@link
+   * AndroidConfiguration}.
+   */
+  public RuleContext getRuleContextForActionTesting(ConfiguredTarget dummyTarget) throws Exception {
+
+    RuleContext dummy = getRuleContext(dummyTarget);
+
+    ExtendedEventHandler eventHandler = new StoredEventHandler();
+    assertThat(targetConfig.isActionsEnabled()).isTrue();
+    return view.getRuleContextForTesting(
+        eventHandler,
+        dummyTarget,
+        /* env= */ new CachingAnalysisEnvironment(
+            view.getArtifactFactory(),
+            skyframeExecutor.getActionKeyContext(),
+            ConfiguredTargetKey.of(dummyTarget.getLabel(), targetConfig),
+            /*isSystemEnv=*/ false,
+            targetConfig.extendedSanityChecks(),
+            eventHandler,
+            null,
+            targetConfig.isActionsEnabled()),
+        new BuildConfigurationCollection(
+            ImmutableList.of(dummy.getConfiguration()), dummy.getHostConfiguration()));
+  }
+
+  /**
+   * Assets that the action used to generate the given outputs has the expected inputs and outputs.
+   */
+  void assertActionArtifacts(
+      RuleContext ruleContext, ImmutableList<Artifact> inputs, ImmutableList<Artifact> outputs) {
+    // Actions must have at least one output
+    assertThat(outputs).isNotEmpty();
+
+    // Get the action from one of the outputs
+    ActionAnalysisMetadata action =
+        ruleContext.getAnalysisEnvironment().getLocalGeneratingAction(outputs.get(0));
+    assertThat(action).isNotNull();
+
+    assertThat(removeToolingArtifacts(action.getInputs())).containsExactlyElementsIn(inputs);
+
+    assertThat(action.getOutputs()).containsExactlyElementsIn(outputs);
+  }
+
+  /** Remove busybox and aapt2 tooling artifacts from a list of action inputs */
+  private Iterable<Artifact> removeToolingArtifacts(Iterable<Artifact> inputArtifacts) {
+    return Streams.stream(inputArtifacts)
+        .filter(
+            artifact ->
+                // Not a known tool
+                !TOOL_FILENAMES.contains(artifact.getFilename())
+                    // Not one of the various busybox tools (we get different ones on different OSs)
+                    && !artifact.getFilename().contains("busybox")
+                    // Not a params file
+                    && !artifact.getFilename().endsWith(".params"))
+        .collect(Collectors.toList());
   }
 }

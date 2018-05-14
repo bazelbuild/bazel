@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SingletonCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
@@ -24,10 +22,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
  * internal {@link Artifact}-generators should implement this interface -- otherwise, {@code
  * ActionLookupKey} and its subclasses should be the only implementation.
  */
-@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
 public interface ArtifactOwner {
-  ObjectCodec<ArtifactOwner> CODEC = new ArtifactOwner_AutoCodec();
-
   Label getLabel();
 
   /**
@@ -35,9 +30,8 @@ public interface ArtifactOwner {
    * source artifacts and tests.
    */
   class NullArtifactOwner implements ArtifactOwner {
-    @VisibleForTesting public static final NullArtifactOwner INSTANCE = new NullArtifactOwner();
-
-    static final ObjectCodec<NullArtifactOwner> CODEC = SingletonCodec.of(INSTANCE, "NULL_OWNER");
+    @AutoCodec @VisibleForTesting
+    public static final NullArtifactOwner INSTANCE = new NullArtifactOwner();
 
     private NullArtifactOwner() {}
 

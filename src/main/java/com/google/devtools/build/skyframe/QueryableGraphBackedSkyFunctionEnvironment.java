@@ -38,12 +38,12 @@ public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunct
   private static ValueOrUntypedException toUntypedValue(NodeEntry nodeEntry)
       throws InterruptedException {
     if (nodeEntry == null || !nodeEntry.isDone()) {
-      return ValueOrExceptionUtils.ofNull();
+      return ValueOrUntypedException.ofNull();
     }
     SkyValue maybeWrappedValue = nodeEntry.getValueMaybeWithMetadata();
     SkyValue justValue = ValueWithMetadata.justValue(maybeWrappedValue);
     if (justValue != null) {
-      return ValueOrExceptionUtils.ofValueUntyped(justValue);
+      return ValueOrUntypedException.ofValueUntyped(justValue);
     }
     ErrorInfo errorInfo =
         Preconditions.checkNotNull(ValueWithMetadata.getMaybeErrorInfo(maybeWrappedValue));
@@ -51,12 +51,12 @@ public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunct
 
     if (exception != null) {
       // Give SkyFunction#compute a chance to handle this exception.
-      return ValueOrExceptionUtils.ofExn(exception);
+      return ValueOrUntypedException.ofExn(exception);
     }
     // In a cycle.
     Preconditions.checkState(
         !Iterables.isEmpty(errorInfo.getCycleInfo()), "%s %s", errorInfo, maybeWrappedValue);
-    return ValueOrExceptionUtils.ofNull();
+    return ValueOrUntypedException.ofNull();
   }
 
   @Override

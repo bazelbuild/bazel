@@ -15,7 +15,8 @@
 package com.google.devtools.build.java.turbine.javac;
 
 import java.io.IOException;
-import java.util.GregorianCalendar;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -25,9 +26,12 @@ import java.util.zip.ZipOutputStream;
  */
 public abstract class ZipUtil {
 
-  /** The earliest date representable in a zip file, the DOS epoch. */
-  private static final long DOS_EPOCH =
-      new GregorianCalendar(1980, 0, 1, 0, 0, 0).getTimeInMillis();
+  /** Normalize timestamps. */
+  static final long DEFAULT_TIMESTAMP =
+      LocalDateTime.of(2010, 1, 1, 0, 0, 0)
+          .atZone(ZoneId.systemDefault())
+          .toInstant()
+          .toEpochMilli();
 
   /**
    * This is a helper method for adding an uncompressed entry to a
@@ -41,7 +45,8 @@ public abstract class ZipUtil {
       throws IOException {
     ZipEntry entry = new ZipEntry(name);
     entry.setMethod(ZipEntry.STORED);
-    entry.setTime(DOS_EPOCH);
+    // TODO(cushon): switch to setLocalTime after we migrate to JDK 9
+    entry.setTime(DEFAULT_TIMESTAMP);
     entry.setSize(content.length);
     CRC32 crc32 = new CRC32();
     crc32.update(content);

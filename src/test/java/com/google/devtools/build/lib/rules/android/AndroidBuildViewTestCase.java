@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirs
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoO
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,18 +51,6 @@ import javax.annotation.Nullable;
 
 /** Common methods shared between Android related {@link BuildViewTestCase}s. */
 public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
-
-  @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
-    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    TestRuleClassProvider.addStandardRules(builder);
-    return builder
-        // TODO(b/35097211): Remove this once the new testing rules are released.
-        .addRuleDefinition(new AndroidDeviceScriptFixtureRule())
-        .addRuleDefinition(new AndroidHostServiceFixtureRule())
-        .addRuleDefinition(new AndroidInstrumentationTestRule())
-        .build();
-  }
 
   protected Iterable<Artifact> getNativeLibrariesInApk(ConfiguredTarget target) {
     return Iterables.filter(
@@ -127,12 +115,12 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         .isNotNull();
   }
 
-  protected List<String> resourceArguments(ResourceContainer resource)
+  protected List<String> resourceArguments(ValidatedAndroidData resource)
       throws CommandLineExpansionException {
     return getGeneratingSpawnActionArgs(resource.getApk());
   }
 
-  protected SpawnAction resourceGeneratingAction(ResourceContainer resource) {
+  protected SpawnAction resourceGeneratingAction(ValidatedAndroidData resource) {
     return getGeneratingSpawnAction(resource.getApk());
   }
 
@@ -142,19 +130,27 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
 
   protected static ResourceContainer getResourceContainer(
       ConfiguredTarget target, boolean transitive) {
-
-    Preconditions.checkNotNull(target);
-    final AndroidResourcesProvider provider = target.getProvider(AndroidResourcesProvider.class);
-    assertThat(provider).named("No android resources exported from the target.").isNotNull();
-    return getOnlyElement(
-        transitive
-            ? provider.getTransitiveAndroidResources()
-            : provider.getDirectAndroidResources());
+    ValidatedAndroidData validated = getValidatedData(target, transitive);
+    assertThat(validated).isInstanceOf(ResourceContainer.class);
+    return (ResourceContainer) validated;
   }
 
-  protected Artifact getResourceClassJar(final ConfiguredTarget target) {
+  protected static ValidatedAndroidData getValidatedData(ConfiguredTarget target) {
+    return getValidatedData(target, /* transitive = */ false);
+  }
+
+  protected static ValidatedAndroidData getValidatedData(
+      ConfiguredTarget target, boolean transitive) {
+    Preconditions.checkNotNull(target);
+    final AndroidResourcesInfo info = target.get(AndroidResourcesInfo.PROVIDER);
+    assertThat(info).named("No android resources exported from the target.").isNotNull();
+    return getOnlyElement(
+        transitive ? info.getTransitiveAndroidResources() : info.getDirectAndroidResources());
+  }
+
+  protected Artifact getResourceClassJar(final ConfiguredTargetAndData target) {
     JavaRuleOutputJarsProvider jarProvider =
-        JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, target);
+        JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, target.getConfiguredTarget());
     assertThat(jarProvider).isNotNull();
     return Iterables.find(
             jarProvider.getOutputJars(),
@@ -175,10 +171,12 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     String actualFlagValue = actualArgs.get(actualArgs.indexOf("--primaryData") + 1);
     List<String> actualPaths = null;
     if (actualFlagValue.matches("[^;]*;[^;]*;.*")) {
-      actualPaths = Arrays.asList(actualFlagValue.split(";")[0].split("#"));
+      actualPaths =
+          Arrays.asList(Iterables.get(Splitter.on(';').split(actualFlagValue), 0).split("#"));
 
     } else if (actualFlagValue.matches("[^:]*:[^:]*:.*")) {
-      actualPaths = Arrays.asList(actualFlagValue.split(":")[0].split("#"));
+      actualPaths =
+          Arrays.asList(Iterables.get(Splitter.on(':').split(actualFlagValue), 0).split("#"));
     } else {
       fail(String.format("Failed to parse --primaryData: %s", actualFlagValue));
     }
@@ -207,8 +205,9 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       fail(String.format("Failed to parse flag: %s", actualFlagValue));
     }
     ImmutableList.Builder<String> actualPaths = ImmutableList.builder();
-    for (String resourceDependency :  actualFlagValue.split(",")) {
-      actualPaths.add(resourceDependency.split(separator)[0].split("#"));
+    for (String resourceDependency : Splitter.on(',').split(actualFlagValue)) {
+      actualPaths.add(
+          Iterables.get(Splitter.on(separator).split(resourceDependency), 0).split("#"));
     }
     return actualPaths.build();
   }
@@ -237,9 +236,13 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   // Returns an artifact that will be generated when a rule has resources.
   protected static Artifact getResourceArtifact(ConfiguredTarget target) {
     // the last provider is the provider from the target.
-    return Iterables.getLast(
-            target.getProvider(AndroidResourcesProvider.class).getDirectAndroidResources())
+    return Iterables.getLast(target.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources())
         .getJavaClassJar();
+  }
+
+  // Returns an artifact that will be generated when a rule has assets that are processed seperately
+  static Artifact getDecoupledAssetArtifact(ConfiguredTarget target) {
+    return target.get(AndroidAssetsInfo.PROVIDER).getValidationResult();
   }
 
   protected static Set<Artifact> getNonToolInputs(Action action) {
@@ -394,5 +397,31 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
             actionsTestUtil()
                 .getActionForArtifactEndingWith(getFilesToBuild(binary), "_proguard.jar"))
         .isNull();
+  }
+
+  /**
+   * Creates a mock SDK with aapt2.
+   *
+   * <p>You'll need to use a configuration pointing to it, such as "--android_sdk=//sdk:sdk", to use
+   * it.
+   */
+  public void mockAndroidSdkWithAapt2() throws Exception {
+    scratch.file(
+        "sdk/BUILD",
+        "android_sdk(",
+        "    name = 'sdk',",
+        "    aapt = 'aapt',",
+        "    aapt2 = 'aapt2',",
+        "    adb = 'adb',",
+        "    aidl = 'aidl',",
+        "    android_jar = 'android.jar',",
+        "    apksigner = 'apksigner',",
+        "    dx = 'dx',",
+        "    framework_aidl = 'framework_aidl',",
+        "    main_dex_classes = 'main_dex_classes',",
+        "    main_dex_list_creator = 'main_dex_list_creator',",
+        "    proguard = 'proguard',",
+        "    shrinked_android_jar = 'shrinked_android_jar',",
+        "    zipalign = 'zipalign')");
   }
 }

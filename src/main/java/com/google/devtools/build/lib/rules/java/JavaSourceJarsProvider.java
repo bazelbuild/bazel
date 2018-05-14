@@ -22,20 +22,21 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 
 /** The collection of source jars from the transitive closure. */
 @AutoValue
 @Immutable
+@AutoCodec
 public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
 
+  @AutoCodec.Instantiator
   public static JavaSourceJarsProvider create(
       NestedSet<Artifact> transitiveSourceJars, Iterable<Artifact> sourceJars) {
     return new AutoValue_JavaSourceJarsProvider(
         transitiveSourceJars, ImmutableList.copyOf(sourceJars));
   }
-
-  JavaSourceJarsProvider() {}
 
   /**
    * Returns all the source jars in the transitive closure, that can be reached by a chain of

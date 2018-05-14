@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.java.bazel.JavaBuilderConfig;
 import com.sun.tools.javac.api.JavacTool;
@@ -38,8 +39,10 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaFileObject;
@@ -155,9 +158,16 @@ public class InMemoryJavaFileManager {
 
     public CompilationResult compile() throws IOException {
       if (output == null) {
-        Path root =
-            sources.iterator().next().getFileSystem().getRootDirectories().iterator().next();
-        output = Files.createTempDirectory(root, "classes");
+        Path tmp =
+            sources
+                .iterator()
+                .next()
+                .getFileSystem()
+                .getPath(StandardSystemProperty.JAVA_IO_TMPDIR.value());
+        if (!Files.exists(tmp)) {
+          Files.createDirectory(tmp);
+        }
+        output = Files.createTempDirectory(tmp, "classes");
         Files.createDirectories(output);
       }
       DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
@@ -206,8 +216,19 @@ public class InMemoryJavaFileManager {
   }
 
   public static Path compiledClassesToJar(Path jar, Iterable<CompiledClass> classes) {
+    return compiledClassesToJar(jar, classes, null);
+  }
+
+  public static Path compiledClassesToJar(
+      Path jar, Iterable<CompiledClass> classes, String targetLabel) {
+    Manifest manifest = new Manifest();
+    Attributes attributes = manifest.getMainAttributes();
+    attributes.put(Attributes.Name.MANIFEST_VERSION, "1.0");
+    if (targetLabel != null) {
+      attributes.putValue("Target-Label", targetLabel);
+    }
     try (OutputStream os = Files.newOutputStream(jar);
-        final JarOutputStream jos = new JarOutputStream(os)) {
+        final JarOutputStream jos = new JarOutputStream(os, manifest)) {
       for (CompiledClass c : classes) {
         jos.putNextEntry(new JarEntry(c.name().replace('.', '/') + ".class"));
         jos.write(c.data());

@@ -55,7 +55,6 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     @Option(
       name = "verbose_test_summary",
       defaultValue = "true",
-      category = "verbosity",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -67,7 +66,6 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     @Option(
       name = "test_verbose_timeout_warnings",
       defaultValue = "false",
-      category = "verbosity",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =

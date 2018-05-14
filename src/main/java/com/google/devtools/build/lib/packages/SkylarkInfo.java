@@ -24,9 +24,13 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Concatable;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.SkylarkClassObject;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +43,7 @@ import javax.annotation.Nullable;
  * implementing classes). Schemaless instances are map-based, while schemaful instances have a fixed
  * layout and array and are therefore more efficient.
  */
-public abstract class SkylarkInfo extends Info implements Concatable {
+public abstract class SkylarkInfo extends Info implements Concatable, SkylarkClassObject {
 
   // Private because this should not be subclassed outside this file.
   private SkylarkInfo(Provider provider, @Nullable Location loc) {
@@ -57,6 +61,9 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     if (!getProvider().isExported()) {
       return false;
     }
+    // TODO(bazel-team): If we export at the end of a full module's evaluation, instead of at the
+    // end of every top-level statement, then we can assume that exported implies frozen, and just
+    // return true here without a traversal.
     for (Object item : getValues()) {
       if (item != null && !EvalUtils.isImmutable(item)) {
         return false;
@@ -161,6 +168,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
    * layout need be present on the instance.
    */
   @Immutable
+  @AutoCodec
   public static final class Layout {
 
     /**
@@ -176,12 +184,22 @@ public abstract class SkylarkInfo extends Info implements Concatable {
      * @throws IllegalArgumentException if any field names are given more than once
      */
     public Layout(Iterable<String> fields) {
+      this(makeMap(fields));
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    Layout(ImmutableMap<String, Integer> map) {
+      this.map = map;
+    }
+
+    private static ImmutableMap<String, Integer> makeMap(Iterable<String> fields) {
       ImmutableMap.Builder<String, Integer> layoutBuilder = ImmutableMap.builder();
       int i = 0;
       for (String field : fields) {
         layoutBuilder.put(field, i++);
       }
-      this.map = layoutBuilder.build();
+      return layoutBuilder.build();
     }
 
     @Override
@@ -230,7 +248,8 @@ public abstract class SkylarkInfo extends Info implements Concatable {
   }
 
   /** A {@link SkylarkInfo} implementation that stores its values in a map. */
-  private static final class MapBackedSkylarkInfo extends SkylarkInfo {
+  // TODO(b/72448383): Make private.
+  public static final class MapBackedSkylarkInfo extends SkylarkInfo {
 
     private final ImmutableMap<String, Object> values;
 
@@ -248,6 +267,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
         @Nullable Location loc,
         @Nullable String errorMessageFormatForUnknownField) {
       super(provider, loc);
+      // TODO(b/74396075): Phase out the unnecessary conversions done by this call to copyValues.
       this.values = copyValues(values);
       this.errorMessageFormatForUnknownField = errorMessageFormatForUnknownField;
     }
@@ -306,7 +326,11 @@ public abstract class SkylarkInfo extends Info implements Concatable {
       Preconditions.checkArgument(
           layout.size() == values.length,
           "Layout has length %s, but number of given values was %s", layout.size(), values.length);
-      this.values = Arrays.copyOf(values, values.length);
+      this.values = new Object[values.length];
+      for (int i = 0; i < values.length; i++) {
+        // TODO(b/74396075): Phase out this unnecessary conversion.
+        this.values[i] = SkylarkType.convertToSkylark(values[i], (Environment) null);
+      }
     }
 
     @Override

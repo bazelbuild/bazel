@@ -20,6 +20,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
 /**
  * Factory for creating new {@link LinkerInput} objects.
@@ -30,11 +32,15 @@ public abstract class LinkerInputs {
    * object file.
    */
   @ThreadSafety.Immutable
+  @AutoCodec
   public static class SimpleLinkerInput implements LinkerInput {
     private final Artifact artifact;
     private final ArtifactCategory category;
+    private final boolean disableWholeArchive;
 
-    public SimpleLinkerInput(Artifact artifact, ArtifactCategory category) {
+    @AutoCodec.Instantiator
+    public SimpleLinkerInput(
+        Artifact artifact, ArtifactCategory category, boolean disableWholeArchive) {
       String basename = artifact.getFilename();
       switch (category) {
         case STATIC_LIBRARY:
@@ -57,6 +63,7 @@ public abstract class LinkerInputs {
       }
       this.artifact = Preconditions.checkNotNull(artifact);
       this.category = category;
+      this.disableWholeArchive = disableWholeArchive;
     }
 
     @Override
@@ -112,6 +119,16 @@ public abstract class LinkerInputs {
     public String toString() {
       return "SimpleLinkerInput(" + artifact + ")";
     }
+
+    @Override
+    public boolean isMustKeepDebug() {
+      return false;
+    }
+
+    @Override
+    public boolean disableWholeArchive() {
+      return disableWholeArchive;
+    }
   }
 
   /**
@@ -121,7 +138,7 @@ public abstract class LinkerInputs {
   @ThreadSafety.Immutable
   private static class FakeLinkerInput extends SimpleLinkerInput {
     private FakeLinkerInput(Artifact artifact) {
-      super(artifact, ArtifactCategory.OBJECT_FILE);
+      super(artifact, ArtifactCategory.OBJECT_FILE, /* disableWholeArchive= */ false);
       Preconditions.checkState(Link.OBJECT_FILETYPES.matches(artifact.getFilename()));
     }
 
@@ -156,17 +173,20 @@ public abstract class LinkerInputs {
   }
 
   /**
-   * This class represents a solib library symlink. Its library identifier is inherited from
-   * the library that it links to.
+   * This class represents a solib library symlink. Its library identifier is inherited from the
+   * library that it links to.
    */
   @ThreadSafety.Immutable
+  @AutoCodec
   public static class SolibLibraryToLink implements LibraryToLink {
     private final Artifact solibSymlinkArtifact;
     private final Artifact libraryArtifact;
     private final String libraryIdentifier;
 
-    private SolibLibraryToLink(Artifact solibSymlinkArtifact, Artifact libraryArtifact,
-        String libraryIdentifier) {
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    SolibLibraryToLink(
+        Artifact solibSymlinkArtifact, Artifact libraryArtifact, String libraryIdentifier) {
       Preconditions.checkArgument(
           Link.SHARED_LIBRARY_FILETYPES.matches(solibSymlinkArtifact.getFilename()));
       this.solibSymlinkArtifact = solibSymlinkArtifact;
@@ -247,19 +267,49 @@ public abstract class LinkerInputs {
     public int hashCode() {
       return solibSymlinkArtifact.hashCode();
     }
+
+    @Override
+    public boolean isMustKeepDebug() {
+      return false;
+    }
+
+    @Override
+    public boolean disableWholeArchive() {
+      return false;
+    }
   }
 
-  /**
-   * This class represents a library that may contain object files.
-   */
+  /** This class represents a library that may contain object files. */
   @ThreadSafety.Immutable
-  private static class CompoundLibraryToLink implements LibraryToLink {
+  @AutoCodec
+  @VisibleForSerialization
+  static class CompoundLibraryToLink implements LibraryToLink {
     private final Artifact libraryArtifact;
     private final ArtifactCategory category;
     private final String libraryIdentifier;
     private final Iterable<Artifact> objectFiles;
     private final ImmutableMap<Artifact, Artifact> ltoBitcodeFiles;
     private final ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends;
+    private final boolean mustKeepDebug;
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    CompoundLibraryToLink(
+        Artifact libraryArtifact,
+        ArtifactCategory category,
+        String libraryIdentifier,
+        Iterable<Artifact> objectFiles,
+        ImmutableMap<Artifact, Artifact> ltoBitcodeFiles,
+        ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends,
+        boolean mustKeepDebug) {
+      this.libraryArtifact = libraryArtifact;
+      this.category = category;
+      this.libraryIdentifier = libraryIdentifier;
+      this.objectFiles = objectFiles;
+      this.ltoBitcodeFiles = ltoBitcodeFiles;
+      this.sharedNonLtoBackends = sharedNonLtoBackends;
+      this.mustKeepDebug = mustKeepDebug;
+    }
 
     private CompoundLibraryToLink(
         Artifact libraryArtifact,
@@ -268,7 +318,8 @@ public abstract class LinkerInputs {
         Iterable<Artifact> objectFiles,
         ImmutableMap<Artifact, Artifact> ltoBitcodeFiles,
         ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends,
-        boolean allowArchiveTypeInAlwayslink) {
+        boolean allowArchiveTypeInAlwayslink,
+        boolean mustKeepDebug) {
       String basename = libraryArtifact.getFilename();
       switch (category) {
         case ALWAYSLINK_STATIC_LIBRARY:
@@ -297,6 +348,7 @@ public abstract class LinkerInputs {
       this.ltoBitcodeFiles =
           (ltoBitcodeFiles == null) ? ImmutableMap.<Artifact, Artifact>of() : ltoBitcodeFiles;
       this.sharedNonLtoBackends = sharedNonLtoBackends;
+      this.mustKeepDebug = mustKeepDebug;
     }
 
     @Override
@@ -367,28 +419,36 @@ public abstract class LinkerInputs {
     public int hashCode() {
       return libraryArtifact.hashCode();
     }
+
+    @Override
+    public boolean isMustKeepDebug() {
+      return this.mustKeepDebug;
+    }
+
+    @Override
+    public boolean disableWholeArchive() {
+      return false;
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////////////
   // Public factory constructors:
   //////////////////////////////////////////////////////////////////////////////////////
 
-  /**
-   * Creates linker input objects for non-library files.
-   */
-  public static Iterable<LinkerInput> simpleLinkerInputs(Iterable<Artifact> input,
-      final ArtifactCategory category) {
-    return Iterables.transform(input, artifact -> simpleLinkerInput(artifact, category));
+  /** Creates linker input objects for non-library files. */
+  public static Iterable<LinkerInput> simpleLinkerInputs(
+      Iterable<Artifact> input, final ArtifactCategory category, boolean disableWholeArchive) {
+    return Iterables.transform(
+        input, artifact -> simpleLinkerInput(artifact, category, disableWholeArchive));
   }
 
-  /**
-   * Creates a linker input for which we do not know what objects files it consists of.
-   */
-  public static LinkerInput simpleLinkerInput(Artifact artifact, ArtifactCategory category) {
+  /** Creates a linker input for which we do not know what objects files it consists of. */
+  public static LinkerInput simpleLinkerInput(
+      Artifact artifact, ArtifactCategory category, boolean disableWholeArchive) {
     // This precondition check was in place and *most* of the tests passed with them; the only
     // exception is when you mention a generated .a file in the srcs of a cc_* rule.
     // Preconditions.checkArgument(!ARCHIVE_LIBRARY_FILETYPES.contains(artifact.getFileType()));
-    return new SimpleLinkerInput(artifact, category);
+    return new SimpleLinkerInput(artifact, category, disableWholeArchive);
   }
 
   /**
@@ -432,7 +492,8 @@ public abstract class LinkerInputs {
         /* objectFiles= */ null,
         /* ltoBitcodeFiles= */ null,
         /* sharedNonLtoBackends= */ null,
-        /* allowArchiveTypeInAlwayslink= */ false);
+        /* allowArchiveTypeInAlwayslink= */ false,
+        /* mustKeepDebug= */ false);
   }
 
   public static LibraryToLink opaqueLibraryToLink(
@@ -444,7 +505,8 @@ public abstract class LinkerInputs {
         /* objectFiles= */ null,
         /* ltoBitcodeFiles= */ null,
         /* sharedNonLtoBackends= */ null,
-        /* allowArchiveTypeInAlwayslink= */ false);
+        /* allowArchiveTypeInAlwayslink= */ false,
+        /* mustKeepDebug= */ false);
   }
 
   public static LibraryToLink opaqueLibraryToLink(
@@ -453,7 +515,22 @@ public abstract class LinkerInputs {
       String libraryIdentifier,
       boolean allowArchiveTypeInAlwayslink) {
     return new CompoundLibraryToLink(
-        artifact, category, libraryIdentifier, null, null, null, allowArchiveTypeInAlwayslink);
+        artifact, category, libraryIdentifier, null, null, null, allowArchiveTypeInAlwayslink,
+        /* mustKeepDebug= */ false);
+  }
+
+  public static LibraryToLink opaqueLibraryToLink(
+      Artifact artifact, ArtifactCategory category, String libraryIdentifier,
+      CppConfiguration.StripMode stripMode) {
+    return new CompoundLibraryToLink(
+        artifact,
+        category,
+        libraryIdentifier,
+        /* objectFiles= */ null,
+        /* ltoBitcodeFiles= */ null,
+        /* sharedNonLtoBackends= */ null,
+        /* allowArchiveTypeInAlwayslink= */ false,
+        /* mustKeepDebug= */ stripMode == CppConfiguration.StripMode.NEVER);
   }
 
   /** Creates a library to link with the specified object files. */
@@ -466,7 +543,8 @@ public abstract class LinkerInputs {
       ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends) {
     return new CompoundLibraryToLink(
         library, category, libraryIdentifier, objectFiles, ltoBitcodeFiles, sharedNonLtoBackends,
-        /* allowArchiveTypeInAlwayslink= */ false);
+        /* allowArchiveTypeInAlwayslink= */ false,
+        /* mustKeepDebug= */ false);
   }
 
   public static Iterable<Artifact> toNonSolibArtifacts(Iterable<LibraryToLink> libraries) {

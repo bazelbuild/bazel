@@ -14,11 +14,14 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.skyframe.LegacySkyKey;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
@@ -30,7 +33,7 @@ public final class TargetMarkerValue implements SkyValue {
 
   // Note that this value does not guarantee singleton-like reference equality because we use Java
   // deserialization. java deserialization can create other instances.
-  public static final TargetMarkerValue TARGET_MARKER_INSTANCE = new TargetMarkerValue();
+  @AutoCodec public static final TargetMarkerValue TARGET_MARKER_INSTANCE = new TargetMarkerValue();
 
   private TargetMarkerValue() {
   }
@@ -46,8 +49,29 @@ public final class TargetMarkerValue implements SkyValue {
   }
 
   @ThreadSafe
-  public static SkyKey key(Label label) {
+  public static Key key(Label label) {
     Preconditions.checkArgument(!label.getPackageIdentifier().getRepository().isDefault());
-    return LegacySkyKey.create(SkyFunctions.TARGET_MARKER, label);
+    return Key.create(label);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<Label> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(Label arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(Label arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.TARGET_MARKER;
+    }
   }
 }

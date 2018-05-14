@@ -41,7 +41,6 @@ import java.util.logging.Logger;
  *      --tool PACKAGE\
  *      --sdkRoot path/to/sdk\
  *      --aapt path/to/sdk/aapt\
- *      --annotationJar path/to/sdk/annotationJar\
  *      --adb path/to/sdk/adb\
  *      --zipAlign path/to/sdk/zipAlign\
  *      --androidJar path/to/sdk/androidJar\
@@ -143,6 +142,12 @@ public class ResourceProcessorBusyBox {
       @Override
       void call(String[] args) throws Exception {
         Aapt2ResourceShrinkingAction.main(args);
+      }
+    },
+    MERGE_ASSETS() {
+      @Override
+      void call(String[] args) throws Exception {
+        AndroidAssetMergingAction.main(args);
       }
     };
 

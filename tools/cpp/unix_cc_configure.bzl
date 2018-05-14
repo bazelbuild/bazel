@@ -17,11 +17,20 @@
 
 load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
+    "auto_configure_warning",
+    "auto_configure_fail",
     "escape_string",
     "get_env_var",
+    "split_escaped",
     "which",
     "tpl",
 )
+
+def _uniq(iterable):
+  """Remove duplicates from a list."""
+
+  unique_elements = {element: None for element in iterable}
+  return unique_elements.keys()
 
 def _prepare_include_path(repo_ctx, path):
   """Resolve and sanitize include path before outputting it into the crosstool.
@@ -78,24 +87,21 @@ def _find_tool(repository_ctx, tool, overriden_tools):
     return overriden_tools[tool]
   return which(repository_ctx, tool, "/usr/bin/" + tool)
 
-def _get_tool_paths(repository_ctx, darwin, cc, overriden_tools):
+def _get_tool_paths(repository_ctx, overriden_tools):
   """Compute the path to the various tools. Doesn't %-escape the result!"""
   return dict({k: _find_tool(repository_ctx, k, overriden_tools)
           for k in [
+              "ar",
               "ld",
               "cpp",
+              "gcc",
               "dwp",
               "gcov",
               "nm",
               "objcopy",
               "objdump",
               "strip",
-          ]}.items() + {
-              "gcc": cc,
-              "ar": "/usr/bin/libtool"
-                    if darwin else which(repository_ctx, "ar", "/usr/bin/ar")
-          }.items())
-
+          ]}.items())
 
 def _escaped_cplus_include_paths(repository_ctx):
   """Use ${CPLUS_INCLUDE_PATH} to compute the %-escaped list of flags for cxxflag."""
@@ -123,9 +129,9 @@ def _cxx_inc_convert(path):
   return path
 
 
-def get_escaped_cxx_inc_directories(repository_ctx, cc):
+def get_escaped_cxx_inc_directories(repository_ctx, cc, lang_flag, additional_flags = []):
   """Compute the list of default %-escaped C++ include directories."""
-  result = repository_ctx.execute([cc, "-E", "-xc++", "-", "-v"])
+  result = repository_ctx.execute([cc, "-E", lang_flag, "-", "-v"] + additional_flags)
   index1 = result.stderr.find(_INC_DIR_MARKER_BEGIN)
   if index1 == -1:
     return []
@@ -145,7 +151,7 @@ def get_escaped_cxx_inc_directories(repository_ctx, cc):
           for p in inc_dirs.split("\n")]
 
 
-def _add_option_if_supported(repository_ctx, cc, option):
+def _is_option_supported(repository_ctx, cc, option):
   """Checks that `option` is supported by the C compiler. Doesn't %-escape the option."""
   result = repository_ctx.execute([
       cc,
@@ -155,7 +161,12 @@ def _add_option_if_supported(repository_ctx, cc, option):
       "-c",
       str(repository_ctx.path("tools/cpp/empty.cc"))
   ])
-  return [option] if result.stderr.find(option) == -1 else []
+  return result.stderr.find(option) == -1
+
+
+def _add_option_if_supported(repository_ctx, cc, option):
+  """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
+  return [option] if _is_option_supported(repository_ctx, cc, option) else []
 
 
 def _is_gold_supported(repository_ctx, cc):
@@ -199,6 +210,14 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
   else:
     # cc is inside the repository, don't set -B.
     bin_search_flag = []
+
+  escaped_cxx_include_directories = _uniq(
+      get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc") +
+      get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++") +
+      get_escaped_cxx_inc_directories(
+          repository_ctx, cc, "-xc", _get_no_canonical_prefixes_opt(repository_ctx, cc)) +
+      get_escaped_cxx_inc_directories(
+          repository_ctx, cc, "-xc++", _get_no_canonical_prefixes_opt(repository_ctx, cc)))
   return {
       "abi_version": escape_string(get_env_var(repository_ctx, "ABI_VERSION", "local", False)),
       "abi_libc_version": escape_string(get_env_var(repository_ctx, "ABI_LIBC_VERSION", "local", False)),
@@ -218,11 +237,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "cxx_flag": [
           "-std=c++0x",
       ] + _escaped_cplus_include_paths(repository_ctx),
-      "linker_flag": [
-          "-lstdc++",
-          "-lm",  # Some systems expect -lm in addition to -lstdc++
-          # Anticipated future default.
-      ] + (
+      "linker_flag": (
           ["-fuse-ld=gold"] if supports_gold_linker else []
       ) + _add_option_if_supported(
           repository_ctx, cc, "-Wl,-no-as-needed"
@@ -241,8 +256,9 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           ] + _add_option_if_supported(
               # Have gcc return the exit code from ld.
               repository_ctx, cc, "-pass-exit-codes")
-          ),
-      "cxx_builtin_include_directory": get_escaped_cxx_inc_directories(repository_ctx, cc),
+          ) + split_escaped(
+                  get_env_var(repository_ctx, "BAZEL_LINKOPTS", "-lstdc++:-lm", False), ":"),
+      "cxx_builtin_include_directory": escaped_cxx_include_directories,
       "objcopy_embed_flag": ["-I", "binary"],
       "unfiltered_cxx_flag":
           _get_no_canonical_prefixes_opt(repository_ctx, cc) + [
@@ -327,8 +343,13 @@ def get_env(repository_ctx):
     return ""
 
 
-def _coverage_feature(darwin):
-  if darwin:
+def _coverage_feature(repository_ctx, darwin):
+  use_llvm_cov = "1" == get_env_var(
+      repository_ctx,
+      "BAZEL_USE_LLVM_NATIVE_COVERAGE",
+      default="0",
+      enable_warning=False)
+  if darwin or use_llvm_cov:
     compile_flags = """flag_group {
         flag: '-fprofile-instr-generate'
         flag: '-fcoverage-mapping'
@@ -337,13 +358,17 @@ def _coverage_feature(darwin):
         flag: '-fprofile-instr-generate'
       }"""
   else:
+    # gcc requires --coverage being passed for compilation and linking
+    # https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#Instrumentation-Options
     compile_flags = """flag_group {
-        flag: '-fprofile-arcs'
-        flag: '-ftest-coverage'
+        flag: '--coverage'
       }"""
     link_flags = """flag_group {
-        flag: '-lgcov'
+        flag: '--coverage'
       }"""
+  # Note that we also set --coverage for c++-link-nodeps-dynamic-library. The
+  # generated code contains references to gcov symbols, and the dynamic linker
+  # can't resolve them unless the library is linked against gcov.
   return """
     feature {
       name: 'coverage'
@@ -356,51 +381,61 @@ def _coverage_feature(darwin):
         action: 'c++-header-preprocessing'
         action: 'c++-module-compile'
         """ + compile_flags + """
-
-
-
       }
       flag_set {
-        action: 'c++-link-interface-dynamic-library'
         action: 'c++-link-dynamic-library'
+        action: 'c++-link-nodeps-dynamic-library'
         action: 'c++-link-executable'
         """ + link_flags + """
       }
     }
   """
 
-def find_cc(repository_ctx, overriden_tools):
-  """Find the C++ compiler. Doesn't %-escape the result."""
+def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False):
+  """Find a generic C++ toolchain tool. Doesn't %-escape the result."""
 
-  if "gcc" in overriden_tools:
-    return overriden_tools["gcc"]
+  if name in overriden_tools:
+    return overriden_tools[name]
 
-  cc_name = "gcc"
-  cc_environ = repository_ctx.os.environ.get("CC")
-  cc_paren = ""
-  if cc_environ != None:
-    cc_environ = cc_environ.strip()
-    if cc_environ:
-      cc_name = cc_environ
-      cc_paren = " (%s)" % cc_environ
-  if cc_name.startswith("/"):
+  result = name
+  env_value = repository_ctx.os.environ.get(env_name)
+  env_value_with_paren = ""
+  if env_value != None:
+    env_value = env_value.strip()
+    if env_value:
+      result = env_value
+      env_value_with_paren = " (%s)" % env_value
+  if result.startswith("/"):
     # Absolute path, maybe we should make this suported by our which function.
-    return cc_name
-  cc = repository_ctx.which(cc_name)
-  if cc == None:
-    fail(
-        ("Cannot find gcc or CC%s, either correct your path or set the CC"
-         + " environment variable") % cc_paren)
-  return cc
+    return result
+  result = repository_ctx.which(result)
+  if result == None:
+    msg = ("Cannot find %s or %s%s; either correct your path or set the %s"
+           + " environment variable") % (name, env_name, env_value_with_paren, env_name)
+    if warn:
+      auto_configure_warning(msg)
+    else:
+      auto_configure_fail(msg)
+  return result
+
+def find_cc(repository_ctx, overriden_tools):
+  return _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
 
 def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
   """Configure C++ toolchain on Unix platforms."""
   repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
   darwin = cpu_value == "darwin"
-  cc = find_cc(repository_ctx, overriden_tools)
-  tool_paths = _get_tool_paths(repository_ctx, darwin,
-                               "cc_wrapper.sh" if darwin else str(cc),
-                               overriden_tools)
+
+  cc = _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
+  overriden_tools = dict(overriden_tools)
+  overriden_tools["gcc"] = cc
+  overriden_tools["gcov"] = _find_generic(
+      repository_ctx, "gcov", "GCOV", overriden_tools, warn = True)
+  if darwin:
+    overriden_tools["gcc"] = "cc_wrapper.sh"
+    overriden_tools["ar"] = "/usr/bin/libtool"
+
+  tool_paths = _get_tool_paths(repository_ctx, overriden_tools)
   crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
   opt_content = _opt_content(darwin)
   dbg_content = _dbg_content()
@@ -429,7 +464,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
       "%{opt_content}": _build_crosstool(opt_content, "    "),
       "%{dbg_content}": _build_crosstool(dbg_content, "    "),
       "%{cxx_builtin_include_directory}": "",
-      "%{coverage}": _coverage_feature(darwin),
+      "%{coverage}": _coverage_feature(repository_ctx, darwin),
       "%{msvc_env_tmp}": "",
       "%{msvc_env_path}": "",
       "%{msvc_env_include}": "",

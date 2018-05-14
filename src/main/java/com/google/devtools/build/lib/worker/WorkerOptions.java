@@ -20,7 +20,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 
 /**
  * Options related to worker processes.
@@ -31,7 +31,6 @@ public class WorkerOptions extends OptionsBase {
   @Option(
     name = "experimental_persistent_javac",
     defaultValue = "null",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Enable the experimental persistent Java compiler.",
@@ -47,20 +46,32 @@ public class WorkerOptions extends OptionsBase {
 
   @Option(
     name = "worker_max_instances",
-    defaultValue = "4",
-    category = "strategy",
+    converter = Converters.NamedIntegersConverter.class,
+    defaultValue = "",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "How many instances of a worker process (like the persistent Java compiler) may be "
-            + "launched if you use the 'worker' strategy."
+            + "launched if you use the 'worker' strategy. May be specified as [name=value] to "
+            + "give a different value per worker mnemonic.",
+    allowMultiple = true
   )
-  public int workerMaxInstances;
+  public List<Map.Entry<String, Integer>> workerMaxInstances;
+
+  @Option(
+      name = "high_priority_workers",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Mnemonics of workers to run with high priority. When high priority workers are running "
+              + "all other workers are throttled.",
+      allowMultiple = true)
+  public List<String> highPriorityWorkers;
 
   @Option(
     name = "worker_quit_after_build",
     defaultValue = "false",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "If enabled, all workers quit after a build is done."
@@ -70,7 +81,6 @@ public class WorkerOptions extends OptionsBase {
   @Option(
     name = "worker_verbose",
     defaultValue = "false",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "If enabled, prints verbose messages when workers are started, shutdown, ..."
@@ -78,23 +88,20 @@ public class WorkerOptions extends OptionsBase {
   public boolean workerVerbose;
 
   @Option(
-    name = "worker_extra_flag",
-    converter = Converters.AssignmentConverter.class,
-    defaultValue = "",
-    category = "strategy",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Extra command-flags that will be passed to worker processes in addition to "
-            + "--persistent_worker, keyed by mnemonic (e.g. --worker_extra_flag=Javac=--debug.",
-    allowMultiple = true
-  )
-  public List<Entry<String, String>> workerExtraFlags;
+      name = "worker_extra_flag",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Extra command-flags that will be passed to worker processes in addition to "
+              + "--persistent_worker, keyed by mnemonic (e.g. --worker_extra_flag=Javac=--debug.",
+      allowMultiple = true)
+  public List<Map.Entry<String, String>> workerExtraFlags;
 
   @Option(
     name = "worker_sandboxing",
     defaultValue = "false",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "If enabled, workers will be executed in a sandboxed environment."

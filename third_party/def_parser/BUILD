@@ -1,5 +1,12 @@
 licenses(["notice"])  # 3-clause BSD
 
+package(
+    default_visibility = [
+        "//src:__subpackages__",
+        "//tools/def_parser:__subpackages__",
+    ],
+)
+
 cc_library(
     name = "def_parser_lib",
     srcs = ["def_parser.cc"],
@@ -9,9 +16,6 @@ cc_library(
 cc_binary(
     name = "def_parser",
     srcs = ["def_parser_main.cc"],
-    visibility = [
-        "//src:__pkg__",
-    ],
     deps = [
         ":def_parser_lib",
     ],

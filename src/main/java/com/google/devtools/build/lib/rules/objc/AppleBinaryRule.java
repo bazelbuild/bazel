@@ -28,12 +28,12 @@ import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFact
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
 /**
  * Rule definition for apple_binary.
@@ -54,8 +54,8 @@ public class AppleBinaryRule implements RuleDefinition {
   }
 
   /**
-   * There are 3 classes of fully linked binaries in Mach: executable, dynamic library, and
-   * loadable bundle.
+   * There are 3 classes of fully linked binaries in Mach: executable, dynamic library, and loadable
+   * bundle.
    *
    * <p>The executable is the binary that can be run directly by the operating system. It implements
    * implements the main method that is the entry point to the program. In Apple apps, they are
@@ -70,17 +70,17 @@ public class AppleBinaryRule implements RuleDefinition {
    * as required resources to run.
    *
    * <p>Loadable bundles are binaries that can be loaded by other binaries at runtime, and they
-   * can't be directly executed by the operating system. When linking, a bundle_loader binary may
-   * be passed which signals the linker on where to look for unimplemented symbols, basically
-   * declaring that the bundle should be loaded by that binary. Bundle binaries are usually found
-   * in Plugins, and one common use case is tests. Tests are bundled into an .xctest bundle which
-   * contains the tests binary along with required resources. The test bundle is then loaded and
-   * run during test execution.
+   * can't be directly executed by the operating system. When linking, a bundle_loader binary may be
+   * passed which signals the linker on where to look for unimplemented symbols, basically declaring
+   * that the bundle should be loaded by that binary. Bundle binaries are usually found in Plugins,
+   * and one common use case is tests. Tests are bundled into an .xctest bundle which contains the
+   * tests binary along with required resources. The test bundle is then loaded and run during test
+   * execution.
    *
    * <p>The binary type is configurable via the "binary_type" attribute described below.
    */
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(
             ObjcConfiguration.class,
@@ -152,6 +152,7 @@ public class AppleBinaryRule implements RuleDefinition {
             new ComposingRuleTransitionFactory(
                 (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
                 new ConfigFeatureFlagTransitionFactory("feature_flags")))
+        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .build();
   }
 

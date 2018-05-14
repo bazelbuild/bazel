@@ -167,7 +167,8 @@ public class ValidateAndLinkResourcesAction {
     final Profiler profiler = LoggingProfiler.createAndStart("manifest");
 
     try (ScopedTemporaryDirectory scopedTmp =
-        new ScopedTemporaryDirectory("android_resources_tmp")) {
+            new ScopedTemporaryDirectory("android_resources_tmp");
+        ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15)) {
       CompiledResources resources =
           // TODO(b/64570523): Remove when the flags are standardized.
           Optional.ofNullable(options.resources)
@@ -184,7 +185,7 @@ public class ValidateAndLinkResourcesAction {
                           scopedTmp.getPath().resolve("manifest-aapt-dummy/AndroidManifest.xml"),
                           options.packageForR));
       profiler.recordEndOf("manifest").startTask("link");
-      ResourceLinker.create(aapt2Options.aapt2, scopedTmp.getPath())
+      ResourceLinker.create(aapt2Options.aapt2, executorService, scopedTmp.getPath())
           .profileUsing(profiler)
           .dependencies(Optional.ofNullable(options.deprecatedLibraries).orElse(options.libraries))
           .include(

@@ -92,16 +92,16 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
   }
 
   @Override
-  public void computing(SkyKey skyKey) {
+  public void stateStarting(SkyKey skyKey, NodeState nodeState) {
     if (progressReceiver != null) {
-      progressReceiver.computing(skyKey);
+      progressReceiver.stateStarting(skyKey, nodeState);
     }
   }
 
   @Override
-  public void computed(SkyKey skyKey, long elapsedTimeNanos) {
+  public void stateEnding(SkyKey skyKey, NodeState nodeState, long elapsedTimeNanos) {
     if (progressReceiver != null) {
-      progressReceiver.computed(skyKey, elapsedTimeNanos);
+      progressReceiver.stateEnding(skyKey, nodeState, elapsedTimeNanos);
     }
   }
 

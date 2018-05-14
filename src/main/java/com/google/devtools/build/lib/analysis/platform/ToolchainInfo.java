@@ -16,13 +16,14 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -38,6 +39,7 @@ import java.util.Map;
   doc = "Provides access to data about a specific toolchain.",
   category = SkylarkModuleCategory.PROVIDER
 )
+@AutoCodec
 @Immutable
 public class ToolchainInfo extends NativeInfo {
 
@@ -57,19 +59,21 @@ public class ToolchainInfo extends NativeInfo {
           /*types=*/ ImmutableList.<SkylarkType>of(SkylarkType.DICT));
 
   /** Skylark constructor and identifier for this provider. */
+  @AutoCodec
   public static final NativeProvider<ToolchainInfo> PROVIDER =
       new NativeProvider<ToolchainInfo>(ToolchainInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
-        protected ToolchainInfo createInstanceFromSkylark(Object[] args, Location loc)
-            throws EvalException {
+        protected ToolchainInfo createInstanceFromSkylark(
+            Object[] args, Environment env, Location loc) throws EvalException {
           Map<String, Object> data =
               SkylarkDict.castSkylarkDictOrNoneToDict(args[0], String.class, Object.class, "data");
           return ToolchainInfo.create(data, loc);
         }
       };
 
-  public ToolchainInfo(Map<String, Object> toolchainData, Location loc) {
-    super(PROVIDER, ImmutableMap.copyOf(toolchainData), loc);
+  @AutoCodec.Instantiator
+  public ToolchainInfo(Map<String, Object> values, Location location) {
+    super(PROVIDER, ImmutableMap.copyOf(values), location);
   }
 
   public static ToolchainInfo create(Map<String, Object> toolchainData) {
@@ -81,5 +85,5 @@ public class ToolchainInfo extends NativeInfo {
   }
 
   /** Add make variables to be exported to dependers. */
-  public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {}
+  public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {}
 }

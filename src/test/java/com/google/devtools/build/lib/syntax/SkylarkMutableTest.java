@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -72,8 +72,8 @@ public final class SkylarkMutableTest {
     mutability.freeze();
 
     {
-      Iterator<Entry<Object, Object>> it = dict.entrySet().iterator();
-      Entry<Object, Object> entry = it.next();
+      Iterator<Map.Entry<Object, Object>> it = dict.entrySet().iterator();
+      Map.Entry<Object, Object> entry = it.next();
       assertThrows(
           UnsupportedOperationException.class,
           () -> entry.setValue(5));

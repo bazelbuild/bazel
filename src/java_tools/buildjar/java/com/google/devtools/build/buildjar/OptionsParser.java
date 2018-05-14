@@ -16,7 +16,6 @@ package com.google.devtools.build.buildjar;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import java.io.File;
@@ -27,7 +26,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -42,13 +40,12 @@ import javax.annotation.Nullable;
  * command-line flags and options files and provides them via getters.
  */
 public final class OptionsParser {
-  private static final Splitter SPACE_SPLITTER = Splitter.on(' ');
   private final List<String> javacOpts = new ArrayList<>();
 
-  private final Map<String, JarOwner> directJarsToTargets = new HashMap<>();
-  private final Map<String, JarOwner> indirectJarsToTargets = new HashMap<>();
+  private final Set<String> directJars = new HashSet<>();
 
   private String strictJavaDeps;
+  private String fixDepsTool;
 
   private String outputDepsProtoFile;
   private final Set<String> depsArtifacts = new HashSet<>();
@@ -81,10 +78,8 @@ public final class OptionsParser {
 
   private boolean compressJar;
 
-  private String ruleKind;
   private String targetLabel;
-  
-  private boolean testOnly;
+  private String injectingRuleKind;
 
   /**
    * Constructs an {@code OptionsParser} from a list of command args. Sets the same JavacRunner for
@@ -109,22 +104,14 @@ public final class OptionsParser {
           readJavacopts(javacOpts, argQueue);
           sourcePathFromJavacOpts();
           break;
-        case "--direct_dependency":
-          {
-            String jar = getArgument(argQueue, arg);
-            JarOwner owner = parseJarOwner(getArgument(argQueue, arg));
-            directJarsToTargets.put(jar, owner);
-            break;
-          }
-        case "--indirect_dependency":
-          {
-            String jar = getArgument(argQueue, arg);
-            JarOwner owner = parseJarOwner(getArgument(argQueue, arg));
-            indirectJarsToTargets.put(jar, owner);
-            break;
-          }
+        case "--direct_dependencies":
+          collectFlagArguments(directJars, argQueue, "--");
+          break;
         case "--strict_java_deps":
           strictJavaDeps = getArgument(argQueue, arg);
+          break;
+        case "--experimental_fix_deps_tool":
+          fixDepsTool = getArgument(argQueue, arg);
           break;
         case "--output_deps_proto":
           outputDepsProtoFile = getArgument(argQueue, arg);
@@ -195,14 +182,11 @@ public final class OptionsParser {
         case "--compress_jar":
           compressJar = true;
           break;
-        case "--rule_kind":
-          ruleKind = getArgument(argQueue, arg);
-          break;
         case "--target_label":
           targetLabel = getArgument(argQueue, arg);
           break;
-        case "--testonly":
-          testOnly = true;
+        case "--injecting_rule_kind":
+          injectingRuleKind = getArgument(argQueue, arg);
           break;
         default:
           throw new InvalidCommandLineException("unknown option : '" + arg + "'");
@@ -220,18 +204,6 @@ public final class OptionsParser {
         it.remove();
       }
     }
-  }
-
-  private JarOwner parseJarOwner(String line) {
-    List<String> ownerStringParts = SPACE_SPLITTER.splitToList(line);
-    JarOwner owner;
-    Preconditions.checkState(ownerStringParts.size() == 1 || ownerStringParts.size() == 2);
-    if (ownerStringParts.size() == 1) {
-      owner = JarOwner.create(ownerStringParts.get(0));
-    } else {
-      owner = JarOwner.create(ownerStringParts.get(0), ownerStringParts.get(1));
-    }
-    return owner;
   }
 
   /**
@@ -353,16 +325,16 @@ public final class OptionsParser {
     return javacOpts;
   }
 
-  public Map<String, JarOwner> getDirectMappings() {
-    return directJarsToTargets;
-  }
-
-  public Map<String, JarOwner> getIndirectMappings() {
-    return indirectJarsToTargets;
+  public Set<String> directJars() {
+    return directJars;
   }
 
   public String getStrictJavaDeps() {
     return strictJavaDeps;
+  }
+
+  public String getFixDepsTool() {
+    return fixDepsTool;
   }
 
   public String getOutputDepsProtoFile() {
@@ -450,15 +422,11 @@ public final class OptionsParser {
     return compressJar;
   }
 
-  public String getRuleKind() {
-    return ruleKind;
-  }
-
   public String getTargetLabel() {
     return targetLabel;
   }
-  
-  public boolean testOnly() {
-    return testOnly;
+
+  public String getInjectingRuleKind() {
+    return injectingRuleKind;
   }
 }

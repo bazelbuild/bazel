@@ -28,20 +28,20 @@ public class NdkReleaseTest {
 
   @Test
   public void testReleaseParsing() {
-    testNdkRelease("r8",                "8",  null, null, false);
-    testNdkRelease("r8 (64-bit)",       "8",  null, null, true);
-    testNdkRelease("r10",               "10", null, null, false);
-    testNdkRelease("r10 (64-bit)",      "10", null, null, true);
-    testNdkRelease("r10-rc4",           "10", null, "rc4",  false);
-    testNdkRelease("r10-rc4 (64-bit)",  "10", null, "rc4",  true);
-    testNdkRelease("r10e",              "10", "e",  null,  false);
-    testNdkRelease("r10e (64-bit)",     "10", "e",  null,  true);
-    testNdkRelease("r10e-rc4",          "10", "e",  "rc4", false);
-    testNdkRelease("r10e-rc4 (64-bit)", "10", "e",  "rc4", true);
+    testNdkRelease("r8", 8, null, null, false);
+    testNdkRelease("r8 (64-bit)", 8, null, null, true);
+    testNdkRelease("r10", 10, null, null, false);
+    testNdkRelease("r10 (64-bit)", 10, null, null, true);
+    testNdkRelease("r10-rc4", 10, null, "rc4", false);
+    testNdkRelease("r10-rc4 (64-bit)", 10, null, "rc4", true);
+    testNdkRelease("r10e", 10, "e", null, false);
+    testNdkRelease("r10e (64-bit)", 10, "e", null, true);
+    testNdkRelease("r10e-rc4", 10, "e", "rc4", false);
+    testNdkRelease("r10e-rc4 (64-bit)", 10, "e", "rc4", true);
 
     try {
       // this is actually invalid
-      testNdkRelease("r10e-rc4 (abc)", "10", "e", "rc4", false);
+      testNdkRelease("r10e-rc4 (abc)", 10, "e", "rc4", false);
       throw new Error();
     } catch (AssertionError e) {
       // expected
@@ -55,7 +55,7 @@ public class NdkReleaseTest {
     NdkRelease ndkRelease = NdkRelease.create(releaseString);
     assertThat(ndkRelease.isValid).isTrue();
     assertThat(ndkRelease.rawRelease).isEqualTo("11.2.2725575");
-    assertThat(ndkRelease.majorRevision).isEqualTo("11");
+    assertThat(ndkRelease.majorRevision).isEqualTo(11);
     assertThat(ndkRelease.minorRevision).isEqualTo("2");
     assertThat(ndkRelease.releaseCandidate).isNull();
     assertThat(ndkRelease.is64Bit).isTrue();
@@ -68,15 +68,15 @@ public class NdkReleaseTest {
     NdkRelease ndkRelease = NdkRelease.create(releaseString);
     assertThat(ndkRelease.isValid).isTrue();
     assertThat(ndkRelease.rawRelease).isEqualTo("12.1.297705");
-    assertThat(ndkRelease.majorRevision).isEqualTo("12");
+    assertThat(ndkRelease.majorRevision).isEqualTo(12);
     assertThat(ndkRelease.minorRevision).isEqualTo("1");
     assertThat(ndkRelease.releaseCandidate).isNull();
     assertThat(ndkRelease.is64Bit).isTrue();
   }
-  
+
   private static void testNdkRelease(
       String ndkReleaseString,
-      String majorRelease,
+      Integer majorRelease,
       String minorRelease,
       String releaseCandidate,
       boolean is64Bit) {
@@ -115,7 +115,8 @@ public class NdkReleaseTest {
     NdkRelease ndkRelease = NdkRelease.create(ndkReleaseString);
     assertThat(ndkRelease.isValid).isFalse();
     assertThat(ndkRelease.rawRelease).isEqualTo(ndkReleaseString);
-    assertThat(ndkRelease.majorRevision).isNull();
+    assertThat(ndkRelease.majorRevision)
+        .isEqualTo(AndroidNdkCrosstools.LATEST_KNOWN_REVISION.getKey());
     assertThat(ndkRelease.minorRevision).isNull();
     assertThat(ndkRelease.releaseCandidate).isNull();
     assertThat(ndkRelease.is64Bit).isFalse();

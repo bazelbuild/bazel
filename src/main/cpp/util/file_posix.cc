@@ -28,6 +28,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
@@ -160,17 +161,18 @@ class PosixPipe : public IPipe {
 IPipe* CreatePipe() {
   int fd[2];
   if (pipe(fd) < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "pipe()");
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "pipe() failed: " << GetLastErrorString();
   }
 
   if (fcntl(fd[0], F_SETFD, FD_CLOEXEC) == -1) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "fcntl(F_SETFD, FD_CLOEXEC) failed");
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "fcntl(F_SETFD, FD_CLOEXEC) failed: " << GetLastErrorString();
   }
 
   if (fcntl(fd[1], F_SETFD, FD_CLOEXEC) == -1) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "fcntl(F_SETFD, FD_CLOEXEC) failed");
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "fcntl(F_SETFD, FD_CLOEXEC) failed: " << GetLastErrorString();
   }
 
   return new PosixPipe(fd[0], fd[1]);
@@ -328,12 +330,13 @@ void SyncFile(const string& path) {
   const char* file_path = path.c_str();
   int fd = open(file_path, O_RDONLY);
   if (fd < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "failed to open '%s' for syncing", file_path);
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "failed to open '" << file_path
+        << "' for syncing: " << GetLastErrorString();
   }
   if (fsync(fd) < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "failed to sync '%s'",
-         file_path);
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "failed to sync '" << file_path << "': " << GetLastErrorString();
   }
   close(fd);
 }
@@ -390,7 +393,8 @@ bool PosixFileMtime::Set(const string &path, const struct utimbuf &mtime) {
 time_t PosixFileMtime::GetNow() {
   time_t result = time(NULL);
   if (result == -1) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "time(NULL) failed");
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "time(NULL) failed: " << GetLastErrorString();
   }
   return result;
 }
@@ -414,7 +418,8 @@ bool MakeDirectories(const string &path, unsigned int mode) {
 string GetCwd() {
   char cwdbuf[PATH_MAX];
   if (getcwd(cwdbuf, sizeof cwdbuf) == NULL) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "getcwd() failed");
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "getcwd() failed: " << GetLastErrorString();
   }
   return string(cwdbuf);
 }
@@ -440,20 +445,26 @@ void ForEachDirectoryEntry(const string &path,
 
     string filename(blaze_util::JoinPath(path, ent->d_name));
     bool is_directory;
-    if (ent->d_type == DT_UNKNOWN) {
-      struct stat buf;
-      if (lstat(filename.c_str(), &buf) == -1) {
-        die(blaze_exit_code::INTERNAL_ERROR, "stat failed");
-      }
-      is_directory = S_ISDIR(buf.st_mode);
-    } else {
+// 'd_type' field isn't part of the POSIX spec.
+#ifdef _DIRENT_HAVE_D_TYPE
+    if (ent->d_type != DT_UNKNOWN) {
       is_directory = (ent->d_type == DT_DIR);
+    } else  // NOLINT (the brace is on the next line)
+#endif
+      {
+        struct stat buf;
+        if (lstat(filename.c_str(), &buf) == -1) {
+          BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+              << "stat failed for filename '" << filename
+              << "': " << GetLastErrorString();
+        }
+        is_directory = S_ISDIR(buf.st_mode);
+      }
+
+      consume->Consume(filename, is_directory);
     }
 
-    consume->Consume(filename, is_directory);
+    closedir(dir);
   }
-
-  closedir(dir);
-}
 
 }  // namespace blaze_util

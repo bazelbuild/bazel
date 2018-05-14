@@ -23,9 +23,8 @@ import java.util.List;
 /**
  * Syntax node for list and tuple literals.
  *
- * <p>(Note that during evaluation, both list and tuple values are represented by
- * java.util.List objects, the only difference between them being whether or not
- * they are mutable.)
+ * <p>(Note that during evaluation, both list and tuple values are represented by java.util.List
+ * objects, the only difference between them being whether or not they are mutable.)
  */
 public final class ListLiteral extends Expression {
 

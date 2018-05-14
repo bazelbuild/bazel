@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
@@ -32,9 +33,12 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -69,14 +73,14 @@ public final class SkylarkRuleConfiguredTargetUtil {
   private static final ImmutableSet<String> DEFAULT_PROVIDER_FIELDS =
       ImmutableSet.of("files", "runfiles", "data_runfiles", "default_runfiles", "executable");
 
-  /**
-   * Create a Rule Configured Target from the ruleContext and the ruleImplementation.
-   */
+  /** Create a Rule Configured Target from the ruleContext and the ruleImplementation. */
   public static ConfiguredTarget buildRule(
       RuleContext ruleContext,
+      AdvertisedProviderSet advertisedProviders,
       BaseFunction ruleImplementation,
+      Location location,
       SkylarkSemantics skylarkSemantics)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     SkylarkRuleContext skylarkRuleContext = null;
     try (Mutability mutability = Mutability.create("configured target")) {
@@ -110,6 +114,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       }
       ConfiguredTarget configuredTarget = createTarget(skylarkRuleContext, target);
       SkylarkProviderValidationUtil.checkOrphanArtifacts(ruleContext);
+      checkDeclaredProviders(configuredTarget, advertisedProviders, location);
       return configuredTarget;
     } catch (EvalException e) {
       addRuleToStackTrace(e, ruleContext.getRule(), ruleImplementation);
@@ -124,6 +129,20 @@ public final class SkylarkRuleConfiguredTargetUtil {
     } finally {
       if (skylarkRuleContext != null) {
         skylarkRuleContext.nullify();
+      }
+    }
+  }
+
+  private static void checkDeclaredProviders(
+      ConfiguredTarget configuredTarget, AdvertisedProviderSet advertisedProviders, Location loc)
+      throws EvalException {
+    for (SkylarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
+      if (configuredTarget.get(providerId) == null) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "rule advertised the '%s' provider, but this provider was not among those returned",
+                providerId.toString()));
       }
     }
   }
@@ -152,7 +171,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
   }
 
   private static ConfiguredTarget createTarget(SkylarkRuleContext context, Object target)
-      throws EvalException {
+      throws EvalException, RuleErrorException, ActionConflictException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(
         context.getRuleContext());
     // Set the default files to build.

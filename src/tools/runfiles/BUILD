@@ -25,20 +25,6 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-sh_library(
-    name = "runfiles_sh_lib",
-    srcs = ["runfiles.sh"],
-)
-
-sh_test(
-    name = "runfiles_sh_test",
-    srcs = select({
-        "//src/conditions:windows": ["runfiles_windows_test.sh"],
-        "//conditions:default": ["runfiles_posix_test.sh"],
-    }),
-    deps = [":runfiles_sh_lib"],
-)
-
 test_suite(
     name = "windows_tests",
     tags = [

@@ -5,6 +5,7 @@ java_test(
     srcs = glob(["*.java"]),
     test_class = "com.google.devtools.skylark.skylint.SkylintTests",
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/skylark/java/com/google/devtools/skylark/skylint:skylint_lib",

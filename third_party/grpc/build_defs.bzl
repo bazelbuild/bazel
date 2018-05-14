@@ -2,6 +2,7 @@
 You need to load the rules in your BUILD file for use, like:
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 """
+
 def _path_ignoring_repository(f):
   if (len(f.owner.workspace_root) == 0):
     return f.short_path
@@ -52,7 +53,7 @@ _java_grpc_gensource = rule(
             single_file = True,
         ),
         "_java_plugin": attr.label(
-            default = Label("@//third_party/grpc:grpc-java-plugin"),
+            default = Label("@io_bazel//third_party/grpc:grpc-java-plugin"),
             executable = True,
             cfg = "host",
         ),
@@ -96,9 +97,10 @@ def java_grpc_library(name, srcs, deps, enable_deprecated=None, visibility=None,
       srcs = [gensource_name],
       visibility = visibility,
       deps = [
-          "@//third_party:jsr305",
-          "@//third_party/grpc:grpc-jar",
-          "@//third_party:guava",
+          "@io_bazel//third_party:javax_annotations",
+          "@io_bazel//third_party:jsr305",
+          "@io_bazel//third_party/grpc:grpc-jar",
+          "@io_bazel//third_party:guava",
           "@com_google_protobuf//:protobuf_java",
       ] + deps,
       **kwargs

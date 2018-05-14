@@ -27,7 +27,7 @@ cc_test(
     srcs = ["launcher_util_test.cc"],
     deps = [
         ":util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -36,7 +36,7 @@ cc_test(
     srcs = ["data_parser_test.cc"],
     deps = [
         ":data_parser",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

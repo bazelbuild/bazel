@@ -139,7 +139,7 @@ public final class SkylarkProviderTest {
   }
 
   /** Asserts that a {@link SkylarkInfo} has fields a=1, b=2, c=3 (and nothing else). */
-  private static void assertHasExactlyValuesA1B2C3(SkylarkInfo info) {
+  private static void assertHasExactlyValuesA1B2C3(SkylarkInfo info) throws Exception {
     assertThat(info.getFieldNames()).containsExactly("a", "b", "c");
     assertThat(info.getValue("a")).isEqualTo(1);
     assertThat(info.getValue("b")).isEqualTo(2);

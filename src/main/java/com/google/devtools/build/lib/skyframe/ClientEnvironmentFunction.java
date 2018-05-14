@@ -14,7 +14,12 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
@@ -23,10 +28,34 @@ import javax.annotation.Nullable;
 
 /** The Skyframe function that generates values for variables of the client environment. */
 public final class ClientEnvironmentFunction implements SkyFunction {
+  public static Key key(String keyString) {
+    return ClientEnvironmentFunction.Key.create(keyString);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<String> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(String arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(String arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE;
+    }
+  }
 
   private final AtomicReference<Map<String, String>> clientEnv;
 
-  ClientEnvironmentFunction(AtomicReference<Map<String, String>> clientEnv) {
+  public ClientEnvironmentFunction(AtomicReference<Map<String, String>> clientEnv) {
     this.clientEnv = clientEnv;
   }
 

@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.TreeMap;
 
 /**
@@ -30,7 +29,7 @@ import java.util.TreeMap;
  * classes.
  */
 public class FieldInitializers
-    implements Iterable<Entry<ResourceType, Map<String, FieldInitializer>>> {
+    implements Iterable<Map.Entry<ResourceType, Map<String, FieldInitializer>>> {
 
   private final Map<ResourceType, Map<String, FieldInitializer>> initializers;
 
@@ -48,13 +47,13 @@ public class FieldInitializers
     final Map<ResourceType, Map<String, FieldInitializer>> merged =
         new EnumMap<>(ResourceType.class);
     for (FieldInitializers mergee : toMerge) {
-      for (Entry<ResourceType, Map<String, FieldInitializer>> entry : mergee) {
+      for (Map.Entry<ResourceType, Map<String, FieldInitializer>> entry : mergee) {
         final Map<String, FieldInitializer> fieldMap =
             merged.containsKey(entry.getKey())
                 ? merged.get(entry.getKey())
                 : new TreeMap<String, FieldInitializer>();
         merged.put(entry.getKey(), fieldMap);
-        for (Entry<String, FieldInitializer> field : entry.getValue().entrySet()) {
+        for (Map.Entry<String, FieldInitializer> field : entry.getValue().entrySet()) {
           fieldMap.put(field.getKey(), field.getValue());
         }
       }
@@ -62,12 +61,12 @@ public class FieldInitializers
     return copyOf(merged);
   }
 
-  public Iterable<Entry<ResourceType, Map<String, FieldInitializer>>> filter(
+  public Iterable<Map.Entry<ResourceType, Map<String, FieldInitializer>>> filter(
       FieldInitializers fieldsToWrite) {
     Map<ResourceType, Map<String, FieldInitializer>> initializersToWrite =
         new EnumMap<>(ResourceType.class);
 
-    for (Entry<ResourceType, Map<String, FieldInitializer>> entry :
+    for (Map.Entry<ResourceType, Map<String, FieldInitializer>> entry :
         fieldsToWrite.initializers.entrySet()) {
       if (initializers.containsKey(entry.getKey())) {
         final Map<String, FieldInitializer> valueFields = initializers.get(entry.getKey());
@@ -87,7 +86,7 @@ public class FieldInitializers
   }
 
   @Override
-  public Iterator<Entry<ResourceType, Map<String, FieldInitializer>>> iterator() {
+  public Iterator<Map.Entry<ResourceType, Map<String, FieldInitializer>>> iterator() {
     return initializers.entrySet().iterator();
   }
 

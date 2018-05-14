@@ -14,20 +14,17 @@
 package com.google.devtools.build.android;
 
 import com.android.builder.core.VariantConfiguration;
-import com.android.builder.dependency.SymbolFileProvider;
 import com.android.utils.StdLogger;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.android.Converters.DependencySymbolFileProviderConverter;
-import com.google.devtools.build.android.Converters.DependencySymbolFileProviderListConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.resources.ResourceSymbols;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
@@ -109,24 +106,6 @@ public class RClassGeneratorAction {
     )
     public List<DependencySymbolFileProvider> libraries;
 
-    // TODO(laszlocsomor): remove this flag after 2018-02-28 (about 6 months from now). Everyone
-    // should have updated to newer Bazel versions by then.
-    @Deprecated
-    @Option(
-      name = "libraries",
-      defaultValue = "",
-      deprecationWarning = "Deprecated in favour of \"--library\"",
-      converter = DependencySymbolFileProviderListConverter.class,
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "R.txt and manifests for the libraries in this binary's deps. We will write "
-              + "class files for the libraries as well. Expected format: lib1/R.txt[:lib2/R.txt]",
-      metadataTags = {OptionMetadataTag.DEPRECATED}
-    )
-    public List<DependencySymbolFileProvider> deprecatedLibraries;
-
     @Option(
       name = "classJarOutput",
       defaultValue = "null",
@@ -137,6 +116,26 @@ public class RClassGeneratorAction {
       help = "Path for the generated jar of R.class files."
     )
     public Path classJarOutput;
+
+    @Option(
+      name = "targetLabel",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A label to add to the output jar's manifest as 'Target-Label'"
+    )
+    public String targetLabel;
+
+    @Option(
+      name = "injectingRuleKind",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A string to add to the output jar's manifest as 'Injecting-Rule-Kind'"
+    )
+    public String injectingRuleKind;
   }
 
   public static void main(String[] args) throws Exception {
@@ -154,8 +153,6 @@ public class RClassGeneratorAction {
       Path classOutPath = tmp.resolve("compiled_classes");
 
       logger.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-      List<SymbolFileProvider> libraries =
-          Converters.concatLists(options.libraries, options.deprecatedLibraries);
       // Note that we need to write the R class for the main binary (so proceed even if there
       // are no libraries).
       if (options.primaryRTxt != null) {
@@ -167,22 +164,22 @@ public class RClassGeneratorAction {
         Multimap<String, ResourceSymbols> libSymbolMap = ArrayListMultimap.create();
         ResourceSymbols fullSymbolValues =
             resourceProcessor.loadResourceSymbolTable(
-                libraries, appPackageName, options.primaryRTxt, libSymbolMap);
+                options.libraries, appPackageName, options.primaryRTxt, libSymbolMap);
         logger.fine(
             String.format("Load symbols finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
         // For now, assuming not used for libraries and setting final access for fields.
         fullSymbolValues.writeClassesTo(
-            libSymbolMap, appPackageName, classOutPath, true /* finalFields */);
+            libSymbolMap, appPackageName, classOutPath, /* finalFields= */ true);
         logger.fine(
             String.format("Finished R.class at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-      } else if (!libraries.isEmpty()) {
+      } else if (!options.libraries.isEmpty()) {
         Multimap<String, ResourceSymbols> libSymbolMap = ArrayListMultimap.create();
         ResourceSymbols fullSymbolValues =
-            resourceProcessor.loadResourceSymbolTable(libraries, null, null, libSymbolMap);
+            resourceProcessor.loadResourceSymbolTable(options.libraries, null, null, libSymbolMap);
         logger.fine(
             String.format("Load symbols finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
         // For now, assuming not used for libraries and setting final access for fields.
-        fullSymbolValues.writeClassesTo(libSymbolMap, null, classOutPath, true /* finalFields */);
+        fullSymbolValues.writeClassesTo(libSymbolMap, null, classOutPath, /* finalFields= */ true);
         logger.fine(
             String.format("Finished R.class at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       } else {
@@ -190,7 +187,8 @@ public class RClassGeneratorAction {
       }
       // We write .class files to temp, then jar them up after (we create a dummy jar, even if
       // there are no class files).
-      AndroidResourceOutputs.createClassJar(classOutPath, options.classJarOutput);
+      AndroidResourceOutputs.createClassJar(
+          classOutPath, options.classJarOutput, options.targetLabel, options.injectingRuleKind);
       logger.fine(
           String.format("createClassJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
     } finally {

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 
 /** Strategy that uses sandboxing to execute a process. */
 final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
@@ -36,38 +35,11 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     return OS.isPosixCompatible() && ProcessWrapperUtil.isSupported(cmdEnv);
   }
 
-  private final Path execRoot;
-  private final String productName;
   private final Path processWrapper;
+  private final Path execRoot;
+  private final Path sandboxBase;
   private final LocalEnvProvider localEnvProvider;
-  private final Optional<Duration> timeoutKillDelay;
-
-  /**
-   * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool. If a spawn exceeds
-   * its timeout, then it will be killed instantly.
-   *
-   * @param cmdEnv the command environment to use
-   * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
-   */
-  ProcessWrapperSandboxedSpawnRunner(
-      CommandEnvironment cmdEnv, Path sandboxBase, String productName) {
-    this(cmdEnv, sandboxBase, productName, Optional.empty());
-  }
-
-  /**
-   * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool. If a spawn exceeds
-   * its timeout, then it will be killed after the specified delay.
-   *
-   * @param cmdEnv the command environment to use
-   * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
-   * @param timeoutKillDelay an additional grace period before killing timing out commands
-   */
-  ProcessWrapperSandboxedSpawnRunner(
-      CommandEnvironment cmdEnv, Path sandboxBase, String productName, Duration timeoutKillDelay) {
-    this(cmdEnv, sandboxBase, productName, Optional.of(timeoutKillDelay));
-  }
+  private final Duration timeoutKillDelay;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool.
@@ -75,53 +47,52 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    * @param productName the product name to use
-   * @param timeoutKillDelay an optional, additional grace period before killing timing out
-   *     commands. If not present, then no grace period is used and commands are killed instantly.
+   * @param timeoutKillDelay additional grace period before killing timing out commands
    */
   ProcessWrapperSandboxedSpawnRunner(
-      CommandEnvironment cmdEnv,
-      Path sandboxBase,
-      String productName,
-      Optional<Duration> timeoutKillDelay) {
-    super(cmdEnv, sandboxBase);
-    this.execRoot = cmdEnv.getExecRoot();
-    this.productName = productName;
-    this.timeoutKillDelay = timeoutKillDelay;
+      CommandEnvironment cmdEnv, Path sandboxBase, String productName, Duration timeoutKillDelay) {
+    super(cmdEnv);
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
+    this.execRoot = cmdEnv.getExecRoot();
     this.localEnvProvider =
         OS.getCurrent() == OS.DARWIN
-            ? new XCodeLocalEnvProvider(cmdEnv.getClientEnv())
+            ? new XcodeLocalEnvProvider(cmdEnv.getClientEnv())
             : new PosixLocalEnvProvider(cmdEnv.getClientEnv());
+    this.sandboxBase = sandboxBase;
+    this.timeoutKillDelay = timeoutKillDelay;
   }
 
   @Override
-  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
+  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException {
-    // Each invocation of "exec" gets its own sandbox.
-    Path sandboxPath = getSandboxRoot();
-    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
+    // Each invocation of "exec" gets its own sandbox base.
+    // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
+    // so we have to prefix our name to turn it into a globally unique value.
+    Path sandboxPath =
+        sandboxBase.getRelative(getName()).getRelative(Integer.toString(context.getId()));
+    sandboxPath.getParentDirectory().createDirectory();
+    sandboxPath.createDirectory();
 
-    // Each sandboxed action runs in its own execroot, so we don't need to make the temp directory's
-    // name unique (like we have to with standalone execution strategy).
-    Path tmpDir = sandboxExecRoot.getRelative("tmp");
+    // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
+    // the normal execroot does.
+    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
+    sandboxExecRoot.getParentDirectory().createDirectory();
+    sandboxExecRoot.createDirectory();
 
     Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(
-            spawn.getEnvironment(), execRoot, tmpDir.getPathString(), productName);
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, "/tmp");
 
-    Duration timeout = policy.getTimeout();
+    Duration timeout = context.getTimeout();
     ProcessWrapperUtil.CommandLineBuilder commandLineBuilder =
         ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(), spawn.getArguments())
             .setTimeout(timeout);
 
-    if (timeoutKillDelay.isPresent()) {
-      commandLineBuilder.setKillDelay(timeoutKillDelay.get());
-    }
+    commandLineBuilder.setKillDelay(timeoutKillDelay);
 
-    Optional<String> statisticsPath = Optional.empty();
+    Path statisticsPath = null;
     if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {
-      statisticsPath = Optional.of(sandboxPath.getRelative("stats.out").getPathString());
-      commandLineBuilder.setStatisticsPath(statisticsPath.get());
+      statisticsPath = sandboxPath.getRelative("stats.out");
+      commandLineBuilder.setStatisticsPath(statisticsPath);
     }
 
     SandboxedSpawn sandbox =
@@ -130,15 +101,15 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
             sandboxExecRoot,
             commandLineBuilder.build(),
             environment,
-            SandboxHelpers.getInputFiles(spawn, policy, execRoot),
+            SandboxHelpers.processInputFiles(spawn, context, execRoot),
             SandboxHelpers.getOutputFiles(spawn),
             getWritableDirs(sandboxExecRoot, environment));
 
-    return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout, statisticsPath);
+    return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
   }
 
   @Override
-  protected String getName() {
+  public String getName() {
     return "processwrapper-sandbox";
   }
 }

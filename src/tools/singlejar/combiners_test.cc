@@ -17,7 +17,7 @@
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/zip_headers.h"
 #include "src/tools/singlejar/zlib_interface.h"
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 namespace {
 

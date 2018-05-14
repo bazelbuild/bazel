@@ -10,11 +10,24 @@ filegroup(
 
 java_library(
     name = "serialization",
-    srcs = glob(["**/*.java"]),
+    srcs = glob(
+        ["**/*.java"],
+        exclude = ["SerializationConstants.java"],
+    ),
     deps = [
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/build/lib:crash-utils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:registered-singleton",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:unsafe-provider",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "constants",
+    srcs = ["SerializationConstants.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:resource_usage",
     ],
 )

@@ -64,12 +64,12 @@ public class SetExpression extends QueryExpression {
   }
 
   @Override
-  public <T> T accept(QueryExpressionVisitor<T> visitor) {
-    return visitor.visit(this);
+  public <T, C> T accept(QueryExpressionVisitor<T, C> visitor, C context) {
+    return visitor.visit(this, context);
   }
 
   /** Gets the list of {@link TargetLiteral}s contained in the expression. */
-  List<TargetLiteral> getWords() {
+  public List<TargetLiteral> getWords() {
     return words;
   }
 

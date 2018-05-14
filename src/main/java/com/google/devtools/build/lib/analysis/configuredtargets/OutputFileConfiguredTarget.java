@@ -23,14 +23,19 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProviderImpl;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.Pair;
 
-/**
- * A ConfiguredTarget for an OutputFile.
- */
+/** A ConfiguredTarget for an OutputFile. */
+@AutoCodec
 public class OutputFileConfiguredTarget extends FileConfiguredTarget
     implements InstrumentedFilesProvider {
 
@@ -39,14 +44,25 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
   public OutputFileConfiguredTarget(
       TargetContext targetContext, OutputFile outputFile,
       TransitiveInfoCollection generatingRule, Artifact outputArtifact) {
-    super(targetContext, outputArtifact);
+    this(
+        targetContext.getLabel(),
+        targetContext.getConfigurationKey(),
+        targetContext.getVisibility(),
+        outputArtifact,
+        generatingRule);
     Preconditions.checkArgument(targetContext.getTarget() == outputFile);
-    this.generatingRule = Preconditions.checkNotNull(generatingRule);
   }
 
-  @Override
-  public OutputFile getTarget() {
-    return (OutputFile) super.getTarget();
+  @Instantiator
+  @VisibleForSerialization
+  OutputFileConfiguredTarget(
+      Label label,
+      BuildConfigurationValue.Key configurationKey,
+      NestedSet<PackageGroupContents> visibility,
+      Artifact artifact,
+      TransitiveInfoCollection generatingRule) {
+    super(label, configurationKey, visibility, artifact);
+    this.generatingRule = Preconditions.checkNotNull(generatingRule);
   }
 
   public TransitiveInfoCollection getGeneratingRule() {

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.ToolchainType;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 
@@ -41,8 +40,7 @@ public class BazelToolchainType extends ToolchainType {
       return builder
           // This means that *every* toolchain_type rule depends on every configuration fragment
           // that contributes Make variables, regardless of which one it is.
-          .requiresConfigurationFragments(
-              CppConfiguration.class, JavaConfiguration.class, AndroidConfiguration.class)
+          .requiresConfigurationFragments(CppConfiguration.class, JavaConfiguration.class)
           .removeAttribute("licenses")
           .removeAttribute("distribs")
           .build();
@@ -65,8 +63,6 @@ public class BazelToolchainType extends ToolchainType {
                 CppConfiguration.class)
             .put(Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:toolchain_type"),
                 JavaConfiguration.class)
-            .put(Label.parseAbsoluteUnchecked("@bazel_tools//tools/android:toolchain_type"),
-                AndroidConfiguration.class)
             .build(),
         ImmutableMap.<Label, ImmutableMap<String, String>>of());
   }
