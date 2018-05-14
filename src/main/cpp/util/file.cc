@@ -124,8 +124,8 @@ class DirectoryTreeWalker : public DirectoryEntryConsumer {
                       _ForEachDirectoryEntry walk_entries)
       : _files(files), _walk_entries(walk_entries) {}
 
-  void Consume(const string &path, bool is_directory) override {
-    if (is_directory) {
+  void Consume(const string &path, bool follow_directory) override {
+    if (follow_directory) {
       Walk(path);
     } else {
       _files->push_back(path);
