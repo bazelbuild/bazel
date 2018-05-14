@@ -1812,8 +1812,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return configuredTargetAndData == null ? null : configuredTargetAndData.getConfiguredTarget();
   }
 
+  @VisibleForTesting
   @Nullable
-  private ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
+  public ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
       ExtendedEventHandler eventHandler,
       Label label,
       BuildConfiguration configuration,
