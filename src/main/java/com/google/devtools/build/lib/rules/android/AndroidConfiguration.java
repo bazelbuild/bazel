@@ -271,6 +271,15 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
     @Option(
+        name = "experimental_enable_android_cpu_make_variable",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        defaultValue = "true",
+        help = "Flag to roll out the removal of the ANDROID_CPU Make variable.")
+    public boolean enableAndroidCpuMakeVariable;
+
+    @Option(
       name = "Android configuration distinguisher",
       defaultValue = "MAIN",
       converter = ConfigurationDistinguisherConverter.class,
@@ -892,6 +901,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
+  private final boolean enableAndroidCpuMakeVariable;
   private final Label sdk;
   private final String cpu;
   private final boolean useIncrementalNativeLibs;
@@ -930,6 +940,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
+    this.enableAndroidCpuMakeVariable = options.enableAndroidCpuMakeVariable;
     this.sdk = options.sdk;
     this.useIncrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
@@ -988,6 +999,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   @AutoCodec.Instantiator
   AndroidConfiguration(
+      boolean enableAndroidCpuMakeVariable,
       Label sdk,
       String cpu,
       boolean useIncrementalNativeLibs,
@@ -1024,6 +1036,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       boolean enforceStrictDepsForBinariesUnderTest,
       boolean checkForMigrationTag,
       boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest) {
+    this.enableAndroidCpuMakeVariable = enableAndroidCpuMakeVariable;
     this.sdk = sdk;
     this.cpu = cpu;
     this.useIncrementalNativeLibs = useIncrementalNativeLibs;
@@ -1226,6 +1239,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   @Override
   public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
+    if (!enableAndroidCpuMakeVariable) {
+      return;
+    }
+
     globalMakeEnvBuilder.put("ANDROID_CPU", cpu);
   }
 
