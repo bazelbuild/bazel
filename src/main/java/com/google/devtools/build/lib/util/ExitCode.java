@@ -29,6 +29,10 @@ import java.util.HashMap;
  *
  *  <p>Note that these exit codes should be kept consistent with the codes
  *  returned by Blaze's launcher in //devtools/blaze/main:blaze.cc
+ *  Blaze exit codes should be consistently classified as permanent vs.
+ *  transient (i.e. retriable) vs. unknown transient/permanent because users,
+ *  in particular infrastructure users, will use the exit code to decide whether
+ *  the request should be retried or not.
  */
 public class ExitCode {
   // Tracks all exit codes defined here and elsewhere in Bazel.
