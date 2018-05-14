@@ -29,14 +29,15 @@ typing `bazel` in any directory, without typing out the full path.
 to download Bazel without an embedded JDK, look for `bazel-<version>-without-jdk-windows-x86_64.exe`
 on the release page. To use it, you must install JDK 8 separately (older or newer versions are not
 supported), and set the `JAVA_HOME` environment variable, e.g.:
-```
-set JAVA_HOME=c:\Program Files\Java\jdk1.8.0_171
-```
+
+    set JAVA_HOME=c:\Program Files\Java\jdk1.8.0_171
+
 Pay attention not to use quotes (") around the path (like you would on Unixes).
 
 ### Other ways to get Bazel
 
 You can also get Bazel by:
+
 *   [Installing Bazel using Chocolatey](#install-using-chocolatey)
 *   [Compiling Bazel from source](install-compile-source.html)
 
@@ -45,9 +46,7 @@ You can also get Bazel by:
 You can install the Bazel package using the [Chocolatey](https://chocolatey.org)
 package manager:
 
-```sh
-choco install bazel
-```
+    choco install bazel
 
 This command will install the latest available version of Bazel and
 its dependencies, such as the MSYS2 shell. This will not install Visual C++
