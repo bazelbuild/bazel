@@ -1521,16 +1521,16 @@ public final class CcCompilationHelper {
         ruleContext,
         featureConfiguration,
         ccToolchain,
-        sourceFile,
-        builder.getOutputFile(),
-        gcnoFile,
-        dwoFile,
-        ltoIndexingFile,
+        toPathString(sourceFile),
+        toPathString(builder.getOutputFile()),
+        toPathString(gcnoFile),
+        toPathString(dwoFile),
+        toPathString(ltoIndexingFile),
         ImmutableList.of(),
         userCompileFlags.build(),
         cppModuleMap,
         usePic,
-        builder.getRealOutputFilePath(),
+        builder.getTempOutputFile(),
         CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
         dotdFileExecPath,
         ImmutableList.copyOf(variablesExtensions),
@@ -1540,6 +1540,10 @@ public final class CcCompilationHelper {
         ccCompilationContextInfo.getQuoteIncludeDirs(),
         ccCompilationContextInfo.getSystemIncludeDirs(),
         ccCompilationContextInfo.getDefines());
+  }
+
+  private static String toPathString(Artifact a) {
+    return a == null ? null : a.getExecPathString();
   }
 
   /**
