@@ -90,6 +90,14 @@ public class CppRuleClasses {
         (rules, attributes, cppConfig) -> cppConfig.getCcToolchainRuleLabel());
   }
 
+  public static LabelLateBoundDefault<CppConfiguration> ccHostToolchainAttribute(
+      RuleDefinitionEnvironment env) {
+    return LabelLateBoundDefault.fromHostConfiguration(
+        CppConfiguration.class,
+        env.getToolsLabel(CROSSTOOL_LABEL),
+        (rules, attributes, cppConfig) -> cppConfig.getCcToolchainRuleLabel());
+  }
+
   public static Label ccToolchainTypeAttribute(RuleDefinitionEnvironment env) {
     return env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL);
   }
