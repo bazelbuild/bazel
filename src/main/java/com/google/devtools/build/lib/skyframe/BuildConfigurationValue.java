@@ -26,16 +26,18 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /** A Skyframe value representing a {@link BuildConfiguration}. */
 // TODO(bazel-team): mark this immutable when BuildConfiguration is immutable.
@@ -148,34 +150,50 @@ public class BuildConfigurationValue implements SkyValue {
       @Override
       public void serialize(SerializationContext context, Key obj, CodedOutputStream codedOut)
           throws SerializationException, IOException {
-        context.serialize(obj.optionsDiff, codedOut);
-        codedOut.writeInt32NoTag(obj.fragments.fragmentClasses().size());
-        for (Class<? extends BuildConfiguration.Fragment> fragment :
-            obj.fragments.fragmentClasses()) {
-          StringCodecs.asciiOptimized().serialize(context, fragment.getName(), codedOut);
+        @SuppressWarnings("unchecked")
+        ConcurrentMap<BuildConfigurationValue.Key, byte[]> cache =
+            context.getDependency(KeyCodecCache.class).map;
+        byte[] bytes = cache.get(obj);
+        if (bytes == null) {
+          context = context.getNewNonMemoizingContext();
+          ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+          CodedOutputStream bytesOut = CodedOutputStream.newInstance(byteArrayOutputStream);
+          context.serialize(obj.optionsDiff, bytesOut);
+          context.serialize(obj.fragments, bytesOut);
+          bytesOut.flush();
+          byteArrayOutputStream.flush();
+          bytes = byteArrayOutputStream.toByteArray();
+          cache.put(obj, bytes);
         }
+        codedOut.writeInt32NoTag(bytes.length);
+        codedOut.writeRawBytes(bytes);
       }
 
       @Override
-      @SuppressWarnings("unchecked") // Class<? extends...> cast
       public Key deserialize(DeserializationContext context, CodedInputStream codedIn)
           throws SerializationException, IOException {
+        byte[] serializedBytes = codedIn.readRawBytes(codedIn.readInt32());
+        codedIn = CodedInputStream.newInstance(serializedBytes);
+        context = context.getNewNonMemoizingContext();
         BuildOptions.OptionsDiffForReconstruction optionsDiff = context.deserialize(codedIn);
-        int fragmentsSize = codedIn.readInt32();
-        ImmutableSortedSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
-            ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter);
-        for (int i = 0; i < fragmentsSize; i++) {
-          try {
-            fragmentsBuilder.add(
-                (Class<? extends BuildConfiguration.Fragment>)
-                    Class.forName(StringCodecs.asciiOptimized().deserialize(context, codedIn)));
-          } catch (ClassNotFoundException e) {
-            throw new SerializationException(
-                "Couldn't deserialize BuildConfigurationValue$Key fragment class", e);
-          }
-        }
-        return key(fragmentsBuilder.build(), optionsDiff);
+        FragmentClassSet fragmentClassSet = context.deserialize(codedIn);
+        return key(fragmentClassSet, optionsDiff);
       }
     }
+  }
+
+  /**
+   * Injected cache for {@code Codec}, so that we don't have to repeatedly serialize the same
+   * object. We still incur the over-the-wire cost of the bytes, but we don't use CPU to repeatedly
+   * compute it.
+   *
+   * <p>We provide the cache as an injected dependency so that different serializers' caches are
+   * isolated.
+   */
+  public static class KeyCodecCache {
+    private final ConcurrentMap<BuildConfigurationValue.Key, byte[]> map =
+        new ConcurrentHashMap<>();
+
+    public KeyCodecCache() {}
   }
 }

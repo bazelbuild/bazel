@@ -20,10 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.common.options.OptionsParser;
-import java.util.IdentityHashMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,8 +31,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BuildOptionsTest {
   private static final ImmutableList<Class<? extends FragmentOptions>> TEST_OPTIONS =
-      ImmutableList.<Class<? extends FragmentOptions>>of(
-          BuildConfiguration.Options.class, ProtoConfiguration.Options.class);
+      ImmutableList.of(BuildConfiguration.Options.class);
 
   @Test
   public void optionSetCaching() {
@@ -168,33 +164,5 @@ public class BuildOptionsTest {
         .isEqualTo(otherFragment);
     assertThat(otherFragment.applyDiff(BuildOptions.diffForReconstruction(otherFragment, one)))
         .isEqualTo(one);
-  }
-
-  @Test
-  public void testCodec() throws Exception {
-    BuildOptions one =
-        BuildOptions.of(
-            TEST_OPTIONS,
-            "--compilation_mode=opt",
-            "cpu=k8",
-            "--proto_compiler=//net/proto2/compiler/public:protocol_compiler",
-            "--proto_toolchain_for_java=//tools/proto/toolchains:java");
-    BuildOptions two =
-        BuildOptions.of(
-            TEST_OPTIONS,
-            "--compilation_mode=dbg",
-            "cpu=k8",
-            "--proto_compiler=@com_google_protobuf//:protoc");
-    ObjectCodecTester.newBuilder(new BuildOptions.OptionsDiffForReconstructionCodec())
-        .addSubjects(BuildOptions.diffForReconstruction(one, two))
-        .addDependency(
-            IdentityHashMap.class,
-            new IdentityHashMap<BuildOptions.OptionsDiffForReconstruction, byte[]>())
-        .skipBadDataTest() // Bad data doesn't make sense with our caching.
-        .verificationFunction(
-            ((original, deserialized) -> {
-              assertThat(original).isEqualTo(deserialized);
-            }))
-        .buildAndRunTests();
   }
 }

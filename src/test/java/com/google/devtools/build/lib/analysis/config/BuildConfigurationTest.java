@@ -29,10 +29,10 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.Options;
-import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.junit.Test;
@@ -430,33 +430,51 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         .isEqualTo(host.getBinDirectory(RepositoryName.MAIN));
   }
 
+  private ImmutableList<BuildConfiguration> getTestConfigurations() throws Exception {
+    return ImmutableList.of(
+        create(),
+        create("--cpu=piii"),
+        create("--javacopt=foo"),
+        create("--platform_suffix=-test"),
+        create("--target_environment=//foo", "--target_environment=//bar"),
+        create("--noexperimental_separate_genfiles_directory"),
+        create(
+            "--define",
+            "foo=#foo",
+            "--define",
+            "comma=a,b",
+            "--define",
+            "space=foo bar",
+            "--define",
+            "thing=a \"quoted\" thing",
+            "--define",
+            "qspace=a\\ quoted\\ space",
+            "--define",
+            "#a=pounda"));
+  }
+
   @Test
   public void testCodec() throws Exception {
-    new SerializationTester(
-            create(),
-            create("--cpu=piii"),
-            create("--javacopt=foo"),
-            create("--platform_suffix=-test"),
-            create("--target_environment=//foo", "--target_environment=//bar"),
-            create("--noexperimental_separate_genfiles_directory"),
-            create(
-                "--define",
-                "foo=#foo",
-                "--define",
-                "comma=a,b",
-                "--define",
-                "space=foo bar",
-                "--define",
-                "thing=a \"quoted\" thing",
-                "--define",
-                "qspace=a\\ quoted\\ space",
-                "--define",
-                "#a=pounda"))
+    // Unnecessary ImmutableList.copyOf apparently necessary to choose non-varargs constructor.
+    new SerializationTester(ImmutableList.copyOf(getTestConfigurations()))
         .addDependency(FileSystem.class, getScratch().getFileSystem())
         .addDependency(
-            IdentityHashMap.class,
-            new IdentityHashMap<BuildOptions.OptionsDiffForReconstruction, byte[]>())
+            BuildConfigurationValue.KeyCodecCache.class,
+            new BuildConfigurationValue.KeyCodecCache())
         .setVerificationFunction(BuildConfigurationTest::verifyDeserialized)
+        .runTests();
+  }
+
+  @Test
+  public void testKeyCodec() throws Exception {
+    new SerializationTester(
+            getTestConfigurations()
+                .stream()
+                .map(BuildConfigurationValue::key)
+                .collect(ImmutableList.toImmutableList()))
+        .addDependency(
+            BuildConfigurationValue.KeyCodecCache.class,
+            new BuildConfigurationValue.KeyCodecCache())
         .runTests();
   }
 

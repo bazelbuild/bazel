@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Arrays;
 import javax.annotation.Nullable;
@@ -26,6 +27,7 @@ import javax.annotation.Nullable;
  * object. Interning these objects allows us to do cheap reference equality checks when these sets
  * are in frequently used keys. For good measure, we also compute a fingerprint.
  */
+@AutoCodec
 public class FragmentClassSet {
   private final ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> fragments;
 
@@ -40,6 +42,7 @@ public class FragmentClassSet {
 
   private static final Interner<FragmentClassSet> interner = BlazeInterners.newWeakInterner();
 
+  @AutoCodec.Instantiator
   public static FragmentClassSet of(
       ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> fragments) {
     return interner.intern(new FragmentClassSet(fragments));

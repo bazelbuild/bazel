@@ -109,6 +109,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * Sorts fragments by class name. This produces a stable order which, e.g., facilitates consistent
    * output from buildMnemonic.
    */
+  @AutoCodec
   public static final Comparator<Class<? extends Fragment>> lexicalFragmentSorter =
       Comparator.comparing(Class::getName);
 
