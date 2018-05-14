@@ -618,10 +618,7 @@ public final class BuildOptions implements Cloneable, Serializable {
         return false;
       }
       OptionsDiffForReconstruction that = (OptionsDiffForReconstruction) o;
-      return differingOptions.equals(that.differingOptions)
-          && extraFirstFragmentClasses.equals(that.extraFirstFragmentClasses)
-          && this.extraSecondFragments.equals(that.extraSecondFragments)
-          && Arrays.equals(this.baseFingerprint, that.baseFingerprint)
+      return Arrays.equals(this.baseFingerprint, that.baseFingerprint)
           && this.checksum.equals(that.checksum);
     }
 
@@ -635,12 +632,7 @@ public final class BuildOptions implements Cloneable, Serializable {
 
     @Override
     public int hashCode() {
-      return Objects.hash(
-          differingOptions,
-          extraFirstFragmentClasses,
-          extraSecondFragments,
-          Arrays.hashCode(baseFingerprint),
-          checksum);
+      return 31 * Arrays.hashCode(baseFingerprint) + checksum.hashCode();
     }
   }
 
