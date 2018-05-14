@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.protobuf.TextFormat;
@@ -61,7 +60,8 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
   }
 
   /** Returns active build variables for a link action of given type for given target. */
-  protected Variables getLinkBuildVariables(ConfiguredTarget target, Link.LinkTargetType type) {
+  protected CcToolchainVariables getLinkBuildVariables(
+      ConfiguredTarget target, Link.LinkTargetType type) {
     return getCppLinkAction(target, type).getLinkCommandLine().getBuildVariables();
   }
 
@@ -76,7 +76,7 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
   }
 
   /** Returns the value of a given sequence variable in context of the given Variables instance. */
-  protected List<String> getSequenceVariableValue(Variables variables, String variable)
+  protected List<String> getSequenceVariableValue(CcToolchainVariables variables, String variable)
       throws Exception {
     FeatureConfiguration mockFeatureConfiguration =
         buildFeatures(
@@ -95,7 +95,8 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
   }
 
   /** Returns the value of a given string variable in context of the given Variables instance. */
-  protected String getVariableValue(Variables variables, String variable) throws Exception {
+  protected String getVariableValue(CcToolchainVariables variables, String variable)
+      throws Exception {
     FeatureConfiguration mockFeatureConfiguration =
         buildFeatures(
                 "feature {",

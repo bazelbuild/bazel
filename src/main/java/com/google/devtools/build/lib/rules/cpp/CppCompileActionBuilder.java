@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -54,7 +53,7 @@ public class CppCompileActionBuilder {
   private final ActionOwner owner;
   private final BuildConfiguration configuration;
   private CcToolchainFeatures.FeatureConfiguration featureConfiguration;
-  private CcToolchainFeatures.Variables variables = Variables.EMPTY;
+  private CcToolchainVariables variables = CcToolchainVariables.EMPTY;
   private Artifact sourceFile;
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
   private Artifact optionalSourceFile;
@@ -529,16 +528,14 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  /**
-   * Sets the feature build variables to be used for the action.
-   */
-  public CppCompileActionBuilder setVariables(CcToolchainFeatures.Variables variables) {
+  /** Sets the feature build variables to be used for the action. */
+  public CppCompileActionBuilder setVariables(CcToolchainVariables variables) {
     this.variables = variables;
     return this;
   }
 
   /** Returns the build variables to be used for the action. */
-  public CcToolchainFeatures.Variables getVariables() {
+  public CcToolchainVariables getVariables() {
     return variables;
   }
 

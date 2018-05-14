@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
@@ -900,7 +899,7 @@ public final class CcCommon {
       return null;
     }
 
-    Variables buildVariables = toolchainProvider.getBuildVariables();
+    CcToolchainVariables buildVariables = toolchainProvider.getBuildVariables();
     String toolchainCcFlags =
         Joiner.on(" ")
             .join(

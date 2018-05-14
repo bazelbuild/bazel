@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.cpp.AppleCcToolchain;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.Link;
 import com.google.devtools.build.lib.rules.cpp.LinkBuildVariablesTestCase;
@@ -39,7 +39,7 @@ import org.junit.runners.JUnit4;
 /**
  * Tests that {@code CppLinkAction} is populated with the correct build variables for objective C
  * builds.
- **/
+ */
 @RunWith(JUnit4.class)
 public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
 
@@ -78,7 +78,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
-    Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
+    CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
     assertThat(
             getVariableValue(variables, AppleCcToolchain.XCODE_VERISON_OVERRIDE_VALUE_KEY))
         .contains("5.8");
@@ -126,7 +126,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
         ActionsTestUtil.getFirstArtifactEndingWith(appleBinLinkAction.getInputs(), "liba.a");
     CppLinkAction ccArchiveAction = (CppLinkAction) getGeneratingAction(archive);
 
-    Variables variables = ccArchiveAction.getLinkCommandLine().getBuildVariables();
+    CcToolchainVariables variables = ccArchiveAction.getLinkCommandLine().getBuildVariables();
     assertThat(
             getVariableValue(variables, AppleCcToolchain.XCODE_VERISON_OVERRIDE_VALUE_KEY))
         .contains("5.8");
@@ -174,7 +174,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
         ActionsTestUtil.getFirstArtifactEndingWith(appleBinLinkAction.getInputs(), "liba.a");
     CppLinkAction ccArchiveAction = (CppLinkAction) getGeneratingAction(archive);
 
-    Variables variables = ccArchiveAction.getLinkCommandLine().getBuildVariables();
+    CcToolchainVariables variables = ccArchiveAction.getLinkCommandLine().getBuildVariables();
     assertThat(getVariableValue(variables, AppleCcToolchain.VERSION_MIN_KEY))
         .contains(dummyMinimumOsValue);
   }
@@ -193,7 +193,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
-    Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
+    CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
     assertThat(
             getVariableValue(variables, AppleCcToolchain.XCODE_VERISON_OVERRIDE_VALUE_KEY))
         .contains(MockObjcSupport.DEFAULT_XCODE_VERSION);
@@ -239,7 +239,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
         ActionsTestUtil.getFirstArtifactEndingWith(appleBinLinkAction.getInputs(), "liba.a");
     CppLinkAction ccArchiveAction = (CppLinkAction) getGeneratingAction(archive);
 
-    Variables variables = ccArchiveAction.getLinkCommandLine().getBuildVariables();
+    CcToolchainVariables variables = ccArchiveAction.getLinkCommandLine().getBuildVariables();
     assertThat(getVariableValue(variables, AppleCcToolchain.VERSION_MIN_KEY))
         .contains(dummyMinimumOsValue);
   }

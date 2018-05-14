@@ -220,7 +220,7 @@ public class CppCompileAction extends AbstractAction
   /** Used modules that are not transitively used through other topLevelModules. */
   private Iterable<Artifact> topLevelModules = null;
 
-  private CcToolchainFeatures.Variables overwrittenVariables = null;
+  private CcToolchainVariables overwrittenVariables = null;
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -260,7 +260,7 @@ public class CppCompileAction extends AbstractAction
       ActionOwner owner,
       NestedSet<Artifact> allInputs,
       FeatureConfiguration featureConfiguration,
-      CcToolchainFeatures.Variables variables,
+      CcToolchainVariables variables,
       Artifact sourceFile,
       boolean shouldScanIncludes,
       boolean shouldPruneModules,
@@ -371,7 +371,7 @@ public class CppCompileAction extends AbstractAction
       Iterable<Artifact> additionalInputs,
       Collection<Artifact> usedModules,
       Iterable<Artifact> topLevelModules,
-      CcToolchainFeatures.Variables overwrittenVariables,
+      CcToolchainVariables overwrittenVariables,
       boolean needsDotdInputPruning,
       boolean needsIncludeValidation,
       IncludeProcessing includeProcessing,
@@ -1021,16 +1021,14 @@ public class CppCompileAction extends AbstractAction
    * Extracts all module (.pcm) files from potentialModules and returns a Variables object where
    * their exec paths are added to the value "module_files".
    */
-  private static CcToolchainFeatures.Variables getOverwrittenVariables(
-      Iterable<Artifact> potentialModules) {
+  private static CcToolchainVariables getOverwrittenVariables(Iterable<Artifact> potentialModules) {
     ImmutableList.Builder<String> usedModulePaths = ImmutableList.builder();
     for (Artifact input : potentialModules) {
       if (input.isFileType(CppFileTypes.CPP_MODULE)) {
         usedModulePaths.add(input.getExecPathString());
       }
     }
-    CcToolchainFeatures.Variables.Builder variableBuilder =
-        new CcToolchainFeatures.Variables.Builder();
+    CcToolchainVariables.Builder variableBuilder = new CcToolchainVariables.Builder();
     variableBuilder.addStringSequenceVariable("module_files", usedModulePaths.build());
     return variableBuilder.build();
   }

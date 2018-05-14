@@ -787,26 +787,27 @@ public class FdoSupport {
   }
 
   /**
-   * Adds the FDO profile output path to the variable builder.
-   * If FDO is disabled, no build variable is added.
+   * Adds the FDO profile output path to the variable builder. If FDO is disabled, no build variable
+   * is added.
    */
   @ThreadSafe
-  public void getLinkOptions(FeatureConfiguration featureConfiguration,
-      CcToolchainFeatures.Variables.Builder buildVariables
-      ) {
+  public void getLinkOptions(
+      FeatureConfiguration featureConfiguration, CcToolchainVariables.Builder buildVariables) {
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       buildVariables.addStringVariable("fdo_instrument_path", fdoInstrument);
     }
   }
 
   /**
-   * Adds the AutoFDO profile path to the variable builder and returns the profile artifact.
-   * If AutoFDO is disabled, no build variable is added and returns null.
+   * Adds the AutoFDO profile path to the variable builder and returns the profile artifact. If
+   * AutoFDO is disabled, no build variable is added and returns null.
    */
   @ThreadSafe
-  public Artifact buildProfileForLtoBackend(FdoSupportProvider fdoSupportProvider,
+  public Artifact buildProfileForLtoBackend(
+      FdoSupportProvider fdoSupportProvider,
       FeatureConfiguration featureConfiguration,
-      CcToolchainFeatures.Variables.Builder buildVariables, RuleContext ruleContext) {
+      CcToolchainVariables.Builder buildVariables,
+      RuleContext ruleContext) {
     if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)) {
       return null;
     }

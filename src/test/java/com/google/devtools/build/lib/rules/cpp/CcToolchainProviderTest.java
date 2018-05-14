@@ -20,7 +20,6 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
@@ -60,7 +59,7 @@ public class CcToolchainProviderTest {
             CcCompilationContext.EMPTY,
             /* supportsParamFiles= */ false,
             /* supportsHeaderParsing= */ false,
-            Variables.EMPTY,
+            CcToolchainVariables.EMPTY,
             /* builtinIncludeFiles= */ ImmutableList.<Artifact>of(),
             /* coverageEnvironment= */ NestedSetBuilder.emptySet(Order.COMPILE_ORDER),
             /* linkDynamicLibraryTool= */ null,
@@ -97,7 +96,7 @@ public class CcToolchainProviderTest {
             CcCompilationContext.EMPTY,
             /* supportsParamFiles= */ false,
             /* supportsHeaderParsing= */ false,
-            Variables.EMPTY,
+            CcToolchainVariables.EMPTY,
             /* builtinIncludeFiles= */ ImmutableList.<Artifact>of(),
             /* coverageEnvironment= */ NestedSetBuilder.emptySet(Order.COMPILE_ORDER),
             /* linkDynamicLibraryTool= */ null,

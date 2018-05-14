@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -906,8 +905,8 @@ public class CppHelper {
     Tool stripTool =
         Preconditions.checkNotNull(
             featureConfiguration.getToolForAction(CppCompileAction.STRIP_ACTION_NAME));
-    Variables variables =
-        new Variables.Builder(toolchain.getBuildVariables())
+    CcToolchainVariables variables =
+        new CcToolchainVariables.Builder(toolchain.getBuildVariables())
             .addStringVariable(
                 StripBuildVariables.OUTPUT_FILE.getVariableName(), output.getExecPathString())
             .addStringSequenceVariable(

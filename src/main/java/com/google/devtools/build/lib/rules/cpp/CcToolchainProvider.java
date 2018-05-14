@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
@@ -78,7 +77,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
           CcCompilationContext.EMPTY,
           /* supportsParamFiles= */ false,
           /* supportsHeaderParsing= */ false,
-          Variables.EMPTY,
+          CcToolchainVariables.EMPTY,
           /* builtinIncludeFiles= */ ImmutableList.<Artifact>of(),
           /* coverageEnvironment= */ NestedSetBuilder.emptySet(Order.COMPILE_ORDER),
           /* linkDynamicLibraryTool= */ null,
@@ -112,7 +111,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   private final CcCompilationContext ccCompilationContext;
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
-  private final Variables buildVariables;
+  private final CcToolchainVariables buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   private final NestedSet<Pair<String, String>> coverageEnvironment;
   @Nullable private final Artifact linkDynamicLibraryTool;
@@ -150,7 +149,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
       CcCompilationContext ccCompilationContext,
       boolean supportsParamFiles,
       boolean supportsHeaderParsing,
-      Variables buildVariables,
+      CcToolchainVariables buildVariables,
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       Artifact linkDynamicLibraryTool,
@@ -548,7 +547,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   }
 
   /** Returns build variables to be templated into the crosstool. */
-  public Variables getBuildVariables() {
+  public CcToolchainVariables getBuildVariables() {
     return buildVariables;
   }
 
