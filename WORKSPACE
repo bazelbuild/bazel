@@ -140,15 +140,6 @@ http_archive(
     sha256 = "699b55a6916c687f4b7dc092dbbf5f64672cde0dc965f79717735ec4e5416556",
 )
 
-http_archive(
-    name = "com_googlesource_code_re2",
-    urls = [
-        "https://github.com/google/re2/archive/2017-12-01.tar.gz",
-    ],
-    strip_prefix = "re2-2017-12-01",
-    sha256 = "62797e7cd7cc959419710cd25b075b5f5b247da0e8214d47bf5af9b32128fb0d",
-)
-
 # We're pinning to a commit because this project does not have a recent release.
 # Nothing special about this commit, though.
 http_archive(
