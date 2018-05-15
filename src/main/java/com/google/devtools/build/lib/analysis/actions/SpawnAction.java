@@ -19,6 +19,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -339,9 +340,10 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    * which also depends on the client environment. Subclasses that which to override the way to get
    * a spawn should override the other GetSpawn() methods instead.
    */
+  @VisibleForTesting
   public final Spawn getSpawn() throws CommandLineExpansionException {
     return new ActionSpawn(
-        commandLines.allArguments(), null, ImmutableList.of(), ImmutableMap.of());
+        commandLines.allArguments(), ImmutableMap.of(), ImmutableList.of(), ImmutableMap.of());
   }
 
   /**
@@ -385,7 +387,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     for (Artifact runfilesManifest : runfilesManifests) {
       fp.addPath(runfilesManifest.getExecPath());
     }
-    fp.addStringMap(getEnvironment());
+    fp.addStringMap(env.getFixedEnv());
     fp.addStrings(getClientEnvironmentVariables());
     fp.addStringMap(getExecutionInfo());
   }
@@ -395,7 +397,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     StringBuilder message = new StringBuilder();
     message.append(getProgressMessage());
     message.append('\n');
-    for (Map.Entry<String, String> entry : getEnvironment().entrySet()) {
+    for (Map.Entry<String, String> entry : env.getFixedEnv().entrySet()) {
       message.append("  Environment variable: ");
       message.append(ShellEscaper.escapeString(entry.getKey()));
       message.append('=');
@@ -476,7 +478,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   @Override
-  public ImmutableMap<String, String> getEnvironment() {
+  public final ImmutableMap<String, String> getEnvironment() {
     // TODO(ulfjack): AbstractAction should declare getEnvironment with a return value of type
     // ActionEnvironment to avoid developers misunderstanding the purpose of this method. That
     // requires first updating all subclasses and callers to actually handle environments correctly,
@@ -532,17 +534,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       inputs.addAll(additionalInputs);
       this.inputs = inputs.build();
       this.filesetMappings = filesetMappings;
-      LinkedHashMap<String, String> env = new LinkedHashMap<>(SpawnAction.this.getEnvironment());
-      if (clientEnv != null) {
-        for (String var : SpawnAction.this.getClientEnvironmentVariables()) {
-          String value = clientEnv.get(var);
-          if (value == null) {
-            env.remove(var);
-          } else {
-            env.put(var, value);
-          }
-        }
-      }
+      LinkedHashMap<String, String> env = new LinkedHashMap<>(SpawnAction.this.env.size());
+      SpawnAction.this.env.resolve(env, clientEnv);
       effectiveEnvironment = ImmutableMap.copyOf(env);
     }
 
@@ -575,6 +568,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private final List<RunfilesSupplier> toolRunfilesSuppliers = new ArrayList<>();
     private ResourceSet resourceSet = AbstractAction.DEFAULT_RESOURCE_SET;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
+    private ImmutableSet<String> inheritedEnvironment = ImmutableSet.of();
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
     private boolean isShellCommand = false;
     private boolean useDefaultShellEnvironment = false;
@@ -673,7 +667,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       ActionEnvironment env =
           useDefaultShellEnvironment
               ? configuration.getActionEnvironment()
-              : ActionEnvironment.create(this.environment);
+              : ActionEnvironment.create(environment, inheritedEnvironment);
       Action spawnAction =
           buildSpawnAction(owner, commandLines, configuration.getCommandLineLimits(), env);
       actions[0] = spawnAction;
@@ -692,7 +686,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           owner,
           result.build(),
           CommandLineLimits.UNLIMITED,
-          ActionEnvironment.create(this.environment));
+          ActionEnvironment.create(environment, inheritedEnvironment));
     }
 
     private CommandLine buildCommandLinesAndParamFileActions(
@@ -955,6 +949,16 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
 
     /**
+     * Sets the set of inherited environment variables. Do not use! This makes the builder ignore
+     * the 'default shell environment', which is computed from the --action_env command line option.
+     */
+    public Builder setInheritedEnvironment(Iterable<String> inheritedEnvironment) {
+      this.inheritedEnvironment = ImmutableSet.copyOf(inheritedEnvironment);
+      this.useDefaultShellEnvironment = false;
+      return this;
+    }
+
+    /**
      * Sets the map of execution info.
      */
     public Builder setExecutionInfo(Map<String, String> info) {
@@ -995,7 +999,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      */
     public Builder useDefaultShellEnvironment() {
       this.environment = null;
-      this.useDefaultShellEnvironment  = true;
+      this.inheritedEnvironment = null;
+      this.useDefaultShellEnvironment = true;
       return this;
     }
 
