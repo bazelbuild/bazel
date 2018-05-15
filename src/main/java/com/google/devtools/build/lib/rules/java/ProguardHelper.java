@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.Map;
@@ -164,7 +165,7 @@ public abstract class ProguardHelper {
       ImmutableList<Artifact> bootclasspath,
       String mainClassName,
       JavaSemantics semantics)
-      throws InterruptedException {
+      throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException {
     JavaOptimizationMode optMode = getJavaOptimizationMode(ruleContext);
     if (optMode == JavaOptimizationMode.NOOP || optMode == JavaOptimizationMode.LEGACY) {
       // For simplicity do nothing in LEGACY mode
@@ -384,7 +385,7 @@ public abstract class ProguardHelper {
       JavaSemantics semantics,
       @Nullable Integer optimizationPasses,
       @Nullable Artifact proguardOutputMap)
-      throws InterruptedException {
+      throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException {
     JavaOptimizationMode optMode = getJavaOptimizationMode(ruleContext);
     Preconditions.checkArgument(optMode != JavaOptimizationMode.NOOP);
     Preconditions.checkArgument(optMode != JavaOptimizationMode.LEGACY || !proguardSpecs.isEmpty());

@@ -346,7 +346,7 @@ public final class AndroidBinaryMobileInstall {
 
   private static Artifact getStubDex(
       RuleContext ruleContext, JavaSemantics javaSemantics, boolean split)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     String attribute =
         split ? "$incremental_split_stub_application" : "$incremental_stub_application";
 

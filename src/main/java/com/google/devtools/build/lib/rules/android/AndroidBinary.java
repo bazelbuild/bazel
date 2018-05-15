@@ -644,7 +644,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       JavaTargetAttributes attributes,
       boolean checkDesugarDeps,
       Function<Artifact, Artifact> derivedJarFunction)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     Artifact deployJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_DEPLOY_JAR);
     new DeployArchiveBuilder(javaSemantics, ruleContext)
@@ -670,7 +670,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact proguardMapping,
       Artifact proguardDictionary,
       @Nullable Artifact proguardOutputMap)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     Artifact proguardOutputJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR);
 

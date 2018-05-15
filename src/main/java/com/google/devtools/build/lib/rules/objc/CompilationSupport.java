@@ -703,7 +703,7 @@ public class CompilationSupport {
       ImmutableList.Builder<Artifact> objectFilesCollector,
       CcToolchainProvider toolchain,
       boolean isTestRule,
-      boolean usePch) {
+      boolean usePch) throws RuleErrorException {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
@@ -829,7 +829,7 @@ public class CompilationSupport {
     }
 
     /** Returns a {@link CompilationSupport} instance. */
-    public CompilationSupport build() {
+    public CompilationSupport build() throws RuleErrorException {
       Preconditions.checkNotNull(ruleContext, "CompilationSupport is missing RuleContext");
 
       if (buildConfiguration == null) {

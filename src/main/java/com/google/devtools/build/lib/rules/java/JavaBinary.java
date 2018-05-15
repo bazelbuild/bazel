@@ -598,7 +598,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
    */
   private static boolean applyProguardIfRequested(RuleContext ruleContext, Artifact deployJar,
       ImmutableList<Artifact> bootclasspath, String mainClassName, JavaSemantics semantics,
-      NestedSetBuilder<Artifact> filesBuilder) throws InterruptedException {
+      NestedSetBuilder<Artifact> filesBuilder) throws InterruptedException, RuleErrorException {
     // We only support proguarding tests so Proguard doesn't try to proguard itself.
     if (!isJavaTestRule(ruleContext)) {
       return false;

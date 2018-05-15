@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
@@ -393,7 +394,7 @@ public interface JavaSemantics {
       Artifact instrumentationMetadata,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
       String mainClass)
-      throws InterruptedException;
+      throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException;
 
   /**
    * Same as {@link #addCoverageSupport(JavaCompilationHelper, JavaTargetAttributes.Builder,
@@ -410,7 +411,7 @@ public interface JavaSemantics {
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
       String mainClass,
       boolean isExperimentalCoverage)
-      throws InterruptedException;
+      throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException;
 
   /**
    * Return the JVM flags to be used in a Java binary.

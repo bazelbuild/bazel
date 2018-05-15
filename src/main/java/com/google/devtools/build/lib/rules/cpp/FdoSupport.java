@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -603,7 +604,7 @@ public class FdoSupport {
       PathFragment outputName,
       boolean usePic,
       FeatureConfiguration featureConfiguration,
-      FdoSupportProvider fdoSupportProvider) {
+      FdoSupportProvider fdoSupportProvider) throws RuleClass.ConfiguredTargetFactory.RuleErrorException {
 
     // FDO is disabled -> do nothing.
     if ((fdoInstrument == null) && (fdoRoot == null)) {
@@ -657,7 +658,7 @@ public class FdoSupport {
       PathFragment sourceExecPath,
       PathFragment outputName,
       boolean usePic,
-      FdoSupportProvider fdoSupportProvider) {
+      FdoSupportProvider fdoSupportProvider) throws RuleClass.ConfiguredTargetFactory.RuleErrorException {
     CcToolchainProvider toolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     LipoContextProvider lipoContextProvider =

@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
@@ -159,7 +160,7 @@ public final class CcCommon {
 
   private final FdoSupportProvider fdoSupport;
 
-  public CcCommon(RuleContext ruleContext) {
+  public CcCommon(RuleContext ruleContext) throws RuleClass.ConfiguredTargetFactory.RuleErrorException {
     this.ruleContext = ruleContext;
     this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     this.ccToolchain =

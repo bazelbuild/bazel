@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
@@ -674,7 +675,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       Artifact executable,
       Artifact instrumentationMetadata,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
-      String mainClass) throws InterruptedException {
+      String mainClass) throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException {
     return addCoverageSupport(helper, attributes, executable, instrumentationMetadata,
         javaArtifactsBuilder, mainClass, false);
   }
@@ -689,7 +690,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
       String mainClass,
       boolean isExperimentalCoverage)
-      throws InterruptedException {
+      throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException {
     // This method can be called only for *_binary/*_test targets.
     Preconditions.checkNotNull(executable);
     if (!isExperimentalCoverage) {

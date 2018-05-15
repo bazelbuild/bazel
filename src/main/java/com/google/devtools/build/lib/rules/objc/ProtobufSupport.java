@@ -161,7 +161,7 @@ final class ProtobufSupport {
    * Registers the proto generation actions. These actions generate the ObjC/CPP code to be compiled
    * by this rule.
    */
-  public ProtobufSupport registerGenerationActions() {
+  public ProtobufSupport registerGenerationActions() throws RuleErrorException {
     int actionId = 0;
 
     boolean isLinkingTarget = isLinkingTarget();
@@ -182,7 +182,7 @@ final class ProtobufSupport {
     return this;
   }
 
-  private void registerModuleMapGenerationAction() {
+  private void registerModuleMapGenerationAction() throws RuleErrorException {
     CompilationArtifacts.Builder moduleMapCompilationArtifacts =
         new CompilationArtifacts.Builder()
             .setIntermediateArtifacts(intermediateArtifacts)

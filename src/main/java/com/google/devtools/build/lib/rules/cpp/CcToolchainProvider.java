@@ -49,44 +49,6 @@ import javax.annotation.Nullable;
 public final class CcToolchainProvider extends ToolchainInfo {
   public static final String SKYLARK_NAME = "CcToolchainInfo";
 
-  /** An empty toolchain to be returned in the error case (instead of null). */
-  public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
-      new CcToolchainProvider(
-          /* values= */ ImmutableMap.of(),
-          /* cppConfiguration= */ null,
-          /* toolchainInfo= */ null,
-          /* crosstoolTopPathFragment= */ null,
-          /* crosstool= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* crosstoolMiddleman= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* compile= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* strip= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* objCopy= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* as= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* ar= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* link= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* interfaceSoBuilder= */ null,
-          /* dwp= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* coverage= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* libcLink= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* staticRuntimeLinkInputs= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* staticRuntimeLinkMiddleman= */ null,
-          /* dynamicRuntimeLinkInputs= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* dynamicRuntimeLinkMiddleman= */ null,
-          /* dynamicRuntimeSolibDir= */ PathFragment.EMPTY_FRAGMENT,
-          CcCompilationContextInfo.EMPTY,
-          /* supportsParamFiles= */ false,
-          /* supportsHeaderParsing= */ false,
-          Variables.EMPTY,
-          /* builtinIncludeFiles= */ ImmutableList.<Artifact>of(),
-          /* coverageEnvironment= */ NestedSetBuilder.emptySet(Order.COMPILE_ORDER),
-          /* linkDynamicLibraryTool= */ null,
-          /* builtInIncludeDirectories= */ ImmutableList.<PathFragment>of(),
-          /* sysroot= */ null,
-          FdoMode.OFF,
-          /* useLLVMCoverageMapFormat= */ false,
-          /* codeCoverageEnabled= */ false,
-          /* isHostConfiguration= */ false);
-
   @Nullable private final CppConfiguration cppConfiguration;
   private final CppToolchainInfo toolchainInfo;
   private final PathFragment crosstoolTopPathFragment;

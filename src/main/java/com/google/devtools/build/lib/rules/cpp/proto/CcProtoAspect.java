@@ -220,7 +220,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           .checkSrcs(supportData.getDirectProtoSources(), "cc_proto_library");
     }
 
-    private FeatureConfiguration getFeatureConfiguration(SupportData supportData) {
+    private FeatureConfiguration getFeatureConfiguration(SupportData supportData) throws RuleErrorException {
       ImmutableSet.Builder<String> requestedFeatures = new ImmutableSet.Builder<>();
       requestedFeatures.addAll(ruleContext.getFeatures());
       ImmutableSet.Builder<String> unsupportedFeatures = new ImmutableSet.Builder<>();
@@ -242,7 +242,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     }
 
     private CcCompilationHelper initializeCompilationHelper(
-        FeatureConfiguration featureConfiguration) {
+        FeatureConfiguration featureConfiguration) throws RuleErrorException {
       CcCompilationHelper helper =
           new CcCompilationHelper(
               ruleContext,
@@ -259,13 +259,14 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       return helper;
     }
 
-    private CcLinkingHelper initializeLinkingHelper(FeatureConfiguration featureConfiguration) {
+    private CcLinkingHelper initializeLinkingHelper(FeatureConfiguration featureConfiguration) throws RuleErrorException {
+      CcToolchainProvider ccToolchain = ccToolchain(ruleContext);
       CcLinkingHelper helper =
           new CcLinkingHelper(
                   ruleContext,
                   cppSemantics,
                   featureConfiguration,
-                  ccToolchain(ruleContext),
+              ccToolchain,
                   CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext),
                   ruleContext.getConfiguration())
               .enableCcSpecificLinkParamsProvider()
@@ -277,13 +278,13 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       helper.addDeps(ruleContext.getPrerequisites("deps", TARGET));
       // TODO(dougk): Configure output artifact with action_config
       // once proto compile action is configurable from the crosstool.
-      if (!ccToolchain(ruleContext).supportsDynamicLinker()) {
+      if (!ccToolchain.supportsDynamicLinker()) {
         helper.setShouldCreateDynamicLibrary(false);
       }
       return helper;
     }
 
-    private static CcToolchainProvider ccToolchain(RuleContext ruleContext) {
+    private static CcToolchainProvider ccToolchain(RuleContext ruleContext) throws RuleErrorException {
       return CppHelper.getToolchain(
           ruleContext,
           ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, TARGET));

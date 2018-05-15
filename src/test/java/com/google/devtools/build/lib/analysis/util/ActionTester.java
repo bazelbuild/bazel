@@ -56,7 +56,7 @@ public class ActionTester {
      * @param attributesToFlip
      */
     Action generate(ImmutableSet<E> attributesToFlip)
-        throws InterruptedException;
+        throws Exception;
   }
 
   /**

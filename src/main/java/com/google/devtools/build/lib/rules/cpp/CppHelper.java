@@ -430,7 +430,7 @@ public class CppHelper {
    */
   @Nullable
   public static CcToolchainProvider getToolchainUsingDefaultCcToolchainAttribute(
-      RuleContext ruleContext) {
+      RuleContext ruleContext) throws RuleErrorException {
     return getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
   }
 
@@ -439,7 +439,7 @@ public class CppHelper {
    * for non C++ rules that link against the C++ runtime.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputs(
-      RuleContext ruleContext) {
+      RuleContext ruleContext) throws RuleErrorException {
     CcToolchainProvider defaultToolchain =
         getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
     if (defaultToolchain == null) {
@@ -455,7 +455,7 @@ public class CppHelper {
    * for non C++ rules that link against the C++ runtime.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainStaticRuntimeInputs(
-      RuleContext ruleContext) {
+      RuleContext ruleContext) throws RuleErrorException {
     CcToolchainProvider defaultToolchain =
         getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
     if (defaultToolchain == null) {
@@ -473,7 +473,7 @@ public class CppHelper {
    */
   @Nullable
   public static CcToolchainProvider getToolchain(
-      RuleContext ruleContext, String toolchainAttribute) {
+      RuleContext ruleContext, String toolchainAttribute) throws RuleErrorException {
      if (!ruleContext.isAttrDefined(toolchainAttribute, LABEL)) {
        // TODO(bazel-team): Report an error or throw an exception in this case.
        return null;
@@ -501,7 +501,7 @@ public class CppHelper {
    * returns {@code null}, even if there is no toolchain.
    */
   public static CcToolchainProvider getToolchain(
-      RuleContext ruleContext, TransitiveInfoCollection dep) {
+      RuleContext ruleContext, TransitiveInfoCollection dep) throws RuleErrorException {
 
     Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
     if (toolchainType != null
@@ -514,7 +514,7 @@ public class CppHelper {
   }
 
   private static CcToolchainProvider getToolchainFromPlatformConstraints(
-      RuleContext ruleContext, Label toolchainType) {
+      RuleContext ruleContext, Label toolchainType) throws RuleErrorException {
     ResolvedToolchainProviders providers =
         (ResolvedToolchainProviders)
             ruleContext.getToolchainContext().getResolvedToolchainProviders();
@@ -523,16 +523,14 @@ public class CppHelper {
       return (CcToolchainProvider) toolchainInfo;
     }
 
-    ruleContext.ruleError("The selected C++ toolchain is not a cc_toolchain rule");
-    return CcToolchainProvider.EMPTY_TOOLCHAIN_IS_ERROR;
+    throw ruleContext.throwWithRuleError("The selected C++ toolchain is not a cc_toolchain rule");
   }
 
   private static CcToolchainProvider getToolchainFromCrosstoolTop(
-      RuleContext ruleContext, TransitiveInfoCollection dep) {
+      RuleContext ruleContext, TransitiveInfoCollection dep) throws RuleErrorException {
     // TODO(bazel-team): Consider checking this generally at the attribute level.
     if ((dep == null) || (dep.get(ToolchainInfo.PROVIDER) == null)) {
-      ruleContext.ruleError("The selected C++ toolchain is not a cc_toolchain rule");
-      return CcToolchainProvider.EMPTY_TOOLCHAIN_IS_ERROR;
+      throw ruleContext.throwWithRuleError("The selected C++ toolchain is not a cc_toolchain rule");
     }
     return (CcToolchainProvider) dep.get(ToolchainInfo.PROVIDER);
   }

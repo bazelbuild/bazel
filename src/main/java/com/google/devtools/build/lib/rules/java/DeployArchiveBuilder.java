@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import java.util.HashSet;
@@ -298,7 +299,7 @@ public class DeployArchiveBuilder {
   }
 
   /** Builds the action as configured. */
-  public void build() throws InterruptedException {
+  public void build() throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException {
     ImmutableList<Artifact> classpathResources = attributes.getClassPathResources();
     Set<String> classPathResourceNames = new HashSet<>();
     for (Artifact artifact : classpathResources) {

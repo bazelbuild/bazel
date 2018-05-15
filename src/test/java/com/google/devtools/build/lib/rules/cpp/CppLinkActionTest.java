@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
@@ -312,7 +313,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
           @Override
           public Action generate(ImmutableSet<NonStaticAttributes> attributesToFlip)
-              throws InterruptedException {
+              throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException {
             CppLinkActionBuilder builder =
                 new CppLinkActionBuilder(
                     ruleContext,
@@ -368,7 +369,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
           @Override
           public Action generate(ImmutableSet<StaticKeyAttributes> attributes)
-              throws InterruptedException {
+              throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException {
             CppLinkActionBuilder builder =
                 new CppLinkActionBuilder(
                     ruleContext,

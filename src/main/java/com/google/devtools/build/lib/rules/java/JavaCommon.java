@@ -43,11 +43,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.*;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.syntax.Type;
@@ -182,7 +178,7 @@ public class JavaCommon {
       List<Artifact> metadataArtifacts,
       Artifact instrumentedJar,
       String mainClass)
-      throws InterruptedException {
+      throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException {
     // In Jacoco's setup, metadata artifacts are real jars.
     new DeployArchiveBuilder(semantics, ruleContext)
         .setOutputJar(instrumentedJar)
