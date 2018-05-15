@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
@@ -473,12 +472,12 @@ public final class BlazeRuntime {
       module.afterCommand();
     }
 
-    // If the command just completed was or inherits from Build, wipe the dependency graph if
-    // requested. This is sufficient, as this method is always run at the end of commands unless
-    // the server crashes, in which case no inmemory state will linger for the next build anyway.
-    BuildRequestOptions buildRequestOptions =
-        env.getOptions().getOptions(BuildRequestOptions.class);
-    if (buildRequestOptions != null && !buildRequestOptions.keepStateAfterBuild) {
+    // Wipe the dependency graph if requested. Note that this method always runs at the end of
+    // a commands unless the server crashes, in which case no inmemory state will linger for the
+    // next build anyway.
+    CommonCommandOptions commonOptions =
+        Preconditions.checkNotNull(env.getOptions().getOptions(CommonCommandOptions.class));
+    if (!commonOptions.keepStateAfterBuild) {
       workspace.getSkyframeExecutor().resetEvaluator();
     }
 

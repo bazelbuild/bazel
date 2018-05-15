@@ -161,7 +161,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.common.options.OptionsClassProvider;
-import com.google.devtools.common.options.OptionsProvider;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -757,7 +756,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * longer.
    */
   public void decideKeepIncrementalState(
-      boolean batch, OptionsProvider viewOptions, EventHandler eventHandler) {
+      boolean batch, boolean keepStateAfterBuild, boolean trackIncrementalState,
+      boolean discardAnalysisCache, boolean discardActionsAfterExecution,
+      EventHandler eventHandler) {
     // Assume incrementality.
   }
 
