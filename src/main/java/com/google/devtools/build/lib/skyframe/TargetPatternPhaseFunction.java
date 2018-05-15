@@ -170,27 +170,24 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     LoadingPhaseRunner.maybeReportDeprecation(env.getListener(), targets.getTargets());
 
     boolean preExpansionError = targets.hasError();
-    ResolvedTargets.Builder<Target> expandedTargetsBuilder = ResolvedTargets.builder();
+    ResolvedTargets.Builder<Label> expandedLabelsBuilder = ResolvedTargets.builder();
     for (Target target : targets.getTargets()) {
       if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
         SkyKey expansionKey =
             Preconditions.checkNotNull(testExpansionKeys.get(target.getLabel()));
         TestSuiteExpansionValue testExpansion =
             (TestSuiteExpansionValue) expandedTests.get(expansionKey);
-        expandedTargetsBuilder.merge(testExpansion.getTargets());
+        expandedLabelsBuilder.merge(testExpansion.getLabels());
       } else {
-        expandedTargetsBuilder.add(target);
+        expandedLabelsBuilder.add(target.getLabel());
       }
     }
-    ResolvedTargets<Target> expandedTargets = expandedTargetsBuilder.build();
+    ResolvedTargets<Label> targetLabels = expandedLabelsBuilder.build();
+    ResolvedTargets<Target> expandedTargets =
+        TestSuiteExpansionFunction.labelsToTargets(
+            env, targetLabels.getTargets(), targetLabels.hasError());
     Set<Target> testSuiteTargets =
         Sets.difference(targets.getTargets(), expandedTargets.getTargets());
-    ImmutableSet<Label> targetLabels =
-        expandedTargets
-            .getTargets()
-            .stream()
-            .map(Target::getLabel)
-            .collect(ImmutableSet.toImmutableSet());
     ImmutableSet<Label> testsToRunLabels = null;
     if (testsToRun != null) {
       testsToRunLabels =
@@ -201,7 +198,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
 
     TargetPatternPhaseValue result =
         new TargetPatternPhaseValue(
-            targetLabels,
+            targetLabels.getTargets(),
             testsToRunLabels,
             targets.hasError(),
             expandedTargets.hasError() || workspaceError,
@@ -363,15 +360,24 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       TestSuiteExpansionValue expandedSuitesValue = (TestSuiteExpansionValue) expandedSuites.get(
           TestSuiteExpansionValue.key(value.getTargets().getTargets()));
       if (pattern.isNegative()) {
-        ResolvedTargets<Target> negativeTargets = expandedSuitesValue.getTargets();
+        ResolvedTargets<Target> negativeTargets =
+            TestSuiteExpansionFunction.labelsToTargets(
+                env,
+                expandedSuitesValue.getLabels().getTargets(),
+                expandedSuitesValue.getLabels().hasError());
         testTargetsBuilder.filter(Predicates.not(Predicates.in(negativeTargets.getTargets())));
         testTargetsBuilder.mergeError(negativeTargets.hasError());
       } else {
-        ResolvedTargets<Target> positiveTargets = expandedSuitesValue.getTargets();
+        ResolvedTargets<Target> positiveTargets =
+            TestSuiteExpansionFunction.labelsToTargets(
+                env,
+                expandedSuitesValue.getLabels().getTargets(),
+                expandedSuitesValue.getLabels().hasError());
         testTargetsBuilder.addAll(positiveTargets.getTargets());
         testTargetsBuilder.mergeError(positiveTargets.hasError());
       }
     }
+
     testTargetsBuilder.filter(testFilter);
     return testTargetsBuilder.build();
   }

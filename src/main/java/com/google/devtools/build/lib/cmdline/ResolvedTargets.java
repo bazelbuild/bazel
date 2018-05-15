@@ -25,7 +25,7 @@ import javax.annotation.concurrent.Immutable;
 /**
  * Contains the result of the target pattern evaluation. This is a specialized container class for
  * the result of target pattern resolution. There is no restriction on the element type, but it will
- * usually be {@code Target}.
+ * usually be {@code Target} or {@code Label}.
  */
 @Immutable
 public final class ResolvedTargets<T> {

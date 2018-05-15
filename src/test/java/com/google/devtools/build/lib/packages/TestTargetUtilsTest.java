@@ -214,15 +214,17 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
 
   private void assertExpandedSuitesSkyframe(Iterable<Target> expected, Collection<Target> suites)
       throws Exception {
+    ImmutableSet<Label> expectedLabels =
+        ImmutableSet.copyOf(Iterables.transform(expected, TO_LABEL));
     ImmutableSet<Label> suiteLabels = ImmutableSet.copyOf(Iterables.transform(suites, TO_LABEL));
     SkyKey key = TestSuiteExpansionValue.key(suiteLabels);
     EvaluationResult<TestSuiteExpansionValue> result =
         getSkyframeExecutor()
             .getDriverForTesting()
             .evaluate(ImmutableList.of(key), false, 1, reporter);
-    ResolvedTargets<Target> actual = result.get(key).getTargets();
+    ResolvedTargets<Label> actual = result.get(key).getLabels();
     assertThat(actual.hasError()).isFalse();
-    assertThat(actual.getTargets()).containsExactlyElementsIn(expected);
+    assertThat(actual.getTargets()).containsExactlyElementsIn(expectedLabels);
   }
 
   @Test
