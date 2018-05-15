@@ -36,6 +36,11 @@ import java.util.TreeSet;
  * <p>Inherited environment variables must be declared in the Action interface (see {@link
  * Action#getClientEnvironmentVariables}), so that the dependency on the client environment is known
  * to the execution framework for correct incremental builds.
+ *
+ * <p>By splitting the environment, we can handle environment variable changes more efficiently -
+ * the dependency of the action on the environment variable are tracked in Skyframe (and in the
+ * action cache), such that Bazel knows exactly which actions it needs to rerun, and does not have
+ * to reanalyze the entire dependency graph.
  */
 @AutoCodec
 public final class ActionEnvironment {
@@ -96,10 +101,26 @@ public final class ActionEnvironment {
     return new ActionEnvironment(ImmutableMap.copyOf(fixedEnv), ImmutableSet.of());
   }
 
+  /** Returns the combined size of the fixed and inherited environments. */
+  public int size() {
+    return fixedEnv.size() + inheritedEnv.size();
+  }
+
+  /**
+   * Returns the 'fixed' part of the environment, i.e., those environment variables that are set to
+   * fixed values and their values. This should only be used for testing and to compute the cache
+   * keys of actions. Use {@link #resolve} instead to get the complete environment.
+   */
   public ImmutableMap<String, String> getFixedEnv() {
     return fixedEnv;
   }
 
+  /**
+   * Returns the 'inherited' part of the environment, i.e., those environment variables that are
+   * inherited from the client environment and therefore have no fixed value here. This should only
+   * be used for testing and to compute the cache keys of actions. Use {@link #resolve} instead to
+   * get the complete environment.
+   */
   public ImmutableSet<String> getInheritedEnv() {
     return inheritedEnv;
   }
