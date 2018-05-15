@@ -14,16 +14,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -34,18 +30,15 @@ import javax.annotation.Nullable;
  * the source of truth.
  */
 class PerActionFileCache implements ActionInputFileCache {
-  private final Map<Artifact, FileArtifactValue> inputArtifactData;
+  private final InputArtifactData inputArtifactData;
   private final boolean missingArtifactsAllowed;
-  // null until first call to getInputFromDigest()
-  private volatile HashMap<ByteString, Artifact> reverseMap;
 
   /**
    * @param inputArtifactData Map from artifact to metadata, used to return metadata upon request.
    * @param missingArtifactsAllowed whether to tolerate missing artifacts: can happen during input
    *     discovery.
    */
-  PerActionFileCache(
-      Map<Artifact, FileArtifactValue> inputArtifactData, boolean missingArtifactsAllowed) {
+  PerActionFileCache(InputArtifactData inputArtifactData, boolean missingArtifactsAllowed) {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);
     this.missingArtifactsAllowed = missingArtifactsAllowed;
   }
@@ -68,38 +61,12 @@ class PerActionFileCache implements ActionInputFileCache {
 
   @Override
   public boolean contentsAvailableLocally(ByteString digest) {
-    return getInputFromDigest(digest) != null;
+    return inputArtifactData.contains(digest);
   }
 
   @Nullable
   @Override
   public Artifact getInputFromDigest(ByteString digest) {
-    HashMap<ByteString, Artifact> r = reverseMap;  // volatile load
-    if (r == null) {
-      r = buildReverseMap();
-    }
-    return r.get(digest);
-  }
-
-  private synchronized HashMap<ByteString, Artifact> buildReverseMap() {
-    HashMap<ByteString, Artifact> r = reverseMap;  // volatile load
-    if (r != null) {
-      return r;
-    }
-    r = new HashMap<>(inputArtifactData.size());
-    // It would be nice to have a view of the entries which treats them as a map keyed on digest but
-    // does not require constructing another wrapper object for each entry.  Java doesn't come with
-    // any collections which can do this, but cloning RegularImmutableSet and adding the necessary
-    // features wouldn't be too bad.
-    for (Map.Entry<Artifact, FileArtifactValue> e : inputArtifactData.entrySet()) {
-      byte[] bytes = e.getValue().getDigest();
-      if (bytes != null) {
-        ByteString digest = ByteString.copyFrom(BaseEncoding.base16().lowerCase().encode(bytes)
-            .getBytes(StandardCharsets.US_ASCII));
-        r.put(digest, e.getKey());
-      }
-    }
-    reverseMap = r;  // volatile store
-    return r;
+    return inputArtifactData.get(digest);
   }
 }

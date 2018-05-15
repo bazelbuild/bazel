@@ -358,7 +358,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         syscalls, cyclesReporter, pkgLocator, numPackagesLoaded, this);
     this.resourceManager = ResourceManager.instance();
     this.skyframeActionExecutor =
-        new SkyframeActionExecutor(actionKeyContext, statusReporterRef, usesActionFileSystem);
+        new SkyframeActionExecutor(
+            actionKeyContext, statusReporterRef, this::getPathEntries, usesActionFileSystem);
     this.fileSystem = fileSystem;
     this.directories = Preconditions.checkNotNull(directories);
     this.actionKeyContext = Preconditions.checkNotNull(actionKeyContext);

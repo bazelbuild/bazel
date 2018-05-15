@@ -76,9 +76,9 @@ public class ActionMetadataHandler implements MetadataHandler {
   /**
    * Data for input artifacts. Immutable.
    *
-   * <p>This should never be read directly. Use {@link #getInputFileArtifactValue} instead.</p>
+   * <p>This should never be read directly. Use {@link #getInputFileArtifactValue} instead.
    */
-  private final Map<Artifact, FileArtifactValue> inputArtifactData;
+  private final InputArtifactData inputArtifactData;
 
   /** FileValues for each output Artifact. */
   private final ConcurrentMap<Artifact, FileValue> outputArtifactData =
@@ -128,7 +128,8 @@ public class ActionMetadataHandler implements MetadataHandler {
   private final AtomicBoolean executionMode = new AtomicBoolean(false);
 
   @VisibleForTesting
-  public ActionMetadataHandler(Map<Artifact, FileArtifactValue> inputArtifactData,
+  public ActionMetadataHandler(
+      InputArtifactData inputArtifactData,
       Iterable<Artifact> outputs,
       TimestampGranularityMonitor tsgm) {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);

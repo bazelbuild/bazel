@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.protobuf.ByteString;
@@ -104,6 +105,7 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -157,14 +159,17 @@ public final class SkyframeActionExecutor {
 
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
   private OutputService outputService;
+  private final Supplier<ImmutableList<Root>> sourceRootSupplier;
   private final BooleanSupplier usesActionFileSystem;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
+      Supplier<ImmutableList<Root>> sourceRootSupplier,
       BooleanSupplier usesActionFileSystem) {
     this.actionKeyContext = actionKeyContext;
     this.statusReporterRef = statusReporterRef;
+    this.sourceRootSupplier = sourceRootSupplier;
     this.usesActionFileSystem = usesActionFileSystem;
   }
 
@@ -357,6 +362,14 @@ public final class SkyframeActionExecutor {
 
   public void setClientEnv(Map<String, String> clientEnv) {
     this.clientEnv = clientEnv;
+  }
+
+  public Path getExecRoot() {
+    return executorEngine.getExecRoot();
+  }
+
+  public ImmutableList<Root> getSourceRoots() {
+    return sourceRootSupplier.get();
   }
 
   public boolean usesActionFileSystem() {
