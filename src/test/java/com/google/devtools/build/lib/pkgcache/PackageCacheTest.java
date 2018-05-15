@@ -236,10 +236,10 @@ public class PackageCacheTest extends FoundationTestCase {
 
   @Test
   public void testGetPackageWithInvalidName() throws Exception {
-    scratch.file("invalidpackagename&42/BUILD", "cc_library(name = 'foo') # a BUILD file");
+    scratch.file("invalidpackagename:42/BUILD", "cc_library(name = 'foo') # a BUILD file");
     checkGetPackageFails(
-        "invalidpackagename&42",
-        "no such package 'invalidpackagename&42': Invalid package name 'invalidpackagename&42'");
+        "invalidpackagename:42",
+        "no such package 'invalidpackagename:42': Invalid package name 'invalidpackagename:42'");
   }
 
   @Test

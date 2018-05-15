@@ -243,8 +243,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
 
   @Test
   public void testInvalidPackageName() throws Exception {
-    scratch.file("parentpackage/invalidpackagename%42/BUILD");
-    PackageLookupValue packageLookupValue = lookupPackage("parentpackage/invalidpackagename%42");
+    scratch.file("parentpackage/invalidpackagename:42/BUILD");
+    PackageLookupValue packageLookupValue = lookupPackage("parentpackage/invalidpackagename:42");
     assertThat(packageLookupValue.packageExists()).isFalse();
     assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.INVALID_PACKAGE_NAME);
     assertThat(packageLookupValue.getErrorMsg()).isNotNull();
