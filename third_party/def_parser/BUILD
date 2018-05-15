@@ -27,6 +27,7 @@ py_test(
         "//src/conditions:windows": ["def_parser_test.py"],
         "//conditions:default": ["empty_test.py"],
     }),
+    tags = ["no_windows"],
     main = select({
         "//src/conditions:windows": "def_parser_test.py",
         "//conditions:default": "empty_test.py",
