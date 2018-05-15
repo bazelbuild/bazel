@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.NodeState;
+import com.google.devtools.build.skyframe.GraphInconsistencyReceiver.Inconsistency;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
@@ -274,22 +275,7 @@ public abstract class AbstractParallelEvaluator {
               unknownStatusDeps);
           continue;
         }
-        Map<SkyKey, ? extends NodeEntry> oldChildren =
-            graph.getBatch(skyKey, Reason.ENQUEUING_CHILD, unknownStatusDeps);
-        Preconditions.checkState(
-            oldChildren.size() == unknownStatusDeps.size(),
-            "Not all old children were present: %s %s %s %s",
-            skyKey,
-            state,
-            unknownStatusDeps,
-            oldChildren);
-        for (Map.Entry<SkyKey, ? extends NodeEntry> e : oldChildren.entrySet()) {
-          SkyKey directDep = e.getKey();
-          NodeEntry directDepEntry = e.getValue();
-          // TODO(bazel-team): If this signals the current node, consider falling through to the
-          // VERIFIED_CLEAN case below directly, without scheduling a new Evaluate().
-          enqueueChild(skyKey, state, directDep, directDepEntry, /*depAlreadyExists=*/ true);
-        }
+        handleKnownChildrenForDirtyNode(unknownStatusDeps, state);
         return DirtyOutcome.ALREADY_PROCESSED;
       }
       switch (state.getDirtyState()) {
@@ -317,6 +303,39 @@ public abstract class AbstractParallelEvaluator {
           return DirtyOutcome.NEEDS_EVALUATION;
         default:
           throw new IllegalStateException("key: " + skyKey + ", entry: " + state);
+      }
+    }
+
+    private void handleKnownChildrenForDirtyNode(Collection<SkyKey> knownChildren, NodeEntry state)
+        throws InterruptedException {
+      Map<SkyKey, ? extends NodeEntry> oldChildren =
+          graph.getBatch(skyKey, Reason.ENQUEUING_CHILD, knownChildren);
+      if (oldChildren.size() != knownChildren.size()) {
+        GraphInconsistencyReceiver inconsistencyReceiver =
+            evaluatorContext.getGraphInconsistencyReceiver();
+        Set<SkyKey> missingChildren =
+            Sets.difference(ImmutableSet.copyOf(knownChildren), oldChildren.keySet());
+        for (SkyKey missingChild : missingChildren) {
+          inconsistencyReceiver.noteInconsistencyAndMaybeThrow(
+              skyKey, missingChild, Inconsistency.CHILD_MISSING_FOR_DIRTY_NODE);
+        }
+        Map<SkyKey, ? extends NodeEntry> recreatedEntries =
+            graph.createIfAbsentBatch(skyKey, Reason.ENQUEUING_CHILD, missingChildren);
+        for (Map.Entry<SkyKey, ? extends NodeEntry> recreatedEntry : recreatedEntries.entrySet()) {
+          enqueueChild(
+              skyKey,
+              state,
+              recreatedEntry.getKey(),
+              recreatedEntry.getValue(),
+              /*depAlreadyExists=*/ false);
+        }
+      }
+      for (Map.Entry<SkyKey, ? extends NodeEntry> e : oldChildren.entrySet()) {
+        SkyKey directDep = e.getKey();
+        NodeEntry directDepEntry = e.getValue();
+        // TODO(bazel-team): If this signals the current node and makes it ready, consider
+        // evaluating it in this thread instead of scheduling a new evaluation.
+        enqueueChild(skyKey, state, directDep, directDepEntry, /*depAlreadyExists=*/ true);
       }
     }
 
@@ -561,15 +580,7 @@ public abstract class AbstractParallelEvaluator {
             newDepsThatWerentInTheLastEvaluationNodes =
                 graph.createIfAbsentBatchAsync(
                     skyKey, Reason.RDEP_ADDITION, newDepsThatWerentInTheLastEvaluation);
-
-        for (Map.Entry<SkyKey, ? extends NodeEntry> e :
-            graph
-                .getBatch(skyKey, Reason.ENQUEUING_CHILD, newDepsThatWereInTheLastEvaluation)
-                .entrySet()) {
-          SkyKey newDirectDep = e.getKey();
-          NodeEntry newDirectDepEntry = e.getValue();
-          enqueueChild(skyKey, state, newDirectDep, newDirectDepEntry, /*depAlreadyExists=*/ true);
-        }
+        handleKnownChildrenForDirtyNode(newDepsThatWereInTheLastEvaluation, state);
 
         for (Map.Entry<SkyKey, ? extends NodeEntry> e :
             newDepsThatWerentInTheLastEvaluationNodes.get().entrySet()) {
@@ -616,8 +627,7 @@ public abstract class AbstractParallelEvaluator {
     }
     evaluatorContext
         .getGraphInconsistencyReceiver()
-        .noteInconsistencyAndMaybeThrow(
-            key, /*otherKey=*/ null, GraphInconsistencyReceiver.Inconsistency.RESET_REQUESTED);
+        .noteInconsistencyAndMaybeThrow(key, /*otherKey=*/ null, Inconsistency.RESET_REQUESTED);
     entry.resetForRestartFromScratch();
     // TODO(mschaller): rdeps of children have to be handled here. If the graph does not keep edges,
     // nothing has to be done, since there are no reverse deps to keep consistent. If the graph
