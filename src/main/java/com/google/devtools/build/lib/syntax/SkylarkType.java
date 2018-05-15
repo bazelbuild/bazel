@@ -247,6 +247,9 @@ public abstract class SkylarkType implements Serializable {
       return type;
     }
     @Override public boolean equals(Object other) {
+      if (other == null) {
+        return false;
+      }
       return this == other
           || (this.getClass() == other.getClass() && this.type.equals(((Simple) other).getType()));
     }
@@ -359,6 +362,9 @@ public abstract class SkylarkType implements Serializable {
     }
 
     @Override public boolean equals(Object other) {
+      if (other == null) {
+        return false;
+      }
       if (this == other) {
         return true;
       } else if (this.getClass() == other.getClass()) {
@@ -424,6 +430,9 @@ public abstract class SkylarkType implements Serializable {
       return false;
     }
     @Override public boolean equals(Object other) {
+      if (other == null) {
+        return false;
+      }
       if (this.getClass() == other.getClass()) {
         Union o = (Union) other;
         if (types.containsAll(o.types) && o.types.containsAll(types)) {
