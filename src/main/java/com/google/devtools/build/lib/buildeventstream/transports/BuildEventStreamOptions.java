@@ -102,6 +102,19 @@ public class BuildEventStreamOptions extends OptionsBase {
   )
   public boolean publishAllActions;
 
+  @Option(
+      name = "build_event_max_named_set_of_file_entries",
+      defaultValue = "-1",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "The maximum number of entries for a single named_set_of_files event; values smaller "
+          + "than 2 are ignored and no event splitting is performed. This is intended for limiting "
+          + "the maximum event size in the build event protocol, although it does not directly "
+          + "control event size. The total event size is a function of the structure of the set "
+          + "as well as the file and uri lengths, which may in turn depend on the hash function."
+  )
+  public int maxNamedSetEntries;
+
   // TODO(ruperts): Remove these public getter methods for consistency with other options classes?
   public String getBuildEventTextFile() {
     return buildEventTextFile;

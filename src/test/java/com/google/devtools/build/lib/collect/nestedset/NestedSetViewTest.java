@@ -16,6 +16,10 @@ package com.google.devtools.build.lib.collect.nestedset;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -132,5 +136,61 @@ public class NestedSetViewTest {
     assertThat(contents(view)).containsExactly("a", "b", "c1", "c2", "x", "y", "z");
     assertThat(identifiers(view.transitives()))
         .contains((new NestedSetView<String>(multi)).identifier());
+  }
+
+  @Test
+  public void testSplitFails() {
+    NestedSet<String> a = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
+    NestedSetView<String> v = new NestedSetView<>(a);
+    MoreAsserts.assertThrows(
+        IllegalArgumentException.class, () -> v.splitIfExceedsMaximumSize(-100));
+    MoreAsserts.assertThrows(
+        IllegalArgumentException.class, () -> v.splitIfExceedsMaximumSize(1));
+  }
+
+  @Test
+  public void testSplitNoSplit() {
+    NestedSet<String> a = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
+    NestedSetView<String> v = new NestedSetView<>(a);
+    assertThat(v.splitIfExceedsMaximumSize(2)).isSameAs(v);
+    assertThat(v.splitIfExceedsMaximumSize(100)).isSameAs(v);
+  }
+
+  @Test
+  public void testSplit() {
+    NestedSet<String> a =
+        NestedSetBuilder.<String>stableOrder()
+            .addAll(Arrays.asList("a", "b", "c"))
+            .build();
+    NestedSetView<String> v = new NestedSetView<>(a);
+    NestedSetView<String> s = v.splitIfExceedsMaximumSize(2);
+    assertThat(s).isNotSameAs(v);
+    assertThat(collectCheckSize(s, 2)).containsExactly("a", "b", "c");
+  }
+
+  @Test
+  public void testRecursiveSplit() {
+    NestedSet<String> a =
+        NestedSetBuilder.<String>stableOrder()
+            .addAll(Arrays.asList("a", "b", "c", "d", "e"))
+            .build();
+    NestedSetView<String> v = new NestedSetView<>(a);
+    NestedSetView<String> s = v.splitIfExceedsMaximumSize(2);
+    assertThat(s).isNotSameAs(v);
+    assertThat(collectCheckSize(s, 2)).containsExactly("a", "b", "c", "d", "e");
+  }
+
+  private <T> List<T> collectCheckSize(NestedSetView<T> view, int maxSize) {
+    return collectCheckSize(new ArrayList<>(), view, maxSize);
+  }
+
+  private <T> List<T> collectCheckSize(List<T> result, NestedSetView<T> view, int maxSize) {
+    assertThat(view.directs().size()).isAtMost(maxSize);
+    assertThat(view.transitives().size()).isAtMost(maxSize);
+    for (NestedSetView<T> t : view.transitives()) {
+      collectCheckSize(result, t, maxSize);
+    }
+    result.addAll(view.directs());
+    return result;
   }
 }
