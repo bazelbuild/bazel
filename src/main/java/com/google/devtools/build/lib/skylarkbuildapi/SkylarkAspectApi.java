@@ -14,9 +14,17 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /** The interface for skylark-defined aspects in the Build API. */
-public interface SkylarkAspectApi extends SkylarkValue {
-  // TODO(cparsons): Migrate this API from the Bazel-specific implementation.
-}
+@SkylarkModule(
+  name = "Aspect",
+  category = SkylarkModuleCategory.NONE,
+  doc =
+      "For more information about Aspects, please consult the <a href=\"globals.html#aspect\">"
+          + "documentation of the aspect function</a> or the "
+          + "<a href=\"../aspects.md\">introduction to Aspects</a>."
+)
+public interface SkylarkAspectApi extends SkylarkValue {}
