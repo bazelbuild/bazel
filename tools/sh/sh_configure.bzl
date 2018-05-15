@@ -56,6 +56,8 @@ def _sh_config_impl(repository_ctx):
     os_label = "@bazel_tools//platforms:linux"
   elif repository_ctx.os.name.startswith("mac"):
     os_label = "@bazel_tools//platforms:osx"
+  elif repository_ctx.os.name.startswith("freebsd"):
+    os_label = "@bazel_tools//platforms:freebsd"
   else:
     fail("Unknown OS")
 
