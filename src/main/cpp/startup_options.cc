@@ -71,6 +71,7 @@ void StartupOptions::RegisterUnaryStartupFlag(const std::string &flag_name) {
 StartupOptions::StartupOptions(const string &product_name,
                                const WorkspaceLayout *workspace_layout)
     : product_name(product_name),
+      ignore_all_rc_files(false),
       deep_execroot(true),
       block_for_lock(true),
       host_jvm_debug(false),
@@ -125,12 +126,13 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("block_for_lock");
   RegisterNullaryStartupFlag("client_debug");
   RegisterNullaryStartupFlag("deep_execroot");
+  RegisterNullaryStartupFlag("expand_configs_in_place");
   RegisterNullaryStartupFlag("experimental_oom_more_eagerly");
   RegisterNullaryStartupFlag("fatal_event_bus_exceptions");
   RegisterNullaryStartupFlag("host_jvm_debug");
+  RegisterNullaryStartupFlag("ignore_all_rc_files");
   RegisterNullaryStartupFlag("watchfs");
   RegisterNullaryStartupFlag("write_command_log");
-  RegisterNullaryStartupFlag("expand_configs_in_place");
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("experimental_oom_more_eagerly_threshold");
@@ -225,6 +227,20 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
              NULL) {
     host_jvm_args.push_back(value);
     option_sources["host_jvm_args"] = rcfile;  // NB: This is incorrect
+  } else if (GetNullaryOption(arg, "--ignore_all_rc_files")) {
+    if (!rcfile.empty()) {
+      *error = "Can't specify --ignore_all_rc_files in an rc file.";
+      return blaze_exit_code::BAD_ARGV;
+    }
+    ignore_all_rc_files = true;
+    option_sources["ignore_all_rc_files"] = rcfile;
+  } else if (GetNullaryOption(arg, "--noignore_all_rc_files")) {
+    if (!rcfile.empty()) {
+      *error = "Can't specify --noignore_all_rc_files in an rc file.";
+      return blaze_exit_code::BAD_ARGV;
+    }
+    ignore_all_rc_files = false;
+    option_sources["ignore_all_rc_files"] = rcfile;
   } else if (GetNullaryOption(arg, "--batch")) {
     batch = true;
     option_sources["batch"] = rcfile;
@@ -243,8 +259,8 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--nofatal_event_bus_exceptions")) {
     fatal_event_bus_exceptions = false;
     option_sources["fatal_event_bus_exceptions"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg,
-                                     "--io_nice_level")) != NULL) {
+  } else if ((value = GetUnaryOption(arg, next_arg, "--io_nice_level")) !=
+             NULL) {
     if (!blaze_util::safe_strto32(value, &io_nice_level) ||
         io_nice_level > 7) {
       blaze_util::StringPrintf(error,
@@ -253,8 +269,8 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["io_nice_level"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg,
-                                     "--max_idle_secs")) != NULL) {
+  } else if ((value = GetUnaryOption(arg, next_arg, "--max_idle_secs")) !=
+             NULL) {
     if (!blaze_util::safe_strto32(value, &max_idle_secs) ||
         max_idle_secs < 0) {
       blaze_util::StringPrintf(error,
@@ -305,8 +321,8 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--noexpand_configs_in_place")) {
     expand_configs_in_place = false;
     option_sources["expand_configs_in_place"] = rcfile;
-  } else if ((value = GetUnaryOption(
-      arg, next_arg, "--connect_timeout_secs")) != NULL) {
+  } else if ((value = GetUnaryOption(arg, next_arg,
+                                     "--connect_timeout_secs")) != NULL) {
     if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||
         connect_timeout_secs < 1 || connect_timeout_secs > 120) {
       blaze_util::StringPrintf(error,
@@ -316,8 +332,8 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["connect_timeout_secs"] = rcfile;
-  } else if ((value = GetUnaryOption(
-      arg, next_arg, "--command_port")) != NULL) {
+  } else if ((value = GetUnaryOption(arg, next_arg, "--command_port")) !=
+             NULL) {
     if (!blaze_util::safe_strto32(value, &command_port) ||
         command_port < 0 || command_port > 65535) {
       blaze_util::StringPrintf(error,
@@ -327,8 +343,8 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["command_port"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg, "--invocation_policy"))
-              != NULL) {
+  } else if ((value = GetUnaryOption(arg, next_arg, "--invocation_policy")) !=
+             NULL) {
     if (invocation_policy == NULL) {
       invocation_policy = value;
       option_sources["invocation_policy"] = rcfile;

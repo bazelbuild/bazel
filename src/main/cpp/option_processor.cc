@@ -292,15 +292,19 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     return blaze_exit_code::BAD_ARGV;
   }
 
-  // Read the rc files. This depends on the startup options in argv since these
-  // may contain rc-modifying options. For all other options, the precedence of
+  // Read the rc files, unless --ignore_all_rc_files was provided on the command
+  // line. This depends on the startup options in argv since these may contain
+  // other rc-modifying options. For all other options, the precedence of
   // options will be rc first, then command line options, though, despite this
   // exception.
   std::vector<std::unique_ptr<RcFile>> rc_files;
-  const blaze_exit_code::ExitCode rc_parsing_exit_code = GetRcFiles(
-      workspace_layout_, workspace, cwd, cmd_line_.get(), &rc_files, error);
-  if (rc_parsing_exit_code != blaze_exit_code::SUCCESS) {
-    return rc_parsing_exit_code;
+  if (!SearchNullaryOption(cmd_line_->startup_args, "ignore_all_rc_files",
+                           false)) {
+    const blaze_exit_code::ExitCode rc_parsing_exit_code = GetRcFiles(
+        workspace_layout_, workspace, cwd, cmd_line_.get(), &rc_files, error);
+    if (rc_parsing_exit_code != blaze_exit_code::SUCCESS) {
+      return rc_parsing_exit_code;
+    }
   }
 
   // Parse the startup options in the correct priority order.

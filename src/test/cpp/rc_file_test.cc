@@ -229,6 +229,96 @@ TEST_F(GetRcFileTest, GetRcFilesReadsUserRcInWorkspace) {
 
 using ParseOptionsTest = RcFileTest;
 
+TEST_F(ParseOptionsTest, IgnoreAllRcFilesIgnoresAllMasterAndUserRcFiles) {
+  // Put fake options in different expected rc files, to check that none of them
+  // are read.
+  std::string user_workspace_rc;
+  ASSERT_TRUE(
+      SetUpUserRcFileInWorkspace("startup --userfoo", &user_workspace_rc));
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace("startup --workspacemasterfoo",
+                                           &workspace_rc));
+  std::string binary_rc;
+  ASSERT_TRUE(SetUpMasterRcFileAlongsideBinary("startup --binarymasterfoo",
+                                               &binary_rc));
+
+  const std::vector<std::string> args = {binary_path_, "--ignore_all_rc_files",
+                                         "build"};
+  // Expect no error due to the incorrect options, as non of them should have
+  // been loaded.
+  std::string error;
+  EXPECT_EQ(blaze_exit_code::SUCCESS,
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error));
+  ASSERT_EQ("", error);
+
+  // Check that the startup options' provenance message contains nothing
+  testing::internal::CaptureStderr();
+  option_processor_->PrintStartupOptionsProvenanceMessage();
+  const std::string& output = testing::internal::GetCapturedStderr();
+
+  EXPECT_EQ(output, "");
+}
+
+TEST_F(ParseOptionsTest, LaterIgnoreRcFileValueWins) {
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace("startup --workspacemasterfoo",
+                                           &workspace_rc));
+
+  const std::vector<std::string> args = {binary_path_, "--ignore_all_rc_files",
+                                         "--noignore_all_rc_files", "build"};
+  std::string error;
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV,
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error));
+  ASSERT_EQ(
+      "Unknown startup option: '--workspacemasterfoo'.\n  For more info, run "
+      "'bazel help startup_options'.",
+      error);
+
+  // Check that the startup options' provenance message contains the provenance
+  // of the incorrect option.
+  testing::internal::CaptureStderr();
+  option_processor_->PrintStartupOptionsProvenanceMessage();
+  const std::string& output = testing::internal::GetCapturedStderr();
+
+  EXPECT_THAT(output,
+              MatchesRegex("INFO: Reading 'startup' options from .*bazel.rc: "
+                           "--workspacemasterfoo\n"));
+}
+
+TEST_F(ParseOptionsTest, IgnoreAllRcFilesIgnoresCommandLineRcFileToo) {
+  // Put fake options in different expected rc files, to check that none of them
+  // are read.
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace("startup --workspacemasterfoo",
+                                           &workspace_rc));
+  std::string binary_rc;
+  ASSERT_TRUE(SetUpMasterRcFileAlongsideBinary("startup --binarymasterfoo",
+                                               &binary_rc));
+  const std::string cmdline_rc_path =
+      blaze_util::JoinPath(workspace_, "mybazelrc");
+  ASSERT_TRUE(
+      blaze_util::MakeDirectories(blaze_util::Dirname(cmdline_rc_path), 0755));
+  ASSERT_TRUE(
+      blaze_util::WriteFile("startup --userfoo", cmdline_rc_path, 0755));
+
+  const std::vector<std::string> args = {binary_path_, "--ignore_all_rc_files",
+                                         "--bazelrc=" + cmdline_rc_path,
+                                         "build"};
+  // Expect no error due to the incorrect options, as non of them should have
+  // been loaded.
+  std::string error;
+  EXPECT_EQ(blaze_exit_code::SUCCESS,
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error));
+  ASSERT_EQ("", error);
+
+  // Check that the startup options' provenance message contains nothing
+  testing::internal::CaptureStderr();
+  option_processor_->PrintStartupOptionsProvenanceMessage();
+  const std::string& output = testing::internal::GetCapturedStderr();
+
+  EXPECT_EQ(output, "");
+}
+
 TEST_F(ParseOptionsTest, CommandLineBazelrcHasUnknownOption) {
   const std::string cmdline_rc_path =
       blaze_util::JoinPath(workspace_, "mybazelrc");

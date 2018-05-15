@@ -290,6 +290,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean batchCpuScheduling;
 
   @Option(
+      name = "ignore_all_rc_files",
+      defaultValue = "false", // NOTE: purely decorative, rc files are read by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Disables all rc files, regardless of the values of other rc-modifying flags, even if "
+              + "these flags come later in the list of startup options.")
+  public boolean ignoreAllRcFiles;
+
+  @Option(
     name = "blazerc",
     defaultValue = "null", // NOTE: purely decorative, rc files are read by the client.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,

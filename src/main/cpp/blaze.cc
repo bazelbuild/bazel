@@ -1473,6 +1473,10 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   // If client_debug was false, this is ignored, so it's accurate.
   BAZEL_LOG(INFO) << "Debug logging requested, sending all client log "
                      "statements to stderr";
+  // TODO(b/79206210): Can't log this before SetDebugLog is called, since the
+  // warning might get swallowed. Once the bug is fixed, move this call to
+  // OptionProcessor::ParseOptions where the order of operations is more clear.
+  globals->options->MaybeLogStartupOptionWarnings();
 
   blaze::CreateSecureOutputRoot(globals->options->output_user_root);
 

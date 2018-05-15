@@ -93,11 +93,9 @@ public class CommandLineEventTest {
     checkCommandLineSectionLabels(line);
 
     assertThat(line.getSections(0).getChunkList().getChunk(0)).isEqualTo("testblaze");
-    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(2);
+    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(1);
     assertThat(line.getSections(1).getOptionList().getOption(0).getCombinedForm())
-        .isEqualTo("--nomaster_blazerc");
-    assertThat(line.getSections(1).getOptionList().getOption(1).getCombinedForm())
-        .isEqualTo("--blazerc=/dev/null");
+        .isEqualTo("--ignore_all_rc_files");
     assertThat(line.getSections(2).getChunkList().getChunk(0)).isEqualTo("someCommandName");
     assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(0);
     assertThat(line.getSections(4).getChunkList().getChunkCount()).isEqualTo(0);
@@ -201,11 +199,9 @@ public class CommandLineEventTest {
     // Expect the provided rc-related startup options are removed and replaced with the
     // rc-prevention options.
     assertThat(line.getSections(0).getChunkList().getChunk(0)).isEqualTo("testblaze");
-    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(2);
+    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(1);
     assertThat(line.getSections(1).getOptionList().getOption(0).getCombinedForm())
-        .isEqualTo("--nomaster_blazerc");
-    assertThat(line.getSections(1).getOptionList().getOption(1).getCombinedForm())
-        .isEqualTo("--blazerc=/dev/null");
+        .isEqualTo("--ignore_all_rc_files");
     assertThat(line.getSections(2).getChunkList().getChunk(0)).isEqualTo("someCommandName");
     assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(0);
     assertThat(line.getSections(4).getChunkList().getChunkCount()).isEqualTo(0);
@@ -281,7 +277,7 @@ public class CommandLineEventTest {
     checkCommandLineSectionLabels(line);
 
     assertThat(line.getSections(0).getChunkList().getChunk(0)).isEqualTo("testblaze");
-    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(2);
+    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(1);
     assertThat(line.getSections(2).getChunkList().getChunk(0)).isEqualTo("someCommandName");
     // In the canonical line, expect the options in priority order.
     assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(4);
@@ -347,7 +343,7 @@ public class CommandLineEventTest {
     checkCommandLineSectionLabels(line);
 
     assertThat(line.getSections(0).getChunkList().getChunk(0)).isEqualTo("testblaze");
-    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(2);
+    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(1);
     assertThat(line.getSections(2).getChunkList().getChunk(0)).isEqualTo("someCommandName");
 
     assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(4);
@@ -419,7 +415,7 @@ public class CommandLineEventTest {
 
     // Unlike expansion flags, implicit requirements are not listed separately.
     assertThat(line.getSections(0).getChunkList().getChunk(0)).isEqualTo("testblaze");
-    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(2);
+    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(1);
     assertThat(line.getSections(2).getChunkList().getChunk(0)).isEqualTo("someCommandName");
     assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(1);
     assertThat(line.getSections(3).getOptionList().getOption(0).getCombinedForm())

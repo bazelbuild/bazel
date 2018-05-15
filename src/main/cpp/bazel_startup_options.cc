@@ -16,13 +16,16 @@
 #include <cassert>
 
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/workspace_layout.h"
 
 namespace blaze {
 
 BazelStartupOptions::BazelStartupOptions(
     const WorkspaceLayout *workspace_layout)
-    : StartupOptions("Bazel", workspace_layout) {
+    : StartupOptions("Bazel", workspace_layout),
+      user_bazelrc_(""),
+      use_master_bazelrc_(true) {
   RegisterNullaryStartupFlag("master_bazelrc");
   RegisterUnaryStartupFlag("bazelrc");
 }
@@ -38,12 +41,20 @@ blaze_exit_code::ExitCode BazelStartupOptions::ProcessArgExtra(
       *error = "Can't specify --bazelrc in the .bazelrc file.";
       return blaze_exit_code::BAD_ARGV;
     }
-  } else if (GetNullaryOption(arg, "--nomaster_bazelrc") ||
-             GetNullaryOption(arg, "--master_bazelrc")) {
+    user_bazelrc_ = *value;
+  } else if (GetNullaryOption(arg, "--master_bazelrc")) {
     if (!rcfile.empty()) {
-      *error = "Can't specify --[no]master_bazelrc in .bazelrc file.";
+      *error = "Can't specify --master_bazelrc in .bazelrc file.";
       return blaze_exit_code::BAD_ARGV;
     }
+    use_master_bazelrc_ = true;
+    option_sources["blazerc"] = rcfile;
+  } else if (GetNullaryOption(arg, "--nomaster_bazelrc")) {
+    if (!rcfile.empty()) {
+      *error = "Can't specify --nomaster_bazelrc in .bazelrc file.";
+      return blaze_exit_code::BAD_ARGV;
+    }
+    use_master_bazelrc_ = false;
     option_sources["blazerc"] = rcfile;
   } else {
     *is_processed = false;
@@ -52,6 +63,20 @@ blaze_exit_code::ExitCode BazelStartupOptions::ProcessArgExtra(
 
   *is_processed = true;
   return blaze_exit_code::SUCCESS;
+}
+
+void BazelStartupOptions::MaybeLogStartupOptionWarnings() const {
+  if (ignore_all_rc_files) {
+    if (!user_bazelrc_.empty()) {
+      BAZEL_LOG(WARNING) << "Value of --bazelrc is ignored, since "
+                            "--ignore_all_rc_files is on.";
+    }
+    if ((use_master_bazelrc_) &&
+        option_sources.find("blazerc") != option_sources.end()) {
+      BAZEL_LOG(WARNING) << "Explicit value of --master_bazelrc is "
+                            "ignored, since --ignore_all_rc_files is on.";
+    }
+  }
 }
 
 }  // namespace blaze

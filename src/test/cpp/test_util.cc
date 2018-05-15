@@ -50,4 +50,25 @@ void ExpectIsUnaryOption(const StartupOptions* options,
   EXPECT_FALSE(options->IsNullary("--no" + flag_name));
 }
 
+void ParseStartupOptionsAndExpectWarning(
+    StartupOptions* startup_options,
+    const std::vector<std::string>& options_to_parse,
+    const std::string& expected_warning) {
+  std::vector<RcStartupFlag> flags;
+  for (std::string option : options_to_parse) {
+    flags.push_back(RcStartupFlag("", option));
+  }
+
+  std::string error;
+  EXPECT_EQ(blaze_exit_code::SUCCESS,
+            startup_options->ProcessArgs(flags, &error));
+  ASSERT_EQ("", error);
+
+  testing::internal::CaptureStderr();
+  startup_options->MaybeLogStartupOptionWarnings();
+  const std::string& output = testing::internal::GetCapturedStderr();
+
+  EXPECT_EQ(expected_warning, output);
+}
+
 }  // namespace blaze

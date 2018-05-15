@@ -133,6 +133,10 @@ class StartupOptions {
       const char *arg, const char *next_arg, const std::string &rcfile,
       const char **value, bool *is_processed, std::string *error) = 0;
 
+  // Once startup options have been parsed, warn the user if certain options
+  // might combine in surprising ways.
+  virtual void MaybeLogStartupOptionWarnings() const = 0;
+
   // Returns the absolute path to the user's local JDK install, to be used as
   // the default target javabase and as a fall-back host_javabase. This is not
   // the embedded JDK.
@@ -212,6 +216,9 @@ class StartupOptions {
   // Blaze's output_user_root. Used only for computing install_base and
   // output_base.
   std::string output_user_root;
+
+  // Override more finegrained rc file flags and ignore them all.
+  bool ignore_all_rc_files;
 
   // Whether to put the execroot at $OUTPUT_BASE/$WORKSPACE_NAME (if false) or
   // $OUTPUT_BASE/execroot/$WORKSPACE_NAME (if true).

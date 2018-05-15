@@ -23,6 +23,10 @@ void ExpectIsNullaryOption(const StartupOptions* options,
                            const std::string& flag_name);
 void ExpectIsUnaryOption(const StartupOptions* options,
                          const std::string& flag_name);
+void ParseStartupOptionsAndExpectWarning(
+    StartupOptions* startup_options,
+    const std::vector<std::string>& options_to_parse,
+    const std::string& expected_warning);
 
 }  // namespace blaze
 
