@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
 
@@ -125,7 +124,7 @@ public class CppLinkstampCompileHelper {
         .collect(ImmutableList.toImmutableList());
   }
 
-  private static Variables getVariables(
+  private static CcToolchainVariables getVariables(
       RuleContext ruleContext,
       Artifact sourceFile,
       Artifact outputFile,

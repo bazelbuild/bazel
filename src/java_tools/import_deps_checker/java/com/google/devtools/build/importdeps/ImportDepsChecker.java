@@ -25,9 +25,13 @@ import java.io.Closeable;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.Objects;
+import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
+import javax.annotation.Nullable;
 import org.objectweb.asm.ClassReader;
 
 /**
@@ -42,10 +46,11 @@ public final class ImportDepsChecker implements Closeable {
 
   public ImportDepsChecker(
       ImmutableList<Path> bootclasspath,
+      ImmutableList<Path> directClasspath,
       ImmutableList<Path> classpath,
       ImmutableList<Path> inputJars)
       throws IOException {
-    this.classCache = new ClassCache(bootclasspath, classpath, inputJars);
+    this.classCache = new ClassCache(bootclasspath, directClasspath, classpath, inputJars);
     this.resultCollector = new ResultCollector();
     this.inputJars = inputJars;
   }
@@ -90,6 +95,7 @@ public final class ImportDepsChecker implements Closeable {
   public Dependencies emitJdepsProto(String ruleLabel) {
     Dependencies.Builder builder = Dependencies.newBuilder();
     ImmutableList<Path> paths = classCache.collectUsedJarsInRegularClasspath();
+    // TODO(b/77723273): Consider "implicit" for Jars only needed to resolve supertypes
     paths.forEach(
         path ->
             builder.addDependency(
@@ -99,7 +105,7 @@ public final class ImportDepsChecker implements Closeable {
 
   private static final String INDENT = "    ";
 
-  public String computeResultOutput() {
+  public String computeResultOutput(String ruleLabel) {
     StringBuilder builder = new StringBuilder();
     ImmutableList<String> missingClasses = resultCollector.getSortedMissingClassInternalNames();
     for (String missing : missingClasses) {
@@ -156,7 +162,49 @@ public final class ImportDepsChecker implements Closeable {
           .append(missingMembers.size())
           .append('\n');
     }
+
+    ImmutableList<Path> indirectJars = resultCollector.getSortedIndirectDeps();
+    if (!indirectJars.isEmpty()) {
+      ImmutableList<String> labels = extractLabels(indirectJars);
+      if (ruleLabel.isEmpty() || labels.isEmpty()) {
+        builder
+            .append(
+                "*** Missing strict dependencies on the following Jars which don't carry "
+                    + "rule labels.\nPlease determine the originating rules, e.g., using Bazel's "
+                    + "'query' command, and add them to the dependencies of ")
+            .append(ruleLabel.isEmpty() ? inputJars : ruleLabel)
+            .append('\n');
+        for (Path jar : indirectJars) {
+          builder.append(jar).append('\n');
+        }
+      } else {
+        builder.append("*** Missing strict dependencies. Run the following command to fix ***\n\n");
+        builder.append("    add_dep ");
+        for (String indirectLabel : labels) {
+          builder.append(indirectLabel).append(" ");
+        }
+        builder.append(ruleLabel).append('\n');
+      }
+    }
     return builder.toString();
+  }
+
+  private static ImmutableList<String> extractLabels(ImmutableList<Path> jars) {
+    return jars.parallelStream()
+        .map(ImportDepsChecker::extractLabel)
+        .filter(Objects::nonNull)
+        .distinct()
+        .sorted()
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  @Nullable
+  private static String extractLabel(Path jarPath) {
+    try (JarFile jar = new JarFile(jarPath.toFile())) {
+      return jar.getManifest().getMainAttributes().getValue("Target-Label");
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   @Override

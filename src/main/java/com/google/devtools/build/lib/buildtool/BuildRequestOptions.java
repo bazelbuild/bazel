@@ -379,29 +379,16 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean useActionCache;
 
   @Option(
-    name = "track_incremental_state",
-    oldName = "keep_incrementality_data",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help =
-        "If false, Blaze will not persist data that allows for invalidation and re-evaluation "
-            + "on incremental builds in order to save memory on this build. Subsequent builds "
-            + "will not have any incrementality with respect to this one. Usually you will want "
-            + "to specify --batch when setting this to false."
-  )
-  public boolean trackIncrementalState;
-
-  @Option(
-    name = "keep_state_after_build",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help =
-        "If false, Blaze will discard the inmemory state from this build when the build finishes. "
-            + "Subsequent builds will not have any incrementality with respect to this one."
-  )
-  public boolean keepStateAfterBuild;
+      name = "discard_actions_after_execution",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "If true, Blaze will clear actions from memory after it executes them. Has no effect "
+              + "unless --notrack_incremental_state is also specified. Do not use unless instructed"
+              + " by the Blaze team.")
+  public boolean discardActionsAfterExecution;
 
   /** Converter for jobs: [0, MAX_JOBS] or "auto". */
   public static class JobsConverter extends RangeConverter {

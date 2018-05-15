@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -64,15 +64,17 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
         NestedSetBuilder.wrap(Order.STABLE_ORDER, allOutputs);
     common.addPyExtraActionPseudoAction();
 
-    CcLinkParamsStore ccLinkParamsStore = new CcLinkParamsStore() {
-      @Override
-      protected void collect(CcLinkParams.Builder builder, boolean linkingStatically,
-                             boolean linkShared) {
-        builder.addTransitiveTargets(ruleContext.getPrerequisites("deps", Mode.TARGET),
-            PyCcLinkParamsProvider.TO_LINK_PARAMS,
-            CcLinkParamsInfo.TO_LINK_PARAMS);
-      }
-    };
+    AbstractCcLinkParamsStore ccLinkParamsStore =
+        new AbstractCcLinkParamsStore() {
+          @Override
+          protected void collect(
+              CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
+            builder.addTransitiveTargets(
+                ruleContext.getPrerequisites("deps", Mode.TARGET),
+                PyCcLinkParamsProvider.TO_LINK_PARAMS,
+                CcLinkParamsStore.TO_LINK_PARAMS);
+          }
+        };
 
     NestedSet<PathFragment> imports = common.collectImports(ruleContext, semantics);
     if (ruleContext.hasErrors()) {
@@ -93,7 +95,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
     common.addCommonTransitiveInfoProviders(builder, semantics, filesToBuild);
 
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcLinkParamsInfo(new CcLinkParamsInfo(ccLinkParamsStore));
+    ccLinkingInfoBuilder.setCcLinkParamsStore(new CcLinkParamsStore(ccLinkParamsStore));
 
     return builder
         .setFilesToBuild(filesToBuild)

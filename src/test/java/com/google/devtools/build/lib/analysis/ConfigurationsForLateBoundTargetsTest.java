@@ -130,8 +130,8 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         "    name = 'foo')",
         "rule_with_test_fragment(",
         "    name = 'latebound_dep')");
-    update("//foo:foo");
-    assertThat(getConfiguredTarget("//foo:foo")).isNotNull();
+    // if the target fails to analyze, this iterable will be empty
+    assertThat(update("//foo:foo").getTargetsToBuild()).isNotEmpty();
     Iterable<ConfiguredTarget> deps = SkyframeExecutorTestUtils.getExistingConfiguredTargets(
         skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep"));
     assertThat(deps).hasSize(2);

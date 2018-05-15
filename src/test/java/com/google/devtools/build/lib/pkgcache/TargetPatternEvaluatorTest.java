@@ -712,8 +712,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   public void testFailingValidations() {
     expectValidationFail("");
     expectValidationFail("\\");
-    expectValidationFail("foo:**");
-    expectValidationFail("//foo/*");
   }
 
   private void expectValidationFail(String target) {

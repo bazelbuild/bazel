@@ -646,6 +646,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
                 rootDirectory,
+                /* defaultSystemJavabase= */ null,
                 "productName"),
             /* fragmentsMap= */ ImmutableMap
                 .<Class<? extends BuildConfiguration.Fragment>, BuildConfiguration.Fragment>of(),

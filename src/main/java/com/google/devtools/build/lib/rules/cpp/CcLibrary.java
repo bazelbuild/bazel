@@ -81,7 +81,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // it, but instead be loaded as an extension. So we need the dynamic library for this in the
     // runfiles.
     builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(linkingStatically && !neverLink));
-    builder.add(context, CcRunfilesInfo.runfilesFunction(linkingStatically));
+    builder.add(context, CcRunfiles.runfilesFunction(linkingStatically));
 
     builder.addDataDeps(context);
 
@@ -290,8 +290,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     CompilationInfo compilationInfo = compilationHelper.compile();
     LinkingInfo linkingInfo =
         linkingHelper.link(
-            compilationInfo.getCcCompilationOutputs(),
-            compilationInfo.getCcCompilationContextInfo());
+            compilationInfo.getCcCompilationOutputs(), compilationInfo.getCcCompilationContext());
 
     /*
      * We always generate a static library, even if there aren't any source files.
@@ -375,10 +374,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     CcLinkingInfo ccLinkingInfo =
         (CcLinkingInfo) linkingInfo.getProviders().getProvider(CcLinkingInfo.PROVIDER.getKey());
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcLinkParamsInfo(ccLinkingInfo.getCcLinkParamsInfo());
+    ccLinkingInfoBuilder.setCcLinkParamsStore(ccLinkingInfo.getCcLinkParamsStore());
     ccLinkingInfoBuilder.setCcExecutionDynamicLibrariesInfo(
         ccLinkingInfo.getCcExecutionDynamicLibrariesInfo());
-    ccLinkingInfoBuilder.setCcRunfilesInfo(new CcRunfilesInfo(staticRunfiles, sharedRunfiles));
+    ccLinkingInfoBuilder.setCcRunfiles(new CcRunfiles(staticRunfiles, sharedRunfiles));
 
     return ccLinkingInfoBuilder.build();
   }

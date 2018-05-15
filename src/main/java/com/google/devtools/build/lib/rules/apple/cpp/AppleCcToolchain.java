@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -56,7 +56,7 @@ public class AppleCcToolchain extends CcToolchain {
   public static final String APPLE_SDK_PLATFORM_VALUE_KEY = "apple_sdk_platform_value";
 
   @Override
-  protected void addBuildVariables(RuleContext ruleContext, Variables.Builder variables)
+  protected void addBuildVariables(RuleContext ruleContext, CcToolchainVariables.Builder variables)
       throws RuleErrorException {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 

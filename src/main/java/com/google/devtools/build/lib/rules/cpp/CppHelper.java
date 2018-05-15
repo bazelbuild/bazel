@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -112,28 +111,27 @@ public class CppHelper {
    * Merges the STL and toolchain contexts into context builder. The STL is automatically determined
    * using the ":stl" attribute.
    */
-  public static void mergeToolchainDependentCcCompilationContextInfo(
+  public static void mergeToolchainDependentCcCompilationContext(
       RuleContext ruleContext,
       CcToolchainProvider toolchain,
-      CcCompilationContextInfo.Builder ccCompilationContextInfoBuilder) {
+      CcCompilationContext.Builder ccCompilationContextBuilder) {
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
       TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
       if (stl != null) {
         CcCompilationInfo ccCompilationInfo = stl.get(CcCompilationInfo.PROVIDER);
-        CcCompilationContextInfo ccCompilationContextInfo =
-            ccCompilationInfo != null ? ccCompilationInfo.getCcCompilationContextInfo() : null;
-        if (ccCompilationContextInfo == null) {
+        CcCompilationContext ccCompilationContext =
+            ccCompilationInfo != null ? ccCompilationInfo.getCcCompilationContext() : null;
+        if (ccCompilationContext == null) {
           ruleContext.ruleError(
               "Unable to merge the STL '" + stl.getLabel() + "' and toolchain contexts");
           return;
         }
-        ccCompilationContextInfoBuilder.mergeDependentCcCompilationContextInfo(
-            ccCompilationContextInfo);
+        ccCompilationContextBuilder.mergeDependentCcCompilationContext(ccCompilationContext);
       }
     }
     if (toolchain != null) {
-      ccCompilationContextInfoBuilder.mergeDependentCcCompilationContextInfo(
-          toolchain.getCcCompilationContextInfo());
+      ccCompilationContextBuilder.mergeDependentCcCompilationContext(
+          toolchain.getCcCompilationContext());
     }
   }
 
@@ -254,9 +252,7 @@ public class CppHelper {
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
   public static ImmutableList<String> getFullyStaticLinkOptions(
-      CppConfiguration config,
-      CcToolchainProvider toolchain,
-      Boolean sharedLib) {
+      CppConfiguration config, CcToolchainProvider toolchain, boolean sharedLib) {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
           toolchain.getLegacyMostlyStaticLinkFlags(
@@ -658,7 +654,7 @@ public class CppHelper {
 
   /**
    * Emits a warning on the rule if there are identical linkstamp artifacts with different {@code
-   * CcCompilationContextInfo}s.
+   * CcCompilationContext}s.
    */
   public static void checkLinkstampsUnique(RuleErrorConsumer listener, CcLinkParams linkParams) {
     Map<Artifact, NestedSet<Artifact>> result = new LinkedHashMap<>();
@@ -913,8 +909,8 @@ public class CppHelper {
     Tool stripTool =
         Preconditions.checkNotNull(
             featureConfiguration.getToolForAction(CppCompileAction.STRIP_ACTION_NAME));
-    Variables variables =
-        new Variables.Builder(toolchain.getBuildVariables())
+    CcToolchainVariables variables =
+        new CcToolchainVariables.Builder(toolchain.getBuildVariables())
             .addStringVariable(
                 StripBuildVariables.OUTPUT_FILE.getVariableName(), output.getExecPathString())
             .addStringSequenceVariable(
@@ -1085,23 +1081,4 @@ public class CppHelper {
     return toolchain.supportsInterfaceSharedObjects() && config.getUseInterfaceSharedObjects();
   }
 
-  /**
-   * Returns true if Fission is specified and supported by the CROSSTOOL for the build implied by
-   * the given configuration and toolchain.
-   */
-  public static boolean useFission(CppConfiguration config, CcToolchainProvider toolchain) {
-    return config.fissionIsActiveForCurrentCompilationMode() && toolchain.supportsFission();
-  }
-
-  /**
-   * Returns true if Fission and PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL
-   * for the build implied by the given configuration, toolchain and feature configuration.
-   */
-  public static boolean shouldCreatePerObjectDebugInfo(
-      CppConfiguration config,
-      CcToolchainProvider toolchain,
-      FeatureConfiguration featureConfiguration) {
-    return useFission(config, toolchain)
-        && featureConfiguration.isEnabled(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
-  }
 }

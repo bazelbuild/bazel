@@ -30,7 +30,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class LabelTest {
 
-  private static final String BAD_PACKAGE_CHARS = "package names may contain only";
+  private static final String BAD_PACKAGE_CHARS =
+      "package names may contain A-Z, a-z, 0-9, or any of";
   private static final String INVALID_TARGET_NAME = "invalid target name";
   private static final String INVALID_PACKAGE_NAME = "invalid package name";
 
@@ -89,7 +90,7 @@ public class LabelTest {
   @Test
   public void testLabelResolutionBadSyntax() throws Exception {
     try {
-      parseCommandLine("//absolute:A+bad%syntax", "");
+      parseCommandLine("//absolute:A+bad:syntax", "");
       fail();
     } catch (LabelSyntaxException e) {
       // Expected exception
@@ -303,12 +304,6 @@ public class LabelTest {
                       "//foo:bar:");
     assertSyntaxError("target names may not contain ':'",
                       "//foo/bar::");
-    assertSyntaxError("target names may not contain '&'",
-                      "//foo:bar&");
-    // Warning: if these assertions are false, tools that assume that they can safely quote labels
-    // may need to be fixed. Please consult with bazel-dev before loosening these restrictions.
-    assertSyntaxError("target names may not contain '''", "//foo/bar:baz'foo");
-    assertSyntaxError("target names may not contain '\"'", "//foo/bar:baz\"foo");
   }
 
   @Test

@@ -27,8 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
-import com.google.devtools.build.lib.rules.android.AndroidLibraryAarProvider.Aar;
+import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
@@ -150,7 +149,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     if (definesLocalResources) {
       if (androidConfig.decoupleDataProcessing()) {
         StampedAndroidManifest manifest =
-            AndroidManifest.from(ruleContext, androidSemantics).stamp(ruleContext);
+            AndroidManifest.fromAttributes(ruleContext, androidSemantics).stamp(ruleContext);
 
         ValidatedAndroidResources resources =
             AndroidResources.from(ruleContext, "resource_files")
@@ -188,8 +187,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
               ruleContext,
               resourceDeps,
               assetDeps,
-              StampedAndroidManifest.createEmpty(ruleContext, /* exported = */ false),
-              AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
+              StampedAndroidManifest.createEmpty(ruleContext, /* exported = */ false));
     }
 
     JavaTargetAttributes javaTargetAttributes =
@@ -207,7 +205,11 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     }
 
     final Aar aar =
-        Aar.makeAar(ruleContext, resourceApk, proguardLibrary.collectLocalProguardSpecs());
+        Aar.makeAar(
+            ruleContext,
+            resourceApk,
+            proguardLibrary.collectLocalProguardSpecs(),
+            androidCommon.getClassJar());
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     androidCommon.addTransitiveInfoProviders(
@@ -218,7 +220,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         ImmutableList.<Artifact>of(),
         NativeLibs.EMPTY,
         // TODO(elenairina): Use JavaCommon.isNeverlink(ruleContext) for consistency among rules.
-        androidCommon.isNeverLink());
+        androidCommon.isNeverLink(),
+        /* isLibrary = */ true);
 
     NestedSetBuilder<Artifact> transitiveResourcesJars = collectTransitiveResourceJars(ruleContext);
     if (resourceApk.getResourceJavaClassJar() != null) {
@@ -242,8 +245,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             AndroidLibraryResourceClassJarProvider.create(transitiveResourcesJars.build()));
 
     if (!JavaCommon.isNeverLink(ruleContext)) {
-      builder.addProvider(
-          AndroidLibraryAarProvider.class, aar.toProvider(ruleContext, definesLocalResources));
+      builder.addNativeDeclaredProvider(aar.toProvider(ruleContext, definesLocalResources));
     }
 
     return builder.build();

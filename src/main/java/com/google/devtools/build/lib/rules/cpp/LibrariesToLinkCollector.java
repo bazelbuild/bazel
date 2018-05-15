@@ -20,10 +20,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.LibraryToLinkValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.SequenceBuilder;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
@@ -55,7 +55,7 @@ public class LibrariesToLinkCollector {
       CcToolchainProvider toolchain,
       PathFragment toolchainLibrariesSolibDir,
       LinkTargetType linkType,
-      LinkStaticness linkStaticness,
+      Link.LinkingMode linkingMode,
       Artifact output,
       PathFragment solibDir,
       boolean isLtoIndexing,
@@ -82,8 +82,7 @@ public class LibrariesToLinkCollector {
     needToolchainLibrariesRpath =
         toolchainLibrariesSolibDir != null
             && (linkType.isDynamicLibrary()
-                || (linkType == LinkTargetType.EXECUTABLE
-                    && linkStaticness == LinkStaticness.DYNAMIC));
+                || (linkType == LinkTargetType.EXECUTABLE && linkingMode == LinkingMode.DYNAMIC));
 
     // Calculate the correct relative value for the "-rpath" link option (which sets
     // the search path for finding shared libraries).

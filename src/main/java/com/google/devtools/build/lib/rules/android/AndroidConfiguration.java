@@ -235,7 +235,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
           // On rules that can choose a version, test attribute then flag choose the aapt version
           // target.
           return chooseTargetAaptVersion(
-              ruleContext, ruleContext.attributes().get("aapt_version", STRING));
+              ruleContext,
+              ruleContext.getFragment(AndroidConfiguration.class),
+              ruleContext.attributes().get("aapt_version", STRING));
         } else {
           // On rules can't choose, assume aapt2 if aapt2 is present in the sdk.
           return hasAapt2 ? AAPT2 : AAPT;
@@ -246,31 +248,37 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Nullable
     public static AndroidAaptVersion chooseTargetAaptVersion(
-        RuleContext ruleContext, @Nullable String versionString) throws RuleErrorException {
+        RuleContext ruleContext, AndroidConfiguration androidConfig, @Nullable String versionString)
+        throws RuleErrorException {
 
-      if (ruleContext.isLegalFragment(AndroidConfiguration.class)) {
-        boolean hasAapt2 = AndroidSdkProvider.fromRuleContext(ruleContext).getAapt2() != null;
-        AndroidAaptVersion flag =
-            ruleContext.getFragment(AndroidConfiguration.class).getAndroidAaptVersion();
+      boolean hasAapt2 = AndroidSdkProvider.fromRuleContext(ruleContext).getAapt2() != null;
+      AndroidAaptVersion flag = androidConfig.getAndroidAaptVersion();
 
-        AndroidAaptVersion version = fromString(versionString);
-        // version is null if the value is "auto"
-        version = version == AndroidAaptVersion.AUTO ? flag : version;
+      AndroidAaptVersion version = fromString(versionString);
+      // version is null if the value is "auto"
+      version = version == AndroidAaptVersion.AUTO ? flag : version;
 
-        if (version == AAPT2 && !hasAapt2) {
-          ruleContext.throwWithRuleError(
-              "aapt2 processing requested but not available on the android_sdk");
-          return null;
-        }
-        return version == AndroidAaptVersion.AUTO ? AAPT : version;
+      if (version == AAPT2 && !hasAapt2) {
+        ruleContext.throwWithRuleError(
+            "aapt2 processing requested but not available on the android_sdk");
+        return null;
       }
-      return null;
+      return version == AndroidAaptVersion.AUTO ? AAPT : version;
     }
   }
 
   /** Android configuration options. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
+    @Option(
+        name = "experimental_enable_android_cpu_make_variable",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        defaultValue = "true",
+        help = "Flag to roll out the removal of the ANDROID_CPU Make variable.")
+    public boolean enableAndroidCpuMakeVariable;
+
     @Option(
       name = "Android configuration distinguisher",
       defaultValue = "MAIN",
@@ -809,16 +817,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
                 + "when possible. Otherwise, they will all be processed together.")
     public boolean decoupleDataProcessing;
 
-    // TODO(cushon): make this the default, and delete it
-    @Option(
-      name = "experimental_android_enforce_strict_deps_for_binaries_under_test",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      help = "If enabled, strict dependencies are enforced for android_test.binary_under_test"
-    )
-    public boolean enforceStrictDepsForBinariesUnderTest;
-
     @Option(
       name = "android_migration_tag_check",
       defaultValue = "false",
@@ -867,7 +865,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.manifestMerger = manifestMerger;
       host.androidAaptVersion = androidAaptVersion;
       host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
-      host.enforceStrictDepsForBinariesUnderTest = enforceStrictDepsForBinariesUnderTest;
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
       return host;
@@ -893,6 +890,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
+  private final boolean enableAndroidCpuMakeVariable;
   private final Label sdk;
   private final String cpu;
   private final boolean useIncrementalNativeLibs;
@@ -926,11 +924,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean fixedResourceNeverlinking;
   private final AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
   private final boolean decoupleDataProcessing;
-  private final boolean enforceStrictDepsForBinariesUnderTest;
   private final boolean checkForMigrationTag;
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
+    this.enableAndroidCpuMakeVariable = options.enableAndroidCpuMakeVariable;
     this.sdk = options.sdk;
     this.useIncrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
@@ -967,7 +965,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
     this.robolectricTestDeprecationLevel = options.robolectricTestDeprecationLevel;
     this.decoupleDataProcessing = options.decoupleDataProcessing;
-    this.enforceStrictDepsForBinariesUnderTest = options.enforceStrictDepsForBinariesUnderTest;
     this.checkForMigrationTag = options.checkForMigrationTag;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
@@ -989,6 +986,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   @AutoCodec.Instantiator
   AndroidConfiguration(
+      boolean enableAndroidCpuMakeVariable,
       Label sdk,
       String cpu,
       boolean useIncrementalNativeLibs,
@@ -1022,9 +1020,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       boolean fixedResourceNeverlinking,
       AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel,
       boolean decoupleDataProcessing,
-      boolean enforceStrictDepsForBinariesUnderTest,
       boolean checkForMigrationTag,
       boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest) {
+    this.enableAndroidCpuMakeVariable = enableAndroidCpuMakeVariable;
     this.sdk = sdk;
     this.cpu = cpu;
     this.useIncrementalNativeLibs = useIncrementalNativeLibs;
@@ -1058,7 +1056,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.fixedResourceNeverlinking = fixedResourceNeverlinking;
     this.robolectricTestDeprecationLevel = robolectricTestDeprecationLevel;
     this.decoupleDataProcessing = decoupleDataProcessing;
-    this.enforceStrictDepsForBinariesUnderTest = enforceStrictDepsForBinariesUnderTest;
     this.checkForMigrationTag = checkForMigrationTag;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
@@ -1213,10 +1210,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return decoupleDataProcessing;
   }
 
-  public boolean getEnforceStrictDepsForBinariesUnderTest() {
-    return enforceStrictDepsForBinariesUnderTest;
-  }
-
   public boolean checkForMigrationTag() {
     return checkForMigrationTag;
   }
@@ -1227,6 +1220,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   @Override
   public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
+    if (!enableAndroidCpuMakeVariable) {
+      return;
+    }
+
     globalMakeEnvBuilder.put("ANDROID_CPU", cpu);
   }
 

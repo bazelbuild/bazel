@@ -31,7 +31,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BuildOptionsTest {
   private static final ImmutableList<Class<? extends FragmentOptions>> TEST_OPTIONS =
-      ImmutableList.<Class<? extends FragmentOptions>>of(BuildConfiguration.Options.class);
+      ImmutableList.of(BuildConfiguration.Options.class);
 
   @Test
   public void optionSetCaching() {

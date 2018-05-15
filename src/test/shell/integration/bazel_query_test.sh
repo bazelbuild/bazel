@@ -481,6 +481,21 @@ EOF
   expect_log_once "^//honeydew:BUILD$"
 }
 
+function test_genquery_bad_output_formatter() {
+  mkdir -p starfruit
+  cat > starfruit/BUILD <<EOF
+sh_library(name = 'starfruit')
+genquery(name='q',
+         scope=['//starfruit'],
+         expression='//starfruit',
+         opts = ["--output=blargh"],)
+EOF
+
+  local expected_error_msg="in genquery rule //starfruit:q: Invalid output format 'blargh'. Valid values are: label, label_kind, build, minrank, maxrank, package, location, graph, xml, proto"
+  bazel build //starfruit:q >& $TEST_log && fail "Expected failure"
+  expect_log "$expected_error_msg"
+}
+
 function tear_down() {
   bazel shutdown
 }

@@ -84,13 +84,14 @@ public class ResourceFilterFactory {
     this.filterInAnalysis = filterInAnalysis;
   }
 
-  private static boolean hasAttr(AttributeMap attrs, String attrName) {
-    if (!attrs.isAttributeValueExplicitlySpecified(attrName)) {
-      return false;
+  private static List<String> rawFiltersFromAttrs(AttributeMap attrs, String attrName) {
+    if (attrs.isAttributeValueExplicitlySpecified(attrName)) {
+      List<String> rawValue = attrs.get(attrName, Type.STRING_LIST);
+      if (rawValue != null) {
+        return rawValue;
+      }
     }
-
-    List<String> values = attrs.get(attrName, Type.STRING_LIST);
-    return values != null && !values.isEmpty();
+    return ImmutableList.of();
   }
 
   /**
@@ -102,8 +103,8 @@ public class ResourceFilterFactory {
    *
    * @return the values of this attribute contained in the {@link AttributeMap}, as a list.
    */
-  private static ImmutableList<String> extractFilters(AttributeMap attrs, String attrName) {
-    if (!hasAttr(attrs, attrName)) {
+  private static ImmutableList<String> extractFilters(List<String> rawValues) {
+    if (rawValues.isEmpty()) {
       return ImmutableList.of();
     }
 
@@ -117,7 +118,6 @@ public class ResourceFilterFactory {
      * empty filter values result in all resources matching the empty filter, meaning that filtering
      * does nothing (even if non-empty filters were also provided).
      */
-    List<String> rawValues = attrs.get(attrName, Type.STRING_LIST);
 
     // Use an ImmutableSet to remove duplicate values
     ImmutableSet.Builder<String> builder = ImmutableSet.builder();
@@ -139,30 +139,37 @@ public class ResourceFilterFactory {
     return ImmutableList.sortedCopyOf(builder.build());
   }
 
-  static ResourceFilterFactory fromRuleContext(RuleContext ruleContext) throws RuleErrorException {
+  static ResourceFilterFactory fromRuleContextAndAttrs(RuleContext ruleContext)
+      throws RuleErrorException {
     Preconditions.checkNotNull(ruleContext);
 
     if (!ruleContext.isLegalFragment(AndroidConfiguration.class)) {
       return empty();
     }
 
-    // aapt2 must have access to all of the resources in execution, so don't filter in analysis.
-    boolean filterInAnalysis =
-        AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) != AndroidAaptVersion.AAPT2;
-
-    return from(filterInAnalysis, ruleContext.attributes());
+    return fromAttrs(
+        AndroidAaptVersion.chooseTargetAaptVersion(ruleContext), ruleContext.attributes());
   }
 
   @VisibleForTesting
-  static ResourceFilterFactory from(boolean filterInAnalysis, AttributeMap attrs) {
-    if (!hasAttr(attrs, RESOURCE_CONFIGURATION_FILTERS_NAME) && !hasAttr(attrs, DENSITIES_NAME)) {
+  static ResourceFilterFactory fromAttrs(AndroidAaptVersion aaptVersion, AttributeMap attrs) {
+    return from(
+        aaptVersion,
+        rawFiltersFromAttrs(attrs, RESOURCE_CONFIGURATION_FILTERS_NAME),
+        rawFiltersFromAttrs(attrs, DENSITIES_NAME));
+  }
+
+  static ResourceFilterFactory from(
+      AndroidAaptVersion aaptVersion, List<String> configFilters, List<String> densities) {
+    if (configFilters.isEmpty() && densities.isEmpty()) {
       return empty();
     }
 
+    // aapt2 must have access to all of the resources in execution, so don't filter in analysis.
+    boolean filterInAnalysis = aaptVersion != AndroidAaptVersion.AAPT2;
+
     return new ResourceFilterFactory(
-        extractFilters(attrs, RESOURCE_CONFIGURATION_FILTERS_NAME),
-        extractFilters(attrs, DENSITIES_NAME),
-        filterInAnalysis);
+        extractFilters(configFilters), extractFilters(densities), filterInAnalysis);
   }
 
   private ImmutableList<FolderConfiguration> getConfigurationFilters(

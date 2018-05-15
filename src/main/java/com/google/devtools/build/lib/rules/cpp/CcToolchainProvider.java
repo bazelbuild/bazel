@@ -29,12 +29,13 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -69,10 +70,10 @@ public final class CcToolchainProvider extends ToolchainInfo {
   private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
   @Nullable private final Artifact dynamicRuntimeLinkMiddleman;
   private final PathFragment dynamicRuntimeSolibDir;
-  private final CcCompilationContextInfo ccCompilationContextInfo;
+  private final CcCompilationContext ccCompilationContext;
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
-  private final Variables buildVariables;
+  private final CcToolchainVariables buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   private final NestedSet<Pair<String, String>> coverageEnvironment;
   @Nullable private final Artifact linkDynamicLibraryTool;
@@ -82,6 +83,8 @@ public final class CcToolchainProvider extends ToolchainInfo {
   private final boolean useLLVMCoverageMapFormat;
   private final boolean codeCoverageEnabled;
   private final boolean isHostConfiguration;
+  private final boolean forcePic;
+  private final boolean shouldStripBinaries;
 
   public CcToolchainProvider(
       ImmutableMap<String, Object> values,
@@ -105,10 +108,10 @@ public final class CcToolchainProvider extends ToolchainInfo {
       NestedSet<Artifact> dynamicRuntimeLinkInputs,
       @Nullable Artifact dynamicRuntimeLinkMiddleman,
       PathFragment dynamicRuntimeSolibDir,
-      CcCompilationContextInfo ccCompilationContextInfo,
+      CcCompilationContext ccCompilationContext,
       boolean supportsParamFiles,
       boolean supportsHeaderParsing,
-      Variables buildVariables,
+      CcToolchainVariables buildVariables,
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       Artifact linkDynamicLibraryTool,
@@ -139,7 +142,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
     this.dynamicRuntimeLinkInputs = Preconditions.checkNotNull(dynamicRuntimeLinkInputs);
     this.dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddleman;
     this.dynamicRuntimeSolibDir = Preconditions.checkNotNull(dynamicRuntimeSolibDir);
-    this.ccCompilationContextInfo = Preconditions.checkNotNull(ccCompilationContextInfo);
+    this.ccCompilationContext = Preconditions.checkNotNull(ccCompilationContext);
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
     this.buildVariables = buildVariables;
@@ -152,6 +155,13 @@ public final class CcToolchainProvider extends ToolchainInfo {
     this.useLLVMCoverageMapFormat = useLLVMCoverageMapFormat;
     this.codeCoverageEnabled = codeCoverageEnabled;
     this.isHostConfiguration = isHostConfiguration;
+    if (cppConfiguration != null) {
+      this.forcePic = cppConfiguration.forcePic();
+      this.shouldStripBinaries = cppConfiguration.shouldStripBinaries();
+    } else {
+      this.forcePic = false;
+      this.shouldStripBinaries = false;
+    }
   }
 
   /** Returns c++ Make variables. */
@@ -208,6 +218,23 @@ public final class CcToolchainProvider extends ToolchainInfo {
     result.put("ABI", abi);
 
     return result.build();
+  }
+
+  /**
+   * Returns true if Fission is specified and supported by the CROSSTOOL for the build implied by
+   * the given configuration and toolchain.
+   */
+  public boolean useFission() {
+    return Preconditions.checkNotNull(cppConfiguration).fissionIsActiveForCurrentCompilationMode()
+        && supportsFission();
+  }
+
+  /**
+   * Returns true if Fission and PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL
+   * for the build implied by the given configuration, toolchain and feature configuration.
+   */
+  public boolean shouldCreatePerObjectDebugInfo(FeatureConfiguration featureConfiguration) {
+    return useFission() && featureConfiguration.isEnabled(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
   }
 
   @Override
@@ -368,9 +395,9 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return dynamicRuntimeSolibDir;
   }
 
-  /** Returns the {@code CcCompilationContextInfo} for the toolchain. */
-  public CcCompilationContextInfo getCcCompilationContextInfo() {
-    return ccCompilationContextInfo;
+  /** Returns the {@code CcCompilationContext} for the toolchain. */
+  public CcCompilationContext getCcCompilationContext() {
+    return ccCompilationContext;
   }
 
   /**
@@ -482,7 +509,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   }
 
   /** Returns build variables to be templated into the crosstool. */
-  public Variables getBuildVariables() {
+  public CcToolchainVariables getBuildVariables() {
     return buildVariables;
   }
 
@@ -736,14 +763,14 @@ public final class CcToolchainProvider extends ToolchainInfo {
   /** Returns linker flags for fully statically linked outputs. */
   FlagList getLegacyFullyStaticLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
     return new FlagList(
-        configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.FULLY_STATIC),
+        configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.LEGACY_FULLY_STATIC),
         ImmutableList.<String>of());
   }
 
   /** Returns linker flags for mostly static linked outputs. */
   FlagList getLegacyMostlyStaticLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
     return new FlagList(
-        configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.MOSTLY_STATIC),
+        configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.STATIC),
         ImmutableList.<String>of());
   }
 
@@ -752,7 +779,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
       CompilationMode compilationMode, LipoMode lipoMode) {
     return new FlagList(
         configureAllLegacyLinkOptions(
-            compilationMode, lipoMode, LinkingMode.MOSTLY_STATIC_LIBRARIES),
+            compilationMode, lipoMode, LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES),
         ImmutableList.<String>of());
   }
 
@@ -897,7 +924,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
    * WARNING: This method is only added to allow incremental migration of existing users. Please do
    * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
    *
-   * Returns the immutable list of linker options for fully statically linked outputs. Does not
+   * <p>Returns the immutable list of linker options for fully statically linked outputs. Does not
    * include command-line options passed via --linkopt or --linkopts.
    *
    * @param sharedLib true if the output is a shared lib, false if it's an executable
@@ -907,10 +934,13 @@ public final class CcToolchainProvider extends ToolchainInfo {
       doc =
           "Returns the immutable list of linker options for fully statically linked "
               + "outputs. Does not include command-line options passed via --linkopt or "
-              + "--linkopts."
-  )
+              + "--linkopts.")
   @Deprecated
-  public ImmutableList<String> getFullyStaticLinkOptions(Boolean sharedLib) {
+  public ImmutableList<String> getFullyStaticLinkOptions(Boolean sharedLib) throws EvalException {
+    if (!sharedLib) {
+      throw new EvalException(
+          Location.BUILTIN, "fully_static_link_options is deprecated, new uses are not allowed.");
+    }
     return CppHelper.getFullyStaticLinkOptions(cppConfiguration, this, sharedLib);
   }
 
@@ -981,6 +1011,14 @@ public final class CcToolchainProvider extends ToolchainInfo {
 
   public boolean isHostConfiguration() {
     return isHostConfiguration;
+  }
+
+  public boolean getForcePic() {
+    return forcePic;
+  }
+
+  public boolean getShouldStripBinaries() {
+    return shouldStripBinaries;
   }
 }
 

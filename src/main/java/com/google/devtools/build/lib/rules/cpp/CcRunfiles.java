@@ -28,13 +28,13 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
  */
 @Immutable
 @AutoCodec
-public final class CcRunfilesInfo {
+public final class CcRunfiles {
 
   private final Runfiles staticRunfiles;
   private final Runfiles sharedRunfiles;
 
   @AutoCodec.Instantiator
-  public CcRunfilesInfo(Runfiles staticRunfiles, Runfiles sharedRunfiles) {
+  public CcRunfiles(Runfiles staticRunfiles, Runfiles sharedRunfiles) {
     this.staticRunfiles = staticRunfiles;
     this.sharedRunfiles = sharedRunfiles;
   }
@@ -54,8 +54,8 @@ public final class CcRunfilesInfo {
   public static final Function<TransitiveInfoCollection, Runfiles> STATIC_RUNFILES =
       input -> {
         CcLinkingInfo provider = input.get(CcLinkingInfo.PROVIDER);
-        CcRunfilesInfo ccRunfilesInfo = provider == null ? null : provider.getCcRunfilesInfo();
-        return ccRunfilesInfo == null ? Runfiles.EMPTY : ccRunfilesInfo.getStaticRunfiles();
+        CcRunfiles ccRunfiles = provider == null ? null : provider.getCcRunfiles();
+        return ccRunfiles == null ? Runfiles.EMPTY : ccRunfiles.getStaticRunfiles();
       };
 
   /**
@@ -65,8 +65,8 @@ public final class CcRunfilesInfo {
   public static final Function<TransitiveInfoCollection, Runfiles> SHARED_RUNFILES =
       input -> {
         CcLinkingInfo provider = input.get(CcLinkingInfo.PROVIDER);
-        CcRunfilesInfo ccRunfilesInfo = provider == null ? null : provider.getCcRunfilesInfo();
-        return ccRunfilesInfo == null ? Runfiles.EMPTY : ccRunfilesInfo.getSharedRunfiles();
+        CcRunfiles ccRunfiles = provider == null ? null : provider.getCcRunfiles();
+        return ccRunfiles == null ? Runfiles.EMPTY : ccRunfiles.getSharedRunfiles();
       };
 
   /**

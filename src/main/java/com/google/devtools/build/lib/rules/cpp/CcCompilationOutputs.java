@@ -22,21 +22,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 /** A structured representation of the compilation outputs of a C++ rule. */
-@SkylarkModule(
-  name = "cc_compilation_outputs",
-  category = SkylarkModuleCategory.BUILTIN,
-  documented = false,
-  doc = "Helper class containing CC compilation outputs."
-)
-public class CcCompilationOutputs {
+public class CcCompilationOutputs implements CcCompilationOutputsApi {
   /**
    * All .o files built by the target.
    */

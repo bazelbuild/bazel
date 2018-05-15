@@ -185,7 +185,7 @@ alias(
 
 alias(
     name = "host_jdk",
-    actual = "@local_jdk//:jdk",
+    actual = "@embedded_jdk//:jdk",
 )
 
 genrule(
@@ -213,7 +213,7 @@ genrule(
 )
 
 default_java_toolchain(
-    name = "toolchain_jdk8",
+    name = "toolchain_hostjdk8",
     bootclasspath = [":bootclasspath"],
     extclasspath = [":extclasspath"],
     jvm_opts = JDK8_JVM_OPTS,
@@ -222,7 +222,16 @@ default_java_toolchain(
 )
 
 default_java_toolchain(
-    name = "toolchain_jdk9",
+    name = "toolchain_hostjdk9",
+    bootclasspath = [":bootclasspath"],
+    extclasspath = [":extclasspath"],
+    jvm_opts = JDK9_JVM_OPTS,
+    source_version = "8",
+    target_version = "8",
+)
+
+default_java_toolchain(
+    name = "toolchain_java9",
     jvm_opts = JDK9_JVM_OPTS,
     misc = DEFAULT_JAVACOPTS + [
         "--release",

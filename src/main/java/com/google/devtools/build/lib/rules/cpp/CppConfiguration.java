@@ -33,16 +33,19 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
 import com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader.CrosstoolFile;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.transitions.ContextCollectorOwnerTransition;
 import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -175,7 +178,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   private final FlagList unfilteredCompilerFlags;
   private final ImmutableList<String> cOptions;
 
-  private final FlagList fullyStaticLinkFlags;
   private final FlagList mostlyStaticLinkFlags;
   private final FlagList mostlyStaticSharedLinkFlags;
   private final FlagList dynamicLinkFlags;
@@ -198,7 +200,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
 
   /**
    * If true, the ConfiguredTarget is only used to get the necessary cross-referenced {@code
-   * CcCompilationContextInfo}s, but registering build actions is disabled.
+   * CcCompilationContext}s, but registering build actions is disabled.
    */
   private final boolean lipoContextCollector;
 
@@ -259,15 +261,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
         ImmutableList.copyOf(cppOptions.conlyoptList),
         new FlagList(
             cppToolchainInfo.configureAllLegacyLinkOptions(
-                compilationMode, cppOptions.getLipoMode(), LinkingMode.FULLY_STATIC),
+                compilationMode, cppOptions.getLipoMode(), LinkingMode.STATIC),
             ImmutableList.of()),
         new FlagList(
             cppToolchainInfo.configureAllLegacyLinkOptions(
-                compilationMode, cppOptions.getLipoMode(), LinkingMode.MOSTLY_STATIC),
-            ImmutableList.of()),
-        new FlagList(
-            cppToolchainInfo.configureAllLegacyLinkOptions(
-                compilationMode, cppOptions.getLipoMode(), LinkingMode.MOSTLY_STATIC_LIBRARIES),
+                compilationMode,
+                cppOptions.getLipoMode(),
+                LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES),
             ImmutableList.of()),
         new FlagList(
             cppToolchainInfo.configureAllLegacyLinkOptions(
@@ -307,7 +307,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
       FlagList cxxFlags,
       FlagList unfilteredCompilerFlags,
       ImmutableList<String> cOptions,
-      FlagList fullyStaticLinkFlags,
       FlagList mostlyStaticLinkFlags,
       FlagList mostlyStaticSharedLinkFlags,
       FlagList dynamicLinkFlags,
@@ -339,7 +338,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     this.cxxFlags = cxxFlags;
     this.unfilteredCompilerFlags = unfilteredCompilerFlags;
     this.cOptions = cOptions;
-    this.fullyStaticLinkFlags = fullyStaticLinkFlags;
     this.mostlyStaticLinkFlags = mostlyStaticLinkFlags;
     this.mostlyStaticSharedLinkFlags = mostlyStaticSharedLinkFlags;
     this.dynamicLinkFlags = dynamicLinkFlags;
@@ -360,7 +358,19 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
 
   @VisibleForTesting
   static LinkingMode importLinkingMode(CrosstoolConfig.LinkingMode mode) {
-    return LinkingMode.valueOf(mode.name());
+    switch (mode.name()) {
+      case "FULLY_STATIC":
+        return LinkingMode.LEGACY_FULLY_STATIC;
+      case "MOSTLY_STATIC_LIBRARIES":
+        return LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES;
+      case "MOSTLY_STATIC":
+        return LinkingMode.STATIC;
+      case "DYNAMIC":
+        return LinkingMode.DYNAMIC;
+      default:
+        throw new IllegalArgumentException(
+            String.format("Linking mode '%s' not known.", mode.name()));
+    }
   }
 
   /** Returns the {@link CppToolchainInfo} used by this configuration. */
@@ -713,12 +723,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   )
   @Deprecated
   public ImmutableList<String> getFullyStaticLinkOptions(
-      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) {
-    if (sharedLib) {
-      return getSharedLibraryLinkOptions(mostlyStaticLinkFlags);
-    } else {
-      return fullyStaticLinkFlags.evaluate();
+      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) throws EvalException {
+    if (!sharedLib) {
+      throw new EvalException(
+          Location.BUILTIN, "fully_static_link_options is deprecated, new uses are not allowed.");
     }
+    return getSharedLibraryLinkOptions(mostlyStaticLinkFlags);
   }
 
   /**

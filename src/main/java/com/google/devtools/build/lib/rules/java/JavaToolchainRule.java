@@ -256,7 +256,7 @@ java_toolchain(
     bootclasspath = ["//tools/jdk:bootclasspath"],
     encoding = "UTF-8",
     xlint = [ "classfile", "divzero", "empty", "options", "path" ],
-    misc = [ "-g" ],
+    javacopts = [ "-g" ],
     javabuilder = ":JavaBuilder_deploy.jar",
 )
 </pre>

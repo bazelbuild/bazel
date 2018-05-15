@@ -33,7 +33,7 @@ import java.util.Map;
 /** Provides access to make variables from the current fragments. */
 @SkylarkModule(
     name = "TemplateVariableInfo",
-    doc = "<b>WARNING: The constructor of this provider is experimental and may go away at any "
+    doc = "<b>WARNING</b>: The constructor of this provider is experimental and may go away at any "
         + "time."
         + "<p>Encapsulates template variables, that is, variables that can be referenced by "
         + "strings like <code>$(VARIABLE)</code> in BUILD files and expanded by "

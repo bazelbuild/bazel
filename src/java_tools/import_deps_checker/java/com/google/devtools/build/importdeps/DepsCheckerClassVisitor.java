@@ -172,13 +172,19 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
     AbstractClassEntryState state = classCache.getClassState(internalName);
     if (state.isMissingState()) {
       resultCollector.addMissingOrIncompleteClass(internalName, state);
-    } else if (state.isIncompleteState()) {
-      String missingAncestor = state.asIncompleteState().getMissingAncestor();
-      AbstractClassEntryState ancestorState = classCache.getClassState(missingAncestor);
-      checkState(
-          ancestorState.isMissingState(), "The ancestor should be missing. %s", ancestorState);
-      resultCollector.addMissingOrIncompleteClass(missingAncestor, ancestorState);
-      resultCollector.addMissingOrIncompleteClass(internalName, state);
+    } else {
+      if (state.isIncompleteState()) {
+        String missingAncestor = state.asIncompleteState().getMissingAncestor();
+        AbstractClassEntryState ancestorState = classCache.getClassState(missingAncestor);
+        checkState(
+            ancestorState.isMissingState(), "The ancestor should be missing. %s", ancestorState);
+        resultCollector.addMissingOrIncompleteClass(missingAncestor, ancestorState);
+        resultCollector.addMissingOrIncompleteClass(internalName, state);
+      }
+      ClassInfo info = state.classInfo().get();
+      if (!info.directDep()) {
+        resultCollector.addIndirectDep(info.jarPath());
+      }
     }
     return state;
   }

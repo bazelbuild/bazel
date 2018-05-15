@@ -381,7 +381,11 @@ public final class CommandInterruptionTest {
     snooze = new WaitForCompletionCommand(isTestShuttingDown);
     dispatcher = new BlazeCommandDispatcher(runtime, snooze);
     BlazeDirectories blazeDirectories =
-        new BlazeDirectories(serverDirectories, scratch.dir("workspace"), productName);
+        new BlazeDirectories(
+            serverDirectories,
+            scratch.dir("workspace"),
+            /* defaultSystemJavabase= */ null,
+            productName);
     runtime.initWorkspace(blazeDirectories, /* binTools= */ null);
   }
 

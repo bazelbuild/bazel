@@ -38,12 +38,6 @@ def _http_archive_impl(ctx):
   if ctx.attr.build_file and ctx.attr.build_file_content:
     ctx.fail("Only one of build_file and build_file_content can be provided.")
 
-  # These print statement is not only for debug, but it also ensures the file
-  # is referenced before the download is started; this is necessary till a
-  # proper fix for https://github.com/bazelbuild/bazel/issues/2700 is
-  # implemented. A proper could, e.g., be to ensure that all ctx.path of
-  # all the lables provided as arguments are present before the implementation
-  # function is called the first time.
   if ctx.attr.build_file:
     print("ctx.attr.build_file %s, path %s" %
           (str(ctx.attr.build_file), ctx.path(ctx.attr.build_file)))

@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.In
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
@@ -128,7 +128,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   public Artifact createExecutable(
       RuleContext ruleContext,
       PyCommon common,
-      CcLinkParamsStore ccLinkParamsStore,
+      AbstractCcLinkParamsStore ccLinkParamsStore,
       NestedSet<PathFragment> imports)
       throws InterruptedException {
     String main = common.determineMainExecutableSource(/*withWorkspaceName=*/ true);

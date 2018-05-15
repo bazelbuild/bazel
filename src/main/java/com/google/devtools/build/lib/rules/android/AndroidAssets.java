@@ -61,12 +61,13 @@ public class AndroidAssets {
     }
   }
 
-  /** Collects this rule's android assets. */
+  /** Collects this rule's android assets, based on rule attributes. */
   public static AndroidAssets from(RuleContext ruleContext) throws RuleErrorException {
     return from(ruleContext, getAssetTargets(ruleContext), getAssetDir(ruleContext));
   }
 
-  static AndroidAssets from(
+  /** Collects Android assets from the specified values */
+  public static AndroidAssets from(
       RuleErrorConsumer errorConsumer,
       @Nullable Iterable<? extends TransitiveInfoCollection> assetTargets,
       @Nullable PathFragment assetsDir)
@@ -169,7 +170,12 @@ public class AndroidAssets {
   /** Convenience method to do all of asset processing - parsing and merging. */
   public MergedAndroidAssets process(RuleContext ruleContext, boolean neverlink)
       throws InterruptedException {
-    return parse(ruleContext).merge(ruleContext, neverlink);
+    return process(ruleContext, AssetDependencies.fromRuleDeps(ruleContext, neverlink));
+  }
+
+  MergedAndroidAssets process(RuleContext ruleContext, AssetDependencies assetDeps)
+      throws InterruptedException {
+    return parse(ruleContext).merge(ruleContext, assetDeps);
   }
 
   @Override

@@ -302,11 +302,14 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "cc_library(name='x', srcs=['foo.cc'])",
         "cc_binary(name='_objs/x/conflict/foo.o', srcs=['bar.cc'])");
     reporter.removeHandler(failFastHandler); // expect errors
-    update(defaultFlags().with(Flag.KEEP_GOING),
-        "//conflict:x", "//conflict:_objs/x/conflict/foo.pic.o");
-    ConfiguredTarget a = getConfiguredTarget("//conflict:x");
-    ConfiguredTarget b = getConfiguredTarget("//conflict:_objs/x/conflict/foo.pic.o");
-    assertThat(hasTopLevelAnalysisError(a) ^ hasTopLevelAnalysisError(b)).isTrue();
+    int successfulAnalyses =
+        update(
+                defaultFlags().with(Flag.KEEP_GOING),
+                "//conflict:x",
+                "//conflict:_objs/x/conflict/foo.pic.o")
+            .getTargetsToBuild()
+            .size();
+    assertThat(successfulAnalyses).isEqualTo(1);
   }
 
   /**

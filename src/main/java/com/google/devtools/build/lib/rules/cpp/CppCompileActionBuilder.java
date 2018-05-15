@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -53,7 +53,7 @@ public class CppCompileActionBuilder {
   private final ActionOwner owner;
   private final BuildConfiguration configuration;
   private CcToolchainFeatures.FeatureConfiguration featureConfiguration;
-  private CcToolchainFeatures.Variables variables = Variables.EMPTY;
+  private CcToolchainVariables variables = CcToolchainVariables.EMPTY;
   private Artifact sourceFile;
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
   private Artifact optionalSourceFile;
@@ -63,7 +63,7 @@ public class CppCompileActionBuilder {
   private PathFragment tempOutputFile;
   private DotdFile dotdFile;
   private Artifact gcnoFile;
-  private CcCompilationContextInfo ccCompilationContextInfo = CcCompilationContextInfo.EMPTY;
+  private CcCompilationContext ccCompilationContext = CcCompilationContext.EMPTY;
   private final List<String> pluginOpts = new ArrayList<>();
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
@@ -147,7 +147,7 @@ public class CppCompileActionBuilder {
     this.tempOutputFile = other.tempOutputFile;
     this.dotdFile = other.dotdFile;
     this.gcnoFile = other.gcnoFile;
-    this.ccCompilationContextInfo = other.ccCompilationContextInfo;
+    this.ccCompilationContext = other.ccCompilationContext;
     this.pluginOpts.addAll(other.pluginOpts);
     this.coptsFilter = other.coptsFilter;
     this.extraSystemIncludePrefixes = ImmutableList.copyOf(other.extraSystemIncludePrefixes);
@@ -200,8 +200,8 @@ public class CppCompileActionBuilder {
     return sourceFile;
   }
 
-  public CcCompilationContextInfo getCcCompilationContextInfo() {
-    return ccCompilationContextInfo;
+  public CcCompilationContext getCcCompilationContext() {
+    return ccCompilationContext;
   }
 
   public NestedSet<Artifact> getMandatoryInputs() {
@@ -336,7 +336,7 @@ public class CppCompileActionBuilder {
     NestedSet<Artifact> allInputs = buildAllInputs(realMandatoryInputs);
 
     NestedSetBuilder<Artifact> prunableInputBuilder = NestedSetBuilder.stableOrder();
-    prunableInputBuilder.addTransitive(ccCompilationContextInfo.getDeclaredIncludeSrcs());
+    prunableInputBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
     prunableInputBuilder.addTransitive(cppSemantics.getAdditionalPrunableIncludes());
 
     Iterable<IncludeScannable> lipoScannables = getLipoScannables(realMandatoryInputs);
@@ -379,7 +379,7 @@ public class CppCompileActionBuilder {
               tempOutputFile,
               dotdFile,
               localShellEnvironment,
-              ccCompilationContextInfo,
+              ccCompilationContext,
               coptsFilter,
               getLipoScannables(realMandatoryInputs),
               cppSemantics,
@@ -410,7 +410,7 @@ public class CppCompileActionBuilder {
               ltoIndexingFile,
               optionalSourceFile,
               localShellEnvironment,
-              ccCompilationContextInfo,
+              ccCompilationContext,
               coptsFilter,
               getLipoScannables(realMandatoryInputs),
               additionalIncludeScanningRoots.build(),
@@ -444,13 +444,11 @@ public class CppCompileActionBuilder {
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
     realMandatoryInputsBuilder.addAll(getBuiltinIncludeFiles());
-    realMandatoryInputsBuilder.addAll(
-        ccCompilationContextInfo.getTransitiveCompilationPrerequisites());
+    realMandatoryInputsBuilder.addAll(ccCompilationContext.getTransitiveCompilationPrerequisites());
     if (useHeaderModules() && !shouldPruneModules()) {
-      realMandatoryInputsBuilder.addTransitive(
-          ccCompilationContextInfo.getTransitiveModules(usePic));
+      realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getTransitiveModules(usePic));
     }
-    realMandatoryInputsBuilder.addTransitive(ccCompilationContextInfo.getAdditionalInputs());
+    realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getAdditionalInputs());
     realMandatoryInputsBuilder.add(Preconditions.checkNotNull(sourceFile));
     if (grepIncludes != null) {
       realMandatoryInputsBuilder.add(grepIncludes);
@@ -481,7 +479,7 @@ public class CppCompileActionBuilder {
   }
 
   private void verifyActionIncludePaths(CppCompileAction action, Consumer<String> errorReporter) {
-    Iterable<PathFragment> ignoredDirs = action.getValidationIgnoredDirs();
+    ImmutableSet<PathFragment> ignoredDirs = ImmutableSet.copyOf(action.getValidationIgnoredDirs());
     // We currently do not check the output of:
     // - getQuoteIncludeDirs(): those only come from includes attributes, and are checked in
     //   CcCommon.getIncludeDirsFromIncludesAttribute().
@@ -491,7 +489,11 @@ public class CppCompileActionBuilder {
     Iterable<PathFragment> includePathsToVerify =
         Iterables.concat(action.getIncludeDirs(), action.getSystemIncludeDirs());
     for (PathFragment includePath : includePathsToVerify) {
-      if (FileSystemUtils.startsWithAny(includePath, ignoredDirs)) {
+      // includePathsToVerify contains all paths that are added as -isystem directive on the command
+      // line, most of which are added for include directives in the CcCompilationContext and are
+      // thus also in ignoredDirs. The hash lookup prevents this from becoming O(N^2) for these.
+      if (ignoredDirs.contains(includePath)
+          || FileSystemUtils.startsWithAny(includePath, ignoredDirs)) {
         continue;
       }
       // One starting ../ is okay for getting to a sibling repository.
@@ -526,16 +528,14 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  /**
-   * Sets the feature build variables to be used for the action.
-   */
-  public CppCompileActionBuilder setVariables(CcToolchainFeatures.Variables variables) {
+  /** Sets the feature build variables to be used for the action. */
+  public CppCompileActionBuilder setVariables(CcToolchainVariables variables) {
     this.variables = variables;
     return this;
   }
 
   /** Returns the build variables to be used for the action. */
-  public CcToolchainFeatures.Variables getVariables() {
+  public CcToolchainVariables getVariables() {
     return variables;
   }
 
@@ -658,9 +658,9 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  public CppCompileActionBuilder setCcCompilationContextInfo(
-      CcCompilationContextInfo ccCompilationContextInfo) {
-    this.ccCompilationContextInfo = ccCompilationContextInfo;
+  public CppCompileActionBuilder setCcCompilationContext(
+      CcCompilationContext ccCompilationContext) {
+    this.ccCompilationContext = ccCompilationContext;
     return this;
   }
 

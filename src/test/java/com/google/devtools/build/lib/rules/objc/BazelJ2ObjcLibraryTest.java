@@ -784,7 +784,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             null,
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
-            DUMMY_ARTIFACT_EXPANDER);
+            DUMMY_ARTIFACT_EXPANDER,
+            null);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
     moduleMapAction.newDeterministicWriter(dummyActionExecutionContext)
@@ -834,7 +835,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             null,
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
-            DUMMY_ARTIFACT_EXPANDER);
+            DUMMY_ARTIFACT_EXPANDER,
+            null);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();

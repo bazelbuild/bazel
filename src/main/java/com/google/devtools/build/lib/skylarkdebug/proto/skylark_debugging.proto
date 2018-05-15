@@ -35,6 +35,7 @@ message DebugRequest {
     EvaluateRequest evaluate = 103;
     ListFramesRequest list_frames = 104;
     StartDebuggingRequest start_debugging = 105;
+    PauseThreadRequest pause_thread = 106;
   }
 }
 
@@ -84,6 +85,15 @@ message ListFramesRequest {
 message StartDebuggingRequest {
 }
 
+// A request to pause execution of a thread, or all threads.
+message PauseThreadRequest {
+  // The identifier of the thread to be paused.
+  //
+  // If not set (i.e. zero), all current and future Skylark threads will be
+  // paused until resumed via a ContinueExecutionRequest.
+  int64 thread_id = 1;
+}
+
 // There are two kinds of events: "responses", which correspond to a
 // DebugRequest sent by the client, and other asynchronous events that may be
 // sent by the server to notify the client of activity in the Skylark code being
@@ -104,6 +114,7 @@ message DebugEvent {
     EvaluateResponse evaluate = 103;
     ListFramesResponse list_frames = 104;
     StartDebuggingResponse start_debugging = 105;
+    PauseThreadResponse pause_thread = 106;
 
     ThreadStartedEvent thread_started = 1000;
     ThreadEndedEvent thread_ended = 1001;
@@ -148,6 +159,12 @@ message ListFramesResponse {
 
 // The response to a StartDebuggingRequest.
 message StartDebuggingResponse {
+}
+
+// The response to a PauseThreadRequest. This is an acknowledgement that the
+// request was received. Actual pausing of individual threads happens
+// asynchronously, and will be communicated via ThreadPausedEvent(s).
+message PauseThreadResponse {
 }
 
 // An event indicating that a thread has begun executing Skylark code.

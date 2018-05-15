@@ -24,9 +24,9 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContextInfo;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.syntax.Type;
@@ -94,8 +94,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
       .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
           J2ObjcEntryClassProvider.class)).build();
-    CcCompilationContextInfo ccCompilationContextInfo =
-        new CcCompilationContextInfo.Builder(ruleContext)
+    CcCompilationContext ccCompilationContext =
+        new CcCompilationContext.Builder(ruleContext)
             .addDeclaredIncludeSrcs(
                 CompilationAttributes.Builder.fromRuleContext(ruleContext)
                     .build()
@@ -106,11 +106,11 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             .build();
 
     CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
-    ccCompilationInfoBuilder.setCcCompilationContextInfo(ccCompilationContextInfo);
+    ccCompilationInfoBuilder.setCcCompilationContext(ccCompilationContext);
 
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcLinkParamsInfo(
-        new CcLinkParamsInfo(new ObjcLibraryCcLinkParamsStore(common)));
+    ccLinkingInfoBuilder.setCcLinkParamsStore(
+        new CcLinkParamsStore(new ObjcLibraryCcLinkParamsStore(common)));
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(common.getObjcProvider())

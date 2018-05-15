@@ -37,20 +37,29 @@ public class BlazeDirectoriesTest extends FoundationTestCase {
     Path workspace = fs.getPath("/my/ws");
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(installBase, outputBase, userRoot), workspace, "foo");
+            new ServerDirectories(installBase, outputBase, userRoot),
+            workspace,
+            /* defaultSystemJavabase= */ null,
+            "foo");
     assertThat(outputBase.getRelative("execroot/ws")).isEqualTo(directories.getExecRoot());
 
     workspace = null;
     directories =
         new BlazeDirectories(
-            new ServerDirectories(installBase, outputBase, userRoot), workspace, "foo");
+            new ServerDirectories(installBase, outputBase, userRoot),
+            workspace,
+            /* defaultSystemJavabase= */ null,
+            "foo");
     assertThat(outputBase.getRelative("execroot/" + BlazeDirectories.DEFAULT_EXEC_ROOT))
         .isEqualTo(directories.getExecRoot());
 
     workspace = fs.getPath("/");
     directories =
         new BlazeDirectories(
-            new ServerDirectories(installBase, outputBase, userRoot), workspace, "foo");
+            new ServerDirectories(installBase, outputBase, userRoot),
+            workspace,
+            /* defaultSystemJavabase= */ null,
+            "foo");
     assertThat(outputBase.getRelative("execroot/" + BlazeDirectories.DEFAULT_EXEC_ROOT))
         .isEqualTo(directories.getExecRoot());
   }
@@ -64,6 +73,7 @@ public class BlazeDirectoriesTest extends FoundationTestCase {
                     FsUtils.TEST_FILESYSTEM.getPath("/output_base"),
                     FsUtils.TEST_FILESYSTEM.getPath("/user_root")),
                 FsUtils.TEST_FILESYSTEM.getPath("/workspace"),
+                /* defaultSystemJavabase= */ null,
                 "Blaze"),
             new BlazeDirectories(
                 new ServerDirectories(
@@ -72,6 +82,7 @@ public class BlazeDirectoriesTest extends FoundationTestCase {
                     FsUtils.TEST_FILESYSTEM.getPath("/user_root"),
                     "1234abcd1234abcd1234abcd1234abcd"),
                 FsUtils.TEST_FILESYSTEM.getPath("/workspace"),
+                /* defaultSystemJavabase= */ null,
                 "Blaze"),
             new BlazeDirectories(
                 new ServerDirectories(
@@ -79,6 +90,7 @@ public class BlazeDirectoriesTest extends FoundationTestCase {
                     FsUtils.TEST_FILESYSTEM.getPath("/output_base"),
                     FsUtils.TEST_FILESYSTEM.getPath("/user_root")),
                 FsUtils.TEST_FILESYSTEM.getPath("/workspace"),
+                /* defaultSystemJavabase= */ null,
                 "Bazel"))
         .addDependency(FileSystem.class, FsUtils.TEST_FILESYSTEM)
         .runTests();

@@ -38,8 +38,8 @@ public final class MockCppSemantics implements CppSemantics {
       RuleContext ruleContext, CppCompileActionBuilder actionBuilder) {}
 
   @Override
-  public void setupCcCompilationContextInfo(
-      RuleContext ruleContext, CcCompilationContextInfo.Builder ccCompilationContextInfoBuilder) {}
+  public void setupCcCompilationContext(
+      RuleContext ruleContext, CcCompilationContext.Builder ccCompilationContextBuilder) {}
 
   @Override
   public NestedSet<Artifact> getAdditionalPrunableIncludes() {

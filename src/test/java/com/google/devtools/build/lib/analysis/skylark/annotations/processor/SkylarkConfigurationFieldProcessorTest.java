@@ -50,6 +50,18 @@ public final class SkylarkConfigurationFieldProcessorTest {
   }
 
   @Test
+  public void testGoldenConfigurationFieldThroughApi() throws Exception {
+    // TODO(b/71644521): Compile-testing is not fully functional on Windows; test sources are
+    // unable to resolve cross-package dependencies.
+    assumeTrue(OS.getCurrent() != OS.WINDOWS);
+
+    assertAbout(javaSource())
+        .that(getFile("GoldenConfigurationFieldThroughApi.java"))
+        .processedWith(new SkylarkConfigurationFieldProcessor())
+        .compilesWithoutError();
+  }
+
+  @Test
   public void testHasMethodParameters() throws Exception {
     // TODO(b/71644521): Compile-testing is not fully functional on Windows; test sources are
     // unable to resolve cross-package dependencies.
@@ -99,8 +111,8 @@ public final class SkylarkConfigurationFieldProcessorTest {
         .that(getFile("NonConfigurationFragment.java"))
         .processedWith(new SkylarkConfigurationFieldProcessor())
         .failsToCompile()
-        .withErrorContaining("@SkylarkConfigurationField annotated methods must be methods of "
-            + "configuration fragments with the @SkylarkModule annotation.");
+        .withErrorContaining("@SkylarkConfigurationField annotated methods must be methods "
+            + "of configuration fragments.");
   }
 
   @Test
@@ -112,9 +124,7 @@ public final class SkylarkConfigurationFieldProcessorTest {
     assertAbout(javaSource())
         .that(getFile("NonExposedConfigurationFragment.java"))
         .processedWith(new SkylarkConfigurationFieldProcessor())
-        .failsToCompile()
-        .withErrorContaining("@SkylarkConfigurationField annotated methods must be methods of "
-            + "configuration fragments with the @SkylarkModule annotation.");
+        .compilesWithoutError();
   }
 
   @Test

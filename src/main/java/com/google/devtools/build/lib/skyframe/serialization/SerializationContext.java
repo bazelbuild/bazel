@@ -131,6 +131,11 @@ public class SerializationContext {
         this.registry, this.dependencies, new Memoizer.Serializer(), allowFuturesToBlockWritingOn);
   }
 
+  public SerializationContext getNewNonMemoizingContext() {
+    return new SerializationContext(
+        this.registry, this.dependencies, null, this.allowFuturesToBlockWritingOn);
+  }
+
   /**
    * Register a {@link ListenableFuture} that must complete successfully before the serialized bytes
    * generated using this context can be written remotely. Failure of the future implies a bug or

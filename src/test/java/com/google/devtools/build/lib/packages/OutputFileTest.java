@@ -167,7 +167,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
             "bad_out_name/BUILD",
             "genrule(name='a',",
             "        cmd='ls',",
-            "        outs=['!@#'])");
+            "        outs=['!@#:'])");
 
     reporter.removeHandler(failFastHandler);
     packageFactory.createPackageForTesting(
@@ -175,7 +175,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
         buildfile,
         getPackageManager(),
         reporter);
-    assertContainsEvent("illegal output file name '!@#' in rule //bad_out_name:a");
+    assertContainsEvent("illegal output file name '!@#:' in rule //bad_out_name:a");
   }
 
   @Test

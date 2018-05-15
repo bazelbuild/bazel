@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -48,7 +47,8 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
   }
 
   /** Returns active build variables for a compile action of given type for given target. */
-  protected Variables getCompileBuildVariables(String label, String name) throws Exception {
+  protected CcToolchainVariables getCompileBuildVariables(String label, String name)
+      throws Exception {
     return getCppCompileAction(label, name).getCompileCommandLine().getVariables();
   }
 
@@ -57,7 +57,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
 
-    Variables variables = getCompileBuildVariables("//x:bin", "bin");
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     assertThat(variables.getStringVariable(CompileBuildVariables.SOURCE_FILE.getVariableName()))
         .contains("x/bin.cc");
@@ -73,10 +73,10 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
 
-    Variables variables = getCompileBuildVariables("//x:bin", "bin");
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList<String> copts =
-        Variables.toStringList(
+        CcToolchainVariables.toStringList(
             variables, CompileBuildVariables.LEGACY_COMPILE_FLAGS.getVariableName());
     assertThat(copts).contains("-foo");
   }
@@ -89,15 +89,15 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'], copts = ['-bar'],)");
     scratch.file("x/bin.cc");
 
-    Variables variables = getCompileBuildVariables("//x:bin", "bin");
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList<String> userCopts =
-        Variables.toStringList(
+        CcToolchainVariables.toStringList(
             variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
     assertThat(userCopts).containsAllIn(ImmutableList.<String>of("-foo", "-bar")).inOrder();
 
     ImmutableList<String> legacyCopts =
-        Variables.toStringList(
+        CcToolchainVariables.toStringList(
             variables, CompileBuildVariables.LEGACY_COMPILE_FLAGS.getVariableName());
     assertThat(legacyCopts).doesNotContain("-foo");
   }
@@ -110,10 +110,10 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'], copts = ['-foo'])");
     scratch.file("x/bin.cc");
 
-    Variables variables = getCompileBuildVariables("//x:bin", "bin");
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList<String> copts =
-        Variables.toStringList(
+        CcToolchainVariables.toStringList(
             variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
     assertThat(copts).contains("-foo");
   }
@@ -128,10 +128,10 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
 
-    Variables variables = getCompileBuildVariables("//x:bin", "bin");
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList<String> unfilteredCompileFlags =
-        Variables.toStringList(
+        CcToolchainVariables.toStringList(
             variables, CompileBuildVariables.UNFILTERED_COMPILE_FLAGS.getVariableName());
     assertThat(unfilteredCompileFlags).contains("--i_ll_live_forever");
   }
@@ -142,10 +142,10 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     scratch.file("x/bin.cc");
     useConfiguration("--per_file_copt=//x:bin@-foo", "--per_file_copt=//x:bar\\.cc@-bar");
 
-    Variables variables = getCompileBuildVariables("//x:bin", "bin");
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList<String> copts =
-        Variables.toStringList(
+        CcToolchainVariables.toStringList(
             variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
     assertThat(copts).containsExactly("-foo").inOrder();
   }
@@ -160,7 +160,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
 
-    Variables variables = getCompileBuildVariables("//x:bin", "bin");
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME))
         .isEqualTo("/usr/local/custom-sysroot");

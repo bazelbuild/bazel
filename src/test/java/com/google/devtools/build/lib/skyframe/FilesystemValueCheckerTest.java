@@ -111,7 +111,10 @@ public class FilesystemValueCheckerTest {
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(pkgRoot, pkgRoot, pkgRoot), pkgRoot, TestConstants.PRODUCT_NAME);
+            new ServerDirectories(pkgRoot, pkgRoot, pkgRoot),
+            pkgRoot,
+            /* defaultSystemJavabase= */ null,
+            TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
         pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
     skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(

@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
@@ -480,14 +479,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     Preconditions.checkState(
         (dynamicRuntimeLinkMiddleman == null) == dynamicRuntimeLinkSymlinks.isEmpty());
 
-    CcCompilationContextInfo.Builder ccCompilationContextInfoBuilder =
-        new CcCompilationContextInfo.Builder(ruleContext);
+    CcCompilationContext.Builder ccCompilationContextBuilder =
+        new CcCompilationContext.Builder(ruleContext);
     CppModuleMap moduleMap = createCrosstoolModuleMap(ruleContext);
     if (moduleMap != null) {
-      ccCompilationContextInfoBuilder.setCppModuleMap(moduleMap);
+      ccCompilationContextBuilder.setCppModuleMap(moduleMap);
     }
-    final CcCompilationContextInfo ccCompilationContextInfo =
-        ccCompilationContextInfoBuilder.build();
+    final CcCompilationContext ccCompilationContext = ccCompilationContextBuilder.build();
     boolean supportsParamFiles = ruleContext.attributes().get("supports_param_files", BOOLEAN);
     boolean supportsHeaderParsing =
         ruleContext.attributes().get("supports_header_parsing", BOOLEAN);
@@ -557,7 +555,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             dynamicRuntimeLinkSymlinks,
             dynamicRuntimeLinkMiddleman,
             runtimeSolibDir,
-            ccCompilationContextInfo,
+            ccCompilationContext,
             supportsParamFiles,
             supportsHeaderParsing,
             getBuildVariables(ruleContext, toolchainInfo.getDefaultSysroot()),
@@ -845,16 +843,17 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns {@link Variables} instance with build variables that only depend on the toolchain.
+   * Returns {@link com.google.devtools.build.lib.rules.cpp.CcToolchainVariables} instance with
+   * build variables that only depend on the toolchain.
    *
    * @param ruleContext the rule context
    * @param defaultSysroot the default sysroot
    * @throws RuleErrorException if there are configuration errors making it impossible to resolve
    *     certain build variables of this toolchain
    */
-  private final Variables getBuildVariables(RuleContext ruleContext, PathFragment defaultSysroot)
-      throws RuleErrorException {
-    Variables.Builder variables = new Variables.Builder();
+  private final CcToolchainVariables getBuildVariables(
+      RuleContext ruleContext, PathFragment defaultSysroot) throws RuleErrorException {
+    CcToolchainVariables.Builder variables = new CcToolchainVariables.Builder();
 
     PathFragment sysroot = calculateSysroot(ruleContext, defaultSysroot);
     if (sysroot != null) {
@@ -867,12 +866,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Add local build variables from subclasses into {@link Variables} returned from {@link
+   * Add local build variables from subclasses into {@link
+   * com.google.devtools.build.lib.rules.cpp.CcToolchainVariables} returned from {@link
    * #getBuildVariables(RuleContext, PathFragment)}.
    *
    * <p>This method is meant to be overridden by subclasses of CcToolchain.
    */
-  protected void addBuildVariables(RuleContext ruleContext, Variables.Builder variables)
+  protected void addBuildVariables(RuleContext ruleContext, CcToolchainVariables.Builder variables)
       throws RuleErrorException {
     // To be overridden in subclasses.
   }

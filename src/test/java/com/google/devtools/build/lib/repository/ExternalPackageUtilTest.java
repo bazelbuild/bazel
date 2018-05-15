@@ -94,6 +94,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, rootDirectory),
             rootDirectory,
+            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(

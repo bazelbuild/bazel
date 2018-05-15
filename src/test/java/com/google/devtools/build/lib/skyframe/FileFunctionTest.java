@@ -131,6 +131,7 @@ public class FileFunctionTest {
         new BlazeDirectories(
             new ServerDirectories(pkgRoot.asPath(), outputBase, outputBase),
             pkgRoot.asPath(),
+            /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(pkgLocatorRef, externalFileAction, directories);

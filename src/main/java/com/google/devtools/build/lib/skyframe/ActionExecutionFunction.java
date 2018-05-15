@@ -189,6 +189,17 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       Preconditions.checkState(!state.hasArtifactData(), "%s %s", state, action);
       state.inputArtifactData = checkedInputs.first;
       state.expandedArtifacts = checkedInputs.second;
+      if (skyframeActionExecutor.usesActionFileSystem()) {
+        state.actionFileSystem =
+            new ActionFileSystem(
+                checkedInputs.first,
+                // TODO(shahan): based on experimentation, it suffices to include only {@link
+                // com.google.devtools.build.lib.rules.cpp.IncludeScannable#getDeclaredIncludeSrcs}.
+                // That may be a smaller set and more efficient but makes this class have an
+                // awkward dependency on something in the cpp package.
+                action.discoversInputs() ? action.getAllowedDerivedInputs() : ImmutableList.of(),
+                action.getOutputs());
+      }
     }
 
     ActionExecutionValue result;
@@ -391,14 +402,18 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     metadataHandler.discardOutputMetadata();
 
     // This may be recreated if we discover inputs.
+    // TODO(shahan): this isn't used when using ActionFileSystem so we can avoid creating some
+    // unused objects.
     PerActionFileCache perActionFileCache =
         new PerActionFileCache(
             state.inputArtifactData, /*missingArtifactsAllowed=*/ action.discoversInputs());
     if (action.discoversInputs()) {
       if (state.discoveredInputs == null) {
         try {
-          state.discoveredInputs = skyframeActionExecutor.discoverInputs(action,
-              perActionFileCache, metadataHandler, env);
+          state.updateFileSystemContext(env, metadataHandler);
+          state.discoveredInputs =
+              skyframeActionExecutor.discoverInputs(
+                  action, perActionFileCache, metadataHandler, env, state.actionFileSystem);
           Preconditions.checkState(state.discoveredInputs != null,
               "discoverInputs() returned null on action %s", action);
         } catch (MissingDepException e) {
@@ -413,6 +428,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       }
       perActionFileCache =
           new PerActionFileCache(state.inputArtifactData, /*missingArtifactsAllowed=*/ false);
+      state.updateFileSystemInputData();
 
       // Stage 1 finished, let's do stage 2. The stage 1 of input discovery will have added some
       // files with addDiscoveredInputs() and then have waited for those files to be available
@@ -430,6 +446,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         }
         perActionFileCache =
             new PerActionFileCache(state.inputArtifactData, /*missingArtifactsAllowed=*/ false);
+        state.updateFileSystemInputData();
       }
       metadataHandler =
           new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
@@ -460,12 +477,14 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       filesetMappings.put(actionInput.getExecPath(), filesetValue.getOutputSymlinks());
     }
 
+    state.updateFileSystemContext(env, metadataHandler);
     try (ActionExecutionContext actionExecutionContext =
         skyframeActionExecutor.getContext(
             perActionFileCache,
             metadataHandler,
             Collections.unmodifiableMap(state.expandedArtifacts),
-            filesetMappings.build())) {
+            filesetMappings.build(),
+            state.actionFileSystem)) {
       if (!state.hasExecutedAction()) {
         state.value =
             skyframeActionExecutor.executeAction(
@@ -772,6 +791,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     Iterable<Artifact> discoveredInputs = null;
     Iterable<Artifact> discoveredInputsStage2 = null;
     ActionExecutionValue value = null;
+    ActionFileSystem actionFileSystem = null;
 
     boolean hasCollectedInputs() {
       return allInputs != null;
@@ -791,6 +811,21 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     boolean hasExecutedAction() {
       return value != null;
+    }
+
+    /** Must be called to assign values to the given variables as they change. */
+    void updateFileSystemContext(
+        SkyFunction.Environment env, ActionMetadataHandler metadataHandler) {
+      if (actionFileSystem != null) {
+        actionFileSystem.updateContext(env, metadataHandler::injectOutputData);
+      }
+    }
+
+    /** Propagates {@link inputArtifactData} changes due to input discovery. */
+    void updateFileSystemInputData() {
+      if (actionFileSystem != null) {
+        actionFileSystem.updateInputData(inputArtifactData);
+      }
     }
 
     @Override

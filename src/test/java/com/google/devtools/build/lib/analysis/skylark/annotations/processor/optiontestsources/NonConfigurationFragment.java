@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 @SkylarkModule(
     name = "module_name",
     doc = "A fake configuration fragment for a test.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
+    category = SkylarkModuleCategory.BUILTIN  // Not a configuration fragment!
 )
 public class NonConfigurationFragment {
 

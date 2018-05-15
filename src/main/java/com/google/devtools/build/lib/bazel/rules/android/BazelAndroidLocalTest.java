@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaSemantics;
 import com.google.devtools.build.lib.rules.android.AndroidLocalTestBase;
 import com.google.devtools.build.lib.rules.android.AndroidMigrationSemantics;
-import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
@@ -36,11 +35,6 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 public class BazelAndroidLocalTest extends AndroidLocalTestBase {
 
   Artifact androidAllJarsPropFile;
-
-  @Override
-  protected AndroidSemantics createAndroidSemantics() {
-    return BazelAndroidSemantics.INSTANCE;
-  }
 
   @Override
   protected AndroidMigrationSemantics createAndroidMigrationSemantics() {

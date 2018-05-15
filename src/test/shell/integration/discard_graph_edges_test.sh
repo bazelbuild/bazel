@@ -371,6 +371,39 @@ function test_actions_deleted_after_execution_nobatch_keep_analysis () {
   BUILD_FLAGS="$old_build_flags"
 }
 
+function test_actions_deleted_after_execution_explicit() {
+  readonly local old_build_flags="$BUILD_FLAGS"
+  BUILD_FLAGS="$BUILD_FLAGS --discard_actions_after_execution"
+  test_actions_deleted_after_execution
+  BUILD_FLAGS="$old_build_flags"
+}
+
+function test_actions_not_deleted_after_execution() {
+  mkdir -p foo || fail "Couldn't mkdir"
+  cat > foo/BUILD <<'EOF' || fail "Couldn't write file"
+genrule(name = "foo", cmd = "touch $@", outs = ["foo.out"])
+EOF
+  bazel build $BUILD_FLAGS //foo:foo >& "$TEST_log" || fail "Expected success"
+  "${bazel_javabase}/bin/jmap" -histo:live "$(bazel info server_pid)" > histo.txt
+  local genrule_action_count="$(extract_histogram_count histo.txt \
+        'GenRuleAction$')"
+  if [[ "$genrule_action_count" -gt 0 ]]; then
+    cat histo.txt >> "$TEST_log"
+    fail "GenRuleAction unexpectedly found: $genrule_action_count"
+  fi
+
+  bazel build $BUILD_FLAGS --nodiscard_actions_after_execution //foo:foo \
+      >& "$TEST_log" || fail "Expected success"
+  "${bazel_javabase}/bin/jmap" -histo:live "$(bazel info server_pid)" > histo.txt
+  genrule_action_count="$(extract_histogram_count histo.txt \
+        'GenRuleAction$')"
+  if [[ "$genrule_action_count" -lt 1 ]]; then
+    cat histo.txt >> "$TEST_log"
+    fail "GenRuleAction unexpectedly not found: $genrule_action_count"
+  fi
+
+}
+
 function test_dump_after_discard_incrementality_data() {
   bazel build --notrack_incremental_state //testing:mytest >& "$TEST_log" \
        || fail "Expected success"

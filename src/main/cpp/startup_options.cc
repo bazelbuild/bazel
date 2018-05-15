@@ -392,30 +392,34 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArgs(
   return blaze_exit_code::SUCCESS;
 }
 
-string StartupOptions::GetDefaultHostJavabase() const {
-  return blaze::GetDefaultHostJavabase();
+string StartupOptions::GetSystemJavabase() const {
+  return blaze::GetSystemJavabase();
 }
 
 string StartupOptions::GetHostJavabase() {
   // 1) Allow overriding the host_javabase via --host_javabase.
-  if (host_javabase.empty()) {
-    if (default_host_javabase.empty()) {
-      string bundled_jre_path = blaze_util::JoinPath(
-          install_base, "_embedded_binaries/embedded_tools/jdk");
-      if (blaze_util::CanExecuteFile(blaze_util::JoinPath(
-              bundled_jre_path, GetJavaBinaryUnderJavabase()))) {
-        // 2) Use a bundled JVM if we have one.
-        default_host_javabase = bundled_jre_path;
-      } else {
-        // 3) Otherwise fall back to using the default system JVM.
-        default_host_javabase = GetDefaultHostJavabase();
-      }
-    }
-
-    return default_host_javabase;
-  } else {
+  if (!host_javabase.empty()) {
     return host_javabase;
   }
+  if (default_host_javabase.empty()) {
+    string bundled_jre_path = blaze_util::JoinPath(
+        install_base, "_embedded_binaries/embedded_tools/jdk");
+    if (blaze_util::CanExecuteFile(blaze_util::JoinPath(
+            bundled_jre_path, GetJavaBinaryUnderJavabase()))) {
+      // 2) Use a bundled JVM if we have one.
+      default_host_javabase = bundled_jre_path;
+    } else {
+      // 3) Otherwise fall back to using the default system JVM.
+      string system_javabase = GetSystemJavabase();
+      if (system_javabase.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+            << "Could not find system javabase. Ensure JAVA_HOME is set, or "
+               "javac is on your PATH.";
+      }
+      default_host_javabase = system_javabase;
+    }
+  }
+  return default_host_javabase;
 }
 
 string StartupOptions::GetExplicitHostJavabase() const {

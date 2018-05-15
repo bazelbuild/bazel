@@ -104,8 +104,8 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
     builder.setSourceFile(sourceTreeFileArtifact);
     builder.setOutputs(outputTreeFileArtifact, null);
 
-    CcToolchainFeatures.Variables.Builder buildVariables =
-        new CcToolchainFeatures.Variables.Builder(cppCompileActionBuilder.getVariables());
+    CcToolchainVariables.Builder buildVariables =
+        new CcToolchainVariables.Builder(cppCompileActionBuilder.getVariables());
     buildVariables.overrideStringVariable(
         "source_file", sourceTreeFileArtifact.getExecPathString());
     buildVariables.overrideStringVariable(

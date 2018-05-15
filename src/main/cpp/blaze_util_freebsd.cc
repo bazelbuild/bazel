@@ -143,7 +143,7 @@ bool IsSharedLibrary(const string &filename) {
   return blaze_util::ends_with(filename, ".so");
 }
 
-string GetDefaultHostJavabase() {
+string GetSystemJavabase() {
   // if JAVA_HOME is defined, then use it as default.
   string javahome = GetEnv("JAVA_HOME");
   return !javahome.empty() ? javahome : "/usr/local/openjdk8";

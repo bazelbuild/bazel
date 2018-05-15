@@ -72,7 +72,6 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               cache,
               buildRequestId,
               commandId,
-              executionOptions.verboseFailures,
               env.getReporter(),
               digestUtil);
       return ImmutableList.of(spawnCache);

@@ -91,7 +91,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContextInfo;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
@@ -100,10 +100,9 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
@@ -113,8 +112,8 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.NoProcessing;
 import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
@@ -447,22 +446,22 @@ public class CompilationSupport {
       resultLink.addLinkActionInput(linkActionInput);
     }
 
-    CcCompilationContextInfo.Builder ccCompilationContextInfoBuilder =
-        new CcCompilationContextInfo.Builder(ruleContext);
-    ccCompilationContextInfoBuilder.mergeDependentCcCompilationContextInfos(
+    CcCompilationContext.Builder ccCompilationContextBuilder =
+        new CcCompilationContext.Builder(ruleContext);
+    ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
         Arrays.asList(
-            objcArcCompilationInfo.getCcCompilationContextInfo(),
-            nonObjcArcCompilationInfo.getCcCompilationContextInfo()));
-    ccCompilationContextInfoBuilder.setPurpose(
+            objcArcCompilationInfo.getCcCompilationContext(),
+            nonObjcArcCompilationInfo.getCcCompilationContext()));
+    ccCompilationContextBuilder.setPurpose(
         String.format("%s_merged_arc_non_arc_objc", semantics.getPurpose()));
-    semantics.setupCcCompilationContextInfo(ruleContext, ccCompilationContextInfoBuilder);
+    semantics.setupCcCompilationContext(ruleContext, ccCompilationContextBuilder);
 
     CcCompilationOutputs.Builder compilationOutputsBuilder = new CcCompilationOutputs.Builder();
     compilationOutputsBuilder.merge(objcArcCompilationInfo.getCcCompilationOutputs());
     compilationOutputsBuilder.merge(nonObjcArcCompilationInfo.getCcCompilationOutputs());
 
     LinkingInfo linkingInfo =
-        resultLink.link(compilationOutputsBuilder.build(), ccCompilationContextInfoBuilder.build());
+        resultLink.link(compilationOutputsBuilder.build(), ccCompilationContextBuilder.build());
 
     Map<String, NestedSet<Artifact>> mergedOutputGroups =
         CcCommon.mergeOutputGroups(
@@ -542,7 +541,7 @@ public class CompilationSupport {
     if (objcProvider.is(Flag.USES_OBJC)) {
       activatedCrosstoolSelectables.add(CONTAINS_OBJC);
     }
-    if (CppHelper.useFission(ruleContext.getFragment(CppConfiguration.class), toolchain)) {
+    if (toolchain.useFission()) {
       activatedCrosstoolSelectables.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
 
@@ -1153,13 +1152,13 @@ public class CompilationSupport {
         CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder executableLinkAction =
         new CppLinkActionBuilder(
-            ruleContext,
-            binaryToLink,
-            toolchain,
-            fdoSupport,
-            getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
-            createObjcCppSemantics(
-                objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
+                ruleContext,
+                binaryToLink,
+                toolchain,
+                fdoSupport,
+                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
+                createObjcCppSemantics(
+                    objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
             .setMnemonic("ObjcLink")
             .addActionInputs(bazelBuiltLibraries)
             .addActionInputs(objcProvider.getCcLibraries())
@@ -1172,7 +1171,7 @@ public class CompilationSupport {
             .addActionInputs(extraLinkInputs)
             .addActionInput(inputFileList)
             .setLinkType(linkType)
-            .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+            .setLinkingMode(LinkingMode.LEGACY_FULLY_STATIC)
             .addLinkopts(ImmutableList.copyOf(extraLinkArgs));
 
     if (objcConfiguration.generateDsym()) {
@@ -1320,19 +1319,19 @@ public class CompilationSupport {
             .build();
     CppLinkAction fullyLinkAction =
         new CppLinkActionBuilder(
-            ruleContext,
-            outputArchive,
-            ccToolchain,
-            fdoSupport,
-            getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
-            createObjcCppSemantics(
-                objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
+                ruleContext,
+                outputArchive,
+                ccToolchain,
+                fdoSupport,
+                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
+                createObjcCppSemantics(
+                    objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
             .addActionInputs(objcProvider.getObjcLibraries())
             .addActionInputs(objcProvider.getCcLibraries())
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())
             .setCrosstoolInputs(ccToolchain.getLink())
             .setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)
-            .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+            .setLinkingMode(LinkingMode.LEGACY_FULLY_STATIC)
             .setLibraryIdentifier(libraryIdentifier)
             .addVariablesExtension(extension)
             .build();

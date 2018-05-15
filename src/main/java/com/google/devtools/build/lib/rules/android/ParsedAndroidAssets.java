@@ -45,12 +45,6 @@ public class ParsedAndroidAssets extends AndroidAssets implements MergableAndroi
   }
 
   /** Merges these assets with assets from dependencies. */
-  public MergedAndroidAssets merge(RuleContext ruleContext, boolean neverlink)
-      throws InterruptedException {
-    return MergedAndroidAssets.mergeFrom(
-        ruleContext, this, AssetDependencies.fromRuleDeps(ruleContext, neverlink));
-  }
-
   MergedAndroidAssets merge(RuleContext ruleContext, AssetDependencies assetDeps)
       throws InterruptedException {
     return MergedAndroidAssets.mergeFrom(ruleContext, this, assetDeps);

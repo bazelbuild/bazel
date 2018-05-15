@@ -112,6 +112,7 @@ public class StandaloneSpawnStrategyTest {
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase, outputBase),
             workspaceDir,
+            /* defaultSystemJavabase= */ null,
             "mock-product-name");
     // This call implicitly symlinks the integration bin tools into the exec root.
     IntegrationMock.get()
@@ -192,7 +193,8 @@ public class StandaloneSpawnStrategyTest {
         outErr,
         ImmutableMap.<String, String>of(),
         ImmutableMap.of(),
-        SIMPLE_ARTIFACT_EXPANDER);
+        SIMPLE_ARTIFACT_EXPANDER,
+        /*actionFileSystem=*/ null);
   }
 
   @Test

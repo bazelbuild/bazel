@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfig
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.android.AndroidLibraryAarProvider.Aar;
+import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
@@ -1466,15 +1466,15 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "                srcs = ['libraryOne.java'])");
 
     ConfiguredTarget target = getConfiguredTarget("//java/android:dummyLibraryOne");
-    AndroidLibraryAarProvider provider = target.getProvider(AndroidLibraryAarProvider.class);
+    AndroidLibraryAarInfo provider = target.get(AndroidLibraryAarInfo.PROVIDER);
     assertThat(provider).isNotNull();
 
     target = getConfiguredTarget("//java/android:dummyLibraryTwo");
-    provider = target.getProvider(AndroidLibraryAarProvider.class);
+    provider = target.get(AndroidLibraryAarInfo.PROVIDER);
     assertThat(provider).isNull();
 
     target = getConfiguredTarget("//java/android:dummyParentLibrary");
-    provider = target.getProvider(AndroidLibraryAarProvider.class);
+    provider = target.get(AndroidLibraryAarInfo.PROVIDER);
     assertThat(provider).isNotNull();
     assertThat(provider.getTransitiveAars()).hasSize(1);
   }
@@ -1633,7 +1633,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//java/a:a");
 
-    AndroidLibraryAarProvider provider = target.getProvider(AndroidLibraryAarProvider.class);
+    AndroidLibraryAarInfo provider = target.get(AndroidLibraryAarInfo.PROVIDER);
     assertThat(provider).isNotNull();
     assertThat(provider
         .getAar()
@@ -1864,7 +1864,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "                manifest = 'AndroidManifest.xml',",
         "                resource_files = ['res/values/strings.xml'])");
     ConfiguredTarget target = getConfiguredTarget("//java/android:test");
-    final AndroidLibraryAarProvider provider = target.getProvider(AndroidLibraryAarProvider.class);
+    final AndroidLibraryAarInfo provider = target.get(AndroidLibraryAarInfo.PROVIDER);
 
     final Aar test =
         Aar.create(
@@ -1892,7 +1892,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "                manifest = 'AndroidManifest.xml',",
         "                resource_files = ['res/values/strings.xml'])");
     ConfiguredTarget target = getConfiguredTarget("//java/android:test");
-    final AndroidLibraryAarProvider provider = target.getProvider(AndroidLibraryAarProvider.class);
+    final AndroidLibraryAarInfo provider = target.get(AndroidLibraryAarInfo.PROVIDER);
 
     final Aar transitive =
         Aar.create(

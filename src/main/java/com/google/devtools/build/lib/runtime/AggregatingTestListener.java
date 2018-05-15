@@ -127,10 +127,11 @@ public class AggregatingTestListener {
     ConfiguredTargetKey targetLabel =
         ConfiguredTargetKey.of(testOwner.getLabel(), result.getTestAction().getConfiguration());
 
-    // If a test result was cached, then no attempts for that test were actually
-    // executed. Hence report that fact as a cached attempt.
+    // If a test result was cached, then post the cached attempts to the event bus.
     if (result.isCached()) {
-      eventBus.post(TestAttempt.fromCachedTestResult(result));
+      for (TestAttempt attempt : result.getCachedTestAttempts()) {
+        eventBus.post(attempt);
+      }
     }
 
     TestSummary finalTestSummary = null;
@@ -142,7 +143,7 @@ public class AggregatingTestListener {
         // This situation is likely to happen if --notest_keep_going is set with multiple targets.
         return;
       }
-     
+
       summary = analyzer.incrementalAnalyze(summary, result);
 
       // If all runs are processed, the target is finished and ready to report.

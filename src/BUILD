@@ -59,7 +59,6 @@ OSX_DUMMY_TARGETS = [
     "src/tools/xcode/actoolwrapper/actoolwrapper",
     "src/tools/xcode/ibtoolwrapper/ibtoolwrapper",
     "src/tools/xcode/momcwrapper/momcwrapper",
-    "src/tools/xcode/swiftstdlibtoolwrapper/swiftstdlibtoolwrapper",
     "src/objc_tools/bundlemerge/bundlemerge_deploy.jar",
     "src/objc_tools/plmerge/plmerge_deploy.jar",
     "src/tools/xcode/realpath/realpath",
@@ -82,7 +81,6 @@ filegroup(
         "//src/tools/xcode/actoolwrapper:actoolwrapper",
         "//src/tools/xcode/ibtoolwrapper:ibtoolwrapper",
         "//src/tools/xcode/momcwrapper:momcwrapper",
-        "//src/tools/xcode/swiftstdlibtoolwrapper:swiftstdlibtoolwrapper",
         "//src/objc_tools/bundlemerge:bundlemerge_deploy.jar",
         "//src/objc_tools/plmerge:plmerge_deploy.jar",
         "//src/tools/xcode/realpath:realpath",
@@ -341,7 +339,6 @@ filegroup(
         "//src/tools/xcode/realpath:srcs",
         "//src/tools/singlejar:srcs",
         "//src/tools/xcode/stdredirect:srcs",
-        "//src/tools/xcode/swiftstdlibtoolwrapper:srcs",
         "//src/tools/xcode-common:srcs",
         "//src/tools/remote:srcs",
         "//tools/osx:srcs",
@@ -358,10 +355,7 @@ genrule(
     ],
     outs = ["derived_java_srcs.zip"],
     cmd = "$(location :combine_derived_java_srcs.sh) $(JAVABASE) $@ $(SRCS)",
-    # Technically, this should be prefixed with @bazel_tools, but in order to
-    # avoid having to wait a Bazel release which has this target under
-    # @bazel_tools, we use it from the main repository. It's the same anyway.
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
     tools = ["combine_derived_java_srcs.sh"],
     visibility = ["//:__pkg__"],
 )

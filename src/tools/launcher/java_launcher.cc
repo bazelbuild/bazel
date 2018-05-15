@@ -12,11 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <memory>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
+#include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/strings.h"
+#include "src/main/native/windows/file.h"
 #include "src/tools/launcher/java_launcher.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
@@ -29,6 +34,7 @@ using std::ostringstream;
 using std::string;
 using std::stringstream;
 using std::vector;
+using std::wstring;
 
 // The runfile path of java binary, eg. local_jdk/bin/java.exe
 static constexpr const char* JAVA_BIN_PATH = "java_bin_path";
@@ -135,6 +141,52 @@ static string GetManifestJarDir(const string& binary_base_path) {
   return result;
 }
 
+static void WriteJarClasspath(const string& jar_path,
+                              ostringstream* manifest_classpath) {
+  *manifest_classpath << ' ';
+  if (jar_path.find_first_of(" \\") != string::npos) {
+    for (const auto& x : jar_path) {
+      if (x == ' ') {
+        *manifest_classpath << "%20";
+      }
+      if (x == '\\') {
+        *manifest_classpath << "/";
+      } else {
+        *manifest_classpath << x;
+      }
+    }
+  } else {
+    *manifest_classpath << jar_path;
+  }
+}
+
+string JavaBinaryLauncher::GetJunctionBaseDir() {
+  string binary_base_path =
+      GetBinaryPathWithExtension(this->GetCommandlineArguments()[0]);
+  string result;
+  if (!NormalizePath(binary_base_path + ".j", &result)) {
+    die("Failed to get normalized junction base directory.");
+  }
+  return result;
+}
+
+void JavaBinaryLauncher::DeleteJunctionBaseDir() {
+  string junction_base_dir_norm = GetJunctionBaseDir();
+  if (!DoesDirectoryPathExist(junction_base_dir_norm.c_str())) {
+    return;
+  }
+  vector<string> junctions;
+  blaze_util::GetAllFilesUnder(junction_base_dir_norm, &junctions);
+  for (const auto& junction : junctions) {
+    if (!DeleteDirectoryByPath(junction.c_str())) {
+      PrintError(GetLastErrorString().c_str());
+    }
+  }
+  if (!DeleteDirectoryByPath(junction_base_dir_norm.c_str())) {
+    PrintError(GetLastErrorString().c_str());
+  }
+}
+
 string JavaBinaryLauncher::CreateClasspathJar(const string& classpath) {
   string binary_base_path =
       GetBinaryPathWithoutExtension(this->GetCommandlineArguments()[0]);
@@ -144,28 +196,55 @@ string JavaBinaryLauncher::CreateClasspathJar(const string& classpath) {
   manifest_classpath << "Class-Path:";
   stringstream classpath_ss(classpath);
   string path, path_norm;
+
+  // A set to store all junctions created.
+  // The key is the target path, the value is the junction path.
+  std::unordered_map<string, string> jar_dirs;
+  string junction_base_dir_norm = GetJunctionBaseDir();
+  int junction_count = 0;
+  // Make sure the junction base directory doesn't exist already.
+  DeleteJunctionBaseDir();
+  blaze_util::MakeDirectories(junction_base_dir_norm, 0755);
+
   while (getline(classpath_ss, path, ';')) {
-    manifest_classpath << ' ';
     if (blaze_util::IsAbsolute(path)) {
-      if (!NormalizePath(path, &path_norm) ||
-          !RelativeTo(path_norm, abs_manifest_jar_dir_norm, &path)) {
+      if (!NormalizePath(path, &path_norm)) {
+        die("CreateClasspathJar failed");
+      }
+
+      // If two paths are under different drives, we should create a junction to
+      // the jar's directory
+      if (path_norm[0] != abs_manifest_jar_dir_norm[0]) {
+        string jar_dir = GetParentDirFromPath(path_norm);
+        string jar_base_name = GetBaseNameFromPath(path_norm);
+        string junction;
+        auto search = jar_dirs.find(jar_dir);
+        if (search == jar_dirs.end()) {
+          junction =
+              junction_base_dir_norm + "\\" + std::to_string(junction_count++);
+
+          wstring wjar_dir(
+              blaze_util::CstringToWstring(junction.c_str()).get());
+          wstring wjunction(
+              blaze_util::CstringToWstring(jar_dir.c_str()).get());
+          wstring werror(bazel::windows::CreateJunction(wjar_dir, wjunction));
+          if (!werror.empty()) {
+            string error(werror.begin(), werror.end());
+            die("CreateClasspathJar failed: %s", error.c_str());
+          }
+
+          jar_dirs.insert(std::make_pair(jar_dir, junction));
+        } else {
+          junction = search->second;
+        }
+        path_norm = junction + "\\" + jar_base_name;
+      }
+
+      if (!RelativeTo(path_norm, abs_manifest_jar_dir_norm, &path)) {
         die("CreateClasspathJar failed");
       }
     }
-    if (path.find_first_of(" \\") != string::npos) {
-      for (const auto& x : path) {
-        if (x == ' ') {
-          manifest_classpath << "%20";
-        }
-        if (x == '\\') {
-          manifest_classpath << "/";
-        } else {
-          manifest_classpath << x;
-        }
-      }
-    } else {
-      manifest_classpath << path;
-    }
+    WriteJarClasspath(path, &manifest_classpath);
   }
 
   string rand_id = "-" + GetRandomStr(10);
@@ -335,6 +414,7 @@ ExitCode JavaBinaryLauncher::Launch() {
   // Delete classpath jar file after execution.
   if (!classpath_jar.empty()) {
     DeleteFileByPath(classpath_jar.c_str());
+    DeleteJunctionBaseDir();
   }
 
   return exit_code;

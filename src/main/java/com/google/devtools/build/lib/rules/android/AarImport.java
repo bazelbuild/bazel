@@ -97,7 +97,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     final ResourceApk resourceApk;
     if (AndroidResources.decoupleDataProcessing(ruleContext)) {
       StampedAndroidManifest manifest =
-          AndroidManifest.forAarImport(ruleContext, androidManifestArtifact);
+          AndroidManifest.forAarImport(androidManifestArtifact);
 
       boolean neverlink = JavaCommon.isNeverLink(ruleContext);
       ValidatedAndroidResources validatedResources =
@@ -217,7 +217,10 @@ public class AarImport implements RuleConfiguredTargetFactory {
         ruleBuilder, javaInfoBuilder, filesToBuild, /*classJar=*/ null);
 
     resourceApk.addToConfiguredTargetBuilder(
-        ruleBuilder, ruleContext.getLabel(), /* includeSkylarkApiProvider = */ false);
+        ruleBuilder,
+        ruleContext.getLabel(),
+        /* includeSkylarkApiProvider = */ false,
+        /* isLibrary = */ true);
 
     ruleBuilder
         .setFilesToBuild(filesToBuild)

@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/util/file_platform.h"
 #include "src/tools/launcher/launcher.h"
 #include "src/tools/launcher/util/data_parser.h"
 #include "src/tools/launcher/util/launcher_util.h"
@@ -138,6 +139,10 @@ string BinaryLauncherBase::Rlocation(const string& path,
   // If the manifest file map is empty, then we're using the runfiles directory
   // instead.
   if (manifest_file_map.empty()) {
+    if (blaze_util::IsAbsolute(path)) {
+      return path;
+    }
+
     string query_path = runfiles_dir;
     if (need_workspace_name) {
       query_path += "/" + this->workspace_name;

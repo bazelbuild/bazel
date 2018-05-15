@@ -188,7 +188,6 @@ public class RemoteSpawnCacheTest {
             remoteCache,
             "build-req-id",
             "command-id",
-            false,
             reporter,
             digestUtil);
     fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
@@ -355,8 +354,9 @@ public class RemoteSpawnCacheTest {
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
-    assertThat(evt.getMessage()).contains("fail");
-    assertThat(evt.getMessage()).contains("upload");
+    assertThat(evt.getMessage()).contains("Error");
+    assertThat(evt.getMessage()).contains("writing");
+    assertThat(evt.getMessage()).contains("cache down");
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }

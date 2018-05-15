@@ -18,9 +18,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.SequenceBuilder;
-import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Enum covering all build variables we create for all various {@link CppLinkAction}. */
@@ -93,8 +91,8 @@ public enum LinkBuildVariables {
     return variableName;
   }
 
-  public static Variables setupVariables(
-      CppLinkActionBuilder cppLinkActionBuilder,
+  public static CcToolchainVariables setupVariables(
+      boolean isUsingLinkerNotArchiver,
       BuildConfiguration configuration,
       Artifact outputArtifact,
       Artifact paramFile,
@@ -102,7 +100,6 @@ public enum LinkBuildVariables {
       Artifact thinltoMergedObjectFile,
       boolean mustKeepDebug,
       Artifact symbolCounts,
-      CppConfiguration cppConfiguration,
       CcToolchainProvider ccToolchainProvider,
       FeatureConfiguration featureConfiguration,
       boolean useTestOnlyFlags,
@@ -115,7 +112,7 @@ public enum LinkBuildVariables {
       Iterable<String> runtimeLibrarySearchDirectories,
       SequenceBuilder librariesToLink,
       Iterable<String> librarySearchDirectories) {
-    Variables.Builder buildVariables = new Variables.Builder();
+    CcToolchainVariables.Builder buildVariables = new CcToolchainVariables.Builder();
 
     // symbol counting
     if (symbolCounts != null) {
@@ -124,17 +121,16 @@ public enum LinkBuildVariables {
     }
 
     // pic
-    if (cppConfiguration.forcePic()) {
+    if (ccToolchainProvider.getForcePic()) {
       buildVariables.addStringVariable(FORCE_PIC.getVariableName(), "");
     }
 
-    if (!mustKeepDebug && cppConfiguration.shouldStripBinaries()) {
+    if (!mustKeepDebug && ccToolchainProvider.getShouldStripBinaries()) {
       buildVariables.addStringVariable(STRIP_DEBUG_SYMBOLS.getVariableName(), "");
     }
 
-    if (cppLinkActionBuilder.getLinkType().staticness().equals(Staticness.DYNAMIC)
-        && CppHelper.shouldCreatePerObjectDebugInfo(
-        cppConfiguration, ccToolchainProvider, featureConfiguration)) {
+    if (isUsingLinkerNotArchiver
+        && ccToolchainProvider.shouldCreatePerObjectDebugInfo(featureConfiguration)) {
       buildVariables.addStringVariable(IS_USING_FISSION.getVariableName(), "");
     }
 

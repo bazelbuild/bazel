@@ -77,6 +77,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
                 scratch.resolve("/base"),
                 scratch.resolve("/userRoot")),
             scratch.resolve("/workspace"),
+            /* defaultSystemJavabase= */ null,
             "mock-product-name");
     binTools = BinTools.empty(directories);
   }
@@ -192,7 +193,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         new FileOutErr(),
         ImmutableMap.<String, String>of(),
         ImmutableMap.of(),
-        null);
+        null,
+        /*actionFileSystem=*/ null);
   }
 
   private void executeTemplateExpansion(String expected) throws Exception {

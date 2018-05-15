@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
+import java.nio.file.Paths;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,11 +32,20 @@ public class ClassInfoTest {
   private final MemberInfo sizeMethod = MemberInfo.create("clear", "()V");
 
   private final ClassInfo objectClass =
-      ClassInfo.create(JAVA_LANG_OBJECT, ImmutableList.of(), ImmutableSet.of(hashCodeMethod));
+      ClassInfo.create(
+          JAVA_LANG_OBJECT,
+          Paths.get("a"),
+          true,
+          ImmutableList.of(),
+          ImmutableSet.of(hashCodeMethod));
 
   private final ClassInfo listClass =
       ClassInfo.create(
-          "java/util/List", ImmutableList.of(objectClass), ImmutableSet.of(sizeMethod));
+          "java/util/List",
+          Paths.get("a"),
+          true,
+          ImmutableList.of(objectClass),
+          ImmutableSet.of(sizeMethod));
 
   @Test
   public void testMemberInfo() {
@@ -57,6 +67,8 @@ public class ClassInfoTest {
     assertThat(objectClass.containsMember(MemberInfo.create("hashCode", "()I"))).isTrue();
 
     assertThat(listClass.internalName()).isEqualTo("java/util/List");
+    assertThat((Object) listClass.jarPath()).isEqualTo(Paths.get("a"));
+    assertThat(listClass.directDep()).isTrue();
     assertThat(listClass.declaredMembers()).containsExactly(sizeMethod);
     assertThat(listClass.containsMember(hashCodeMethod)).isTrue();
   }

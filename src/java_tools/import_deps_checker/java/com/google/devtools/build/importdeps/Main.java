@@ -19,6 +19,7 @@ import static com.google.common.io.MoreFiles.asCharSink;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
@@ -37,6 +38,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -61,6 +63,19 @@ public class Main {
     public List<Path> inputJars;
 
     @Option(
+      name = "directdep",
+      allowMultiple = true,
+      defaultValue = "",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ExistingPathConverter.class,
+      help = "Subset of Jars listed in --classpath_entry that --input Jars are allowed to depend "
+          + "on directly."
+    )
+    public List<Path> directClasspath;
+
+    @Option(
       name = "classpath_entry",
       allowMultiple = true,
       defaultValue = "",
@@ -71,7 +86,7 @@ public class Main {
       help =
           "Ordered classpath (Jar) to resolve symbols in the --input jars, like javac's -cp flag."
     )
-    public List<Path> classpath;
+    public List<Path> fullClasspath;
 
     @Option(
       name = "bootclasspath_entry",
@@ -158,10 +173,14 @@ public class Main {
     try (ImportDepsChecker checker =
         new ImportDepsChecker(
             ImmutableList.copyOf(options.bootclasspath),
-            ImmutableList.copyOf(options.classpath),
+            // Consider everything direct if no direct classpath is given
+            options.directClasspath.isEmpty()
+                ? ImmutableList.copyOf(options.fullClasspath)
+                : ImmutableList.copyOf(options.directClasspath),
+            ImmutableList.copyOf(options.fullClasspath),
             ImmutableList.copyOf(options.inputJars))) {
       if (!checker.check() && options.checkingMode != CheckingMode.SILENCE) {
-        String result = checker.computeResultOutput();
+        String result = checker.computeResultOutput(options.ruleLabel);
         checkState(!result.isEmpty(), "The result should NOT be empty.");
         exitCode = options.checkingMode == CheckingMode.ERROR ? DEPS_ERROR_EXIT_CODE : 0;
         printErrorMessage(result, options);
@@ -212,6 +231,13 @@ public class Main {
     if (options.checkingMode == null) {
       // Convert --fail_on_errors to --checking_mode
       options.checkingMode = options.failOnErrors ? CheckingMode.ERROR : CheckingMode.WARNING;
+    }
+    if (!options.fullClasspath.containsAll(options.directClasspath)) {
+      ArrayList<Path> missing = Lists.newArrayList(options.directClasspath);
+      missing.removeAll(options.fullClasspath);
+      throw new IllegalArgumentException(
+          "--strictdeps must be a subset of --classpath_entry but has additional entries: "
+              + missing);
     }
 
     return options;

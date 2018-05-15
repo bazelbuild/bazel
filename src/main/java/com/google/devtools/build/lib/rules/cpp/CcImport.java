@@ -170,8 +170,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
 
     LinkingInfo linkingInfo =
         linkingHelper.link(
-            compilationInfo.getCcCompilationOutputs(),
-            compilationInfo.getCcCompilationContextInfo());
+            compilationInfo.getCcCompilationOutputs(), compilationInfo.getCcCompilationContext());
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProviders(compilationInfo.getProviders())

@@ -64,6 +64,7 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
         BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE,
         defaultBuildOptions,
-        new MutableArtifactFactorySupplier());
+        new MutableArtifactFactorySupplier(),
+        /*usesActionFileSystem=*/ () -> false);
   }
 }

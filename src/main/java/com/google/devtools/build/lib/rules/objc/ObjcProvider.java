@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
@@ -950,16 +950,16 @@ public final class ObjcProvider extends NativeInfo {
     // three possible locations (and may be duplicated!):
     // 1. ObjcProvider.LIBRARY
     // 2. ObjcProvider.CC_LIBRARY
-    // 3. CcLinkParamsInfo->LibraryToLink->getArtifact()
+    // 3. CcLinkParamsStore->LibraryToLink->getArtifact()
     // TODO(cpeyser): Clean up objc-cc interop.
     HashSet<PathFragment> avoidLibrariesSet = new HashSet<>();
     for (CcLinkingInfo linkProvider : avoidCcProviders) {
-      CcLinkParamsInfo ccLinkParamsInfo = linkProvider.getCcLinkParamsInfo();
-      if (ccLinkParamsInfo == null) {
+      CcLinkParamsStore ccLinkParamsStore = linkProvider.getCcLinkParamsStore();
+      if (ccLinkParamsStore == null) {
         continue;
       }
       NestedSet<LibraryToLink> librariesToLink =
-          ccLinkParamsInfo.getCcLinkParams(true, false).getLibraries();
+          ccLinkParamsStore.getCcLinkParams(true, false).getLibraries();
       for (LibraryToLink libraryToLink : librariesToLink.toList()) {
         avoidLibrariesSet.add(libraryToLink.getArtifact().getRunfilesPath());
       }

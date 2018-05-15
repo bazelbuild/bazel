@@ -24,10 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
@@ -47,37 +44,10 @@ import javax.annotation.Nullable;
  * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  * @see TransitiveInfoProvider
  */
-@SkylarkModule(
-  name = "Target",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "A BUILD target. It is essentially a <code>struct</code> with the following fields:"
-          + "<ul>"
-          + "<li><h3 id=\"modules.Target.label\">label</h3><code><a class=\"anchor\" "
-          + "href=\"Label.html\">Label</a> Target.label</code><br>The identifier of the "
-          + "target.</li>"
-          + "<li><h3 id=\"modules.Target.files\">files</h3><code><a class=\"anchor\" "
-          + "href=\"depset.html\">depset</a> Target.files </code><br>The set of "
-          + "<a class=\"anchor\" href=\"File.html\">File</a>s produced directly by this "
-          + "target.</li>"
-          + "<li><h3 id=\"modules.Target.aspect_ids\">aspect_ids</h3><code><a class=\"anchor\""
-          + "href=\"list.html\">list</a> Target.aspect_ids </code><br>The list of "
-          + "<a class=\"anchor\" href=\"ctx.html#aspect_id\">aspect_id</a>s applied to this "
-          + "target.</li>"
-          + "<li><h3 id=\"modules.Target.extraproviders\">Extra providers</h3>For rule targets all "
-          + "additional providers provided by this target are accessible as <code>struct</code> "
-          + "fields. These extra providers are defined in the <code>struct</code> returned by the "
-          + "rule implementation function.</li>"
-          + "</ul>"
-)
-public interface TransitiveInfoCollection extends SkylarkIndexable, SkylarkProviderCollection {
+public interface TransitiveInfoCollection
+    extends SkylarkIndexable, SkylarkProviderCollection, TransitiveInfoCollectionApi {
 
-  @SkylarkCallable(name = "output_group",
-    documented = false, //  TODO(dslomov): document.
-    parameters = {
-      @Param(name = "group_name", type = String.class, doc = "Output group name", named = true)
-    }
-  )
+  @Override
   default SkylarkNestedSet outputGroup(String group) {
     OutputGroupInfo provider = OutputGroupInfo.get(this);
     NestedSet<Artifact> result = provider != null

@@ -18,7 +18,6 @@ import com.google.common.base.Function;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsStoreImpl;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
@@ -28,23 +27,23 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 @Immutable
 @AutoCodec
 public final class CcSpecificLinkParamsProvider implements TransitiveInfoProvider {
-  private final CcLinkParamsStoreImpl store;
+  private final CcLinkParamsStore store;
 
-  CcSpecificLinkParamsProvider(CcLinkParamsStore store) {
-    this(new CcLinkParamsStoreImpl(store));
+  CcSpecificLinkParamsProvider(AbstractCcLinkParamsStore store) {
+    this(new CcLinkParamsStore(store));
   }
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec.Instantiator
-  CcSpecificLinkParamsProvider(CcLinkParamsStoreImpl store) {
+  CcSpecificLinkParamsProvider(CcLinkParamsStore store) {
     this.store = store;
   }
 
-  public CcLinkParamsStore getLinkParams() {
+  public AbstractCcLinkParamsStore getLinkParams() {
     return store;
   }
 
-  public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
+  public static final Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> TO_LINK_PARAMS =
       input -> {
         CcSpecificLinkParamsProvider provider =
             input.getProvider(CcSpecificLinkParamsProvider.class);

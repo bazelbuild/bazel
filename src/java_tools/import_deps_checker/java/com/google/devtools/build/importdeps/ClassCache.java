@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.importdeps;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -35,6 +37,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
@@ -52,10 +55,11 @@ public final class ClassCache implements Closeable {
 
   public ClassCache(
       ImmutableList<Path> bootclasspath,
+      ImmutableList<Path> directClasspath,
       ImmutableList<Path> regularClasspath,
       ImmutableList<Path> inputJars)
       throws IOException {
-    lazyClasspath = new LazyClasspath(bootclasspath, regularClasspath, inputJars);
+    lazyClasspath = new LazyClasspath(bootclasspath, directClasspath, regularClasspath, inputJars);
   }
 
   public AbstractClassEntryState getClassState(String internalName) {
@@ -81,16 +85,18 @@ public final class ClassCache implements Closeable {
     private final String internalName;
     private final ZipFile zipFile;
     private final Path jarPath;
+    private final boolean direct;
 
     /**
      * The state of this class entry. If {@literal null}, then this class has not been resolved yet.
      */
     @Nullable private AbstractClassEntryState state = null;
 
-    private LazyClassEntry(String internalName, ZipFile zipFile, Path jarPath) {
+    private LazyClassEntry(String internalName, ZipFile zipFile, Path jarPath, boolean direct) {
       this.internalName = internalName;
       this.zipFile = zipFile;
       this.jarPath = jarPath;
+      this.direct = direct;
     }
 
     ZipFile getZipFile() {
@@ -165,7 +171,8 @@ public final class ClassCache implements Closeable {
             }
           }
         }
-        ClassInfoBuilder classInfoBuilder = new ClassInfoBuilder();
+        ClassInfoBuilder classInfoBuilder =
+            new ClassInfoBuilder().setJarPath(classEntry.jarPath).setDirect(classEntry.direct);
         classReader.accept(classInfoBuilder, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         if (resolutionFailurePath == null) {
           classEntry.state =
@@ -211,14 +218,28 @@ public final class ClassCache implements Closeable {
 
     public LazyClasspath(
         ImmutableList<Path> bootclasspath,
+        ImmutableList<Path> directClasspath,
         ImmutableList<Path> regularClasspath,
         ImmutableList<Path> inputJars)
         throws IOException {
-      this.bootclasspath = new ClassIndex("boot classpath", bootclasspath);
-      this.regularClasspath = new ClassIndex("regular classpath", regularClasspath);
-      this.inputJars = new ClassIndex("input jars", inputJars);
+      checkArgument(
+          regularClasspath.containsAll(directClasspath),
+          "Some direct deps %s missing from transitive deps %s",
+          directClasspath,
+          regularClasspath);
+      this.bootclasspath = new ClassIndex("boot classpath", bootclasspath, Predicates.alwaysTrue());
+      this.inputJars = new ClassIndex("input jars", inputJars, Predicates.alwaysTrue());
+      this.regularClasspath =
+          new ClassIndex(
+              "regular classpath",
+              regularClasspath,
+              jar ->
+                  bootclasspath.contains(jar)
+                      || inputJars.contains(jar)
+                      || directClasspath.contains(jar));
+      // Reflect runtime resolution order, with input before classpath similar to javac
       this.orderedClasspath =
-          ImmutableList.of(this.bootclasspath, this.regularClasspath, this.inputJars);
+          ImmutableList.of(this.bootclasspath, this.inputJars, this.regularClasspath);
       this.orderedClasspath.forEach(closer::register);
     }
 
@@ -255,10 +276,11 @@ public final class ClassCache implements Closeable {
     private final ImmutableMap<String, LazyClassEntry> classIndex;
     private final Closer closer;
 
-    public ClassIndex(String name, ImmutableList<Path> jarFiles) throws IOException {
+    public ClassIndex(String name, ImmutableList<Path> jarFiles, Predicate<Path> isDirect)
+        throws IOException {
       this.name = name;
       this.closer = Closer.create();
-      classIndex = buildClassIndex(jarFiles, closer);
+      classIndex = buildClassIndex(jarFiles, closer, isDirect);
     }
 
     @Override
@@ -290,9 +312,10 @@ public final class ClassCache implements Closeable {
     }
 
     private static ImmutableMap<String, LazyClassEntry> buildClassIndex(
-        ImmutableList<Path> jars, Closer closer) throws IOException {
+        ImmutableList<Path> jars, Closer closer, Predicate<Path> isDirect) throws IOException {
       HashMap<String, LazyClassEntry> result = new HashMap<>();
       for (Path jarPath : jars) {
+        boolean jarIsDirect = isDirect.test(jarPath);
         try {
           ZipFile zipFile = closer.register(new ZipFile(jarPath.toFile()));
           zipFile
@@ -305,7 +328,8 @@ public final class ClassCache implements Closeable {
                     }
                     String internalName = name.substring(0, name.lastIndexOf('.'));
                     result.computeIfAbsent(
-                        internalName, key -> new LazyClassEntry(key, zipFile, jarPath));
+                        internalName,
+                        key -> new LazyClassEntry(key, zipFile, jarPath, jarIsDirect));
                   });
         } catch (Throwable e) {
           throw new RuntimeException("Error in reading zip file " + jarPath, e);
@@ -321,6 +345,8 @@ public final class ClassCache implements Closeable {
     private String internalName;
     private final ImmutableSet.Builder<MemberInfo> members = ImmutableSet.builder();
     private ImmutableList<String> superClasses;
+    private Path jarPath;
+    private boolean directDep;
 
     public ClassInfoBuilder() {
       super(Opcodes.ASM6);
@@ -353,6 +379,16 @@ public final class ClassCache implements Closeable {
       return null;
     }
 
+    public ClassInfoBuilder setJarPath(Path jarPath) {
+      this.jarPath = jarPath;
+      return this;
+    }
+
+    public ClassInfoBuilder setDirect(boolean direct) {
+      this.directDep = direct;
+      return this;
+    }
+
     public ClassInfo build(LazyClasspath lazyClasspath, boolean incomplete) {
       ImmutableList<ClassInfo> superClassInfos =
           superClasses
@@ -368,7 +404,12 @@ public final class ClassCache implements Closeable {
           internalName,
           superClasses,
           superClassInfos);
-      return ClassInfo.create(checkNotNull(internalName), superClassInfos, members.build());
+      return ClassInfo.create(
+          checkNotNull(internalName),
+          checkNotNull(jarPath),
+          directDep,
+          superClassInfos,
+          members.build());
     }
   }
 }

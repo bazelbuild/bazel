@@ -36,28 +36,28 @@ public final class CcLinkingInfo extends NativeInfo {
   public static final NativeProvider<CcLinkingInfo> PROVIDER =
       new NativeProvider<CcLinkingInfo>(CcLinkingInfo.class, "CcLinkingInfo") {};
 
-  private final CcLinkParamsInfo ccLinkParamsInfo;
-  private final CcRunfilesInfo ccRunfilesInfo;
+  private final CcLinkParamsStore ccLinkParamsStore;
+  private final CcRunfiles ccRunfiles;
   private final CcExecutionDynamicLibrariesInfo ccExecutionDynamicLibrariesInfo;
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
   CcLinkingInfo(
-      CcLinkParamsInfo ccLinkParamsInfo,
-      CcRunfilesInfo ccRunfilesInfo,
+      CcLinkParamsStore ccLinkParamsStore,
+      CcRunfiles ccRunfiles,
       CcExecutionDynamicLibrariesInfo ccExecutionDynamicLibrariesInfo) {
     super(PROVIDER);
-    this.ccLinkParamsInfo = ccLinkParamsInfo;
-    this.ccRunfilesInfo = ccRunfilesInfo;
+    this.ccLinkParamsStore = ccLinkParamsStore;
+    this.ccRunfiles = ccRunfiles;
     this.ccExecutionDynamicLibrariesInfo = ccExecutionDynamicLibrariesInfo;
   }
 
-  public CcLinkParamsInfo getCcLinkParamsInfo() {
-    return ccLinkParamsInfo;
+  public CcLinkParamsStore getCcLinkParamsStore() {
+    return ccLinkParamsStore;
   }
 
-  public CcRunfilesInfo getCcRunfilesInfo() {
-    return ccRunfilesInfo;
+  public CcRunfiles getCcRunfiles() {
+    return ccRunfiles;
   }
 
   public CcExecutionDynamicLibrariesInfo getCcExecutionDynamicLibrariesInfo() {
@@ -66,23 +66,23 @@ public final class CcLinkingInfo extends NativeInfo {
 
   /** A Builder for {@link CcLinkingInfo}. */
   public static class Builder {
-    CcLinkParamsInfo ccLinkParamsInfo;
-    CcRunfilesInfo ccRunfilesInfo;
+    CcLinkParamsStore ccLinkParamsStore;
+    CcRunfiles ccRunfiles;
     CcExecutionDynamicLibrariesInfo ccExecutionDynamicLibrariesInfo;
 
     public static CcLinkingInfo.Builder create() {
       return new CcLinkingInfo.Builder();
     }
 
-    public Builder setCcLinkParamsInfo(CcLinkParamsInfo ccLinkParamsInfo) {
-      Preconditions.checkState(this.ccLinkParamsInfo == null);
-      this.ccLinkParamsInfo = ccLinkParamsInfo;
+    public Builder setCcLinkParamsStore(CcLinkParamsStore ccLinkParamsStore) {
+      Preconditions.checkState(this.ccLinkParamsStore == null);
+      this.ccLinkParamsStore = ccLinkParamsStore;
       return this;
     }
 
-    public Builder setCcRunfilesInfo(CcRunfilesInfo ccRunfilesInfo) {
-      Preconditions.checkState(this.ccRunfilesInfo == null);
-      this.ccRunfilesInfo = ccRunfilesInfo;
+    public Builder setCcRunfiles(CcRunfiles ccRunfiles) {
+      Preconditions.checkState(this.ccRunfiles == null);
+      this.ccRunfiles = ccRunfiles;
       return this;
     }
 
@@ -94,7 +94,7 @@ public final class CcLinkingInfo extends NativeInfo {
     }
 
     public CcLinkingInfo build() {
-      return new CcLinkingInfo(ccLinkParamsInfo, ccRunfilesInfo, ccExecutionDynamicLibrariesInfo);
+      return new CcLinkingInfo(ccLinkParamsStore, ccRunfiles, ccExecutionDynamicLibrariesInfo);
     }
   }
 }

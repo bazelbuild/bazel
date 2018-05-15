@@ -720,6 +720,7 @@ public class LoadingPhaseRunnerTest {
               new ServerDirectories(
                   fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/userRoot")),
               workspace,
+              /* defaultSystemJavabase= */ null,
               analysisMock.getProductName());
       FileSystemUtils.deleteTree(workspace.getRelative("base"));
 

@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
@@ -72,7 +72,7 @@ public interface PythonSemantics {
   Artifact createExecutable(
       RuleContext ruleContext,
       PyCommon common,
-      CcLinkParamsStore ccLinkParamsStore,
+      AbstractCcLinkParamsStore ccLinkParamsStore,
       NestedSet<PathFragment> imports)
       throws InterruptedException;
 

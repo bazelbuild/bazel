@@ -24,9 +24,9 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.syntax.Type;
@@ -60,7 +60,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
   static RuleConfiguredTargetBuilder init(RuleContext ruleContext, PythonSemantics semantics,
       PyCommon common) throws InterruptedException {
     ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
-    CcLinkParamsStore ccLinkParamsStore = initializeCcLinkParamStore(ruleContext);
+    AbstractCcLinkParamsStore ccLinkParamsStore = initializeCcLinkParamStore(ruleContext);
 
     List<Artifact> srcs = common.validateSrcs();
     List<Artifact> allOutputs =
@@ -125,7 +125,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     semantics.postInitBinary(ruleContext, runfilesSupport, common);
 
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcLinkParamsInfo(new CcLinkParamsInfo(ccLinkParamsStore));
+    ccLinkingInfoBuilder.setCcLinkParamsStore(new CcLinkParamsStore(ccLinkParamsStore));
 
     return builder
         .setFilesToBuild(common.getFilesToBuild())
@@ -156,14 +156,16 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
-  private static CcLinkParamsStore initializeCcLinkParamStore(final RuleContext ruleContext) {
-    return new CcLinkParamsStore() {
+  private static AbstractCcLinkParamsStore initializeCcLinkParamStore(
+      final RuleContext ruleContext) {
+    return new AbstractCcLinkParamsStore() {
       @Override
-      protected void collect(CcLinkParams.Builder builder, boolean linkingStatically,
-                             boolean linkShared) {
-        builder.addTransitiveTargets(ruleContext.getPrerequisites("deps", Mode.TARGET),
+      protected void collect(
+          CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
+        builder.addTransitiveTargets(
+            ruleContext.getPrerequisites("deps", Mode.TARGET),
             PyCcLinkParamsProvider.TO_LINK_PARAMS,
-            CcLinkParamsInfo.TO_LINK_PARAMS);
+            CcLinkParamsStore.TO_LINK_PARAMS);
       }
     };
   }

@@ -25,10 +25,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /** A provider that supplies ResourceContainers from its transitive closure. */
 @SkylarkModule(
-  name = "AndroidResourcesInfo",
-  doc = "Android resources provided by a rule",
-  category = SkylarkModuleCategory.PROVIDER
-)
+    name = "AndroidResourcesInfo",
+    doc = "Android resources provided by a rule",
+    category = SkylarkModuleCategory.PROVIDER)
 @Immutable
 public class AndroidResourcesInfo extends NativeInfo {
 
@@ -53,20 +52,6 @@ public class AndroidResourcesInfo extends NativeInfo {
   private final Artifact rTxt;
 
   /*
-   * An R.class file for this target that can be used to build Java source.
-   *
-   * This class file should not be used for any targets besides the one that exposes this provider
-   * instance - even similar targets can have very different R.class files. In particular, final
-   * R.class files (for android_binary and similar rules) are generated very differently than
-   * R.class files for android_library - the latter are meant to be thrown away after building local
-   * Java classes.
-   *
-   * An R.class file is exposed rather than an R.java file because generating the R.class from the
-   * R.txt file is quicker than compiling the R.java file.
-   */
-  private final Artifact rClassJar;
-
-  /*
    * Transitive information used for resource processing
    */
 
@@ -85,7 +70,6 @@ public class AndroidResourcesInfo extends NativeInfo {
       Label label,
       ProcessedAndroidManifest manifest,
       Artifact rTxt,
-      Artifact rClassJar,
       NestedSet<ValidatedAndroidData> transitiveAndroidResources,
       NestedSet<ValidatedAndroidData> directAndroidResources,
       NestedSet<Artifact> transitiveResources,
@@ -100,7 +84,6 @@ public class AndroidResourcesInfo extends NativeInfo {
     this.label = label;
     this.manifest = manifest;
     this.rTxt = rTxt;
-    this.rClassJar = rClassJar;
     this.transitiveAndroidResources = transitiveAndroidResources;
     this.directAndroidResources = directAndroidResources;
     this.transitiveResources = transitiveResources;
@@ -127,33 +110,20 @@ public class AndroidResourcesInfo extends NativeInfo {
     return rTxt;
   }
 
-  @SkylarkCallable(
-      name = "r_class_jar",
-      structField = true,
-      doc =
-          "Returns a JAR of R.class files for this target, for use in compiling this target's Java"
-              + " code. This JAR is only accurate for this target, and should not be used in any"
-              + " way for other targets.")
-  public Artifact getRClassJar() {
-    return rClassJar;
-  }
-
   /** Returns the transitive ResourceContainers for the label. */
   @SkylarkCallable(
-    name = "transitive_android_resources",
-    doc = "Returns the transitive android resources for the label.",
-    structField = true
-  )
+      name = "transitive_android_resources",
+      doc = "Returns the transitive android resources for the label.",
+      structField = true)
   public NestedSet<ValidatedAndroidData> getTransitiveAndroidResources() {
     return transitiveAndroidResources;
   }
 
   /** Returns the immediate ResourceContainers for the label. */
   @SkylarkCallable(
-    name = "direct_android_resources",
-    doc = "Returns the immediate android resources for the label.",
-    structField = true
-  )
+      name = "direct_android_resources",
+      doc = "Returns the immediate android resources for the label.",
+      structField = true)
   public NestedSet<ValidatedAndroidData> getDirectAndroidResources() {
     return directAndroidResources;
   }

@@ -221,6 +221,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase, outputBase),
             rootDirectory,
+            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     actionKeyContext = new ActionKeyContext();
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
@@ -2091,7 +2092,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           actionLogBufferPathGenerator.generate(),
           clientEnv,
           ImmutableMap.of(),
-          artifactExpander);
+          artifactExpander,
+          /*actionFileSystem=*/ null);
     }
   }
 }

@@ -163,6 +163,51 @@ class WindowsRemoteTest(test_base.TestBase):
         ['test', '--test_output=all', '//foo:foo_test'])
     self.AssertExitCode(exit_code, 0, stderr, stdout)
 
+  # Exercises absolute path handling in Rlocation.
+  # This depends on there being a Java installation to c:\openjdk. If you have
+  # it elsewhere, add --test_env=JAVA_HOME to your Bazel invocation to fix this
+  # test.
+  def testJavaTestWithRuntimeRunsRemotely(self):
+    java_home = os.getenv('JAVA_HOME', 'c:/openjdk')
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'package(default_visibility = ["//visibility:public"])',
+        'java_test(',
+        '  name = "foo_test",',
+        '  srcs = ["TestFoo.java"],',
+        '  main_class = "TestFoo",',
+        '  use_testrunner = 0,',
+        '  data = ["//bar:bar.txt"],',
+        ')',
+        'java_runtime_suite(',
+        '    name = "jdk8",',
+        '    default = ":jdk8-default",',
+        ')',
+        'java_runtime(',
+        '    name = "jdk8-default",',
+        '    srcs = [],',
+        '    java_home = "' + java_home + '",',
+        ')',
+    ])
+    self.ScratchFile(
+        'foo/TestFoo.java', [
+            'public class TestFoo {',
+            'public static void main(String[] args) {',
+            'System.out.println("hello java test");',
+            '}',
+            '}',
+        ],
+        executable=True)
+    self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
+    self.ScratchFile('bar/bar.txt', ['hello'])
+
+    # Test.
+    exit_code, stdout, stderr = self._RunRemoteBazel([
+        'test', '--test_output=all', '--host_javabase=//foo:jdk8',
+        '--javabase=//foo:jdk8', '//foo:foo_test'
+    ])
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
   # Genrules are notably different than tests because RUNFILES_DIR is not set
   # for genrule tool launchers, so the runfiles directory is discovered based on
   # the executable path.

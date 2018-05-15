@@ -75,14 +75,12 @@ public abstract class Link {
     NOPIC
   }
 
-  /**
-   * Whether a particular link target linked in statically or dynamically.
-   */
-  public enum Staticness {
-    STATIC,
-    DYNAMIC
+  /** Whether a particular link target linked in statically or dynamically. */
+  public enum LinkerOrArchiver {
+    ARCHIVER,
+    LINKER
   }
-  
+
   /**
    * Whether a particular link target is executable.
    */
@@ -99,25 +97,25 @@ public abstract class Link {
     /** A normal static archive. */
     STATIC_LIBRARY(
         ".a",
-        Staticness.STATIC,
+        LinkerOrArchiver.ARCHIVER,
         "c++-link-static-library",
         Picness.NOPIC,
         ArtifactCategory.STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
-    
+
     /** An objc static archive. */
     OBJC_ARCHIVE(
-        ".a", 
-        Staticness.STATIC, 
-        "objc-archive", 
+        ".a",
+        LinkerOrArchiver.ARCHIVER,
+        "objc-archive",
         Picness.NOPIC,
         ArtifactCategory.STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
-    
+
     /** An objc fully linked static archive. */
     OBJC_FULLY_LINKED_ARCHIVE(
         ".a",
-        Staticness.STATIC,
+        LinkerOrArchiver.ARCHIVER,
         "objc-fully-link",
         Picness.NOPIC,
         ArtifactCategory.STATIC_LIBRARY,
@@ -126,7 +124,7 @@ public abstract class Link {
     /** An objc executable. */
     OBJC_EXECUTABLE(
         "",
-        Staticness.DYNAMIC,
+        LinkerOrArchiver.LINKER,
         "objc-executable",
         Picness.NOPIC,
         ArtifactCategory.EXECUTABLE,
@@ -135,7 +133,7 @@ public abstract class Link {
     /** An objc executable that includes objc++/c++ source. */
     OBJCPP_EXECUTABLE(
         "",
-        Staticness.DYNAMIC,
+        LinkerOrArchiver.LINKER,
         "objc++-executable",
         Picness.NOPIC,
         ArtifactCategory.EXECUTABLE,
@@ -144,7 +142,7 @@ public abstract class Link {
     /** A static archive with .pic.o object files (compiled with -fPIC). */
     PIC_STATIC_LIBRARY(
         ".pic.a",
-        Staticness.STATIC,
+        LinkerOrArchiver.ARCHIVER,
         "c++-link-static-library",
         Picness.PIC,
         ArtifactCategory.STATIC_LIBRARY,
@@ -153,16 +151,16 @@ public abstract class Link {
     /** An interface dynamic library. */
     INTERFACE_DYNAMIC_LIBRARY(
         ".ifso",
-        Staticness.DYNAMIC,
+        LinkerOrArchiver.LINKER,
         "c++-link-dynamic-library",
-        Picness.NOPIC,  // Actually PIC but it's not indicated in the file name
+        Picness.NOPIC, // Actually PIC but it's not indicated in the file name
         ArtifactCategory.INTERFACE_LIBRARY,
         Executable.NOT_EXECUTABLE),
 
     /** A dynamic library built from cc_library srcs. */
     NODEPS_DYNAMIC_LIBRARY(
         ".so",
-        Staticness.DYNAMIC,
+        LinkerOrArchiver.LINKER,
         "c++-link-nodeps-dynamic-library",
         Picness.NOPIC, // Actually PIC but it's not indicated in the file name
         ArtifactCategory.DYNAMIC_LIBRARY,
@@ -170,7 +168,7 @@ public abstract class Link {
     /** A transitive dynamic library used for distribution. */
     DYNAMIC_LIBRARY(
         ".so",
-        Staticness.DYNAMIC,
+        LinkerOrArchiver.LINKER,
         "c++-link-dynamic-library",
         Picness.NOPIC, // Actually PIC but it's not indicated in the file name
         ArtifactCategory.DYNAMIC_LIBRARY,
@@ -179,7 +177,7 @@ public abstract class Link {
     /** A static archive without removal of unused object files. */
     ALWAYS_LINK_STATIC_LIBRARY(
         ".lo",
-        Staticness.STATIC,
+        LinkerOrArchiver.ARCHIVER,
         "c++-link-static-library",
         Picness.NOPIC,
         ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY,
@@ -188,7 +186,7 @@ public abstract class Link {
     /** A PIC static archive without removal of unused object files. */
     ALWAYS_LINK_PIC_STATIC_LIBRARY(
         ".pic.lo",
-        Staticness.STATIC,
+        LinkerOrArchiver.ARCHIVER,
         "c++-link-static-library",
         Picness.PIC,
         ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY,
@@ -197,14 +195,14 @@ public abstract class Link {
     /** An executable binary. */
     EXECUTABLE(
         "",
-        Staticness.DYNAMIC,
+        LinkerOrArchiver.LINKER,
         "c++-link-executable",
-        Picness.NOPIC,  // Picness is not indicate in the file name
+        Picness.NOPIC, // Picness is not indicate in the file name
         ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE);
 
     private final String extension;
-    private final Staticness staticness;
+    private final LinkerOrArchiver linkerOrArchiver;
     private final String actionName;
     private final ArtifactCategory linkerOutput;
     private final Picness picness;
@@ -212,13 +210,13 @@ public abstract class Link {
 
     LinkTargetType(
         String extension,
-        Staticness staticness,
+        LinkerOrArchiver linkerOrArchiver,
         String actionName,
         Picness picness,
         ArtifactCategory linkerOutput,
         Executable executable) {
       this.extension = extension;
-      this.staticness = staticness;
+      this.linkerOrArchiver = linkerOrArchiver;
       this.actionName = actionName;
       this.linkerOutput = linkerOutput;
       this.picness = picness;
@@ -236,8 +234,8 @@ public abstract class Link {
       return extension;
     }
 
-    public Staticness staticness() {
-      return staticness;
+    public LinkerOrArchiver linkerOrArchiver() {
+      return linkerOrArchiver;
     }
     
     /** Returns an {@code ArtifactCategory} identifying the artifact type this link action emits. */
@@ -264,13 +262,31 @@ public abstract class Link {
     }
   }
 
-  /**
-   * The degree of "staticness" of symbol resolution during linking.
-   */
-  public enum LinkStaticness {
-    FULLY_STATIC,       // Static binding of all symbols.
-    MOSTLY_STATIC,      // Use dynamic binding only for symbols from glibc.
-    DYNAMIC,            // Use dynamic binding wherever possible.
+  /** The degree of "staticness" of symbol resolution during linking. */
+  public enum LinkingMode {
+    /**
+     * Same as {@link STATIC}, but for shared libraries. Will be removed soon. This was added in
+     * times when we couldn't control linking mode flags for transitive shared libraries. Now we
+     * can, so this is obsolete.
+     */
+    LEGACY_MOSTLY_STATIC_LIBRARIES,
+    /**
+     * Everything is linked statically; e.g. {@code gcc -static x.o libfoo.a libbar.a -lm}.
+     * Specified by {@code -static} in linkopts. Will be removed soon. This was added in times when
+     * features were not expressive enough to specify different flags for {@link STATIC} and for
+     * fully static links. This is now obsolete.
+     */
+    LEGACY_FULLY_STATIC,
+    /**
+     * Link binaries statically except for system libraries (e.g. {@code gcc x.o libfoo.a libbar.a
+     * -lm}).
+     */
+    STATIC,
+    /**
+     * All libraries are linked dynamically (if a dynamic version is available), e.g. {@code gcc x.o
+     * libfoo.so libbar.so -lm}.
+     */
+    DYNAMIC,
   }
 
   /**

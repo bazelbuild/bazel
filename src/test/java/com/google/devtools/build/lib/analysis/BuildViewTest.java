@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -387,12 +388,20 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testGetDirectPrerequisiteDependencies() throws Exception {
+    // Override the trimming transition to not distort the results.
+    ConfiguredRuleClassProvider.Builder builder =
+        new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.overrideTrimmingTransitionFactoryForTesting((rule) -> NoTransition.INSTANCE);
+    useRuleClassProvider(builder.build());
+
+    update();
+
     scratch.file(
         "package/BUILD",
         "filegroup(name='top', srcs=[':inner', 'file'])",
         "sh_binary(name='inner', srcs=['script.sh'])");
-    update("//package:top");
-    ConfiguredTarget top = getConfiguredTarget("//package:top", getTargetConfiguration());
+    ConfiguredTarget top = Iterables.getOnlyElement(update("//package:top").getTargetsToBuild());
     Iterable<Dependency> targets = getView().getDirectPrerequisiteDependenciesForTesting(
         reporter, top, getBuildConfigurationCollection(), /*toolchainContext=*/ null).values();
 
@@ -617,9 +626,8 @@ public class BuildViewTest extends BuildViewTestBase {
         "genrule(name='a', ",
         "        cmd='',",
         "        outs=['a.out'])");
-    update("//pkg:a.out");
     OutputFileConfiguredTarget outputCT = (OutputFileConfiguredTarget)
-        getConfiguredTarget("//pkg:a.out");
+        Iterables.getOnlyElement(update("//pkg:a.out").getTargetsToBuild());
     Artifact outputArtifact = outputCT.getArtifact();
     Action action = getGeneratingAction(outputArtifact);
     assertThat(action).isNotNull();
@@ -656,8 +664,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "          srcs = glob(['A*.java']))",
         "java_test(name = 'B',",
         "          srcs = ['B.java'])");
-    update("//java/a:A");
-    ConfiguredTarget ct = getConfiguredTarget("//java/a:A");
+    ConfiguredTarget ct = Iterables.getOnlyElement(update("//java/a:A").getTargetsToBuild());
     scratch.deleteFile("java/a/C.java");
     update("//java/a:B");
     update("//java/a:A");
@@ -772,10 +779,10 @@ public class BuildViewTest extends BuildViewTestBase {
     // Then update the BUILD file and re-analyze.
     scratch.file("actions_not_registered/BUILD",
         "cc_binary(name = 'foo', srcs = ['foo.cc'])");
-    update("//actions_not_registered:foo");
-    Artifact fooOut = Iterables.getOnlyElement(
-        getConfiguredTarget("//actions_not_registered:foo")
-            .getProvider(FileProvider.class).getFilesToBuild());
+    ConfiguredTarget foo =
+        Iterables.getOnlyElement(update("//actions_not_registered:foo").getTargetsToBuild());
+    Artifact fooOut =
+        Iterables.getOnlyElement(foo.getProvider(FileProvider.class).getFilesToBuild());
     assertThat(getActionGraph().getGeneratingAction(fooOut)).isNotNull();
     clearAnalysisResult();
 

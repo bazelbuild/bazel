@@ -147,7 +147,10 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       Path devNull = workspaceDir.getFileSystem().getPath("/dev/null");
       directories =
           new BlazeDirectories(
-              new ServerDirectories(installBase, outputBase, devNull), workspaceDir, "blaze");
+              new ServerDirectories(installBase, outputBase, devNull),
+              workspaceDir,
+              /* defaultSystemJavabase= */ null,
+              "blaze");
 
       this.pkgLocator =
           new PathPackageLocator(

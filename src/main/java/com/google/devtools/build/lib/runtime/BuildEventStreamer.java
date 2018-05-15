@@ -401,6 +401,14 @@ public class BuildEventStreamer implements EventHandler {
     if (name == null) {
       return;
     }
+    // We only split if the max number of entries is at least 2 (it must be at least a binary tree).
+    // The method throws for smaller values.
+    if (options.maxNamedSetEntries >= 2) {
+      // We only split the event after naming it to avoid splitting the same node multiple times.
+      // Note that the artifactGroupNames keeps references to the individual pieces, so this can
+      // double the memory consumption of large nested sets.
+      view = view.splitIfExceedsMaximumSize(options.maxNamedSetEntries);
+    }
     for (NestedSetView<Artifact> transitive : view.transitives()) {
       maybeReportArtifactSet(transitive);
     }

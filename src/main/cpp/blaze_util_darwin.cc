@@ -159,7 +159,7 @@ bool IsSharedLibrary(const string &filename) {
   return blaze_util::ends_with(filename, ".dylib");
 }
 
-string GetDefaultHostJavabase() {
+string GetSystemJavabase() {
   string java_home = GetEnv("JAVA_HOME");
   if (!java_home.empty()) {
     return java_home;
@@ -167,23 +167,19 @@ string GetDefaultHostJavabase() {
 
   FILE *output = popen("/usr/libexec/java_home -v 1.7+", "r");
   if (output == NULL) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Could not run /usr/libexec/java_home: " << GetLastErrorString();
+    return "";
   }
 
   char buf[512];
   char *result = fgets(buf, sizeof(buf), output);
   pclose(output);
   if (result == NULL) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "No output from /usr/libexec/java_home";
+    return "";
   }
 
   string javabase = buf;
   if (javabase.empty()) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Empty output from /usr/libexec/java_home - install a JDK, or "
-           "install a JRE and point your JAVA_HOME to it";
+    return "";
   }
 
   // The output ends with a \n, trim it off.

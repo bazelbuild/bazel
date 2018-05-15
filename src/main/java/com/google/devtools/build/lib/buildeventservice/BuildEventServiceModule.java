@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.buildeventservice.BuildEventServiceT
 import static java.lang.String.format;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
@@ -218,11 +219,20 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       logger.fine(format("Will create BuildEventServiceTransport streaming to '%s'",
           besOptions.besBackend));
 
-      commandLineReporter.handle(
-          Event.info(
-              format(
-                  "Streaming Build Event Protocol to %s build_request_id: %s invocation_id: %s",
-                  besOptions.besBackend, buildRequestId, invocationId)));
+      final String message;
+      if (!Strings.isNullOrEmpty(besOptions.besResultsUrl)) {
+        String url =
+            besOptions.besResultsUrl.endsWith("/")
+                ? besOptions.besResultsUrl
+                : besOptions.besResultsUrl + "/";
+        message = "Streaming Build Event Protocol to " + url + invocationId;
+      } else {
+        message =
+            format(
+                "Streaming Build Event Protocol to %s build_request_id: %s " + "invocation_id: %s",
+                besOptions.besBackend, buildRequestId, invocationId);
+      }
+      commandLineReporter.handle(Event.info(message));
 
       BuildEventTransport besTransport =
           new BuildEventServiceTransport(

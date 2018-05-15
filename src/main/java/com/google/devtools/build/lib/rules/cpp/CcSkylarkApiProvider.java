@@ -50,9 +50,9 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
               + " <code>src</code> or <code>headers</code> attribute"
               + "(possibly empty but never <code>None</code>).")
   public NestedSet<Artifact> getTransitiveHeaders() {
-    CcCompilationContextInfo ccCompilationContextInfo =
-        getInfo().get(CcCompilationInfo.PROVIDER).getCcCompilationContextInfo();
-    return ccCompilationContextInfo.getDeclaredIncludeSrcs();
+    CcCompilationContext ccCompilationContext =
+        getInfo().get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
+    return ccCompilationContext.getDeclaredIncludeSrcs();
   }
 
   @SkylarkCallable(
@@ -66,8 +66,8 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
   public NestedSet<Artifact> getLibraries() {
     NestedSetBuilder<Artifact> libs = NestedSetBuilder.linkOrder();
     CcLinkingInfo ccLinkingInfo = getInfo().get(CcLinkingInfo.PROVIDER);
-    CcLinkParamsInfo ccLinkParams =
-        ccLinkingInfo == null ? null : ccLinkingInfo.getCcLinkParamsInfo();
+    CcLinkParamsStore ccLinkParams =
+        ccLinkingInfo == null ? null : ccLinkingInfo.getCcLinkParamsStore();
     if (ccLinkParams == null) {
       return libs.build();
     }
@@ -87,8 +87,8 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
               + "(possibly empty but never <code>None</code>)")
   public ImmutableList<String> getLinkopts() {
     CcLinkingInfo ccLinkingInfo = getInfo().get(CcLinkingInfo.PROVIDER);
-    CcLinkParamsInfo ccLinkParams =
-        ccLinkingInfo == null ? null : ccLinkingInfo.getCcLinkParamsInfo();
+    CcLinkParamsStore ccLinkParams =
+        ccLinkingInfo == null ? null : ccLinkingInfo.getCcLinkParamsStore();
     if (ccLinkParams == null) {
       return ImmutableList.of();
     }
@@ -102,11 +102,11 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
           "Returns the list of defines used to compile this target "
               + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getDefines() {
-    CcCompilationContextInfo ccCompilationContextInfo =
-        getInfo().get(CcCompilationInfo.PROVIDER).getCcCompilationContextInfo();
-    return ccCompilationContextInfo == null
+    CcCompilationContext ccCompilationContext =
+        getInfo().get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
+    return ccCompilationContext == null
         ? ImmutableList.<String>of()
-        : ccCompilationContextInfo.getDefines();
+        : ccCompilationContext.getDefines();
   }
 
   @SkylarkCallable(
@@ -116,13 +116,13 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
           "Returns the list of system include directories used to compile this target "
               + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getSystemIncludeDirs() {
-    CcCompilationContextInfo ccCompilationContextInfo =
-        getInfo().get(CcCompilationInfo.PROVIDER).getCcCompilationContextInfo();
-    if (ccCompilationContextInfo == null) {
+    CcCompilationContext ccCompilationContext =
+        getInfo().get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
+    if (ccCompilationContext == null) {
       return ImmutableList.of();
     }
     ImmutableList.Builder<String> builder = ImmutableList.builder();
-    for (PathFragment path : ccCompilationContextInfo.getSystemIncludeDirs()) {
+    for (PathFragment path : ccCompilationContext.getSystemIncludeDirs()) {
       builder.add(path.getSafePathString());
     }
     return builder.build();
@@ -135,13 +135,13 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
           "Returns the list of include directories used to compile this target "
               + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getIncludeDirs() {
-    CcCompilationContextInfo ccCompilationContextInfo =
-        getInfo().get(CcCompilationInfo.PROVIDER).getCcCompilationContextInfo();
-    if (ccCompilationContextInfo == null) {
+    CcCompilationContext ccCompilationContext =
+        getInfo().get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
+    if (ccCompilationContext == null) {
       return ImmutableList.of();
     }
     ImmutableList.Builder<String> builder = ImmutableList.builder();
-    for (PathFragment path : ccCompilationContextInfo.getIncludeDirs()) {
+    for (PathFragment path : ccCompilationContext.getIncludeDirs()) {
       builder.add(path.getSafePathString());
     }
     return builder.build();
@@ -154,13 +154,13 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
           "Returns the list of quote include directories used to compile this target "
               + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getQuoteIncludeDirs() {
-    CcCompilationContextInfo ccCompilationContextInfo =
-        getInfo().get(CcCompilationInfo.PROVIDER).getCcCompilationContextInfo();
-    if (ccCompilationContextInfo == null) {
+    CcCompilationContext ccCompilationContext =
+        getInfo().get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
+    if (ccCompilationContext == null) {
       return ImmutableList.of();
     }
     ImmutableList.Builder<String> builder = ImmutableList.builder();
-    for (PathFragment path : ccCompilationContextInfo.getQuoteIncludeDirs()) {
+    for (PathFragment path : ccCompilationContext.getQuoteIncludeDirs()) {
       builder.add(path.getSafePathString());
     }
     return builder.build();
@@ -173,20 +173,20 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
           "Returns the list of flags used to compile this target "
               + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getCcFlags() {
-    CcCompilationContextInfo ccCompilationContextInfo =
-        getInfo().get(CcCompilationInfo.PROVIDER).getCcCompilationContextInfo();
+    CcCompilationContext ccCompilationContext =
+        getInfo().get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
 
     ImmutableList.Builder<String> options = ImmutableList.builder();
-    for (String define : ccCompilationContextInfo.getDefines()) {
+    for (String define : ccCompilationContext.getDefines()) {
       options.add("-D" + define);
     }
-    for (PathFragment path : ccCompilationContextInfo.getSystemIncludeDirs()) {
+    for (PathFragment path : ccCompilationContext.getSystemIncludeDirs()) {
       options.add("-isystem " + path.getSafePathString());
     }
-    for (PathFragment path : ccCompilationContextInfo.getIncludeDirs()) {
+    for (PathFragment path : ccCompilationContext.getIncludeDirs()) {
       options.add("-I " + path.getSafePathString());
     }
-    for (PathFragment path : ccCompilationContextInfo.getQuoteIncludeDirs()) {
+    for (PathFragment path : ccCompilationContext.getQuoteIncludeDirs()) {
       options.add("-iquote " + path.getSafePathString());
     }
 

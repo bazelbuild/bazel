@@ -27,9 +27,9 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequenceBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequenceBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.Set;
 
@@ -128,7 +128,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   }
 
   @Override
-  public void addVariables(CcToolchainFeatures.Variables.Builder builder) {
+  public void addVariables(CcToolchainVariables.Builder builder) {
     addPchVariables(builder);
     addFrameworkVariables(builder);
     addModuleMapVariables(builder);
@@ -157,7 +157,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     }
   }
 
-  private void addPchVariables(CcToolchainFeatures.Variables.Builder builder) {
+  private void addPchVariables(CcToolchainVariables.Builder builder) {
     if (ruleContext.attributes().has("pch", BuildType.LABEL)
         && ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
       builder.addStringVariable(
@@ -166,7 +166,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     }
   }
 
-  private void addFrameworkVariables(CcToolchainFeatures.Variables.Builder builder) {
+  private void addFrameworkVariables(CcToolchainVariables.Builder builder) {
     ApplePlatform applePlatform =
         buildConfiguration.getFragment(AppleConfiguration.class).getSingleArchPlatform();
     StringSequenceBuilder frameworkSequence = new StringSequenceBuilder();
@@ -177,7 +177,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     builder.addCustomBuiltVariable(FRAMEWORKS_VARIABLE_NAME, frameworkSequence);
   }
 
-  private void addModuleMapVariables(CcToolchainFeatures.Variables.Builder builder) {
+  private void addModuleMapVariables(CcToolchainVariables.Builder builder) {
     builder.addStringVariable(
         MODULES_MAPS_DIR_NAME,
         intermediateArtifacts
@@ -191,7 +191,7 @@ class ObjcVariablesExtension implements VariablesExtension {
         buildConfiguration.getGenfilesFragment() + "/" + OBJC_MODULE_CACHE_DIR_NAME);
   }
 
-  private void addArchiveVariables(CcToolchainFeatures.Variables.Builder builder) {
+  private void addArchiveVariables(CcToolchainVariables.Builder builder) {
     builder.addStringVariable(
         OBJ_LIST_PATH_VARIABLE_NAME,
         intermediateArtifacts.archiveObjList().getExecPathString());
@@ -199,7 +199,7 @@ class ObjcVariablesExtension implements VariablesExtension {
         ARCHIVE_PATH_VARIABLE_NAME, compilationArtifacts.getArchive().get().getExecPathString());
   }
 
-  private void addFullyLinkArchiveVariables(CcToolchainFeatures.Variables.Builder builder) {
+  private void addFullyLinkArchiveVariables(CcToolchainVariables.Builder builder) {
     builder.addStringVariable(
         FULLY_LINKED_ARCHIVE_PATH_VARIABLE_NAME, fullyLinkArchive.getExecPathString());
     builder.addStringSequenceVariable(
@@ -213,7 +213,7 @@ class ObjcVariablesExtension implements VariablesExtension {
         Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY)));
   }
 
-  private void addExecutableLinkVariables(CcToolchainFeatures.Variables.Builder builder) {
+  private void addExecutableLinkVariables(CcToolchainVariables.Builder builder) {
     builder.addStringSequenceVariable(
         FRAMEWORK_NAMES_VARIABLE_NAME, frameworkNames);
     builder.addStringSequenceVariable(
@@ -235,7 +235,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     builder.addStringSequenceVariable(ATTR_LINKOPTS_VARIABLE_NAME, attributeLinkopts);
   }
 
-  private void addDsymVariables(CcToolchainFeatures.Variables.Builder builder) {
+  private void addDsymVariables(CcToolchainVariables.Builder builder) {
     builder.addStringVariable(
         DSYM_BUNDLE_ZIP_VARIABLE_NAME, dsymBundleZip.getShellEscapedExecPathString());
     builder.addStringVariable(
@@ -243,11 +243,11 @@ class ObjcVariablesExtension implements VariablesExtension {
         FileSystemUtils.removeExtension(dsymBundleZip.getExecPath()).getPathString());
   }
 
-  private void addLinkmapVariables(CcToolchainFeatures.Variables.Builder builder) {
+  private void addLinkmapVariables(CcToolchainVariables.Builder builder) {
     builder.addStringVariable(LINKMAP_EXEC_PATH, linkmap.getExecPathString());
   }
 
-  private void addBitcodeVariables(CcToolchainFeatures.Variables.Builder builder) {
+  private void addBitcodeVariables(CcToolchainVariables.Builder builder) {
     builder.addStringVariable(
         BITCODE_SYMBOL_MAP_PATH_VARAIBLE_NAME, bitcodeSymbolMap.getExecPathString());
   }

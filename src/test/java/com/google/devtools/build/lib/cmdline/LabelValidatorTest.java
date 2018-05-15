@@ -53,6 +53,37 @@ public class LabelValidatorTest {
     assertThat(LabelValidator.validatePackageName("a/b..")).isNull();
     assertThat(LabelValidator.validatePackageName("a$( )/b..")).isNull();
 
+    // These are in ascii code order.
+    assertThat(LabelValidator.validatePackageName("foo!bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo\"bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo#bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo$bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo%bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo&bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo'bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo(bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo)bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo*bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo+bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo,bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo-bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo.bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo+bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo;bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo<bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo=bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo>bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo?bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo[bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo]bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo^bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo_bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo`bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo{bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo|bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo}bar")).isNull();
+    assertThat(LabelValidator.validatePackageName("foo~bar")).isNull();
+
     // Bad:
     assertThat(LabelValidator.validatePackageName("/foo"))
         .isEqualTo("package names may not start with '/'");
@@ -82,16 +113,39 @@ public class LabelValidatorTest {
 
   @Test
   public void testValidateTargetName() throws Exception {
-
     assertThat(LabelValidator.validateTargetName("foo")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo!bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo\"bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo#bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo$bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo%bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo&bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo'bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo(bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo)bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo*bar")).isNull();
     assertThat(LabelValidator.validateTargetName("foo+bar")).isNull();
-    assertThat(LabelValidator.validateTargetName("foo_bar")).isNull();
-    assertThat(LabelValidator.validateTargetName("foo=bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo,bar")).isNull();
     assertThat(LabelValidator.validateTargetName("foo-bar")).isNull();
     assertThat(LabelValidator.validateTargetName("foo.bar")).isNull();
-    assertThat(LabelValidator.validateTargetName("foo@bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo+bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo;bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo<bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo=bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo>bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo?bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo[bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo]bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo^bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo_bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo`bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo{bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo|bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo}bar")).isNull();
     assertThat(LabelValidator.validateTargetName("foo~bar")).isNull();
-    assertThat(LabelValidator.validateTargetName("foo#bar")).isNull();
+
+    assertThat(LabelValidator.validateTargetName("foo/bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("foo@bar")).isNull();
 
     assertThat(LabelValidator.validateTargetName("foo/"))
         .isEqualTo("target names may not end with '/'");
@@ -99,8 +153,6 @@ public class LabelValidatorTest {
         .isEqualTo("target names may not contain ':'");
     assertThat(LabelValidator.validateTargetName("bar:"))
         .isEqualTo("target names may not contain ':'");
-    assertThat(LabelValidator.validateTargetName("bar&"))
-        .isEqualTo("target names may not contain '&'");
   }
 
   @Test
