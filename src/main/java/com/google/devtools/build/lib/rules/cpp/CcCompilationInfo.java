@@ -24,20 +24,12 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationInfoApi;
 
 /** Wrapper for every C++ compilation provider. */
 @Immutable
 @AutoCodec
-@SkylarkModule(
-  name = "cc_compilation_info",
-  documented = false,
-  category = SkylarkModuleCategory.PROVIDER,
-  doc = "Wrapper for every C++ compilation provider"
-)
-public final class CcCompilationInfo extends NativeInfo {
+public final class CcCompilationInfo extends NativeInfo implements CcCompilationInfoApi {
   public static final NativeProvider<CcCompilationInfo> PROVIDER =
       new NativeProvider<CcCompilationInfo>(CcCompilationInfo.class, "CcCompilationInfo") {};
 
@@ -50,12 +42,7 @@ public final class CcCompilationInfo extends NativeInfo {
     this.ccCompilationContext = ccCompilationContext;
   }
 
-  @SkylarkCallable(
-    name = "cc_compilation_context",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns compilation information for this C++ target."
-  )
+  @Override
   public CcCompilationContext getCcCompilationContext() {
     return ccCompilationContext;
   }

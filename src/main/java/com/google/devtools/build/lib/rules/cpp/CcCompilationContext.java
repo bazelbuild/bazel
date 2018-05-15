@@ -30,8 +30,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppHelper.PregreppedHeader;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,16 +46,8 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @AutoCodec
-@SkylarkModule(
-  name = "cc_compilation_context",
-  documented = false,
-  category = SkylarkModuleCategory.PROVIDER,
-  doc =
-      "Immutable store of information needed for C++ compilation that is aggregated across "
-          + "dependencies."
-)
 // TODO(b/77669139): Rename to CcCompilationContext.
-public final class CcCompilationContext {
+public final class CcCompilationContext implements CcCompilationContextApi {
   /** An empty {@code CcCompilationContext}. */
   public static final CcCompilationContext EMPTY = new Builder(null).build();
 

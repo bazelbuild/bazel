@@ -50,9 +50,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -139,16 +137,10 @@ public final class CcCompilationHelper {
    * Contains the providers as well as the {@code CcCompilationOutputs} and the {@code
    * CcCompilationContext}.
    */
-  @SkylarkModule(
-    name = "compilation_info",
-    documented = false,
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "Helper class containing CC compilation providers."
-  )
   // TODO(plf): Rename so that it's not confused with CcCompilationContext and also consider
   // merging
   // this class with {@code CcCompilationOutputs}.
-  public static final class CompilationInfo {
+  public static final class CompilationInfo implements CompilationInfoApi {
     private final TransitiveInfoProviderMap providers;
     private final Map<String, NestedSet<Artifact>> outputGroups;
     private final CcCompilationOutputs compilationOutputs;
@@ -170,7 +162,7 @@ public final class CcCompilationHelper {
       return outputGroups;
     }
 
-    @SkylarkCallable(name = "cc_output_groups", documented = false)
+    @Override
     public Map<String, SkylarkNestedSet> getSkylarkOutputGroups() {
       Map<String, SkylarkNestedSet> skylarkOutputGroups = new TreeMap<>();
       for (Map.Entry<String, NestedSet<Artifact>> entry : outputGroups.entrySet()) {
@@ -180,12 +172,12 @@ public final class CcCompilationHelper {
       return skylarkOutputGroups;
     }
 
-    @SkylarkCallable(name = "cc_compilation_outputs", documented = false)
+    @Override
     public CcCompilationOutputs getCcCompilationOutputs() {
       return compilationOutputs;
     }
 
-    @SkylarkCallable(name = "cc_compilation_info", documented = false)
+    @Override
     public CcCompilationInfo getCcCompilationInfo() {
       return (CcCompilationInfo) providers.getProvider(CcCompilationInfo.PROVIDER.getKey());
     }
