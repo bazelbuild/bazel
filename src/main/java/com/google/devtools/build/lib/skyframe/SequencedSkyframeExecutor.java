@@ -612,12 +612,15 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
 
+    removeActionsAfterEvaluation.set(
+        !trackIncrementalState
+            && requestOptions != null
+            && requestOptions.discardActionsAfterExecution);
     // Now check if it is necessary to wipe the previous state. We do this if either the previous
     // or current incrementalStateRetentionStrategy requires the build to have been isolated.
     if (oldValueOfTrackIncrementalState != trackIncrementalState) {
       logger.info("Set incremental state to " + trackIncrementalState);
       evaluatorNeedsReset = true;
-      removeActionsAfterEvaluation.set(!trackIncrementalState);
     } else if (!trackIncrementalState) {
       evaluatorNeedsReset = true;
     }
