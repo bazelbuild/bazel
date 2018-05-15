@@ -1421,7 +1421,8 @@ public final class CcCompilationHelper {
       String outputName,
       CppCompileActionBuilder builder,
       Iterable<ArtifactCategory> outputCategories,
-      boolean usePic) throws RuleErrorException {
+      boolean usePic)
+      throws RuleErrorException {
     SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
     SpecialArtifact outputFiles =
         CppHelper.getCompileOutputTreeArtifact(ruleContext, sourceArtifact, outputName, usePic);
@@ -1490,7 +1491,8 @@ public final class CcCompilationHelper {
       Artifact gcnoFile,
       Artifact dwoFile,
       Artifact ltoIndexingFile,
-      ImmutableMap<String, String> additionalBuildVariables) throws RuleErrorException {
+      ImmutableMap<String, String> additionalBuildVariables)
+      throws RuleErrorException {
     Artifact sourceFile = builder.getSourceFile();
     ImmutableList.Builder<String> userCompileFlags = ImmutableList.builder();
     userCompileFlags.addAll(getCoptsFromOptions(cppConfiguration, sourceFile.getExecPathString()));

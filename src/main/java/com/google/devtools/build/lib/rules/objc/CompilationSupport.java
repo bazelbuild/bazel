@@ -703,7 +703,8 @@ public class CompilationSupport {
       ImmutableList.Builder<Artifact> objectFilesCollector,
       CcToolchainProvider toolchain,
       boolean isTestRule,
-      boolean usePch) throws RuleErrorException {
+      boolean usePch)
+      throws RuleErrorException {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);

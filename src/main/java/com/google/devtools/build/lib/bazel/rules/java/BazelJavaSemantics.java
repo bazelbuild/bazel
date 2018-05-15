@@ -675,7 +675,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       Artifact executable,
       Artifact instrumentationMetadata,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
-      String mainClass) throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException {
+      String mainClass)
+      throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException {
     return addCoverageSupport(helper, attributes, executable, instrumentationMetadata,
         javaArtifactsBuilder, mainClass, false);
   }

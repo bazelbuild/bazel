@@ -220,7 +220,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           .checkSrcs(supportData.getDirectProtoSources(), "cc_proto_library");
     }
 
-    private FeatureConfiguration getFeatureConfiguration(SupportData supportData) throws RuleErrorException {
+    private FeatureConfiguration getFeatureConfiguration(SupportData supportData)
+        throws RuleErrorException {
       ImmutableSet.Builder<String> requestedFeatures = new ImmutableSet.Builder<>();
       requestedFeatures.addAll(ruleContext.getFeatures());
       ImmutableSet.Builder<String> unsupportedFeatures = new ImmutableSet.Builder<>();
@@ -259,14 +260,15 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       return helper;
     }
 
-    private CcLinkingHelper initializeLinkingHelper(FeatureConfiguration featureConfiguration) throws RuleErrorException {
+    private CcLinkingHelper initializeLinkingHelper(FeatureConfiguration featureConfiguration)
+        throws RuleErrorException {
       CcToolchainProvider ccToolchain = ccToolchain(ruleContext);
       CcLinkingHelper helper =
           new CcLinkingHelper(
                   ruleContext,
                   cppSemantics,
                   featureConfiguration,
-              ccToolchain,
+                  ccToolchain,
                   CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext),
                   ruleContext.getConfiguration())
               .enableCcSpecificLinkParamsProvider()
@@ -284,7 +286,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       return helper;
     }
 
-    private static CcToolchainProvider ccToolchain(RuleContext ruleContext) throws RuleErrorException {
+    private static CcToolchainProvider ccToolchain(RuleContext ruleContext)
+        throws RuleErrorException {
       return CppHelper.getToolchain(
           ruleContext,
           ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, TARGET));

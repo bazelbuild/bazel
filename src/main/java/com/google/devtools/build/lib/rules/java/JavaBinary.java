@@ -588,17 +588,21 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * This method uses {@link ProguardHelper#applyProguardIfRequested} to create a proguard action
-   * if necessary and adds any artifacts created by proguard to the given {@code filesBuilder}.
-   * This is convenience to make sure the proguarded Jar is included in the files to build, which is
-   * necessary because the Jar written by proguard is used at runtime.
-   * If this method returns {@code true} the Proguard is being used and we need to use a
-   * {@link DeployArchiveBuilder} to write the input artifact assumed by
-   * {@link ProguardHelper#applyProguardIfRequested}.
+   * This method uses {@link ProguardHelper#applyProguardIfRequested} to create a proguard action if
+   * necessary and adds any artifacts created by proguard to the given {@code filesBuilder}. This is
+   * convenience to make sure the proguarded Jar is included in the files to build, which is
+   * necessary because the Jar written by proguard is used at runtime. If this method returns {@code
+   * true} the Proguard is being used and we need to use a {@link DeployArchiveBuilder} to write the
+   * input artifact assumed by {@link ProguardHelper#applyProguardIfRequested}.
    */
-  private static boolean applyProguardIfRequested(RuleContext ruleContext, Artifact deployJar,
-      ImmutableList<Artifact> bootclasspath, String mainClassName, JavaSemantics semantics,
-      NestedSetBuilder<Artifact> filesBuilder) throws InterruptedException, RuleErrorException {
+  private static boolean applyProguardIfRequested(
+      RuleContext ruleContext,
+      Artifact deployJar,
+      ImmutableList<Artifact> bootclasspath,
+      String mainClassName,
+      JavaSemantics semantics,
+      NestedSetBuilder<Artifact> filesBuilder)
+      throws InterruptedException, RuleErrorException {
     // We only support proguarding tests so Proguard doesn't try to proguard itself.
     if (!isJavaTestRule(ruleContext)) {
       return false;

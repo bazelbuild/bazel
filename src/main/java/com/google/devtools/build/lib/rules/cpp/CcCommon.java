@@ -160,7 +160,8 @@ public final class CcCommon {
 
   private final FdoSupportProvider fdoSupport;
 
-  public CcCommon(RuleContext ruleContext) throws RuleClass.ConfiguredTargetFactory.RuleErrorException {
+  public CcCommon(RuleContext ruleContext)
+      throws RuleClass.ConfiguredTargetFactory.RuleErrorException {
     this.ruleContext = ruleContext;
     this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     this.ccToolchain =

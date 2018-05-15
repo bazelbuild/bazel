@@ -472,8 +472,8 @@ public class CppHelper {
    * return {@code null}, if the toolchain attribute is undefined for the rule class.
    */
   @Nullable
-  public static CcToolchainProvider getToolchain(
-      RuleContext ruleContext, String toolchainAttribute) throws RuleErrorException {
+  public static CcToolchainProvider getToolchain(RuleContext ruleContext, String toolchainAttribute)
+      throws RuleErrorException {
      if (!ruleContext.isAttrDefined(toolchainAttribute, LABEL)) {
        // TODO(bazel-team): Report an error or throw an exception in this case.
        return null;

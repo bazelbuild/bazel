@@ -604,7 +604,8 @@ public class FdoSupport {
       PathFragment outputName,
       boolean usePic,
       FeatureConfiguration featureConfiguration,
-      FdoSupportProvider fdoSupportProvider) throws RuleClass.ConfiguredTargetFactory.RuleErrorException {
+      FdoSupportProvider fdoSupportProvider)
+      throws RuleClass.ConfiguredTargetFactory.RuleErrorException {
 
     // FDO is disabled -> do nothing.
     if ((fdoInstrument == null) && (fdoRoot == null)) {
@@ -658,7 +659,8 @@ public class FdoSupport {
       PathFragment sourceExecPath,
       PathFragment outputName,
       boolean usePic,
-      FdoSupportProvider fdoSupportProvider) throws RuleClass.ConfiguredTargetFactory.RuleErrorException {
+      FdoSupportProvider fdoSupportProvider)
+      throws RuleClass.ConfiguredTargetFactory.RuleErrorException {
     CcToolchainProvider toolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     LipoContextProvider lipoContextProvider =

@@ -299,7 +299,8 @@ public class DeployArchiveBuilder {
   }
 
   /** Builds the action as configured. */
-  public void build() throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException {
+  public void build()
+      throws InterruptedException, RuleClass.ConfiguredTargetFactory.RuleErrorException {
     ImmutableList<Artifact> classpathResources = attributes.getClassPathResources();
     Set<String> classPathResourceNames = new HashSet<>();
     for (Artifact artifact : classpathResources) {

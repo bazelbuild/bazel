@@ -400,7 +400,7 @@ public interface JavaSemantics {
    * Same as {@link #addCoverageSupport(JavaCompilationHelper, JavaTargetAttributes.Builder,
    * Artifact, Artifact, JavaCompilationArtifacts.Builder, String)}.
    *
-   * <p> In *experimental* coverage mode omits dealing with instrumentation metadata and does not
+   * <p>In *experimental* coverage mode omits dealing with instrumentation metadata and does not
    * create the instrumented jar.
    */
   String addCoverageSupport(

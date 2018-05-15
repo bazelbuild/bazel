@@ -232,7 +232,8 @@ public final class NativeLibs {
     return configurationMap;
   }
 
-  private static Map<String, CcToolchainProvider> getToolchainsByCpu(RuleContext ruleContext) throws RuleClass.ConfiguredTargetFactory.RuleErrorException {
+  private static Map<String, CcToolchainProvider> getToolchainsByCpu(RuleContext ruleContext)
+      throws RuleClass.ConfiguredTargetFactory.RuleErrorException {
     Map<String, CcToolchainProvider> toolchainMap = new LinkedHashMap<>();
     for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
         ruleContext.getSplitPrerequisites(":cc_toolchain_split").entrySet()) {
