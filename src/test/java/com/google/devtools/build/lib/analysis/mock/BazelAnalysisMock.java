@@ -153,6 +153,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "package_group(name='config_feature_flag', packages=['//...'])");
 
     config.create(
+        "tools/whitelists/config_feature_flag/BUILD",
+        "package_group(name='config_feature_flag', packages=['//...'])");
+
+    config.create(
         "/bazel_tools_workspace/tools/zip/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['precompile.py'])",
@@ -267,6 +271,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'jarjar_bin', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'instrumentation_test_check', srcs = ['empty.sh'])")
         .add("package_group(name = 'android_device_whitelist', packages = ['//...'])")
+        .add("package_group(name = 'export_deps_whitelist', packages = ['//...'])")
         .add("android_tools_defaults_jar(name = 'android_jar')");
 
     return androidBuildContents.build();

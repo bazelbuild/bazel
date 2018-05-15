@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -117,8 +118,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         new AndroidCommon(
             javaCommon,
             /* asNeverLink= */ true,
-            /* exportDeps= */ !AndroidCommon.getAndroidConfig(ruleContext)
-                .getEnforceStrictDepsForBinariesUnderTest());
+            /* exportDeps= */ Whitelist.isAvailable(ruleContext, "export_deps"));
     ResourceDependencies resourceDeps =
         ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink= */ false);
     RuleConfiguredTargetBuilder builder =

@@ -434,3 +434,8 @@ package_group(
     name = "android_device_whitelist",
     packages = ["//..."],
 )
+
+package_group(
+    name = "export_deps_whitelist",
+    packages = ["//..."],
+)
