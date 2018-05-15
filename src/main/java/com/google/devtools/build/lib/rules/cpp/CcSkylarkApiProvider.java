@@ -66,8 +66,8 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
   public NestedSet<Artifact> getLibraries() {
     NestedSetBuilder<Artifact> libs = NestedSetBuilder.linkOrder();
     CcLinkingInfo ccLinkingInfo = getInfo().get(CcLinkingInfo.PROVIDER);
-    CcLinkParamsInfo ccLinkParams =
-        ccLinkingInfo == null ? null : ccLinkingInfo.getCcLinkParamsInfo();
+    CcLinkParamsStore ccLinkParams =
+        ccLinkingInfo == null ? null : ccLinkingInfo.getCcLinkParamsStore();
     if (ccLinkParams == null) {
       return libs.build();
     }
@@ -87,8 +87,8 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
               + "(possibly empty but never <code>None</code>)")
   public ImmutableList<String> getLinkopts() {
     CcLinkingInfo ccLinkingInfo = getInfo().get(CcLinkingInfo.PROVIDER);
-    CcLinkParamsInfo ccLinkParams =
-        ccLinkingInfo == null ? null : ccLinkingInfo.getCcLinkParamsInfo();
+    CcLinkParamsStore ccLinkParams =
+        ccLinkingInfo == null ? null : ccLinkingInfo.getCcLinkParamsStore();
     if (ccLinkParams == null) {
       return ImmutableList.of();
     }

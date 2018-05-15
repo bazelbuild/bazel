@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +30,7 @@ import java.util.List;
 public class JplCcLinkParams {
 
   /**
-   * Creates a CcLinkParamsInfo based on 'deps' and an explicit list of proto runtimes, in the
+   * Creates a CcLinkParamsStore based on 'deps' and an explicit list of proto runtimes, in the
    * context of a java_xxx_proto_library and its aspects.
    *
    * @param ruleContext used to extract 'deps'. the 'deps' are expected to provide
@@ -41,7 +41,7 @@ public class JplCcLinkParams {
    */
   public static JavaCcLinkParamsProvider createCcLinkParamsStore(
       final RuleContext ruleContext, final ImmutableList<TransitiveInfoCollection> protoRuntimes) {
-    List<CcLinkParamsStore> stores = new ArrayList<>();
+    List<AbstractCcLinkParamsStore> stores = new ArrayList<>();
     for (TransitiveInfoCollection t :
         ruleContext.getPrerequisites("deps", RuleConfiguredTarget.Mode.TARGET)) {
       stores.add(t.getProvider(JavaProtoLibraryAspectProvider.class)
@@ -50,11 +50,11 @@ public class JplCcLinkParams {
           .getLinkParams());
     }
     return new JavaCcLinkParamsProvider(
-        new CcLinkParamsStore() {
+        new AbstractCcLinkParamsStore() {
           @Override
           protected void collect(
               CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-            for (CcLinkParamsStore store : stores) {
+            for (AbstractCcLinkParamsStore store : stores) {
               builder.add(store);
             }
             builder.addTransitiveTargets(protoRuntimes);

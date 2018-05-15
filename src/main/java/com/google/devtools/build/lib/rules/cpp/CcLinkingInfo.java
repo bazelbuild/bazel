@@ -36,24 +36,24 @@ public final class CcLinkingInfo extends NativeInfo {
   public static final NativeProvider<CcLinkingInfo> PROVIDER =
       new NativeProvider<CcLinkingInfo>(CcLinkingInfo.class, "CcLinkingInfo") {};
 
-  private final CcLinkParamsInfo ccLinkParamsInfo;
+  private final CcLinkParamsStore ccLinkParamsStore;
   private final CcRunfiles ccRunfiles;
   private final CcExecutionDynamicLibrariesInfo ccExecutionDynamicLibrariesInfo;
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
   CcLinkingInfo(
-      CcLinkParamsInfo ccLinkParamsInfo,
+      CcLinkParamsStore ccLinkParamsStore,
       CcRunfiles ccRunfiles,
       CcExecutionDynamicLibrariesInfo ccExecutionDynamicLibrariesInfo) {
     super(PROVIDER);
-    this.ccLinkParamsInfo = ccLinkParamsInfo;
+    this.ccLinkParamsStore = ccLinkParamsStore;
     this.ccRunfiles = ccRunfiles;
     this.ccExecutionDynamicLibrariesInfo = ccExecutionDynamicLibrariesInfo;
   }
 
-  public CcLinkParamsInfo getCcLinkParamsInfo() {
-    return ccLinkParamsInfo;
+  public CcLinkParamsStore getCcLinkParamsStore() {
+    return ccLinkParamsStore;
   }
 
   public CcRunfiles getCcRunfiles() {
@@ -66,7 +66,7 @@ public final class CcLinkingInfo extends NativeInfo {
 
   /** A Builder for {@link CcLinkingInfo}. */
   public static class Builder {
-    CcLinkParamsInfo ccLinkParamsInfo;
+    CcLinkParamsStore ccLinkParamsStore;
     CcRunfiles ccRunfiles;
     CcExecutionDynamicLibrariesInfo ccExecutionDynamicLibrariesInfo;
 
@@ -74,9 +74,9 @@ public final class CcLinkingInfo extends NativeInfo {
       return new CcLinkingInfo.Builder();
     }
 
-    public Builder setCcLinkParamsInfo(CcLinkParamsInfo ccLinkParamsInfo) {
-      Preconditions.checkState(this.ccLinkParamsInfo == null);
-      this.ccLinkParamsInfo = ccLinkParamsInfo;
+    public Builder setCcLinkParamsStore(CcLinkParamsStore ccLinkParamsStore) {
+      Preconditions.checkState(this.ccLinkParamsStore == null);
+      this.ccLinkParamsStore = ccLinkParamsStore;
       return this;
     }
 
@@ -94,7 +94,7 @@ public final class CcLinkingInfo extends NativeInfo {
     }
 
     public CcLinkingInfo build() {
-      return new CcLinkingInfo(ccLinkParamsInfo, ccRunfiles, ccExecutionDynamicLibrariesInfo);
+      return new CcLinkingInfo(ccLinkParamsStore, ccRunfiles, ccExecutionDynamicLibrariesInfo);
     }
   }
 }

@@ -374,7 +374,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     CcLinkingInfo ccLinkingInfo =
         (CcLinkingInfo) linkingInfo.getProviders().getProvider(CcLinkingInfo.PROVIDER.getKey());
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcLinkParamsInfo(ccLinkingInfo.getCcLinkParamsInfo());
+    ccLinkingInfoBuilder.setCcLinkParamsStore(ccLinkingInfo.getCcLinkParamsStore());
     ccLinkingInfoBuilder.setCcExecutionDynamicLibrariesInfo(
         ccLinkingInfo.getCcExecutionDynamicLibrariesInfo());
     ccLinkingInfoBuilder.setCcRunfiles(new CcRunfiles(staticRunfiles, sharedRunfiles));

@@ -381,7 +381,7 @@ public final class CcLinkingHelper {
 
   /**
    * This adds the {@link CcSpecificLinkParamsProvider} to the providers created by this class.
-   * Otherwise the result will contain an instance of {@link CcLinkParamsInfo}.
+   * Otherwise the result will contain an instance of {@link CcLinkParamsStore}.
    */
   public CcLinkingHelper enableCcSpecificLinkParamsProvider() {
     this.emitCcSpecificLinkParamsProvider = true;
@@ -551,8 +551,8 @@ public final class CcLinkingHelper {
           new CcSpecificLinkParamsProvider(
               createCcLinkParamsStore(ccLinkingOutputs, ccCompilationContext, forcePic)));
     } else {
-      ccLinkingInfoBuilder.setCcLinkParamsInfo(
-          new CcLinkParamsInfo(
+      ccLinkingInfoBuilder.setCcLinkParamsStore(
+          new CcLinkParamsStore(
               createCcLinkParamsStore(ccLinkingOutputs, ccCompilationContext, forcePic)));
     }
     providers.put(ccLinkingInfoBuilder.build());
@@ -633,17 +633,17 @@ public final class CcLinkingHelper {
     return builder.build();
   }
 
-  private CcLinkParamsStore createCcLinkParamsStore(
+  private AbstractCcLinkParamsStore createCcLinkParamsStore(
       final CcLinkingOutputs ccLinkingOutputs,
       final CcCompilationContext ccCompilationContext,
       final boolean forcePic) {
-    return new CcLinkParamsStore() {
+    return new AbstractCcLinkParamsStore() {
       @Override
       protected void collect(
           CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
         builder.addLinkstamps(linkstamps.build(), ccCompilationContext);
         builder.addTransitiveTargets(
-            deps, CcLinkParamsInfo.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
+            deps, CcLinkParamsStore.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
         if (!neverlink) {
           builder.addLibraries(
               ccLinkingOutputs.getPreferredLibraries(

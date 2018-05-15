@@ -44,8 +44,8 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.ZipFilterBuilder.CheckHashMismatchMode;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
@@ -800,14 +800,14 @@ public class AndroidCommon {
     return asNeverLink;
   }
 
-  public CcLinkParamsStore getCcLinkParamsStore() {
+  public AbstractCcLinkParamsStore getCcLinkParamsStore() {
     return getCcLinkParamsStore(
         javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH), ImmutableList.<String>of());
   }
 
-  public static CcLinkParamsStore getCcLinkParamsStore(
+  public static AbstractCcLinkParamsStore getCcLinkParamsStore(
       final Iterable<? extends TransitiveInfoCollection> deps, final Collection<String> linkOpts) {
-    return new CcLinkParamsStore() {
+    return new AbstractCcLinkParamsStore() {
       @Override
       protected void collect(
           CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
@@ -818,7 +818,7 @@ public class AndroidCommon {
             // Link in Android-specific C++ code (e.g., android_libraries) in the transitive closure
             AndroidCcLinkParamsProvider.TO_LINK_PARAMS,
             // Link in non-language-specific C++ code in the transitive closure
-            CcLinkParamsInfo.TO_LINK_PARAMS);
+            CcLinkParamsStore.TO_LINK_PARAMS);
         builder.addLinkOpts(linkOpts);
       }
     };

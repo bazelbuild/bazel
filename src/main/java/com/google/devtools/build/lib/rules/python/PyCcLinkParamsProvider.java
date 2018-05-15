@@ -17,25 +17,25 @@ import com.google.common.base.Function;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsStoreImpl;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** A target that provides C++ libraries to be linked into Python targets. */
 @Immutable
 @AutoCodec
 public final class PyCcLinkParamsProvider implements TransitiveInfoProvider {
-  private final CcLinkParamsStoreImpl store;
+  private final CcLinkParamsStore store;
 
-  public PyCcLinkParamsProvider(CcLinkParamsStoreImpl store) {
+  public PyCcLinkParamsProvider(CcLinkParamsStore store) {
     this.store = store;
   }
 
-  public CcLinkParamsStore getLinkParams() {
+  public AbstractCcLinkParamsStore getLinkParams() {
     return store;
   }
 
-  public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
+  public static final Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> TO_LINK_PARAMS =
       input -> {
         PyCcLinkParamsProvider provider = input.getProvider(PyCcLinkParamsProvider.class);
         return provider == null ? null : provider.getLinkParams();

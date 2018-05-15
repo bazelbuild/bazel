@@ -242,7 +242,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(
             hello
                 .get(CcLinkingInfo.PROVIDER)
-                .getCcLinkParamsInfo()
+                .getCcLinkParamsStore()
                 .getCcLinkParams(false, false)
                 .getLinkopts()
                 .isEmpty())
@@ -1239,7 +1239,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         LinkerInputs.toNonSolibArtifacts(
             target
                 .get(CcLinkingInfo.PROVIDER)
-                .getCcLinkParamsInfo()
+                .getCcLinkParamsStore()
                 .getCcLinkParams(true, true)
                 .getLibraries());
     assertThat(artifactsToStrings(libraries)).contains("bin a/libfoo.a");
@@ -1255,7 +1255,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         LinkerInputs.toNonSolibArtifacts(
             target
                 .get(CcLinkingInfo.PROVIDER)
-                .getCcLinkParamsInfo()
+                .getCcLinkParamsStore()
                 .getCcLinkParams(true, true)
                 .getLibraries());
     assertThat(artifactsToStrings(libraries)).doesNotContain("bin a/libfoo.a");
@@ -1272,7 +1272,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         LinkerInputs.toNonSolibArtifacts(
             target
                 .get(CcLinkingInfo.PROVIDER)
-                .getCcLinkParamsInfo()
+                .getCcLinkParamsStore()
                 .getCcLinkParams(true, true)
                 .getLibraries());
     assertThat(artifactsToStrings(libraries)).doesNotContain("src a/libfoo.so");
@@ -1291,7 +1291,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Iterable<Artifact> libraries =
         target
             .get(CcLinkingInfo.PROVIDER)
-            .getCcLinkParamsInfo()
+            .getCcLinkParamsStore()
             .getCcLinkParams(false, true)
             .getExecutionDynamicLibraries();
     assertThat(artifactsToStrings(libraries)).doesNotContain("bin a/libfoo.ifso");
@@ -1306,7 +1306,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Iterable<Artifact> libraries =
         target
             .get(CcLinkingInfo.PROVIDER)
-            .getCcLinkParamsInfo()
+            .getCcLinkParamsStore()
             .getCcLinkParams(false, true)
             .getExecutionDynamicLibraries();
     assertThat(artifactsToStrings(libraries)).doesNotContain("bin _solib_k8/liba_Slibfoo.ifso");
@@ -1322,7 +1322,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Iterable<Artifact> libraries =
         target
             .get(CcLinkingInfo.PROVIDER)
-            .getCcLinkParamsInfo()
+            .getCcLinkParamsStore()
             .getCcLinkParams(false, true)
             .getExecutionDynamicLibraries();
     assertThat(artifactsToStrings(libraries)).isEmpty();
