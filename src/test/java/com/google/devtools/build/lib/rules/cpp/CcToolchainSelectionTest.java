@@ -112,6 +112,33 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testToolchainSelectionWithPlatforms_wrongType() throws Exception {
+    mockToolsConfig.create(
+        "wrong/toolchain.bzl",
+        "def _dummy_toolchain_impl(ctx):",
+        "  toolchain = platform_common.ToolchainInfo()",
+        "  return [toolchain]",
+        "dummy_toolchain = rule(_dummy_toolchain_impl, attrs = {})");
+    mockToolsConfig.create(
+        "wrong/BUILD",
+        "load(':toolchain.bzl', 'dummy_toolchain')",
+        "dummy_toolchain(name = 'toolchain_impl')",
+        "toolchain(name = 'toolchain',",
+        "  toolchain_type = '" + CPP_TOOLCHAIN_TYPE + "',",
+        "  toolchain = ':toolchain_impl')");
+    useConfiguration(
+        "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
+        "--experimental_platforms=//mock_platform:mock-piii-platform",
+        "--extra_toolchains=//wrong:toolchain");
+
+    checkError("lib",
+        "lib",
+        "The selected C++ toolchain is not a cc_toolchain rule",
+        "cc_library(name = 'lib',",
+        "  srcs = ['a.cc'])");
+  }
+
+  @Test
   public void testCToolchainSelectionFromCcToolchainAttrs() throws Exception {
     useConfiguration(
         "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
