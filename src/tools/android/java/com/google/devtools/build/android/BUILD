@@ -8,6 +8,7 @@ filegroup(
         "BUILD.tools",
         ":all_android_tools_deploy.jar",
         "//src/tools/android/java/com/google/devtools/build/android/desugar:embedded_tools",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/scan:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:embedded_tools",
@@ -23,6 +24,7 @@ java_binary(
     runtime_deps = [
         ":android_builder_lib",
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/scan",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:dexerdeps",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:idlclass_lib",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:ziputils_lib",

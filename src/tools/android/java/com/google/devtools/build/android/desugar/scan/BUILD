@@ -1,6 +1,14 @@
 # Description:
 #   Tools for scanning bytecode for references to other classes and emitting Proguard-style keeps.
 
+filegroup(
+    name = "embedded_tools",
+    srcs = ["BUILD.tools"],
+    visibility = [
+        "//src/tools/android/java/com/google/devtools/build/android:__pkg__",
+    ],
+)
+
 java_library(
     name = "scan",
     srcs = glob(["*.java"]),
@@ -21,6 +29,7 @@ java_library(
 
 java_binary(
     name = "KeepScanner",
+    testonly = 1,  # normally used through @bazel_tools
     main_class = "com.google.devtools.build.android.desugar.scan.KeepScanner",
     visibility = [
         "//src/test/java/com/google/devtools/build/android/desugar/scan:__pkg__",
