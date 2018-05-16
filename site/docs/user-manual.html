@@ -98,7 +98,7 @@ title: User Manual
   The name of a Bazel server process appears in the output of <code>ps
   x</code> or <code>ps -e f</code> as
   <code>bazel(<i>dirname</i>)</code>, where <i>dirname</i> is the
-  basename of the directory enclosing the root your workspace directory.
+  basename of the directory enclosing the root of your workspace directory.
   For example:
 </p>
 <pre>
@@ -219,7 +219,7 @@ title: User Manual
   Each of these lines may be used more than once and the arguments that follow
   the first word are combined as if they had appeared on a single line.
   (Users of CVS, another tool with a "Swiss army knife" command-line interface,
-  will find the syntax familiar to that of <code>.cvsrc</code>.)
+  will find the syntax similar to that of <code>.cvsrc</code>.)
 </p>
 <p>
   Options specified in the command line always take precedence over those from
@@ -229,7 +229,7 @@ title: User Manual
   getting lowest precedence (for example, the <code>test</code> command inherits
   all the options from the <code>build</code> command, so the line
   <code>test --foo=bar</code> takes precedence over the line
-  <code>build --foo=baz</code> line, regardless of which rc file or what order
+  <code>build --foo=baz</code>, regardless of which rc file or what order
   these two lines are in). Two lines specifying options for the same command at
   equal specificity are parsed in the order in which they appear within the file.
   The user-specific configuration file takes precedence over the master file.
@@ -242,7 +242,7 @@ title: User Manual
   which is more intuitive.
 </p>
 <p>
-  The arguments specified on line of an rc file may include arguments that are
+  The arguments specified on a line of an rc file may include arguments that are
   not options, such as the names of build targets, and so on. These, like the
   options specified in the same files, have lower precedence than their siblings
   on the command line, and are always prepended to the explicit list of non-
@@ -256,8 +256,8 @@ title: User Manual
   default, but will be included when the option
   <code>--config=<var>name</var></code> is present, either on the command line
   or in a <code>.bazelrc</code> file, recursively, even inside of another
-  config definition. Only the options specified by <code>command:name</code>
-  for applicable commands will be expanded, in the precedence order described
+  config definition. The options specified by <code>command:name</code> will
+  only be expanded for applicable commands, in the precedence order described
   above.
 </p>
 <p>
@@ -331,7 +331,7 @@ title: User Manual
   Bazel prints progress messages during
   the <a href='#execution-phase'>execution phase</a> of the build, showing the
   current build step (compiler, linker, etc.) that is being started,
-  and the number of completed over total number of build actions. As the
+  and the number completed over the total number of build actions. As the
   build starts the number of total actions will often increase as Bazel
   discovers the entire action graph, but the number will usually stabilize
   within a few seconds.
