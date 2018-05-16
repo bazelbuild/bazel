@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathTyp
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
@@ -165,17 +164,15 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
 
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
-    NestedSet<Artifact> deps =
-        getCompileTimeJarsFromCollection(
-            targets,
-            javaConfig.getImportDepsCheckingLevel() == ImportDepsCheckingLevel.STRICT_ERROR);
+    // TODO(cnsun): need to pass the transitive classpath too to emit add dep command.
+    NestedSet<Artifact> directDeps = getCompileTimeJarsFromCollection(targets, /*isStrict=*/ true);
       NestedSet<Artifact> bootclasspath = getBootclasspath(ruleContext);
     Artifact depsCheckerResult =
         createAarArtifact(ruleContext, "aar_import_deps_checker_result.txt");
     Artifact jdepsArtifact = createAarArtifact(ruleContext, "jdeps.proto");
     ImportDepsCheckActionBuilder.newBuilder()
         .bootcalsspath(bootclasspath)
-        .declareDeps(deps)
+        .declareDeps(directDeps)
         .checkJars(NestedSetBuilder.<Artifact>stableOrder().add(mergedJar).build())
         .outputArtifiact(depsCheckerResult)
         .importDepsCheckingLevel(javaConfig.getImportDepsCheckingLevel())

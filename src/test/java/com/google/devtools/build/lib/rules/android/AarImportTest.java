@@ -235,14 +235,10 @@ public class AarImportTest extends BuildViewTestCase {
             "--checking_mode=error",
             "--rule_label",
             "--jdeps_output");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/bar/classes_and_libs_merged.jar");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/java/baz-ijar.jar");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/classes_and_libs_merged.jar");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/foo/classes_and_libs_merged.jar");
     ensureArgumentsHaveClassEntryOptionWithSuffix(
         arguments, "/intermediate/classes_and_libs_merged.jar");
     assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
-        .isEqualTo(5);
+        .isEqualTo(1);
   }
 
   @Test
@@ -278,14 +274,10 @@ public class AarImportTest extends BuildViewTestCase {
             "--checking_mode=error",
             "--rule_label",
             "--jdeps_output");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/bar/classes_and_libs_merged.jar");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/java/baz-ijar.jar");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/classes_and_libs_merged.jar");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/foo/classes_and_libs_merged.jar");
     ensureArgumentsHaveClassEntryOptionWithSuffix(
         arguments, "/intermediate/classes_and_libs_merged.jar");
     assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
-        .isEqualTo(5);
+        .isEqualTo(1);
   }
 
   @Test
