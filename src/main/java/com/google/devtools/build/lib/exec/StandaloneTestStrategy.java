@@ -181,7 +181,14 @@ public class StandaloneTestStrategy extends TestStrategy {
       // returning the last list?
       return standaloneTestResult.spawnResults();
     } catch (IOException e) {
-      actionExecutionContext.getEventHandler().handle(Event.error("Caught I/O exception: " + e));
+      // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
+      // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
+      StringBuilder sb = new StringBuilder();
+      sb.append("Caught I/O exception:");
+      for (Object s : e.getStackTrace()) {
+        sb.append("\n\t").append(s);
+      }
+      actionExecutionContext.getEventHandler().handle(Event.error(sb.toString()));
       throw new EnvironmentalExecException("unexpected I/O exception", e);
     }
   }
