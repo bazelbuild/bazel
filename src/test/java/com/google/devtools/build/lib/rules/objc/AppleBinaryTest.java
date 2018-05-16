@@ -1494,6 +1494,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testFeatureFlags_offByDefault() throws Exception {
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratchFeatureFlagTestLib();
     scratch.file(
         "test/BUILD",
@@ -1501,6 +1502,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "    name = 'bin',",
         "    deps = ['//lib:objcLib'],",
         "    platform_type = 'ios',",
+        "    transitive_configs = ['//lib:flag1', '//lib:flag2'],",
         ")");
 
     CommandAction linkAction = linkAction("//test:bin");
@@ -1522,6 +1524,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testFeatureFlags_oneFlagOn() throws Exception {
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratchFeatureFlagTestLib();
     scratch.file(
         "test/BUILD",
@@ -1531,7 +1534,8 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "    platform_type = 'ios',",
         "    feature_flags = {",
         "      '//lib:flag2': 'on',",
-        "    }",
+        "    },",
+        "    transitive_configs = ['//lib:flag1', '//lib:flag2'],",
         ")");
 
     CommandAction linkAction = linkAction("//test:bin");
@@ -1553,6 +1557,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testFeatureFlags_allFlagsOn() throws Exception {
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratchFeatureFlagTestLib();
     scratch.file(
         "test/BUILD",
@@ -1563,7 +1568,8 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "    feature_flags = {",
         "      '//lib:flag1': 'on',",
         "      '//lib:flag2': 'on',",
-        "    }",
+        "    },",
+        "    transitive_configs = ['//lib:flag1', '//lib:flag2'],",
         ")");
 
     CommandAction linkAction = linkAction("//test:bin");

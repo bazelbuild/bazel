@@ -613,6 +613,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(result).containsExactly(
         "name",
         "visibility",
+        "transitive_configs",
         "tags",
         "generator_name",
         "generator_function",

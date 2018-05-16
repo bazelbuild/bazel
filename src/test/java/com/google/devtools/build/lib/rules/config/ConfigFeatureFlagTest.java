@@ -38,7 +38,9 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
 
   @Before
   public void useTrimmedConfigurations() throws Exception {
-    useConfiguration("--experimental_dynamic_configs=on");
+    useConfiguration(
+        "--experimental_dynamic_configs=on",
+        "--enforce_transitive_configs_for_config_feature_flag");
   }
 
   @Override
@@ -72,6 +74,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    flag_values = {",
         "        ':flag': 'configured',",
         "    },",
+        "    transitive_configs = [':flag'],",
         ")",
         "config_feature_flag(",
         "    name = 'flag',",
@@ -91,6 +94,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    flag_values = {",
         "        ':flag': 'configured',",
         "    },",
+        "    transitive_configs = [':flag'],",
         ")",
         "config_feature_flag(",
         "    name = 'flag',",
@@ -157,10 +161,12 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    flag_values = {",
         "        ':flag': 'configured',",
         "    },",
+        "    transitive_configs = [':flag'],",
         ")",
         "flag_reading_wrapper(",
         "    name = 'wrapper',",
         "    flag = ':flag',",
+        "    transitive_configs = [':flag'],",
         ")",
         "config_feature_flag(",
         "    name = 'flag',",
@@ -215,6 +221,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "flag_reading_wrapper(",
         "    name = 'wrapper',",
         "    flag = ':flag',",
+        "    transitive_configs = [':flag'],",
         ")",
         "config_feature_flag(",
         "    name = 'flag',",
@@ -253,6 +260,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    flag_values = {",
         "        ':other': 'configured',",
         "    },",
+        "    transitive_configs = [':flag', ':other'],",
         ")",
         "config_feature_flag(",
         "    name = 'flag',",
@@ -280,6 +288,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    flag_values = {",
         "        ':other': 'configured',",
         "    },",
+        "    transitive_configs = [':flag', ':other'],",
         ")",
         "config_feature_flag(",
         "    name = 'flag',",
@@ -339,6 +348,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    flag_values = {",
         "        ':flag': 'legal',",
         "    },",
+        "    transitive_configs = [':flag'],",
         ")",
         "config_feature_flag(",
         "    name = 'flag',",
@@ -362,6 +372,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    flag_values = {",
         "        ':flag': 'invalid',",
         "    },",
+        "    transitive_configs = [':flag'],",
         ")",
         "config_feature_flag(",
         "    name = 'flag',",

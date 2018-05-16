@@ -62,8 +62,6 @@ public final class ConfigFeatureFlagOptions extends FragmentOptions {
   /**
    * Whether to perform user-guided trimming of feature flags based on the tagging in the
    * transitive_configs attribute.
-   *
-   * <p>Currently a no-op.
    */
   @Option(
     name = "enforce_transitive_configs_for_config_feature_flag",
@@ -276,5 +274,37 @@ public final class ConfigFeatureFlagOptions extends FragmentOptions {
     this.flagValues = flagValuesBuilder.build();
     this.knownDefaultFlags = knownDefaultFlagsBuilder.build();
     this.unknownFlags = unknownFlagsBuilder.build();
+  }
+
+  /** Returns whether work needs to be done to trim this configuration to the given set of flags. */
+  public boolean requiresTrimming(Set<Label> requiredFlags) {
+    if (!this.isTrimmed()) {
+      // this configuration is untrimmed, so there is definitely work to do
+      return true;
+    }
+    if (requiredFlags.size()
+        != this.flagValues.size() + this.knownDefaultFlags.size() + this.unknownFlags.size()) {
+      // the set of flags we know about isn't the same size as the set of flags we need to know
+      // about, so there must be work to do
+      return true;
+    }
+    for (Label flag : requiredFlags) {
+      if (!(flagValues.containsKey(flag)
+          || knownDefaultFlags.contains(flag)
+          || unknownFlags.contains(flag))) {
+        // we need a flag we don't know anything about, so there must be work to do
+        return true;
+      }
+    }
+    // the sets are the same size and contain the same elements, so trimming would just get us back
+    // to the state we're in right now
+    return false;
+  }
+
+  @Override
+  public ConfigFeatureFlagOptions getHost() {
+    ConfigFeatureFlagOptions options = (ConfigFeatureFlagOptions) super.getHost();
+    options.enforceTransitiveConfigsForConfigFeatureFlag = false;
+    return options;
   }
 }

@@ -181,6 +181,12 @@ public class BaseRuleClasses {
   }
 
   /**
+   * The attribute used to list the configuration properties used by a target and its transitive
+   * dependencies. Currently only supports config_feature_flag.
+   */
+  public static final String TAGGED_TRIMMING_ATTR = "transitive_configs";
+
+  /**
    * Share common attributes across both base and Skylark base rules.
    */
   public static RuleClass.Builder commonCoreAndSkylarkAttributes(RuleClass.Builder builder) {
@@ -195,6 +201,10 @@ public class BaseRuleClasses {
                 .cfg(HostTransition.INSTANCE)
                 .nonconfigurable(
                     "special attribute integrated more deeply into Bazel's core logic"))
+        .add(
+            attr(TAGGED_TRIMMING_ATTR, NODEP_LABEL_LIST)
+                .orderIndependent()
+                .nonconfigurable("Used in determining configuration"))
         .add(
             attr("deprecation", STRING)
                 .value(deprecationDefault)

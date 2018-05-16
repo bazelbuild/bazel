@@ -2267,6 +2267,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "config_setting(",
         "  name = 'flag1@on',",
         "  flag_values = {':flag1': 'on'},",
+        "  transitive_configs = [':flag1'],",
         ")",
         "config_feature_flag(",
         "  name = 'flag2',",
@@ -2276,6 +2277,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "config_setting(",
         "  name = 'flag2@on',",
         "  flag_values = {':flag2': 'on'},",
+        "  transitive_configs = [':flag2'],",
         ")",
         "objc_library(",
         "  name = 'objcLib',",
@@ -2293,6 +2295,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    ':flag2@on': ['-FLAG_2_ON'],",
         "    '//conditions:default': ['-FLAG_2_OFF'],",
         "  }),",
+        "  transitive_configs = [':flag1', ':flag2'],",
         ")");
   }
 }

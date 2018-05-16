@@ -3006,7 +3006,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFeatureFlagsAttributeSetsSelectInDependency() throws Exception {
-    useConfiguration("--experimental_dynamic_configs=notrim");
+    useConfiguration(
+        "--experimental_dynamic_configs=notrim",
+        "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -3017,6 +3019,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "config_setting(",
         "  name = 'flag1@on',",
         "  flag_values = {':flag1': 'on'},",
+        "  transitive_configs = [':flag1'],",
         ")",
         "config_feature_flag(",
         "  name = 'flag2',",
@@ -3026,6 +3029,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "config_setting(",
         "  name = 'flag2@on',",
         "  flag_values = {':flag2': 'on'},",
+        "  transitive_configs = [':flag2'],",
         ")",
         "android_library(",
         "  name = 'lib',",
@@ -3036,6 +3040,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    ':flag2@on': ['Flag2On.java'],",
         "    '//conditions:default': ['Flag2Off.java'],",
         "  }),",
+        "  transitive_configs = [':flag1', ':flag2'],",
         ")",
         "android_binary(",
         "  name = 'foo',",
@@ -3043,7 +3048,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  deps = [':lib'],",
         "  feature_flags = {",
         "    'flag1': 'on',",
-        "  }",
+        "  },",
+        "  transitive_configs = [':flag1', ':flag2'],",
         ")");
     ConfiguredTarget binary = getConfiguredTarget("//java/com/foo");
     List<String> inputs =
@@ -3055,7 +3061,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFeatureFlagsAttributeSetsSelectInBinary() throws Exception {
-    useConfiguration("--experimental_dynamic_configs=notrim");
+    useConfiguration(
+        "--experimental_dynamic_configs=notrim",
+        "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -3066,6 +3074,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "config_setting(",
         "  name = 'flag1@on',",
         "  flag_values = {':flag1': 'on'},",
+        "  transitive_configs = [':flag1'],",
         ")",
         "config_feature_flag(",
         "  name = 'flag2',",
@@ -3075,6 +3084,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "config_setting(",
         "  name = 'flag2@on',",
         "  flag_values = {':flag2': 'on'},",
+        "  transitive_configs = [':flag2'],",
         ")",
         "android_binary(",
         "  name = 'foo',",
@@ -3088,7 +3098,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  }),",
         "  feature_flags = {",
         "    'flag1': 'on',",
-        "  }",
+        "  },",
+        "  transitive_configs = [':flag1', ':flag2'],",
         ")");
     ConfiguredTarget binary = getConfiguredTarget("//java/com/foo");
     List<String> inputs =
@@ -3100,7 +3111,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFeatureFlagsAttributeSetsSelectInBinaryAlias() throws Exception {
-    useConfiguration("--experimental_dynamic_configs=notrim");
+    useConfiguration(
+        "--experimental_dynamic_configs=notrim",
+        "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -3111,6 +3124,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "config_setting(",
         "  name = 'flag1@on',",
         "  flag_values = {':flag1': 'on'},",
+        "  transitive_configs = [':flag1'],",
         ")",
         "android_binary(",
         "  name = 'foo',",
@@ -3121,7 +3135,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  }),",
         "  feature_flags = {",
         "    'flag1': 'on',",
-        "  }",
+        "  },",
+        "  transitive_configs = [':flag1'],",
         ")",
         "alias(",
         "  name = 'alias',",
@@ -3138,7 +3153,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void testFeatureFlagsAttributeFailsAnalysisIfFlagValueIsInvalid() throws Exception {
     reporter.removeHandler(failFastHandler);
-    useConfiguration("--experimental_dynamic_configs=on");
+    useConfiguration(
+        "--experimental_dynamic_configs=on",
+        "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -3149,13 +3166,15 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "config_setting(",
         "  name = 'flag1@on',",
         "  flag_values = {':flag1': 'on'},",
+        "  transitive_configs = [':flag1'],",
         ")",
         "android_library(",
         "  name = 'lib',",
         "  srcs = select({",
         "    ':flag1@on': ['Flag1On.java'],",
         "    '//conditions:default': ['Flag1Off.java'],",
-        "  })",
+        "  }),",
+        "  transitive_configs = [':flag1'],",
         ")",
         "android_binary(",
         "  name = 'foo',",
@@ -3163,7 +3182,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  deps = [':lib'],",
         "  feature_flags = {",
         "    'flag1': 'invalid',",
-        "  }",
+        "  },",
+        "  transitive_configs = [':flag1'],",
         ")");
     assertThat(getConfiguredTarget("//java/com/foo")).isNull();
     assertContainsEvent(
@@ -3175,7 +3195,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFeatureFlagsAttributeFailsAnalysisIfFlagValueIsInvalidEvenIfNotUsed()
       throws Exception {
     reporter.removeHandler(failFastHandler);
-    useConfiguration("--experimental_dynamic_configs=on");
+    useConfiguration(
+        "--experimental_dynamic_configs=on",
+        "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -3186,13 +3208,15 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "config_setting(",
         "  name = 'flag1@on',",
         "  flag_values = {':flag1': 'on'},",
+        "  transitive_configs = [':flag1'],",
         ")",
         "android_binary(",
         "  name = 'foo',",
         "  manifest = 'AndroidManifest.xml',",
         "  feature_flags = {",
         "    'flag1': 'invalid',",
-        "  }",
+        "  },",
+        "  transitive_configs = [':flag1'],",
         ")");
     assertThat(getConfiguredTarget("//java/com/foo")).isNull();
     assertContainsEvent(
@@ -3204,7 +3228,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFeatureFlagsAttributeFailsAnalysisIfFlagIsAliased()
       throws Exception {
     reporter.removeHandler(failFastHandler);
-    useConfiguration("--experimental_dynamic_configs=notrim");
+    useConfiguration(
+        "--experimental_dynamic_configs=notrim",
+        "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -3215,13 +3241,15 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "alias(",
         "  name = 'alias',",
         "  actual = 'flag1',",
+        "  transitive_configs = [':flag1'],",
         ")",
         "android_binary(",
         "  name = 'foo',",
         "  manifest = 'AndroidManifest.xml',",
         "  feature_flags = {",
         "    'alias': 'on',",
-        "  }",
+        "  },",
+        "  transitive_configs = [':flag1'],",
         ")");
     assertThat(getConfiguredTarget("//java/com/foo")).isNull();
     assertContainsEvent(
@@ -3232,7 +3260,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFeatureFlagsAttributeSetsFeatureFlagProviderValues() throws Exception {
-    useConfiguration("--experimental_dynamic_configs=notrim");
+    useConfiguration(
+        "--experimental_dynamic_configs=notrim",
+        "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/reader.bzl",
         "def _impl(ctx):",
@@ -3263,6 +3293,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "flag_reader(",
         "  name = 'FooFlags',",
         "  flags = [':flag1', ':flag2'],",
+        "  transitive_configs = [':flag1', ':flag2'],",
         ")",
         "android_binary(",
         "  name = 'foo',",
@@ -3270,7 +3301,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  srcs = [':FooFlags.java'],",
         "  feature_flags = {",
         "    'flag1': 'on',",
-        "  }",
+        "  },",
+        "  transitive_configs = [':flag1', ':flag2'],",
         ")");
     Artifact flagList =
         getFirstArtifactEndingWith(
@@ -3316,6 +3348,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void testFeatureFlagPolicyMustContainRuleToUseFeatureFlags() throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.overwriteFile(
         "tools/whitelists/config_feature_flag/BUILD",
         "package_group(",
@@ -3337,7 +3370,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  srcs = [':FooFlags.java'],",
         "  feature_flags = {",
         "    '//flag:flag': 'right',",
-        "  }",
+        "  },",
+        "  transitive_configs = ['//flag:flag'],",
         ")");
     assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNull();
     assertContainsEvent(
@@ -3348,6 +3382,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFeatureFlagPolicyDoesNotBlockRuleIfInPolicy() throws Exception {
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.overwriteFile(
         "tools/whitelists/config_feature_flag/BUILD",
         "package_group(",
@@ -3369,7 +3404,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  srcs = [':FooFlags.java'],",
         "  feature_flags = {",
         "    '//flag:flag': 'right',",
-        "  }",
+        "  },",
+        "  transitive_configs = ['//flag:flag'],",
         ")");
     assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNotNull();
     assertNoEvents();

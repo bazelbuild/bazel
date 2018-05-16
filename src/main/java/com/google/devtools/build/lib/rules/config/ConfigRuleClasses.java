@@ -396,6 +396,7 @@ platform(
 
   /** Rule definition for Android's config_feature_flag rule. */
   public static final class ConfigFeatureFlagRule implements RuleDefinition {
+    public static final String RULE_NAME = "config_feature_flag";
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -412,13 +413,14 @@ platform(
               attr("default_value", STRING)
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .add(ConfigFeatureFlag.getWhitelistAttribute(env))
+          .removeAttribute(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
           .build();
     }
 
     @Override
     public RuleDefinition.Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
-          .name("config_feature_flag")
+          .name(RULE_NAME)
           .ancestors(ConfigBaseRule.class)
           .factoryClass(ConfigFeatureFlag.class)
           .build();
