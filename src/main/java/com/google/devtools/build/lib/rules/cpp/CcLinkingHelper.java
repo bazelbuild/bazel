@@ -541,7 +541,7 @@ public final class CcLinkingHelper {
 
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
     ccLinkingInfoBuilder.setCcRunfiles(new CcRunfiles(cppStaticRunfiles, cppSharedRunfiles));
-    ccLinkingInfoBuilder.setCcExecutionDynamicLibrariesInfo(
+    ccLinkingInfoBuilder.setCcExecutionDynamicLibraries(
         collectExecutionDynamicLibraryArtifacts(ccLinkingOutputs.getExecutionDynamicLibraries()));
 
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
@@ -672,26 +672,24 @@ public final class CcLinkingHelper {
     return result.build();
   }
 
-  private CcExecutionDynamicLibrariesInfo collectExecutionDynamicLibraryArtifacts(
+  private CcExecutionDynamicLibraries collectExecutionDynamicLibraryArtifacts(
       List<LibraryToLink> executionDynamicLibraries) {
     Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(executionDynamicLibraries);
     if (!Iterables.isEmpty(artifacts)) {
-      return new CcExecutionDynamicLibrariesInfo(
-          NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
+      return new CcExecutionDynamicLibraries(NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
     }
 
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (CcLinkingInfo dep : AnalysisUtils.getProviders(deps, CcLinkingInfo.PROVIDER)) {
-      CcExecutionDynamicLibrariesInfo ccExecutionDynamicLibrariesInfo =
-          dep.getCcExecutionDynamicLibrariesInfo();
-      if (ccExecutionDynamicLibrariesInfo != null) {
-        builder.addTransitive(
-            ccExecutionDynamicLibrariesInfo.getExecutionDynamicLibraryArtifacts());
+      CcExecutionDynamicLibraries ccExecutionDynamicLibraries =
+          dep.getCcExecutionDynamicLibraries();
+      if (ccExecutionDynamicLibraries != null) {
+        builder.addTransitive(ccExecutionDynamicLibraries.getExecutionDynamicLibraryArtifacts());
       }
     }
     return builder.isEmpty()
-        ? CcExecutionDynamicLibrariesInfo.EMPTY
-        : new CcExecutionDynamicLibrariesInfo(builder.build());
+        ? CcExecutionDynamicLibraries.EMPTY
+        : new CcExecutionDynamicLibraries(builder.build());
   }
 
   /**

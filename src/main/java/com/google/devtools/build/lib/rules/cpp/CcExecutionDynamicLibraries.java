@@ -22,22 +22,22 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/** A target that provides the execution-time dynamic libraries of a C++ rule. */
+/** An object that contains the execution-time dynamic libraries of a C++ rule. */
 @Immutable
 @AutoCodec
 @SkylarkModule(
-  name = "cc_execution_dynamic_libraries_info ",
+  name = "cc_execution_dynamic_libraries ",
   documented = false,
   category = SkylarkModuleCategory.PROVIDER,
   doc = "."
 )
-public final class CcExecutionDynamicLibrariesInfo {
-  public static final CcExecutionDynamicLibrariesInfo EMPTY =
-      new CcExecutionDynamicLibrariesInfo(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+public final class CcExecutionDynamicLibraries {
+  public static final CcExecutionDynamicLibraries EMPTY =
+      new CcExecutionDynamicLibraries(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<Artifact> ccExecutionDynamicLibraries;
 
-  public CcExecutionDynamicLibrariesInfo(NestedSet<Artifact> ccExecutionDynamicLibraries) {
+  public CcExecutionDynamicLibraries(NestedSet<Artifact> ccExecutionDynamicLibraries) {
     this.ccExecutionDynamicLibraries = ccExecutionDynamicLibraries;
   }
 

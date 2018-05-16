@@ -901,8 +901,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     ccCompilationInfoBuilder.setCcCompilationContext(ccCompilationContext);
 
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcExecutionDynamicLibrariesInfo(
-        new CcExecutionDynamicLibrariesInfo(
+    ccLinkingInfoBuilder.setCcExecutionDynamicLibraries(
+        new CcExecutionDynamicLibraries(
             collectExecutionDynamicLibraryArtifacts(
                 ruleContext, linkingOutputs.getExecutionDynamicLibraries())));
 
@@ -946,11 +946,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (CcLinkingInfo ccLinkingInfo :
         ruleContext.getPrerequisites("deps", Mode.TARGET, CcLinkingInfo.PROVIDER)) {
-      CcExecutionDynamicLibrariesInfo ccExecutionDynamicLibrariesInfo =
-          ccLinkingInfo.getCcExecutionDynamicLibrariesInfo();
-      if (ccExecutionDynamicLibrariesInfo != null) {
-        builder.addTransitive(
-            ccExecutionDynamicLibrariesInfo.getExecutionDynamicLibraryArtifacts());
+      CcExecutionDynamicLibraries ccExecutionDynamicLibraries =
+          ccLinkingInfo.getCcExecutionDynamicLibraries();
+      if (ccExecutionDynamicLibraries != null) {
+        builder.addTransitive(ccExecutionDynamicLibraries.getExecutionDynamicLibraryArtifacts());
       }
     }
 
