@@ -14,15 +14,20 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
+import java.util.function.Consumer;
 
 /**
  * A simple {@link BuildEventTransport} that writes the JSON representation of the protocol-buffer
@@ -30,14 +35,15 @@ import java.io.IOException;
  */
 public final class JsonFormatFileTransport extends FileTransport {
   private final BuildEventProtocolOptions options;
-  private final PathConverter pathConverter;
 
   JsonFormatFileTransport(
-      String path, BuildEventProtocolOptions options, PathConverter pathConverter)
-          throws IOException {
-    super(path);
+      String path,
+      BuildEventProtocolOptions options,
+      BuildEventArtifactUploader uploader,
+      Consumer<AbruptExitException> exitFunc)
+      throws IOException {
+    super(path, uploader, exitFunc);
     this.options = options;
-    this.pathConverter = pathConverter;
   }
 
   @Override
@@ -47,6 +53,12 @@ public final class JsonFormatFileTransport extends FileTransport {
 
   @Override
   public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
+    checkNotNull(event);
+    PathConverter pathConverter = uploadReferencedArtifacts(event.referencedArtifacts());
+    if (pathConverter == null) {
+      return;
+    }
+
     BuildEventContext converters =
         new BuildEventContext() {
           @Override
@@ -78,5 +90,10 @@ public final class JsonFormatFileTransport extends FileTransport {
           "{\"id\" : \"unknown\", \"exception\" : \"InvalidProtocolBufferException\"}\n";
     }
     write(protoJsonRepresentation);
+  }
+
+  @Override
+  public TransportKind kind() {
+    return TransportKind.BEP_FILE;
   }
 }

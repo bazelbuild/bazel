@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -114,6 +116,21 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
     } else {
       return ImmutableList.<BuildEvent>of();
     }
+  }
+
+  @Override
+  public Set<Path> referencedArtifacts() {
+    ImmutableSet.Builder<Path> artifacts = ImmutableSet.builder();
+    if (stdout != null) {
+      artifacts.add(stdout);
+    }
+    if (stderr != null) {
+      artifacts.add(stderr);
+    }
+    if (exception == null) {
+      artifacts.add(action.getPrimaryOutput().getPath());
+    }
+    return artifacts.build();
   }
 
   @Override

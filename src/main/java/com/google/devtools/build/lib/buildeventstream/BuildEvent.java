@@ -15,6 +15,9 @@
 package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.vfs.Path;
+import java.util.Collections;
+import java.util.Set;
 
 /**
  * Interface for objects that can be posted on the public event stream.
@@ -23,6 +26,11 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
  * pass-through of events, as well as proper chaining of events.
  */
 public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postable {
+
+  default Set<Path> referencedArtifacts() {
+    return Collections.emptySet();
+  }
+
   /**
    * Provide a binary representation of the event.
    *

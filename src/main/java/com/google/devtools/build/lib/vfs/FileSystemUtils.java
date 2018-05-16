@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -930,6 +932,36 @@ public class FileSystemUtils {
         FileSystemUtils.createDirectoryAndParents(parentDir);
       }
       originalPath.createHardLink(linkPath);
+    }
+  }
+
+  /**
+   * Returns the path encoded as an {@link URI}.
+   *
+   * <p>This concrete implementation returns URIs with "file" as the scheme. For Example: - On Unix
+   * the path "/tmp/foo bar.txt" will be encoded as "file:///tmp/foo%20bar.txt". - On Windows the
+   * path "C:\Temp\Foo Bar.txt" will be encoded as "file:///C:/Temp/Foo%20Bar.txt"
+   *
+   * @throws IllegalStateException if the URI cannot be constructed.
+   */
+  public static URI pathToUri(String path) {
+    if (!path.startsWith("/")) {
+      // On Windows URI's need to start with a '/'. i.e. C:\Foo\Bar would be file:///C:/Foo/Bar
+      path = "/" + path;
+    }
+    try {
+      return new URI(
+          "file",
+          // Needs to be "" instead of null, so that toString() will append "//" after the
+          // scheme.
+          // We need this for backwards compatibility reasons as some consumers of the BEP are
+          // broken.
+          "",
+          path,
+          null,
+          null);
+    } catch (URISyntaxException e) {
+      throw new IllegalStateException(e);
     }
   }
 }

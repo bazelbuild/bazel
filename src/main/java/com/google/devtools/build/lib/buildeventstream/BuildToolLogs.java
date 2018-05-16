@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.util.Collection;
+import java.util.Set;
 
 /** Event reporting on statistics about the build. */
 public class BuildToolLogs implements BuildEventWithOrderConstraint {
@@ -38,6 +40,15 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     return ImmutableList.<BuildEventId>of();
+  }
+
+  @Override
+  public Set<Path> referencedArtifacts() {
+    ImmutableSet.Builder<Path> artifacts = ImmutableSet.builder();
+    for (Pair<String, Path> logFile : logFiles) {
+      artifacts.add(logFile.getSecond());
+    }
+    return artifacts.build();
   }
 
   @Override

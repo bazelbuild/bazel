@@ -23,6 +23,9 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import java.io.IOException;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import java.util.function.Consumer;
 
 /**
  * A simple {@link BuildEventTransport} that writes a varint delimited binary representation of
@@ -30,14 +33,11 @@ import java.io.IOException;
  */
 public final class BinaryFormatFileTransport extends FileTransport {
   private final BuildEventProtocolOptions options;
-  private final PathConverter pathConverter;
 
-  BinaryFormatFileTransport(
-      String path, BuildEventProtocolOptions options, PathConverter pathConverter)
-          throws IOException {
-    super(path);
+  BinaryFormatFileTransport(String path, BuildEventProtocolOptions options,
+      BuildEventArtifactUploader uploader, Consumer<AbruptExitException> exitFunc) throws IOException {
+    super(path, uploader, exitFunc);
     this.options = options;
-    this.pathConverter = pathConverter;
   }
 
   @Override
@@ -48,8 +48,13 @@ public final class BinaryFormatFileTransport extends FileTransport {
   @Override
   public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
     checkNotNull(event);
-    BuildEventContext converters =
-        new BuildEventContext() {
+    PathConverter pathConverter = uploadReferencedArtifacts(event.referencedArtifacts());
+    if (pathConverter == null) {
+      return;
+    }
+
+          BuildEventContext converters =
+              new BuildEventContext() {
           @Override
           public PathConverter pathConverter() {
             return pathConverter;
@@ -66,5 +71,10 @@ public final class BinaryFormatFileTransport extends FileTransport {
           }
         };
     write(event.asStreamProto(converters));
+  }
+
+  @Override
+  public TransportKind kind() {
+    return TransportKind.BEP_FILE;
   }
 }

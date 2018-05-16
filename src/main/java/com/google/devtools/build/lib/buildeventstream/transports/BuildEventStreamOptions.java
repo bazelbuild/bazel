@@ -23,83 +23,74 @@ import com.google.devtools.common.options.OptionsBase;
 public class BuildEventStreamOptions extends OptionsBase {
 
   @Option(
-    name = "build_event_text_file",
-    oldName = "experimental_build_event_text_file",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "If non-empty, write a textual representation of the build event protocol to that file"
-  )
+      name = "build_event_text_file",
+      oldName = "experimental_build_event_text_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If non-empty, write a textual representation of the build event protocol to that file")
   public String buildEventTextFile;
 
   @Option(
-    name = "build_event_binary_file",
-    oldName = "experimental_build_event_binary_file",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "If non-empty, write a varint delimited binary representation of representation of the"
-            + " build event protocol to that file."
-  )
+      name = "build_event_binary_file",
+      oldName = "experimental_build_event_binary_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If non-empty, write a varint delimited binary representation of representation of the"
+              + " build event protocol to that file.")
   public String buildEventBinaryFile;
 
   @Option(
-    name = "build_event_json_file",
-    oldName = "experimental_build_event_json_file",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "If non-empty, write a JSON serialisation of the build event protocol to that file."
-  )
+      name = "build_event_json_file",
+      oldName = "experimental_build_event_json_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "If non-empty, write a JSON serialisation of the build event protocol to that file.")
   public String buildEventJsonFile;
 
   @Option(
-    name = "build_event_text_file_path_conversion",
-    oldName = "experimental_build_event_text_file_path_conversion",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "Convert paths in the text file representation of the build event protocol to more "
-            + "globally valid URIs whenever possible; if disabled, the file:// uri scheme will "
-            + "always be used"
-  )
+      name = "build_event_text_file_path_conversion",
+      oldName = "experimental_build_event_text_file_path_conversion",
+      defaultValue = "true",
+      deprecationWarning =
+          "The flag is no longer supported and will be removed in a future release.",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "This flag has no effect and will be deprecated in a future release.")
   public boolean buildEventTextFilePathConversion;
 
   @Option(
-    name = "build_event_binary_file_path_conversion",
-    oldName = "experimental_build_event_binary_file_path_conversion",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "Convert paths in the binary file representation of the build event protocol to more "
-            + "globally valid URIs whenever possible; if disabled, the file:// uri scheme will "
-            + "always be used"
-  )
+      name = "build_event_binary_file_path_conversion",
+      oldName = "experimental_build_event_binary_file_path_conversion",
+      defaultValue = "true",
+      deprecationWarning =
+          "The flag is no longer supported and will be removed in a future release.",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "This flag has no effect and will be deprecated in a future release.")
   public boolean buildEventBinaryFilePathConversion;
 
   @Option(
-    name = "experimental_build_event_json_file_path_conversion",
-    oldName = "build_event_json_file_path_conversion",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "Convert paths in the json file representation of the build event protocol to more "
-            + "globally valid URIs whenever possible; if disabled, the file:// uri scheme will "
-            + "always be used"
-  )
+      name = "experimental_build_event_json_file_path_conversion",
+      oldName = "build_event_json_file_path_conversion",
+      defaultValue = "true",
+      deprecationWarning =
+          "The flag is no longer supported and will be removed in a future release.",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "This flag has no effect and will be deprecated in a future release.")
   public boolean buildEventJsonFilePathConversion;
 
   @Option(
-    name = "build_event_publish_all_actions",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Whether all actions should be published."
-  )
+      name = "build_event_publish_all_actions",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Whether all actions should be published.")
   public boolean publishAllActions;
 
   @Option(
@@ -107,12 +98,12 @@ public class BuildEventStreamOptions extends OptionsBase {
       defaultValue = "-1",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "The maximum number of entries for a single named_set_of_files event; values smaller "
-          + "than 2 are ignored and no event splitting is performed. This is intended for limiting "
-          + "the maximum event size in the build event protocol, although it does not directly "
-          + "control event size. The total event size is a function of the structure of the set "
-          + "as well as the file and uri lengths, which may in turn depend on the hash function."
-  )
+      help =
+          "The maximum number of entries for a single named_set_of_files event; values smaller "
+              + "than 2 are ignored and no event splitting is performed. This is intended for limiting "
+              + "the maximum event size in the build event protocol, although it does not directly "
+              + "control event size. The total event size is a function of the structure of the set "
+              + "as well as the file and uri lengths, which may in turn depend on the hash function.")
   public int maxNamedSetEntries;
 
   // TODO(ruperts): Remove these public getter methods for consistency with other options classes?
@@ -126,17 +117,5 @@ public class BuildEventStreamOptions extends OptionsBase {
 
   public String getBuildEventJsonFile() {
     return buildEventJsonFile;
-  }
-
-  public boolean getBuildEventTextFilePathConversion() {
-    return buildEventTextFilePathConversion;
-  }
-
-  public boolean getBuildEventBinaryFilePathConversion() {
-    return buildEventBinaryFilePathConversion;
-  }
-
-  public boolean getBuildEventJsonFilePathConversion() {
-    return buildEventJsonFilePathConversion;
   }
 }

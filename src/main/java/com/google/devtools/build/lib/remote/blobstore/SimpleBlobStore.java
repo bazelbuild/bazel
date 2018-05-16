@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.remote.blobstore;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
+import javax.annotation.Nullable;
 
 /**
  * An interface for storing BLOBs each one indexed by a string (hash in hexadecimal).
@@ -54,7 +56,8 @@ public interface SimpleBlobStore {
    *
    * <p>The caller is responsible to close {@code in}.
    */
-  void put(String key, long length, InputStream in) throws IOException, InterruptedException;
+  @Nullable
+  URI put(String key, long length, InputStream in) throws IOException, InterruptedException;
 
   /** Uploads a bytearray BLOB (as {@code in}) indexed by {@code key} to the Action Cache. */
   void putActionResult(String actionKey, byte[] in) throws IOException, InterruptedException;

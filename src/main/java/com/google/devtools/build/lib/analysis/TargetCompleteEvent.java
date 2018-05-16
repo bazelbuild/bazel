@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
+import java.util.Set;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -275,6 +276,19 @@ public final class TargetCompleteEvent
       String uri = converters.pathConverter().apply(artifact.getPath());
       builder.addImportantOutput(File.newBuilder().setName(name).setUri(uri).build());
     }
+  }
+
+  @Override
+  public Set<Path> referencedArtifacts() {
+    ImmutableSet.Builder<Path> builder = ImmutableSet.builder();
+    for (ArtifactsInOutputGroup group : outputs) {
+      if (group.areImportant()) {
+        for (Artifact artifact : group.getArtifacts()) {
+          builder.add(artifact.getPath());
+        }
+      }
+    }
+    return builder.build();
   }
 
   @Override

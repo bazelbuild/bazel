@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSet.Builder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -25,7 +26,9 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
+import java.util.Set;
 
 /**
  * A {@link BuildEvent} introducing a set of artifacts to be referred to later by its name. Those
@@ -52,13 +55,28 @@ class NamedArtifactGroup implements BuildEvent {
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
+  public Set<Path> referencedArtifacts() {
+    ImmutableSet.Builder<Path> artifacts = ImmutableSet.builder();
+    for (Artifact artifact : view.directs()) {
+      if (artifact.isMiddlemanArtifact()) {
+        continue;
+      }
+      artifacts.add(artifact.getPath());
+    }
+    return artifacts.build();
+  }
+
+  @Override
+    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     PathConverter pathConverter = converters.pathConverter();
     ArtifactGroupNamer namer = converters.artifactGroupNamer();
 
     BuildEventStreamProtos.NamedSetOfFiles.Builder builder =
         BuildEventStreamProtos.NamedSetOfFiles.newBuilder();
     for (Artifact artifact : view.directs()) {
+      if (artifact.isMiddlemanArtifact()) {
+        continue;
+      }
       String name = artifact.getRootRelativePathString();
       String uri = pathConverter.apply(artifact.getPath());
       builder.addFiles(BuildEventStreamProtos.File.newBuilder().setName(name).setUri(uri));

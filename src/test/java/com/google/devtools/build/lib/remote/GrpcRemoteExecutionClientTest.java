@@ -26,6 +26,8 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -94,8 +96,11 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.concurrent.Executors;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -127,6 +132,8 @@ public class GrpcRemoteExecutionClientTest {
   private RemoteSpawnRunner client;
   private FileOutErr outErr;
   private Server fakeServer;
+
+  private static ListeningScheduledExecutorService retryService;
 
   private final SpawnExecutionContext simplePolicy =
       new SpawnExecutionContext() {
@@ -181,6 +188,11 @@ public class GrpcRemoteExecutionClientTest {
           // TODO(ulfjack): Test that the right calls are made.
         }
       };
+
+  @BeforeClass
+  public static void beforeEverything() {
+    retryService = MoreExecutors.listeningDecorator(Executors.newSingleThreadScheduledExecutor());
+  }
 
   @Before
   public final void setUp() throws Exception {
@@ -244,8 +256,16 @@ public class GrpcRemoteExecutionClientTest {
         new GrpcRemoteExecutor(channel, null, options.remoteTimeout, retrier);
     CallCredentials creds =
         GoogleAuthUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            options.remoteInstanceName,
+            channel,
+            creds,
+            options.remoteTimeout,
+            retrier,
+            retryService);
     GrpcRemoteCache remoteCache =
-        new GrpcRemoteCache(channel, creds, options, retrier, DIGEST_UTIL);
+        new GrpcRemoteCache(channel, creds, options, retrier, DIGEST_UTIL, uploader);
     client =
         new RemoteSpawnRunner(
             execRoot,
@@ -266,6 +286,11 @@ public class GrpcRemoteExecutionClientTest {
   public void tearDown() throws Exception {
     fakeServer.shutdownNow();
     fakeServer.awaitTermination();
+  }
+
+  @AfterClass
+  public static void afterEverything() {
+    retryService.shutdownNow();
   }
 
   @Test

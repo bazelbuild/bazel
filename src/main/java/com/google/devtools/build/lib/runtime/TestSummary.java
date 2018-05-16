@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.analysis.AliasProvider;
@@ -40,6 +41,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -490,7 +492,19 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
+  public Set<Path> referencedArtifacts() {
+    ImmutableSet.Builder<Path> artifacts = ImmutableSet.builder();
+    for (Path path : getFailedLogs()) {
+      artifacts.add(path);
+    }
+    for (Path path : getPassedLogs()) {
+      artifacts.add(path);
+    }
+    return artifacts.build();
+  }
+
+  @Override
+    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     PathConverter pathConverter = converters.pathConverter();
     BuildEventStreamProtos.TestSummary.Builder summaryBuilder =
         BuildEventStreamProtos.TestSummary.newBuilder()

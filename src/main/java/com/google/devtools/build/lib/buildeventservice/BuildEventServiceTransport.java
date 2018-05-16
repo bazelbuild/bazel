@@ -18,8 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.devtools.build.lib.events.EventKind.ERROR;
 import static com.google.devtools.build.lib.events.EventKind.INFO;
-import static com.google.devtools.build.lib.events.EventKind.WARNING;
-import static com.google.devtools.build.v1.BuildEvent.EventCase.COMPONENT_STREAM_FINISHED;
 import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_FAILED;
 import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_SUCCEEDED;
 import static com.google.devtools.build.v1.BuildStatus.Result.UNKNOWN_STATUS;
@@ -27,19 +25,18 @@ import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
+import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent.PayloadCase;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildFinished;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.Clock;
@@ -51,13 +48,16 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.v1.BuildStatus.Result;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import com.google.protobuf.Any;
 import io.grpc.Status;
+import java.io.IOException;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
@@ -69,6 +69,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -90,18 +92,17 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   private final ListeningExecutorService uploaderExecutorService;
   private final Duration uploadTimeout;
   private final boolean publishLifecycleEvents;
-  private final boolean bestEffortUpload;
   private final BuildEventServiceClient besClient;
   private final BuildEventServiceProtoUtil besProtoUtil;
   private final ModuleEnvironment moduleEnvironment;
   private final EventHandler commandLineReporter;
   private final BuildEventProtocolOptions protocolOptions;
-  private final PathConverter pathConverter;
+  private final BuildEventArtifactUploader artifactUploader;
   private final Sleeper sleeper;
   /** Contains all pendingAck events that might be retried in case of failures. */
-  private ConcurrentLinkedDeque<PublishBuildToolEventStreamRequest> pendingAck;
+  private ConcurrentLinkedDeque<OrderedBuildEvent> pendingAck;
   /** Contains all events should be sent ordered by sequence number. */
-  private final BlockingDeque<PublishBuildToolEventStreamRequest> pendingSend;
+  private final BlockingDeque<OrderedBuildEvent> pendingSend;
   /** Holds the result status of the BuildEventStreamProtos BuildFinished event. */
   private Result invocationResult;
   /** Used to block until all events have been uploaded. */
@@ -120,12 +121,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
    * Returns the number of ACKs received since the last time {@link #publishEventStream()} was
    * retried due to a failure.
    */
-  private volatile int acksReceivedSinceLastRetry;
+  private final AtomicInteger acksReceivedSinceLastRetry = new AtomicInteger();
 
   public BuildEventServiceTransport(
       BuildEventServiceClient besClient,
       Duration uploadTimeout,
-      boolean bestEffortUpload,
       boolean publishLifecycleEvents,
       String buildRequestId,
       String invocationId,
@@ -133,20 +133,31 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       ModuleEnvironment moduleEnvironment,
       Clock clock,
       BuildEventProtocolOptions protocolOptions,
-      PathConverter pathConverter,
       EventHandler commandLineReporter,
       @Nullable String projectId,
-      Set<String> keywords) {
-    this(besClient, uploadTimeout, bestEffortUpload, publishLifecycleEvents, buildRequestId,
-        invocationId, command, moduleEnvironment, clock, protocolOptions, pathConverter,
-        commandLineReporter, projectId, keywords, new JavaSleeper());
+      Set<String> keywords,
+      BuildEventArtifactUploader artifactUploader) {
+    this(
+        besClient,
+        uploadTimeout,
+        publishLifecycleEvents,
+        buildRequestId,
+        invocationId,
+        command,
+        moduleEnvironment,
+        clock,
+        protocolOptions,
+        commandLineReporter,
+        projectId,
+        keywords,
+        artifactUploader,
+        new JavaSleeper());
   }
 
   @VisibleForTesting
   public BuildEventServiceTransport(
       BuildEventServiceClient besClient,
       Duration uploadTimeout,
-      boolean bestEffortUpload,
       boolean publishLifecycleEvents,
       String buildRequestId,
       String invocationId,
@@ -154,14 +165,15 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       ModuleEnvironment moduleEnvironment,
       Clock clock,
       BuildEventProtocolOptions protocolOptions,
-      PathConverter pathConverter,
       EventHandler commandLineReporter,
       @Nullable String projectId,
       Set<String> keywords,
+      BuildEventArtifactUploader artifactUploader,
       Sleeper sleeper) {
     this.besClient = besClient;
-    this.besProtoUtil = new BuildEventServiceProtoUtil(
-        buildRequestId, invocationId, projectId, command, clock, keywords);
+    this.besProtoUtil =
+        new BuildEventServiceProtoUtil(
+            buildRequestId, invocationId, projectId, command, clock, keywords);
     this.publishLifecycleEvents = publishLifecycleEvents;
     this.moduleEnvironment = moduleEnvironment;
     this.commandLineReporter = commandLineReporter;
@@ -174,10 +186,9 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     // TODO(buchgr): Fix it.
     this.uploaderExecutorService = listeningDecorator(Executors.newFixedThreadPool(2));
     this.protocolOptions = protocolOptions;
-    this.pathConverter = pathConverter;
     this.invocationResult = UNKNOWN_STATUS;
     this.uploadTimeout = uploadTimeout;
-    this.bestEffortUpload = bestEffortUpload;
+    this.artifactUploader = artifactUploader;
     this.sleeper = sleeper;
   }
 
@@ -187,13 +198,18 @@ public class BuildEventServiceTransport implements BuildEventTransport {
 
   @Override
   public ListenableFuture<Void> close() {
-    return close(/*now=*/false);
+    return close(/*now=*/ false);
   }
 
   @Override
   @SuppressWarnings("FutureReturnValueIgnored")
   public void closeNow() {
-    close(/*now=*/true);
+    close(/*now=*/ true);
+  }
+
+  @Override
+  public TransportKind kind() {
+    return besClient.transportKind();
   }
 
   private synchronized ListenableFuture<Void> close(boolean now) {
@@ -221,7 +237,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     uploaderExecutorService.execute(
         () -> {
           try {
-            sendOrderedBuildEvent(besProtoUtil.streamFinished());
+            sendOrderedBuildEvent(new LastOrderedBuildEvent(besProtoUtil.nextSequenceNumber()));
 
             if (errorsReported) {
               // If we encountered errors before and have already reported them, then we should
@@ -229,33 +245,17 @@ public class BuildEventServiceTransport implements BuildEventTransport {
               return;
             }
 
-            if (bestEffortUpload) {
-              // TODO(buchgr): The code structure currently doesn't allow to enforce a timeout for
-              // best effort upload.
-              if (!uploadComplete.isDone()) {
-                report(INFO, "Asynchronous Build Event Protocol upload.");
+            report(INFO, "Waiting for Build Event Protocol upload to finish.");
+            try {
+              if (Duration.ZERO.equals(uploadTimeout)) {
+                uploadComplete.get();
               } else {
-                Throwable uploadError = fromFuture(uploadComplete);
-
-                if (uploadError != null) {
-                  report(WARNING, UPLOAD_FAILED_MESSAGE, uploadError.getMessage());
-                } else {
-                  report(INFO, UPLOAD_SUCCEEDED_MESSAGE);
-                }
+                uploadComplete.get(uploadTimeout.toMillis(), MILLISECONDS);
               }
-            } else {
-              report(INFO, "Waiting for Build Event Protocol upload to finish.");
-              try {
-                if (Duration.ZERO.equals(uploadTimeout)) {
-                  uploadComplete.get();
-                } else {
-                  uploadComplete.get(uploadTimeout.toMillis(), MILLISECONDS);
-                }
-                report(INFO, UPLOAD_SUCCEEDED_MESSAGE);
-              } catch (Exception e) {
-                uploadComplete.cancel(true);
-                reportErrorAndFailBuild(e);
-              }
+              report(INFO, UPLOAD_SUCCEEDED_MESSAGE);
+            } catch (Exception e) {
+              uploadComplete.cancel(true);
+              reportErrorAndFailBuild(e);
             }
           } finally {
             shutdownFuture.set(null);
@@ -291,33 +291,18 @@ public class BuildEventServiceTransport implements BuildEventTransport {
 
   @Override
   public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
-    BuildEventStreamProtos.BuildEvent eventProto = event.asStreamProto(
-        new BuildEventContext() {
-          @Override
-          public PathConverter pathConverter() {
-            return pathConverter;
-          }
-
-          @Override
-          public ArtifactGroupNamer artifactGroupNamer() {
-            return namer;
-          }
-
-          @Override
-          public BuildEventProtocolOptions getOptions() {
-            return protocolOptions;
-          }
-        });
-    if (PayloadCase.FINISHED.equals(eventProto.getPayloadCase())) {
-      BuildFinished finished = eventProto.getFinished();
-      if (finished.hasExitCode() && finished.getExitCode().getCode() == 0) {
+    if (event instanceof BuildCompletingEvent) {
+      BuildCompletingEvent completingEvent = (BuildCompletingEvent) event;
+      if (completingEvent.getExitCode() != null
+          && completingEvent.getExitCode().getNumericExitCode() == 0) {
         invocationResult = COMMAND_SUCCEEDED;
       } else {
         invocationResult = COMMAND_FAILED;
       }
     }
 
-    sendOrderedBuildEvent(besProtoUtil.bazelEvent(Any.pack(eventProto)));
+    sendOrderedBuildEvent(
+        new DefaultOrderedBuildEvent(event, namer, besProtoUtil.nextSequenceNumber()));
   }
 
   private String errorMessageFromException(Throwable t) {
@@ -335,10 +320,10 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       }
       return message;
     } else if (t instanceof ExecutionException) {
-      message = format(UPLOAD_FAILED_MESSAGE,
-          t.getCause() != null
-              ? besClient.userReadableError(t.getCause())
-              : t.getMessage());
+      message =
+          format(
+              UPLOAD_FAILED_MESSAGE,
+              t.getCause() != null ? besClient.userReadableError(t.getCause()) : t.getMessage());
       return message;
     } else {
       message = format(UPLOAD_FAILED_MESSAGE, besClient.userReadableError(t));
@@ -347,13 +332,12 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   }
 
   private void reportErrorAndFailBuild(Throwable t) {
-    checkState(!bestEffortUpload);
-
     String message = errorMessageFromException(t);
 
     report(ERROR, message);
-    moduleEnvironment.exit(new AbruptExitException(
-        "BuildEventServiceTransport internal error", ExitCode.PUBLISH_ERROR));
+    moduleEnvironment.exit(
+        new AbruptExitException(
+            "BuildEventServiceTransport internal error", ExitCode.PUBLISH_ERROR));
   }
 
   private void maybeReportUploadError() {
@@ -364,22 +348,17 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     Throwable uploadError = fromFuture(uploadComplete);
     if (uploadError != null) {
       errorsReported = true;
-      if (bestEffortUpload) {
-        report(WARNING, UPLOAD_FAILED_MESSAGE, uploadError.getMessage());
-      } else {
-        reportErrorAndFailBuild(uploadError);
-      }
+      reportErrorAndFailBuild(uploadError);
     }
   }
 
-  private synchronized void sendOrderedBuildEvent(
-      PublishBuildToolEventStreamRequest serialisedEvent) {
+  private synchronized void sendOrderedBuildEvent(OrderedBuildEvent evtAndNamer) {
     if (uploadComplete != null && uploadComplete.isDone()) {
       maybeReportUploadError();
       return;
     }
 
-    pendingSend.add(serialisedEvent);
+    pendingSend.add(evtAndNamer);
     if (uploadComplete == null) {
       uploadComplete = uploaderExecutorService.submit(new BuildEventServiceUpload());
     }
@@ -389,9 +368,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     return invocationResult;
   }
 
-  /**
-   * Method responsible for sending all requests to BuildEventService.
-   */
+  /** Method responsible for sending all requests to BuildEventService. */
   private class BuildEventServiceUpload implements Callable<Void> {
     @Override
     public Void call() throws Exception {
@@ -468,7 +445,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
    */
   private void publishEventStream() throws Exception {
     // Reschedule unacked messages if required, keeping its original order.
-    PublishBuildToolEventStreamRequest unacked;
+    OrderedBuildEvent unacked;
     while ((unacked = pendingAck.pollLast()) != null) {
       pendingSend.addFirst(unacked);
     }
@@ -478,35 +455,57 @@ public class BuildEventServiceTransport implements BuildEventTransport {
 
   /** Method responsible for a single Streaming RPC. */
   private void publishEventStream(
-      final ConcurrentLinkedDeque<PublishBuildToolEventStreamRequest> pendingAck,
-      final BlockingDeque<PublishBuildToolEventStreamRequest> pendingSend,
+      final ConcurrentLinkedDeque<OrderedBuildEvent> pendingAck,
+      final BlockingDeque<OrderedBuildEvent> pendingSend,
       final BuildEventServiceClient besClient)
       throws Exception {
     logger.log(
         Level.INFO,
         String.format(
             "Starting PublishBuildToolEventStream() RPC pendingSendCount=%s", pendingSend.size()));
-    ListenableFuture<Status> streamDone = besClient
-        .openStream(ackCallback(pendingAck, besClient));
+    ListenableFuture<Status> streamDone = besClient.openStream(ackCallback(pendingAck, besClient));
     logger.log(
         Level.INFO,
         String.format(
             "Started PublishBuildToolEventStream() RPC pendingSendCount=%s", pendingSend.size()));
     try {
-      @Nullable PublishBuildToolEventStreamRequest event;
+      @Nullable OrderedBuildEvent orderedBuildEvent;
       do {
-        event = pendingSend.pollFirst(STREAMING_RPC_POLL_IN_SECS, TimeUnit.SECONDS);
-        if (event != null) {
-          pendingAck.add(event);
-          besClient.sendOverStream(event);
+        orderedBuildEvent = pendingSend.pollFirst(STREAMING_RPC_POLL_IN_SECS, TimeUnit.SECONDS);
+        if (orderedBuildEvent != null) {
+          final PathConverter pathConverter;
+          try {
+            pathConverter = artifactUploader.upload(orderedBuildEvent.referencedArtifacts());
+          } catch (IOException e) {
+            logger.log(
+                Level.WARNING,
+                String.format(
+                    "Aborting publishBuildToolEventStream RPC because of a failure to"
+                        + "upload referenced artifacts: %s",
+                    e.getMessage()),
+                e);
+            besClient.abortStream(Status.INTERNAL.augmentDescription(e.getMessage()));
+            throw e;
+          } catch (InterruptedException e) {
+            // By convention the interrupted flag should have been cleared,
+            // but just to be sure clear it.
+            Thread.interrupted();
+            String additionalDetails = "Uploading referenced artifacts";
+            besClient.abortStream(Status.CANCELLED.augmentDescription(additionalDetails));
+            throw e;
+          }
+          pendingAck.add(orderedBuildEvent);
+          besClient.sendOverStream(orderedBuildEvent.serialize(pathConverter));
         }
+
         checkState(besClient.isStreamActive(), "Stream was closed prematurely.");
-      } while (!isLastEvent(event));
+      } while (orderedBuildEvent != null && !orderedBuildEvent.isLastEvent());
       logger.log(
           Level.INFO,
           String.format(
               "Will end publishEventStream() isLastEvent: %s isStreamActive: %s",
-              isLastEvent(event), besClient.isStreamActive()));
+              orderedBuildEvent != null && orderedBuildEvent.isLastEvent(),
+              besClient.isStreamActive()));
     } catch (InterruptedException e) {
       // By convention the interrupted flag should have been cleared,
       // but just to be sure clear it.
@@ -539,27 +538,17 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       throw e;
     } catch (TimeoutException e) {
       String additionalDetail = "Build Event Protocol upload timed out waiting for ACK messages";
-      logger
-          .log(Level.WARNING, "Cancelling publishBuildToolEventStream RPC: " + additionalDetail);
+      logger.log(Level.WARNING, "Cancelling publishBuildToolEventStream RPC: " + additionalDetail);
       besClient.abortStream(Status.CANCELLED.augmentDescription(additionalDetail));
       throw e;
     }
   }
 
-  private static boolean isLastEvent(@Nullable PublishBuildToolEventStreamRequest event) {
-    return event != null
-        && event.getOrderedBuildEvent().getEvent().getEventCase() == COMPONENT_STREAM_FINISHED;
-  }
-
-  @SuppressWarnings("NonAtomicVolatileUpdate")
   private Function<PublishBuildToolEventStreamResponse, Void> ackCallback(
-      final Deque<PublishBuildToolEventStreamRequest> pendingAck,
-      final BuildEventServiceClient besClient) {
+      final Deque<OrderedBuildEvent> pendingAck, final BuildEventServiceClient besClient) {
     return ack -> {
-      long pendingSeq =
-          pendingAck.isEmpty()
-              ? -1
-              : pendingAck.peekFirst().getOrderedBuildEvent().getSequenceNumber();
+      Preconditions.checkNotNull(ack);
+      long pendingSeq = pendingAck.isEmpty() ? -1 : pendingAck.peekFirst().getSequenceNumber();
       long ackSeq = ack.getSequenceNumber();
       if (pendingSeq != ackSeq) {
         besClient.abortStream(
@@ -567,20 +556,17 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                 format("Expected ACK %s but was %s.", pendingSeq, ackSeq)));
         return null;
       }
-      PublishBuildToolEventStreamRequest event = pendingAck.removeFirst();
-      if (isLastEvent(event)) {
+      OrderedBuildEvent event = pendingAck.removeFirst();
+      if (event.isLastEvent()) {
         logger.log(Level.INFO, "Last ACK received.");
         besClient.closeStream();
       }
-      acksReceivedSinceLastRetry++;
+      acksReceivedSinceLastRetry.incrementAndGet();
       return null;
     };
   }
 
-  /**
-   * Executes a {@link Callable} retrying on exception thrown.
-   */
-  // TODO(eduardocolaco): Implement transient/persistent failures
+  /** Executes a {@link Callable} retrying on exception thrown. */
   private void retryOnException(Callable<?> c) throws Exception {
     final int maxRetries = 5;
     final long initialDelayMillis = 0;
@@ -589,16 +575,17 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     int tries = 0;
     while (tries <= maxRetries) {
       try {
-        acksReceivedSinceLastRetry = 0;
+        acksReceivedSinceLastRetry.set(0);
         c.call();
         lastKnownError = null;
         return;
       } catch (InterruptedException e) {
         throw e;
       } catch (Exception e) {
-        if (acksReceivedSinceLastRetry > 0) {
-          logger.fine(String.format("ACKs received since last retry %d.",
-              acksReceivedSinceLastRetry));
+        if (acksReceivedSinceLastRetry.get() > 0) {
+          logger.fine(
+              String.format(
+                  "ACKs received since last retry %d.", acksReceivedSinceLastRetry.get()));
           tries = 0;
         }
         tries++;
@@ -633,6 +620,96 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       return null;
     } catch (Throwable t) {
       return t;
+    }
+  }
+
+  private interface OrderedBuildEvent {
+    boolean isLastEvent();
+
+    int getSequenceNumber();
+
+    Set<Path> referencedArtifacts();
+
+    PublishBuildToolEventStreamRequest serialize(PathConverter pathConverter);
+  }
+
+  private class DefaultOrderedBuildEvent implements OrderedBuildEvent {
+    private final BuildEvent event;
+    private final ArtifactGroupNamer artifactGroupNamer;
+    private final int sequenceNumber;
+
+    DefaultOrderedBuildEvent(
+        BuildEvent event, ArtifactGroupNamer artifactGroupNamer, int sequenceNumber) {
+      this.event = Preconditions.checkNotNull(event);
+      this.artifactGroupNamer = Preconditions.checkNotNull(artifactGroupNamer);
+      this.sequenceNumber = sequenceNumber;
+    }
+
+    @Override
+    public boolean isLastEvent() {
+      return false;
+    }
+
+    @Override
+    public int getSequenceNumber() {
+      return sequenceNumber;
+    }
+
+    @Override
+    public Set<Path> referencedArtifacts() {
+      return event.referencedArtifacts();
+    }
+
+    @Override
+    public PublishBuildToolEventStreamRequest serialize(PathConverter pathConverter) {
+      BuildEventStreamProtos.BuildEvent eventProto =
+          event.asStreamProto(
+              new BuildEventContext() {
+                @Override
+                public PathConverter pathConverter() {
+                  return pathConverter;
+                }
+
+                @Override
+                public ArtifactGroupNamer artifactGroupNamer() {
+                  return artifactGroupNamer;
+                }
+
+                @Override
+                public BuildEventProtocolOptions getOptions() {
+                  return protocolOptions;
+                }
+              });
+      return besProtoUtil.bazelEvent(Any.pack(eventProto), sequenceNumber);
+    }
+  }
+
+  private class LastOrderedBuildEvent implements OrderedBuildEvent {
+
+    private final int sequenceNumber;
+
+    LastOrderedBuildEvent(int sequenceNumber) {
+      this.sequenceNumber = sequenceNumber;
+    }
+
+    @Override
+    public boolean isLastEvent() {
+      return true;
+    }
+
+    @Override
+    public int getSequenceNumber() {
+      return sequenceNumber;
+    }
+
+    @Override
+    public Set<Path> referencedArtifacts() {
+      return Collections.emptySet();
+    }
+
+    @Override
+    public PublishBuildToolEventStreamRequest serialize(PathConverter pathConverter) {
+      return besProtoUtil.streamFinished(sequenceNumber);
     }
   }
 }

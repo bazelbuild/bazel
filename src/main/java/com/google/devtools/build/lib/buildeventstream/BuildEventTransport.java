@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import java.io.IOException;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
@@ -27,6 +28,12 @@ import javax.annotation.concurrent.ThreadSafe;
 @ThreadSafe
 public interface BuildEventTransport {
 
+  enum TransportKind {
+    BEP_FILE,
+    STUBBY,
+    BES_GRPC
+  }
+
   /**
    * The name of this transport as can be displayed to a user.
    */
@@ -39,16 +46,14 @@ public interface BuildEventTransport {
    * <p>In case the transport is in error, this method still needs to be able to accept build
    * events. It may choose to ignore them, though.
    *
-   * <p>This method should not throw any exceptions.
-   *
    * @param event the event to sendBuildEvent.
    */
   void sendBuildEvent(BuildEvent event, ArtifactGroupNamer namer);
 
   /**
    * Initiates a close. Callers may listen to the returned future to be notified when the close
-   * is complete i.e. wait for all build events to be sent. The future does not contain any
-   * information about possible transport errors.
+   * is complete i.e. wait for all build events to be sent. The future may contain any information
+   * about possible transport errors.
    *
    * <p>This method might be called multiple times without any effect after the first call.
    *
@@ -65,4 +70,6 @@ public interface BuildEventTransport {
    * <p>This method should not throw any exceptions.
    */
   void closeNow();
+
+  TransportKind kind();
 }

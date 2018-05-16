@@ -65,27 +65,24 @@ public class TracingMetadataUtils {
   }
 
   /**
-   * Fetches a {@link RequestMetadata} defined on the current context.
-   *
-   * @throws {@link IllegalStateException} when the metadata is not defined in the current context.
+   * Fetches a {@link RequestMetadata} defined on the current context, or {@code null} if none
+   * were defined.
    */
+  @Nullable
   public static RequestMetadata fromCurrentContext() {
-    RequestMetadata metadata = CONTEXT_KEY.get();
-    if (metadata == null) {
-      throw new IllegalStateException("RequestMetadata not set in current context.");
-    }
-    return metadata;
+    return CONTEXT_KEY.get();
   }
 
   /**
    * Creates a {@link Metadata} containing the {@link RequestMetadata} defined on the current
    * context.
-   *
-   * @throws {@link IllegalStateException} when the metadata is not defined in the current context.
    */
   public static Metadata headersFromCurrentContext() {
     Metadata headers = new Metadata();
-    headers.put(METADATA_KEY, fromCurrentContext());
+    RequestMetadata metadata = fromCurrentContext();
+    if (metadata != null) {
+      headers.put(METADATA_KEY, metadata);
+    }
     return headers;
   }
 

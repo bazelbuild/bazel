@@ -11,8 +11,12 @@ java_library(
     srcs = glob(["*.java"]),
     tags = ["bazel"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
+        "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_java_proto",
     ],
 )

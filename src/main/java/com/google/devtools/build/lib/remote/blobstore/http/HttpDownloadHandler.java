@@ -135,7 +135,7 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
         new DefaultFullHttpRequest(
             HttpVersion.HTTP_1_1,
             HttpMethod.GET,
-            constructPath(request.uri(), request.hash(), request.casDownload()));
+            Utils.constructPath(request.uri(), request.hash(), request.casDownload()));
     httpRequest.headers().set(HttpHeaderNames.HOST, constructHost(request.uri()));
     httpRequest.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
     httpRequest.headers().set(HttpHeaderNames.ACCEPT, "*/*");
