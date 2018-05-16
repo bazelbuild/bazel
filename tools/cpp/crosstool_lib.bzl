@@ -223,17 +223,17 @@ def get_features_to_appear_last(platform):
       feature(
           "compiler_output_flags", [
               flag_set(COMPILE_ACTIONS,[
-                flag_group(
-                    flags("-o", "%{output_object_file}"),
-                    expand_if_all_available=["output_object_file"],
-                  ),
                   flag_group(
-                    flags("-S", "-o", "%{output_assembly_file}"),
+                    flags("-S"),
                     expand_if_all_available=["output_assembly_file"],
                   ),
                   flag_group(
-                    flags("-E", "-o", "%{output_preprocess_file}"),
+                    flags("-E"),
                     expand_if_all_available=["output_preprocess_file"],
+                  ),
+                  flag_group(
+                    flags("-o", "%{output_file}"),
+                    expand_if_all_available=["output_file"],
                   ),
               ])
           ]

@@ -1166,21 +1166,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -2812,21 +2808,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -4462,21 +4454,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -6132,21 +6120,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -7790,21 +7774,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -9428,21 +9408,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -11066,21 +11042,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -12724,21 +12696,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -14370,21 +14338,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -16007,21 +15971,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }

@@ -327,15 +327,8 @@ toolchain {
     tool {
       tool_path: '%{msvc_ml_path}'
     }
-    flag_set {
-      expand_if_all_available: 'output_object_file'
-      flag_group {
-        flag: '/Fo%{output_object_file}'
-        flag: '/Zi'
-        flag: '/c'
-        flag: '%{source_file}'
-      }
-    }
+    implies: 'compiler_input_flags'
+    implies: 'compiler_output_flags'
     implies: 'nologo'
     implies: 'msvc_env'
     implies: 'sysroot'
@@ -347,31 +340,8 @@ toolchain {
     tool {
       tool_path: '%{msvc_cl_path}'
     }
-    flag_set {
-      flag_group {
-        flag: '/c'
-        flag: '%{source_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_object_file'
-      flag_group {
-        flag: '/Fo%{output_object_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_assembly_file'
-      flag_group {
-        flag: '/Fa%{output_assembly_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_preprocess_file'
-      flag_group {
-        flag: '/P'
-        flag: '/Fi%{output_preprocess_file}'
-      }
-    }
+    implies: 'compiler_input_flags'
+    implies: 'compiler_output_flags'
     implies: 'legacy_compile_flags'
     implies: 'nologo'
     implies: 'msvc_env'
@@ -387,31 +357,8 @@ toolchain {
     tool {
       tool_path: '%{msvc_cl_path}'
     }
-    flag_set {
-      flag_group {
-        flag: '/c'
-        flag: '%{source_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_object_file'
-      flag_group {
-        flag: '/Fo%{output_object_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_assembly_file'
-      flag_group {
-        flag: '/Fa%{output_assembly_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_preprocess_file'
-      flag_group {
-        flag: '/P'
-        flag: '/Fi%{output_preprocess_file}'
-      }
-    }
+    implies: 'compiler_input_flags'
+    implies: 'compiler_output_flags'
     implies: 'legacy_compile_flags'
     implies: 'nologo'
     implies: 'msvc_env'
@@ -1038,6 +985,65 @@ toolchain {
       flag_group {
         iterate_over: 'unfiltered_compile_flags'
         flag: '%{unfiltered_compile_flags}'
+      }
+    }
+  }
+
+  feature {
+    name: 'compiler_output_flags'
+    flag_set {
+      action: 'assemble'
+      flag_group {
+        expand_if_all_available: 'output_file'
+        expand_if_none_available: 'output_assembly_file'
+        expand_if_none_available: 'output_preprocess_file'
+        flag: '/Fo%{output_file}'
+        flag: '/Zi'
+      }
+    }
+    flag_set {
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
+      flag_group {
+        expand_if_all_available: 'output_file'
+        expand_if_none_available: 'output_assembly_file'
+        expand_if_none_available: 'output_preprocess_file'
+        flag: '/Fo%{output_file}'
+      }
+      flag_group {
+        expand_if_all_available: 'output_file'
+        expand_if_all_available: 'output_assembly_file'
+        flag: '/Fa%{output_file}'
+      }
+      flag_group {
+        expand_if_all_available: 'output_file'
+        expand_if_all_available: 'output_preprocess_file'
+        flag: '/P'
+        flag: '/Fi%{output_file}'
+      }
+    }
+  }
+
+  feature {
+    name: 'compiler_input_flags'
+    flag_set {
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
+      flag_group {
+        expand_if_all_available: 'source_file'
+        flag: '/c'
+        flag: '%{source_file}'
       }
     }
   }
