@@ -714,6 +714,26 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testZipperInclusionDependsOnFdoOptimization() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    writeDummyCcToolchain();
+    scratch.file("fdo/my_profile.afdo", "");
+    scratch.file(
+        "fdo/BUILD",
+        "exports_files(['my_profile.afdo'])",
+        "fdo_profile(name = 'fdo', profile = ':my_profile.profdata')");
+
+    useConfiguration();
+    assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isEmpty();
+
+    useConfiguration("-c", "opt", "--fdo_optimize=//fdo:my_profile.afdo");
+    assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isNotEmpty();
+
+    useConfiguration("-c", "opt", "--fdo_profile=//fdo:fdo");
+    assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isNotEmpty();
+  }
+
+  @Test
   public void testInlineCtoolchain_withoutToolchainResolution() throws Exception {
     scratch.file(
         "a/BUILD",

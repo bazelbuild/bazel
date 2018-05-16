@@ -890,21 +890,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     return cppToolchainInfo.isLLVMCompiler();
   }
 
-  /**
-   * Returns true if LLVM FDO Optimization should be applied for this configuration.
-   *
-   * <p>Deprecated: Use {@link CcToolchain#isLLVMOptimizedFdo(boolean, PathFragment)}
-   */
-  // TODO(b/64384912): Remove in favor of overload with isLLVMCompiler.
-  @Deprecated
-  public boolean shouldIncludeZipperInToolchain() {
-    return (cppOptions.getFdoOptimize() != null
-            && (CppFileTypes.LLVM_PROFILE.matches(cppOptions.getFdoOptimize())
-                || CppFileTypes.LLVM_PROFILE_RAW.matches(cppOptions.getFdoOptimize())
-                || (isLLVMCompiler() && cppOptions.getFdoOptimize().endsWith(".zip"))))
-        || (cppOptions.getFdoProfileLabel() != null);
-  }
-
   /** Returns true if LIPO optimization is implied by the flags of this build. */
   public boolean lipoOptimizationIsActivated() {
     return cppOptions.isLipoOptimization();

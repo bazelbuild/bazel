@@ -67,6 +67,16 @@ public final class CcToolchainRule implements RuleDefinition {
           null,
           (rule, attributes, cppConfig) -> cppConfig.getFdoProfileLabel());
 
+  /**
+   * Returns true if zipper should be loaded. We load the zipper executable if FDO optimization is
+   * enabled through --fdo_optimize or --fdo_profile
+   */
+  private static boolean shouldIncludeZipperInToolchain(CppConfiguration cppConfiguration) {
+    return cppConfiguration.getFdoOptimizeLabel() != null
+        || cppConfiguration.getFdoProfileLabel() != null
+        || cppConfiguration.getFdoPath() != null;
+  }
+
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     final Label zipper = env.getToolsLabel("//tools/zip:zipper");
@@ -137,9 +147,8 @@ public final class CcToolchainRule implements RuleDefinition {
                     LabelLateBoundDefault.fromTargetConfiguration(
                         CppConfiguration.class,
                         null,
-                        // TODO(b/69547565): Remove call to shouldIncludeZipperInToolchain
                         (rule, attributes, cppConfig) ->
-                            cppConfig.shouldIncludeZipperInToolchain() ? zipper : null)))
+                            shouldIncludeZipperInToolchain(cppConfig) ? zipper : null)))
         .add(attr(":libc_top", LABEL).value(LIBC_TOP))
         .add(attr(":fdo_optimize", LABEL).singleArtifact().value(FDO_OPTIMIZE_LABEL))
         .add(
