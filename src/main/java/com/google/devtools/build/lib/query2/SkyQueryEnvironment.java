@@ -986,6 +986,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       PathFragment currentPathFragment) {
     if (originalFileFragment.equals(currentPathFragment)
         && originalFileFragment.equals(Label.WORKSPACE_FILE_NAME)) {
+      // TODO(mschaller): this should not be checked at runtime. These are constants!
       Preconditions.checkState(
           Label.WORKSPACE_FILE_NAME.getParentDirectory().equals(PathFragment.EMPTY_FRAGMENT),
           Label.WORKSPACE_FILE_NAME);
@@ -995,9 +996,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
     PathFragment parentPathFragment = currentPathFragment.getParentDirectory();
     return parentPathFragment == null
-        ? ImmutableList.<SkyKey>of()
-        : ImmutableList.of(PackageLookupValue.key(
-            PackageIdentifier.createInMainRepo(parentPathFragment)));
+        ? ImmutableList.of()
+        : ImmutableList.of(
+            PackageLookupValue.key(PackageIdentifier.createInMainRepo(parentPathFragment)));
   }
 
   /**
@@ -1060,7 +1061,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return result;
   }
 
-  void getBuildFileTargetsForPackageKeysAndProcessViaCallback(
+  protected void getBuildFileTargetsForPackageKeysAndProcessViaCallback(
       Iterable<SkyKey> packageKeys, Callback<Target> callback)
       throws QueryException, InterruptedException {
     Set<PackageIdentifier> pkgIds =
@@ -1069,22 +1070,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
               .collect(toImmutableSet());
     packageSemaphore.acquireAll(pkgIds);
     try {
-      Iterable<SkyValue> packageValues = graph.getSuccessfulValues(packageKeys).values();
-      Iterable<Target> buildFileTargets = getBuildFileTargetsFromPackageValues(packageValues);
+      Iterable<Target> buildFileTargets =
+          Iterables.transform(
+              graph.getSuccessfulValues(packageKeys).values(),
+              skyValue -> ((PackageValue) skyValue).getPackage().getBuildFile());
       callback.process(buildFileTargets);
     } finally {
       packageSemaphore.releaseAll(pkgIds);
     }
-  }
-
-  protected Iterable<Target> getBuildFileTargetsFromPackageValues(
-      Iterable<SkyValue> packageValues) {
-    // TODO(laurentlb): Use streams?
-    return Iterables.transform(
-        Iterables.filter(
-            Iterables.transform(packageValues, skyValue -> ((PackageValue) skyValue).getPackage()),
-            pkg -> !pkg.containsErrors()),
-        Package::getBuildFile);
   }
 
   /**

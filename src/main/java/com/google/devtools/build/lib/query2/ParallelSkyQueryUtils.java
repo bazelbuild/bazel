@@ -208,11 +208,14 @@ public class ParallelSkyQueryUtils {
 
   /** A helper class that computes 'rbuildfiles(<blah>)' via BFS. */
   private static class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
+
     // Each target in the full output of 'rbuildfiles' corresponds to BUILD file InputFile of a
     // unique package. So the processResultsBatchSize we choose to pass to the ParallelVisitor ctor
     // influences how many packages each leaf task doing processPartialResults will have to
     // deal with at once. A value of 100 was chosen experimentally.
     private static final int PROCESS_RESULTS_BATCH_SIZE = 100;
+    private static final SkyKey EXTERNAL_PACKAGE_KEY =
+        PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
     private final SkyQueryEnvironment env;
 
     private RBuildFilesVisitor(
@@ -232,7 +235,7 @@ public class ParallelSkyQueryUtils {
         if (rdep.functionName().equals(SkyFunctions.PACKAGE)) {
           keysToUseForResult.add(rdep);
           // Every package has a dep on the external package, so we need to include those edges too.
-          if (rdep.equals(PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER))) {
+          if (rdep.equals(EXTERNAL_PACKAGE_KEY)) {
             keysToVisitNext.add(rdep);
           }
         } else if (!rdep.functionName().equals(SkyFunctions.PACKAGE_LOOKUP)
