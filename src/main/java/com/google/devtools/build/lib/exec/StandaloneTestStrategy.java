@@ -184,7 +184,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
       // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
       StringBuilder sb = new StringBuilder();
-      sb.append("Caught I/O exception:");
+      sb.append("Caught I/O exception: ").append(e.getMessage());
       for (Object s : e.getStackTrace()) {
         sb.append("\n\t").append(s);
       }
