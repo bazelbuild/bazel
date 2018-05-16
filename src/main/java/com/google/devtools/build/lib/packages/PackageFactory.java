@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -578,11 +577,7 @@ public final class PackageFactory {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
 
-    GlobList<String> globList = GlobList.captureResults(includes, excludes, matches);
-
-    // TODO(laurentlb): Get rid of globList type.
-    // Converting to ImmutableList will remove glob information from the list.
-    return MutableList.copyOf(env, ImmutableList.copyOf(globList));
+    return MutableList.copyOf(env, matches);
   }
 
   /**

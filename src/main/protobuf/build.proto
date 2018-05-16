@@ -173,11 +173,11 @@ message Attribute {
     repeated FilesetEntry fileset_list_value = 9;
     repeated LabelListDictEntry label_list_dict_value = 10;
     repeated StringListDictEntry string_list_dict_value = 11;
-    repeated GlobCriteria glob_criteria = 12;
     repeated int32 int_list_value = 13;
     repeated LabelDictUnaryEntry label_dict_unary_value = 15;
     repeated LabelKeyedStringDictEntry label_keyed_string_dict_value = 17;
 
+    repeated DEPRECATED_GlobCriteria DEPRECATED_glob_criteria = 12;
     repeated bytes DEPRECATED_string_dict_unary_value = 14;
   }
 
@@ -260,11 +260,6 @@ message Attribute {
   // If this is a string list dict, each entry will be stored here.
   repeated StringListDictEntry string_list_dict_value = 11;
 
-  // The glob criteria. This is non-empty if:
-  // 1. This attribute is a list of strings or labels, and,
-  // 2. It contained a glob() expression
-  repeated GlobCriteria glob_criteria = 16;
-
   // The value of the attribute has a list of int32 values
   repeated int32 int_list_value = 17;
 
@@ -279,6 +274,7 @@ message Attribute {
   // stored here.
   optional SelectorList selector_list = 21;
 
+  repeated DEPRECATED_GlobCriteria DEPRECATED_glob_criteria = 16;
   repeated bytes DEPRECATED_string_dict_unary_value = 18;
 }
 
@@ -543,7 +539,7 @@ message MakeVar {
   repeated MakeVarBinding binding = 2;
 }
 
-message GlobCriteria {
+message DEPRECATED_GlobCriteria {
   // List of includes (or items if this criteria did not come from a glob)
   repeated string include = 1;
 
@@ -566,4 +562,3 @@ message Event {
   optional Location DEPRECATED_location = 2;
   optional string message = 3;
 }
-

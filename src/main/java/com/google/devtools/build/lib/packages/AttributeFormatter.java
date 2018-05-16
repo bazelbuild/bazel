@@ -304,8 +304,6 @@ public class AttributeFormatter {
 
     void addFilesetListValue(Build.FilesetEntry.Builder builder);
 
-    void addGlobCriteria(Build.GlobCriteria.Builder builder);
-
     void addLabelDictUnaryValue(LabelDictUnaryEntry.Builder builder);
 
     void addLabelKeyedStringDictValue(LabelKeyedStringDictEntry.Builder builder);
@@ -355,11 +353,6 @@ public class AttributeFormatter {
     @Override
     public void addFilesetListValue(Build.FilesetEntry.Builder builder) {
       attributeBuilder.addFilesetListValue(builder);
-    }
-
-    @Override
-    public void addGlobCriteria(Build.GlobCriteria.Builder builder) {
-      attributeBuilder.addGlobCriteria(builder);
     }
 
     @Override
@@ -484,11 +477,6 @@ public class AttributeFormatter {
     }
 
     @Override
-    public void addGlobCriteria(Build.GlobCriteria.Builder builder) {
-      selectorEntryBuilder.addGlobCriteria(builder);
-    }
-
-    @Override
     public void addLabelDictUnaryValue(LabelDictUnaryEntry.Builder builder) {
       selectorEntryBuilder.addLabelDictUnaryValue(builder);
     }
@@ -544,4 +532,3 @@ public class AttributeFormatter {
     }
   }
 }
-

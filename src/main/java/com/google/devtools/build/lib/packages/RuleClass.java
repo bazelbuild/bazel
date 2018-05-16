@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.Type;
@@ -1976,11 +1975,11 @@ public class RuleClass {
 
   /**
    * Converts the build-language-typed {@code buildLangValue} to a native value via {@link
-   * BuildType#selectableConvert}. Canonicalizes the value's order if it is a {@link List} type
-   * (but not a {@link GlobList}) and {@code attr.isOrderIndependent()} returns {@code true}.
+   * BuildType#selectableConvert}. Canonicalizes the value's order if it is a {@link List} type and
+   * {@code attr.isOrderIndependent()} returns {@code true}.
    *
-   * <p>Throws {@link ConversionException} if the conversion fails, or if {@code buildLangValue}
-   * is a selector expression but {@code attr.isConfigurable()} is {@code false}.
+   * <p>Throws {@link ConversionException} if the conversion fails, or if {@code buildLangValue} is
+   * a selector expression but {@code attr.isConfigurable()} is {@code false}.
    */
   private static Object convertFromBuildLangType(Rule rule, Attribute attr, Object buildLangValue)
       throws ConversionException {
@@ -1995,7 +1994,7 @@ public class RuleClass {
           String.format("attribute \"%s\" is not configurable", attr.getName()));
     }
 
-    if ((converted instanceof List<?>) && !(converted instanceof GlobList<?>)) {
+    if (converted instanceof List<?>) {
       if (attr.isOrderIndependent()) {
         @SuppressWarnings("unchecked")
         List<? extends Comparable<?>> list = (List<? extends Comparable<?>>) converted;
