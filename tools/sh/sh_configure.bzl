@@ -49,18 +49,6 @@ def _sh_config_impl(repository_ctx):
   if sh_path and _is_windows(repository_ctx):
     sh_path = sh_path.replace("\\", "/")
 
-  os_label = None
-  if _is_windows(repository_ctx):
-    os_label = "@bazel_tools//platforms:windows"
-  elif repository_ctx.os.name.startswith("linux"):
-    os_label = "@bazel_tools//platforms:linux"
-  elif repository_ctx.os.name.startswith("mac"):
-    os_label = "@bazel_tools//platforms:osx"
-  elif repository_ctx.os.name.startswith("freebsd"):
-    os_label = "@bazel_tools//platforms:freebsd"
-  else:
-    fail("Unknown OS")
-
   repository_ctx.file("BUILD", """
 load("@bazel_tools//tools/sh:sh_toolchain.bzl", "sh_toolchain")
 
@@ -72,14 +60,10 @@ sh_toolchain(
 
 toolchain(
     name = "local_sh_toolchain",
-    exec_compatible_with = [
-        "@bazel_tools//platforms:x86_64",
-        "{os_label}",
-    ],
     toolchain = ":local_sh",
     toolchain_type = "@bazel_tools//tools/sh:toolchain_type",
 )
-""".format(sh_path = sh_path, os_label = os_label))
+""".format(sh_path = sh_path))
 
 sh_config = repository_rule(
     environ = [
