@@ -64,14 +64,14 @@ public final class TargetCompleteEvent
   private final ConfiguredTargetAndData targetAndData;
   private final NestedSet<Cause> rootCauses;
   private final ImmutableList<BuildEventId> postedAfter;
-  private final Iterable<ArtifactsInOutputGroup> outputs;
+  private final NestedSet<ArtifactsInOutputGroup> outputs;
   private final NestedSet<Artifact> baselineCoverageArtifacts;
   private final boolean isTest;
 
   private TargetCompleteEvent(
       ConfiguredTargetAndData targetAndData,
       NestedSet<Cause> rootCauses,
-      Iterable<ArtifactsInOutputGroup> outputs,
+      NestedSet<ArtifactsInOutputGroup> outputs,
       boolean isTest) {
     this.targetAndData = targetAndData;
     this.rootCauses =
@@ -122,7 +122,8 @@ public final class TargetCompleteEvent
   public static TargetCompleteEvent createFailed(
       ConfiguredTargetAndData ct, NestedSet<Cause> rootCauses) {
     Preconditions.checkArgument(!Iterables.isEmpty(rootCauses));
-    return new TargetCompleteEvent(ct, rootCauses, ImmutableList.of(), false);
+    return new TargetCompleteEvent(
+        ct, rootCauses, NestedSetBuilder.emptySet(Order.STABLE_ORDER), false);
   }
 
   /** Returns the target associated with the event. */
@@ -138,6 +139,19 @@ public final class TargetCompleteEvent
   /** Get the root causes of the target. May be empty. */
   public Iterable<Cause> getRootCauses() {
     return rootCauses;
+  }
+
+  public Iterable<Artifact> getLegacyFilteredImportantArtifacts() {
+    // TODO(ulfjack): This duplicates code in ArtifactsToBuild.
+    NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(outputs.getOrder());
+    for (ArtifactsInOutputGroup artifactsInOutputGroup : outputs) {
+      if (artifactsInOutputGroup.areImportant()) {
+        builder.addTransitive(artifactsInOutputGroup.getArtifacts());
+      }
+    }
+    return Iterables.filter(
+        builder.build(),
+        (artifact) -> !artifact.isSourceArtifact() && !artifact.isMiddlemanArtifact());
   }
 
   @Override
@@ -218,11 +232,7 @@ public final class TargetCompleteEvent
 
     // TODO(aehlig): remove direct reporting of artifacts as soon as clients no longer
     // need it.
-    for (ArtifactsInOutputGroup group : outputs) {
-      if (group.areImportant()) {
-        addImportantOutputs(builder, converters, group.getArtifacts());
-      }
-    }
+    addImportantOutputs(builder, converters, getLegacyFilteredImportantArtifacts());
     if (baselineCoverageArtifacts != null) {
       addImportantOutputs(
           builder, (artifact -> BASELINE_COVERAGE), converters, baselineCoverageArtifacts);
