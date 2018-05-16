@@ -362,23 +362,18 @@ public final class TreeNodeRepository {
         TreeNode child = entry.getChild();
         if (child.isLeaf()) {
           ActionInput input = child.getActionInput();
+          final Digest digest;
           if (input instanceof VirtualActionInput) {
             VirtualActionInput virtualInput = (VirtualActionInput) input;
-            Digest digest = digestUtil.compute(virtualInput);
+            digest = digestUtil.compute(virtualInput);
             virtualInputDigestCache.put(virtualInput, digest);
             // There may be multiple inputs with the same digest. In that case, we don't care which
             // one we get back from the digestVirtualInputCache later.
             digestVirtualInputCache.put(digest, virtualInput);
-            b.addFilesBuilder()
-                .setName(entry.getSegment())
-                .setDigest(digest)
-                .setIsExecutable(false);
           } else {
-            b.addFilesBuilder()
-                .setName(entry.getSegment())
-                .setDigest(DigestUtil.getFromInputCache(input, inputFileCache))
-                .setIsExecutable(execRoot.getRelative(input.getExecPathString()).isExecutable());
+            digest = DigestUtil.getFromInputCache(input, inputFileCache);
           }
+          b.addFilesBuilder().setName(entry.getSegment()).setDigest(digest).setIsExecutable(true);
         } else {
           Digest childDigest = Preconditions.checkNotNull(treeNodeDigestCache.get(child));
           if (child.getActionInput() != null) {
