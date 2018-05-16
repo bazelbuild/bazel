@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.Set;
@@ -51,9 +52,6 @@ import javax.annotation.Nullable;
 /**
  * Module responsible for the Build Event Transport (BEP) and Build Event Service (BES)
  * functionality.
- *
- * Implementors of this class have to overwrite {@link #optionsClass()} and
- * {@link #createBesClient(T besOptions, AuthAndTLSOptions authAndTLSOptions)}.
  */
 public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions>
     extends BlazeModule {
@@ -174,7 +172,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
           commandLineReporter.handle(Event.warn(format(UPLOAD_FAILED_MESSAGE, e.getMessage())));
         } else {
           commandLineReporter.handle(Event.error(format(UPLOAD_FAILED_MESSAGE, e.getMessage())));
-          moduleEnvironment.exit(new AbruptExitException(ExitCode.PUBLISH_ERROR));
+          moduleEnvironment.exit(new AbruptExitException(
+              "Failed while creating BuildEventTransport", ExitCode.PUBLISH_ERROR));
           return null;
         }
       }
@@ -211,7 +210,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       Clock clock,
       PathConverter pathConverter,
       EventHandler commandLineReporter,
-      OptionsProvider startupOptionsProvider) throws IOException {
+      OptionsProvider startupOptionsProvider)
+      throws IOException, OptionsParsingException {
     if (isNullOrEmpty(besOptions.besBackend)) {
       logger.fine("BuildEventServiceTransport is disabled.");
       return null;
@@ -263,8 +263,9 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   protected abstract Class<T> optionsClass();
 
-  protected abstract BuildEventServiceClient createBesClient(T besOptions,
-      AuthAndTLSOptions authAndTLSOptions) throws IOException;
+  protected abstract BuildEventServiceClient createBesClient(
+      T besOptions, AuthAndTLSOptions authAndTLSOptions)
+      throws IOException, OptionsParsingException;
 
   protected abstract Set<String> whitelistedCommands();
 

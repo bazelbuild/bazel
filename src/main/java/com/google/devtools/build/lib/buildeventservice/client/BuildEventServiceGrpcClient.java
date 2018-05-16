@@ -29,7 +29,7 @@ import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import io.grpc.CallCredentials;
-import io.grpc.ManagedChannel;
+import io.grpc.Channel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.AbstractStub;
@@ -39,20 +39,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /** Implementation of BuildEventServiceClient that uploads data using gRPC. */
-public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
-
+public abstract class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   /** Max wait time for a single non-streaming RPC to finish */
   private static final Duration RPC_TIMEOUT = Duration.ofSeconds(15);
 
   private final PublishBuildEventStub besAsync;
   private final PublishBuildEventBlockingStub besBlocking;
-  private final ManagedChannel channel;
   private final AtomicReference<StreamObserver<PublishBuildToolEventStreamRequest>> streamReference;
 
-  public BuildEventServiceGrpcClient(
-      ManagedChannel channel,
-      @Nullable CallCredentials callCredentials) {
-    this.channel = channel;
+  public BuildEventServiceGrpcClient(Channel channel, @Nullable CallCredentials callCredentials) {
     this.besAsync = withCallCredentials(
         PublishBuildEventGrpc.newStub(channel), callCredentials);
     this.besBlocking = withCallCredentials(
@@ -155,11 +150,6 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   }
 
   @Override
-  public void shutdown() throws InterruptedException {
-    this.channel.shutdown();
-  }
-
-  @Override
   public String userReadableError(Throwable t) {
     if (t instanceof StatusRuntimeException) {
       Throwable rootCause = Throwables.getRootCause(t);
@@ -170,4 +160,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
       return t.getMessage();
     }
   }
+
+  @Override
+  public abstract void shutdown() throws InterruptedException;
 }
