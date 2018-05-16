@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -924,5 +925,78 @@ public class CcToolchainTest extends BuildViewTestCase {
             "supports_embedded_runtimes: true feature { name: 'static_link_cpp_runtimes' }",
             "--features=-static_link_cpp_runtimes");
     assertThat(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)).isFalse();
+  }
+
+  @Test
+  public void testSysroot_fromCrosstool() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "    name='empty')",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'])");
+    scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
+    scratch.file("libc1/header1.h", "#define FOO 1");
+
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder().setDefaultGrteTop("//libc1").buildPartial());
+    useConfiguration();
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+
+    assertThat(toolchainProvider.getSysroot()).isEqualTo(PathFragment.create("libc1"));
+  }
+
+  @Test
+  public void testSysroot_fromCcToolchain() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "    name='empty')",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'],",
+        "    libc_top = '//libc2:everything')");
+    scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
+    scratch.file("libc1/header1.h", "#define FOO 1");
+    scratch.file("libc2/BUILD", "filegroup(name = 'everything', srcs = ['header2.h'])");
+    scratch.file("libc2/header2.h", "#define FOO 2");
+
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder().setDefaultGrteTop("//libc1").buildPartial());
+    useConfiguration();
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+
+    assertThat(toolchainProvider.getSysroot()).isEqualTo(PathFragment.create("libc2"));
   }
 }
