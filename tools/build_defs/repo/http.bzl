@@ -83,6 +83,8 @@ _http_archive_attrs = {
     "patches": attr.label_list(default=[]),
     "patch_tool": attr.string(default="patch"),
     "patch_cmds": attr.string_list(default=[]),
+    "workspace_file": attr.label(),
+    "workspace_file_content": attr.string(),
 }
 
 
@@ -148,6 +150,14 @@ Args:
   build_file_content: The content for the BUILD file for this repository.
 
     Either `build_file` or `build_file_content` can be specified.
+  workspace_file: The file to use as the `WORKSPACE` file for this repository.
+
+    Either `workspace_file` or `workspace_file_content` can be specified, or
+    neither, but not both.
+  workspace_file_content: The content for the WORKSPACE file for this repository.
+
+    Either `workspace_file` or `workspace_file_content` can be specified, or
+    neither, but not both.
   sha256: The expected SHA-256 of the file downloaded.
 
     This must match the SHA-256 of the file downloaded. _It is a security risk

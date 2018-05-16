@@ -113,6 +113,8 @@ new_git_repository = repository_rule(
     attrs = dict(_common_attrs.items() + {
         'build_file': attr.label(allow_single_file=True),
         'build_file_content': attr.string(),
+        'workspace_file': attr.label(),
+        'workspace_file_content': attr.string(),
     }.items())
 )
 """Clone an external git repository.
@@ -134,6 +136,14 @@ Args:
   build_file_content: The content for the BUILD file for this repository.
     Either build_file or build_file_content must be specified.
 
+  workspace_file: The file to use as the `WORKSPACE` file for this repository.
+
+    Either `workspace_file` or `workspace_file_content` can be specified, or
+    neither, but not both.
+  workspace_file_content: The content for the WORKSPACE file for this repository.
+
+    Either `workspace_file` or `workspace_file_content` can be specified, or
+    neither, but not both.
   tag: tag in the remote repository to checked out
 
   commit: specific commit to be checked out
