@@ -265,7 +265,7 @@ public class BlazeCommandDispatcher {
     // Record the command's starting time for use by the commands themselves.
     env.recordCommandStartTime(firstContactTime);
 
-    // Temporary: there is one module that outputs events during beforeCommand, but the reporter
+    // Temporary: there are modules that output events during beforeCommand, but the reporter
     // isn't setup yet. Add the stored event handler to catch those events.
     env.getReporter().addHandler(storedEventHandler);
     for (BlazeModule module : runtime.getBlazeModules()) {

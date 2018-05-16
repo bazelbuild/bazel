@@ -681,10 +681,7 @@ java_library(
 
 java_library(
     name = "bazel-main",
-    srcs = glob(
-        ["bazel/*.java"],
-        exclude = ["bazel/BazelRepositoryModule.java"],
-    ),
+    srcs = ["bazel/Bazel.java"],
     resources = [
         "bazel/rules/java/java_stub_template.txt",
         "bazel/rules/java/java_stub_template_windows.txt",
@@ -696,6 +693,7 @@ java_library(
         ":exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:bazel",
         "//src/main/java/com/google/devtools/build/lib:bazel-commands",
+        "//src/main/java/com/google/devtools/build/lib:bazel-modules",
         "//src/main/java/com/google/devtools/build/lib:bazel-repository",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -704,26 +702,45 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
-        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:callcounts_module",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker_module",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/ssd",
         "//src/main/java/com/google/devtools/build/lib/standalone",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/worker",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/test/java/com/google/devtools/build/lib:testutil/BazelPackageBuilderHelperForTesting",
         "//third_party:guava",
-        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "bazel-modules",
+    srcs = glob(
+        ["bazel/*.java"],
+        exclude = [
+            "bazel/Bazel.java",
+            "bazel/BazelRepositoryModule.java",
+        ],
+    ),
+    deps = [
+        ":exitcode-external",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:build-info",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )
 

@@ -1196,6 +1196,7 @@ java_test(
         ":guava_junit_truth",
         ":test_runner",
         ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:bazel-modules",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:io",

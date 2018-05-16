@@ -960,11 +960,11 @@ public final class BlazeRuntime {
   /**
    * Parses the command line arguments into a {@link OptionsParser} object.
    *
-   *  <p>This function needs to parse the --option_sources option manually so that the real option
+   * <p>This function needs to parse the --option_sources option manually so that the real option
    * parser can set the source for every option correctly. If that cannot be parsed or is missing,
    * we just report an unknown source for every startup option.
    */
-  private static OptionsProvider parseOptions(
+  private static OptionsProvider parseStartupOptions(
       Iterable<BlazeModule> modules, List<String> args) throws OptionsParsingException {
     ImmutableList<Class<? extends OptionsBase>> optionClasses =
         BlazeCommandUtils.getStartupOptions(modules);
@@ -1006,7 +1006,7 @@ public final class BlazeRuntime {
   private static BlazeRuntime newRuntime(Iterable<BlazeModule> blazeModules, List<String> args,
       Runnable abruptShutdownHandler)
       throws AbruptExitException, OptionsParsingException {
-    OptionsProvider options = parseOptions(blazeModules, args);
+    OptionsProvider options = parseStartupOptions(blazeModules, args);
     for (BlazeModule module : blazeModules) {
       module.globalInit(options);
     }

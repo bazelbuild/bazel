@@ -300,30 +300,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean ignoreAllRcFiles;
 
   @Option(
-    name = "blazerc",
-    defaultValue = "null", // NOTE: purely decorative, rc files are read by the client.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    valueHelp = "<path>",
-    help =
-        "The location of the .%{product}rc file containing default values of "
-            + "Blaze command options. By default, Blaze first checks the current directory, then "
-            + "the user's home directory, and then looks for a file named .$(basename $0)rc "
-            + "(i.e. .%{product}rc). Use /dev/null to disable the search for a %{product}rc file, "
-            + "e.g. in release builds."
-  )
-  public String blazerc;
-
-  @Option(
-    name = "master_blazerc",
-    defaultValue = "true", // NOTE: purely decorative, rc files are read by the client.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    help = "If this option is false, the master %{product}rc next to the binary is not read."
-  )
-  public boolean masterBlazerc;
-
-  @Option(
     name = "fatal_event_bus_exceptions",
     defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

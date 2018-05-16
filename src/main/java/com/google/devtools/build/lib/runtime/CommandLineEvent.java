@@ -305,7 +305,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     /**
      * Returns the effective startup options.
      *
-     * <p>Since in this command line the command options include invocation policy's and blazercs'
+     * <p>Since in this command line the command options include invocation policy's and rcs'
      * contents expanded fully, the list of startup options should prevent reapplication of these
      * contents.
      *
