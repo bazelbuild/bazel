@@ -239,6 +239,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             AndroidCcLinkParamsProvider.class,
             AndroidCcLinkParamsProvider.create(androidCommon.getCcLinkParamsStore()))
         .add(ProguardSpecProvider.class, new ProguardSpecProvider(transitiveProguardConfigs))
+        .addNativeDeclaredProvider(
+            new AndroidProguardInfo(proguardLibrary.collectLocalProguardSpecs()))
         .addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, transitiveProguardConfigs)
         .add(
             AndroidLibraryResourceClassJarProvider.class,
