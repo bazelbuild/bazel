@@ -122,7 +122,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
-        "--incompatible_disable_glob_tracking=" + rand.nextBoolean(),
         "--incompatible_disable_objc_provider_resources=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
         "--incompatible_disallow_filetype=" + rand.nextBoolean(),
@@ -147,7 +146,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())
-        .incompatibleDisableGlobTracking(rand.nextBoolean())
         .incompatibleDisableObjcProviderResources(rand.nextBoolean())
         .incompatibleDisallowDictPlus(rand.nextBoolean())
         .incompatibleDisallowFileType(rand.nextBoolean())

@@ -106,19 +106,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDepsetIsNotIterable;
 
   @Option(
-    name = "incompatible_disable_glob_tracking",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help = "If set to true, do not track the values of globs (this is used by rare specific cases"
-  )
-  public boolean incompatibleDisableGlobTracking;
-
-  @Option(
     name = "incompatible_disable_objc_provider_resources",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -288,7 +275,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
         .incompatibleDepsetUnion(incompatibleDepsetUnion)
-        .incompatibleDisableGlobTracking(incompatibleDisableGlobTracking)
         .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowFileType(incompatibleDisallowFileType)

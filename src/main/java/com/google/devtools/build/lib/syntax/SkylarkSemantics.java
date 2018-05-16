@@ -45,8 +45,6 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDepsetUnion();
 
-  public abstract boolean incompatibleDisableGlobTracking();
-
   public abstract boolean incompatibleDisableObjcProviderResources();
 
   public abstract boolean incompatibleDisallowDictPlus();
@@ -89,7 +87,6 @@ public abstract class SkylarkSemantics {
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
-          .incompatibleDisableGlobTracking(true)
           .incompatibleDisableObjcProviderResources(false)
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowFileType(false)
@@ -114,8 +111,6 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDepsetIsNotIterable(boolean value);
 
     public abstract Builder incompatibleDepsetUnion(boolean value);
-
-    public abstract Builder incompatibleDisableGlobTracking(boolean value);
 
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
 
