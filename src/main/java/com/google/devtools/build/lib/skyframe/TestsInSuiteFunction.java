@@ -42,6 +42,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -59,11 +60,15 @@ final class TestsInSuiteFunction implements SkyFunction {
       return null;
     }
     Rule testSuite = pkg.getPackage().getRule(expansion.getTestSuiteLabel().getName());
-    ResolvedTargets<Target> result = computeTestsInSuite(env, testSuite, expansion.isStrict());
+    ResolvedTargets<Label> result = computeTestsInSuite(env, testSuite, expansion.isStrict());
     if (env.valuesMissing()) {
       return null;
     }
     return new TestsInSuiteValue(result);
+  }
+
+  private static Set<Label> toLabels(Set<Target> targets) {
+    return targets.stream().map(Target::getLabel).collect(Collectors.toSet());
   }
 
   /**
@@ -72,18 +77,18 @@ final class TestsInSuiteFunction implements SkyFunction {
    *
    * <p>CAUTION! Keep this logic consistent with {@code TestSuite}!
    */
-  private static ResolvedTargets<Target> computeTestsInSuite(
+  private static ResolvedTargets<Label> computeTestsInSuite(
       Environment env, Rule testSuite, boolean strict) throws InterruptedException {
-    ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
+    ResolvedTargets.Builder<Target> targetsBuilder = ResolvedTargets.builder();
     List<Target> testsAndSuites = new ArrayList<>();
     // Note that testsAndSuites can contain input file targets; the test_suite rule does not
     // restrict the set of targets that can appear in tests or suites.
-    builder.mergeError(getPrerequisites(env, testSuite, "tests", testsAndSuites));
+    targetsBuilder.mergeError(getPrerequisites(env, testSuite, "tests", testsAndSuites));
 
     // 1. Add all tests
     for (Target test : testsAndSuites) {
       if (TargetUtils.isTestRule(test)) {
-        builder.add(test);
+        targetsBuilder.add(test);
       } else if (strict && !TargetUtils.isTestSuiteRule(test)) {
         // If strict mode is enabled, then give an error for any non-test, non-test-suite targets.
         // TODO(ulfjack): We need to throw to end the process if we happen to be in --nokeep_going,
@@ -92,25 +97,33 @@ final class TestsInSuiteFunction implements SkyFunction {
             "in test_suite rule '" + testSuite.getLabel()
             + "': expecting a test or a test_suite rule but '" + test.getLabel()
             + "' is not one."));
-        builder.setError();
+        targetsBuilder.setError();
       }
     }
 
     // 2. Add implicit dependencies on tests in same package, if any.
     List<Target> implicitTests = new ArrayList<>();
-    builder.mergeError(getPrerequisites(env, testSuite, "$implicit_tests", implicitTests));
+    targetsBuilder.mergeError(getPrerequisites(env, testSuite, "$implicit_tests", implicitTests));
     for (Target target : implicitTests) {
       // The Package construction of $implicit_tests ensures that this check never fails, but we
       // add it here anyway for compatibility with future code.
       if (TargetUtils.isTestRule(target)) {
-        builder.add(target);
+        targetsBuilder.add(target);
       }
     }
 
     // 3. Filter based on tags, size, env.
-    filterTests(testSuite, builder);
+    filterTests(testSuite, targetsBuilder);
 
-    // 4. Expand all suites recursively.
+    // 4. Expand all suites recursively, collecting labels.
+    ResolvedTargets<Target> targets = targetsBuilder.build();
+    ResolvedTargets.Builder<Label> labelsBuilder = ResolvedTargets.builder();
+    labelsBuilder.merge(
+        new ResolvedTargets<>(
+            toLabels(targets.getTargets()),
+            toLabels(targets.getFilteredTargets()),
+            targets.hasError()));
+
     for (Target suite : testsAndSuites) {
       if (TargetUtils.isTestSuiteRule(suite)) {
         TestsInSuiteValue value =
@@ -118,11 +131,11 @@ final class TestsInSuiteFunction implements SkyFunction {
         if (value == null) {
           continue;
         }
-        builder.merge(value.getTargets());
+        labelsBuilder.merge(value.getLabels());
       }
     }
 
-    return builder.build();
+    return labelsBuilder.build();
   }
 
   /**
