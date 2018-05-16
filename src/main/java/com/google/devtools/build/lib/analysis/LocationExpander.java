@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -315,15 +316,7 @@ public final class LocationExpander {
     }
 
     private String joinPaths(Collection<String> paths) {
-      return paths.stream().map(LocationFunction::quotePath).collect(joining(" "));
-    }
-
-    private static String quotePath(String path) {
-      // TODO(ulfjack): Use existing ShellEscaper instead.
-      if (path.contains(" ")) {
-        path = "'" + path + "'";
-      }
-      return path;
+      return paths.stream().map(ShellEscaper::escapeString).collect(joining(" "));
     }
 
     private String functionName() {
