@@ -138,7 +138,7 @@ public class BuildConfigurationValue implements SkyValue {
 
     @Override
     public String toString() {
-      return optionsDiff.getChecksum();
+      return "BuildConfigurationValue.Key[" + optionsDiff.getChecksum() + "]";
     }
 
     private static class Codec implements ObjectCodec<Key> {
