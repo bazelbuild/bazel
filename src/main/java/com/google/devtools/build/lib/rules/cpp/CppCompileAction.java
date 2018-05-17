@@ -746,7 +746,7 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   @VisibleForTesting
-  public ImmutableMap<String, String> getEnvironment() {
+  public ImmutableMap<String, String> getIncompleteEnvironmentForTesting() {
     return getEnvironment(ImmutableMap.of());
   }
 
@@ -793,7 +793,7 @@ public class CppCompileAction extends AbstractAction
           Artifact.toExecPaths(ccCompilationContext.getDeclaredIncludeSrcs()));
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
-    for (Map.Entry<String, String> envVariable : getEnvironment().entrySet()) {
+    for (Map.Entry<String, String> envVariable : getIncompleteEnvironmentForTesting().entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
               .setName(envVariable.getKey())

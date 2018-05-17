@@ -281,7 +281,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 ImmutableList.<LibraryToLink>of(),
                 featureConfiguration)
             .build();
-    assertThat(linkAction.getEnvironment()).containsEntry("foo", "bar");
+    assertThat(linkAction.getIncompleteEnvironmentForTesting()).containsEntry("foo", "bar");
   }
 
   private enum NonStaticAttributes {

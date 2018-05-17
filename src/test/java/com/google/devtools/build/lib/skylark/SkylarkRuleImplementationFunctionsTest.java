@@ -258,7 +258,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         action.getArguments(), "-c", "dummy_command", "", "--a", "--b");
     assertThat(action.getMnemonic()).isEqualTo("DummyMnemonic");
     assertThat(action.getProgressMessage()).isEqualTo("dummy_message");
-    assertThat(action.getEnvironment()).isEqualTo(targetConfig.getLocalShellEnvironment());
+    assertThat(action.getIncompleteEnvironmentForTesting()).isEqualTo(targetConfig.getLocalShellEnvironment());
   }
 
   @Test
@@ -350,7 +350,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertThat(action.getEnvironment()).containsExactly("a", "b");
+    assertThat(action.getIncompleteEnvironmentForTesting()).containsExactly("a", "b");
     // We expect "timeout" to be filtered by TargetUtils.
     assertThat(action.getExecutionInfo()).containsExactly("block-network", "foo");
   }

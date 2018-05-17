@@ -210,7 +210,7 @@ public final class CppLinkAction extends AbstractAction
 
   @Override
   @VisibleForTesting
-  public ImmutableMap<String, String> getEnvironment() {
+  public ImmutableMap<String, String> getIncompleteEnvironmentForTesting() {
     return getEnvironment(ImmutableMap.of());
   }
 

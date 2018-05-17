@@ -396,16 +396,16 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void assertAppleSdkVersionEnv(CommandAction action, String versionString) {
-    assertThat(action.getEnvironment())
+    assertThat(action.getIncompleteEnvironmentForTesting())
         .containsEntry("APPLE_SDK_VERSION_OVERRIDE", versionString);
   }
 
   protected void assertAppleSdkPlatformEnv(CommandAction action, String platformName) {
-    assertThat(action.getEnvironment()).containsEntry("APPLE_SDK_PLATFORM", platformName);
+    assertThat(action.getIncompleteEnvironmentForTesting()).containsEntry("APPLE_SDK_PLATFORM", platformName);
   }
 
   protected void assertXcodeVersionEnv(CommandAction action, String versionNumber) {
-    assertThat(action.getEnvironment()).containsEntry("XCODE_VERSION_OVERRIDE", versionNumber);
+    assertThat(action.getIncompleteEnvironmentForTesting()).containsEntry("XCODE_VERSION_OVERRIDE", versionNumber);
   }
 
   protected ObjcProvider providerForTarget(String label) throws Exception {
