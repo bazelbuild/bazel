@@ -61,6 +61,9 @@ class TestBase(unittest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     os.chdir(self._test_cwd)
 
+  def tearDown(self):
+    self.RunBazel(['shutdown'])
+
   def AssertExitCode(self,
                      actual_exit_code,
                      expected_exit_code,
