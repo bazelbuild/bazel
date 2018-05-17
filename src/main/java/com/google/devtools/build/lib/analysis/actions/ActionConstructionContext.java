@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
@@ -43,6 +45,8 @@ public interface ActionConstructionContext {
   /** The current analysis environment. */
   AnalysisEnvironment getAnalysisEnvironment();
 
+  void registerAction(ActionAnalysisMetadata... actions);
+
   /**
    * Creates an artifact under a given root with the given root-relative path.
    *
@@ -51,6 +55,43 @@ public interface ActionConstructionContext {
    * method.
    */
   Artifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root);
+
+  /**
+   * Returns the implicit output artifact for a given template function. If multiple or no artifacts
+   * can be found as a result of the template, an exception is thrown.
+   */
+  Artifact getImplicitOutputArtifact(ImplicitOutputsFunction function) throws InterruptedException;
+
+  /**
+   * Creates an artifact in a directory that is unique to the rule, thus guaranteeing that it never
+   * clashes with artifacts created by other rules.
+   *
+   * @param uniqueDirectorySuffix suffix of the directory - it will be prepended
+   */
+  Artifact getUniqueDirectoryArtifact(String uniqueDirectorySuffix, String relative);
+
+  /**
+   * Returns the root-relative path fragment under which output artifacts of this rule should go.
+   *
+   * <p>Note that:
+   *
+   * <ul>
+   *   <li>This doesn't guarantee that there are no clashes with rules in the same package.
+   *   <li>If possible, {@link #getPackageRelativeArtifact(PathFragment, ArtifactRoot)} should be
+   *       used instead of this method.
+   * </ul>
+   *
+   * Ideally, user-visible artifacts should all have corresponding output file targets, all others
+   * should go into a rule-specific directory. {@link #getUniqueDirectoryArtifact(String, String)})
+   * ensures that this is the case.
+   */
+  PathFragment getPackageDirectory();
+
+  /**
+   * Creates an artifact in a directory that is unique to the package that contains the rule, thus
+   * guaranteeing that it never clashes with artifacts created by rules in other packages.
+   */
+  Artifact getPackageRelativeArtifact(PathFragment relative, ArtifactRoot root);
 
   /** Returns the {@link PlatformInfo} describing the execution platform this action should use. */
   @Nullable

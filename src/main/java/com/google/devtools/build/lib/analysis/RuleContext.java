@@ -635,29 +635,12 @@ public final class RuleContext extends TargetContext
     return getAnalysisEnvironment().getDerivedArtifact(rootRelativePath, root);
   }
 
-  /**
-   * Creates an artifact in a directory that is unique to the package that contains the rule, thus
-   * guaranteeing that it never clashes with artifacts created by rules in other packages.
-   */
+  @Override
   public Artifact getPackageRelativeArtifact(PathFragment relative, ArtifactRoot root) {
     return getDerivedArtifact(getPackageDirectory().getRelative(relative), root);
   }
 
-  /**
-   * Returns the root-relative path fragment under which output artifacts of this rule should go.
-   *
-   * <p>Note that:
-   *
-   * <ul>
-   *   <li>This doesn't guarantee that there are no clashes with rules in the same package.
-   *   <li>If possible, {@link #getPackageRelativeArtifact(PathFragment, ArtifactRoot)} should be
-   *       used instead of this method.
-   * </ul>
-   *
-   * Ideally, user-visible artifacts should all have corresponding output file targets, all others
-   * should go into a rule-specific directory. {@link #getUniqueDirectoryArtifact(String,
-   * PathFragment, ArtifactRoot)}) ensures that this is the case.
-   */
+  @Override
   public PathFragment getPackageDirectory() {
     return getLabel().getPackageIdentifier().getSourceRoot();
   }
@@ -706,6 +689,11 @@ public final class RuleContext extends TargetContext
   public Artifact getUniqueDirectoryArtifact(
       String uniqueDirectory, String relative, ArtifactRoot root) {
     return getUniqueDirectoryArtifact(uniqueDirectory, PathFragment.create(relative), root);
+  }
+
+  @Override
+  public Artifact getUniqueDirectoryArtifact(String uniqueDirectorySuffix, String relative) {
+    return getUniqueDirectoryArtifact(uniqueDirectorySuffix, relative, getBinOrGenfilesDirectory());
   }
 
   /**
@@ -1256,10 +1244,7 @@ public final class RuleContext extends TargetContext
     return label;
   }
 
-  /**
-   * Returns the implicit output artifact for a given template function. If multiple or no artifacts
-   * can be found as a result of the template, an exception is thrown.
-   */
+  @Override
   public Artifact getImplicitOutputArtifact(ImplicitOutputsFunction function)
       throws InterruptedException {
     Iterable<String> result;
