@@ -306,7 +306,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
       result.append(buildTestsOnly ? " BUILD_TESTS_ONLY" : "");
       result.append(determineTests ? " DETERMINE_TESTS" : "");
       result.append(expandTestSuites ? " EXPAND_TEST_SUITES" : "");
-      result.append(testFilter != null ? testFilter : "");
+      result.append(testFilter != null ? " " + testFilter : "");
       return result.toString();
     }
 
