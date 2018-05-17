@@ -41,7 +41,7 @@ public final class ProgressEvent extends GenericBuildEvent {
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     BuildEventStreamProtos.Progress.Builder builder = BuildEventStreamProtos.Progress.newBuilder();
     if (out != null) {
       builder.setStdout(out);

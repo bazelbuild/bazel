@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
@@ -103,7 +103,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
       events.add(event);
       eventsAsProtos.add(
           event.asStreamProto(
-              new BuildEventConverters() {
+              new BuildEventContext() {
                 @Override
                 public ArtifactGroupNamer artifactGroupNamer() {
                   return namer;
@@ -166,7 +166,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     }
 
     @Override
-    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
       return GenericBuildEvent.protoChaining(this).build();
     }
 
@@ -210,7 +210,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     }
 
     @Override
-    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
       BuildEventStreamProtos.NamedSetOfFiles.Builder builder =
           BuildEventStreamProtos.NamedSetOfFiles.newBuilder();
       for (NestedSet<Artifact> artifactset : artifacts) {
@@ -255,7 +255,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     }
 
     @Override
-    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
       return GenericBuildEvent.protoChaining(this).build();
     }
   }

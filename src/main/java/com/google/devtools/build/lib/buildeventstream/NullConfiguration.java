@@ -34,7 +34,7 @@ public class NullConfiguration implements BuildEvent {
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     return GenericBuildEvent.protoChaining(this)
         .setConfiguration(BuildEventStreamProtos.Configuration.getDefaultInstance())
         .build();

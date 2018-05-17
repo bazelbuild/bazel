@@ -22,7 +22,7 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -71,7 +71,7 @@ public class BuildEventTransportFactoryTest {
   @Before
   public void before() {
     MockitoAnnotations.initMocks(this);
-    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any()))
+    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any()))
         .thenReturn(BUILD_EVENT_AS_PROTO);
   }
 

@@ -41,7 +41,7 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     BuildEventStreamProtos.BuildToolLogs.Builder toolLogs =
         BuildEventStreamProtos.BuildToolLogs.newBuilder();
     for (Pair<String, ByteString> direct : directValues) {

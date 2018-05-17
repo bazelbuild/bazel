@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
@@ -196,7 +196,7 @@ public final class TargetCompleteEvent
   // field.
   private static void addImportantOutputs(
       BuildEventStreamProtos.TargetComplete.Builder builder,
-      BuildEventConverters converters,
+      BuildEventContext converters,
       Iterable<Artifact> artifacts) {
     addImportantOutputs(builder, Artifact::getRootRelativePathString, converters, artifacts);
   }
@@ -204,7 +204,7 @@ public final class TargetCompleteEvent
   private static void addImportantOutputs(
       BuildEventStreamProtos.TargetComplete.Builder builder,
       Function<Artifact, String> artifactNameFunction,
-      BuildEventConverters converters,
+      BuildEventContext converters,
       Iterable<Artifact> artifacts) {
     for (Artifact artifact : artifacts) {
       String name = artifactNameFunction.apply(artifact);
@@ -214,7 +214,7 @@ public final class TargetCompleteEvent
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     BuildEventStreamProtos.TargetComplete.Builder builder =
         BuildEventStreamProtos.TargetComplete.newBuilder();
 

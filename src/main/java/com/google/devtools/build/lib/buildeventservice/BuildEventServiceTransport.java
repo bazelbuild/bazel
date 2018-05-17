@@ -35,7 +35,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent.PayloadCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildFinished;
@@ -287,7 +287,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   @Override
   public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
     BuildEventStreamProtos.BuildEvent eventProto = event.asStreamProto(
-        new BuildEventConverters() {
+        new BuildEventContext() {
           @Override
           public PathConverter pathConverter() {
             return pathConverter;

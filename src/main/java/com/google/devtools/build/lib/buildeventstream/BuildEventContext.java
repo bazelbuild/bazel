@@ -18,7 +18,7 @@ package com.google.devtools.build.lib.buildeventstream;
  * Interface for providing {@link BuildEvent}s with the convertes needed for computing the protobuf
  * representation.
  */
-public interface BuildEventConverters {
+public interface BuildEventContext {
   /**
    * Return the {@link PathConverter} to be used in order to obtain URIs for the the file paths to
    * be reported in the event.
@@ -27,7 +27,8 @@ public interface BuildEventConverters {
 
   /**
    * Return the {@link ArtifactGroupNamer} that can be used to refer to a {@code
-   * NestedSet<Artifact>} declared via the {@link EventReportingArtifacts} interface.
+   * NestedSet<Artifact>} declared via the {@link
+   * com.google.devtools.build.lib.actions.EventReportingArtifacts} interface.
    */
   ArtifactGroupNamer artifactGroupNamer();
 }

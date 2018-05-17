@@ -19,7 +19,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Progress;
@@ -70,21 +70,21 @@ public class BinaryFormatFileTransportTest {
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setStarted(BuildStarted.newBuilder().setCommand("build"))
             .build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(started);
+    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(output.getAbsolutePath(), pathConverter);
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     BuildEventStreamProtos.BuildEvent progress =
         BuildEventStreamProtos.BuildEvent.newBuilder().setProgress(Progress.newBuilder()).build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(progress);
+    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(progress);
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     BuildEventStreamProtos.BuildEvent completed =
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setCompleted(TargetComplete.newBuilder().setSuccess(true))
             .build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(completed);
+    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(completed);
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     transport.close().get();
@@ -107,7 +107,7 @@ public class BinaryFormatFileTransportTest {
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setStarted(BuildStarted.newBuilder().setCommand("build"))
             .build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(started);
+    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     BinaryFormatFileTransport transport = new BinaryFormatFileTransport(path, pathConverter);
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
@@ -126,7 +126,7 @@ public class BinaryFormatFileTransportTest {
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setStarted(BuildStarted.newBuilder().setCommand("build"))
             .build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(started);
+    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
 
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(output.getAbsolutePath(), pathConverter);
@@ -153,7 +153,7 @@ public class BinaryFormatFileTransportTest {
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setStarted(BuildStarted.newBuilder().setCommand("build"))
             .build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(started);
+    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
 
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(output.getAbsolutePath(), pathConverter);

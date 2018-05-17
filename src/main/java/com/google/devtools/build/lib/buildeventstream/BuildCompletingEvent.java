@@ -55,7 +55,7 @@ public abstract class BuildCompletingEvent implements BuildEvent {
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     BuildEventStreamProtos.BuildFinished.ExitCode protoExitCode =
         BuildEventStreamProtos.BuildFinished.ExitCode.newBuilder()
             .setName(exitCode.name())

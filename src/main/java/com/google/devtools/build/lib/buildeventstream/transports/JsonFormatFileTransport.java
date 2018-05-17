@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -43,8 +43,8 @@ public final class JsonFormatFileTransport extends FileTransport {
 
   @Override
   public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
-    BuildEventConverters converters =
-        new BuildEventConverters() {
+    BuildEventContext converters =
+        new BuildEventContext() {
           @Override
           public PathConverter pathConverter() {
             return pathConverter;

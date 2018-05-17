@@ -21,7 +21,7 @@ import com.google.common.base.Joiner;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Progress;
@@ -71,21 +71,21 @@ public class TextFormatFileTransportTest {
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setStarted(BuildStarted.newBuilder().setCommand("build"))
             .build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(started);
+    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     TextFormatFileTransport transport =
         new TextFormatFileTransport(output.getAbsolutePath(), pathConverter);
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     BuildEventStreamProtos.BuildEvent progress =
         BuildEventStreamProtos.BuildEvent.newBuilder().setProgress(Progress.newBuilder()).build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(progress);
+    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(progress);
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     BuildEventStreamProtos.BuildEvent completed =
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setCompleted(TargetComplete.newBuilder().setSuccess(true))
             .build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(completed);
+    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(completed);
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     transport.close().get();
