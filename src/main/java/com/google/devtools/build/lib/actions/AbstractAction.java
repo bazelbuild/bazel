@@ -106,10 +106,31 @@ public abstract class AbstractAction implements Action, ActionApi {
   /**
    * Construct an abstract action with the specified inputs and outputs;
    */
-  protected AbstractAction(ActionOwner owner,
-                           Iterable<Artifact> inputs,
-                           Iterable<Artifact> outputs) {
-    this(owner, ImmutableList.<Artifact>of(), inputs, EmptyRunfilesSupplier.INSTANCE, outputs);
+  protected AbstractAction(
+      ActionOwner owner,
+      Iterable<Artifact> inputs,
+      Iterable<Artifact> outputs) {
+    this(
+        owner,
+        /*tools = */ImmutableList.of(),
+        inputs,
+        EmptyRunfilesSupplier.INSTANCE,
+        outputs,
+        ActionEnvironment.EMPTY);
+  }
+
+  protected AbstractAction(
+      ActionOwner owner,
+      Iterable<Artifact> inputs,
+      Iterable<Artifact> outputs,
+      ActionEnvironment env) {
+    this(
+        owner,
+        /*tools = */ImmutableList.of(),
+        inputs,
+        EmptyRunfilesSupplier.INSTANCE,
+        outputs,
+        env);
   }
 
   /**
@@ -120,7 +141,7 @@ public abstract class AbstractAction implements Action, ActionApi {
       Iterable<Artifact> tools,
       Iterable<Artifact> inputs,
       Iterable<Artifact> outputs) {
-    this(owner, tools, inputs, EmptyRunfilesSupplier.INSTANCE, outputs);
+    this(owner, tools, inputs, EmptyRunfilesSupplier.INSTANCE, outputs, ActionEnvironment.EMPTY);
   }
 
   protected AbstractAction(
@@ -128,7 +149,13 @@ public abstract class AbstractAction implements Action, ActionApi {
       Iterable<Artifact> inputs,
       RunfilesSupplier runfilesSupplier,
       Iterable<Artifact> outputs) {
-    this(owner, ImmutableList.<Artifact>of(), inputs, runfilesSupplier, outputs);
+    this(
+        owner,
+        /*tools=*/ImmutableList.of(),
+        inputs,
+        runfilesSupplier,
+        outputs,
+        ActionEnvironment.EMPTY);
   }
 
   protected AbstractAction(
@@ -148,14 +175,12 @@ public abstract class AbstractAction implements Action, ActionApi {
       Iterable<Artifact> outputs,
       ActionEnvironment env) {
     Preconditions.checkNotNull(owner);
-    // TODO(bazel-team): Use RuleContext.actionOwner here instead
     this.owner = owner;
     this.tools = CollectionUtils.makeImmutable(tools);
     this.inputs = CollectionUtils.makeImmutable(inputs);
-    this.env = env;
+    this.env = Preconditions.checkNotNull(env);
     this.outputs = ImmutableSet.copyOf(outputs);
-    this.runfilesSupplier = Preconditions.checkNotNull(runfilesSupplier,
-        "runfilesSupplier may not be null");
+    this.runfilesSupplier = Preconditions.checkNotNull(runfilesSupplier);
     Preconditions.checkArgument(!this.outputs.isEmpty(), "action outputs may not be empty");
   }
 

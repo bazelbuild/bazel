@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -155,7 +156,6 @@ public class CppCompileAction extends AbstractAction
    */
   public static final String CLIF_MATCH = "clif-match";
 
-  private final ImmutableMap<String, String> localShellEnvironment;
   protected final Artifact outputFile;
   private final Artifact sourceFile;
   private final Artifact optionalSourceFile;
@@ -278,7 +278,7 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
       Artifact optionalSourceFile,
-      ImmutableMap<String, String> localShellEnvironment,
+      ActionEnvironment env,
       CcCompilationContext ccCompilationContext,
       CoptsFilter coptsFilter,
       Iterable<IncludeScannable> lipoScannables,
@@ -298,7 +298,7 @@ public class CppCompileAction extends AbstractAction
             gcnoFile,
             dwoFile,
             ltoIndexingFile),
-        localShellEnvironment,
+        env,
         Preconditions.checkNotNull(outputFile),
         sourceFile,
         optionalSourceFile,
@@ -346,7 +346,7 @@ public class CppCompileAction extends AbstractAction
       ActionOwner owner,
       NestedSet<Artifact> inputs,
       ImmutableSet<Artifact> outputs,
-      ImmutableMap<String, String> localShellEnvironment,
+      ActionEnvironment env,
       Artifact outputFile,
       Artifact sourceFile,
       Artifact optionalSourceFile,
@@ -377,8 +377,7 @@ public class CppCompileAction extends AbstractAction
       boolean needsIncludeValidation,
       IncludeProcessing includeProcessing,
       @Nullable Artifact grepIncludes) {
-    super(owner, inputs, outputs);
-    this.localShellEnvironment = localShellEnvironment;
+    super(owner, inputs, outputs, env);
     this.outputFile = outputFile;
     this.sourceFile = sourceFile;
     this.optionalSourceFile = optionalSourceFile;
@@ -746,8 +745,15 @@ public class CppCompileAction extends AbstractAction
   }
 
   @Override
+  @VisibleForTesting
   public ImmutableMap<String, String> getEnvironment() {
-    Map<String, String> environment = new LinkedHashMap<>(localShellEnvironment);
+    return getEnvironment(ImmutableMap.of());
+  }
+
+  public ImmutableMap<String, String> getEnvironment(Map<String, String> clientEnv) {
+    Map<String, String> environment = new LinkedHashMap<>(env.size());
+    env.resolve(environment, clientEnv);
+
     if (!getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_DARWIN)) {
       // Linux: this prevents gcc/clang from writing the unpredictable (and often irrelevant) value
       // of getcwd() into the debug info. Not applicable to Darwin or Windows, which have no /proc.
@@ -786,6 +792,7 @@ public class CppCompileAction extends AbstractAction
       info.addAllSourcesAndHeaders(
           Artifact.toExecPaths(ccCompilationContext.getDeclaredIncludeSrcs()));
     }
+    // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable : getEnvironment().entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
@@ -1105,7 +1112,9 @@ public class CppCompileAction extends AbstractAction
   @Override
   public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addUUID(actionClassId);
-    fp.addStringMap(getEnvironment());
+    fp.addStringMap(env.getFixedEnv());
+    fp.addStrings(env.getInheritedEnv());
+    fp.addStringMap(compileCommandLine.getEnvironment());
     fp.addStringMap(executionInfo);
 
     // For the argv part of the cache key, ignore all compiler flags that explicitly denote module

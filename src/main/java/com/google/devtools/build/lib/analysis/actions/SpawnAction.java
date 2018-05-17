@@ -478,6 +478,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   @Override
+  @VisibleForTesting
   public final ImmutableMap<String, String> getEnvironment() {
     // TODO(ulfjack): AbstractAction should declare getEnvironment with a return value of type
     // ActionEnvironment to avoid developers misunderstanding the purpose of this method. That

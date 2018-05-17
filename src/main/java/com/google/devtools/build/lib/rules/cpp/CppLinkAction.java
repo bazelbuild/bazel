@@ -22,7 +22,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -63,6 +65,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Action that represents a linking step. */
@@ -107,8 +110,6 @@ public final class CppLinkAction extends AbstractAction
   private final LibraryToLink outputLibrary;
   private final Artifact linkOutput;
   private final LibraryToLink interfaceOutputLibrary;
-  private final ImmutableSet<String> clientEnvironmentVariables;
-  private final ImmutableMap<String, String> actionEnv;
   private final ImmutableMap<String, String> toolchainEnv;
   private final ImmutableSet<String> executionRequirements;
   private final ImmutableList<Artifact> linkstampObjects;
@@ -164,14 +165,13 @@ public final class CppLinkAction extends AbstractAction
       boolean isLtoIndexing,
       ImmutableList<Artifact> linkstampObjects,
       LinkCommandLine linkCommandLine,
-      ImmutableSet<String> clientEnvironmentVariables,
-      ImmutableMap<String, String> actionEnv,
+      ActionEnvironment env,
       ImmutableMap<String, String> toolchainEnv,
       ImmutableSet<String> executionRequirements,
       PathFragment ldExecutable,
       String hostSystemName,
       String targetCpu) {
-    super(owner, inputs, outputs);
+    super(owner, inputs, outputs, env);
     if (mnemonic == null) {
       this.mnemonic = (isLtoIndexing) ? "CppLTOIndexing" : "CppLink";
     } else {
@@ -186,8 +186,6 @@ public final class CppLinkAction extends AbstractAction
     this.isLtoIndexing = isLtoIndexing;
     this.linkstampObjects = linkstampObjects;
     this.linkCommandLine = linkCommandLine;
-    this.clientEnvironmentVariables = clientEnvironmentVariables;
-    this.actionEnv = actionEnv;
     this.toolchainEnv = toolchainEnv;
     this.executionRequirements = executionRequirements;
     this.ldExecutable = ldExecutable;
@@ -211,15 +209,15 @@ public final class CppLinkAction extends AbstractAction
   }
 
   @Override
-  public Iterable<String> getClientEnvironmentVariables() {
-    return clientEnvironmentVariables;
+  @VisibleForTesting
+  public ImmutableMap<String, String> getEnvironment() {
+    return getEnvironment(ImmutableMap.of());
   }
 
-  @Override
-  public ImmutableMap<String, String> getEnvironment() {
-    LinkedHashMap<String, String> result = new LinkedHashMap<>();
+  public ImmutableMap<String, String> getEnvironment(Map<String, String> clientEnv) {
+    LinkedHashMap<String, String> result = Maps.newLinkedHashMapWithExpectedSize(env.size());
+    env.resolve(result, clientEnv);
 
-    result.putAll(actionEnv);
     result.putAll(toolchainEnv);
 
     if (!executionRequirements.contains(ExecutionRequirements.REQUIRES_DARWIN)) {
@@ -313,7 +311,7 @@ public final class CppLinkAction extends AbstractAction
             new SimpleSpawn(
                 this,
                 ImmutableList.copyOf(getCommandLine(actionExecutionContext.getArtifactExpander())),
-                getEnvironment(),
+                getEnvironment(actionExecutionContext.getClientEnv()),
                 getExecutionInfo(),
                 ImmutableList.copyOf(getMandatoryInputs()),
                 getOutputs().asList(),
