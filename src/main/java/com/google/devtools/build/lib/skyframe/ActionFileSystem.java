@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.vfs.AbstractFileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -54,8 +54,11 @@ import javax.annotation.Nullable;
  *       access {@link env}, they must also used synchronized access.
  * </ul>
  */
-final class ActionFileSystem extends AbstractFileSystem implements ActionInputFileCache {
+final class ActionFileSystem extends FileSystem implements ActionInputFileCache {
   private static final Logger LOGGER = Logger.getLogger(ActionFileSystem.class.getName());
+
+  /** Actual underlying filesystem. */
+  private final FileSystem delegate;
 
   private final PathFragment execRootFragment;
   private final Path execRootPath;
@@ -84,6 +87,7 @@ final class ActionFileSystem extends AbstractFileSystem implements ActionInputFi
   private MetadataConsumer metadataConsumer = null;
 
   ActionFileSystem(
+      FileSystem delegate,
       Path execRoot,
       ImmutableList<Root> sourceRoots,
       InputArtifactData inputArtifactData,
@@ -91,7 +95,8 @@ final class ActionFileSystem extends AbstractFileSystem implements ActionInputFi
       Iterable<Artifact> outputArtifacts) {
     try {
       Profiler.instance().startTask(ProfilerTask.ACTION_FS_STAGING, "staging");
-      this.inputArtifactData = inputArtifactData;
+      this.delegate = delegate;
+
       this.execRootFragment = execRoot.asFragment();
       this.execRootPath = getPath(execRootFragment);
       this.sourceRoots =
@@ -101,6 +106,8 @@ final class ActionFileSystem extends AbstractFileSystem implements ActionInputFi
               .collect(ImmutableList.toImmutableList());
 
       validateRoots();
+
+      this.inputArtifactData = inputArtifactData;
 
       this.optionalInputs = new HashMap<>();
       for (Artifact input : allowedInputs) {
@@ -161,6 +168,9 @@ final class ActionFileSystem extends AbstractFileSystem implements ActionInputFi
 
   @Override
   public Path getInputPath(ActionInput actionInput) {
+    if (actionInput instanceof Artifact) {
+      return getPath(((Artifact) actionInput).getPath().asFragment());
+    }
     return execRootPath.getRelative(actionInput.getExecPath());
   }
 
@@ -331,7 +341,7 @@ final class ActionFileSystem extends AbstractFileSystem implements ActionInputFi
     // TODO(shahan): cleanup callers of this method and disable or maybe figure out a reasonable
     // implementation.
     LOGGER.severe("Raw read of path: " + path);
-    return super.getInputStream(path);
+    return delegate.getPath(path.asFragment()).getInputStream();
   }
 
   @Override
@@ -339,7 +349,7 @@ final class ActionFileSystem extends AbstractFileSystem implements ActionInputFi
     // TODO(shahan): cleanup callers of this method and disable or maybe figure out a reasonable
     // implementation.
     LOGGER.severe("Raw write of path: " + path);
-    return super.getOutputStream(path, append);
+    return delegate.getPath(path.asFragment()).getOutputStream(append);
   }
 
   @Override
@@ -473,11 +483,7 @@ final class ActionFileSystem extends AbstractFileSystem implements ActionInputFi
               // caller unintentionally calling into the environment without locking.
               //
               // This is currently known to be reached from the distributor during remote include
-              // scanning. It might make sense to instead of bubbling this error out all the way
-              // from within the distributor, to ensure that this metadata value exists when
-              // creating the spawn from the include parser, which will require slightly fewer
-              // layers of error propagation and there is some batching opportunity (across the
-              // parallel expansion of the include scanner).
+              // scanning which we expect to propagate exceptions up for skyframe restarts.
               synchronized (env) {
                 metadata = (FileArtifactValue) env.getValue(ArtifactSkyKey.key(artifact, false));
               }

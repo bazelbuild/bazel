@@ -364,6 +364,10 @@ public final class SkyframeActionExecutor {
     this.clientEnv = clientEnv;
   }
 
+  public FileSystem getExecutorFileSystem() {
+    return executorEngine.getFileSystem();
+  }
+
   public Path getExecRoot() {
     return executorEngine.getExecRoot();
   }
