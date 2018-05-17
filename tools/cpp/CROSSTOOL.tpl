@@ -378,6 +378,7 @@ toolchain {
     implies: 'linkstamps'
     implies: 'output_execpath_flags'
     implies: 'input_param_flags'
+    implies: 'user_link_flags'
     implies: 'legacy_link_flags'
     implies: 'linker_subsystem_flag'
     implies: 'linker_param_file'
@@ -397,6 +398,7 @@ toolchain {
     implies: 'linkstamps'
     implies: 'output_execpath_flags'
     implies: 'input_param_flags'
+    implies: 'user_link_flags'
     implies: 'legacy_link_flags'
     implies: 'linker_subsystem_flag'
     implies: 'linker_param_file'
@@ -418,6 +420,7 @@ toolchain {
       implies: 'linkstamps'
       implies: 'output_execpath_flags'
       implies: 'input_param_flags'
+      implies: 'user_link_flags'
       implies: 'legacy_link_flags'
       implies: 'linker_subsystem_flag'
       implies: 'linker_param_file'
@@ -738,8 +741,8 @@ toolchain {
   }
 
   # Since this feature is declared earlier in the CROSSTOOL than
-  # "legacy_link_flags", this feature will be applied prior to it anwyhere they
-  # are both implied. And since "legacy_link_flags" contains the linkopts from
+  # "user_link_flags", this feature will be applied prior to it anwyhere they
+  # are both implied. And since "user_link_flags" contains the linkopts from
   # the build rule, this allows the user to override the /SUBSYSTEM in the BUILD
   # file.
   feature {
@@ -754,11 +757,24 @@ toolchain {
     }
   }
 
-  # The "legacy_link_flags" may contain user-defined linkopts (from build rules)
+  # The "user_link_flags" contains user-defined linkopts (from build rules)
   # so it should be defined after features that declare user-overridable flags.
   # For example the "linker_subsystem_flag" defines a default "/SUBSYSTEM" flag
   # but we want to let the user override it, therefore "link_flag_subsystem" is
-  # defined earlier in the CROSSTOOL file than "legacy_link_flags".
+  # defined earlier in the CROSSTOOL file than "user_link_flags".
+  feature {
+    name: 'user_link_flags'
+    flag_set {
+      expand_if_all_available: 'user_link_flags'
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        iterate_over: 'user_link_flags'
+        flag: '%{user_link_flags}'
+      }
+    }
+  }
   feature {
     name: 'legacy_link_flags'
     flag_set {

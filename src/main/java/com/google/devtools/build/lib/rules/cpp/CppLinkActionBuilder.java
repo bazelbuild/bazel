@@ -686,19 +686,6 @@ public class CppLinkActionBuilder {
 
     List<String> result = new ArrayList<>();
 
-    /*
-     * For backwards compatibility, linkopts come _after_ inputFiles.
-     * This is needed to allow linkopts to contain libraries and
-     * positional library-related options such as
-     *    -Wl,--begin-group -lfoo -lbar -Wl,--end-group
-     * or
-     *    -Wl,--as-needed -lfoo -Wl,--no-as-needed
-     *
-     * As for the relative order of the three different flavours of linkopts
-     * (global defaults, per-target linkopts, and command-line linkopts),
-     * we have no idea what the right order should be, or if anyone cares.
-     */
-    result.addAll(linkopts);
     // Extra toolchain link options based on the output's link staticness.
     if (fullyStatic) {
       result.addAll(
@@ -734,11 +721,15 @@ public class CppLinkActionBuilder {
     // distinguish between shared libraries and executables, we could add additional
     // command line / CROSSTOOL flags that distinguish them. But as long as this is
     // the only relevant use case we're just special-casing it here.
-    if (linkType == LinkTargetType.DYNAMIC_LIBRARY) {
-      Iterables.removeIf(result, Predicates.equalTo("-pie"));
-    }
+    return ImmutableList.copyOf(removePieIfCreatingSharedLibrary(result));
+  }
 
-    return ImmutableList.copyOf(result);
+  private Iterable<String> removePieIfCreatingSharedLibrary(List<String> flags) {
+    if (linkType == LinkTargetType.DYNAMIC_LIBRARY) {
+      return Iterables.filter(flags, Predicates.not(Predicates.equalTo("-pie")));
+    } else {
+      return flags;
+    }
   }
 
   /** Builds the Action as configured and returns it. */
@@ -1084,10 +1075,12 @@ public class CppLinkActionBuilder {
         linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
             ? ImmutableList.of()
             : linkoptsForVariables;
-    linkCommandLineBuilder.setLinkopts(linkoptsForVariables);
 
     CcToolchainVariables patchedVariables =
         new CcToolchainVariables.Builder(buildVariables)
+            .addStringSequenceVariable(
+                LinkBuildVariables.USER_LINK_FLAGS.getVariableName(),
+                removePieIfCreatingSharedLibrary(linkoptsForVariables))
             .addStringSequenceVariable(
                 LinkBuildVariables.LEGACY_LINK_FLAGS.getVariableName(),
                 getToolchainFlags(linkoptsForVariables))

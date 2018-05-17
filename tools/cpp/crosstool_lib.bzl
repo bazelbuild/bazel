@@ -158,6 +158,12 @@ def get_features_to_appear_first(platform):
           ["-pie"],
           expand_if_all_available=["force_pic"]),
       simple_feature(
+          "user_link_flags",
+          LINK_ACTIONS,
+          ["%{user_link_flags}"],
+          iterate_over="user_link_flags",
+          expand_if_all_available=["user_link_flags"]),
+      simple_feature(
           "legacy_link_flags",
           LINK_ACTIONS,
           ["%{legacy_link_flags}"],

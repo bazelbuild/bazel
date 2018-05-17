@@ -28,6 +28,24 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  */
 public abstract class Link {
 
+  /** Name of the action producing static library. */
+  public static final String CPP_LINK_STATIC_LIBRARY_ACTION_NAME = "c++-link-static-library";
+  /** Name of the action producing dynamic library from cc_library. */
+  public static final String CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME =
+      "c++-link-nodeps-dynamic-library";
+  /** Name of the action producing dynamic library from cc_binary. */
+  public static final String CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME = "c++-link-dynamic-library";
+  /** Name of the action producing executable binary. */
+  public static final String CPP_LINK_EXECUTABLE_ACTION_NAME = "c++-link-executable";
+  /** Name of the objc action producing static library */
+  public static final String OBJC_ARCHIVE_ACTION_NAME = "objc-archive";
+  /** Name of the objc action producing dynamic library */
+  public static final String OBJC_FULLY_LINK_ACTION_NAME = "objc-fully-link";
+  /** Name of the objc action producing objc executable binary */
+  public static final String OBJC_EXECUTABLE_ACTION_NAME = "objc-executable";
+  /** Name of the objc action producing objc++ executable binary */
+  public static final String OBJCPP_EXECUTABLE_ACTION_NAME = "objc++-executable";
+
   private Link() {} // uninstantiable
 
   /**
@@ -98,7 +116,7 @@ public abstract class Link {
     STATIC_LIBRARY(
         ".a",
         LinkerOrArchiver.ARCHIVER,
-        "c++-link-static-library",
+        CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
         Picness.NOPIC,
         ArtifactCategory.STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
@@ -107,7 +125,7 @@ public abstract class Link {
     OBJC_ARCHIVE(
         ".a",
         LinkerOrArchiver.ARCHIVER,
-        "objc-archive",
+        OBJC_ARCHIVE_ACTION_NAME,
         Picness.NOPIC,
         ArtifactCategory.STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
@@ -116,7 +134,7 @@ public abstract class Link {
     OBJC_FULLY_LINKED_ARCHIVE(
         ".a",
         LinkerOrArchiver.ARCHIVER,
-        "objc-fully-link",
+        OBJC_FULLY_LINK_ACTION_NAME,
         Picness.NOPIC,
         ArtifactCategory.STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
@@ -125,7 +143,7 @@ public abstract class Link {
     OBJC_EXECUTABLE(
         "",
         LinkerOrArchiver.LINKER,
-        "objc-executable",
+        OBJC_EXECUTABLE_ACTION_NAME,
         Picness.NOPIC,
         ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE),
@@ -134,7 +152,7 @@ public abstract class Link {
     OBJCPP_EXECUTABLE(
         "",
         LinkerOrArchiver.LINKER,
-        "objc++-executable",
+        OBJCPP_EXECUTABLE_ACTION_NAME,
         Picness.NOPIC,
         ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE),
@@ -143,7 +161,7 @@ public abstract class Link {
     PIC_STATIC_LIBRARY(
         ".pic.a",
         LinkerOrArchiver.ARCHIVER,
-        "c++-link-static-library",
+        CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
         Picness.PIC,
         ArtifactCategory.STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
@@ -152,7 +170,7 @@ public abstract class Link {
     INTERFACE_DYNAMIC_LIBRARY(
         ".ifso",
         LinkerOrArchiver.LINKER,
-        "c++-link-dynamic-library",
+        CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME,
         Picness.NOPIC, // Actually PIC but it's not indicated in the file name
         ArtifactCategory.INTERFACE_LIBRARY,
         Executable.NOT_EXECUTABLE),
@@ -161,7 +179,7 @@ public abstract class Link {
     NODEPS_DYNAMIC_LIBRARY(
         ".so",
         LinkerOrArchiver.LINKER,
-        "c++-link-nodeps-dynamic-library",
+        CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME,
         Picness.NOPIC, // Actually PIC but it's not indicated in the file name
         ArtifactCategory.DYNAMIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
@@ -169,7 +187,7 @@ public abstract class Link {
     DYNAMIC_LIBRARY(
         ".so",
         LinkerOrArchiver.LINKER,
-        "c++-link-dynamic-library",
+        CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME,
         Picness.NOPIC, // Actually PIC but it's not indicated in the file name
         ArtifactCategory.DYNAMIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
@@ -178,7 +196,7 @@ public abstract class Link {
     ALWAYS_LINK_STATIC_LIBRARY(
         ".lo",
         LinkerOrArchiver.ARCHIVER,
-        "c++-link-static-library",
+        CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
         Picness.NOPIC,
         ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
@@ -187,7 +205,7 @@ public abstract class Link {
     ALWAYS_LINK_PIC_STATIC_LIBRARY(
         ".pic.lo",
         LinkerOrArchiver.ARCHIVER,
-        "c++-link-static-library",
+        CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
         Picness.PIC,
         ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
@@ -196,7 +214,7 @@ public abstract class Link {
     EXECUTABLE(
         "",
         LinkerOrArchiver.LINKER,
-        "c++-link-executable",
+        CPP_LINK_EXECUTABLE_ACTION_NAME,
         Picness.NOPIC, // Picness is not indicate in the file name
         ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE);

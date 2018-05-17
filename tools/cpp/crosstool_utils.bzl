@@ -31,9 +31,9 @@ COMPILE_ACTIONS = [
 
 # All possible C++ link actions
 LINK_ACTIONS = [
+    "c++-link-executable",
     "c++-link-dynamic-library",
     "c++-link-nodeps-dynamic-library",
-    "c++-link-executable",
 ]
 
 # All possible C++ archive actions

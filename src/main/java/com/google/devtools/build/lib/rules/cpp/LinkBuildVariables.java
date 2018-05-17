@@ -61,6 +61,8 @@ public enum LinkBuildVariables {
   INTERFACE_LIBRARY_OUTPUT("interface_library_output_path"),
   /** Linker flags coming from the legacy crosstool fields. */
   LEGACY_LINK_FLAGS("legacy_link_flags"),
+  /** Linker flags coming from the --linkopt or linkopts attribute. */
+  USER_LINK_FLAGS("user_link_flags"),
   /** Path to which to write symbol counts. */
   SYMBOL_COUNTS_OUTPUT("symbol_counts_output"),
   /** A build variable giving linkstamp paths. */
