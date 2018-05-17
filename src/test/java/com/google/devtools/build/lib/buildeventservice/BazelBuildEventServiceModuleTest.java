@@ -122,7 +122,7 @@ public class BazelBuildEventServiceModuleTest {
   @Test
   public void testReturnsBuildEventStreamerOptions() throws Exception {
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
-    Iterable<Class<? extends OptionsBase>> commandOptions = module.getCommandOptions(command);
+    Iterable<Class<? extends OptionsBase>> commandOptions = module.getCommonCommandOptions();
     assertThat(commandOptions).isNotEmpty();
     OptionsParser optionsParser = OptionsParser.newOptionsParser(commandOptions);
     optionsParser.parse(
