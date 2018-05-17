@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -78,7 +80,7 @@ public class CppCompileActionBuilder {
   private CppSemantics cppSemantics;
   private CcToolchainProvider ccToolchain;
   @Nullable private final Artifact grepIncludes;
-  private final ImmutableMap<String, String> localShellEnvironment;
+  private ActionEnvironment env;
   private final boolean codeCoverageEnabled;
   @Nullable private String actionName;
   private ImmutableList<Artifact> builtinIncludeFiles;
@@ -122,7 +124,7 @@ public class CppCompileActionBuilder {
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.additionalIncludeScanningRoots = new ImmutableList.Builder<>();
     this.allowUsingHeaderModules = true;
-    this.localShellEnvironment = configuration.getLocalShellEnvironment();
+    this.env = configuration.getActionEnvironment();
     this.codeCoverageEnabled = configuration.isCodeCoverageEnabled();
     this.ccToolchain = ccToolchain;
     this.grepIncludes = grepIncludes;
@@ -159,7 +161,7 @@ public class CppCompileActionBuilder {
     this.lipoScannableMap = other.lipoScannableMap;
     this.shouldScanIncludes = other.shouldScanIncludes;
     this.executionInfo = new LinkedHashMap<>(other.executionInfo);
-    this.localShellEnvironment = other.localShellEnvironment;
+    this.env = other.env;
     this.codeCoverageEnabled = other.codeCoverageEnabled;
     this.cppSemantics = other.cppSemantics;
     this.ccToolchain = other.ccToolchain;
@@ -378,7 +380,7 @@ public class CppCompileActionBuilder {
               outputFile,
               tempOutputFile,
               dotdFile,
-              localShellEnvironment,
+              env,
               ccCompilationContextInfo,
               coptsFilter,
               getLipoScannables(realMandatoryInputs),
@@ -409,7 +411,7 @@ public class CppCompileActionBuilder {
               dwoFile,
               ltoIndexingFile,
               optionalSourceFile,
-              localShellEnvironment,
+              env,
               ccCompilationContextInfo,
               coptsFilter,
               getLipoScannables(realMandatoryInputs),
@@ -718,5 +720,14 @@ public class CppCompileActionBuilder {
     } else {
       return getOutputFile().getExecPath();
     }
+  }
+
+  /**
+   * Do not use! This method is only intended for testing.
+   */
+  @VisibleForTesting
+  public CppCompileActionBuilder setActionEnvironment(ActionEnvironment env) {
+    this.env = env;
+    return this;
   }
 }

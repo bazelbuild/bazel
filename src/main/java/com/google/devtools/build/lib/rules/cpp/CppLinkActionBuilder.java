@@ -1211,8 +1211,7 @@ public class CppLinkActionBuilder {
             .map(Linkstamp::getArtifact)
             .collect(ImmutableList.toImmutableList()),
         linkCommandLine,
-        configuration.getVariableShellEnvironment(),
-        configuration.getLocalShellEnvironment(),
+        configuration.getActionEnvironment(),
         toolchainEnv,
         executionRequirements.build(),
         toolchain.getToolPathFragment(Tool.LD),
