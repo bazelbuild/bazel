@@ -480,6 +480,24 @@ public class CppOptions extends FragmentOptions {
     return enableLipoSettings() ? fdoOptimizeForBuild : null;
   }
 
+  @Option(
+    name = "fdo_prefetch_hints",
+    defaultValue = "null",
+    converter = LabelConverter.class,
+    category = "flags",
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    help = "Use cache prefetch hints."
+  )
+  public Label fdoPrefetchHintsLabel;
+
+  /**
+   * Returns the --fdo_prefetch_hints value.
+   */
+  public Label getFdoPrefetchHintsLabel() {
+    return fdoPrefetchHintsLabel;
+  }
+
   /**
    * Returns the --autofdo_lipo_data value for this configuration. This is false except for data
    * configurations under LIPO builds.

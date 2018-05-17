@@ -230,10 +230,18 @@ public final class LtoBackendArtifacts {
     // The input to the LTO backend step is the bitcode file.
     buildVariablesBuilder.addStringVariable(
         "thinlto_input_bitcode_file", bitcodeFile.getExecPath().toString());
-    Artifact autoFdoProfile = fdoSupport.getFdoSupport().buildProfileForLtoBackend(
-        fdoSupport, featureConfiguration, buildVariablesBuilder, ruleContext);
-    if (autoFdoProfile != null) {
-      builder.addInput(autoFdoProfile);
+    ProfileArtifacts profileArtifacts =
+        Preconditions.checkNotNull(
+            fdoSupport
+                .getFdoSupport()
+                .buildProfileForLtoBackend(
+                    fdoSupport, featureConfiguration, buildVariablesBuilder, ruleContext));
+
+    if (profileArtifacts.getProfileArtifact() != null) {
+      builder.addInput(profileArtifacts.getProfileArtifact());
+    }
+    if (profileArtifacts.getPrefetchHintsArtifact() != null) {
+      builder.addInput(profileArtifacts.getPrefetchHintsArtifact());
     }
 
     if (generateDwo) {

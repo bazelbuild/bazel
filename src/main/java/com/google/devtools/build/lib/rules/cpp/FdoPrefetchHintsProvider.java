@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,15 +17,16 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 
-/** Provider that contains the profile used for FDO. */
+/** Provider that contains the profile used for prefetch hints. */
 @Immutable
-public final class FdoProfileProvider extends NativeInfo {
-  public static final NativeProvider<FdoProfileProvider> PROVIDER =
-      new NativeProvider<FdoProfileProvider>(FdoProfileProvider.class, "FdoProfileInfo") {};
+public final class FdoPrefetchHintsProvider extends NativeInfo {
+  public static final NativeProvider<FdoPrefetchHintsProvider> PROVIDER =
+      new NativeProvider<FdoPrefetchHintsProvider>(
+          FdoPrefetchHintsProvider.class, "FdoPrefetchHintsInfo") {};
 
   private final FdoInputFile fdoInputFile;
 
-  public FdoProfileProvider(FdoInputFile fdoInputFile) {
+  public FdoPrefetchHintsProvider(FdoInputFile fdoInputFile) {
     super(PROVIDER);
     this.fdoInputFile = fdoInputFile;
   }

@@ -85,6 +85,12 @@ public final class CcToolchainRule implements RuleDefinition {
           null,
           (rule, attributes, cppConfig) -> cppConfig.getFdoProfileLabel());
 
+  private static final LabelLateBoundDefault<?> FDO_PREFETCH_HINTS =
+      LabelLateBoundDefault.fromTargetConfiguration(
+      CppConfiguration.class,
+      null,
+      (rule, attributes, cppConfig) -> cppConfig.getFdoPrefetchHintsLabel());
+
   /**
    * Returns true if zipper should be loaded. We load the zipper executable if FDO optimization is
    * enabled through --fdo_optimize or --fdo_profile
@@ -178,6 +184,11 @@ public final class CcToolchainRule implements RuleDefinition {
                 .allowedRuleClasses("fdo_profile")
                 .mandatoryProviders(ImmutableList.of(FdoProfileProvider.PROVIDER.id()))
                 .value(FDO_PROFILE_VALUE))
+        .add(
+            attr(":fdo_prefetch_hints", LABEL)
+                .allowedRuleClasses("fdo_prefetch_hints")
+                .mandatoryProviders(ImmutableList.of(FdoPrefetchHintsProvider.PROVIDER.id()))
+                .value(FDO_PREFETCH_HINTS))
         .add(
             attr(TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, LABEL)
                 .cfg(LipoContextCollectorTransition.INSTANCE)

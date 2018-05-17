@@ -843,6 +843,9 @@ public final class CcCommon {
         allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
       }
     }
+    if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.FDO_PREFETCH_HINTS);
+    }
     if (cppConfiguration.isLipoOptimizationOrInstrumentation()) {
       // Map LIPO to ThinLTO for LLVM builds.
       if (toolchain.isLLVMCompiler() && fdoMode != FdoMode.OFF) {

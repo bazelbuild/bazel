@@ -372,6 +372,11 @@ public class CppRuleClasses {
   public static final String FDO_OPTIMIZE = "fdo_optimize";
 
   /**
+   * A string constant for the cache prefetch hints feature.
+   */
+  public static final String FDO_PREFETCH_HINTS = "fdo_prefetch_hints";
+
+  /**
    * A string constant for the autofdo feature.
    */
   public static final String AUTOFDO = "autofdo";

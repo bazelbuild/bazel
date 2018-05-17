@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
-/** Implementation for the {@code fdo_profile} rule. */
+/** Implementation for the {@code fdo_prefetch_hints} rule. */
 @Immutable
-public final class FdoProfile implements RuleConfiguredTargetFactory {
+public final class FdoPrefetchHints implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws RuleErrorException, ActionConflictException {
@@ -35,7 +35,7 @@ public final class FdoProfile implements RuleConfiguredTargetFactory {
     }
 
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addNativeDeclaredProvider(new FdoProfileProvider(inputFile))
+        .addNativeDeclaredProvider(new FdoPrefetchHintsProvider(inputFile))
         .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
   }

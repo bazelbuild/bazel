@@ -182,6 +182,29 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return pathPrefix.getRelative(path);
   }
 
+  private Artifact getPrefetchHintsArtifact(
+      FdoInputFile prefetchHintsFile, RuleContext ruleContext) {
+    Artifact prefetchHintsArtifact = null;
+    if (prefetchHintsFile != null) {
+      prefetchHintsArtifact = prefetchHintsFile.getArtifact();
+      if (prefetchHintsArtifact == null) {
+        prefetchHintsArtifact =
+            ruleContext.getUniqueDirectoryArtifact(
+                "fdo",
+                prefetchHintsFile.getAbsolutePath().getBaseName(),
+                ruleContext.getBinOrGenfilesDirectory());
+        ruleContext.registerAction(
+            new SymlinkAction(
+                ruleContext.getActionOwner(),
+                PathFragment.create(prefetchHintsFile.getAbsolutePath().getPathString()),
+                prefetchHintsArtifact,
+                "Symlinking LLVM Cache Prefetch Hints Profile "
+                    + prefetchHintsFile.getAbsolutePath().getPathString()));
+      }
+    }
+    return prefetchHintsArtifact;
+  }
+
   /*
    * This function checks the format of the input profile data and converts it to
    * the indexed format (.profdata) if necessary.
@@ -317,7 +340,14 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     CppToolchainInfo toolchainInfo = getCppToolchainInfo(ruleContext, cppConfiguration);
 
     PathFragment fdoZip = null;
+    FdoInputFile prefetchHints = null;
     if (configuration.getCompilationMode() == CompilationMode.OPT) {
+      if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {
+        FdoPrefetchHintsProvider provider =
+            ruleContext.getPrerequisite(
+                ":fdo_prefetch_hints", Mode.TARGET, FdoPrefetchHintsProvider.PROVIDER);
+        prefetchHints = provider.getInputFile();
+      }
       if (cppConfiguration.getFdoPath() != null) {
         fdoZip = cppConfiguration.getFdoPath();
       } else if (cppConfiguration.getFdoOptimizeLabel() != null) {
@@ -342,10 +372,11 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         FdoProfileProvider fdoProvider =
             ruleContext.getPrerequisite(
                 CcToolchainRule.FDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
+        FdoInputFile inputFile = fdoProvider.getInputFile();
         fdoZip =
-            fdoProvider.getFdoPath() != null
-                ? fdoProvider.getFdoPath()
-                : fdoProvider.getProfileArtifact().getPath().asFragment();
+            inputFile.getAbsolutePath() != null
+                ? inputFile.getAbsolutePath()
+                : inputFile.getArtifact().getPath().asFragment();
       }
     }
 
@@ -373,7 +404,11 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     SkyKey fdoKey =
         FdoSupportValue.key(
-            cppConfiguration.getLipoMode(), fdoZip, cppConfiguration.getFdoInstrument(), fdoMode);
+            cppConfiguration.getLipoMode(),
+            fdoZip,
+            prefetchHints,
+            cppConfiguration.getFdoInstrument(),
+            fdoMode);
 
     SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     FdoSupportValue fdoSupport;
@@ -527,6 +562,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         return null;
       }
     }
+    Artifact hintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);
+    ProfileArtifacts profileArtifacts = new ProfileArtifacts(profileArtifact, hintsArtifact);
 
     reportInvalidOptions(ruleContext, toolchainInfo);
 
@@ -578,7 +615,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             .addNativeDeclaredProvider(ccProvider)
             .addNativeDeclaredProvider(templateVariableInfo)
             .addProvider(
-                fdoSupport.getFdoSupport().createFdoSupportProvider(ruleContext, profileArtifact))
+                fdoSupport.getFdoSupport().createFdoSupportProvider(ruleContext, profileArtifacts))
             .setFilesToBuild(crosstool)
             .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 

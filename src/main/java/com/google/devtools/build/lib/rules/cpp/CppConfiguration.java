@@ -1333,6 +1333,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     return fdoOptimizeLabel;
   }
 
+  public Label getFdoPrefetchHintsLabel() {
+    return cppOptions.getFdoPrefetchHintsLabel();
+  }
+
   public Label getFdoProfileLabel() {
     return cppOptions.getFdoProfileLabel();
   }
