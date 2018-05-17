@@ -189,7 +189,8 @@ public final class RemoteModule extends BlazeModule {
           new RemoteActionContextProvider(env, cache, executor, digestUtil, logDir);
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
-      env.getBlazeModuleEnvironment().exit(new AbruptExitException(ExitCode.COMMAND_LINE_ERROR));
+      env.getBlazeModuleEnvironment().exit(new AbruptExitException(
+          "Error initializing RemoteModule", ExitCode.COMMAND_LINE_ERROR));
     }
   }
 

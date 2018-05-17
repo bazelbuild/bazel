@@ -54,7 +54,8 @@ public final class SpawnLogModule extends BlazeModule {
             new AsynchronousFileOutputStream(executionOptions.executionLogFile));
       } catch (IOException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
-        env.getBlazeModuleEnvironment().exit(new AbruptExitException(ExitCode.COMMAND_LINE_ERROR));
+        env.getBlazeModuleEnvironment().exit(new AbruptExitException(
+            "Error found creating SpawnLogContext", ExitCode.COMMAND_LINE_ERROR));
       }
       builder.addActionContext(spawnLogContext);
       builder.addActionContextConsumer(new SpawnLogContextConsumer());

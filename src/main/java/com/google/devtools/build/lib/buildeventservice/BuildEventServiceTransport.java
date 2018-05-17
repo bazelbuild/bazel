@@ -341,7 +341,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     String message = errorMessageFromException(t);
 
     report(ERROR, message);
-    moduleEnvironment.exit(new AbruptExitException(ExitCode.PUBLISH_ERROR));
+    moduleEnvironment.exit(new AbruptExitException(
+        "BuildEventServiceTransport internal error", ExitCode.PUBLISH_ERROR));
   }
 
   private void maybeReportUploadError() {

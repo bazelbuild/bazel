@@ -42,10 +42,6 @@ public class AbruptExitException extends Exception {
     this.exitCode = exitCode;
   }
 
-  public AbruptExitException(ExitCode exitCode) {
-    this.exitCode = exitCode;
-  }
-
   public ExitCode getExitCode() {
     return exitCode;
   }
