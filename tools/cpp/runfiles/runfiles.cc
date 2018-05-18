@@ -156,38 +156,27 @@ bool IsDirectory(const string& path) {
 Runfiles* RunfilesImpl::Create(const string& argv0,
                                function<string(const string&)> env_lookup,
                                string* error) {
-  string manifest(std::move(env_lookup("RUNFILES_MANIFEST_FILE")));
+  string manifest, directory;
+  if (!Runfiles::PathsFrom(
+          argv0, env_lookup("RUNFILES_MANIFEST_FILE"),
+          env_lookup("RUNFILES_DIR"),
+          [](const string& path) { return IsReadableFile(path); },
+          [](const string& path) { return IsDirectory(path); }, &manifest,
+          &directory)) {
+    if (error) {
+      std::ostringstream err;
+      err << "ERROR: " << __FILE__ << "(" << __LINE__
+          << "): cannot find runfiles (argv0=\"" << argv0 << "\")";
+      *error = err.str();
+    }
+    return nullptr;
+  }
+
   if (!manifest.empty()) {
     return ManifestBased::Create(manifest, error);
-  }
-
-  string directory(std::move(env_lookup("RUNFILES_DIR")));
-  if (!directory.empty()) {
+  } else {
     return new DirectoryBased(directory);
   }
-
-  manifest = argv0 + ".runfiles_manifest";
-  if (IsReadableFile(manifest)) {
-    return CreateManifestBased(manifest, error);
-  }
-
-  manifest = argv0 + ".runfiles/MANIFEST";
-  if (IsReadableFile(manifest)) {
-    return CreateManifestBased(manifest, error);
-  }
-
-  directory = argv0 + ".runfiles";
-  if (IsDirectory(directory)) {
-    return CreateDirectoryBased(std::move(directory), error);
-  }
-
-  if (error) {
-    std::ostringstream err;
-    err << "ERROR: " << __FILE__ << "(" << __LINE__
-        << "): cannot find runfiles (argv0=\"" << argv0 << "\")";
-    *error = err.str();
-  }
-  return nullptr;
 }
 
 bool IsAbsolute(const string& path) {
@@ -348,15 +337,12 @@ Runfiles* Runfiles::CreateDirectoryBased(const string& directory_path,
   return new DirectoryBased(directory_path);
 }
 
-bool Runfiles::PathsFrom(const string& argv0,
-                         function<string(string)> env_lookup,
+bool Runfiles::PathsFrom(const string& argv0, string mf, string dir,
                          function<bool(const string&)> is_runfiles_manifest,
                          function<bool(const string&)> is_runfiles_directory,
                          string* out_manifest, string* out_directory) {
   out_manifest->clear();
   out_directory->clear();
-  string mf = env_lookup("RUNFILES_MANIFEST_FILE");
-  string dir = env_lookup("RUNFILES_DIR");
 
   bool mfValid = is_runfiles_manifest(mf);
   bool dirValid = is_runfiles_directory(dir);
