@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -33,10 +34,13 @@ public enum BuildEventTransportFactory {
     }
 
     @Override
-    protected BuildEventTransport create(BuildEventStreamOptions options,
+    protected BuildEventTransport create(
+        BuildEventStreamOptions options,
+        BuildEventProtocolOptions protocolOptions,
         PathConverter pathConverter) throws IOException {
       return new TextFormatFileTransport(
           options.getBuildEventTextFile(),
+          protocolOptions,
           options.getBuildEventTextFilePathConversion() ? pathConverter : new NullPathConverter());
     }
   },
@@ -48,10 +52,13 @@ public enum BuildEventTransportFactory {
     }
 
     @Override
-    protected BuildEventTransport create(BuildEventStreamOptions options,
+    protected BuildEventTransport create(
+        BuildEventStreamOptions options,
+        BuildEventProtocolOptions protocolOptions,
         PathConverter pathConverter) throws IOException {
       return new BinaryFormatFileTransport(
           options.getBuildEventBinaryFile(),
+          protocolOptions,
           options.getBuildEventBinaryFilePathConversion()
               ? pathConverter
               : new NullPathConverter());
@@ -66,9 +73,12 @@ public enum BuildEventTransportFactory {
 
     @Override
     protected BuildEventTransport create(
-        BuildEventStreamOptions options, PathConverter pathConverter) throws IOException {
+        BuildEventStreamOptions options,
+        BuildEventProtocolOptions protocolOptions,
+        PathConverter pathConverter) throws IOException {
       return new JsonFormatFileTransport(
           options.getBuildEventJsonFile(),
+          protocolOptions,
           options.getBuildEventJsonFilePathConversion() ? pathConverter : new NullPathConverter());
     }
   };
@@ -81,12 +91,16 @@ public enum BuildEventTransportFactory {
    * @return A {@link ImmutableSet} of BuildEventTransports. This set may be empty.
    * @throws IOException Exception propagated from a {@link BuildEventTransport} creation failure.
    */
-  public static ImmutableSet<BuildEventTransport> createFromOptions(BuildEventStreamOptions options,
-      PathConverter pathConverter) throws IOException {
+  public static ImmutableSet<BuildEventTransport> createFromOptions(
+      BuildEventStreamOptions options,
+      BuildEventProtocolOptions protocolOptions,
+      PathConverter pathConverter)
+          throws IOException {
     ImmutableSet.Builder<BuildEventTransport> buildEventTransportsBuilder = ImmutableSet.builder();
     for (BuildEventTransportFactory transportFactory : BuildEventTransportFactory.values()) {
       if (transportFactory.enabled(options)) {
-        buildEventTransportsBuilder.add(transportFactory.create(options, pathConverter));
+        buildEventTransportsBuilder.add(
+            transportFactory.create(options, protocolOptions, pathConverter));
       }
     }
     return buildEventTransportsBuilder.build();
@@ -96,8 +110,11 @@ public enum BuildEventTransportFactory {
   protected abstract boolean enabled(BuildEventStreamOptions options);
 
   /** Creates a BuildEventTransport from the specified options. */
-  protected abstract BuildEventTransport create(BuildEventStreamOptions options,
-      PathConverter pathConverter) throws IOException;
+  protected abstract BuildEventTransport create(
+      BuildEventStreamOptions options,
+      BuildEventProtocolOptions protocolOptions,
+      PathConverter pathConverter)
+          throws IOException;
 
   private static class NullPathConverter implements PathConverter {
     @Override
