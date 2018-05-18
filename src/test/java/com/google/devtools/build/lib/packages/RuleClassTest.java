@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
+import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -892,8 +894,10 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .setMissingFragmentPolicy(missingFragmentPolicy)
             .build(),
         supportsConstraintChecking,
-        /*requiredToolchains=*/ ImmutableSet.<Label>of(),
+        /*requiredToolchains=*/ ImmutableSet.of(),
         /*supportsPlatforms=*/ true,
+        ExecutionPlatformConstraintsAllowed.NONE,
+        /* executionPlatformConstraints= */ ImmutableSet.of(),
         ImmutableList.copyOf(attributes));
   }
 
@@ -1035,13 +1039,74 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .add(attr("tags", STRING_LIST));
 
     ruleClassBuilder.addRequiredToolchains(
-        ImmutableList.of(
-            Label.parseAbsolute("//toolchain:tc1"), Label.parseAbsolute("//toolchain:tc2")));
+        Label.parseAbsolute("//toolchain:tc1"), Label.parseAbsolute("//toolchain:tc2"));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getRequiredToolchains())
         .containsExactly(
             Label.parseAbsolute("//toolchain:tc1"), Label.parseAbsolute("//toolchain:tc2"));
+  }
+
+  @Test
+  public void testExecutionPlatformConstraints_none() {
+    RuleClass.Builder ruleClassBuilder =
+        new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST))
+            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.NONE);
+
+    RuleClass ruleClass = ruleClassBuilder.build();
+    assertThat(ruleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isFalse();
+  }
+
+  @Test
+  public void testExecutionPlatformConstraints_none_constraintsCauseError() throws Exception {
+    RuleClass.Builder ruleClassBuilder =
+        new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST))
+            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.NONE);
+
+    ruleClassBuilder.addExecutionPlatformConstraints(
+        Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"));
+
+    assertThrows(IllegalArgumentException.class, () -> ruleClassBuilder.build());
+  }
+
+  @Test
+  public void testExecutionPlatformConstraints_perRule() throws Exception {
+    RuleClass.Builder ruleClassBuilder =
+        new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST))
+            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE);
+
+    ruleClassBuilder.addExecutionPlatformConstraints(
+        Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"));
+
+    RuleClass ruleClass = ruleClassBuilder.build();
+
+    assertThat(ruleClass.getExecutionPlatformConstraints())
+        .containsExactly(
+            Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"));
+    assertThat(ruleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isFalse();
+  }
+
+  @Test
+  public void testExecutionPlatformConstraints_perTarget() throws Exception {
+    RuleClass.Builder ruleClassBuilder =
+        new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST));
+
+    ruleClassBuilder.executionPlatformConstraintsAllowed(
+        ExecutionPlatformConstraintsAllowed.PER_TARGET);
+
+    RuleClass ruleClass = ruleClassBuilder.build();
+
+    assertThat(ruleClass.executionPlatformConstraintsAllowed())
+        .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
+    assertThat(ruleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isTrue();
   }
 }

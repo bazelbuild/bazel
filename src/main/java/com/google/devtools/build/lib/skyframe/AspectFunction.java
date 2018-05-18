@@ -413,6 +413,7 @@ public final class AspectFunction implements SkyFunction {
                     aspect.getDescriptor().getDescription(),
                     associatedConfiguredTargetAndData.getTarget().toString()),
                 requiredToolchains,
+                /* execConstraintLabels= */ ImmutableSet.of(),
                 key.getAspectConfigurationKey());
       } catch (ToolchainContextException e) {
         // TODO(katre): better error handling

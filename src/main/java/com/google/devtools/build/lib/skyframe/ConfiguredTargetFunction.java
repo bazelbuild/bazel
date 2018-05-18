@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.PlatformSemantics;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -264,11 +265,16 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         if (rule.getRuleClassObject().supportsPlatforms()) {
           ImmutableSet<Label> requiredToolchains =
               rule.getRuleClassObject().getRequiredToolchains();
+
+          // Collect local (target, rule) constraints for filtering out execution platforms.
+          ImmutableSet<Label> execConstraintLabels =
+              PlatformSemantics.getExecutionPlatformConstraints(rule);
           toolchainContext =
               ToolchainUtil.createToolchainContext(
                   env,
                   rule.toString(),
                   requiredToolchains,
+                  execConstraintLabels,
                   configuredTargetKey.getConfigurationKey());
           if (env.valuesMissing()) {
             return null;

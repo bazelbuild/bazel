@@ -18,12 +18,20 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import java.util.HashSet;
+import java.util.Set;
 
 /** Helper class to manage rules' use of platforms. */
 public class PlatformSemantics {
 
   public static final String TOOLCHAINS_ATTR = "$toolchains";
+  public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
 
   public static RuleClass.Builder platformAttributes(RuleClass.Builder builder) {
     return builder
@@ -31,5 +39,28 @@ public class PlatformSemantics {
             attr(TOOLCHAINS_ATTR, LABEL_LIST)
                 .nonconfigurable("Used in toolchain resolution")
                 .value(ImmutableList.of()));
+  }
+
+  /**
+   * Return the target-specific execution platform constraints, based on the rule definition and any
+   * constraints added by the target.
+   */
+  public static ImmutableSet<Label> getExecutionPlatformConstraints(Rule rule) {
+    NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
+    Set<Label> execConstraintLabels = new HashSet<>();
+
+    if (rule.getRuleClassObject().executionPlatformConstraintsAllowed().allowsRule()) {
+      // Add any default rule-level constraints.
+      execConstraintLabels.addAll(rule.getRuleClassObject().getExecutionPlatformConstraints());
+    }
+
+    // Add any target-level constraints, if allowed.
+    if (rule.getRuleClassObject().executionPlatformConstraintsAllowed().allowsTarget()
+        && mapper.has(PlatformSemantics.EXEC_COMPATIBLE_WITH_ATTR)) {
+      execConstraintLabels.addAll(
+          mapper.get(PlatformSemantics.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));
+    }
+
+    return ImmutableSet.copyOf(execConstraintLabels);
   }
 }
