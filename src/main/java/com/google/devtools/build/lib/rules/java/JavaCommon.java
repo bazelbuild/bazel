@@ -626,8 +626,6 @@ public class JavaCommon {
     javaTargetAttributes.addSourceArtifacts(extraSrcs);
     processRuntimeDeps(javaTargetAttributes);
 
-    semantics.checkProtoDeps(ruleContext, targetsTreatedAsDeps(ClasspathType.BOTH));
-
     if (disallowDepsWithoutSrcs(ruleContext.getRule().getRuleClass())
         && ruleContext.attributes().get("srcs", BuildType.LABEL_LIST).isEmpty()
         && ruleContext.getRule().isAttributeValueExplicitlySpecified("deps")) {
