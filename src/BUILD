@@ -351,6 +351,7 @@ genrule(
     srcs = [
         "//src/main/protobuf:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:dist_jars",
+        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:dist_jars",
         "@googleapis//:dist_jars",
     ],
     outs = ["derived_java_srcs.zip"],

@@ -60,6 +60,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/server:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface/processor:srcs",
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
