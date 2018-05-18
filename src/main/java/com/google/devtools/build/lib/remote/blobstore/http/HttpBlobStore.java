@@ -42,6 +42,7 @@ import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.util.internal.PlatformDependent;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -120,7 +121,21 @@ public final class HttpBlobStore implements SimpleBlobStore {
       // OpenSsl gives us a > 2x speed improvement on fast networks, but requires netty tcnative
       // to be there which is not available on all platforms and environments.
       SslProvider sslProvider = OpenSsl.isAvailable() ? SslProvider.OPENSSL : SslProvider.JDK;
-      sslCtx = SslContextBuilder.forClient().sslProvider(sslProvider).build();
+      SslContextBuilder sslCtxBuilder = SslContextBuilder.forClient().sslProvider(sslProvider);
+      if (authAndTlsOptions.httpCacheTlsCertificate != null || authAndTlsOptions.httpCacheTlsKey != null) {
+        if (authAndTlsOptions.httpCacheTlsCertificate == null || authAndTlsOptions.httpCacheTlsKey == null) {
+          throw new IllegalArgumentException("Both or neither of --http_cache_tls_certificate" +
+              " and --http_cache_tls_certificate must be set");
+        }
+        File cert = new File(authAndTlsOptions.httpCacheTlsCertificate);
+        File key = new File(authAndTlsOptions.httpCacheTlsKey);
+        sslCtxBuilder.keyManager(cert, key);
+      }
+      if (authAndTlsOptions.httpCacheTlsCertificateAuthority != null) {
+        File certificateAuthority = new File(authAndTlsOptions.httpCacheTlsCertificateAuthority);
+        sslCtxBuilder.trustManager(certificateAuthority);
+      }
+      sslCtx = sslCtxBuilder.build();
     } else {
       sslCtx = null;
     }
