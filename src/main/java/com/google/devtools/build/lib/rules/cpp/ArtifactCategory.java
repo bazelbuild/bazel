@@ -18,30 +18,32 @@ package com.google.devtools.build.lib.rules.cpp;
  * select a single artifact.
  */
 public enum ArtifactCategory {
-  STATIC_LIBRARY("lib%{base_name}.a"),
-  ALWAYSLINK_STATIC_LIBRARY("lib%{base_name}.lo"),
-  DYNAMIC_LIBRARY("lib%{base_name}.so"),
-  EXECUTABLE("%{base_name}"),
-  INTERFACE_LIBRARY("lib%{base_name}.ifso"),
-  PIC_FILE("%{output_name}.pic"),
-  INCLUDED_FILE_LIST("%{output_name}.d"),
-  OBJECT_FILE("%{output_name}.o"),
-  PIC_OBJECT_FILE("%{output_name}.pic.o"),
-  CPP_MODULE("%{output_name}.pcm"),
-  GENERATED_ASSEMBLY("%{output_name}.s"),
-  PROCESSED_HEADER("%{output_name}.processed"),
-  GENERATED_HEADER("%{output_name}.h"),
-  PREPROCESSED_C_SOURCE("%{output_name}.i"),
-  PREPROCESSED_CPP_SOURCE("%{output_name}.ii"),
-  COVERAGE_DATA_FILE("%{output_name}.gcno"),
+  STATIC_LIBRARY("lib", ".a"),
+  ALWAYSLINK_STATIC_LIBRARY("lib", ".lo"),
+  DYNAMIC_LIBRARY("lib", ".so"),
+  EXECUTABLE("", ""),
+  INTERFACE_LIBRARY("lib", ".ifso"),
+  PIC_FILE("", ".pic"),
+  INCLUDED_FILE_LIST("", ".d"),
+  OBJECT_FILE("", ".o"),
+  PIC_OBJECT_FILE("", ".pic.o"),
+  CPP_MODULE("", ".pcm"),
+  GENERATED_ASSEMBLY("", ".s"),
+  PROCESSED_HEADER("", ".processed"),
+  GENERATED_HEADER("", ".h"),
+  PREPROCESSED_C_SOURCE("", ".i"),
+  PREPROCESSED_CPP_SOURCE("", ".ii"),
+  COVERAGE_DATA_FILE("", ".gcno"),
   // A matched-clif protobuf. Typically in binary format, but could be text depending on
   // the options passed to the clif_matcher.
-  CLIF_OUTPUT_PROTO("%{output_name}.opb");
+  CLIF_OUTPUT_PROTO("", ".opb");
 
-  private final String defaultPattern;
+  private final String defaultPrefix;
+  private final String defaultExtension;
 
-  ArtifactCategory(String defaultPattern) {
-    this.defaultPattern = defaultPattern;
+  ArtifactCategory(String prefix, String extension) {
+    this.defaultPrefix = prefix;
+    this.defaultExtension = extension;
   }
 
   /** Returns the name of the category. */
@@ -49,7 +51,11 @@ public enum ArtifactCategory {
     return this.toString().toLowerCase();
   }
 
-  public String getDefaultPattern() {
-    return defaultPattern;
+  public String getDefaultPrefix() {
+    return defaultPrefix;
+  }
+
+  public String getDefaultExtension() {
+    return defaultExtension;
   }
 }

@@ -477,21 +477,16 @@ public abstract class MockCcSupport {
       ""
           + "artifact_name_pattern {"
           + "   category_name: 'static_library'"
-          + "   pattern: 'lib%{base_name}.tweaked.a'"
+          + "   prefix: 'lib'"
+          + "   extension: '.tweaked.a'"
           + "}";
 
   public static final String STATIC_LINK_AS_DOT_A_CONFIGURATION =
       ""
           + "artifact_name_pattern {"
           + "   category_name: 'static_library'"
-          + "   pattern: 'lib%{base_name}.a'"
-          + "}";
-
-  public static final String STATIC_LINK_BAD_TEMPLATE_CONFIGURATION =
-      ""
-          + "artifact_name_pattern {"
-          + "   category_name: 'static_library'"
-          + "   pattern: 'foo%{bad_variable}bar'"
+          + "   prefix: 'lib'"
+          + "   extension: '.a'"
           + "}";
 
   public static final String EMPTY_COMPILE_ACTION_CONFIG =

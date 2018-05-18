@@ -345,11 +345,13 @@ public final class CppToolchainInfo {
     }
 
     for (ArtifactCategory category : ArtifactCategory.values()) {
-      if (!definedCategories.contains(category) && category.getDefaultPattern() != null) {
+      if (!definedCategories.contains(category) && category.getDefaultPrefix() != null
+          && category.getDefaultExtension() != null) {
         toolchainBuilder.addArtifactNamePattern(
             ArtifactNamePattern.newBuilder()
                 .setCategoryName(category.toString().toLowerCase())
-                .setPattern(category.getDefaultPattern())
+                .setPrefix(category.getDefaultPrefix())
+                .setExtension(category.getDefaultExtension())
                 .build());
       }
     }
