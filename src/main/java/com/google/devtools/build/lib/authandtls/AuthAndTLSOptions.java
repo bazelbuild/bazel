@@ -92,4 +92,32 @@ public class AuthAndTLSOptions extends OptionsBase {
             + "value a valid TLS authority."
   )
   public String tlsAuthorityOverride;
+
+  @Option(
+    name = "http_cache_tls_certificate",
+    defaultValue = "null",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Specify the X.509 TLS client certificate to use for HTTP Caching."
+  )
+  public String httpCacheTlsCertificate;
+
+  @Option(
+    name = "http_cache_tls_key",
+    defaultValue = "null",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Specify the PKCS8 PEM private key to use for HTTP Caching."
+  )
+  public String httpCacheTlsKey;
+
+  @Option(
+    name = "http_cache_tls_certificate_authority",
+    defaultValue = "null",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Specify the trusted certificates used to verify the remote endpoint for HTTP Caching. "
+            + " This file must be an X.509 PEM certificate collection."
+  )
+  public String httpCacheTlsCertificateAuthority;
 }
