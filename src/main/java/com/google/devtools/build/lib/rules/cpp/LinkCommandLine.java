@@ -50,6 +50,7 @@ public final class LinkCommandLine extends CommandLine {
   private final Iterable<Artifact> linkerInputArtifacts;
   private final LinkTargetType linkTargetType;
   private final Link.LinkingMode linkingMode;
+  private final ImmutableList<String> linkopts;
   @Nullable private final PathFragment toolchainLibrariesSolibDir;
   private final boolean nativeDeps;
   private final boolean useTestOnlyFlags;
@@ -64,6 +65,7 @@ public final class LinkCommandLine extends CommandLine {
       Iterable<Artifact> linkerInputArtifacts,
       LinkTargetType linkTargetType,
       Link.LinkingMode linkingMode,
+      ImmutableList<String> linkopts,
       @Nullable PathFragment toolchainLibrariesSolibDir,
       boolean nativeDeps,
       boolean useTestOnlyFlags,
@@ -79,6 +81,7 @@ public final class LinkCommandLine extends CommandLine {
     this.linkerInputArtifacts = Preconditions.checkNotNull(linkerInputArtifacts);
     this.linkTargetType = Preconditions.checkNotNull(linkTargetType);
     this.linkingMode = Preconditions.checkNotNull(linkingMode);
+    this.linkopts = linkopts;
     this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
     this.nativeDeps = nativeDeps;
     this.useTestOnlyFlags = useTestOnlyFlags;
@@ -116,12 +119,7 @@ public final class LinkCommandLine extends CommandLine {
    * Returns the additional linker options for this link.
    */
   public ImmutableList<String> getLinkopts() {
-    if (variables.isAvailable(LinkBuildVariables.USER_LINK_FLAGS.getVariableName())) {
-      return CcToolchainVariables.toStringList(
-          variables, LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
-    } else {
-      return ImmutableList.of();
-    }
+    return linkopts;
   }
 
   /** Returns the path to the linker. */
@@ -415,6 +413,7 @@ public final class LinkCommandLine extends CommandLine {
     private Iterable<Artifact> linkerInputArtifacts = ImmutableList.of();
     @Nullable private LinkTargetType linkTargetType;
     private Link.LinkingMode linkingMode = Link.LinkingMode.LEGACY_FULLY_STATIC;
+    private ImmutableList<String> linkopts = ImmutableList.of();
     @Nullable private PathFragment toolchainLibrariesSolibDir;
     private boolean nativeDeps;
     private boolean useTestOnlyFlags;
@@ -438,10 +437,10 @@ public final class LinkCommandLine extends CommandLine {
       if (ruleContext != null) {
         Preconditions.checkNotNull(featureConfiguration);
       }
-
+      
       if (variables == null) {
         variables = CcToolchainVariables.EMPTY;
-       }
+      }
 
       String actionName = linkTargetType.getActionName();
 
@@ -452,6 +451,7 @@ public final class LinkCommandLine extends CommandLine {
           linkerInputArtifacts,
           linkTargetType,
           linkingMode,
+          linkopts,
           toolchainLibrariesSolibDir,
           nativeDeps,
           useTestOnlyFlags,
@@ -491,6 +491,17 @@ public final class LinkCommandLine extends CommandLine {
      */
     public Builder setLinkerInputArtifacts(Iterable<Artifact> linkerInputArtifacts) {
       this.linkerInputArtifacts = CollectionUtils.makeImmutable(linkerInputArtifacts);
+      return this;
+    }
+
+    /**
+     * Sets the linker options. These are passed to the linker in addition to the other linker
+     * options like linker inputs, symbol count options, etc. The {@link #build} method throws an
+     * exception if the linker options are non-empty for a static link (see {@link
+     * LinkTargetType#linkerOrArchiver()}).
+     */
+    public Builder setLinkopts(ImmutableList<String> linkopts) {
+      this.linkopts = linkopts;
       return this;
     }
 
