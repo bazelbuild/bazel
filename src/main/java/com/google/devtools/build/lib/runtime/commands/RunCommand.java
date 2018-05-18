@@ -106,15 +106,6 @@ public class RunCommand implements BlazeCommand  {
   /** Options for the "run" command. */
   public static class RunOptions extends OptionsBase {
     @Option(
-        name = "as_test",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {OptionEffectTag.EXECUTION},
-        help = "If set, the 'run' command will execute tests in an approximation of the official "
-            + "test environment. Otherwise, tests will be run as regular binaries.")
-    public boolean asTest;
-
-    @Option(
       name = "script_path",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -371,7 +362,7 @@ public class RunCommand implements BlazeCommand  {
     runEnvironment.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
     runEnvironment.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());
 
-    if (targetToRun.getProvider(TestProvider.class) != null && runOptions.asTest) {
+    if (targetToRun.getProvider(TestProvider.class) != null) {
       // This is a test. Provide it with a reasonable approximation of the actual test environment
       ImmutableList<Artifact> statusArtifacts = TestProvider.getTestStatusArtifacts(targetToRun);
       if (statusArtifacts.size() != 1) {
