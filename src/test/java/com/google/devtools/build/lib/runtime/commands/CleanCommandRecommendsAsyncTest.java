@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -96,6 +97,9 @@ public class CleanCommandRecommendsAsyncTest {
                   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
                     // We must add these options so that the defaults package can be created.
                     builder.addConfigurationOptions(BuildConfiguration.Options.class);
+                    // Need to have some defaults values to satisfy DefaultsPackage.getContent()
+                    // TODO(dbabkin): remove when DefaultsPackage been deprecated b/792390529
+                    builder.addConfigurationOptions(TestConfiguration.TestOptions.class);
                     // The tools repository is needed for createGlobals
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
                   }

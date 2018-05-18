@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -367,6 +368,9 @@ public final class CommandInterruptionTest {
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
                     // Can't create a defaults package without the base options in there!
                     builder.addConfigurationOptions(BuildConfiguration.Options.class);
+                    // Need to have some defaults values to satisfy DefaultsPackage.getContent()
+                    // TODO(dbabkin): remove when DefaultsPackage been deprecated b/79239052
+                    builder.addConfigurationOptions(TestConfiguration.TestOptions.class);
                   }
                 })
             .addBlazeModule(

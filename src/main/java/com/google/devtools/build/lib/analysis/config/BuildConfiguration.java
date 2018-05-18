@@ -630,38 +630,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     )
     public boolean experimentalJavaCoverage;
 
-    @Option(
-      name = "coverage_support",
-      converter = LabelConverter.class,
-      defaultValue = "@bazel_tools//tools/test:coverage_support",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {
-        OptionEffectTag.CHANGES_INPUTS,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      help =
-          "Location of support files that are required on the inputs of every test action "
-              + "that collects code coverage. Defaults to '//tools/test:coverage_support'."
-    )
-    public Label coverageSupport;
 
-    @Option(
-      name = "coverage_report_generator",
-      converter = LabelConverter.class,
-      defaultValue = "@bazel_tools//tools/test:coverage_report_generator",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {
-        OptionEffectTag.CHANGES_INPUTS,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      help =
-          "Location of the binary that is used to generate coverage reports. This must "
-              + "currently be a filegroup that contains a single file, the binary. Defaults to "
-              + "'//tools/test:coverage_report_generator'."
-    )
-    public Label coverageReportGenerator;
 
     @Option(
       name = "build_runfile_manifests",
@@ -994,12 +963,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       return host;
     }
 
-    @Override
-    public Map<String, Set<Label>> getDefaultsLabels() {
-      return ImmutableMap.<String, Set<Label>>of(
-          "coverage_support", ImmutableSet.of(coverageSupport),
-          "coverage_report_generator", ImmutableSet.of(coverageReportGenerator));
-    }
+
   }
 
   private final String checksum;
