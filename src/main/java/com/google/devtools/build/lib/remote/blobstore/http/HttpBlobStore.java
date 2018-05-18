@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.blobstore.http;
 
 import com.google.auth.Credentials;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -98,7 +99,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
   @GuardedBy("credentialsLock")
   private long lastRefreshTime;
 
-  public HttpBlobStore(URI uri, int timeoutMillis, @Nullable final Credentials creds)
+  public HttpBlobStore(URI uri, int timeoutMillis, final AuthAndTLSOptions authAndTlsOptions, @Nullable final Credentials creds)
       throws Exception {
     boolean useTls = uri.getScheme().equals("https");
     if (uri.getPort() == -1) {
