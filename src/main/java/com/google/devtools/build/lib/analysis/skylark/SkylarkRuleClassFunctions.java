@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -316,6 +317,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<String> toolchains,
       String doc,
       SkylarkList<?> providesArg,
+      Boolean executionPlatformConstraintsAllowed,
+      SkylarkList<String> execCompatibleWith,
       FuncallExpression ast,
       Environment funcallEnv)
       throws EvalException, ConversionException {
@@ -397,6 +400,14 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       builder.advertiseSkylarkProvider(skylarkProvider);
     }
 
+    // TODO(katre): convert from bool to enum
+    if (!execCompatibleWith.isEmpty()) {
+      builder.addExecutionPlatformConstraints(collectConstraintLabels(execCompatibleWith, ast));
+    }
+    if (executionPlatformConstraintsAllowed) {
+      builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET);
+    }
+
     return new SkylarkRuleFunction(builder, type, attributes, ast.getLocation());
   }
 
@@ -441,6 +452,24 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     return requiredToolchains.build();
+  }
+
+  private static ImmutableList<Label> collectConstraintLabels(
+      Iterable<String> rawLabels, FuncallExpression ast) throws EvalException {
+    ImmutableList.Builder<Label> constraintLabels = new ImmutableList.Builder<>();
+    for (String rawLabel : rawLabels) {
+      try {
+        Label constraintLabel = Label.parseAbsolute(rawLabel);
+        constraintLabels.add(constraintLabel);
+      } catch (LabelSyntaxException e) {
+        throw new EvalException(
+            ast.getLocation(),
+            String.format("Unable to parse constraint %s: %s", rawLabel, e.getMessage()),
+            e);
+      }
+    }
+
+    return constraintLabels.build();
   }
 
   @Override
