@@ -315,12 +315,17 @@ TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromDirectoryNextToBinary) {
 }
 
 TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromEnvvar) {
+  // We create a directory as a side-effect of creating a mock file.
+  unique_ptr<MockFile> mf(
+      MockFile::Create(string("foo" LINE() "/dir/dummy")));
+  string dir = mf->Path().substr(0, mf->Path().size() - 6);
+
   string error;
   unique_ptr<Runfiles> r(
       TestOnly_CreateRunfiles("ignore-argv0",
-                              [](const string& key) {
+                              [dir](const string& key) {
                                 if (key == "RUNFILES_DIR") {
-                                  return string("runfiles/dir");
+                                  return dir;
                                 } else if (key == "TEST_SRCDIR") {
                                   return string("always ignored");
                                 } else {
@@ -331,8 +336,8 @@ TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromEnvvar) {
   ASSERT_NE(r, nullptr);
   EXPECT_TRUE(error.empty());
 
-  EXPECT_EQ(r->Rlocation("a/b"), "runfiles/dir/a/b");
-  EXPECT_EQ(r->Rlocation("foo"), "runfiles/dir/foo");
+  EXPECT_EQ(r->Rlocation("a/b"), dir + "/a/b");
+  EXPECT_EQ(r->Rlocation("foo"), dir + "/foo");
   EXPECT_EQ(r->Rlocation("/Foo"), "/Foo");
   EXPECT_EQ(r->Rlocation("c:/Foo"), "c:/Foo");
   EXPECT_EQ(r->Rlocation("c:\\Foo"), "c:\\Foo");
@@ -359,7 +364,8 @@ TEST_F(RunfilesTest, FailsToCreateManifestBasedBecauseManifestDoesNotExist) {
 }
 
 TEST_F(RunfilesTest, FailsToCreateAnyRunfilesBecauseEnvvarsAreNotDefined) {
-  unique_ptr<MockFile> mf(MockFile::Create(string("foo" LINE())));
+  unique_ptr<MockFile> mf(
+      MockFile::Create(string("foo" LINE() "/dir/dummy")));
   EXPECT_TRUE(mf != nullptr);
 
   string error;
@@ -380,10 +386,12 @@ TEST_F(RunfilesTest, FailsToCreateAnyRunfilesBecauseEnvvarsAreNotDefined) {
   ASSERT_NE(r, nullptr);
   EXPECT_TRUE(error.empty());
 
+  // We create a directory as a side-effect of creating a mock file.
+  string dir = mf->Path().substr(0, mf->Path().size() - 6);
   r.reset(TestOnly_CreateRunfiles("ignore-argv0",
-                                  [](const string& key) {
+                                  [dir](const string& key) {
                                     if (key == "RUNFILES_DIR") {
-                                      return string("whatever");
+                                      return dir;
                                     } else if (key == "TEST_SRCDIR") {
                                       return string("always ignored");
                                     } else {
@@ -489,21 +497,9 @@ TEST_F(RunfilesTest, IsAbsolute) {
 TEST_F(RunfilesTest, PathsFromEnvVars) {
   string mf, dir;
 
-  static const function<string(string)> kEnvVars = [](string key) {
-    if (key == "TEST_SRCDIR") {
-      return "always ignored";
-    } else if (key == "RUNFILES_MANIFEST_FILE") {
-      return "mock1/MANIFEST";
-    } else if (key == "RUNFILES_DIR") {
-      return "mock2";
-    } else {
-      return "";
-    }
-  };
-
   // Both envvars have a valid value.
   EXPECT_TRUE(Runfiles::PathsFrom(
-      "argv0", kEnvVars,
+      "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return path == "mock1/MANIFEST"; },
       [](const string& path) { return path == "mock2"; }, &mf, &dir));
   EXPECT_EQ(mf, "mock1/MANIFEST");
@@ -512,7 +508,7 @@ TEST_F(RunfilesTest, PathsFromEnvVars) {
   // RUNFILES_MANIFEST_FILE is invalid but RUNFILES_DIR is good and there's a
   // runfiles manifest in the runfiles directory.
   EXPECT_TRUE(Runfiles::PathsFrom(
-      "argv0", kEnvVars,
+      "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return path == "mock2/MANIFEST"; },
       [](const string& path) { return path == "mock2"; }, &mf, &dir));
   EXPECT_EQ(mf, "mock2/MANIFEST");
@@ -521,7 +517,7 @@ TEST_F(RunfilesTest, PathsFromEnvVars) {
   // RUNFILES_MANIFEST_FILE is invalid but RUNFILES_DIR is good, but there's no
   // runfiles manifest in the runfiles directory.
   EXPECT_TRUE(Runfiles::PathsFrom(
-      "argv0", kEnvVars, [](const string& path) { return false; },
+      "argv0", "mock1/MANIFEST", "mock2", [](const string& path) { return false; },
       [](const string& path) { return path == "mock2"; }, &mf, &dir));
   EXPECT_EQ(mf, "");
   EXPECT_EQ(dir, "mock2");
@@ -529,7 +525,7 @@ TEST_F(RunfilesTest, PathsFromEnvVars) {
   // RUNFILES_DIR is invalid but RUNFILES_MANIFEST_FILE is good, and it is in
   // a valid-looking runfiles directory.
   EXPECT_TRUE(Runfiles::PathsFrom(
-      "argv0", kEnvVars,
+      "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return path == "mock1/MANIFEST"; },
       [](const string& path) { return path == "mock1"; }, &mf, &dir));
   EXPECT_EQ(mf, "mock1/MANIFEST");
@@ -538,7 +534,7 @@ TEST_F(RunfilesTest, PathsFromEnvVars) {
   // RUNFILES_DIR is invalid but RUNFILES_MANIFEST_FILE is good, but it is not
   // in any valid-looking runfiles directory.
   EXPECT_TRUE(Runfiles::PathsFrom(
-      "argv0", kEnvVars,
+      "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return path == "mock1/MANIFEST"; },
       [](const string& path) { return false; }, &mf, &dir));
   EXPECT_EQ(mf, "mock1/MANIFEST");
@@ -547,7 +543,7 @@ TEST_F(RunfilesTest, PathsFromEnvVars) {
   // Both envvars are invalid, but there's a manifest in a runfiles directory
   // next to argv0, however there's no other content in the runfiles directory.
   EXPECT_TRUE(Runfiles::PathsFrom(
-      "argv0", kEnvVars,
+      "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return path == "argv0.runfiles/MANIFEST"; },
       [](const string& path) { return false; }, &mf, &dir));
   EXPECT_EQ(mf, "argv0.runfiles/MANIFEST");
@@ -556,7 +552,7 @@ TEST_F(RunfilesTest, PathsFromEnvVars) {
   // Both envvars are invalid, but there's a manifest next to argv0. There's
   // no runfiles tree anywhere.
   EXPECT_TRUE(Runfiles::PathsFrom(
-      "argv0", kEnvVars,
+      "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return path == "argv0.runfiles_manifest"; },
       [](const string& path) { return false; }, &mf, &dir));
   EXPECT_EQ(mf, "argv0.runfiles_manifest");
@@ -565,7 +561,7 @@ TEST_F(RunfilesTest, PathsFromEnvVars) {
   // Both envvars are invalid, but there's a valid manifest next to argv0, and a
   // valid runfiles directory (without a manifest in it).
   EXPECT_TRUE(Runfiles::PathsFrom(
-      "argv0", kEnvVars,
+      "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return path == "argv0.runfiles_manifest"; },
       [](const string& path) { return path == "argv0.runfiles"; }, &mf, &dir));
   EXPECT_EQ(mf, "argv0.runfiles_manifest");
@@ -574,7 +570,7 @@ TEST_F(RunfilesTest, PathsFromEnvVars) {
   // Both envvars are invalid, but there's a valid runfiles directory next to
   // argv0, though no manifest in it.
   EXPECT_TRUE(Runfiles::PathsFrom(
-      "argv0", kEnvVars, [](const string& path) { return false; },
+      "argv0", "mock1/MANIFEST", "mock2", [](const string& path) { return false; },
       [](const string& path) { return path == "argv0.runfiles"; }, &mf, &dir));
   EXPECT_EQ(mf, "");
   EXPECT_EQ(dir, "argv0.runfiles");
@@ -582,7 +578,7 @@ TEST_F(RunfilesTest, PathsFromEnvVars) {
   // Both envvars are invalid, but there's a valid runfiles directory next to
   // argv0 with a valid manifest in it.
   EXPECT_TRUE(Runfiles::PathsFrom(
-      "argv0", kEnvVars,
+      "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return path == "argv0.runfiles/MANIFEST"; },
       [](const string& path) { return path == "argv0.runfiles"; }, &mf, &dir));
   EXPECT_EQ(mf, "argv0.runfiles/MANIFEST");

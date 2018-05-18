@@ -154,7 +154,7 @@ class Runfiles {
   // clears both output variables and returns false.
   static bool PathsFrom(
       const std::string& argv0,
-      std::function<std::string(std::string)> env_lookup,
+      std::string runfiles_manifest_file, std::string runfiles_dir,
       std::function<bool(const std::string&)> is_runfiles_manifest,
       std::function<bool(const std::string&)> is_runfiles_directory,
       std::string* out_manifest, std::string* out_directory);
