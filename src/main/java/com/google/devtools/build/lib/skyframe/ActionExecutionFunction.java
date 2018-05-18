@@ -209,6 +209,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         }
         state.actionFileSystem =
             new ActionFileSystem(
+                skyframeActionExecutor.getExecutorFileSystem(),
                 skyframeActionExecutor.getExecRoot(),
                 skyframeActionExecutor.getSourceRoots(),
                 checkedInputs.first,

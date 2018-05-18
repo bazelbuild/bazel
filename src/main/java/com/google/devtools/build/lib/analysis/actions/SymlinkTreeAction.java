@@ -102,9 +102,9 @@ public final class SymlinkTreeAction extends AbstractAction {
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    return ActionResult.create(
-        actionExecutionContext
-            .getContext(SymlinkTreeActionContext.class)
-            .createSymlinks(this, actionExecutionContext, shellEnvironment, enableRunfiles));
+    actionExecutionContext
+        .getContext(SymlinkTreeActionContext.class)
+        .createSymlinks(this, actionExecutionContext, shellEnvironment, enableRunfiles);
+    return ActionResult.EMPTY;
   }
 }

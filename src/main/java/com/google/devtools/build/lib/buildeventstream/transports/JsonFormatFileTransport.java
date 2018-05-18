@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -28,11 +29,14 @@ import java.io.IOException;
  * representation of the events to a file.
  */
 public final class JsonFormatFileTransport extends FileTransport {
-
+  private final BuildEventProtocolOptions options;
   private final PathConverter pathConverter;
 
-  JsonFormatFileTransport(String path, PathConverter pathConverter) throws IOException {
+  JsonFormatFileTransport(
+      String path, BuildEventProtocolOptions options, PathConverter pathConverter)
+          throws IOException {
     super(path);
+    this.options = options;
     this.pathConverter = pathConverter;
   }
 
@@ -53,6 +57,11 @@ public final class JsonFormatFileTransport extends FileTransport {
           @Override
           public ArtifactGroupNamer artifactGroupNamer() {
             return namer;
+          }
+
+          @Override
+          public BuildEventProtocolOptions getOptions() {
+            return options;
           }
         };
     String protoJsonRepresentation;

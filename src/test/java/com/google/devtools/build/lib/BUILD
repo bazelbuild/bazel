@@ -58,6 +58,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe:srcs",
         "//src/test/java/com/google/devtools/build/lib/skylark:srcs",
+        "//src/test/java/com/google/devtools/build/lib/skylarkdebug/server:srcs",
         "//src/test/java/com/google/devtools/build/lib/skylarkinterface/processor:srcs",
     ],
     visibility = ["//src:__pkg__"],

@@ -834,6 +834,11 @@ public final class CcCommon {
         && fdoMode != FdoMode.AUTO_FDO
         && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
       allFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
+      // For LLVM, support implicit enabling of ThinLTO for FDO unless it has been
+      // explicitly disabled.
+      if (toolchain.isLLVMCompiler() && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+        allFeatures.add(CppRuleClasses.ENABLE_FDO_THINLTO);
+      }
     }
     if (isFdo && fdoMode == FdoMode.AUTO_FDO) {
       allFeatures.add(CppRuleClasses.AUTOFDO);

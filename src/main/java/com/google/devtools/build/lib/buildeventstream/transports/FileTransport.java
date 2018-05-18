@@ -29,20 +29,17 @@ import java.util.logging.Logger;
  * Non-blocking file transport.
  *
  * <p>Implementors of this class need to implement {@code #sendBuildEvent(BuildEvent)} which
- * serializes the build event and writes it to file using {@link #writeData(byte[])}.
+ * serializes the build event and writes it to file using {@link
+ * AsynchronousFileOutputStream#write}.
  */
 abstract class FileTransport implements BuildEventTransport {
-
   private static final Logger logger = Logger.getLogger(FileTransport.class.getName());
+
   @VisibleForTesting
   final AsynchronousFileOutputStream out;
 
-  FileTransport(String path) {
-    try {
-      out = new AsynchronousFileOutputStream(path);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+  FileTransport(String path) throws IOException {
+    out = new AsynchronousFileOutputStream(path);
   }
 
   // Silent wrappers to AsynchronousFileOutputStream methods.

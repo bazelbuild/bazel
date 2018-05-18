@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -81,7 +80,7 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /** Constructs the RuleConfiguredTarget instance based on the values set for this Builder. */
-  public ConfiguredTarget build() throws RuleErrorException, ActionConflictException {
+  public ConfiguredTarget build() throws ActionConflictException {
     if (ruleContext.getConfiguration().enforceConstraints()) {
       checkConstraints();
     }

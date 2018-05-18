@@ -1724,7 +1724,8 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
       buildFeatures(
           "artifact_name_pattern {",
           "category_name: 'NONEXISTENT_CATEGORY'",
-          "pattern: 'some_pattern'}");
+          "prefix: 'foo'",
+          "extension: 'bar'}");
       fail("Should throw InvalidConfigurationException.");
     } catch (InvalidConfigurationException e) {
       assertThat(e)
@@ -1740,7 +1741,8 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
           buildFeatures(
               "artifact_name_pattern {",
               "category_name: 'static_library'",
-              "pattern: 'some_pattern'}");
+              "prefix: 'foo'",
+              "extension: 'bar'}");
       toolchainFeatures.getArtifactNameForCategory(ArtifactCategory.DYNAMIC_LIBRARY, "output_name");
       fail("Should throw InvalidConfigurationException.");
     } catch (InvalidConfigurationException e) {

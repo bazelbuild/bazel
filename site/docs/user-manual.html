@@ -3001,11 +3001,6 @@ Examples:
 </pre>
 
 <p>
-  Bazel closes stdin, so you can't use <code>bazel run</code>
-  if you want to start an interactive program or pipe data to it.
-</p>
-
-<p>
   Note the use of the <code>--</code>.  This is needed so that Bazel
   does not interpret <code>--arg1</code> and <code>--arg2</code> as
   Bazel options, but rather as part of the command line for running the binary.
@@ -3027,10 +3022,10 @@ Examples:
 
 <p>
   <code>bazel run</code> can also execute test binaries, which has the effect of
-running the test, but without the setup documented on the page
-<a href='test-encyclopedia.html'>Writing Tests</a>, so that the test runs
-in an environment closer to the current shell environment. Note that none of the
---test_* arguments have an effect when running a test in this manner.
+  running the test in a close approximation of the environment described at
+  <a href='test-encyclopedia.html'>Writing Tests</a>. Note that none of the
+  <code>--test_*</code>code> arguments have an effect when running a test in this manner except
+  <code>--test_arg</code> .
 </p>
 
 <h2 id='query'>Querying the dependency graph with Bazel</h2>

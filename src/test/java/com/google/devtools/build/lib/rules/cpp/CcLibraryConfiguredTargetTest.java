@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -359,10 +358,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testObjectFileNamesCanBeSpecifiedInToolchain() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig,
+        .setupCrosstool(
+            mockToolsConfig,
             "artifact_name_pattern {"
                 + "   category_name: 'object_file'"
-                + "   pattern: '%{output_name}.test.o'"
+                + "   prefix: ''"
+                + "   extension: '.test.o'"
                 + "}");
 
     useConfiguration();
@@ -380,22 +381,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact archive =
         FileType.filter(getFilesToBuild(hello), CppFileTypes.ARCHIVE).iterator().next();
     assertThat(archive.getExecPathString()).endsWith("libhello.a");
-  }
-
-  @Test
-  public void testArtifactSelectionErrorOnBadTemplateVariable() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.STATIC_LINK_BAD_TEMPLATE_CONFIGURATION);
-    useConfiguration("--features=" + Link.LinkTargetType.STATIC_LIBRARY.getActionName());
-    try {
-      getConfiguredTarget("//hello:hello");
-      fail("Should fail");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Invalid toolchain configuration: Cannot find variable named 'bad_variable'");
-    }
   }
 
   @Test

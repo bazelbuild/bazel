@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
-import com.google.devtools.build.lib.buildtool.TargetValidator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -58,19 +58,14 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
-import com.google.devtools.build.lib.shell.AbnormalTerminationException;
-import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -111,27 +106,6 @@ import javax.annotation.Nullable;
 public class RunCommand implements BlazeCommand  {
   /** Options for the "run" command. */
   public static class RunOptions extends OptionsBase {
-    @Option(
-        name = "as_test",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {OptionEffectTag.EXECUTION},
-        help = "If set, the 'run' command will execute tests in an approximation of the official "
-            + "test environment. Otherwise, tests will be run as regular binaries.")
-    public boolean asTest;
-
-    @Option(
-      name = "direct_run",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "If set, the 'run' command will execute the binary to be executed in the terminal "
-          + "where the command was called. Otherwise, it'll be executed as a child of the server "
-          + "process. If set, the binary will have access to direct terminal I/O and the command "
-          + "lock will not be held during its execution. This makes it possible to run other "
-          + "commands in parallel.")
-    public boolean direct;
-
     @Option(
       name = "script_path",
       defaultValue = "null",
@@ -174,13 +148,9 @@ public class RunCommand implements BlazeCommand  {
 
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   protected BuildResult processRequest(final CommandEnvironment env, BuildRequest request) {
-    return new BuildTool(env).processRequest(request, new TargetValidator() {
-      @Override
-      public void validateTargets(Collection<Target> targets, boolean keepGoing)
-          throws LoadingFailedException {
-        RunCommand.this.validateTargets(env.getReporter(), targets, keepGoing);
-      }
-    });
+    return new BuildTool(env).processRequest(request,
+        (Collection<Target> targets, boolean keepGoing) ->
+            RunCommand.this.validateTargets(env.getReporter(), targets, keepGoing));
   }
 
   @Override
@@ -208,83 +178,6 @@ public class RunCommand implements BlazeCommand  {
     }
     args.addAll(commandLineArgs);
     return args;
-  }
-
-  private BlazeCommandResult runTargetUnderServer(CommandEnvironment env,
-      ConfiguredTarget targetToRun, PathFragment shellExecutable,
-      ConfiguredTarget runUnderTarget, Path workingDir, List<String> commandLineArgs) {
-    RunOptions runOptions = env.getOptions().getOptions(RunOptions.class);
-    List<String> args = computeArgs(env, targetToRun, commandLineArgs);
-    if (args == null) {
-      return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
-    }
-
-    // We now have a unique executable ready to be run.
-    //
-    // We build up two different versions of the command to run: one with an absolute path, which
-    // we'll actually run, and a prettier one with the long absolute path to the executable
-    // replaced with a shorter relative path that uses the symlinks in the workspace.
-    List<String> cmdLine = new ArrayList<>();
-    // process-wrapper does not work on Windows (nor is it necessary), so don't use it
-    // on that platform. Also we skip it when writing the command-line to a file instead
-    // of executing it directly.
-    if (OS.getCurrent() != OS.WINDOWS && runOptions.scriptPath == null) {
-      Preconditions.checkState(
-          ProcessWrapperUtil.isSupported(env), "process-wrapper not found in embedded tools");
-      cmdLine.add(ProcessWrapperUtil.getProcessWrapper(env).getPathString());
-    }
-    List<String> prettyCmdLine = new ArrayList<>();
-    constructCommandLine(cmdLine, prettyCmdLine, env, shellExecutable,
-        targetToRun, runUnderTarget, args);
-
-    // Add a newline between the blaze output and the binary's output.
-    env.getReporter().getOutErr().printErrLn("");
-
-    if (runOptions.scriptPath != null) {
-      String unisolatedCommand = CommandFailureUtils.describeCommand(
-          CommandDescriptionForm.COMPLETE_UNISOLATED,
-          cmdLine, null, workingDir.getPathString());
-      if (writeScript(env, shellExecutable, runOptions.scriptPath, unisolatedCommand)) {
-        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
-      } else {
-        return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
-      }
-    }
-
-    env.getReporter().handle(Event.info(
-        null, "Running command line: " + ShellEscaper.escapeJoinAll(prettyCmdLine)));
-
-    try {
-      com.google.devtools.build.lib.shell.Command command = new CommandBuilder()
-          .addArgs(cmdLine).setEnv(env.getClientEnv()).setWorkingDir(workingDir).build();
-
-      // Restore a raw EventHandler if it is registered. This allows for blaze run to produce the
-      // actual output of the command being run even if --color=no is specified.
-      env.getReporter().switchToAnsiAllowingHandler();
-
-      // The command API is a little strange in that the following statement will return normally
-      // only if the program exits with exit code 0. If it ends with any other code, we have to
-      // catch BadExitStatusException.
-      command
-          .execute(
-              env.getReporter().getOutErr().getOutputStream(),
-              env.getReporter().getOutErr().getErrorStream())
-          .getTerminationStatus()
-          .getExitCode();
-      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
-    } catch (BadExitStatusException e) {
-      String message = "Non-zero return code '"
-          + e.getResult().getTerminationStatus().getExitCode()
-          + "' from command: " + e.getMessage();
-      env.getReporter().handle(Event.error(message));
-      return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
-    } catch (AbnormalTerminationException e) {
-      // The process was likely terminated by a signal in this case.
-      return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
-    } catch (CommandException e) {
-      env.getReporter().handle(Event.error("Error running program: " + e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
-    }
   }
 
   private void constructCommandLine(List<String> cmdLine, List<String> prettyCmdLine,
@@ -462,11 +355,6 @@ public class RunCommand implements BlazeCommand  {
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
-    if (!runOptions.direct) {
-      return runTargetUnderServer(
-          env, targetToRun, shExecutable, runUnderTarget, runfilesDir, commandLineArgs);
-    }
-
     Map<String, String> runEnvironment = new TreeMap<>();
     List<String> cmdLine = new ArrayList<>();
     List<String> prettyCmdLine = new ArrayList<>();
@@ -475,7 +363,7 @@ public class RunCommand implements BlazeCommand  {
     runEnvironment.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
     runEnvironment.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());
 
-    if (targetToRun.getProvider(TestProvider.class) != null && runOptions.asTest) {
+    if (targetToRun.getProvider(TestProvider.class) != null) {
       // This is a test. Provide it with a reasonable approximation of the actual test environment
       ImmutableList<Artifact> statusArtifacts = TestProvider.getTestStatusArtifacts(targetToRun);
       if (statusArtifacts.size() != 1) {
@@ -587,10 +475,6 @@ public class RunCommand implements BlazeCommand  {
   /**
    * Ensures that runfiles are built for the specified target. If they already
    * are, does nothing, otherwise builds them.
-   *
-   * @param target the target to build runfiles for.
-   * @return the path of the runfiles directory.
-   * @throws CommandException
    */
   private Path ensureRunfilesBuilt(CommandEnvironment env, RunfilesSupport runfilesSupport,
       BuildConfiguration configuration) throws CommandException {
@@ -616,7 +500,7 @@ public class RunCommand implements BlazeCommand  {
         runfilesSupport.getRunfilesDirectory(),
         false);
     helper.createSymlinksUsingCommand(
-        env.getExecRoot(), configuration, env.getBlazeWorkspace().getBinTools());
+        env.getExecRoot(), env.getBlazeWorkspace().getBinTools(), ImmutableMap.of());
     return workingDir;
   }
 
@@ -712,7 +596,7 @@ public class RunCommand implements BlazeCommand  {
    */
   private ExitCode fullyValidateTarget(CommandEnvironment env, ConfiguredTarget configuredTarget) {
 
-    Target target = null;
+    Target target;
     try {
       target = env.getPackageManager().getTarget(env.getReporter(), configuredTarget.getLabel());
     } catch (NoSuchTargetException | NoSuchPackageException | InterruptedException e) {

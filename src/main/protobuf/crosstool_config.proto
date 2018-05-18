@@ -260,10 +260,10 @@ message CToolchain {
     // categories include "linked_output" or "debug_symbols". An error is thrown
     // if no category is matched.
     required string category_name = 1;
-    // The pattern for creating the artifact for this selection.  The given
-    // pattern is templated by bazel and then used to create an artifact in
-    // a target-specific directory in bazel-bin.
-    required string pattern = 2;
+    // The prefix and extension for creating the artifact for this selection.
+    // They are used to create an artifact name based on the target name.
+    required string prefix = 2;
+    required string extension = 3;
   }
 
   // An action config corresponds to a blaze action, and allows selection of

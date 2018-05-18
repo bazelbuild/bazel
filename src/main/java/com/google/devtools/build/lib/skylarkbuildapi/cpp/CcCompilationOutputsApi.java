@@ -14,14 +14,25 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 
 /** Interface for a structured representation of the compilation outputs of a C++ rule. */
 @SkylarkModule(
     name = "cc_compilation_outputs",
     category = SkylarkModuleCategory.BUILTIN,
     documented = false,
-    doc = "Helper class containing CC compilation outputs."
-)
-public interface CcCompilationOutputsApi {}
+    doc = "Helper class containing CC compilation outputs.")
+public interface CcCompilationOutputsApi {
+  @SkylarkCallable(
+      name = "object_files",
+      documented = false,
+      parameters = {
+        @Param(name = "use_pic", doc = "use_pic", positional = false, named = true),
+      })
+  SkylarkList<Artifact> getSkylarkObjectFiles(boolean usePic);
+}

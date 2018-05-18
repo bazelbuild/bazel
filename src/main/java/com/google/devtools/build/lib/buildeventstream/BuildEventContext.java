@@ -31,4 +31,9 @@ public interface BuildEventContext {
    * com.google.devtools.build.lib.actions.EventReportingArtifacts} interface.
    */
   ArtifactGroupNamer artifactGroupNamer();
+
+  /**
+   * Returns the options for the build event stream.
+   */
+  BuildEventProtocolOptions getOptions();
 }

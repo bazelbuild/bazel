@@ -379,6 +379,17 @@ public abstract class MockCcSupport {
   public static final String AUTOFDO_IMPLICIT_THINLTO_CONFIGURATION =
       "" + "feature {  name: 'autofdo_implicit_thinlto'}";
 
+  public static final String ENABLE_FDO_THINLTO_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'enable_fdo_thinlto'"
+          + "  requires { feature: 'fdo_implicit_thinlto' }"
+          + "  implies: 'thin_lto'"
+          + "}";
+
+  public static final String FDO_IMPLICIT_THINLTO_CONFIGURATION =
+      "" + "feature {  name: 'fdo_implicit_thinlto'}";
+
   public static final String AUTO_FDO_CONFIGURATION =
       ""
           + "feature {"
@@ -391,6 +402,25 @@ public abstract class MockCcSupport {
           + "    expand_if_all_available: 'fdo_profile_path'"
           + "    flag_group {"
           + "      flag: '-fauto-profile=%{fdo_profile_path}'"
+          + "      flag: '-fprofile-correction'"
+          + "    }"
+          + "  }"
+          + "}";
+
+  public static final String FDO_OPTIMIZE_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'fdo_optimize'"
+          + "  provides: 'profile'"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    expand_if_all_available: 'fdo_profile_path'"
+          + "    flag_group {"
+          + "      flag: '-fprofile-use=%{fdo_profile_path}'"
+          + "      flag: '-Xclang-only=-Wno-profile-instr-unprofiled'"
+          + "      flag: '-Xclang-only=-Wno-profile-instr-out-of-date'"
+          + "      flag: '-Xclang-only=-Wno-backend-plugin'"
           + "      flag: '-fprofile-correction'"
           + "    }"
           + "  }"
@@ -447,21 +477,16 @@ public abstract class MockCcSupport {
       ""
           + "artifact_name_pattern {"
           + "   category_name: 'static_library'"
-          + "   pattern: 'lib%{base_name}.tweaked.a'"
+          + "   prefix: 'lib'"
+          + "   extension: '.tweaked.a'"
           + "}";
 
   public static final String STATIC_LINK_AS_DOT_A_CONFIGURATION =
       ""
           + "artifact_name_pattern {"
           + "   category_name: 'static_library'"
-          + "   pattern: 'lib%{base_name}.a'"
-          + "}";
-
-  public static final String STATIC_LINK_BAD_TEMPLATE_CONFIGURATION =
-      ""
-          + "artifact_name_pattern {"
-          + "   category_name: 'static_library'"
-          + "   pattern: 'foo%{bad_variable}bar'"
+          + "   prefix: 'lib'"
+          + "   extension: '.a'"
           + "}";
 
   public static final String EMPTY_COMPILE_ACTION_CONFIG =
