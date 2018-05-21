@@ -153,7 +153,7 @@ class Memoizer {
       if (strategy == MemoizationStrategy.DO_NOT_MEMOIZE) {
         // TODO(janakr): there is no reason this is limited to the DO_NOT_MEMOIZE case, but we don't
         // memoize Strings, so putting the code here saves a tiny bit of work in the other cases. If
-        // the StringCodec#getStrategy changes, this block of code will have to move.
+        // String's codec's #getStrategy changes, this block of code will have to move.
         if (!maybeEmitString(context, obj, codec, codedOut)) {
           codec.serialize(context, obj, codedOut);
         }

@@ -14,43 +14,44 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
+import static com.google.devtools.build.lib.skyframe.serialization.UnsafeJdk9StringCodec.canUseUnsafeCodec;
+
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.CodecRegisterer;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.UnsafeJdk9StringCodec;
 
 /** Utility for accessing (potentially platform-specific) {@link String} {@link ObjectCodec}s. */
 public final class StringCodecs {
 
   private static final StringCodec stringCodec = new StringCodec();
 
-  private StringCodecs() {}
+  private static final UnsafeJdk9StringCodec unsafeCodec =
+      canUseUnsafeCodec() ? new UnsafeJdk9StringCodec() : null;
 
   /**
-   * Returns whether or not optimized codecs are available. Exposed so users can check at runtime
-   * if the expected optimizations are applied.
+   * Returns optimized singleton instance, if supported. Otherwise, returns a functional, but not
+   * optimized implementation. Currently supported on JDK9.
    */
-  public static boolean supportsOptimizedAscii() {
-    return false;
-  }
-
-  /**
-   * Returns singleton instance optimized for almost-always ASCII data, if supported. Otherwise,
-   * returns a functional, but not optimized implementation. To tell if the optimized version is
-   * supported see {@link #supportsOptimizedAscii()}.
-   *
-   * <p>Note that when optimized, this instance can still serialize/deserialize UTF-8 data, but with
-   *  potentially worse performance than {@link #simple()}.
-   *
-   * <p>Currently this is the same as {@link #simple()}, it remains to avoid a time-consuming
-   * cleanup and in case we want to revive an optimized version in the near future.
-   */
-  // TODO(bazel-core): Determine if we need to revive ascii-optimized.
   public static ObjectCodec<String> asciiOptimized() {
-    return simple();
+    return unsafeCodec != null ? unsafeCodec : stringCodec;
   }
 
-  /**
-   * Returns singleton instance of basic implementation. Should be preferred over
-   * {@link #asciiOptimized()} when a sufficient amount of UTF-8 data is expected.
-   */
+  static class UnsafeStringCodecRegisterer implements CodecRegisterer<UnsafeJdk9StringCodec> {
+    @Override
+    public Iterable<? extends ObjectCodec<?>> getCodecsToRegister() {
+      return canUseUnsafeCodec() ? ImmutableList.of(unsafeCodec) : ImmutableList.of();
+    }
+  }
+
+  static class SimpleStringCodecRegisterer implements CodecRegisterer<StringCodec> {
+    @Override
+    public Iterable<StringCodec> getCodecsToRegister() {
+      return canUseUnsafeCodec() ? ImmutableList.of() : ImmutableList.of(stringCodec);
+    }
+  }
+
+  /** Returns singleton instance of basic implementation. */
   public static ObjectCodec<String> simple() {
     return stringCodec;
   }
