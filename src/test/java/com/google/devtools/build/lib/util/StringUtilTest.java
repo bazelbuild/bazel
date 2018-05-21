@@ -17,13 +17,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.StringUtil.capitalize;
 import static com.google.devtools.build.lib.util.StringUtil.indent;
 import static com.google.devtools.build.lib.util.StringUtil.joinEnglishList;
-import static com.google.devtools.build.lib.util.StringUtil.splitAndInternString;
 import static com.google.devtools.build.lib.util.StringUtil.stripSuffix;
 
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -44,20 +42,6 @@ public class StringUtilTest {
         .isEqualTo("one, two and three");
     assertThat(joinEnglishList(Arrays.asList("one", "two", "three"), "and", "'"))
         .isEqualTo("'one', 'two' and 'three'");
-  }
-
-  @Test
-  public void splitAndIntern() throws Exception {
-    assertThat(splitAndInternString("       ")).isEmpty();
-    assertThat(splitAndInternString(null)).isEmpty();
-    List<String> list1 = splitAndInternString("    x y    z    z");
-    List<String> list2 = splitAndInternString("a z    c z");
-
-    assertThat(list1).containsExactly("x", "y", "z", "z").inOrder();
-    assertThat(list2).containsExactly("a", "z", "c", "z").inOrder();
-    assertThat(list1.get(3)).isSameAs(list1.get(2));
-    assertThat(list2.get(1)).isSameAs(list1.get(2));
-    assertThat(list2.get(3)).isSameAs(list2.get(1));
   }
 
   @Test
