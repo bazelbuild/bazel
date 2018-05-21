@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistry
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -768,10 +769,17 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public Artifact getLauncher(RuleContext ruleContext, JavaCommon common,
-      DeployArchiveBuilder deployArchiveBuilder, Runfiles.Builder runfilesBuilder,
-      List<String> jvmFlags, JavaTargetAttributes.Builder attributesBuilder, boolean shouldStrip) {
-    return JavaHelper.launcherArtifactForTarget(this, ruleContext);
+  public Pair<Artifact, Artifact> getLauncher(
+      RuleContext ruleContext,
+      JavaCommon common,
+      DeployArchiveBuilder deployArchiveBuilder,
+      DeployArchiveBuilder unstrippedDeployArchiveBuilder,
+      Runfiles.Builder runfilesBuilder,
+      List<String> jvmFlags,
+      JavaTargetAttributes.Builder attributesBuilder,
+      boolean shouldStrip) {
+    Artifact launcher = JavaHelper.launcherArtifactForTarget(this, ruleContext);
+    return new Pair<>(launcher, launcher);
   }
 
   @Override
