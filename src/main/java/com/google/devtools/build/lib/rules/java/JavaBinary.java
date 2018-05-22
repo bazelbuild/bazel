@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -139,23 +140,22 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     // TODO(b/64384912): Remove in favor of CcToolchainProvider
     boolean stripAsDefault =
         ccToolchain.useFission() && cppConfiguration.getCompilationMode() == CompilationMode.OPT;
-    Artifact launcher = semantics.getLauncher(ruleContext, common, deployArchiveBuilder,
-        runfilesBuilder, jvmFlags, attributesBuilder, stripAsDefault);
-
     DeployArchiveBuilder unstrippedDeployArchiveBuilder = null;
-    Artifact unstrippedLauncher = null;
     if (stripAsDefault) {
       unstrippedDeployArchiveBuilder = new DeployArchiveBuilder(semantics, ruleContext);
-      unstrippedLauncher =
-          semantics.getLauncher(
-              ruleContext,
-              common,
-              unstrippedDeployArchiveBuilder,
-              runfilesBuilder,
-              jvmFlags,
-              attributesBuilder,
-              /* shouldStrip= */ false);
     }
+    Pair<Artifact, Artifact> launcherAndUnstrippedLauncher =
+        semantics.getLauncher(
+            ruleContext,
+            common,
+            deployArchiveBuilder,
+            unstrippedDeployArchiveBuilder,
+            runfilesBuilder,
+            jvmFlags,
+            attributesBuilder,
+            stripAsDefault);
+    Artifact launcher = launcherAndUnstrippedLauncher.first;
+    Artifact unstrippedLauncher = launcherAndUnstrippedLauncher.second;
 
     JavaCompilationArtifacts.Builder javaArtifactsBuilder = new JavaCompilationArtifacts.Builder();
     Artifact instrumentationMetadata =

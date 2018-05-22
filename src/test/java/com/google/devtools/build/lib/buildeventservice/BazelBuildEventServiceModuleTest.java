@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
@@ -112,6 +113,8 @@ public class BazelBuildEventServiceModuleTest {
     when(optionsProvider.getOptions(BuildEventServiceOptions.class)).thenReturn(besOptions);
     when(optionsProvider.getOptions(AuthAndTLSOptions.class))
         .thenReturn(Options.getDefaults(AuthAndTLSOptions.class));
+    when(optionsProvider.getOptions(BuildEventProtocolOptions.class))
+        .thenReturn(Options.getDefaults(BuildEventProtocolOptions.class));
   }
 
   @After

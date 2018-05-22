@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceC
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent.PayloadCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildFinished;
@@ -94,6 +95,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   private final BuildEventServiceProtoUtil besProtoUtil;
   private final ModuleEnvironment moduleEnvironment;
   private final EventHandler commandLineReporter;
+  private final BuildEventProtocolOptions protocolOptions;
   private final PathConverter pathConverter;
   private final Sleeper sleeper;
   /** Contains all pendingAck events that might be retried in case of failures. */
@@ -130,13 +132,14 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       String command,
       ModuleEnvironment moduleEnvironment,
       Clock clock,
+      BuildEventProtocolOptions protocolOptions,
       PathConverter pathConverter,
       EventHandler commandLineReporter,
       @Nullable String projectId,
       Set<String> keywords) {
     this(besClient, uploadTimeout, bestEffortUpload, publishLifecycleEvents, buildRequestId,
-        invocationId, command, moduleEnvironment, clock, pathConverter, commandLineReporter,
-        projectId, keywords, new JavaSleeper());
+        invocationId, command, moduleEnvironment, clock, protocolOptions, pathConverter,
+        commandLineReporter, projectId, keywords, new JavaSleeper());
   }
 
   @VisibleForTesting
@@ -150,6 +153,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       String command,
       ModuleEnvironment moduleEnvironment,
       Clock clock,
+      BuildEventProtocolOptions protocolOptions,
       PathConverter pathConverter,
       EventHandler commandLineReporter,
       @Nullable String projectId,
@@ -169,6 +173,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     // loop by publishEventStream re-submitting itself to the executor.
     // TODO(buchgr): Fix it.
     this.uploaderExecutorService = listeningDecorator(Executors.newFixedThreadPool(2));
+    this.protocolOptions = protocolOptions;
     this.pathConverter = pathConverter;
     this.invocationResult = UNKNOWN_STATUS;
     this.uploadTimeout = uploadTimeout;
@@ -292,9 +297,15 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           public PathConverter pathConverter() {
             return pathConverter;
           }
+
           @Override
           public ArtifactGroupNamer artifactGroupNamer() {
             return namer;
+          }
+
+          @Override
+          public BuildEventProtocolOptions getOptions() {
+            return protocolOptions;
           }
         });
     if (PayloadCase.FINISHED.equals(eventProto.getPayloadCase())) {

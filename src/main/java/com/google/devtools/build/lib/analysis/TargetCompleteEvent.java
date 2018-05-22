@@ -232,10 +232,12 @@ public final class TargetCompleteEvent
 
     // TODO(aehlig): remove direct reporting of artifacts as soon as clients no longer
     // need it.
-    addImportantOutputs(builder, converters, getLegacyFilteredImportantArtifacts());
-    if (baselineCoverageArtifacts != null) {
-      addImportantOutputs(
-          builder, (artifact -> BASELINE_COVERAGE), converters, baselineCoverageArtifacts);
+    if (converters.getOptions().legacyImportantOutputs) {
+      addImportantOutputs(builder, converters, getLegacyFilteredImportantArtifacts());
+      if (baselineCoverageArtifacts != null) {
+        addImportantOutputs(
+            builder, (artifact -> BASELINE_COVERAGE), converters, baselineCoverageArtifacts);
+      }
     }
 
     BuildEventStreamProtos.TargetComplete complete = builder.build();

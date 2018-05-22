@@ -44,8 +44,10 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnfo
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -254,6 +256,8 @@ public interface JavaSemantics {
   void checkForProtoLibraryAndJavaProtoLibraryOnSameProto(
       RuleContext ruleContext, JavaCommon javaCommon);
 
+  void checkProtoDeps(RuleContext ruleContext, Collection<? extends TransitiveInfoCollection> deps);
+
   /**
    * Returns the main class of a Java binary.
    */
@@ -436,16 +440,25 @@ public interface JavaSemantics {
    * @param ruleContext The rule context
    * @param common The common helper class.
    * @param deployArchiveBuilder the builder to construct the deploy archive action (mutable).
+   * @param unstrippedDeployArchiveBuilder the builder to construct the unstripped deploy archive
+   *     action (mutable).
    * @param runfilesBuilder the builder to construct the list of runfiles (mutable).
    * @param jvmFlags the list of flags to pass to the JVM when running the Java binary (mutable).
    * @param attributesBuilder the builder to construct the list of attributes of this target
-   *        (mutable).
-   * @return the launcher as an artifact
+   *     (mutable).
+   * @return the launcher and unstripped launcher as an artifact pair. If shouldStrip is false, then
+   *     they will be the same.
    * @throws InterruptedException
    */
-  Artifact getLauncher(final RuleContext ruleContext, final JavaCommon common,
-      DeployArchiveBuilder deployArchiveBuilder, Runfiles.Builder runfilesBuilder,
-      List<String> jvmFlags, JavaTargetAttributes.Builder attributesBuilder, boolean shouldStrip)
+  Pair<Artifact, Artifact> getLauncher(
+      final RuleContext ruleContext,
+      final JavaCommon common,
+      DeployArchiveBuilder deployArchiveBuilder,
+      DeployArchiveBuilder unstrippedDeployArchiveBuilder,
+      Runfiles.Builder runfilesBuilder,
+      List<String> jvmFlags,
+      JavaTargetAttributes.Builder attributesBuilder,
+      boolean shouldStrip)
       throws InterruptedException;
 
   /** Add extra dependencies for runfiles of a Java binary. */

@@ -1138,8 +1138,8 @@ public class PackageFunction implements SkyFunction {
   }
 
   /**
-   * Constructs a {@link Package} object for the given package using legacy package loading. Note
-   * that the returned package may be in error.
+   * Constructs a {@link Package} object for the given package. Note that the returned package
+   * may be in error.
    *
    * <p>May return null if the computation has to be restarted.
    *
