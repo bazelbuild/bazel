@@ -205,7 +205,7 @@ public class RuleClass {
     /** The rule implementation does not allow any additional execution platform constraints. */
     NONE(false, false),
     /**
-     * The rule allows additional execution platform constraints to be added at the rule level,
+     * Allows additional execution platform constraints to be added in the rule definition,
      * which apply to all targets of that rule.
      */
     PER_RULE(true, false),
@@ -751,11 +751,13 @@ public class RuleClass {
       } else if (executionPlatformConstraintsAllowed
           == ExecutionPlatformConstraintsAllowed.PER_TARGET) {
         // Only rules that allow per target execution constraints need this attribute.
-        this.add(
-            attr("exec_compatible_with", BuildType.LABEL_LIST)
-                .allowedFileTypes()
-                .nonconfigurable("Used in toolchain resolution")
-                .value(ImmutableList.of()));
+        if (!this.attributes.containsKey("exec_compatible_with")) {
+          this.add(
+              attr("exec_compatible_with", BuildType.LABEL_LIST)
+                  .allowedFileTypes()
+                  .nonconfigurable("Used in toolchain resolution")
+                  .value(ImmutableList.of()));
+        }
       }
 
       return new RuleClass(
@@ -965,7 +967,7 @@ public class RuleClass {
     /**
      * Applies the given transition factory to all incoming edges for this rule class.
      *
-     * <p>Unlike{@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
+     * <p>Unlike {@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
      * transition to use.
      */
     public Builder cfg(RuleTransitionFactory transitionFactory) {
