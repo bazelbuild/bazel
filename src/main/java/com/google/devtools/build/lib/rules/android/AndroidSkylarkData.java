@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -56,17 +56,8 @@ public abstract class AndroidSkylarkData {
 
   public abstract AndroidSemantics getAndroidSemantics();
 
-  /**
-   * Skylark API for getting a asset provider for android_library targets that don't specify assets.
-   *
-   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
-   *
-   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
-   *     instead. See b/79159379
-   */
   @SkylarkCallable(
       name = "assets_from_deps",
-      mandatoryPositionals = 1, // context
       parameters = {
         @Param(
             name = "deps",
@@ -86,25 +77,16 @@ public abstract class AndroidSkylarkData {
                 "Defaults to False. If true, assets will not be exposed to targets that depend on"
                     + " them.")
       },
+      useEnvironment = true,
       doc =
           "Creates an AndroidAssetsInfo from this target's asset dependencies, ignoring local"
               + " assets. No processing will be done. This method is deprecated and exposed only"
               + " for backwards-compatibility with existing Native behavior.")
   public static AndroidAssetsInfo assetsFromDeps(
-      SkylarkRuleContext ctx, SkylarkList<AndroidAssetsInfo> deps, boolean neverlink)
-      throws EvalException {
-    return AssetDependencies.fromProviders(deps, neverlink).toInfo(ctx.getLabel());
+      SkylarkList<AndroidAssetsInfo> deps, boolean neverlink, Environment env) {
+    return AssetDependencies.fromProviders(deps, neverlink).toInfo(env.getCallerLabel());
   }
 
-  /**
-   * Skylark API for getting a resource provider for android_library targets that don't specify
-   * resources.
-   *
-   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
-   *
-   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
-   *     instead. See b/79159379
-   */
   @SkylarkCallable(
       name = "resources_from_deps",
       mandatoryPositionals = 1, // context
@@ -146,11 +128,11 @@ public abstract class AndroidSkylarkData {
               + " manifest will be generated and included in the provider - this path should not"
               + " be used when an explicit manifest is specified.")
   public static AndroidResourcesInfo resourcesFromDeps(
-      SkylarkRuleContext ctx,
+      AndroidDataContext ctx,
       SkylarkList<AndroidResourcesInfo> deps,
       boolean neverlink,
       Object customPackage)
-      throws EvalException, InterruptedException {
+      throws InterruptedException {
     String pkg = fromNoneable(customPackage, String.class);
     if (pkg == null) {
       pkg = AndroidManifest.getDefaultPackage(ctx.getRuleContext());
@@ -163,17 +145,9 @@ public abstract class AndroidSkylarkData {
         .toResourceInfo(ctx.getLabel());
   }
 
-  /**
-   * Skylark API for stamping an Android manifest
-   *
-   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
-   *
-   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
-   *     instead. See b/79159379
-   */
   @SkylarkCallable(
       name = "stamp_manifest",
-      mandatoryPositionals = 1, // SkylarkRuleContext ctx is mandatory
+      mandatoryPositionals = 1, // AndroidDataContext ctx is mandatory
       parameters = {
         @Param(
             name = "manifest",
@@ -208,7 +182,7 @@ public abstract class AndroidSkylarkData {
       },
       doc = "Stamps a manifest with package information.")
   public AndroidManifestInfo stampAndroidManifest(
-      SkylarkRuleContext ctx, Object manifest, Object customPackage, boolean exported)
+      AndroidDataContext ctx, Object manifest, Object customPackage, boolean exported)
       throws InterruptedException {
     String pkg = fromNoneable(customPackage, String.class);
     if (pkg == null) {
@@ -229,14 +203,6 @@ public abstract class AndroidSkylarkData {
         .toProvider();
   }
 
-  /**
-   * Skylark API for merging android_library assets
-   *
-   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
-   *
-   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
-   *     instead. See b/79159379
-   */
   @SkylarkCallable(
       name = "merge_assets",
       mandatoryPositionals = 1, // context
@@ -288,7 +254,7 @@ public abstract class AndroidSkylarkData {
               + " You may want to force these actions to be called - see the 'validation_result'"
               + " field in AndroidAssetsInfo")
   public AndroidAssetsInfo mergeAssets(
-      SkylarkRuleContext ctx,
+      AndroidDataContext ctx,
       Object assets,
       Object assetsDir,
       SkylarkList<AndroidAssetsInfo> deps,
@@ -309,14 +275,6 @@ public abstract class AndroidSkylarkData {
     }
   }
 
-  /**
-   * Skylark API for merging android_library resources
-   *
-   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
-   *
-   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
-   *     instead. See b/79159379
-   */
   @SkylarkCallable(
       name = "merge_resources",
       mandatoryPositionals = 2, // context, manifest
@@ -368,7 +326,7 @@ public abstract class AndroidSkylarkData {
               + " manifest, so in the future, you may want to use the manifest contained in this"
               + " method's output instead of this one.")
   public SkylarkDict<NativeProvider<?>, NativeInfo> mergeResources(
-      SkylarkRuleContext ctx,
+      AndroidDataContext ctx,
       AndroidManifestInfo manifest,
       SkylarkList<ConfiguredTarget> resources,
       SkylarkList<AndroidResourcesInfo> deps,
@@ -403,14 +361,6 @@ public abstract class AndroidSkylarkData {
     }
   }
 
-  /**
-   * Skylark API for building an Aar for an android_library
-   *
-   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
-   *
-   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
-   *     instead. See b/79159379
-   */
   @SkylarkCallable(
       name = "make_aar",
       mandatoryPositionals = 4, // context, resource info, asset info, and library class jar
@@ -448,7 +398,7 @@ public abstract class AndroidSkylarkData {
               + " providers from this same target must both be passed, as must the class JAR output"
               + " of building the Android Java library.")
   public AndroidLibraryAarInfo makeAar(
-      SkylarkRuleContext ctx,
+      AndroidDataContext ctx,
       AndroidResourcesInfo resourcesInfo,
       AndroidAssetsInfo assetsInfo,
       Artifact libraryClassJar,
@@ -513,14 +463,6 @@ public abstract class AndroidSkylarkData {
         .toProvider(deps, definesLocalResources);
   }
 
-  /**
-   * Skylark API for doing all resource, asset, and manifest processing for an android_library
-   *
-   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
-   *
-   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
-   *     instead. See b/79159379
-   */
   @SkylarkCallable(
       name = "process_library_data",
       mandatoryPositionals = 2, // ctx and libraryClassJar are required
@@ -627,11 +569,12 @@ public abstract class AndroidSkylarkData {
                 "Dependency targets. Providers will be extracted from these dependencies for each"
                     + " type of data."),
       },
+      useEnvironment = true,
       doc =
           "Performs full processing of data for android_library or similar rules. Returns a dict"
               + " from provider type to providers for the target.")
   public SkylarkDict<NativeProvider<?>, NativeInfo> processLibraryData(
-      SkylarkRuleContext ctx,
+      AndroidDataContext ctx,
       Artifact libraryClassJar,
       Object manifest,
       Object resources,
@@ -642,7 +585,8 @@ public abstract class AndroidSkylarkData {
       boolean neverlink,
       boolean enableDataBinding,
       SkylarkList<ConfiguredTarget> proguardSpecs,
-      SkylarkList<ConfiguredTarget> deps)
+      SkylarkList<ConfiguredTarget> deps,
+      Environment env)
       throws InterruptedException, EvalException {
 
     SkylarkList<AndroidResourcesInfo> resourceDeps =
@@ -662,7 +606,7 @@ public abstract class AndroidSkylarkData {
       // If none of these parameters were specified, for backwards compatibility, do not trigger
       // data processing.
       resourcesInfo = resourcesFromDeps(ctx, resourceDeps, neverlink, customPackage);
-      assetsInfo = assetsFromDeps(ctx, assetDeps, neverlink);
+      assetsInfo = assetsFromDeps(assetDeps, neverlink, env);
 
       infoBuilder.put(AndroidResourcesInfo.PROVIDER, resourcesInfo);
     } else {
@@ -718,14 +662,6 @@ public abstract class AndroidSkylarkData {
             .build());
   }
 
-  /**
-   * Skylark API for doing all resource, asset, and manifest processing for an aar_import target
-   *
-   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
-   *
-   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
-   *     instead. See b/79159379
-   */
   @SkylarkCallable(
       name = "process_aar_import_data",
       // context, resource and asset TreeArtifacts, and manifest artifact are all mandatory
@@ -742,7 +678,7 @@ public abstract class AndroidSkylarkData {
       },
       doc = "Processes assets, resources, and manifest for aar_import targets")
   public SkylarkDict<NativeProvider<?>, NativeInfo> processAarImportData(
-      SkylarkRuleContext ctx,
+      AndroidDataContext ctx,
       SpecialArtifact resources,
       SpecialArtifact assets,
       Artifact androidManifestArtifact,
@@ -775,14 +711,6 @@ public abstract class AndroidSkylarkData {
     return getNativeInfosFrom(resourceApk, ctx.getLabel());
   }
 
-  /**
-   * Skylark API for processing assets, resources, and manifest for android_local_test
-   *
-   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
-   *
-   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
-   *     instead. See b/79159379
-   */
   @SkylarkCallable(
       name = "process_local_test_data",
       mandatoryPositionals = 1, // context is mandatory
@@ -870,7 +798,7 @@ public abstract class AndroidSkylarkData {
           "Processes resources, assets, and manifests for android_local_test and returns a dict"
               + " from provider type to the appropriate provider.")
   public SkylarkDict<NativeProvider<?>, NativeInfo> processLocalTestData(
-      SkylarkRuleContext ctx,
+      AndroidDataContext ctx,
       Object manifest,
       SkylarkList<ConfiguredTarget> resources,
       Object assets,
@@ -917,17 +845,9 @@ public abstract class AndroidSkylarkData {
     }
   }
 
-  /**
-   * Skylark API for bundling common setting for working with resources in android_binary
-   *
-   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
-   *
-   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
-   *     instead. See b/79159379
-   */
   @SkylarkCallable(
       name = "make_binary_settings",
-      mandatoryPositionals = 1, // SkylarkRuleContext is mandatory
+      mandatoryPositionals = 1, // AndroidDataContext is mandatory
       parameters = {
         @Param(
             name = "shrink_resources",
@@ -982,7 +902,7 @@ public abstract class AndroidSkylarkData {
           "Returns a wrapper object containing various settings shared across multiple methods for"
               + " processing binary data.")
   public BinaryDataSettings makeBinarySettings(
-      SkylarkRuleContext ctx,
+      AndroidDataContext ctx,
       Object shrinkResources,
       SkylarkList<String> resourceConfigurationFilters,
       SkylarkList<String> densities,
@@ -1015,7 +935,7 @@ public abstract class AndroidSkylarkData {
    * Helper method to get default {@link
    * com.google.devtools.build.lib.rules.android.AndroidSkylarkData.BinaryDataSettings}.
    */
-  private BinaryDataSettings defaultBinaryDataSettings(SkylarkRuleContext ctx)
+  private BinaryDataSettings defaultBinaryDataSettings(AndroidDataContext ctx)
       throws EvalException {
     return makeBinarySettings(
         ctx,
@@ -1047,17 +967,9 @@ public abstract class AndroidSkylarkData {
     }
   }
 
-  /**
-   * Skylark API for processing assets, resources, and manifest for android_binary
-   *
-   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
-   *
-   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
-   *     instead. See b/79159379
-   */
   @SkylarkCallable(
       name = "process_binary_data",
-      mandatoryPositionals = 1, // SkylarkRuleContext is mandatory
+      mandatoryPositionals = 1, // AndroidDataContext is mandatory
       parameters = {
         @Param(
             name = "resources",
@@ -1168,7 +1080,7 @@ public abstract class AndroidSkylarkData {
           "Processes resources, assets, and manifests for android_binary and returns the"
               + " appropriate providers.")
   public AndroidBinaryDataInfo processBinaryData(
-      SkylarkRuleContext ctx,
+      AndroidDataContext ctx,
       SkylarkList<ConfiguredTarget> resources,
       Object assets,
       Object assetsDir,
@@ -1241,17 +1153,9 @@ public abstract class AndroidSkylarkData {
         resourceApk.toManifestInfo().get());
   }
 
-  /**
-   * Skylark API for shrinking a resource APK
-   *
-   * <p>TODO(b/79159379): Stop passing SkylarkRuleContext here
-   *
-   * @param ctx the SkylarkRuleContext. We will soon change to using an ActionConstructionContext
-   *     instead. See b/79159379
-   */
   @SkylarkCallable(
       name = "shrink_data_apk",
-      // Required: SkylarkRuleContext, AndroidBinaryDataInfo to shrink, and two proguard outputs
+      // Required: AndroidDataContext, AndroidBinaryDataInfo to shrink, and two proguard outputs
       mandatoryPositionals = 4,
       parameters = {
         @Param(
@@ -1299,7 +1203,7 @@ public abstract class AndroidSkylarkData {
           "Possibly shrinks the data APK by removing resources that were marked as unused during"
               + " proguarding.")
   public AndroidBinaryDataInfo shrinkDataApk(
-      SkylarkRuleContext ctx,
+      AndroidDataContext ctx,
       AndroidBinaryDataInfo binaryDataInfo,
       Artifact proguardOutputJar,
       Artifact proguardMapping,
