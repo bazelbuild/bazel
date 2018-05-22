@@ -29,12 +29,16 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionContextMarker;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -86,7 +90,7 @@ public final class SpawnActionContextMaps {
    * <p>If the reason for selecting the context is worth mentioning to the user, logs a message
    * using the given {@link Reporter}.
    */
-  public SpawnActionContext getSpawnActionContext(Spawn spawn, Reporter reporter) {
+  public SpawnActionContext getSpawnActionContext(Spawn spawn, EventHandler reporter) {
     Preconditions.checkNotNull(spawn);
     if (!spawnStrategyRegexList.isEmpty() && spawn.getResourceOwner() != null) {
       String description = spawn.getResourceOwner().getProgressMessage();
@@ -117,6 +121,7 @@ public final class SpawnActionContextMaps {
       }
       contextMap.put(context.getClass(), context);
     }
+    contextMap.put(SpawnActionContext.class, new ProxySpawnActionContext());
     return ImmutableMap.copyOf(contextMap);
   }
 
@@ -344,6 +349,22 @@ public final class SpawnActionContextMaps {
     private String getUserFriendlyName(Class<? extends ActionContext> context) {
       ActionContextMarker marker = context.getAnnotation(ActionContextMarker.class);
       return marker != null ? marker.name() : context.getSimpleName();
+    }
+  }
+
+  /** Proxy that looks up the right SpawnActionContext for a spawn during exec. */
+  @VisibleForTesting
+  public final class ProxySpawnActionContext implements SpawnActionContext {
+    @Override
+    public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
+        throws ExecException, InterruptedException {
+      return resolve(spawn, actionExecutionContext.getEventHandler())
+          .exec(spawn, actionExecutionContext);
+    }
+
+    @VisibleForTesting
+    public SpawnActionContext resolve(Spawn spawn, EventHandler eventHandler) {
+      return getSpawnActionContext(spawn, eventHandler);
     }
   }
 }

@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.actions.util;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -80,11 +78,6 @@ public final class DummyExecutor implements Executor {
 
   @Override
   public <T extends ActionContext> T getContext(Class<? extends T> type) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public SpawnActionContext getSpawnActionContext(Spawn spawn) {
     throw new UnsupportedOperationException();
   }
 

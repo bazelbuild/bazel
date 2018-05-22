@@ -232,11 +232,6 @@ public class ActionExecutionContext implements Closeable {
     return executor.getContext(type);
   }
 
-  /** Returns the action context implementation for a given spawn action. */
-  public SpawnActionContext getSpawnActionContext(Spawn spawn) {
-    return executor.getSpawnActionContext(spawn);
-  }
-
   /**
    * Whether this Executor reports subcommands. If not, reportSubcommand has no effect.
    * This is provided so the caller of reportSubcommand can avoid wastefully constructing the

@@ -283,7 +283,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   protected List<SpawnResult> internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException, CommandLineExpansionException {
     Spawn spawn = getSpawn(actionExecutionContext);
-    return getContext(actionExecutionContext, spawn).exec(spawn, actionExecutionContext);
+    return actionExecutionContext.getContext(SpawnActionContext.class)
+        .exec(spawn, actionExecutionContext);
   }
 
   @Override
@@ -493,11 +494,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   @Override
   public Map<String, String> getExecutionInfo() {
     return executionInfo;
-  }
-
-  protected SpawnActionContext getContext(
-      ActionExecutionContext actionExecutionContext, Spawn spawn) {
-    return actionExecutionContext.getSpawnActionContext(spawn);
   }
 
   /** A spawn instance that is tied to a specific SpawnAction. */
