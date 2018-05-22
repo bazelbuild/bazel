@@ -1347,7 +1347,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testStructAccessOfMethod() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("object of type 'Mock' has no field 'function'", "v = mock.function");
+        .testIfExactError(
+            "object of type 'Mock' has no field 'function', however, a method of that name exists",
+            "v = mock.function");
   }
 
   @Test
@@ -1357,6 +1359,15 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .testIfExactError(
             "object of type 'MockClassObject' has no field 'fild' (did you mean 'field'?)",
             "mock.fild");
+  }
+
+  @Test
+  public void testStructAccessType_nonClassObject() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .testIfExactError(
+            "object of type 'Mock' has no field 'sturct_field' (did you mean 'struct_field'?)",
+            "v = mock.sturct_field");
   }
 
   @Test

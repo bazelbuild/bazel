@@ -16,7 +16,10 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Before;
 import org.junit.Test;
@@ -168,16 +171,48 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testGetAttrMissingField() throws Exception {
     new SkylarkTest()
         .testIfExactError(
-            "object of type 'string' has no attribute \"not_there\"",
+            "object of type 'string' has no attribute 'not_there'",
             "getattr('a string', 'not_there')")
         .testStatement("getattr('a string', 'not_there', 'use this')", "use this")
         .testStatement("getattr('a string', 'not there', None)", Runtime.NONE);
   }
 
+  @SkylarkModule(name = "AStruct", documented = false, doc = "")
+  static final class AStruct implements ClassObject {
+    @Override
+    public Object getValue(String name) {
+      switch (name) {
+        case "field":
+          return "a";
+        default:
+          return null;
+      }
+    }
+
+    @Override
+    public ImmutableCollection<String> getFieldNames() {
+      return ImmutableList.of("field");
+    }
+
+    @Override
+    public String getErrorMessageForUnknownField(String name) {
+      return null;
+    }
+  }
+
+  @Test
+  public void testGetAttrMissingField_typoDetection() throws Exception {
+    new SkylarkTest()
+        .update("s", new AStruct())
+        .testIfExactError(
+            "object of type 'AStruct' has no attribute 'feild' (did you mean 'field'?)",
+            "getattr(s, 'feild')");
+  }
+
   @Test
   public void testGetAttrWithMethods() throws Exception {
     String msg =
-        "object of type 'string' has no attribute \"count\", however, "
+        "object of type 'string' has no attribute 'count', however, "
             + "a method of that name exists";
     new SkylarkTest()
         .testIfExactError(msg, "getattr('a string', 'count')")
