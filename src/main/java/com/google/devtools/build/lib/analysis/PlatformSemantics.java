@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import java.util.HashSet;
-import java.util.Set;
 
 /** Helper class to manage rules' use of platforms. */
 public class PlatformSemantics {
@@ -47,7 +45,7 @@ public class PlatformSemantics {
    */
   public static ImmutableSet<Label> getExecutionPlatformConstraints(Rule rule) {
     NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
-    Set<Label> execConstraintLabels = new HashSet<>();
+    ImmutableSet.Builder<Label> execConstraintLabels = new ImmutableSet.Builder<>();
 
     if (rule.getRuleClassObject().executionPlatformConstraintsAllowed().allowsRule()) {
       // Add any default rule-level constraints.
@@ -61,6 +59,6 @@ public class PlatformSemantics {
           mapper.get(PlatformSemantics.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));
     }
 
-    return ImmutableSet.copyOf(execConstraintLabels);
+    return execConstraintLabels.build();
   }
 }
