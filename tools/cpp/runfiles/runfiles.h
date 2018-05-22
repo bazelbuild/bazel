@@ -136,7 +136,8 @@ class Runfiles {
   // The caller should set the returned key-value pairs in the environment of
   // subprocesses in case those subprocesses are also Bazel-built binaries that
   // need to use runfiles.
-  virtual std::vector<std::pair<std::string, std::string> > EnvVars() const = 0;
+  virtual const std::vector<std::pair<std::string, std::string> >& EnvVars()
+      const = 0;
 
   // Computes the path of the runfiles manifest and the runfiles directory.
   //

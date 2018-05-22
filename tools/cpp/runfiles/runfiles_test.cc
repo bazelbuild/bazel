@@ -288,9 +288,10 @@ TEST_F(RunfilesTest, ManifestBasedRunfilesEnvVars) {
     const string expected_runfiles_dir(
         i < 2 ? mf->Path().substr(0, mf->Path().size() - 9 /* "_manifest" */)
               : "");
-    vector<pair<string, string> > expected(
-        {{"RUNFILES_MANIFEST_FILE", mf->Path()},
-         {"JAVA_RUNFILES", expected_runfiles_dir}});
+    vector<pair<string, string> > expected = {
+        {"RUNFILES_MANIFEST_FILE", mf->Path()},
+        {"RUNFILES_DIR", ""},
+        {"JAVA_RUNFILES", ""}};
     EXPECT_EQ(r->EnvVars(), expected) << " (suffix=\"" << suffixes[i] << "\")";
   }
 }
@@ -349,8 +350,9 @@ TEST_F(RunfilesTest, DirectoryBasedRunfilesEnvVars) {
   ASSERT_NE(r, nullptr);
   EXPECT_TRUE(error.empty());
 
-  vector<pair<string, string> > expected(
-      {{"RUNFILES_DIR", "runfiles/dir"}, {"JAVA_RUNFILES", "runfiles/dir"}});
+  vector<pair<string, string> > expected = {{"RUNFILES_MANIFEST_FILE", ""},
+                                            {"RUNFILES_DIR", "runfiles/dir"},
+                                            {"JAVA_RUNFILES", "runfiles/dir"}};
   EXPECT_EQ(r->EnvVars(), expected);
 }
 
