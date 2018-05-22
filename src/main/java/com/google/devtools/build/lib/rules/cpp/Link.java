@@ -96,7 +96,6 @@ public abstract class Link {
   public enum LinkTargetType {
     /** A normal static archive. */
     STATIC_LIBRARY(
-        ".a",
         LinkerOrArchiver.ARCHIVER,
         "c++-link-static-library",
         Picness.NOPIC,
@@ -105,7 +104,6 @@ public abstract class Link {
 
     /** An objc static archive. */
     OBJC_ARCHIVE(
-        ".a",
         LinkerOrArchiver.ARCHIVER,
         "objc-archive",
         Picness.NOPIC,
@@ -114,7 +112,6 @@ public abstract class Link {
 
     /** An objc fully linked static archive. */
     OBJC_FULLY_LINKED_ARCHIVE(
-        ".a",
         LinkerOrArchiver.ARCHIVER,
         "objc-fully-link",
         Picness.NOPIC,
@@ -123,7 +120,6 @@ public abstract class Link {
 
     /** An objc executable. */
     OBJC_EXECUTABLE(
-        "",
         LinkerOrArchiver.LINKER,
         "objc-executable",
         Picness.NOPIC,
@@ -132,7 +128,6 @@ public abstract class Link {
 
     /** An objc executable that includes objc++/c++ source. */
     OBJCPP_EXECUTABLE(
-        "",
         LinkerOrArchiver.LINKER,
         "objc++-executable",
         Picness.NOPIC,
@@ -141,7 +136,6 @@ public abstract class Link {
 
     /** A static archive with .pic.o object files (compiled with -fPIC). */
     PIC_STATIC_LIBRARY(
-        ".pic.a",
         LinkerOrArchiver.ARCHIVER,
         "c++-link-static-library",
         Picness.PIC,
@@ -150,7 +144,6 @@ public abstract class Link {
 
     /** An interface dynamic library. */
     INTERFACE_DYNAMIC_LIBRARY(
-        ".ifso",
         LinkerOrArchiver.LINKER,
         "c++-link-dynamic-library",
         Picness.NOPIC, // Actually PIC but it's not indicated in the file name
@@ -159,7 +152,6 @@ public abstract class Link {
 
     /** A dynamic library built from cc_library srcs. */
     NODEPS_DYNAMIC_LIBRARY(
-        ".so",
         LinkerOrArchiver.LINKER,
         "c++-link-nodeps-dynamic-library",
         Picness.NOPIC, // Actually PIC but it's not indicated in the file name
@@ -167,7 +159,6 @@ public abstract class Link {
         Executable.NOT_EXECUTABLE),
     /** A transitive dynamic library used for distribution. */
     DYNAMIC_LIBRARY(
-        ".so",
         LinkerOrArchiver.LINKER,
         "c++-link-dynamic-library",
         Picness.NOPIC, // Actually PIC but it's not indicated in the file name
@@ -176,7 +167,6 @@ public abstract class Link {
 
     /** A static archive without removal of unused object files. */
     ALWAYS_LINK_STATIC_LIBRARY(
-        ".lo",
         LinkerOrArchiver.ARCHIVER,
         "c++-link-static-library",
         Picness.NOPIC,
@@ -185,7 +175,6 @@ public abstract class Link {
 
     /** A PIC static archive without removal of unused object files. */
     ALWAYS_LINK_PIC_STATIC_LIBRARY(
-        ".pic.lo",
         LinkerOrArchiver.ARCHIVER,
         "c++-link-static-library",
         Picness.PIC,
@@ -194,14 +183,12 @@ public abstract class Link {
 
     /** An executable binary. */
     EXECUTABLE(
-        "",
         LinkerOrArchiver.LINKER,
         "c++-link-executable",
         Picness.NOPIC, // Picness is not indicate in the file name
         ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE);
 
-    private final String extension;
     private final LinkerOrArchiver linkerOrArchiver;
     private final String actionName;
     private final ArtifactCategory linkerOutput;
@@ -209,13 +196,11 @@ public abstract class Link {
     private final Executable executable;
 
     LinkTargetType(
-        String extension,
         LinkerOrArchiver linkerOrArchiver,
         String actionName,
         Picness picness,
         ArtifactCategory linkerOutput,
         Executable executable) {
-      this.extension = extension;
       this.linkerOrArchiver = linkerOrArchiver;
       this.actionName = actionName;
       this.linkerOutput = linkerOutput;
@@ -230,8 +215,12 @@ public abstract class Link {
       return picness;
     }
 
-    public String getExtension() {
-      return extension;
+    public String getPicExtensionWhenApplicable() {
+      return picness == Picness.PIC ? ".pic" : "";
+    }
+
+    public String getDefaultExtension() {
+      return linkerOutput.getDefaultExtension();
     }
 
     public LinkerOrArchiver linkerOrArchiver() {

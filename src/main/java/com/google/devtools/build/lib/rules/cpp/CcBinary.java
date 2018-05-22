@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -199,12 +198,16 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // linkopt "-shared", which causes the result of linking to be a shared
     // library. In this case, the name of the executable target should end
     // in ".so" or "dylib" or ".dll".
+    Artifact binary;
     PathFragment binaryPath = PathFragment.create(ruleContext.getTarget().getName());
     if (!isLinkShared(ruleContext)) {
-      binaryPath = PathFragment.create(binaryPath.getPathString() + OsUtils.executableExtension());
+      binary =
+          CppHelper.getLinkedArtifact(
+              ruleContext, ccToolchain, ruleContext.getConfiguration(), LinkTargetType.EXECUTABLE);
+    } else {
+      binary = ruleContext.getBinArtifact(binaryPath);
     }
 
-    Artifact binary = ruleContext.getBinArtifact(binaryPath);
     if (isLinkShared(ruleContext)
         && !CppFileTypes.SHARED_LIBRARY.matches(binary.getFilename())
         && !CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(binary.getFilename())) {
@@ -361,7 +364,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         // If we are using a toolchain supporting interface library and targeting Windows, we build
         // the interface library with the link action and add it to `interface_output` output group.
         if (CppHelper.useInterfaceSharedObjects(cppConfiguration, ccToolchain)) {
-          interfaceLibrary = ruleContext.getRelatedArtifact(binary.getRootRelativePath(), ".ifso");
+          interfaceLibrary = CppHelper.getLinkedArtifact(
+              ruleContext,
+              ccToolchain,
+              ruleContext.getConfiguration(),
+              LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
           linkActionBuilder.setInterfaceOutput(interfaceLibrary);
           linkActionBuilder.addActionOutput(interfaceLibrary);
         }

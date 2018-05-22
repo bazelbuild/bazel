@@ -578,21 +578,24 @@ public final class CcLinkingHelper {
    * output groups.
    */
   private void addLinkerOutputArtifacts(
-      Map<String, NestedSet<Artifact>> outputGroups, CcCompilationOutputs ccOutputs) {
+      Map<String, NestedSet<Artifact>> outputGroups, CcCompilationOutputs ccOutputs)
+      throws RuleErrorException {
     NestedSetBuilder<Artifact> archiveFile = new NestedSetBuilder<>(Order.STABLE_ORDER);
     NestedSetBuilder<Artifact> dynamicLibrary = new NestedSetBuilder<>(Order.STABLE_ORDER);
 
     if (ruleContext.attributes().get("alwayslink", Type.BOOLEAN)) {
       archiveFile.add(
-          CppHelper.getLinuxLinkedArtifact(
+          CppHelper.getLinkedArtifact(
               ruleContext,
+              ccToolchain,
               configuration,
               Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY,
               linkedArtifactNameSuffix));
     } else {
       archiveFile.add(
-          CppHelper.getLinuxLinkedArtifact(
+          CppHelper.getLinkedArtifact(
               ruleContext,
+              ccToolchain,
               configuration,
               Link.LinkTargetType.STATIC_LIBRARY,
               linkedArtifactNameSuffix));
@@ -600,8 +603,9 @@ public final class CcLinkingHelper {
 
     if (!ruleContext.attributes().get("linkstatic", Type.BOOLEAN) && !ccOutputs.isEmpty()) {
       dynamicLibrary.add(
-          CppHelper.getLinuxLinkedArtifact(
+          CppHelper.getLinkedArtifact(
               ruleContext,
+              ccToolchain,
               configuration,
               Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
               linkedArtifactNameSuffix));
@@ -609,8 +613,9 @@ public final class CcLinkingHelper {
       if (CppHelper.useInterfaceSharedObjects(ccToolchain.getCppConfiguration(), ccToolchain)
           && emitInterfaceSharedObjects) {
         dynamicLibrary.add(
-            CppHelper.getLinuxLinkedArtifact(
+            CppHelper.getLinkedArtifact(
                 ruleContext,
+                ccToolchain,
                 configuration,
                 LinkTargetType.INTERFACE_DYNAMIC_LIBRARY,
                 linkedArtifactNameSuffix));
@@ -855,8 +860,9 @@ public final class CcLinkingHelper {
     if (CppHelper.useInterfaceSharedObjects(cppConfiguration, ccToolchain)
         && emitInterfaceSharedObjects) {
       soInterface =
-          CppHelper.getLinuxLinkedArtifact(
+          CppHelper.getLinkedArtifact(
               ruleContext,
+              ccToolchain,
               configuration,
               LinkTargetType.INTERFACE_DYNAMIC_LIBRARY,
               linkedArtifactNameSuffix);
@@ -1002,10 +1008,6 @@ public final class CcLinkingHelper {
    */
   private Artifact getLinkedArtifact(LinkTargetType linkTargetType) throws RuleErrorException {
     Artifact result = null;
-    Artifact linuxDefault =
-        CppHelper.getLinuxLinkedArtifact(
-            ruleContext, configuration, linkTargetType, linkedArtifactNameSuffix);
-
     try {
       String maybePicName = ruleContext.getLabel().getName() + linkedArtifactNameSuffix;
       if (linkTargetType.picness() == Picness.PIC) {
@@ -1032,6 +1034,9 @@ public final class CcLinkingHelper {
     // If the linked artifact is not the linux default, then a FailAction is generated for the
     // linux default to satisfy the requirement of the implicit output.
     // TODO(b/30132703): Remove the implicit outputs of cc_library.
+    Artifact linuxDefault =
+        CppHelper.getLinuxLinkedArtifact(
+            ruleContext, configuration, linkTargetType, linkedArtifactNameSuffix);
     if (!result.equals(linuxDefault)) {
       ruleContext.registerAction(
           new FailAction(

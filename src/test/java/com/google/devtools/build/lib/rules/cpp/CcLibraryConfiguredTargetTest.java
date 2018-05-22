@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.protobuf.TextFormat;
@@ -64,15 +67,34 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Before
   public final void createFiles() throws Exception {
-    scratch.file("hello/BUILD",
-                "cc_library(name = 'hello',",
-                "           srcs = ['hello.cc'])",
-                "cc_library(name = 'hello_static',",
-                "           srcs = ['hello.cc'],",
-                "           linkstatic = 1)");
-    scratch.file("hello/hello.cc",
-                "#include <stdio.h>",
-                "int hello_world() { printf(\"Hello, world!\\n\"); }");
+    scratch.file(
+        "hello/BUILD",
+        "cc_library(",
+        "  name = 'hello',",
+        "  srcs = ['hello.cc'],",
+        ")",
+        "cc_library(",
+        "  name = 'hello_static',",
+        "  srcs = ['hello.cc'],",
+        "  linkstatic = 1,",
+        ")",
+        "cc_library(",
+        "  name = 'hello_alwayslink',",
+        "  srcs = ['hello.cc'],",
+        "  alwayslink = 1,",
+        ")",
+        "cc_binary(",
+        "  name = 'hello_bin',",
+        "  srcs = ['hello_main.cc'],",
+        ")");
+    scratch.file(
+        "hello/hello.cc",
+        "#include <stdio.h>",
+        "int hello_world() { printf(\"Hello, world!\\n\"); }");
+    scratch.file(
+        "hello/hello_main.cc",
+        "#include <stdio.h>",
+        "int main() { printf(\"Hello, world!\\n\"); }");
   }
 
   private CppCompileAction getCppCompileAction(String label) throws Exception {
@@ -98,6 +120,38 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget(label);
     assertThat(target.get(CcCompilationInfo.PROVIDER).getCcCompilationContext().getCppModuleMap())
         .isNull();
+  }
+
+  public void checkWrongExtensionInArtifactNamePattern(
+      String categoryName, ImmutableList<String> correctExtensions) throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION,
+            MockCcSupport.TARGETS_WINDOWS_CONFIGURATION,
+            "supports_interface_shared_objects: true",
+            "artifact_name_pattern {"
+                + "   category_name: '"
+                + categoryName
+                + "'"
+                + "   prefix: ''"
+                + "   extension: '.wrong_ext'"
+                + "}");
+
+    try {
+      useConfiguration();
+      fail("Should fail");
+    } catch (InvalidConfigurationException e) {
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              String.format(
+                  "Unrecognized file extension '.wrong_ext', allowed "
+                     + "extensions are %s, please check artifact_name_pattern configuration for %s "
+                     + "in your CROSSTOOL.",
+                  StringUtil.joinEnglishList(correctExtensions, "or", "'"), categoryName));
+    }
   }
 
   @Test
@@ -347,7 +401,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=" + Link.LinkTargetType.STATIC_LIBRARY.getActionName());
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact archive =
-        FileType.filter(getFilesToBuild(hello), FileType.of(".tweaked.a")).iterator().next();
+        FileType.filter(getFilesToBuild(hello), FileType.of(".lib")).iterator().next();
 
     CppLinkAction action = (CppLinkAction) getGeneratingAction(archive);
 
@@ -363,12 +417,123 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "artifact_name_pattern {"
                 + "   category_name: 'object_file'"
                 + "   prefix: ''"
-                + "   extension: '.test.o'"
+                + "   extension: '.obj'"
                 + "}");
 
     useConfiguration();
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    assertThat(artifactByPath(getFilesToBuild(hello), ".a", ".test.o")).isNotNull();
+    assertThat(artifactByPath(getFilesToBuild(hello), ".a", ".obj")).isNotNull();
+  }
+
+  @Test
+  public void testWindowsFileNamePatternsCanBeSpecifiedInToolchain() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION,
+            MockCcSupport.TARGETS_WINDOWS_CONFIGURATION,
+            "needsPic: false",
+            "supports_interface_shared_objects: true",
+            "artifact_name_pattern {"
+                + "   category_name: 'object_file'"
+                + "   prefix: ''"
+                + "   extension: '.obj'"
+                + "}",
+            "artifact_name_pattern {"
+                + "   category_name: 'static_library'"
+                + "   prefix: ''"
+                + "   extension: '.lib'"
+                + "}",
+            "artifact_name_pattern {"
+                + "   category_name: 'alwayslink_static_library'"
+                + "   prefix: ''"
+                + "   extension: '.lo.lib'"
+                + "}",
+            "artifact_name_pattern {"
+                + "   category_name: 'executable'"
+                + "   prefix: ''"
+                + "   extension: '.exe'"
+                + "}",
+            "artifact_name_pattern {"
+                + "   category_name: 'dynamic_library'"
+                + "   prefix: ''"
+                + "   extension: '.dll'"
+                + "}",
+            "artifact_name_pattern {"
+                + "   category_name: 'interface_library'"
+                + "   prefix: ''"
+                + "   extension: '.if.lib'"
+                + "}");
+
+    useConfiguration();
+
+    ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
+    Artifact helloObj = getBinArtifact("_objs/hello/hello/hello.obj", "//hello:hello");
+    CppCompileAction helloObjAction = (CppCompileAction) getGeneratingAction(helloObj);
+    assertThat(helloObjAction).isNotNull();
+
+    Artifact helloLib =
+        FileType.filter(getFilesToBuild(hello), CppFileTypes.ARCHIVE).iterator().next();
+    assertThat(helloLib.getExecPathString()).endsWith("hello.lib");
+
+    ConfiguredTarget helloAlwaysLink = getConfiguredTarget("//hello:hello_alwayslink");
+    Artifact helloLibAlwaysLink =
+        FileType.filter(getFilesToBuild(helloAlwaysLink), CppFileTypes.ALWAYS_LINK_LIBRARY)
+            .iterator()
+            .next();
+    assertThat(helloLibAlwaysLink.getExecPathString()).endsWith("hello_alwayslink.lo.lib");
+
+    ConfiguredTarget helloBin = getConfiguredTarget("//hello:hello_bin");
+    Artifact helloBinExe = getFilesToBuild(helloBin).iterator().next();
+    assertThat(helloBinExe.getExecPathString()).endsWith("hello_bin.exe");
+
+    assertThat(
+            artifactsToStrings(
+                getOutputGroup(hello, CcLinkingHelper.DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME)))
+        .containsExactly("bin hello/hello.dll", "bin hello/hello.if.lib");
+  }
+
+  @Test
+  public void testWrongObjectFileArtifactNamePattern() throws Exception {
+    checkWrongExtensionInArtifactNamePattern(
+        "object_file",
+        ArtifactCategory.OBJECT_FILE.getAllowedExtensions());
+  }
+
+  @Test
+  public void testWrongStaticLibraryArtifactNamePattern() throws Exception {
+    checkWrongExtensionInArtifactNamePattern(
+        "static_library",
+        ArtifactCategory.STATIC_LIBRARY.getAllowedExtensions());
+  }
+
+  @Test
+  public void testWrongAlwayslinkStaticLibraryArtifactNamePattern() throws Exception {
+    checkWrongExtensionInArtifactNamePattern(
+        "alwayslink_static_library",
+        ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY.getAllowedExtensions());
+  }
+
+  @Test
+  public void testWrongExecutableArtifactNamePattern() throws Exception {
+    checkWrongExtensionInArtifactNamePattern(
+        "executable",
+        ArtifactCategory.EXECUTABLE.getAllowedExtensions());
+  }
+
+  @Test
+  public void testWrongDynamicLibraryArtifactNamePattern() throws Exception {
+    checkWrongExtensionInArtifactNamePattern(
+        "dynamic_library",
+        ArtifactCategory.DYNAMIC_LIBRARY.getAllowedExtensions());
+  }
+
+  @Test
+  public void testWrongInterfaceLibraryArtifactNamePattern() throws Exception {
+    checkWrongExtensionInArtifactNamePattern(
+        "interface_library",
+        ArtifactCategory.INTERFACE_LIBRARY.getAllowedExtensions());
   }
 
   @Test

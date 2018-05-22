@@ -218,12 +218,18 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     if (!createDynamicLibrary && !supportsDynamicLinker) {
       ImmutableList.Builder<Artifact> dynamicLibraries = ImmutableList.builder();
       dynamicLibraries.add(
-          CppHelper.getLinuxLinkedArtifact(
-              ruleContext, ruleContext.getConfiguration(), LinkTargetType.NODEPS_DYNAMIC_LIBRARY));
+          CppHelper.getLinkedArtifact(
+              ruleContext,
+              ccToolchain,
+              ruleContext.getConfiguration(),
+              LinkTargetType.NODEPS_DYNAMIC_LIBRARY));
       if (CppHelper.useInterfaceSharedObjects(ccToolchain.getCppConfiguration(), ccToolchain)) {
         dynamicLibraries.add(
-          CppHelper.getLinuxLinkedArtifact(
-            ruleContext, ruleContext.getConfiguration(), LinkTargetType.INTERFACE_DYNAMIC_LIBRARY));
+            CppHelper.getLinkedArtifact(
+                ruleContext,
+                ccToolchain,
+                ruleContext.getConfiguration(),
+                LinkTargetType.INTERFACE_DYNAMIC_LIBRARY));
       }
       ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),
           dynamicLibraries.build(), "Toolchain does not support dynamic linking"));
@@ -236,12 +242,18 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       // a "no generating action for this artifact" error.
       ImmutableList.Builder<Artifact> dynamicLibraries = ImmutableList.builder();
       dynamicLibraries.add(
-          CppHelper.getLinuxLinkedArtifact(
-              ruleContext, ruleContext.getConfiguration(), LinkTargetType.NODEPS_DYNAMIC_LIBRARY));
+          CppHelper.getLinkedArtifact(
+              ruleContext,
+              ccToolchain,
+              ruleContext.getConfiguration(),
+              LinkTargetType.NODEPS_DYNAMIC_LIBRARY));
       if (CppHelper.useInterfaceSharedObjects(ccToolchain.getCppConfiguration(), ccToolchain)) {
         dynamicLibraries.add(
-          CppHelper.getLinuxLinkedArtifact(
-            ruleContext, ruleContext.getConfiguration(), LinkTargetType.INTERFACE_DYNAMIC_LIBRARY));
+            CppHelper.getLinkedArtifact(
+                ruleContext,
+                ccToolchain,
+                ruleContext.getConfiguration(),
+                LinkTargetType.INTERFACE_DYNAMIC_LIBRARY));
       }
       ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),
           dynamicLibraries.build(), "configurable \"srcs\" triggers an implicit .so output "

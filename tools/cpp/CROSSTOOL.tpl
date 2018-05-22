@@ -169,6 +169,12 @@ toolchain {
   target_cpu: "x64_windows"
   target_system_name: "local"
 
+  artifact_name_pattern {
+     category_name: 'executable'
+     prefix: ''
+     extension: '.exe'
+  }
+
 %{msys_x64_mingw_content}
 
   linking_mode_flags { mode: DYNAMIC }
@@ -277,6 +283,42 @@ toolchain {
 
   feature {
     name: "no_legacy_features"
+  }
+
+  artifact_name_pattern {
+     category_name: 'object_file'
+     prefix: ''
+     extension: '.obj'
+  }
+
+  artifact_name_pattern {
+     category_name: 'static_library'
+     prefix: ''
+     extension: '.lib'
+  }
+
+  artifact_name_pattern {
+     category_name: 'alwayslink_static_library'
+     prefix: ''
+     extension: '.lo.lib'
+  }
+
+  artifact_name_pattern {
+     category_name: 'executable'
+     prefix: ''
+     extension: '.exe'
+  }
+
+  artifact_name_pattern {
+     category_name: 'dynamic_library'
+     prefix: ''
+     extension: '.dll'
+  }
+
+  artifact_name_pattern {
+     category_name: 'interface_library'
+     prefix: ''
+     extension: '.if.lib'
   }
 
   # Suppress startup banner.

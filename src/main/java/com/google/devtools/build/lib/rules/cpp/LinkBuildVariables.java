@@ -17,8 +17,10 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Enum covering all build variables we create for all various {@link CppLinkAction}. */
@@ -111,7 +113,7 @@ public enum LinkBuildVariables {
       FdoSupportProvider fdoSupport,
       Iterable<String> runtimeLibrarySearchDirectories,
       SequenceBuilder librariesToLink,
-      Iterable<String> librarySearchDirectories) {
+      Iterable<String> librarySearchDirectories) throws EvalException {
     CcToolchainVariables.Builder buildVariables = new CcToolchainVariables.Builder();
 
     // symbol counting
@@ -183,11 +185,17 @@ public enum LinkBuildVariables {
           configuration.getBinDirectory().getExecPathString()
               + ";"
               + configuration.getBinDirectory().getExecPath().getRelative(ltoOutputRootPrefix));
+      String objectFileExtension;
+      try {
+        objectFileExtension = ccToolchainProvider.getFeatures()
+            .getArtifactNameExtensionForCategory(ArtifactCategory.OBJECT_FILE);
+      } catch (InvalidConfigurationException e) {
+        throw new EvalException(null, "artifact name pattern for object_file must be specified", e);
+      }
       buildVariables.addStringVariable(
           THINLTO_OBJECT_SUFFIX_REPLACE.getVariableName(),
           Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions())
-              + ";"
-              + Iterables.getOnlyElement(CppFileTypes.OBJECT_FILE.getExtensions()));
+              + ";" + objectFileExtension);
       if (thinltoMergedObjectFile != null) {
         buildVariables.addStringVariable(
             THINLTO_MERGED_OBJECT_FILE.getVariableName(),

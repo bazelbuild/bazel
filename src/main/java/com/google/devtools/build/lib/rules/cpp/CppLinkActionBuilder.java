@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.LibrariesToLinkCollector.Collecte
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -992,30 +993,34 @@ public class CppLinkActionBuilder {
     ImmutableSet<Artifact> expandedLinkerArtifactsNoLinkstamps =
         Sets.difference(expandedLinkerArtifacts, linkstampObjectArtifacts).immutableCopy();
 
-    CcToolchainVariables variables =
-        LinkBuildVariables.setupVariables(
-            getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
-            configuration,
-            output,
-            paramFile,
-            thinltoParamFile,
-            thinltoMergedObjectFile,
-            mustKeepDebug,
-            symbolCounts,
-            toolchain,
-            featureConfiguration,
-            useTestOnlyFlags,
-            isLtoIndexing,
-            toolchain.getInterfaceSoBuilder(),
-            interfaceOutput,
-            ltoOutputRootPrefix,
-            defFile,
-            fdoSupport,
-            collectedLibrariesToLink.getRuntimeLibrarySearchDirectories(),
-            collectedLibrariesToLink.getLibrariesToLink(),
-            collectedLibrariesToLink.getLibrarySearchDirectories());
+    try {
+      CcToolchainVariables variables =
+          LinkBuildVariables.setupVariables(
+              getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
+              configuration,
+              output,
+              paramFile,
+              thinltoParamFile,
+              thinltoMergedObjectFile,
+              mustKeepDebug,
+              symbolCounts,
+              toolchain,
+              featureConfiguration,
+              useTestOnlyFlags,
+              isLtoIndexing,
+              toolchain.getInterfaceSoBuilder(),
+              interfaceOutput,
+              ltoOutputRootPrefix,
+              defFile,
+              fdoSupport,
+              collectedLibrariesToLink.getRuntimeLibrarySearchDirectories(),
+              collectedLibrariesToLink.getLibrariesToLink(),
+              collectedLibrariesToLink.getLibrarySearchDirectories());
+      buildVariablesBuilder.addAllNonTransitive(variables);
+    } catch (EvalException e) {
+      ruleContext.ruleError(e.getLocalizedMessage());
+    }
 
-    buildVariablesBuilder.addAllNonTransitive(variables);
     for (VariablesExtension extraVariablesExtension : variablesExtensions) {
       extraVariablesExtension.addVariables(buildVariablesBuilder);
     }

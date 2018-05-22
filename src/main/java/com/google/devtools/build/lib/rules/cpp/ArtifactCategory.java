@@ -13,22 +13,24 @@
 // limitations under the License
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableList;
+
 /**
  * A category of artifacts that are candidate input/output to an action, for which the toolchain can
  * select a single artifact.
  */
 public enum ArtifactCategory {
-  STATIC_LIBRARY("lib", ".a"),
-  ALWAYSLINK_STATIC_LIBRARY("lib", ".lo"),
-  DYNAMIC_LIBRARY("lib", ".so"),
-  EXECUTABLE("", ""),
-  INTERFACE_LIBRARY("lib", ".ifso"),
+  STATIC_LIBRARY("lib", ".a", ".lib"),
+  ALWAYSLINK_STATIC_LIBRARY("lib", ".lo", ".lo.lib"),
+  DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll"),
+  EXECUTABLE("", "", ".exe"),
+  INTERFACE_LIBRARY("lib", ".ifso", ".tbd", ".if.lib"),
   PIC_FILE("", ".pic"),
   INCLUDED_FILE_LIST("", ".d"),
-  OBJECT_FILE("", ".o"),
+  OBJECT_FILE("", ".o", ".obj"),
   PIC_OBJECT_FILE("", ".pic.o"),
   CPP_MODULE("", ".pcm"),
-  GENERATED_ASSEMBLY("", ".s"),
+  GENERATED_ASSEMBLY("", ".s", ".asm"),
   PROCESSED_HEADER("", ".processed"),
   GENERATED_HEADER("", ".h"),
   PREPROCESSED_C_SOURCE("", ".i"),
@@ -40,10 +42,21 @@ public enum ArtifactCategory {
 
   private final String defaultPrefix;
   private final String defaultExtension;
+  // The extensions allowed for this artifact name pattern, Bazel should recognized them as
+  // corresponding file type in CppFileTypes.java
+  final ImmutableList<String> allowedExtensions;
 
-  ArtifactCategory(String prefix, String extension) {
-    this.defaultPrefix = prefix;
-    this.defaultExtension = extension;
+  ArtifactCategory(
+      String defaultPrefix,
+      String defaultExtension,
+      String... extraAllowedExtensions) {
+    this.defaultPrefix = defaultPrefix;
+    this.defaultExtension = defaultExtension;
+    this.allowedExtensions =
+        new ImmutableList.Builder<String>()
+            .add(defaultExtension)
+            .add(extraAllowedExtensions)
+            .build();
   }
 
   /** Returns the name of the category. */
@@ -57,5 +70,9 @@ public enum ArtifactCategory {
 
   public String getDefaultExtension() {
     return defaultExtension;
+  }
+
+  public ImmutableList<String> getAllowedExtensions() {
+    return allowedExtensions;
   }
 }
