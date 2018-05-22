@@ -59,13 +59,14 @@ public final class AndroidBinaryMobileInstall {
 
   static MobileInstallResourceApks createMobileInstallResourceApks(
       RuleContext ruleContext,
+      AndroidDataContext dataContext,
       ApplicationManifest applicationManifest,
       ResourceDependencies resourceDeps)
       throws RuleErrorException, InterruptedException {
 
     final ResourceApk incrementalResourceApk;
     final ResourceApk splitResourceApk;
-    if (AndroidResources.decoupleDataProcessing(ruleContext)) {
+    if (AndroidResources.decoupleDataProcessing(dataContext)) {
       StampedAndroidManifest manifest =
           new StampedAndroidManifest(
               applicationManifest.getManifest(), /* pkg = */ null, /* exported = */ true);

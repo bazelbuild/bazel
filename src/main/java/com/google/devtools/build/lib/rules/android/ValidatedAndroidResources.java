@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
@@ -55,38 +53,36 @@ public class ValidatedAndroidResources extends MergedAndroidResources
    * </ul>
    */
   public static ValidatedAndroidResources validateFrom(
-      RuleContext ruleContext, MergedAndroidResources merged, AndroidAaptVersion aaptVersion)
+      AndroidDataContext dataContext, MergedAndroidResources merged, AndroidAaptVersion aaptVersion)
       throws InterruptedException {
     AndroidResourceValidatorActionBuilder builder =
-        new AndroidResourceValidatorActionBuilder(ruleContext)
+        new AndroidResourceValidatorActionBuilder(dataContext.getRuleContext())
             .setJavaPackage(merged.getJavaPackage())
-            .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
+            .setDebug(dataContext.useDebug())
             .setMergedResources(merged.getMergedResources())
-            .setRTxtOut(ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT))
+            .setRTxtOut(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT))
             .setSourceJarOut(
-                ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR))
+                dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR))
             // Request an APK so it can be inherited when a library is used in a binary's
             // resources attr.
             // TODO(b/30307842): Remove this once it is no longer needed for resources migration.
-            .setApkOut(
-                ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_APK))
+            .setApkOut(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_APK))
             .withDependencies(merged.getResourceDependencies());
 
     if (aaptVersion == AndroidAaptVersion.AAPT2) {
       builder
           .setCompiledSymbols(merged.getCompiledSymbols())
           .setAapt2RTxtOut(
-              ruleContext.getImplicitOutputArtifact(
-                  AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT))
+              dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT))
           .setAapt2SourceJarOut(
-              ruleContext.getImplicitOutputArtifact(
+              dataContext.createOutputArtifact(
                   AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_SOURCE_JAR))
           .setStaticLibraryOut(
-              ruleContext.getImplicitOutputArtifact(
+              dataContext.createOutputArtifact(
                   AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
     }
 
-    return builder.build(ruleContext, merged);
+    return builder.build(dataContext.getRuleContext(), merged);
   }
 
   static ValidatedAndroidResources of(

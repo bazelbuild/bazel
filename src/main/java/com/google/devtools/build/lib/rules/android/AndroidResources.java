@@ -100,8 +100,8 @@ public class AndroidResources {
     validateManifest(ruleContext);
   }
 
-  public static boolean decoupleDataProcessing(RuleContext ruleContext) {
-    return AndroidCommon.getAndroidConfig(ruleContext).decoupleDataProcessing();
+  public static boolean decoupleDataProcessing(AndroidDataContext dataContext) {
+    return dataContext.getAndroidConfig().decoupleDataProcessing();
   }
 
   /**
@@ -128,7 +128,7 @@ public class AndroidResources {
 
   public static AndroidResources from(RuleContext ruleContext, String resourcesAttr)
       throws RuleErrorException {
-    if (!hasLocalResourcesAttributes(ruleContext)) {
+    if (!hasLocalResourcesAttributes(ruleContext.attributes())) {
       return empty();
     }
 
@@ -160,8 +160,8 @@ public class AndroidResources {
    * target's resource attribute ("resource_files" in general, but local_resource_files for
    * android_test), not any other attributes.
    */
-  private static boolean hasLocalResourcesAttributes(RuleContext ruleContext) {
-    return ruleContext.attributes().has("assets") || ruleContext.attributes().has("resource_files");
+  private static boolean hasLocalResourcesAttributes(AttributeMap attrs) {
+    return attrs.has("assets") || attrs.has("resource_files");
   }
 
   static AndroidResources empty() {
@@ -401,13 +401,13 @@ public class AndroidResources {
 
   /** Parses these resources. */
   public ParsedAndroidResources parse(
-      RuleContext ruleContext,
+      AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
       boolean enableDataBinding,
       AndroidAaptVersion aaptVersion)
       throws InterruptedException {
     return ParsedAndroidResources.parseFrom(
-        ruleContext, this, manifest, enableDataBinding, aaptVersion);
+        dataContext, this, manifest, enableDataBinding, aaptVersion);
   }
 
   /**
@@ -415,25 +415,29 @@ public class AndroidResources {
    * these resources.
    */
   public ValidatedAndroidResources process(
-      RuleContext ruleContext, StampedAndroidManifest manifest, boolean neverlink)
+      RuleContext ruleContext,
+      AndroidDataContext dataContext,
+      StampedAndroidManifest manifest,
+      boolean neverlink)
       throws RuleErrorException, InterruptedException {
-    boolean enableDataBinding = DataBinding.isEnabled(ruleContext);
-    AndroidAaptVersion aaptVersion = AndroidAaptVersion.chooseTargetAaptVersion(ruleContext);
-    ResourceDependencies resourceDeps = ResourceDependencies.fromRuleDeps(ruleContext, neverlink);
-
-    return process(ruleContext, manifest, resourceDeps, enableDataBinding, aaptVersion);
+    return process(
+        dataContext,
+        manifest,
+        ResourceDependencies.fromRuleDeps(ruleContext, neverlink),
+        DataBinding.isEnabled(ruleContext),
+        AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
   }
 
   ValidatedAndroidResources process(
-      RuleContext ruleContext,
+      AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
       ResourceDependencies resourceDeps,
       boolean enableDataBinding,
       AndroidAaptVersion aaptVersion)
       throws InterruptedException {
-    return parse(ruleContext, manifest, enableDataBinding, aaptVersion)
-        .merge(ruleContext, resourceDeps, enableDataBinding, aaptVersion)
-        .validate(ruleContext, aaptVersion);
+    return parse(dataContext, manifest, enableDataBinding, aaptVersion)
+        .merge(dataContext, resourceDeps, enableDataBinding, aaptVersion)
+        .validate(dataContext, aaptVersion);
   }
 
   @Override

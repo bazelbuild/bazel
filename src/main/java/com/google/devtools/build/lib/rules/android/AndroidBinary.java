@@ -195,10 +195,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // Retrieve and compile the resources defined on the android_binary rule.
     AndroidResources.validateRuleContext(ruleContext);
 
+    final AndroidDataContext dataContext = androidSemantics.makeContextForNative(ruleContext);
     final ApplicationManifest applicationManifest;
     final ResourceApk resourceApk;
 
-    if (AndroidResources.decoupleDataProcessing(ruleContext)) {
+    if (AndroidResources.decoupleDataProcessing(dataContext)) {
       StampedAndroidManifest manifest =
           AndroidManifest.fromAttributes(ruleContext, androidSemantics).mergeWithDeps(ruleContext);
       applicationManifest =
@@ -324,7 +325,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     MobileInstallResourceApks mobileInstallResourceApks =
         AndroidBinaryMobileInstall.createMobileInstallResourceApks(
-            ruleContext, applicationManifest, resourceDeps);
+            ruleContext, dataContext, applicationManifest, resourceDeps);
 
     return createAndroidBinary(
         ruleContext,

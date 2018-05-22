@@ -163,19 +163,14 @@ public class AndroidAssets {
     return assetRoots;
   }
 
-  public ParsedAndroidAssets parse(RuleContext ruleContext) throws InterruptedException {
-    return ParsedAndroidAssets.parseFrom(ruleContext, this);
+  public ParsedAndroidAssets parse(AndroidDataContext dataContext) throws InterruptedException {
+    return ParsedAndroidAssets.parseFrom(dataContext, this);
   }
 
   /** Convenience method to do all of asset processing - parsing and merging. */
-  public MergedAndroidAssets process(RuleContext ruleContext, boolean neverlink)
+  public MergedAndroidAssets process(AndroidDataContext dataContext, AssetDependencies assetDeps)
       throws InterruptedException {
-    return process(ruleContext, AssetDependencies.fromRuleDeps(ruleContext, neverlink));
-  }
-
-  MergedAndroidAssets process(RuleContext ruleContext, AssetDependencies assetDeps)
-      throws InterruptedException {
-    return parse(ruleContext).merge(ruleContext, assetDeps);
+    return parse(dataContext).merge(dataContext, assetDeps);
   }
 
   @Override

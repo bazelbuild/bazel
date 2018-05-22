@@ -265,10 +265,7 @@ public abstract class AndroidSkylarkData {
               ctx.getRuleContext(),
               listFromNoneable(assets, ConfiguredTarget.class),
               isNone(assetsDir) ? null : PathFragment.create(fromNoneable(assetsDir, String.class)))
-          .parse(ctx.getRuleContext())
-          .merge(
-              ctx.getRuleContext(),
-              AssetDependencies.fromProviders(deps.getImmutableList(), neverlink))
+          .process(ctx, AssetDependencies.fromProviders(deps.getImmutableList(), neverlink))
           .toProvider();
     } catch (RuleErrorException e) {
       throw new EvalException(Location.BUILTIN, e);
@@ -340,12 +337,11 @@ public abstract class AndroidSkylarkData {
       ValidatedAndroidResources validated =
           AndroidResources.from(ctx.getRuleContext(), getFileProviders(resources), "resources")
               .process(
-                  ctx.getRuleContext(),
+                  ctx,
                   manifest.asStampedManifest(),
                   ResourceDependencies.fromProviders(deps, neverlink),
                   enableDataBinding,
-                  aaptVersion)
-              .validate(ctx.getRuleContext(), aaptVersion);
+                  aaptVersion);
 
       JavaInfo javaInfo = getJavaInfoForRClassJar(validated.getClassJar());
 
@@ -633,7 +629,6 @@ public abstract class AndroidSkylarkData {
       infoBuilder.putAll(resourceOutput);
     }
 
-
     AndroidLibraryAarInfo aarInfo =
         makeAar(
             ctx,
@@ -683,7 +678,7 @@ public abstract class AndroidSkylarkData {
       SpecialArtifact assets,
       Artifact androidManifestArtifact,
       SkylarkList<ConfiguredTarget> deps)
-      throws EvalException, InterruptedException {
+      throws InterruptedException {
 
     AndroidAaptVersion aaptVersion =
         AndroidCommon.getAndroidConfig(ctx.getRuleContext()).getAndroidAaptVersion();
@@ -691,7 +686,7 @@ public abstract class AndroidSkylarkData {
     ValidatedAndroidResources validatedResources =
         AndroidResources.forAarImport(resources)
             .process(
-                ctx.getRuleContext(),
+                ctx,
                 AndroidManifest.forAarImport(androidManifestArtifact),
                 ResourceDependencies.fromProviders(
                     getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false),
@@ -700,9 +695,8 @@ public abstract class AndroidSkylarkData {
 
     MergedAndroidAssets mergedAssets =
         AndroidAssets.forAarImport(assets)
-            .parse(ctx.getRuleContext())
-            .merge(
-                ctx.getRuleContext(),
+            .process(
+                ctx,
                 AssetDependencies.fromProviders(
                     getProviders(deps, AndroidAssetsInfo.PROVIDER), /* neverlink = */ false));
 
