@@ -219,3 +219,54 @@ class _DirectoryBased(object):
         # pick up RUNFILES_DIR.
         "JAVA_RUNFILES": self._runfiles_root,
     }
+
+
+def _PathsFrom(argv0, runfiles_mf, runfiles_dir, is_runfiles_manifest,
+               is_runfiles_directory):
+  """Discover runfiles manifest and runfiles directory paths.
+
+  Args:
+    argv0: string; the value of sys.argv[0]
+    runfiles_mf: string; the value of the RUNFILES_MANIFEST_FILE environment
+      variable
+    runfiles_dir: string; the value of the RUNFILES_DIR environment variable
+    is_runfiles_manifest: lambda(string):bool; returns true if the argument is
+      the path of a runfiles manifest file
+    is_runfiles_directory: lambda(string):bool; returns true if the argument is
+      the path of a runfiles directory
+
+  Returns:
+    (string, string) pair, first element is the path to the runfiles manifest,
+    second element is the path to the runfiles directory. If the first element
+    is non-empty, then is_runfiles_manifest returns true for it. Same goes for
+    the second element and is_runfiles_directory respectively. If both elements
+    are empty, then this function could not find a manifest or directory for
+    which is_runfiles_manifest or is_runfiles_directory returns true.
+  """
+  mf_alid = is_runfiles_manifest(runfiles_mf)
+  dir_valid = is_runfiles_directory(runfiles_dir)
+
+  if not mf_alid and not dir_valid:
+    runfiles_mf = argv0 + ".runfiles/MANIFEST"
+    runfiles_dir = argv0 + ".runfiles"
+    mf_alid = is_runfiles_manifest(runfiles_mf)
+    dir_valid = is_runfiles_directory(runfiles_dir)
+    if not mf_alid:
+      runfiles_mf = argv0 + ".runfiles_manifest"
+      mf_alid = is_runfiles_manifest(runfiles_mf)
+
+  if not mf_alid and not dir_valid:
+    return ("", "")
+
+  if not mf_alid:
+    runfiles_mf = runfiles_dir + "/MANIFEST"
+    mf_alid = is_runfiles_manifest(runfiles_mf)
+    if not mf_alid:
+      runfiles_mf = runfiles_dir + "_manifest"
+      mf_alid = is_runfiles_manifest(runfiles_mf)
+
+  if not dir_valid:
+    runfiles_dir = runfiles_mf[:-9]  # "_manifest" or "/MANIFEST"
+    dir_valid = is_runfiles_directory(runfiles_dir)
+
+  return (runfiles_mf if mf_alid else "", runfiles_dir if dir_valid else "")
