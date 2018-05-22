@@ -27,8 +27,6 @@ public interface SymlinkTreeActionContext extends ActionContext {
 
   /**
    * Creates the symlink tree.
-   *
-   * @return a list of SpawnResults created during symlink creation, if any
    */
   List<SpawnResult> createSymlinks(
       SymlinkTreeAction action,
