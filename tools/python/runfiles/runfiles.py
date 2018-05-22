@@ -219,3 +219,34 @@ class _DirectoryBased(object):
         # pick up RUNFILES_DIR.
         "JAVA_RUNFILES": self._runfiles_root,
     }
+
+
+def _PathsFrom(argv0, runfiles_mf, runfiles_dir, is_runfiles_manifest,
+               is_runfiles_directory):
+  mfValid = is_runfiles_manifest(runfiles_mf)
+  dirValid = is_runfiles_directory(runfiles_dir)
+
+  if not mfValid and not dirValid:
+    runfiles_mf = argv0 + ".runfiles/MANIFEST"
+    runfiles_dir = argv0 + ".runfiles"
+    mfValid = is_runfiles_manifest(runfiles_mf)
+    dirValid = is_runfiles_directory(runfiles_dir)
+    if not mfValid:
+      runfiles_mf = argv0 + ".runfiles_manifest"
+      mfValid = is_runfiles_manifest(runfiles_mf)
+
+  if not mfValid and not dirValid:
+    return ("", "")
+
+  if not mfValid:
+    runfiles_mf = runfiles_dir + "/MANIFEST"
+    mfValid = is_runfiles_manifest(runfiles_mf)
+    if not mfValid:
+      runfiles_mf = runfiles_dir + "_manifest"
+      mfValid = is_runfiles_manifest(runfiles_mf)
+
+  if not dirValid:
+    runfiles_dir = runfiles_mf[:-9]  # "_manifest" or "/MANIFEST"
+    dirValid = is_runfiles_directory(runfiles_dir)
+
+  return (runfiles_mf if mfValid else "", runfiles_dir if dirValid else "")
