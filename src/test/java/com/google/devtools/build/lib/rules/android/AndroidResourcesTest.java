@@ -459,7 +459,9 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
     ValidatedAndroidData validated =
         processedData
-            .generateRClass(ruleContext, AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
+            .generateRClass(
+                AndroidDataContext.forNative(ruleContext),
+                AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
             .getValidatedResources();
 
     // An action to generate the R.class file should be registered.
@@ -472,9 +474,11 @@ public class AndroidResourcesTest extends ResourceTestBase {
   @Test
   public void testProcessBinaryDataGeneratesProguardOutput() throws Exception {
     RuleContext ruleContext = getRuleContext("android_binary", "manifest='AndroidManifest.xml',");
+    AndroidDataContext dataContext = AndroidDataContext.forNative(ruleContext);
 
     ResourceApk resourceApk =
         ProcessedAndroidData.processBinaryDataFrom(
+                dataContext,
                 ruleContext,
                 getManifest(),
                 false,
@@ -487,8 +491,10 @@ public class AndroidResourcesTest extends ResourceTestBase {
                 ResourceFilterFactory.empty(),
                 ImmutableList.of(),
                 false,
-                false)
-            .generateRClass(ruleContext, AndroidAaptVersion.AUTO);
+                false,
+                null,
+                null)
+            .generateRClass(dataContext, AndroidAaptVersion.AUTO);
 
     assertThat(resourceApk.getResourceProguardConfig()).isNotNull();
     assertThat(resourceApk.getMainDexProguardConfig()).isNotNull();

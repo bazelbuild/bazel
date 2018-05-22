@@ -104,13 +104,13 @@ public class AndroidLibraryAarInfo extends NativeInfo {
     }
 
     static Aar makeAar(
-        RuleContext ruleContext,
+        AndroidDataContext dataContext,
         ResourceApk resourceApk,
         ImmutableList<Artifact> localProguardSpecs,
         Artifact libraryClassJar)
         throws InterruptedException {
       return makeAar(
-          ruleContext,
+          dataContext,
           resourceApk.getPrimaryResources(),
           resourceApk.getPrimaryAssets(),
           resourceApk.getProcessedManifest(),
@@ -120,7 +120,7 @@ public class AndroidLibraryAarInfo extends NativeInfo {
     }
 
     static Aar makeAar(
-        RuleContext ruleContext,
+        AndroidDataContext dataContext,
         AndroidResources primaryResources,
         AndroidAssets primaryAssets,
         ProcessedAndroidManifest manifest,
@@ -129,9 +129,9 @@ public class AndroidLibraryAarInfo extends NativeInfo {
         ImmutableList<Artifact> localProguardSpecs)
         throws InterruptedException {
       Artifact aarOut =
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_AAR);
+          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_AAR);
 
-      new AarGeneratorBuilder(ruleContext)
+      new AarGeneratorBuilder(dataContext.getRuleContext())
           .withPrimaryResources(primaryResources)
           .withPrimaryAssets(primaryAssets)
           .withManifest(manifest.getManifest())
@@ -139,9 +139,8 @@ public class AndroidLibraryAarInfo extends NativeInfo {
           .withClasses(libraryClassJar)
           .setAAROut(aarOut)
           .setProguardSpecs(localProguardSpecs)
-          .setThrowOnResourceConflict(
-              AndroidCommon.getAndroidConfig(ruleContext).throwOnResourceConflict())
-          .build(ruleContext);
+          .setThrowOnResourceConflict(dataContext.getAndroidConfig().throwOnResourceConflict())
+          .build(dataContext.getActionConstructionContext());
 
       return Aar.create(aarOut, manifest.getManifest());
     }

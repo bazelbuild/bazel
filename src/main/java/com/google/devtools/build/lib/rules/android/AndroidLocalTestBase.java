@@ -96,7 +96,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     if (AndroidResources.decoupleDataProcessing(dataContext)) {
       resourceApk =
           buildResourceApk(
-              ruleContext,
+              dataContext,
               AndroidManifest.fromAttributes(ruleContext),
               AndroidResources.from(ruleContext, "resource_files"),
               AndroidAssets.from(ruleContext),
@@ -541,7 +541,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   }
 
   static ResourceApk buildResourceApk(
-      RuleContext ruleContext,
+      AndroidDataContext dataContext,
       AndroidManifest manifest,
       AndroidResources resources,
       AndroidAssets assets,
@@ -553,10 +553,13 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     StampedAndroidManifest stamped =
         manifest.mergeWithDeps(
-            ruleContext, resourceDeps, manifestValues, /* useLegacyMerger = */ false);
+            dataContext.getRuleContext(),
+            resourceDeps,
+            manifestValues,
+            /* useLegacyMerger = */ false);
 
     return ProcessedAndroidData.processLocalTestDataFrom(
-            ruleContext,
+            dataContext,
             stamped,
             manifestValues,
             aaptVersion,
@@ -564,7 +567,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             assets,
             resourceDeps,
             assetDeps)
-        .generateRClass(ruleContext, aaptVersion);
+        .generateRClass(dataContext, aaptVersion);
   }
 
   private static NestedSet<Artifact> getLibraryResourceJars(RuleContext ruleContext) {

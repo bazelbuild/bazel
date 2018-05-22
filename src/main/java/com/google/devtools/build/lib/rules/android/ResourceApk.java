@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.Optional;
@@ -270,8 +268,9 @@ public final class ResourceApk {
     if (assetsInfo.isPresent()) {
       builder.addNativeDeclaredProvider(assetsInfo.get());
       if (assetsInfo.get().getValidationResult() != null) {
-      // Asset merging output isn't consumed by anything. Require it to be run by top-level targets
-      // so we can validate there are no asset merging conflicts.
+        // Asset merging output isn't consumed by anything. Require it to be run by top-level
+        // targets
+        // so we can validate there are no asset merging conflicts.
         builder.addOutputGroup(
             OutputGroupInfo.HIDDEN_TOP_LEVEL, assetsInfo.get().getValidationResult());
       }
@@ -299,25 +298,24 @@ public final class ResourceApk {
    * <p>Any local resources and assets will be ignored.
    */
   public static ResourceApk processFromTransitiveLibraryData(
-      RuleContext ruleContext,
+      AndroidDataContext dataContext,
       ResourceDependencies resourceDeps,
       AssetDependencies assetDeps,
       StampedAndroidManifest manifest)
       throws InterruptedException {
 
-    return new AndroidResourcesProcessorBuilder(ruleContext)
+    return new AndroidResourcesProcessorBuilder(dataContext.getRuleContext())
         .setLibrary(true)
-        .setRTxtOut(ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT))
+        .setRTxtOut(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT))
         .setManifestOut(
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
+            dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
         .setSourceJarOut(
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR))
+            dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR))
         .setJavaPackage(manifest.getPackage())
         .withResourceDependencies(resourceDeps)
         .withAssetDependencies(assetDeps)
-        .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
-        .setThrowOnResourceConflict(
-            AndroidCommon.getAndroidConfig(ruleContext).throwOnResourceConflict())
+        .setDebug(dataContext.useDebug())
+        .setThrowOnResourceConflict(dataContext.getAndroidConfig().throwOnResourceConflict())
         .buildWithoutLocalResources(manifest);
   }
 }

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigu
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion.AndroidRobolectricTestDeprecationLevel;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
@@ -234,10 +235,20 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         if (ruleContext.getRule().isAttrDefined("aapt_version", STRING)) {
           // On rules that can choose a version, test attribute then flag choose the aapt version
           // target.
-          return chooseTargetAaptVersion(
-              ruleContext,
-              ruleContext.getFragment(AndroidConfiguration.class),
-              ruleContext.attributes().get("aapt_version", STRING));
+          AndroidAaptVersion flag =
+              AndroidCommon.getAndroidConfig(ruleContext).getAndroidAaptVersion();
+
+          AndroidAaptVersion version =
+              fromString(ruleContext.attributes().get("aapt_version", STRING));
+          // version is null if the value is "auto"
+          version = version == AndroidAaptVersion.AUTO ? flag : version;
+
+          if (version == AAPT2 && !hasAapt2) {
+            ruleContext.throwWithRuleError(
+                "aapt2 processing requested but not available on the android_sdk");
+            return null;
+          }
+          return version == AndroidAaptVersion.AUTO ? AAPT : version;
         } else {
           // On rules can't choose, assume aapt2 if aapt2 is present in the sdk.
           return hasAapt2 ? AAPT2 : AAPT;
@@ -248,18 +259,20 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Nullable
     public static AndroidAaptVersion chooseTargetAaptVersion(
-        RuleContext ruleContext, AndroidConfiguration androidConfig, @Nullable String versionString)
+        AndroidDataContext dataContext,
+        RuleErrorConsumer errorConsumer,
+        @Nullable String versionString)
         throws RuleErrorException {
 
-      boolean hasAapt2 = AndroidSdkProvider.fromRuleContext(ruleContext).getAapt2() != null;
-      AndroidAaptVersion flag = androidConfig.getAndroidAaptVersion();
+      boolean hasAapt2 = dataContext.getSdk().getAapt2() != null;
+      AndroidAaptVersion flag = dataContext.getAndroidConfig().getAndroidAaptVersion();
 
       AndroidAaptVersion version = fromString(versionString);
       // version is null if the value is "auto"
       version = version == AndroidAaptVersion.AUTO ? flag : version;
 
       if (version == AAPT2 && !hasAapt2) {
-        ruleContext.throwWithRuleError(
+        errorConsumer.throwWithRuleError(
             "aapt2 processing requested but not available on the android_sdk");
         return null;
       }

@@ -185,7 +185,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       // Process transitive resources so we can build artifacts needed to export an aar.
       resourceApk =
           ResourceApk.processFromTransitiveLibraryData(
-              ruleContext,
+              dataContext,
               resourceDeps,
               assetDeps,
               StampedAndroidManifest.createEmpty(ruleContext, /* exported = */ false));
@@ -207,7 +207,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
 
     final Aar aar =
         Aar.makeAar(
-            ruleContext,
+            dataContext,
             resourceApk,
             proguardLibrary.collectLocalProguardSpecs(),
             androidCommon.getClassJar());
