@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CompileTimeConstant;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -128,6 +129,11 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
 
   public VectorArg<String> getVectorArg(NestedSet<? extends T> values) {
     return VectorArg.join(joinerType.listSeparator).each(values).mapped(this);
+  }
+
+  public VectorArg<String> getVectorArgForEach(
+      @CompileTimeConstant String arg, NestedSet<? extends T> values) {
+    return VectorArg.addBefore(arg).each(values).mapped(this);
   }
 
   static class Builder<T> {
