@@ -168,9 +168,10 @@ public class AndroidManifest {
    * <p>If no manifest values are specified, the manifest will remain unstamped.
    */
   public StampedAndroidManifest stampWithManifestValues(
-      RuleContext ruleContext, AndroidDataContext dataContext) {
+      RuleContext ruleContext, AndroidDataContext dataContext, AndroidSemantics androidSemantics) {
     return mergeWithDeps(
         dataContext,
+        androidSemantics,
         ResourceDependencies.empty(),
         ApplicationManifest.getManifestValues(ruleContext),
         ApplicationManifest.useLegacyMerging(ruleContext));
@@ -186,12 +187,19 @@ public class AndroidManifest {
    */
   public StampedAndroidManifest mergeWithDeps(
       AndroidDataContext dataContext,
+      AndroidSemantics androidSemantics,
       ResourceDependencies resourceDeps,
       Map<String, String> manifestValues,
       boolean useLegacyMerger) {
     Artifact newManifest =
         ApplicationManifest.maybeMergeWith(
-                dataContext, manifest, resourceDeps, manifestValues, useLegacyMerger, pkg)
+                dataContext,
+                androidSemantics,
+                manifest,
+                resourceDeps,
+                manifestValues,
+                useLegacyMerger,
+                pkg)
             .orElse(manifest);
 
     return new StampedAndroidManifest(newManifest, pkg, exported);

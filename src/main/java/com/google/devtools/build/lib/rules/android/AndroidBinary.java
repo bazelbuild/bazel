@@ -207,6 +207,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           AndroidManifest.fromAttributes(ruleContext, dataContext, androidSemantics)
               .mergeWithDeps(
                   dataContext,
+                  androidSemantics,
                   resourceDeps,
                   ApplicationManifest.getManifestValues(ruleContext),
                   ApplicationManifest.useLegacyMerging(ruleContext));
@@ -246,7 +247,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       applicationManifest =
           androidSemantics
               .getManifestForRule(ruleContext)
-              .mergeWith(ruleContext, dataContext, resourceDeps);
+              .mergeWith(ruleContext, dataContext, androidSemantics, resourceDeps);
 
       Artifact featureOfArtifact =
           ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")
@@ -902,7 +903,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     return Optional.of(
-        new ResourceShrinkerActionBuilder(dataContext.getRuleContext())
+        new ResourceShrinkerActionBuilder()
             .setResourceApkOut(
                 dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_APK))
             .setShrunkResourcesOut(
@@ -918,7 +919,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .setTargetAaptVersion(aaptVersion)
             .setResourceFilterFactory(resourceFilterFactory)
             .setUncompressedExtensions(noCompressExtensions)
-            .build());
+            .build(dataContext));
   }
 
   @Immutable

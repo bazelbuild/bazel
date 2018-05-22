@@ -247,9 +247,13 @@ public final class ApplicationManifest {
   }
 
   public ApplicationManifest mergeWith(
-      RuleContext ruleContext, AndroidDataContext dataContext, ResourceDependencies resourceDeps) {
+      RuleContext ruleContext,
+      AndroidDataContext dataContext,
+      AndroidSemantics androidSemantics,
+      ResourceDependencies resourceDeps) {
     return maybeMergeWith(
             dataContext,
+            androidSemantics,
             manifest,
             resourceDeps,
             manifestValues,
@@ -261,6 +265,7 @@ public final class ApplicationManifest {
 
   static Optional<Artifact> maybeMergeWith(
       AndroidDataContext dataContext,
+      AndroidSemantics androidSemantics,
       Artifact primaryManifest,
       ResourceDependencies resourceDeps,
       Map<String, String> manifestValues,
@@ -269,25 +274,15 @@ public final class ApplicationManifest {
     Map<Artifact, Label> mergeeManifests = getMergeeManifests(resourceDeps.getResourceContainers());
 
     if (useLegacyMerging) {
-      if (!mergeeManifests.isEmpty()) {
-
-        Artifact outputManifest =
-            dataContext.getUniqueDirectoryArtifact("_merged", "AndroidManifest.xml");
-        AndroidManifestMergeHelper.createMergeManifestAction(
-            dataContext.getRuleContext(),
-            primaryManifest,
-            mergeeManifests.keySet(),
-            ImmutableList.of("all"),
-            outputManifest);
-        return Optional.of(outputManifest);
-      }
+      return androidSemantics.maybeDoLegacyManifestMerging(
+          mergeeManifests, dataContext, primaryManifest);
     } else {
       if (!mergeeManifests.isEmpty() || !manifestValues.isEmpty()) {
         Artifact outputManifest =
             dataContext.getUniqueDirectoryArtifact("_merged", "AndroidManifest.xml");
         Artifact mergeLog =
             dataContext.getUniqueDirectoryArtifact("_merged", "manifest_merger_log.txt");
-        new ManifestMergerActionBuilder(dataContext.getRuleContext())
+        new ManifestMergerActionBuilder()
             .setManifest(primaryManifest)
             .setMergeeManifests(mergeeManifests)
             .setLibrary(false)
@@ -295,7 +290,7 @@ public final class ApplicationManifest {
             .setCustomPackage(customPackage)
             .setManifestOutput(outputManifest)
             .setLogOut(mergeLog)
-            .build(dataContext.getActionConstructionContext());
+            .build(dataContext);
         return Optional.of(outputManifest);
       }
     }
@@ -363,12 +358,12 @@ public final class ApplicationManifest {
     }
     Artifact outputManifest =
         dataContext.getUniqueDirectoryArtifact("_renamed", "AndroidManifest.xml");
-    new ManifestMergerActionBuilder(dataContext.getRuleContext())
+    new ManifestMergerActionBuilder()
         .setManifest(manifest)
         .setLibrary(true)
         .setCustomPackage(customPackage)
         .setManifestOutput(outputManifest)
-        .build(dataContext.getActionConstructionContext());
+        .build(dataContext);
 
     return Optional.of(outputManifest);
   }

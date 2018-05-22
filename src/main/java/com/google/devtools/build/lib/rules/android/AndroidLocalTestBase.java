@@ -97,6 +97,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       resourceApk =
           buildResourceApk(
               dataContext,
+              androidSemantics,
               AndroidManifest.fromAttributes(ruleContext, dataContext),
               AndroidResources.from(ruleContext, "resource_files"),
               AndroidAssets.from(ruleContext),
@@ -420,11 +421,15 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       AndroidResources.validateRuleContext(ruleContext);
       ApplicationManifest ruleManifest =
           ApplicationManifest.renamedFromRule(ruleContext, dataContext);
-      applicationManifest = ruleManifest.mergeWith(ruleContext, dataContext, resourceDependencies);
+      applicationManifest =
+          ruleManifest.mergeWith(
+              ruleContext, dataContext, createAndroidSemantics(), resourceDependencies);
     } else {
       // we don't have a manifest, merge like android_library with a stub manifest
       ApplicationManifest dummyManifest = ApplicationManifest.generatedManifest(ruleContext);
-      applicationManifest = dummyManifest.mergeWith(ruleContext, dataContext, resourceDependencies);
+      applicationManifest =
+          dummyManifest.mergeWith(
+              ruleContext, dataContext, createAndroidSemantics(), resourceDependencies);
     }
     return applicationManifest;
   }
@@ -545,6 +550,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
   static ResourceApk buildResourceApk(
       AndroidDataContext dataContext,
+      AndroidSemantics androidSemantics,
       AndroidManifest manifest,
       AndroidResources resources,
       AndroidAssets assets,
@@ -556,7 +562,11 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     StampedAndroidManifest stamped =
         manifest.mergeWithDeps(
-            dataContext, resourceDeps, manifestValues, /* useLegacyMerger = */ false);
+            dataContext,
+            androidSemantics,
+            resourceDeps,
+            manifestValues,
+            /* useLegacyMerger = */ false);
 
     return ProcessedAndroidData.processLocalTestDataFrom(
             dataContext,

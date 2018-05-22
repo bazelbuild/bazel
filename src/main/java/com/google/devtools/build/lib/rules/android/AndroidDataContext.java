@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
         "Wraps common tools and settings used for working with Android assets, resources, and"
             + " manifests")
 public class AndroidDataContext {
+
   private final RuleContext ruleContext;
 
   private final Label label;
@@ -50,6 +51,10 @@ public class AndroidDataContext {
   private final AndroidSdkProvider sdk;
 
   public static AndroidDataContext forNative(RuleContext ruleContext) {
+    return makeContext(ruleContext);
+  }
+
+  public static AndroidDataContext makeContext(RuleContext ruleContext) {
     return new AndroidDataContext(
         ruleContext,
         ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST),

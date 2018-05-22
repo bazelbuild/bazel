@@ -131,7 +131,7 @@ public class AndroidLibraryAarInfo extends NativeInfo {
       Artifact aarOut =
           dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_AAR);
 
-      new AarGeneratorBuilder(dataContext.getRuleContext())
+      new AarGeneratorBuilder()
           .withPrimaryResources(primaryResources)
           .withPrimaryAssets(primaryAssets)
           .withManifest(manifest.getManifest())
@@ -140,7 +140,7 @@ public class AndroidLibraryAarInfo extends NativeInfo {
           .setAAROut(aarOut)
           .setProguardSpecs(localProguardSpecs)
           .setThrowOnResourceConflict(dataContext.getAndroidConfig().throwOnResourceConflict())
-          .build(dataContext.getActionConstructionContext());
+          .build(dataContext);
 
       return Aar.create(aarOut, manifest.getManifest());
     }
