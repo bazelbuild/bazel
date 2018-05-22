@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -131,14 +132,14 @@ public final class DataBinding {
    * for each layout file with data binding expressions. Since this may produce multiple files,
    * outputs are zipped up into a single container.
    */
-  static Artifact getLayoutInfoFile(RuleContext ruleContext) {
-    return getSuffixedInfoFile(ruleContext, "");
+  static Artifact getLayoutInfoFile(ActionConstructionContext context) {
+    return getSuffixedInfoFile(context, "");
   }
 
   /** Gets a layout info file with the specified suffix (for use in having different outputs) */
-  static Artifact getSuffixedInfoFile(RuleContext ruleContext, String suffix) {
-    return ruleContext.getUniqueDirectoryArtifact(
-        "databinding", "layout-info" + suffix + ".zip", ruleContext.getBinOrGenfilesDirectory());
+  static Artifact getSuffixedInfoFile(ActionConstructionContext context, String suffix) {
+    return context.getUniqueDirectoryArtifact(
+        "databinding", "layout-info" + suffix + ".zip");
   }
 
   /**

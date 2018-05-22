@@ -17,10 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
@@ -42,20 +40,20 @@ public final class BusyBoxActionBuilder {
           .setUseAlways(OS.getCurrent() == OS.WINDOWS)
           .build();
 
-  private final RuleContext ruleContext;
+  private final AndroidDataContext dataContext;
   private final NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
   private final ImmutableList.Builder<Artifact> outputs = ImmutableList.builder();
   private final CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
 
   public static BusyBoxActionBuilder create(
-      RuleContext ruleContext, @CompileTimeConstant String toolName) {
-    BusyBoxActionBuilder builder = new BusyBoxActionBuilder(ruleContext);
+      AndroidDataContext dataContext, @CompileTimeConstant String toolName) {
+    BusyBoxActionBuilder builder = new BusyBoxActionBuilder(dataContext);
     builder.commandLine.add("--tool").add(toolName).add("--");
     return builder;
   }
 
-  private BusyBoxActionBuilder(RuleContext ruleContext) {
-    this.ruleContext = ruleContext;
+  private BusyBoxActionBuilder(AndroidDataContext dataContext) {
+    this.dataContext = dataContext;
   }
 
   public BusyBoxActionBuilder addInput(@CompileTimeConstant String arg, Artifact value) {
@@ -122,16 +120,14 @@ public final class BusyBoxActionBuilder {
    * @param mnemonic a mnemonic used to indicate the tool being run, for example, "BusyBoxTool".
    */
   public void buildAndRegister(String message, String mnemonic) {
-    ruleContext.registerAction(
+    dataContext.registerAction(
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(outputs.build())
             .addCommandLine(commandLine.build(), FORCED_PARAM_FILE_INFO)
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("%s for %s", message, ruleContext.getLabel())
-            .setMnemonic(mnemonic)
-            .build(ruleContext));
+            .setExecutable(dataContext.getBusybox())
+            .setProgressMessage("%s for %s", message, dataContext.getLabel())
+            .setMnemonic(mnemonic));
   }
 }

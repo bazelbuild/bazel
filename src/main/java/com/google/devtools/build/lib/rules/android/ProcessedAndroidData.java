@@ -85,7 +85,8 @@ public class ProcessedAndroidData {
             .setMergedResourcesOut(
                 dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
             .setMainDexProguardOut(
-                AndroidBinary.createMainDexProguardSpec(dataContext.getRuleContext()))
+                AndroidBinary.createMainDexProguardSpec(
+                    dataContext.getLabel(), dataContext.getActionConstructionContext()))
             .conditionalKeepRules(conditionalKeepRules)
             .setDataBindingInfoZip(
                 dataBindingEnabled
@@ -205,7 +206,8 @@ public class ProcessedAndroidData {
         builderForNonIncrementalTopLevelTarget(
                 dataContext, manifest, ImmutableMap.of(), aaptVersion)
             .setMainDexProguardOut(
-                AndroidBinary.createMainDexProguardSpec(dataContext.getRuleContext()))
+                AndroidBinary.createMainDexProguardSpec(
+                    dataContext.getLabel(), dataContext.getActionConstructionContext()))
             .setPackageUnderTest(packageUnderTest)
             .setIsTestWithResources(hasLocalResourceFiles)
             .withResourceDependencies(resourceDeps)
@@ -258,7 +260,10 @@ public class ProcessedAndroidData {
 
         // Output
         .setProguardOut(
-            ProguardHelper.getProguardConfigArtifact(dataContext.getRuleContext(), proguardPrefix));
+            ProguardHelper.getProguardConfigArtifact(
+                dataContext.getLabel(),
+                dataContext.getActionConstructionContext(),
+                proguardPrefix));
   }
 
   static ProcessedAndroidData of(

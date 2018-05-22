@@ -61,7 +61,8 @@ public class MergedAndroidResources extends ParsedAndroidResources {
             .setUseCompiledMerge(useCompiledMerge);
 
     if (enableDataBinding) {
-      builder.setDataBindingInfoZip(DataBinding.getLayoutInfoFile(dataContext.getRuleContext()));
+      builder.setDataBindingInfoZip(
+          DataBinding.getLayoutInfoFile(dataContext.getActionConstructionContext()));
     }
 
     return builder

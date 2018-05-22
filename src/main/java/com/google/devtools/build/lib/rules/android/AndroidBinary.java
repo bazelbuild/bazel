@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -265,7 +267,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
               ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
-              createMainDexProguardSpec(ruleContext),
+              createMainDexProguardSpec(ruleContext.getLabel(), ruleContext),
               shouldShrinkResourceCycles(
                   dataContext.getAndroidConfig(), ruleContext, shrinkResources),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
@@ -809,7 +811,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     ImmutableList<Artifact> proguardSpecs =
         ProguardHelper.collectTransitiveProguardSpecs(
-            dataContext.getRuleContext(),
+            dataContext.getLabel(),
+            dataContext.getActionConstructionContext(),
             Iterables.concat(ImmutableList.of(resourceProguardConfig), extraProguardSpecs),
             localProguardSpecs,
             proguardDeps);
@@ -820,9 +823,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       // specs so that they can override values.
       proguardSpecs =
           ImmutableList.<Artifact>builder()
-              .addAll(
-                  androidSemantics.getProguardSpecsForManifest(
-                      dataContext.getRuleContext(), mergedManifest))
+              .addAll(androidSemantics.getProguardSpecsForManifest(dataContext, mergedManifest))
               .addAll(proguardSpecs)
               .build();
     }
@@ -1788,8 +1789,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     return mainDexList;
   }
 
-  public static Artifact createMainDexProguardSpec(RuleContext ruleContext) {
-    return ProguardHelper.getProguardConfigArtifact(ruleContext, "main_dex");
+  public static Artifact createMainDexProguardSpec(Label label, ActionConstructionContext context) {
+    return ProguardHelper.getProguardConfigArtifact(label, context, "main_dex");
   }
 
   /** Returns the multidex mode to apply to this target. */
