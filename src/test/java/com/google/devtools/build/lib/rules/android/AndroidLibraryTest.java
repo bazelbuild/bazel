@@ -1076,17 +1076,17 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    srcs = ['foo.java'])");
 
     ConfiguredTarget target = getConfiguredTarget("//java/android:l");
-    Artifact manifest = getBinArtifact("l_generated/l/AndroidManifest.xml", target);
+    Artifact manifest = getBinArtifact("_generated/l/AndroidManifest.xml", target);
     FileWriteAction action = (FileWriteAction) getGeneratingAction(manifest);
     assertThat(action.getFileContents()).contains("package=\"android\"");
 
     target = getConfiguredTarget("//java/android:l2");
-    manifest = getBinArtifact("l2_generated/l2/AndroidManifest.xml", target);
+    manifest = getBinArtifact("_generated/l2/AndroidManifest.xml", target);
     action = (FileWriteAction) getGeneratingAction(manifest);
     assertThat(action.getFileContents()).contains("package=\"foo\"");
 
     target = getConfiguredTarget("//third_party/android:l");
-    manifest = getBinArtifact("l_generated/l/AndroidManifest.xml", target);
+    manifest = getBinArtifact("_generated/l/AndroidManifest.xml", target);
     action = (FileWriteAction) getGeneratingAction(manifest);
     assertThat(action.getFileContents()).contains("package=\"third_party.android\"");
   }

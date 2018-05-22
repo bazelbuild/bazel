@@ -41,12 +41,12 @@ public interface AndroidSemantics {
       throws InterruptedException, RuleErrorException {
     Artifact rawManifest = ApplicationManifest.getManifestFromAttributes(ruleContext);
     return ApplicationManifest.fromExplicitManifest(
-        ruleContext, renameManifest(ruleContext, rawManifest));
+        ruleContext, renameManifest(makeContextForNative(ruleContext), rawManifest));
   }
 
-  default Artifact renameManifest(RuleContext ruleContext, Artifact rawManifest)
+  default Artifact renameManifest(AndroidDataContext dataContext, Artifact rawManifest)
       throws InterruptedException {
-    return ApplicationManifest.renameManifestIfNeeded(ruleContext, rawManifest);
+    return ApplicationManifest.renameManifestIfNeeded(dataContext, rawManifest);
   }
 
   /** Returns the name of the file in which the file names of native dependencies are listed. */
@@ -94,13 +94,12 @@ public interface AndroidSemantics {
   ImmutableList<String> getAttributesWithJavaRuntimeDeps(RuleContext ruleContext);
 
   /** A hook for checks of internal-only or external-only attributes of {@code android_binary}. */
-  default void validateAndroidBinaryRuleContext(RuleContext ruleContext) throws RuleErrorException {
-  }
+  default void validateAndroidBinaryRuleContext(RuleContext ruleContext)
+      throws RuleErrorException {}
 
   /** A hook for checks of internal-only or external-only attributes of {@code android_library}. */
   default void validateAndroidLibraryRuleContext(RuleContext ruleContext)
-      throws RuleErrorException {
-  }
+      throws RuleErrorException {}
 
   /** The artifact for the map that proguard will output. */
   Artifact getProguardOutputMap(RuleContext ruleContext) throws InterruptedException;

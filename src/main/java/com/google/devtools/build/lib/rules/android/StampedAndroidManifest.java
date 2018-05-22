@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import javax.annotation.Nullable;
 
@@ -27,7 +28,7 @@ public class StampedAndroidManifest extends AndroidManifest {
   }
 
   @Override
-  public StampedAndroidManifest stamp(RuleContext ruleContext) {
+  public StampedAndroidManifest stamp(AndroidDataContext dataContext) {
     // This manifest is already stamped
     return this;
   }
@@ -53,9 +54,9 @@ public class StampedAndroidManifest extends AndroidManifest {
 
   /** Creates an empty manifest stamped with a specified package. */
   public static StampedAndroidManifest createEmpty(
-      RuleContext ruleContext, String pkg, boolean exported) {
+      ActionConstructionContext context, String pkg, boolean exported) {
     return new StampedAndroidManifest(
-        ApplicationManifest.generateManifest(ruleContext, pkg), pkg, exported);
+        ApplicationManifest.generateManifest(context, pkg), pkg, exported);
   }
 
   public StampedAndroidManifest addMobileInstallStubApplication(RuleContext ruleContext)

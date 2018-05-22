@@ -202,7 +202,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     if (AndroidResources.decoupleDataProcessing(dataContext)) {
       StampedAndroidManifest manifest =
-          AndroidManifest.fromAttributes(ruleContext, androidSemantics).mergeWithDeps(ruleContext);
+          AndroidManifest.fromAttributes(ruleContext, dataContext, androidSemantics)
+              .mergeWithDeps(
+                  dataContext,
+                  resourceDeps,
+                  ApplicationManifest.getManifestValues(ruleContext),
+                  ApplicationManifest.useLegacyMerging(ruleContext));
       applicationManifest =
           ApplicationManifest.fromExplicitManifest(ruleContext, manifest.getManifest());
 
@@ -237,7 +242,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               .generateRClass(dataContext, aaptVersion);
     } else {
       applicationManifest =
-          androidSemantics.getManifestForRule(ruleContext).mergeWith(ruleContext, resourceDeps);
+          androidSemantics
+              .getManifestForRule(ruleContext)
+              .mergeWith(ruleContext, dataContext, resourceDeps);
 
       Artifact featureOfArtifact =
           ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")

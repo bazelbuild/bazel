@@ -122,6 +122,8 @@ public abstract class AndroidSkylarkData {
                     + " file, will be used. For example, given a BUILD file in"
                     + " 'java/com/foo/bar/BUILD', the package would be 'com.foo.bar'."),
       },
+      useLocation = true,
+      useEnvironment = true,
       doc =
           "Creates an AndroidResourcesInfo from this target's resource dependencies, ignoring local"
               + " resources. Only processing of deps will be done. This method is deprecated and"
@@ -132,18 +134,24 @@ public abstract class AndroidSkylarkData {
       AndroidDataContext ctx,
       SkylarkList<AndroidResourcesInfo> deps,
       boolean neverlink,
-      Object customPackage)
-      throws InterruptedException {
-    String pkg = fromNoneable(customPackage, String.class);
-    if (pkg == null) {
-      pkg = AndroidManifest.getDefaultPackage(ctx.getRuleContext());
+      Object customPackage,
+      Location location,
+      Environment env)
+      throws InterruptedException, EvalException {
+    try (SkylarkErrorReporter errorReporter =
+        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+      String pkg = fromNoneable(customPackage, String.class);
+      if (pkg == null) {
+        pkg = AndroidManifest.getDefaultPackage(ctx.getActionConstructionContext(), errorReporter);
+      }
+      return ResourceApk.processFromTransitiveLibraryData(
+              ctx,
+              ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
+              AssetDependencies.empty(),
+              StampedAndroidManifest.createEmpty(
+                  ctx.getActionConstructionContext(), pkg, /* exported = */ false))
+          .toResourceInfo(ctx.getLabel());
     }
-    return ResourceApk.processFromTransitiveLibraryData(
-            ctx,
-            ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
-            AssetDependencies.empty(),
-            StampedAndroidManifest.createEmpty(ctx.getRuleContext(), pkg, /* exported = */ false))
-        .toResourceInfo(ctx.getLabel());
   }
 
   @SkylarkCallable(
@@ -181,27 +189,35 @@ public abstract class AndroidSkylarkData {
                     + " eventually merged into targets that depend on it. Otherwise, it won't be"
                     + " inherited."),
       },
+      useLocation = true,
+      useEnvironment = true,
       doc = "Stamps a manifest with package information.")
   public AndroidManifestInfo stampAndroidManifest(
-      AndroidDataContext ctx, Object manifest, Object customPackage, boolean exported)
-      throws InterruptedException {
+      AndroidDataContext ctx,
+      Object manifest,
+      Object customPackage,
+      boolean exported,
+      Location location,
+      Environment env)
+      throws InterruptedException, EvalException {
     String pkg = fromNoneable(customPackage, String.class);
-    if (pkg == null) {
-      pkg = AndroidManifest.getDefaultPackage(ctx.getRuleContext());
+    try (SkylarkErrorReporter errorReporter =
+        SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
+      if (pkg == null) {
+        pkg = AndroidManifest.getDefaultPackage(ctx.getActionConstructionContext(), errorReporter);
+      }
     }
 
     Artifact primaryManifest = fromNoneable(manifest, Artifact.class);
     if (primaryManifest == null) {
-      return StampedAndroidManifest.createEmpty(ctx.getRuleContext(), pkg, exported).toProvider();
+      return StampedAndroidManifest.createEmpty(ctx.getActionConstructionContext(), pkg, exported)
+          .toProvider();
     }
 
     // If needed, rename the manifest to "AndroidManifest.xml", which aapt expects.
-    Artifact renamedManifest =
-        getAndroidSemantics().renameManifest(ctx.getRuleContext(), primaryManifest);
+    Artifact renamedManifest = getAndroidSemantics().renameManifest(ctx, primaryManifest);
 
-    return new AndroidManifest(renamedManifest, pkg, exported)
-        .stamp(ctx.getRuleContext())
-        .toProvider();
+    return new AndroidManifest(renamedManifest, pkg, exported).stamp(ctx).toProvider();
   }
 
   @SkylarkCallable(
@@ -613,7 +629,7 @@ public abstract class AndroidSkylarkData {
 
       // If none of these parameters were specified, for backwards compatibility, do not trigger
       // data processing.
-      resourcesInfo = resourcesFromDeps(ctx, resourceDeps, neverlink, customPackage);
+      resourcesInfo = resourcesFromDeps(ctx, resourceDeps, neverlink, customPackage, location, env);
       assetsInfo = assetsFromDeps(assetDeps, neverlink, env);
 
       infoBuilder.put(AndroidResourcesInfo.PROVIDER, resourcesInfo);
@@ -624,7 +640,9 @@ public abstract class AndroidSkylarkData {
               ctx,
               manifest,
               customPackage,
-              fromNoneableOrDefault(exportsManifest, Boolean.class, false));
+              fromNoneableOrDefault(exportsManifest, Boolean.class, false),
+              location,
+              env);
 
       SkylarkDict<NativeProvider<?>, NativeInfo> resourceOutput =
           mergeResources(
@@ -789,7 +807,9 @@ public abstract class AndroidSkylarkData {
             type = SkylarkDict.class,
             generic1 = String.class,
             named = true,
-            doc = "A dictionary of values to be overridden in the manifest."),
+            doc =
+                "A dictionary of values to be overridden in the manifest. You must expand any"
+                    + " templates in these values before they are passed to this function."),
         @Param(
             name = "deps",
             positional = false,
@@ -814,7 +834,7 @@ public abstract class AndroidSkylarkData {
       Object assetsDir,
       Object customPackage,
       String aaptVersionString,
-      SkylarkDict<String, String> rawManifestValues,
+      SkylarkDict<String, String> manifestValues,
       SkylarkList<ConfiguredTarget> deps,
       Location location,
       Environment env)
@@ -822,12 +842,13 @@ public abstract class AndroidSkylarkData {
     try (SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
 
-    AndroidManifest rawManifest =
-        AndroidManifest.from(
-            ctx.getRuleContext(),
-            fromNoneable(manifest, Artifact.class),
-            fromNoneable(customPackage, String.class),
-            /* exportsManifest = */ false);
+      AndroidManifest rawManifest =
+          AndroidManifest.from(
+              ctx,
+              errorReporter,
+              fromNoneable(manifest, Artifact.class),
+              fromNoneable(customPackage, String.class),
+              /* exportsManifest = */ false);
 
       ResourceApk resourceApk =
           AndroidLocalTestBase.buildResourceApk(
@@ -844,7 +865,7 @@ public abstract class AndroidSkylarkData {
                   getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false),
               AssetDependencies.fromProviders(
                   getProviders(deps, AndroidAssetsInfo.PROVIDER), /* neverlink = */ false),
-              ApplicationManifest.getManifestValues(ctx.getRuleContext(), rawManifestValues),
+              manifestValues,
               AndroidAaptVersion.chooseTargetAaptVersion(ctx, errorReporter, aaptVersionString));
 
       return getNativeInfosFrom(resourceApk, ctx.getLabel());
@@ -895,7 +916,9 @@ public abstract class AndroidSkylarkData {
             type = SkylarkList.class,
             generic1 = String.class,
             named = true,
-            doc = "A list of file extension to leave uncompressed in apk."),
+            doc =
+                "A list of file extension to leave uncompressed in apk. Templates must be expanded"
+                    + " before passing this value in."),
         @Param(
             name = "aapt_version",
             positional = false,
@@ -916,7 +939,7 @@ public abstract class AndroidSkylarkData {
       Object shrinkResources,
       SkylarkList<String> resourceConfigurationFilters,
       SkylarkList<String> densities,
-      SkylarkList<String> rawNoCompressExtensions,
+      SkylarkList<String> noCompressExtensions,
       String aaptVersionString,
       Location location,
       Environment env)
@@ -936,10 +959,7 @@ public abstract class AndroidSkylarkData {
         fromNoneableOrDefault(
             shrinkResources, Boolean.class, ctx.getAndroidConfig().useAndroidResourceShrinking()),
         ResourceFilterFactory.from(aaptVersion, resourceConfigurationFilters, densities),
-        ctx.getRuleContext()
-            .getExpander()
-            .withDataLocations()
-            .tokenized("nocompress_extensions", rawNoCompressExtensions));
+        noCompressExtensions.getImmutableList());
   }
 
   /**
@@ -1042,7 +1062,9 @@ public abstract class AndroidSkylarkData {
             type = SkylarkDict.class,
             generic1 = String.class,
             named = true,
-            doc = "A dictionary of values to be overridden in the manifest."),
+            doc =
+                "A dictionary of values to be overridden in the manifest. You must expand any"
+                    + " templates in the values before calling this function."),
         @Param(
             name = "deps",
             positional = false,
@@ -1101,7 +1123,7 @@ public abstract class AndroidSkylarkData {
       Object assetsDir,
       Object manifest,
       Object customPackage,
-      SkylarkDict<String, String> rawManifestValues,
+      SkylarkDict<String, String> manifestValues,
       SkylarkList<ConfiguredTarget> deps,
       String manifestMerger,
       Object maybeSettings,
@@ -1113,31 +1135,32 @@ public abstract class AndroidSkylarkData {
     try (SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
 
-    BinaryDataSettings settings =
-        fromNoneableOrDefault(
-            maybeSettings, BinaryDataSettings.class, defaultBinaryDataSettings(ctx, location, env));
+      BinaryDataSettings settings =
+          fromNoneableOrDefault(
+              maybeSettings,
+              BinaryDataSettings.class,
+              defaultBinaryDataSettings(ctx, location, env));
 
-    AndroidManifest rawManifest =
-        AndroidManifest.from(
-            ctx.getRuleContext(),
-            fromNoneable(manifest, Artifact.class),
-            getAndroidSemantics(),
-            fromNoneable(customPackage, String.class),
-            /* exportsManifest = */ false);
+      AndroidManifest rawManifest =
+          AndroidManifest.from(
+              ctx,
+              errorReporter,
+              fromNoneable(manifest, Artifact.class),
+              getAndroidSemantics(),
+              fromNoneable(customPackage, String.class),
+              /* exportsManifest = */ false);
 
-    ResourceDependencies resourceDeps =
-        ResourceDependencies.fromProviders(
-            getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false);
+      ResourceDependencies resourceDeps =
+          ResourceDependencies.fromProviders(
+              getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false);
 
-    ImmutableMap<String, String> manifestValues =
-        ApplicationManifest.getManifestValues(ctx.getRuleContext(), rawManifestValues);
-
-    StampedAndroidManifest stampedManifest =
-        rawManifest.mergeWithDeps(
-            ctx.getRuleContext(),
-            resourceDeps,
-            manifestValues,
-            ApplicationManifest.useLegacyMerging(ctx.getRuleContext(), manifestMerger));
+      StampedAndroidManifest stampedManifest =
+          rawManifest.mergeWithDeps(
+              ctx,
+              resourceDeps,
+              manifestValues,
+              ApplicationManifest.useLegacyMerging(
+                  errorReporter, ctx.getAndroidConfig(), manifestMerger));
 
       ResourceApk resourceApk =
           ProcessedAndroidData.processBinaryDataFrom(
