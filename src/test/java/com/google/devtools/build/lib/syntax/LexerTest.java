@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -57,8 +58,19 @@ public class LexerTest {
     return new Lexer(inputSource, reporter);
   }
 
-  public Token[] tokens(String input) {
-    return createLexer(input).getTokens().toArray(new Token[0]);
+  private ArrayList<Token> allTokens(Lexer lexer) {
+    ArrayList<Token> result = new ArrayList<>();
+    Token tok;
+    do {
+      tok = lexer.nextToken();
+      result.add(tok);
+    } while (tok.kind != TokenKind.EOF);
+    return result;
+  }
+
+  private Token[] tokens(String input) {
+    ArrayList<Token> result = allTokens(createLexer(input));
+    return result.toArray(new Token[0]);
   }
 
   /**
@@ -68,7 +80,7 @@ public class LexerTest {
   private String linenums(String input) {
     Lexer lexer = createLexer(input);
     StringBuilder buf = new StringBuilder();
-    for (Token tok : lexer.getTokens()) {
+    for (Token tok : allTokens(lexer)) {
       if (buf.length() > 0) {
         buf.append(' ');
       }
@@ -477,13 +489,16 @@ public class LexerTest {
   @Test
   public void testContainsErrors() throws Exception {
     Lexer lexerSuccess = createLexer("foo");
+    allTokens(lexerSuccess); // ensure the file has been completely scanned
     assertThat(lexerSuccess.containsErrors()).isFalse();
 
     Lexer lexerFail = createLexer("f$o");
+    allTokens(lexerFail);
     assertThat(lexerFail.containsErrors()).isTrue();
 
     String s = "'unterminated";
     lexerFail = createLexer(s);
+    allTokens(lexerFail);
     assertThat(lexerFail.containsErrors()).isTrue();
     assertThat(lastErrorLocation.getStartOffset()).isEqualTo(0);
     assertThat(lastErrorLocation.getEndOffset()).isEqualTo(s.length());

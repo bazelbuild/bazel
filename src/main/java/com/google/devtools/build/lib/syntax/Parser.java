@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -162,14 +161,12 @@ public class Parser {
       EnumSet.of(Operator.MINUS, Operator.PLUS),
       EnumSet.of(Operator.DIVIDE, Operator.FLOOR_DIVIDE, Operator.MULT, Operator.PERCENT));
 
-  private final Iterator<Token> tokens;
   private int errorsCount;
   private boolean recoveryMode;  // stop reporting errors until next statement
 
   private Parser(Lexer lexer, EventHandler eventHandler) {
     this.lexer = lexer;
     this.eventHandler = eventHandler;
-    this.tokens = lexer.getTokens().iterator();
     this.comments = new ArrayList<>();
     nextToken();
   }
@@ -421,11 +418,11 @@ public class Parser {
       pushedToken = null;
     } else {
       if (token == null || token.kind != TokenKind.EOF) {
-        token = tokens.next();
+        token = lexer.nextToken();
         // transparently handle comment tokens
         while (token.kind == TokenKind.COMMENT) {
           makeComment(token);
-          token = tokens.next();
+          token = lexer.nextToken();
         }
       }
     }
