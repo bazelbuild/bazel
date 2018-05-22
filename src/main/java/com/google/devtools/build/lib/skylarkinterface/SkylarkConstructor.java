@@ -35,4 +35,12 @@ public @interface SkylarkConstructor {
    * The java class of the skylark type that this annotation's method is a constructor for.
    */
   Class<?> objectType();
+
+  /**
+   * If non-empty, documents the way to invoke this function from the top level.
+   *
+   * <p>For example, if this constructs objects of type Foo, and this value is set to "Bar.Baz",
+   * then the documentation for the method signature will appear as "Foo Bar.Baz(...)".
+   */
+  String receiverNameForDoc() default "";
 }

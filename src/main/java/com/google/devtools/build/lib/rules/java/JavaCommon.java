@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -919,6 +920,10 @@ public class JavaCommon {
     return AnalysisUtils.getProviders(getDependencies(), provider);
   }
 
+  /** Gets all the deps that implement a particular provider. */
+  public final <P extends Info> Iterable<P> getDependencies(BuiltinProvider<P> provider) {
+    return AnalysisUtils.getProviders(getDependencies(), provider);
+  }
 
   /**
    * Returns true if and only if this target has the neverlink attribute set to

@@ -116,7 +116,9 @@ public final class AppleStaticLibraryInfo extends NativeInfo {
                   + "linked into the archive."),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AppleStaticLibraryInfo.class)
+    @SkylarkConstructor(
+        objectType = AppleStaticLibraryInfo.class,
+        receiverNameForDoc = "apple_common.AppleStaticLibrary")
     public AppleStaticLibraryInfo appleStaticLibrary(
         Artifact archive, ObjcProvider objcProvider) throws EvalException {
       return new AppleStaticLibraryInfo(archive, objcProvider);

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
@@ -346,7 +347,7 @@ public abstract class AndroidSkylarkData {
               + " to are available. Note that this method might do additional processing to this"
               + " manifest, so in the future, you may want to use the manifest contained in this"
               + " method's output instead of this one.")
-  public SkylarkDict<NativeProvider<?>, NativeInfo> mergeResources(
+  public SkylarkDict<Provider, NativeInfo> mergeResources(
       AndroidDataContext ctx,
       AndroidManifestInfo manifest,
       SkylarkList<ConfiguredTarget> resources,
@@ -596,7 +597,7 @@ public abstract class AndroidSkylarkData {
       doc =
           "Performs full processing of data for android_library or similar rules. Returns a dict"
               + " from provider type to providers for the target.")
-  public SkylarkDict<NativeProvider<?>, NativeInfo> processLibraryData(
+  public SkylarkDict<Provider, NativeInfo> processLibraryData(
       AndroidDataContext ctx,
       Artifact libraryClassJar,
       Object manifest,
@@ -617,7 +618,7 @@ public abstract class AndroidSkylarkData {
         getProviders(deps, AndroidResourcesInfo.PROVIDER);
     SkylarkList<AndroidAssetsInfo> assetDeps = getProviders(deps, AndroidAssetsInfo.PROVIDER);
 
-    ImmutableMap.Builder<NativeProvider<?>, NativeInfo> infoBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<Provider, NativeInfo> infoBuilder = ImmutableMap.builder();
 
     AndroidResourcesInfo resourcesInfo;
     AndroidAssetsInfo assetsInfo;
@@ -644,7 +645,7 @@ public abstract class AndroidSkylarkData {
               location,
               env);
 
-      SkylarkDict<NativeProvider<?>, NativeInfo> resourceOutput =
+      SkylarkDict<Provider, NativeInfo> resourceOutput =
           mergeResources(
               ctx,
               baseManifest,
@@ -704,7 +705,7 @@ public abstract class AndroidSkylarkData {
             doc = "Targets to inherit asset and resource dependencies from.")
       },
       doc = "Processes assets, resources, and manifest for aar_import targets")
-  public SkylarkDict<NativeProvider<?>, NativeInfo> processAarImportData(
+  public SkylarkDict<Provider, NativeInfo> processAarImportData(
       AndroidDataContext ctx,
       SpecialArtifact resources,
       SpecialArtifact assets,
@@ -826,7 +827,7 @@ public abstract class AndroidSkylarkData {
       doc =
           "Processes resources, assets, and manifests for android_local_test and returns a dict"
               + " from provider type to the appropriate provider.")
-  public SkylarkDict<NativeProvider<?>, NativeInfo> processLocalTestData(
+  public SkylarkDict<Provider, NativeInfo> processLocalTestData(
       AndroidDataContext ctx,
       Object manifest,
       SkylarkList<ConfiguredTarget> resources,
@@ -1310,9 +1311,9 @@ public abstract class AndroidSkylarkData {
     return maybeShrunkApk.map(binaryDataInfo::withShrunkApk).orElse(binaryDataInfo);
   }
 
-  public static SkylarkDict<NativeProvider<?>, NativeInfo> getNativeInfosFrom(
+  public static SkylarkDict<Provider, NativeInfo> getNativeInfosFrom(
       ResourceApk resourceApk, Label label) {
-    ImmutableMap.Builder<NativeProvider<?>, NativeInfo> builder = ImmutableMap.builder();
+    ImmutableMap.Builder<Provider, NativeInfo> builder = ImmutableMap.builder();
 
     builder.put(AndroidResourcesInfo.PROVIDER, resourceApk.toResourceInfo(label));
 

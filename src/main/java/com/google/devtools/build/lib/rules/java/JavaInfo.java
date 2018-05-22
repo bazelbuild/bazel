@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.syntax.SkylarkType.BOOL;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -25,30 +24,31 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -56,180 +56,7 @@ import javax.annotation.Nullable;
 /** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
 @SkylarkModule(
     name = "JavaInfo",
-    doc =
-        "Encapsulates all information provided by Java rules. "
-            + "<p>JavaInfo can be created in Skylark by calling constructor "
-            + "<code>JavaInfo(...)</code> "
-            + "with parameters:</p>"
-            + "<table class=\"table table-bordered table-condensed table-params\">"
-            + "  <colgroup>"
-            + "    <col class=\"col-param\">"
-            + "    <col class=\"param-description\">"
-            + "  </colgroup>"
-            + "  <thead>"
-            + "    <tr>"
-            + "      <th>Parameter</th>"
-            + "      <th>Description</th>"
-            + "    </tr>"
-            + "  </thead>"
-            + "  <tbody>"
-            + "    <tr>"
-            + "      <td id=\"JavaInfo.output_jar\">"
-            + "        <code>output_jar</code>"
-            + "      </td>"
-            + "      <td>"
-            + "        <p><code><a class=\"anchor\" href=\"File.html\">File</a></code></p>"
-            + "        <p>The jar that was created as a result of a compilation "
-            + "(e.g. javac, scalac, etc).</p>"
-            + "      </td>"
-            + "    </tr>"
-            + "    <tr>"
-            + "      <td id=\"JavaInfo.compile_jar\">"
-            + "        <code>compile_jar</code>"
-            + "      </td>"
-            + "      <td>"
-            + "        <p><code><a class=\"anchor\" href=\"File.html\">File</a></code></p>"
-            + "        <p>A jar that is added as the compile-time dependency in lieu of "
-            + "<code>output_jar</code>. Typically this is the ijar produced by "
-            + "<code><a class=\"anchor\" href=\"java_common.html#run_ijar\">"
-            + "run_ijar</a></code>. "
-            + "If you cannot use ijar, consider instead using the output of "
-            + "<code><a class=\"anchor\" href=\"java_common.html#stamp_jar\">"
-            + "stamp_ijar</a></code>. "
-            + "If you do not wish to use either, you can simply pass <code>output_jar</code>."
-            + "      </td>"
-            + "    </tr>"
-            + "    <tr>"
-            + "      <td id=\"JavaInfo.source_jar\">"
-            + "        <code>source_jar</code>"
-            + "      </td>"
-            + "      <td>"
-            + "        <p><code><a class=\"anchor\" href=\"File.html\">File</a></code></p>"
-            + "(default = None, optional)</code></p>"
-            + "        <p>The source jar that was used to create the output jar. "
-            + "Use <code><a class=\"anchor\" href=\"java_common.html#pack_sources\">"
-            + "pack_sources</a></code>. to produce this source jar."
-            + "      </td>"
-            + "    </tr>"
-            + "    <tr>"
-            + "      <td id=\"JavaInfo.neverlink\">"
-            + "        <code>neverlink</code>"
-            + "      </td>"
-            + "      <td>"
-            + "        <p><code><a class=\"anchor\" href=\"bool.html\">bool</a> "
-            + "(default = False, optional)</code></p>"
-            + "        <p>If true only use this library for compilation and not at runtime.</p>"
-            + "      </td>"
-            + "    </tr>"
-            + "    <tr>"
-            + "      <td id=\"JavaInfo.deps\">"
-            + "        <code>deps</code>"
-            + "      </td>"
-            + "      <td>"
-            + "        <p><code><a class=\"anchor\" href=\"list.html\">sequence</a> or "
-            + "<a class=\"anchor\" href=\"depset.html\">depset</a> of "
-            + "<a class=\"anchor\" href=\"JavaInfo.html\">JavaInfo</a>s</code></p>"
-            + "        <p>Compile time dependencies that were used to create the output jar.</p>"
-            + "      </td>"
-            + "    </tr>"
-            + "    <tr>"
-            + "      <td id=\"JavaInfo.runtime_deps\">"
-            + "        <code>runtime_deps</code>"
-            + "      </td>"
-            + "      <td>"
-            + "        <p><code><a class=\"anchor\" href=\"list.html\">sequence</a> or "
-            + "<a class=\"anchor\" href=\"depset.html\">depset</a> of "
-            + "<a class=\"anchor\" href=\"JavaInfo.html\">JavaInfo</a>s</code></p>"
-            + "        <p>Runtime dependencies that are needed for this library.</p>"
-            + "      </td>"
-            + "    </tr>"
-            + "    <tr>"
-            + "      <td id=\"JavaInfo.exports\">"
-            + "        <code>exports</code>"
-            + "      </td>"
-            + "      <td>"
-            + "        <p><code><a class=\"anchor\" href=\"list.html\">sequence</a> or "
-            + "<a class=\"anchor\" href=\"depset.html\">depset</a> of "
-            + "<a class=\"anchor\" href=\"JavaInfo.html\">JavaInfo</a>s</code></p>"
-            + "        <p>Libraries to make available for users of this library. See also "
-            + "<a class=\"anchor\" "
-            + "href=\"https://docs.bazel.build/versions/master/be/java.html#java_library.exports\">"
-            + "java_library.exports</a>.</p>"
-            + "      </td>"
-            + "    </tr>"
-            + "    <tr>"
-            + "      <td id=\"JavaInfo.actions\">"
-            + "        <code>actions</code>"
-            + "      </td>"
-            + "      <td>"
-            + "        <p><code><a class=\"anchor\" href=\"actions.html\">actions</a></code></p>"
-            + "        <p>Deprecated. No longer needed when <code>compile_jar</code> and/or "
-            + "<code>source_jar</code> are used. "
-            + "        <p>Used to create the ijar and pack source files to jar actions.</p>"
-            + "      </td>"
-            + "    </tr>"
-            + "    <tr>"
-            + "      <td id=\"JavaInfo.sources\">"
-            + "        <code>sources</code>"
-            + "      </td>"
-            + "      <td>"
-            + "        <p><code><a class=\"anchor\" href=\"list.html\">sequence</a> or "
-            + "<a class=\"anchor\" href=\"depset.html\">depset</a> of "
-            + "<a class=\"anchor\" href=\"File.html\">File</a>s</code></p>"
-            + "        <p>Deprecated. Use <code>source_jar</code> instead. "
-            + "        <p>The sources that were used to create the output jar.</p>"
-            + "      </td>"
-            + "    </tr>"
-            + "    <tr>"
-            + "      <td id=\"JavaInfo.source_jars\">"
-            + "        <code>source_jars</code>"
-            + "      </td>"
-            + "      <td>"
-            + "        <p><code><a class=\"anchor\" href=\"list.html\">sequence</a> or "
-            + "<a class=\"anchor\" href=\"depset.html\">depset</a> of "
-            + "<a class=\"anchor\" href=\"File.html\">File</a>s</code></p>"
-            + "        <p>Deprecated. Use <code>source_jar</code> instead. "
-            + "        <p>The source jars that were used to create the output jar.</p>"
-            + "      </td>"
-            + "    </tr>"
-            + "    <tr>"
-            + "      <td id=\"JavaInfo.use_ijar\">"
-            + "        <code>use_ijar</code>"
-            + "      </td>"
-            + "      <td>"
-            + "        <p><code><a class=\"anchor\" href=\"bool.html\">bool</a> "
-            + "(default = True, optional)</code></p>"
-            + "        <p>Deprecated. Use <code>compile_jar</code> instead. "
-            + "        <p>If an ijar of the output jar should be created and stored in the "
-            + "provider. </p>"
-            + "      </td>"
-            + "    </tr>"
-            + "    <tr>"
-            + "      <td id=\"JavaInfo.java_toolchain\">"
-            + "        <code>java_toolchain</code>"
-            + "      </td>"
-            + "      <td>"
-            + "        <p>Target</p>"
-            + "        <p>Deprecated. No longer needed when <code>compile_jar</code> and/or "
-            + "<code>source_jar</code> are used. "
-            + "        <p>The toolchain to be used for retrieving the ijar tool and packing source "
-            + "files to Jar.</p>"
-            + "      </td>"
-            + "    </tr>"
-            + "    <tr>"
-            + "      <td id=\"JavaInfo.host_javabase\">"
-            + "        <code>host_javabase</code>"
-            + "      </td>"
-            + "      <td>"
-            + "        <p>Target</p>"
-            + "        <p>Deprecated. No longer needed when <code>compile_jar</code> and/or "
-            + "<code>source_jar</code> are used. "
-            + "        <p>The host_javabase to be used for packing source files to Jar.</p>"
-            + "      </td>"
-            + "    </tr>"
-            + "  </tbody>"
-            + "</table>"
-            + "",
+    doc = "Encapsulates all information provided by Java rules.",
     category = SkylarkModuleCategory.PROVIDER)
 @Immutable
 @AutoCodec
@@ -237,138 +64,16 @@ public final class JavaInfo extends NativeInfo {
 
   public static final String SKYLARK_NAME = "JavaInfo";
 
-  private static final SkylarkType SEQUENCE_OF_ARTIFACTS =
-      SkylarkType.Combination.of(SkylarkType.SEQUENCE, SkylarkType.of(Artifact.class));
-  private static final SkylarkType SEQUENCE_OF_JAVA_INFO =
-      SkylarkType.Combination.of(SkylarkType.SEQUENCE, SkylarkType.of(JavaInfo.class));
-  private static final SkylarkType LIST_OF_ARTIFACTS =
-      SkylarkType.Combination.of(SkylarkType.SEQUENCE, SkylarkType.of(Artifact.class));
+  public static final JavaInfoProvider PROVIDER = new JavaInfoProvider();
 
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
-      FunctionSignature.WithValues.create(
-          FunctionSignature.of(
-              /*numMandatoryPositionals=*/ 0,
-              /*numOptionalPositionals=*/ 0,
-              /*numMandatoryNamedOnly=*/ 1,
-              /*starArg=*/ false,
-              /*kwArg=*/ false,
-              "output_jar",
-              "compile_jar",
-              "source_jar",
-              "neverlink",
-              "deps",
-              "runtime_deps",
-              "exports",
-              "actions",
-              "sources",
-              "source_jars",
-              "use_ijar",
-              "java_toolchain",
-              "host_javabase"),
+  @Nullable
+  private static <T> T nullIfNone(Object object, Class<T> type) {
+    return object != Runtime.NONE ? type.cast(object) : null;
+  }
 
-          /*defaultValues=*/ Arrays.asList(
-              Runtime.NONE, // compile_jar
-              Runtime.NONE, // source_jar
-              Boolean.FALSE, // neverlink
-              MutableList.empty(), // deps
-              MutableList.empty(), // runtime_deps
-              MutableList.empty(), // exports
-              Runtime.NONE, // actions
-              Runtime.NONE, // sources
-              Runtime.NONE, // source_jars
-              Runtime.NONE, // use_ijar
-              Runtime.NONE, // java_toolchain
-              Runtime.NONE), // hostJavabase
-
-          /*types=*/ ImmutableList.<SkylarkType>of(
-              SkylarkType.of(Artifact.class), // output_jar
-              SkylarkType.of(Artifact.class), // compile_jar
-              SkylarkType.of(Artifact.class), // source_jar
-              BOOL, // neverlink
-              SEQUENCE_OF_JAVA_INFO, // deps
-              SEQUENCE_OF_JAVA_INFO, // runtime_deps
-              SEQUENCE_OF_JAVA_INFO, // exports
-              SkylarkType.of(SkylarkActionFactory.class), // actions
-              SkylarkType.Union.of(SEQUENCE_OF_ARTIFACTS, LIST_OF_ARTIFACTS), // sources
-              SkylarkType.Union.of(SEQUENCE_OF_ARTIFACTS, LIST_OF_ARTIFACTS), // source_jars
-              BOOL, // use_ijar
-              SkylarkType.of(ConfiguredTarget.class), // java_toolchain
-              SkylarkType.of(ConfiguredTarget.class))); // hostJavabase
-
-  public static final NativeProvider<JavaInfo> PROVIDER =
-      new NativeProvider<JavaInfo>(JavaInfo.class, SKYLARK_NAME, SIGNATURE) {
-
-        @Override
-        @SuppressWarnings("unchecked")
-        protected JavaInfo createInstanceFromSkylark(Object[] args, Environment env, Location loc)
-            throws EvalException {
-          int i = 0;
-          Artifact outputJar = (Artifact) args[i++];
-          @Nullable Artifact compileJar = (Artifact) nullIfNone(args[i++]);
-          @Nullable Artifact sourceJar = (Artifact) nullIfNone(args[i++]);
-          Boolean neverlink = (Boolean) args[i++];
-          SkylarkList<JavaInfo> deps = (SkylarkList<JavaInfo>) args[i++];
-          SkylarkList<JavaInfo> runtimeDeps = (SkylarkList<JavaInfo>) args[i++];
-          SkylarkList<JavaInfo> exports = (SkylarkList<JavaInfo>) args[i++];
-          @Nullable Object actions = nullIfNone(args[i++]);
-          @Nullable SkylarkList<Artifact> sources = (SkylarkList<Artifact>) nullIfNone(args[i++]);
-          @Nullable
-          SkylarkList<Artifact> sourceJars = (SkylarkList<Artifact>) nullIfNone(args[i++]);
-          @Nullable Boolean useIjar = (Boolean) nullIfNone(args[i++]);
-          @Nullable Object javaToolchain = nullIfNone(args[i++]);
-          @Nullable Object hostJavabase = nullIfNone(args[i++]);
-
-          boolean hasLegacyArg =
-              actions != null
-                  || sources != null
-                  || sourceJars != null
-                  || useIjar != null
-                  || javaToolchain != null
-                  || hostJavabase != null;
-          if (hasLegacyArg) {
-            if (env.getSemantics().incompatibleDisallowLegacyJavaInfo()) {
-              throw new EvalException(
-                  loc,
-                  "Cannot use deprecated argument when "
-                      + "--incompatible_disallow_legacy_javainfo is set. "
-                      + "Deprecated arguments are 'actions', 'sources', 'source_jars', "
-                      + "'use_ijar', 'java_toolchain', 'host_javabase'.");
-            }
-            boolean hasNewArg = compileJar != null || sourceJar != null;
-            if (hasNewArg) {
-              throw new EvalException(
-                  loc,
-                  "Cannot use deprecated arguments at the same time as "
-                      + "'compile_jar' or 'source_jar'. "
-                      + "Deprecated arguments are 'actions', 'sources', 'source_jars', "
-                      + "'use_ijar', 'java_toolchain', 'host_javabase'.");
-            }
-            return JavaInfoBuildHelper.getInstance()
-                .createJavaInfoLegacy(
-                    outputJar,
-                    sources != null ? sources : MutableList.empty(),
-                    sourceJars != null ? sourceJars : MutableList.empty(),
-                    useIjar != null ? useIjar : true,
-                    neverlink,
-                    deps,
-                    runtimeDeps,
-                    exports,
-                    actions,
-                    javaToolchain,
-                    hostJavabase,
-                    loc);
-          }
-          if (compileJar == null) {
-            throw new EvalException(location, "Expected 'File' for 'compile_jar', found 'None'");
-          }
-          return JavaInfoBuildHelper.getInstance()
-              .createJavaInfo(
-                  outputJar, compileJar, sourceJar, neverlink, deps, runtimeDeps, exports, loc);
-        }
-      };
-
+  @Nullable
   private static Object nullIfNone(Object object) {
-    return object != Runtime.NONE ? object : null;
+    return nullIfNone(object, Object.class);
   }
 
   public static final JavaInfo EMPTY = JavaInfo.Builder.create().build();
@@ -766,6 +471,235 @@ public final class JavaInfo extends NativeInfo {
   @Override
   public int hashCode() {
     return providers.hashCode();
+  }
+
+  /** Provider class for {@link JavaInfo} objects. */
+  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  public static class JavaInfoProvider extends BuiltinProvider<JavaInfo> implements ProviderApi {
+    private JavaInfoProvider() {
+      super(SKYLARK_NAME, JavaInfo.class);
+    }
+
+    @SkylarkCallable(name = "JavaInfo",
+        doc = "The <code>JavaInfo</code> constructor.",
+        parameters = {
+            @Param(
+                name = "output_jar",
+                type = FileApi.class,
+                named = true,
+                doc = "The jar that was created as a result of a compilation "
+                    + "(e.g. javac, scalac, etc)."
+            ),
+            @Param(
+                name = "compile_jar",
+                type = FileApi.class,
+                named = true,
+                noneable = true,
+                defaultValue = "None",
+                doc = "A jar that is added as the compile-time dependency in lieu of "
+                    + "<code>output_jar</code>. Typically this is the ijar produced by "
+                    + "<code><a class=\"anchor\" href=\"java_common.html#run_ijar\">"
+                    + "run_ijar</a></code>. "
+                    + "If you cannot use ijar, consider instead using the output of "
+                    + "<code><a class=\"anchor\" href=\"java_common.html#stamp_jar\">"
+                    + "stamp_ijar</a></code>. If you do not wish to use either, "
+                    + "you can simply pass <code>output_jar</code>."
+            ),
+            @Param(
+                name = "source_jar",
+                type = FileApi.class,
+                named = true,
+                noneable = true,
+                defaultValue = "None",
+                doc = "The source jar that was used to create the output jar. "
+                    + "Use <code><a class=\"anchor\" href=\"java_common.html#pack_sources\">"
+                    + "pack_sources</a></code> to produce this source jar."
+            ),
+            @Param(
+                name = "neverlink",
+                type = Boolean.class,
+                named = true,
+                defaultValue = "False",
+                doc = "If true only use this library for compilation and not at runtime."
+            ),
+            @Param(
+                name = "deps",
+                type = SkylarkList.class,
+                generic1 = JavaInfo.class,
+                named = true,
+                defaultValue = "[]",
+                doc = "Compile time dependencies that were used to create the output jar."
+            ),
+            @Param(
+                name = "runtime_deps",
+                type = SkylarkList.class,
+                generic1 = JavaInfo.class,
+                named = true,
+                defaultValue = "[]",
+                doc = "Runtime dependencies that are needed for this library."
+            ),
+            @Param(
+                name = "exports",
+                type = SkylarkList.class,
+                generic1 = JavaInfo.class,
+                named = true,
+                defaultValue = "[]",
+                doc = "Libraries to make available for users of this library. See also "
+                    + "<a class=\"anchor\" href=\"https://docs.bazel.build/versions/"
+                    + "master/be/java.html#java_library.exports\">java_library.exports</a>."
+            ),
+            @Param(
+                name = "actions",
+                type = SkylarkActionFactoryApi.class,
+                named = true,
+                defaultValue = "None",
+                noneable = true,
+                doc = "Deprecated. No longer needed when <code>compile_jar</code> and/or "
+                    + "<code>source_jar</code> are used. "
+                    + "<p>Used to create the ijar and pack source files to jar actions.</p>"
+            ),
+            @Param(
+                name = "sources",
+                type = SkylarkList.class,
+                generic1 = FileApi.class,
+                named = true,
+                defaultValue = "None",
+                noneable = true,
+                doc = "Deprecated. Use <code>source_jar</code> instead. "
+                    + "<p>The sources that were used to create the output jar.</p>"
+            ),
+            @Param(
+                name = "source_jars",
+                type = SkylarkList.class,
+                generic1 = FileApi.class,
+                named = true,
+                defaultValue = "None",
+                noneable = true,
+                doc = "Deprecated. Use <code>source_jar</code> instead. "
+                    + "<p>The source jars that were used to create the output jar.</p>"
+            ),
+            @Param(
+                name = "use_ijar",
+                type = Boolean.class,
+                named = true,
+                defaultValue = "None",
+                noneable = true,
+                doc = "Deprecated. Use <code>compile_jar</code> instead. "
+                    + "<p>If an ijar of the output jar should be created and stored in the "
+                    + "provider. </p>"
+            ),
+            @Param(
+                name = "java_toolchain",
+                type = ConfiguredTarget.class,
+                named = true,
+                defaultValue = "None",
+                noneable = true,
+                doc = "Deprecated. No longer needed when <code>compile_jar</code> and/or "
+                    + "<code>source_jar</code> are used. "
+                    + "<p>The toolchain to be used for retrieving the ijar tool and packing source "
+                    + "files to Jar.</p>"
+            ),
+            @Param(
+                name = "host_javabase",
+                type = ConfiguredTarget.class,
+                named = true,
+                defaultValue = "None",
+                noneable = true,
+                doc = "Deprecated. No longer needed when <code>compile_jar</code> and/or "
+                    + "<code>source_jar</code> are used. "
+                    + "<p>The host_javabase to be used for packing source files to Jar.</p>"
+            ),
+        },
+        selfCall = true,
+        useLocation = true,
+        useEnvironment = true
+    )
+    @SkylarkConstructor(
+        objectType = JavaInfo.class,
+        receiverNameForDoc = "JavaInfo"
+    )
+    @SuppressWarnings({"unchecked"})
+    public JavaInfo javaInfo(
+        FileApi outputJarApi,
+        Object compileJarApi,
+        Object sourceJarApi,
+        Boolean neverlink,
+        SkylarkList<?> deps,
+        SkylarkList<?> runtimeDeps,
+        SkylarkList<?> exports,
+        Object actionsApi,
+        Object sourcesApi,
+        Object sourceJarsApi,
+        Object useIjarApi,
+        Object javaToolchainApi,
+        Object hostJavabaseApi,
+        Location loc,
+        Environment env) throws EvalException {
+      Artifact outputJar = (Artifact) outputJarApi;
+      @Nullable Artifact compileJar = nullIfNone(compileJarApi, Artifact.class);
+      @Nullable Artifact sourceJar = nullIfNone(sourceJarApi, Artifact.class);
+
+      @Nullable Object actions = nullIfNone(actionsApi);
+      @Nullable SkylarkList<Artifact> sources =
+          (SkylarkList<Artifact>) nullIfNone(sourcesApi, SkylarkList.class);
+      @Nullable
+      SkylarkList<Artifact> sourceJars =
+          (SkylarkList<Artifact>) nullIfNone(sourceJarsApi, SkylarkList.class);
+
+      @Nullable Boolean useIjar = nullIfNone(useIjarApi, Boolean.class);
+      @Nullable Object javaToolchain = nullIfNone(javaToolchainApi);
+      @Nullable Object hostJavabase = nullIfNone(hostJavabaseApi);
+
+      boolean hasLegacyArg =
+          actions != null
+              || sources != null
+              || sourceJars != null
+              || useIjar != null
+              || javaToolchain != null
+              || hostJavabase != null;
+      if (hasLegacyArg) {
+        if (env.getSemantics().incompatibleDisallowLegacyJavaInfo()) {
+          throw new EvalException(
+              loc,
+              "Cannot use deprecated argument when "
+                  + "--incompatible_disallow_legacy_javainfo is set. "
+                  + "Deprecated arguments are 'actions', 'sources', 'source_jars', "
+                  + "'use_ijar', 'java_toolchain', 'host_javabase'.");
+        }
+        boolean hasNewArg = compileJar != null || sourceJar != null;
+        if (hasNewArg) {
+          throw new EvalException(
+              loc,
+              "Cannot use deprecated arguments at the same time as "
+                  + "'compile_jar' or 'source_jar'. "
+                  + "Deprecated arguments are 'actions', 'sources', 'source_jars', "
+                  + "'use_ijar', 'java_toolchain', 'host_javabase'.");
+        }
+        return JavaInfoBuildHelper.getInstance()
+            .createJavaInfoLegacy(
+                outputJar,
+                sources != null ? sources : MutableList.empty(),
+                sourceJars != null ? sourceJars : MutableList.empty(),
+                useIjar != null ? useIjar : true,
+                neverlink,
+                (SkylarkList<JavaInfo>) deps,
+                (SkylarkList<JavaInfo>) runtimeDeps,
+                (SkylarkList<JavaInfo>) exports,
+                actions,
+                javaToolchain,
+                hostJavabase,
+                loc);
+      }
+      if (compileJar == null) {
+        throw new EvalException(loc, "Expected 'File' for 'compile_jar', found 'None'");
+      }
+      return JavaInfoBuildHelper.getInstance()
+          .createJavaInfo(
+              outputJar, compileJar, sourceJar, neverlink,
+              (SkylarkList<JavaInfo>) deps,
+              (SkylarkList<JavaInfo>) runtimeDeps,
+              (SkylarkList<JavaInfo>) exports, loc);
+    }
   }
 
   /**
