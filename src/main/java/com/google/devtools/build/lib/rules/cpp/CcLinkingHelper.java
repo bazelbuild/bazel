@@ -140,9 +140,10 @@ public final class CcLinkingHelper {
           .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getPicStaticLibraries()));
       if (addDynamicLibraries) {
         filesBuilder
-            .addAll(LinkerInputs.toNonSolibArtifacts(linkingOutputs.getDynamicLibraries()))
             .addAll(
-                LinkerInputs.toNonSolibArtifacts(linkingOutputs.getExecutionDynamicLibraries()));
+                LinkerInputs.toNonSolibArtifacts(linkingOutputs.getDynamicLibrariesForLinking()))
+            .addAll(
+                LinkerInputs.toNonSolibArtifacts(linkingOutputs.getDynamicLibrariesForRuntime()));
       }
     }
 
@@ -542,7 +543,7 @@ public final class CcLinkingHelper {
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
     ccLinkingInfoBuilder.setCcRunfiles(new CcRunfiles(cppStaticRunfiles, cppSharedRunfiles));
     ccLinkingInfoBuilder.setCcExecutionDynamicLibraries(
-        collectExecutionDynamicLibraryArtifacts(ccLinkingOutputs.getExecutionDynamicLibraries()));
+        collectExecutionDynamicLibraryArtifacts(ccLinkingOutputs.getDynamicLibrariesForRuntime()));
 
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     boolean forcePic = cppConfiguration.forcePic();
@@ -652,7 +653,7 @@ public final class CcLinkingHelper {
               || (ccLinkingOutputs.getStaticLibraries().isEmpty()
                   && ccLinkingOutputs.getPicStaticLibraries().isEmpty())) {
             builder.addExecutionDynamicLibraries(
-                LinkerInputs.toLibraryArtifacts(ccLinkingOutputs.getExecutionDynamicLibraries()));
+                LinkerInputs.toLibraryArtifacts(ccLinkingOutputs.getDynamicLibrariesForRuntime()));
           }
           builder.addLinkOpts(linkopts);
           builder.addNonCodeInputs(nonCodeLinkerInputs);
@@ -663,7 +664,7 @@ public final class CcLinkingHelper {
 
   private NestedSet<LinkerInput> collectNativeCcLibraries(CcLinkingOutputs ccLinkingOutputs) {
     NestedSetBuilder<LinkerInput> result = NestedSetBuilder.linkOrder();
-    result.addAll(ccLinkingOutputs.getDynamicLibraries());
+    result.addAll(ccLinkingOutputs.getDynamicLibrariesForLinking());
     for (CcNativeLibraryProvider dep :
         AnalysisUtils.getProviders(deps, CcNativeLibraryProvider.class)) {
       result.addTransitive(dep.getTransitiveCcNativeLibraries());

@@ -122,7 +122,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
     if (linkCompileOutputSeparately) {
       builder.addArtifacts(
-          LinkerInputs.toLibraryArtifacts(ccLibraryLinkingOutputs.getExecutionDynamicLibraries()));
+          LinkerInputs.toLibraryArtifacts(ccLibraryLinkingOutputs.getDynamicLibrariesForRuntime()));
     }
     // For cc_binary and cc_test rules, there is an implicit dependency on
     // the malloc library package, which is specified by the "malloc" attribute.
@@ -585,7 +585,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // Either link in the .o files generated for the sources of this target or link in the
     // generated dynamic library they are compiled into.
     if (linkCompileOutputSeparately) {
-      for (LibraryToLink library : linkingOutputs.getDynamicLibraries()) {
+      for (LibraryToLink library : linkingOutputs.getDynamicLibrariesForLinking()) {
         builder.addLibrary(library);
       }
     } else {
@@ -904,7 +904,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     ccLinkingInfoBuilder.setCcExecutionDynamicLibraries(
         new CcExecutionDynamicLibraries(
             collectExecutionDynamicLibraryArtifacts(
-                ruleContext, linkingOutputs.getExecutionDynamicLibraries())));
+                ruleContext, linkingOutputs.getDynamicLibrariesForRuntime())));
 
     builder
         .setFilesToBuild(filesToBuild)
@@ -915,7 +915,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             CcNativeLibraryProvider.class,
             new CcNativeLibraryProvider(
                 collectTransitiveCcNativeLibraries(
-                    ruleContext, linkingOutputs.getDynamicLibraries())))
+                    ruleContext, linkingOutputs.getDynamicLibrariesForLinking())))
         .addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider)
         .addProvider(
             CppDebugFileProvider.class,

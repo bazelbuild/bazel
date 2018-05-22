@@ -308,9 +308,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     filesBuilder.addAll(LinkerInputs.toLibraryArtifacts(linkedLibraries.getPicStaticLibraries()));
 
     if (!featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
-      filesBuilder.addAll(LinkerInputs.toNonSolibArtifacts(linkedLibraries.getDynamicLibraries()));
       filesBuilder.addAll(
-          LinkerInputs.toNonSolibArtifacts(linkedLibraries.getExecutionDynamicLibraries()));
+          LinkerInputs.toNonSolibArtifacts(linkedLibraries.getDynamicLibrariesForLinking()));
+      filesBuilder.addAll(
+          LinkerInputs.toNonSolibArtifacts(linkedLibraries.getDynamicLibrariesForRuntime()));
     }
 
     CcLinkingOutputs linkingOutputs = linkingInfo.getCcLinkingOutputs();
