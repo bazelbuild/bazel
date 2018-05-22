@@ -62,6 +62,11 @@ class RunfilesTest : public ::testing::Test {
     ~MockFile();
     const string& Path() const { return path_; }
 
+    string DirName() const {
+      string::size_type pos = path_.find_last_of('/');
+      return pos == string::npos ? "" : path_.substr(0, pos);
+    }
+
    private:
     MockFile(const string& path) : path_(path) {}
     MockFile(const MockFile&) = delete;
@@ -71,6 +76,10 @@ class RunfilesTest : public ::testing::Test {
 
     const string path_;
   };
+
+  void AssertEnvvars(const Runfiles& runfiles,
+                     const string& expected_manifest_file,
+                     const string& expected_directory);
 
   static string GetTemp();
 
@@ -85,6 +94,16 @@ function<string(const string&)> RunfilesTest::kEnvWithTestSrcdir =
         return string();
       }
     };
+
+void RunfilesTest::AssertEnvvars(const Runfiles& runfiles,
+                                 const string& expected_manifest_file,
+                                 const string& expected_directory) {
+  vector<pair<string, string> > expected = {
+      {"RUNFILES_MANIFEST_FILE", expected_manifest_file},
+      {"RUNFILES_DIR", expected_directory},
+      {"JAVA_RUNFILES", expected_directory}};
+  ASSERT_EQ(runfiles.EnvVars(), expected);
+}
 
 string RunfilesTest::GetTemp() {
 #ifdef COMPILER_MSVC
@@ -152,6 +171,7 @@ TEST_F(RunfilesTest, CreatesManifestBasedRunfilesFromManifestNextToBinary) {
   // We know it's manifest-based because it returns empty string for unknown
   // paths.
   EXPECT_EQ(r->Rlocation("unknown"), "");
+  AssertEnvvars(*r, mf->Path(), "");
 }
 
 TEST_F(RunfilesTest,
@@ -168,9 +188,8 @@ TEST_F(RunfilesTest,
   ASSERT_NE(r, nullptr);
   EXPECT_TRUE(error.empty());
   EXPECT_EQ(r->Rlocation("a/b"), "c/d");
-  // We know it's manifest-based because it returns empty string for unknown
-  // paths.
-  EXPECT_EQ(r->Rlocation("unknown"), "");
+  EXPECT_EQ(r->Rlocation("foo"), argv0 + ".runfiles/foo");
+  AssertEnvvars(*r, mf->Path(), argv0 + ".runfiles");
 }
 
 TEST_F(RunfilesTest, CreatesManifestBasedRunfilesFromEnvvar) {
@@ -185,7 +204,7 @@ TEST_F(RunfilesTest, CreatesManifestBasedRunfilesFromEnvvar) {
         if (key == "RUNFILES_MANIFEST_FILE") {
           return mf->Path();
         } else if (key == "RUNFILES_DIR") {
-          return string("ignored when RUNFILES_MANIFEST_FILE has a value");
+          return string("non-existent");
         } else if (key == "TEST_SRCDIR") {
           return string("always ignored");
         } else {
@@ -199,6 +218,7 @@ TEST_F(RunfilesTest, CreatesManifestBasedRunfilesFromEnvvar) {
   // We know it's manifest-based because it returns empty string for unknown
   // paths.
   EXPECT_EQ(r->Rlocation("unknown"), "");
+  AssertEnvvars(*r, mf->Path(), "");
 }
 
 TEST_F(RunfilesTest, CannotCreateManifestBasedRunfilesDueToBadManifest) {
@@ -207,19 +227,38 @@ TEST_F(RunfilesTest, CannotCreateManifestBasedRunfilesDueToBadManifest) {
   EXPECT_TRUE(mf != nullptr);
 
   string error;
-  unique_ptr<Runfiles> r(Runfiles::CreateManifestBased(mf->Path(), &error));
+  unique_ptr<Runfiles> r(TestOnly_CreateRunfiles(
+      "ignore-argv0",
+      [&mf](const string& key) {
+        if (key == "RUNFILES_MANIFEST_FILE") {
+          return mf->Path();
+        } else {
+          return string();
+        }
+      },
+      &error));
   ASSERT_EQ(r, nullptr);
   EXPECT_NE(error.find("bad runfiles manifest entry"), string::npos);
   EXPECT_NE(error.find("line #2: \"nospace\""), string::npos);
 }
 
-TEST_F(RunfilesTest, ManifestBasedRunfilesRlocation) {
+TEST_F(RunfilesTest, ManifestBasedRunfilesRlocationAndEnvVars) {
   unique_ptr<MockFile> mf(
       MockFile::Create("foo" LINE() ".runfiles_manifest", {"a/b c/d"}));
   EXPECT_TRUE(mf != nullptr);
 
   string error;
-  unique_ptr<Runfiles> r(Runfiles::CreateManifestBased(mf->Path(), &error));
+  unique_ptr<Runfiles> r(TestOnly_CreateRunfiles(
+      "ignore-argv0",
+      [&mf](const string& key) {
+        if (key == "RUNFILES_MANIFEST_FILE") {
+          return mf->Path();
+        } else {
+          return string();
+        }
+      },
+      &error));
+
   ASSERT_NE(r, nullptr);
   EXPECT_TRUE(error.empty());
   EXPECT_EQ(r->Rlocation("a/b"), "c/d");
@@ -242,18 +281,32 @@ TEST_F(RunfilesTest, ManifestBasedRunfilesRlocation) {
   EXPECT_EQ(r->Rlocation("c:\\Foo"), "c:\\Foo");
 }
 
-TEST_F(RunfilesTest, DirectoryBasedRunfilesRlocation) {
+TEST_F(RunfilesTest, DirectoryBasedRunfilesRlocationAndEnvVars) {
+  unique_ptr<MockFile> dummy(
+      MockFile::Create("foo" LINE() ".runfiles/dummy", {"a/b c/d"}));
+  EXPECT_TRUE(dummy != nullptr);
+  string dir = dummy->DirName();
+
   string error;
-  unique_ptr<Runfiles> r(Runfiles::CreateDirectoryBased("whatever", &error));
+  unique_ptr<Runfiles> r(TestOnly_CreateRunfiles(
+      "ignore-argv0",
+      [dir](const string& key) {
+        if (key == "RUNFILES_DIR") {
+          return dir;
+        } else {
+          return string();
+        }
+      },
+      &error));
   ASSERT_NE(r, nullptr);
   EXPECT_TRUE(error.empty());
 
-  EXPECT_EQ(r->Rlocation("a/b"), "whatever/a/b");
-  EXPECT_EQ(r->Rlocation("c/d"), "whatever/c/d");
+  EXPECT_EQ(r->Rlocation("a/b"), dir + "/a/b");
+  EXPECT_EQ(r->Rlocation("c/d"), dir + "/c/d");
   EXPECT_EQ(r->Rlocation(""), "");
-  EXPECT_EQ(r->Rlocation("foo"), "whatever/foo");
-  EXPECT_EQ(r->Rlocation("foo/"), "whatever/foo/");
-  EXPECT_EQ(r->Rlocation("foo/bar"), "whatever/foo/bar");
+  EXPECT_EQ(r->Rlocation("foo"), dir + "/foo");
+  EXPECT_EQ(r->Rlocation("foo/"), dir + "/foo/");
+  EXPECT_EQ(r->Rlocation("foo/bar"), dir + "/foo/bar");
   EXPECT_EQ(r->Rlocation("../foo"), "");
   EXPECT_EQ(r->Rlocation("foo/.."), "");
   EXPECT_EQ(r->Rlocation("foo/../bar"), "");
@@ -266,6 +319,48 @@ TEST_F(RunfilesTest, DirectoryBasedRunfilesRlocation) {
   EXPECT_EQ(r->Rlocation("/Foo"), "/Foo");
   EXPECT_EQ(r->Rlocation("c:/Foo"), "c:/Foo");
   EXPECT_EQ(r->Rlocation("c:\\Foo"), "c:\\Foo");
+  AssertEnvvars(*r, "", dir);
+}
+
+TEST_F(RunfilesTest, ManifestAndDirectoryBasedRunfilesRlocationAndEnvVars) {
+  unique_ptr<MockFile> mf(
+      MockFile::Create("foo" LINE() ".runfiles/MANIFEST", {"a/b c/d"}));
+  EXPECT_TRUE(mf != nullptr);
+  string dir = mf->DirName();
+
+  string error;
+  unique_ptr<Runfiles> r(TestOnly_CreateRunfiles(
+      "ignore-argv0",
+      [&mf](const string& key) {
+        if (key == "RUNFILES_MANIFEST_FILE") {
+          return mf->Path();
+        } else {
+          return string();
+        }
+      },
+      &error));
+
+  ASSERT_NE(r, nullptr);
+  EXPECT_TRUE(error.empty());
+  EXPECT_EQ(r->Rlocation("a/b"), "c/d");
+  EXPECT_EQ(r->Rlocation("c/d"), dir + "/c/d");
+  EXPECT_EQ(r->Rlocation(""), "");
+  EXPECT_EQ(r->Rlocation("foo"), dir + "/foo");
+  EXPECT_EQ(r->Rlocation("foo/"), dir + "/foo/");
+  EXPECT_EQ(r->Rlocation("foo/bar"), dir + "/foo/bar");
+  EXPECT_EQ(r->Rlocation("../foo"), "");
+  EXPECT_EQ(r->Rlocation("foo/.."), "");
+  EXPECT_EQ(r->Rlocation("foo/../bar"), "");
+  EXPECT_EQ(r->Rlocation("./foo"), "");
+  EXPECT_EQ(r->Rlocation("foo/."), "");
+  EXPECT_EQ(r->Rlocation("foo/./bar"), "");
+  EXPECT_EQ(r->Rlocation("//foo"), "");
+  EXPECT_EQ(r->Rlocation("foo//"), "");
+  EXPECT_EQ(r->Rlocation("foo//bar"), "");
+  EXPECT_EQ(r->Rlocation("/Foo"), "/Foo");
+  EXPECT_EQ(r->Rlocation("c:/Foo"), "c:/Foo");
+  EXPECT_EQ(r->Rlocation("c:\\Foo"), "c:\\Foo");
+  AssertEnvvars(*r, mf->Path(), dir);
 }
 
 TEST_F(RunfilesTest, ManifestBasedRunfilesEnvVars) {
@@ -278,21 +373,27 @@ TEST_F(RunfilesTest, ManifestBasedRunfilesEnvVars) {
     EXPECT_TRUE(mf != nullptr) << " (suffix=\"" << suffixes[i] << "\")";
 
     string error;
-    unique_ptr<Runfiles> r(Runfiles::CreateManifestBased(mf->Path(), &error));
-    ASSERT_NE(r, nullptr) << " (suffix=\"" << suffixes[i] << "\")";
-    EXPECT_TRUE(error.empty());
+    unique_ptr<Runfiles> r(TestOnly_CreateRunfiles(
+        "ignore-argv0",
+        [&mf](const string& key) {
+          if (key == "RUNFILES_MANIFEST_FILE") {
+            return mf->Path();
+          } else {
+            return string();
+          }
+        },
+        &error));
+    if (i < 2) {
+      ASSERT_NE(r, nullptr) << " (suffix=\"" << suffixes[i] << "\")";
+      EXPECT_TRUE(error.empty());
 
-    // The object can compute the runfiles directory when i=0 and i=1, but not
-    // when i>1 because the manifest file's name doesn't end in a well-known
-    // way.
-    const string expected_runfiles_dir(
-        i < 2 ? mf->Path().substr(0, mf->Path().size() - 9 /* "_manifest" */)
-              : "");
-    vector<pair<string, string> > expected = {
-        {"RUNFILES_MANIFEST_FILE", mf->Path()},
-        {"RUNFILES_DIR", ""},
-        {"JAVA_RUNFILES", ""}};
-    EXPECT_EQ(r->EnvVars(), expected) << " (suffix=\"" << suffixes[i] << "\")";
+      // The object can compute the runfiles directory when i=0 and i=1, but not
+      // when i>1 because the manifest file's name doesn't end in a well-known
+      // way.
+      AssertEnvvars(*r, mf->Path(), "");
+    } else {
+      ASSERT_EQ(r, nullptr) << " (suffix=\"" << suffixes[i] << "\")";
+    }
   }
 }
 
@@ -313,12 +414,13 @@ TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromDirectoryNextToBinary) {
   // We know it's directory-based because it returns some result for unknown
   // paths.
   EXPECT_EQ(r->Rlocation("unknown"), argv0 + ".runfiles/unknown");
+  AssertEnvvars(*r, "", argv0 + ".runfiles");
 }
 
 TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromEnvvar) {
   // We create a directory as a side-effect of creating a mock file.
-  unique_ptr<MockFile> mf(MockFile::Create(string("foo" LINE() "/dir/dummy")));
-  string dir = mf->Path().substr(0, mf->Path().size() - 6);
+  unique_ptr<MockFile> mf(MockFile::Create(string("foo" LINE() ".runfiles/dummy")));
+  string dir = mf->DirName();
 
   string error;
   unique_ptr<Runfiles> r(
@@ -341,31 +443,11 @@ TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromEnvvar) {
   EXPECT_EQ(r->Rlocation("/Foo"), "/Foo");
   EXPECT_EQ(r->Rlocation("c:/Foo"), "c:/Foo");
   EXPECT_EQ(r->Rlocation("c:\\Foo"), "c:\\Foo");
-}
-
-TEST_F(RunfilesTest, DirectoryBasedRunfilesEnvVars) {
-  string error;
-  unique_ptr<Runfiles> r(
-      Runfiles::CreateDirectoryBased("runfiles/dir", &error));
-  ASSERT_NE(r, nullptr);
-  EXPECT_TRUE(error.empty());
-
-  vector<pair<string, string> > expected = {{"RUNFILES_MANIFEST_FILE", ""},
-                                            {"RUNFILES_DIR", "runfiles/dir"},
-                                            {"JAVA_RUNFILES", "runfiles/dir"}};
-  EXPECT_EQ(r->EnvVars(), expected);
-}
-
-TEST_F(RunfilesTest, FailsToCreateManifestBasedBecauseManifestDoesNotExist) {
-  string error;
-  unique_ptr<Runfiles> r(
-      Runfiles::CreateManifestBased("non-existent-file", &error));
-  ASSERT_EQ(r, nullptr);
-  EXPECT_NE(error.find("cannot open runfiles manifest"), string::npos);
+  AssertEnvvars(*r, "", dir);
 }
 
 TEST_F(RunfilesTest, FailsToCreateAnyRunfilesBecauseEnvvarsAreNotDefined) {
-  unique_ptr<MockFile> mf(MockFile::Create(string("foo" LINE() "/dir/dummy")));
+  unique_ptr<MockFile> mf(MockFile::Create(string("foo" LINE() ".runfiles/MANIFEST")));
   EXPECT_TRUE(mf != nullptr);
 
   string error;
@@ -387,11 +469,11 @@ TEST_F(RunfilesTest, FailsToCreateAnyRunfilesBecauseEnvvarsAreNotDefined) {
   EXPECT_TRUE(error.empty());
 
   // We create a directory as a side-effect of creating a mock file.
-  string dir = mf->Path().substr(0, mf->Path().size() - 6);
+  mf.reset(MockFile::Create(string("foo" LINE() ".runfiles/dummy")));
   r.reset(TestOnly_CreateRunfiles("ignore-argv0",
-                                  [dir](const string& key) {
+                                  [&mf](const string& key) {
                                     if (key == "RUNFILES_DIR") {
-                                      return dir;
+                                      return mf->DirName();
                                     } else if (key == "TEST_SRCDIR") {
                                       return string("always ignored");
                                     } else {
