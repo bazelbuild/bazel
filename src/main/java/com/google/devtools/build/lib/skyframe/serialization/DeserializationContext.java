@@ -106,7 +106,7 @@ public class DeserializationContext {
    * context.
    */
   @CheckReturnValue
-  DeserializationContext getMemoizingContext() {
+  public DeserializationContext getMemoizingContext() {
     if (deserializer != null) {
       return this;
     }
