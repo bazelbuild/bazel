@@ -261,7 +261,7 @@ public final class ConfigurationResolver {
     // resolveAspectDependencies don't get a chance to make their own Skyframe requests before
     // bailing out of this ConfiguredTargetFunction call. Ideally we could batch all requests
     // from all methods into a single Skyframe call, but there are enough subtle data flow
-    // dependencies in ConfiguredTargetFucntion to make that impractical.
+    // dependencies in ConfiguredTargetFunction to make that impractical.
     Map<SkyKey, ValueOrException<InvalidConfigurationException>> depConfigValues =
         env.getValuesOrThrow(keysToEntries.keySet(), InvalidConfigurationException.class);
 
@@ -429,14 +429,7 @@ public final class ConfigurationResolver {
       // TODO(bazel-team): safety-check that this never mutates fromOptions.
       result = ImmutableList.of(((PatchTransition) transition).patch(fromOptions));
     } else if (transition instanceof SplitTransition) {
-      List<BuildOptions> toOptions = ((SplitTransition) transition).split(fromOptions);
-      if (toOptions.isEmpty()) {
-        // When the split returns an empty list, it's signaling it doesn't apply to this instance.
-        // So return the original options.
-        result = ImmutableList.<BuildOptions>of(fromOptions);
-      } else {
-        result = toOptions;
-      }
+      return ((SplitTransition) transition).checkedSplit(fromOptions);
     } else {
       throw new IllegalStateException(String.format(
           "unsupported config transition type: %s", transition.getClass().getName()));

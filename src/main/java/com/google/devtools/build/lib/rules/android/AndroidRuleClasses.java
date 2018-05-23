@@ -238,7 +238,7 @@ public final class AndroidRuleClasses {
         if (androidOptions.cpu.isEmpty()
             || androidCrosstoolTop == null
             || androidCrosstoolTop.equals(cppOptions.crosstoolTop)) {
-          return ImmutableList.of();
+          return ImmutableList.of(buildOptions);
 
         } else {
 

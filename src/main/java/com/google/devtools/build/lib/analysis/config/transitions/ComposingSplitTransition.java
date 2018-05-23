@@ -120,13 +120,7 @@ public class ComposingSplitTransition implements SplitTransition {
     if (transition instanceof PatchTransition) {
       return ImmutableList.<BuildOptions>of(((PatchTransition) transition).patch(fromOptions));
     } else if (transition instanceof SplitTransition) {
-      SplitTransition split = (SplitTransition) transition;
-      List<BuildOptions> splitOptions = split.split(fromOptions);
-      if (splitOptions.isEmpty()) {
-        return ImmutableList.<BuildOptions>of(fromOptions);
-      } else {
-        return splitOptions;
-      }
+      return ((SplitTransition) transition).checkedSplit(fromOptions);
     } else {
       throw new IllegalStateException(
           String.format("Unsupported composite transition type: %s",
