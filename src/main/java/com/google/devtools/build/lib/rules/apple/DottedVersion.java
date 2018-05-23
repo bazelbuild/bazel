@@ -160,12 +160,6 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
   }
 
   @Override
-  @SkylarkCallable(
-    name = "compare_to",
-    doc =
-        "Compares based on most signifigant (first) not-matching version component. "
-            + "So, for example, 1.2.3 < 1.2.4"
-  )
   public int compareTo(DottedVersion other) {
     int maxComponents = Math.max(components.size(), other.components.size());
     for (int componentIndex = 0; componentIndex < maxComponents; componentIndex++) {
@@ -177,6 +171,16 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
       }
     }
     return 0;
+  }
+
+  @SkylarkCallable(
+      name = "compare_to",
+      doc =
+          "Compares based on most significant (first) not-matching version component. "
+              + "So, for example, 1.2.3 < 1.2.4"
+  )
+  public int compareTo_skylark(DottedVersion other) {
+    return compareTo(other);
   }
 
   /**
