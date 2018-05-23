@@ -237,12 +237,13 @@ public class DigestUtils {
 
     // All right, we have neither a fast nor a cached digest. Let's go through the costly process of
     // computing it from the file contents.
-    if (fileSize > 128 * 1024 && !MULTI_THREADED_DIGEST.get()) {
-      // We'll have to read file content in order to calculate the digest.
-      // We avoid overlapping this process for multiple large files, as
-      // seeking back and forth between them will result in an overall loss of
-      // throughput.  Files shorter than the default readahead window of 128KB
-      // on Linux are assumed to be readable in one seek.
+    if (fileSize > 4096 && !MULTI_THREADED_DIGEST.get()) {
+      // We'll have to read file content in order to calculate the digest. In that case
+      // it would be beneficial to serialize those calculations since there is a high
+      // probability that MD5 will be requested for multiple output files simultaneously.
+      // Exception is made for small (<=4K) files since they will not likely to introduce
+      // significant delays (at worst they will result in two extra disk seeks by
+      // interrupting other reads).
       digest = getDigestInExclusiveMode(path);
     } else {
       digest = getDigestInternal(path);
