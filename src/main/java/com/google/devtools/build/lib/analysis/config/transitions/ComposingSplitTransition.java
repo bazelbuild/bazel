@@ -118,7 +118,7 @@ public class ComposingSplitTransition implements SplitTransition {
   // TODO(gregce): move this somewhere more general. This isn't intrinsic to composed splits.
   static List<BuildOptions> apply(BuildOptions fromOptions, ConfigurationTransition transition) {
     if (transition instanceof PatchTransition) {
-      return ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(fromOptions));
+      return ImmutableList.<BuildOptions>of(((PatchTransition) transition).patch(fromOptions));
     } else if (transition instanceof SplitTransition) {
       SplitTransition split = (SplitTransition) transition;
       List<BuildOptions> splitOptions = split.split(fromOptions);

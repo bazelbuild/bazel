@@ -50,7 +50,7 @@ public class EnableLipoTransition implements PatchTransition {
   }
 
   @Override
-  public BuildOptions apply(BuildOptions options) {
+  public BuildOptions patch(BuildOptions options) {
     CppOptions cppOptions = options.get(CppOptions.class);
     if (!cppOptions.isDataConfigurationForLipoOptimization()
         || !ruleLabel.equals(cppOptions.getLipoContextForBuild())) {

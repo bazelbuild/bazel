@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
  *   private MyTransition() {}
  *
  *   {@literal @}Override
- *   public BuildOptions apply(BuildOptions options) {
+ *   public BuildOptions patch(BuildOptions options) {
  *     BuildOptions toOptions = options.clone();
  *     // Change some setting on toOptions
  *     return toOptions;
@@ -57,5 +57,5 @@ public interface PatchTransition extends ConfigurationTransition {
    *     MODIFY THIS VARIABLE WITHOUT CLONING IT FIRST.
    * @return the options representing the desired post-transition configuration
    */
-  BuildOptions apply(BuildOptions options);
+  BuildOptions patch(BuildOptions options);
 }

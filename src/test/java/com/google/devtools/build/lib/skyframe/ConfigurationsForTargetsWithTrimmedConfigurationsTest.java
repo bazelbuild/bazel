@@ -91,7 +91,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   private static class SetsCpuPatchTransition implements PatchTransition {
 
     @Override
-    public BuildOptions apply(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options) {
       BuildOptions result = options.clone();
       result.get(BuildConfiguration.Options.class).cpu = "SET BY PATCH";
       return result;
@@ -139,7 +139,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     }
 
     @Override
-    public BuildOptions apply(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options) {
       BuildOptions result = options.clone();
       result.get(TestConfiguration.TestOptions.class).testFilter = "SET BY PATCH FACTORY: " + value;
       return result;
@@ -182,7 +182,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     }
 
     @Override
-    public BuildOptions apply(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options) {
       BuildOptions result = options.clone();
       TestConfiguration.TestOptions testOpts = result.get(TestConfiguration.TestOptions.class);
       ImmutableList<String> testArgs =
@@ -485,7 +485,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   private static PatchTransition newPatchTransition(final String value) {
     return new PatchTransition() {
       @Override
-      public BuildOptions apply(BuildOptions options) {
+      public BuildOptions patch(BuildOptions options) {
         BuildOptions toOptions = options.clone();
         TestConfiguration.TestOptions baseOptions =
             toOptions.get(TestConfiguration.TestOptions.class);

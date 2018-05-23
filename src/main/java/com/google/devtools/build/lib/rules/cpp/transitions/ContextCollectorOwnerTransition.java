@@ -40,7 +40,7 @@ public class ContextCollectorOwnerTransition implements PatchTransition {
       new ContextCollectorOwnerTransition();
 
   @Override
-  public BuildOptions apply(BuildOptions options) {
+  public BuildOptions patch(BuildOptions options) {
     // If this target and its transitive closure don't have C++ options, there's no context
     // collector configuration to change.
     if (!options.contains(CppOptions.class)) {

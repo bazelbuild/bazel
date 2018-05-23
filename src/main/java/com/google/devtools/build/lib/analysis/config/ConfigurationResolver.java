@@ -427,7 +427,7 @@ public final class ConfigurationResolver {
     List<BuildOptions> result;
     if (transition instanceof PatchTransition) {
       // TODO(bazel-team): safety-check that this never mutates fromOptions.
-      result = ImmutableList.of(((PatchTransition) transition).apply(fromOptions));
+      result = ImmutableList.of(((PatchTransition) transition).patch(fromOptions));
     } else if (transition instanceof SplitTransition) {
       List<BuildOptions> toOptions = ((SplitTransition) transition).split(fromOptions);
       if (toOptions.isEmpty()) {

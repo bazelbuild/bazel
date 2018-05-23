@@ -159,7 +159,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
         if (transition instanceof SplitTransition) {
           toOptions = ((SplitTransition) transition).split(fromOptions);
         } else if (transition instanceof PatchTransition) {
-          toOptions = Collections.singletonList(((PatchTransition) transition).apply(fromOptions));
+          toOptions = Collections.singletonList(((PatchTransition) transition).patch(fromOptions));
         } else {
           throw new IllegalStateException(
               "If this error is thrown, cquery needs to be updated to take into account non-Patch"
