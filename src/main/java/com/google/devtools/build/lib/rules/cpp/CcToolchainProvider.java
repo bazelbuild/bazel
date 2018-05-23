@@ -756,7 +756,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
    * Returns link options for the specified flag list, combined with universal options for all
    * shared libraries (regardless of link staticness).
    */
-  ImmutableList<String> getSharedLibraryLinkOptions(FlagList flags) {
+  ImmutableList<String> getSharedLibraryLinkOptions(ImmutableList<String> flags) {
     return toolchainInfo.getSharedLibraryLinkOptions(flags);
   }
 
@@ -799,33 +799,29 @@ public final class CcToolchainProvider extends ToolchainInfo {
   }
 
   /** Returns linker flags for fully statically linked outputs. */
-  FlagList getLegacyFullyStaticLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
-    return new FlagList(
-        configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.LEGACY_FULLY_STATIC),
-        ImmutableList.<String>of());
+  ImmutableList<String> getLegacyFullyStaticLinkFlags(
+      CompilationMode compilationMode, LipoMode lipoMode) {
+    return configureAllLegacyLinkOptions(
+        compilationMode, lipoMode, LinkingMode.LEGACY_FULLY_STATIC);
   }
 
   /** Returns linker flags for mostly static linked outputs. */
-  FlagList getLegacyMostlyStaticLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
-    return new FlagList(
-        configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.STATIC),
-        ImmutableList.<String>of());
+  ImmutableList<String> getLegacyMostlyStaticLinkFlags(
+      CompilationMode compilationMode, LipoMode lipoMode) {
+    return configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.STATIC);
   }
 
   /** Returns linker flags for mostly static shared linked outputs. */
-  FlagList getLegacyMostlyStaticSharedLinkFlags(
+  ImmutableList<String> getLegacyMostlyStaticSharedLinkFlags(
       CompilationMode compilationMode, LipoMode lipoMode) {
-    return new FlagList(
-        configureAllLegacyLinkOptions(
-            compilationMode, lipoMode, LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES),
-        ImmutableList.<String>of());
+    return configureAllLegacyLinkOptions(
+        compilationMode, lipoMode, LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES);
   }
 
   /** Returns linker flags for artifacts that are not fully or mostly statically linked. */
-  FlagList getLegacyDynamicLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
-    return new FlagList(
-        configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.DYNAMIC),
-        ImmutableList.of());
+  ImmutableList<String> getLegacyDynamicLinkFlags(
+      CompilationMode compilationMode, LipoMode lipoMode) {
+    return configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.DYNAMIC);
   }
 
   /**
