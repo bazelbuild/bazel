@@ -211,7 +211,8 @@ public class RuleClass {
     PER_RULE(true, false),
     /**
      * Users are allowed to specify additional execution platform constraints for each target, using
-     * the 'exec_compatible_with' attribute.
+     * the 'exec_compatible_with' attribute. This also allows setting constraints in the rule
+     * definition, like PER_RULE.
      */
     PER_TARGET(true, true);
 
@@ -647,7 +648,7 @@ public class RuleClass {
     private final Set<Label> requiredToolchains = new HashSet<>();
     private boolean supportsPlatforms = true;
     private ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed =
-        ExecutionPlatformConstraintsAllowed.NONE;
+        ExecutionPlatformConstraintsAllowed.PER_RULE;
     private Set<Label> executionPlatformConstraints = new HashSet<>();
 
     /**
@@ -681,8 +682,8 @@ public class RuleClass {
 
         addRequiredToolchains(parent.getRequiredToolchains());
         supportsPlatforms = parent.supportsPlatforms;
-        executionPlatformConstraintsAllowed = parent.executionPlatformConstraintsAllowed;
-        addExecutionPlatformConstraint(parent.getExecutionPlatformConstraints());
+        // executionPlatformConstraintsAllowed is not inherited and takes the default.
+        addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
 
         for (Attribute attribute : parent.getAttributes()) {
           String attrName = attribute.getName();
@@ -1224,10 +1225,10 @@ public class RuleClass {
     }
 
     public Builder addExecutionPlatformConstraints(Label... constraints) {
-      return this.addExecutionPlatformConstraint(Lists.newArrayList(constraints));
+      return this.addExecutionPlatformConstraints(Lists.newArrayList(constraints));
     }
 
-    public Builder addExecutionPlatformConstraint(Iterable<Label> constraints) {
+    public Builder addExecutionPlatformConstraints(Iterable<Label> constraints) {
       Iterables.addAll(this.executionPlatformConstraints, constraints);
       return this;
     }

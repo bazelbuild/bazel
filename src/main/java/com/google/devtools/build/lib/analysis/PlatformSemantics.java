@@ -40,19 +40,15 @@ public class PlatformSemantics {
   }
 
   /**
-   * Return the target-specific execution platform constraints, based on the rule definition and any
-   * constraints added by the target.
+   * Returns the target-specific execution platform constraints, based on the rule definition and
+   * any constraints added by the target.
    */
   public static ImmutableSet<Label> getExecutionPlatformConstraints(Rule rule) {
     NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
     ImmutableSet.Builder<Label> execConstraintLabels = new ImmutableSet.Builder<>();
 
-    if (rule.getRuleClassObject().executionPlatformConstraintsAllowed().allowsRule()) {
-      // Add any default rule-level constraints.
-      execConstraintLabels.addAll(rule.getRuleClassObject().getExecutionPlatformConstraints());
-    }
+    execConstraintLabels.addAll(rule.getRuleClassObject().getExecutionPlatformConstraints());
 
-    // Add any target-level constraints, if allowed.
     if (rule.getRuleClassObject().executionPlatformConstraintsAllowed().allowsTarget()
         && mapper.has(PlatformSemantics.EXEC_COMPATIBLE_WITH_ATTR)) {
       execConstraintLabels.addAll(
