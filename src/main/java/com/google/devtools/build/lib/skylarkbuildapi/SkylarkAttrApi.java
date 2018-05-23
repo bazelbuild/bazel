@@ -64,7 +64,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
   static final String CONFIGURATION_ARG = "cfg";
   static final String CONFIGURATION_DOC =
       "<a href=\"../rules.$DOC_EXT#configurations\">Configuration</a> of the attribute. It can be "
-          + "either <code>\"data\"</code>, <code>\"host\"</code>, or <code>\"target\"</code>.";
+          + "either <code>\"host\"</code> or <code>\"target\"</code>.";
 
   static final String DEFAULT_ARG = "default";
   // A trailing space is required because it's often prepended to other sentences
