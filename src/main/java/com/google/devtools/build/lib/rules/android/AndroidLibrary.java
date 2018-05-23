@@ -169,6 +169,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         resourceApk =
             applicationManifest.packLibraryWithDataAndResources(
                 ruleContext,
+                dataContext,
                 resourceDeps,
                 ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
                 ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_MERGED_SYMBOLS),
