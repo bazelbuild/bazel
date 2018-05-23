@@ -56,16 +56,11 @@ public class RepositoryResolvedEvent implements Postable {
 
     ImmutableMap.Builder<String, Object> origAttrBuilder = ImmutableMap.builder();
     for (Attribute attr : rule.getAttributes()) {
-      String name = attr.getPublicName();
-      if (!name.startsWith("_")) {
-        // TODO(aehlig): filter out remaining attributes that cannot be set in a
-        // WORKSPACE file.
+      if (rule.isAttributeValueExplicitlySpecified(attr)) {
+        String name = attr.getPublicName();
         try {
           Object value = attrs.getValue(name, Object.class);
-          // Only record explicit values, skip computed defaults
-          if (!(value instanceof Attribute.ComputedDefault)) {
-            origAttrBuilder.put(name, value);
-          }
+          origAttrBuilder.put(name, value);
         } catch (EvalException e) {
           // Do nothing, just ignore the value.
         }

@@ -56,6 +56,7 @@ EOF
   # Verify that bazel can read the generated repo.bzl file and that it contains
   # the expected information
   cd ..
+  echo; cat repo.bzl; echo; echo
   mkdir analysisrepo
   mv repo.bzl analysisrepo
   cd analysisrepo
@@ -69,12 +70,19 @@ load("//:repo.bzl", "resolved")
     cmd = "echo %s > $@" % entry["repositories"][0]["attributes"]["extra_arg"],
   ) for entry in resolved if entry["original_rule_class"] == "//:rule.bzl%trivial_rule"
 ]
+
+[ genrule(
+    name = "origcount",
+    outs = ["origcount.txt"],
+    cmd = "echo %s > $@" % len(entry["original_attributes"])
+  ) for entry in resolved if entry["original_rule_class"] == "//:rule.bzl%trivial_rule"
+]
 EOF
-  cat BUILD
-  bazel build //:out || fail "Expected success"
+  bazel build :out :origcount || fail "Expected success"
   grep "foobar" `bazel info bazel-genfiles`/out.txt \
       || fail "Did not find the expected value"
-
+  [ $(cat `bazel info bazel-genfiles`/origcount.txt) -eq 2 ] \
+      || fail "Not the correct number of original attributes"
 }
 
 run_suite "workspace_resolved_test tests"
