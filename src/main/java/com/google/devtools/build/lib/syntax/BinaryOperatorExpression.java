@@ -17,7 +17,9 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableListLike;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.syntax.SkylarkList.TupleLike;
 import java.io.IOException;
 import java.util.IllegalFormatException;
 
@@ -304,6 +306,15 @@ public final class BinaryOperatorExpression extends Expression {
       } else {
         return MutableList.concat((MutableList<?>) lval, (MutableList<?>) rval, env.mutability());
       }
+    }
+
+    if (lval instanceof MutableListLike && rval instanceof MutableListLike) {
+      return MutableList.concat(((MutableListLike<?>) lval).toMutableList(),
+          ((MutableListLike<?>) rval).toMutableList(), env.mutability());
+    }
+
+    if (lval instanceof TupleLike && rval instanceof TupleLike) {
+      return Tuple.concat(((TupleLike<?>) lval).toTuple(), ((TupleLike<?>) rval).toTuple());
     }
 
     if (lval instanceof SkylarkDict && rval instanceof SkylarkDict) {

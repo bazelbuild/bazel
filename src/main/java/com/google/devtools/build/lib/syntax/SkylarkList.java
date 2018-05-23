@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.BaseMutableList;
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -116,8 +117,10 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   @Override
   public boolean equals(Object object) {
     return (this == object)
-        || ((object != null) && (this.getClass() == object.getClass())
-            && getContentsUnsafe().equals(((SkylarkList) object).getContentsUnsafe()));
+        || ((object != null) && (this.getClass() == object.getClass()
+        || this instanceof MutableListLike && object instanceof MutableListLike
+        || this instanceof TupleLike && object instanceof TupleLike)
+        && getContentsUnsafe().equals(((SkylarkList) object).getContentsUnsafe()));
   }
 
   @Override
@@ -201,6 +204,123 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     return MutableList.copyOf(Mutability.IMMUTABLE, contents);
   }
 
+  /** An interface for classes that can be converted to {@link MutableList}. */
+  public interface MutableListLike<E> {
+    MutableList<E> toMutableList();
+  }
+
+  /** An interface for classes that can be converted to {@link Tuple}. */
+  public interface TupleLike<E> {
+    Tuple<E> toTuple();
+  }
+
+  /**
+   * A sequence returned by the range function invocation.
+   *
+   * Instead of eagerly allocating an array with all elements of the sequence, this class uses
+   * simple math to compute a value at each index. This is particularly useful when range is huge
+   * or only a few elements from it are used.
+   */
+  public static final class RangeList extends SkylarkList<Integer> implements
+      MutableListLike<Integer>, TupleLike<Integer> {
+
+    /** Provides access to range elements based on their index. */
+    private static class RangeListView extends AbstractList<Integer> {
+      private static int computeSize(int start, int stop, int step) {
+        final int length = Math.abs(stop - start);
+        final int absolute_step = Math.abs(step);
+        // round up (length / absolute_step) without using floats
+        return 1 + ((length - 1) / absolute_step);
+      }
+
+      private final int start;
+      private final int stop;
+      private final int step;
+      private final int size;
+
+      private RangeListView(int start, int stop, int step) {
+        this.start = start;
+        this.stop = stop;
+        this.step = step;
+        this.size = computeSize(start, stop, step);
+      }
+
+      @Override
+      public Integer get(int index) {
+        int value = start + step * index;
+        if ((step > 0 && value > stop) || (step < 0 && value < stop)) {
+          throw new ArrayIndexOutOfBoundsException(index);
+        }
+        return value;
+      }
+
+      @Override
+      public int size() {
+        return size;
+      }
+    }
+
+    private final AbstractList<Integer> contents;
+
+    private RangeList(int start, int stop, int step) {
+      this.contents = new RangeListView(start, stop, step);
+    }
+
+    @Override
+    public boolean isTuple() {
+      return false;
+    }
+
+    @Override
+    public ImmutableList<Integer> getImmutableList() {
+      return ImmutableList.copyOf(contents);
+    }
+
+    @Override
+    public SkylarkList<Integer> getSlice(Object start, Object end, Object step, Location loc,
+        Mutability mutability) throws EvalException {
+      List<Integer> sliceIndices = EvalUtils.getSliceIndices(start, end, step, this.size(), loc);
+      ImmutableList.Builder<Integer> builder = ImmutableList.builderWithExpectedSize(sliceIndices.size());
+      for (int pos : sliceIndices) {
+        builder.add(this.get(pos));
+      }
+      return MutableList.createImmutable(builder.build());
+    }
+
+    @Override
+    public SkylarkList<Integer> repeat(int times, Mutability mutability) {
+      ImmutableList.Builder<Integer> builder = ImmutableList.builderWithExpectedSize(this.size() * times);
+      for (int i = 0; i < times; i++) {
+        builder.addAll(this);
+      }
+      return MutableList.createImmutable(builder.build());
+    }
+
+    @Override
+    protected List<Integer> getContentsUnsafe() {
+      return contents;
+    }
+
+    @Override
+    public Mutability mutability() {
+      return Mutability.IMMUTABLE;
+    }
+
+    @Override
+    public MutableList<Integer> toMutableList() {
+      return MutableList.copyOf(Mutability.IMMUTABLE, contents);
+    }
+
+    @Override
+    public Tuple<Integer> toTuple() {
+      return Tuple.copyOf(contents);
+    }
+
+    public static RangeList of(int start, int stop, int step) {
+      return new RangeList(start, stop, step);
+    }
+  }
+
   /**
    * A Skylark list, i.e., the value represented by {@code [1, 2, 3]}. Lists are mutable datatypes.
    */
@@ -222,7 +342,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
             + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
             + "Lists are mutable, as in Python."
   )
-  public static final class MutableList<E> extends SkylarkList<E> {
+  public static final class MutableList<E> extends SkylarkList<E> implements MutableListLike<E> {
 
     private final ArrayList<E> contents;
 
@@ -565,6 +685,11 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
       remove(index, loc, env.mutability());
       return result;
     }
+
+    @Override
+    public MutableList<E> toMutableList() {
+      return this;
+    }
   }
 
   /**
@@ -589,7 +714,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
             + "('a', 'b', 'c', 'd')[3:0:-1]  # ('d', 'c', 'b')</pre>"
             + "Tuples are immutable, therefore <code>x[1] = \"a\"</code> is not supported."
   )
-  public static final class Tuple<E> extends SkylarkList<E> {
+  public static final class Tuple<E> extends SkylarkList<E> implements TupleLike<E> {
 
     private final ImmutableList<E> contents;
 
@@ -697,6 +822,11 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         builder.addAll(this);
       }
       return copyOf(builder.build());
+    }
+
+    @Override
+    public Tuple<E> toTuple() {
+      return this;
     }
   }
 }

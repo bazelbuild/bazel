@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkList.RangeList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import java.util.ArrayDeque;
@@ -621,7 +622,7 @@ public class MethodLibrary {
 
   @SkylarkSignature(
     name = "range",
-    returnType = MutableList.class,
+    returnType = RangeList.class,
     doc =
         "Creates a list where items go from <code>start</code> to <code>stop</code>, using a "
             + "<code>step</code> increment. If a single argument is provided, items will "
@@ -658,7 +659,7 @@ public class MethodLibrary {
   )
   private static final BuiltinFunction range =
       new BuiltinFunction("range") {
-        public MutableList<?> invoke(
+        public RangeList invoke(
             Integer startOrStop, Object stopOrNone, Integer step, Location loc, Environment env)
             throws EvalException {
           int start;
@@ -673,19 +674,12 @@ public class MethodLibrary {
           if (step == 0) {
             throw new EvalException(loc, "step cannot be 0");
           }
-          ArrayList<Integer> result = new ArrayList<>(Math.abs((stop - start) / step));
           if (step > 0) {
-            while (start < stop) {
-              result.add(start);
-              start += step;
-            }
-          } else {
-            while (start > stop) {
-              result.add(start);
-              start += step;
-            }
+            // simplify handling of a case like range(-2) or its equivalent range(-2, 0)
+            // by turning it into range(0, 0)
+            stop = Math.max(start, stop);
           }
-          return MutableList.wrapUnsafe(env, result);
+          return RangeList.of(start, stop, step);
         }
       };
 
