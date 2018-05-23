@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -267,8 +268,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               rule.getRuleClassObject().getRequiredToolchains();
 
           // Collect local (target, rule) constraints for filtering out execution platforms.
-          ImmutableSet<Label> execConstraintLabels =
-              PlatformSemantics.getExecutionPlatformConstraints(rule);
+          ImmutableSet<Label> execConstraintLabels = getExecutionPlatformConstraints(rule);
           toolchainContext =
               ToolchainUtil.createToolchainContext(
                   env,
@@ -386,6 +386,25 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } finally {
       cpuBoundSemaphore.release();
     }
+  }
+
+  /**
+   * Returns the target-specific execution platform constraints, based on the rule definition and
+   * any constraints added by the target.
+   */
+  private static ImmutableSet<Label> getExecutionPlatformConstraints(Rule rule) {
+    NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
+    ImmutableSet.Builder<Label> execConstraintLabels = new ImmutableSet.Builder<>();
+
+    execConstraintLabels.addAll(rule.getRuleClassObject().getExecutionPlatformConstraints());
+
+    if (rule.getRuleClassObject().executionPlatformConstraintsAllowed().allowsTarget()
+        && mapper.has(PlatformSemantics.EXEC_COMPATIBLE_WITH_ATTR)) {
+      execConstraintLabels.addAll(
+          mapper.get(PlatformSemantics.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));
+    }
+
+    return execConstraintLabels.build();
   }
 
   /**

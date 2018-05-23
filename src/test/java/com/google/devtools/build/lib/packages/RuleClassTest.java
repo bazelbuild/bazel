@@ -1094,7 +1094,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testExecutionPlatformConstraints_perTarget() throws Exception {
+  public void testExecutionPlatformConstraints_perTarget() {
     RuleClass.Builder ruleClassBuilder =
         new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
@@ -1108,5 +1108,49 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertThat(ruleClass.executionPlatformConstraintsAllowed())
         .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
     assertThat(ruleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isTrue();
+  }
+
+  @Test
+  public void testExecutionPlatformConstraints_inheritConstraintsFromParent() throws Exception {
+    RuleClass parentRuleClass =
+        new RuleClass.Builder("$parentRuleClass", RuleClassType.ABSTRACT, false)
+            .add(attr("tags", STRING_LIST))
+            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE)
+            .addExecutionPlatformConstraints(
+                Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"))
+            .build();
+
+    RuleClass.Builder childRuleClassBuilder =
+        new RuleClass.Builder("childRuleClass", RuleClassType.NORMAL, false, parentRuleClass)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY);
+
+    RuleClass childRuleClass = childRuleClassBuilder.build();
+
+    assertThat(childRuleClass.getExecutionPlatformConstraints())
+        .containsExactly(
+            Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"));
+    assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isFalse();
+  }
+
+  @Test
+  public void testExecutionPlatformConstraints_inheritAndAddConstraints() throws Exception {
+    RuleClass parentRuleClass =
+        new RuleClass.Builder("$parentRuleClass", RuleClassType.ABSTRACT, false)
+            .add(attr("tags", STRING_LIST))
+            .build();
+
+    RuleClass.Builder childRuleClassBuilder =
+        new RuleClass.Builder("childRuleClass", RuleClassType.NORMAL, false, parentRuleClass)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE)
+            .addExecutionPlatformConstraints(
+                Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"));
+
+    RuleClass childRuleClass = childRuleClassBuilder.build();
+
+    assertThat(childRuleClass.getExecutionPlatformConstraints())
+        .containsExactly(
+            Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"));
+    assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isFalse();
   }
 }

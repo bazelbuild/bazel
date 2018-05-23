@@ -54,11 +54,19 @@ import javax.annotation.Nullable;
 /**
  * Common code to create a {@link ToolchainContext} given a set of required toolchain type labels.
  */
+// TODO(katre): Refactor this and ToolchainContext into something nicer to work with and with
+// fewer static methods everywhere.
 public class ToolchainUtil {
 
   /**
    * Returns a new {@link ToolchainContext}, with the correct toolchain labels based on the results
    * of the {@link ToolchainResolutionFunction}.
+   *
+   * @param env the Skyframe environment to use to acquire dependencies
+   * @param targetDescription a description of the target use, for error and debug message context
+   * @param requiredToolchains the required toolchain types that must be resolved
+   * @param execConstraintLabels extra constraints on the execution platform to select
+   * @param configurationKey the build configuration to use for resolving other targets
    */
   @Nullable
   static ToolchainContext createToolchainContext(
@@ -494,12 +502,12 @@ public class ToolchainUtil {
       ValueOrException<ConfiguredValueCreationException> valueOrException)
       throws ConfiguredValueCreationException, ToolchainContextException {
 
-    ConfiguredTargetValue ctv = (ConfiguredTargetValue) valueOrException.get();
-    if (ctv == null) {
+    ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) valueOrException.get();
+    if (configuredTargetValue == null) {
       return null;
     }
 
-    ConfiguredTarget configuredTarget = ctv.getConfiguredTarget();
+    ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
     ConstraintValueInfo constraintValueInfo =
         PlatformProviderUtils.constraintValue(configuredTarget);
     if (constraintValueInfo == null) {
@@ -512,9 +520,10 @@ public class ToolchainUtil {
 
   private static boolean filterPlatform(
       PlatformInfo platformInfo, List<ConstraintValueInfo> constraints) {
-    for (ConstraintValueInfo constraint : constraints) {
-      ConstraintValueInfo fromPlatform = platformInfo.getConstraint(constraint.constraint());
-      if (fromPlatform == null || !fromPlatform.equals(constraint)) {
+    for (ConstraintValueInfo filterConstraint : constraints) {
+      ConstraintValueInfo platformInfoConstraint =
+          platformInfo.getConstraint(filterConstraint.constraint());
+      if (platformInfoConstraint == null || !platformInfoConstraint.equals(filterConstraint)) {
         // The value for this setting is not present in the platform, or doesn't match the expected
         // value.
         return false;
