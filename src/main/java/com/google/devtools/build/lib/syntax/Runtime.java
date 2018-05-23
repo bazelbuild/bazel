@@ -381,16 +381,4 @@ public final class Runtime {
       throw new AssertionError(e);
     }
   }
-
-  /**
-   * Registers global fields with SkylarkSignature into the specified Environment. Alias for
-   * {@link #setupModuleGlobals}.
-   *
-   * @deprecated Use {@link #setupModuleGlobals} instead.
-   */
-  @Deprecated
-  // TODO(bazel-team): Remove after all callers updated.
-  public static void registerModuleGlobals(Environment env, Class<?> moduleClass) {
-    setupModuleGlobals(env, moduleClass);
-  }
 }
