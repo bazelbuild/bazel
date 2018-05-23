@@ -116,7 +116,7 @@ public class AppleToolchain {
     name = "platform_developer_framework_dir",
     doc = "Returns the platform frameworks directory inside of Xcode for a given configuration."
   )
-  public static String platformDeveloperFrameworkDir(AppleConfiguration configuration) {
+  public static String platformFrameworkDirFromConfig(AppleConfiguration configuration) {
     return platformDeveloperFrameworkDir(configuration.getSingleArchPlatform());
   }
 
