@@ -36,15 +36,6 @@
 // finding appropriate environment variables that tell it where to find the
 // manifest or directory. See `Runfiles::Create` for more info.
 //
-// If you want to explicitly create a manifest- or directory-based
-// implementation, you can do so as follows:
-//
-//   std::unique_ptr<Runfiles> runfiles1(
-//       Runfiles::CreateManifestBased(path/to/foo.runfiles/MANIFEST", &error));
-//
-//   std::unique_ptr<Runfiles> runfiles2(
-//       Runfiles::CreateDirectoryBased(path/to/foo.runfiles", &error));
-//
 // If you want to start child processes that also need runfiles, you need to set
 // the right environment variables for them:
 //
@@ -100,18 +91,6 @@ class Runfiles {
   // error message into it.
   static Runfiles* Create(const std::string& argv0,
                           std::string* error = nullptr);
-
-  // Returns a new manifest-based `Runfiles` instance.
-  // Returns nullptr on error. If `error` is provided, the method prints an
-  // error message into it.
-  static Runfiles* CreateManifestBased(const std::string& manifest_path,
-                                       std::string* error = nullptr);
-
-  // Returns a new directory-based `Runfiles` instance.
-  // Returns nullptr on error. If `error` is provided, the method prints an
-  // error message into it.
-  static Runfiles* CreateDirectoryBased(const std::string& directory_path,
-                                        std::string* error = nullptr);
 
   // Returns the runtime path of a runfile.
   //
