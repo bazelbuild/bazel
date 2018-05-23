@@ -486,7 +486,14 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("str(range(5, 0, -1))", "[5, 4, 3, 2, 1]")
         .testStatement("str(range(5, 0, -10))", "[5]")
         .testStatement("str(range(0, -3, -2))", "[0, -2]")
-        .testStatement("str(range(3)[1:2])", "[1]")
+        .testStatement("str(range(5)[1:])", "[1, 2, 3, 4]")
+        .testStatement("len(range(5)[1:])", 4)
+        .testStatement("str(range(5)[:2])", "[0, 1]")
+        .testStatement("str(range(10)[1:9:2])", "[1, 3, 5, 7]")
+        .testStatement("str(range(10)[1:10:2])", "[1, 3, 5, 7, 9]")
+        .testStatement("str(range(10)[1:11:2])", "[1, 3, 5, 7, 9]")
+        .testStatement("str(range(0, 10, 2)[::2])", "[0, 4, 8]")
+        .testStatement("str(range(0, 10, 2)[::-2])", "[8, 4, 0]")
         .testIfErrorContains("step cannot be 0", "range(2, 3, 0)");
   }
 

@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -28,7 +29,9 @@ import com.google.devtools.build.lib.syntax.SkylarkMutable.BaseMutableList;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 import javax.annotation.Nullable;
 
@@ -215,7 +218,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   }
 
   /**
-   * A sequence returned by the range function invocation.
+   * A sequence returned by the {@code range} function invocation.
    *
    * Instead of eagerly allocating an array with all elements of the sequence, this class uses
    * simple math to compute a value at each index. This is particularly useful when range is huge
@@ -226,6 +229,65 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
 
     /** Provides access to range elements based on their index. */
     private static class RangeListView extends AbstractList<Integer> {
+
+      /** Iterator for increasing sequences. */
+      private static class IncreasingIterator extends UnmodifiableIterator<Integer> {
+        private final int stop;
+        private final int step;
+
+        private int cursor;
+
+        private IncreasingIterator(int start, int stop, int step) {
+          this.cursor = start;
+          this.stop = stop;
+          this.step = step;
+        }
+
+        @Override
+        public boolean hasNext() {
+          return cursor < stop;
+        }
+
+        @Override
+        public Integer next() {
+          if (!hasNext()) {
+            throw new NoSuchElementException();
+          }
+          int current = cursor;
+          cursor += step;
+          return current;
+        }
+      }
+
+      /** Iterator for decreasing sequences. */
+      private static class DecreasingIterator extends UnmodifiableIterator<Integer> {
+        private final int stop;
+        private final int step;
+
+        private int cursor;
+
+        private DecreasingIterator(int start, int stop, int step) {
+          this.cursor = start;
+          this.stop = stop;
+          this.step = step;
+        }
+
+        @Override
+        public boolean hasNext() {
+          return cursor > stop;
+        }
+
+        @Override
+        public Integer next() {
+          if (!hasNext()) {
+            throw new NoSuchElementException();
+          }
+          int current = cursor;
+          cursor += step;
+          return current;
+        }
+      }
+
       private static int computeSize(int start, int stop, int step) {
         final int length = Math.abs(stop - start);
         final int absolute_step = Math.abs(step);
@@ -258,6 +320,19 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
       public int size() {
         return size;
       }
+
+      /**
+       * Returns an iterator optimized for traversing range elements, since it's the most frequent
+       * operation for which ranges are used.
+       */
+      @Override
+      public Iterator<Integer> iterator() {
+        if (step > 0) {
+          return new IncreasingIterator(start, stop, step);
+        } else {
+          return new DecreasingIterator(start, stop, step);
+        }
+      }
     }
 
     private final AbstractList<Integer> contents;
@@ -279,6 +354,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     @Override
     public SkylarkList<Integer> getSlice(Object start, Object end, Object step, Location loc,
         Mutability mutability) throws EvalException {
+      // TODO: use lazy slice implementation
       List<Integer> sliceIndices = EvalUtils.getSliceIndices(start, end, step, this.size(), loc);
       ImmutableList.Builder<Integer> builder = ImmutableList.builderWithExpectedSize(sliceIndices.size());
       for (int pos : sliceIndices) {
@@ -317,6 +393,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     }
 
     public static RangeList of(int start, int stop, int step) {
+      Preconditions.checkArgument(step != 0);
       return new RangeList(start, stop, step);
     }
   }
