@@ -127,6 +127,15 @@ public class CppOptions extends FragmentOptions {
   }
 
   @Option(
+      name = "experimental_allow_lipo",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "Flag to roll out the removal of LIPO.")
+  public boolean allowLipo;
+
+  @Option(
     name = "crosstool_top",
     defaultValue = "@bazel_tools//tools/cpp:toolchain",
     converter = LabelConverter.class,

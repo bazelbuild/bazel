@@ -240,6 +240,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
       linkoptsBuilder.add("-Wl,--eh-frame-hdr");
     }
 
+    if (cppOptions.getLipoMode() != LipoMode.OFF
+        && !cppOptions.convertLipoToThinLto
+        && !cppOptions.allowLipo) {
+      throw new InvalidConfigurationException("LIPO is disallowed");
+    }
+
     return new CppConfiguration(
         params.crosstoolTop,
         params.crosstoolFile,
