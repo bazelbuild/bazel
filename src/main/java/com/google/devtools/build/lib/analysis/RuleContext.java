@@ -791,7 +791,7 @@ public final class RuleContext extends TargetContext
         attributeDefinition.getSplitTransition(
             ConfiguredAttributeMapper.of(rule, configConditions));
     BuildOptions fromOptions = getConfiguration().getOptions();
-    List<BuildOptions> splitOptions = transition.checkedSplit(fromOptions);
+    List<BuildOptions> splitOptions = transition.split(fromOptions);
     List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
 
     if (SplitTransition.equals(fromOptions, splitOptions)) {

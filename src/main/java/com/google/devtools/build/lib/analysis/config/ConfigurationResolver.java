@@ -429,7 +429,7 @@ public final class ConfigurationResolver {
       // TODO(bazel-team): safety-check that this never mutates fromOptions.
       result = ImmutableList.of(((PatchTransition) transition).patch(fromOptions));
     } else if (transition instanceof SplitTransition) {
-      return ((SplitTransition) transition).checkedSplit(fromOptions);
+      return ((SplitTransition) transition).split(fromOptions);
     } else {
       throw new IllegalStateException(String.format(
           "unsupported config transition type: %s", transition.getClass().getName()));

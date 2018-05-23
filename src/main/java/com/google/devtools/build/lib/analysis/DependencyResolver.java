@@ -407,7 +407,7 @@ public abstract class DependencyResolver {
       List<BuildOptions> splitOptions = null;
       if (attribute.hasSplitConfigurationTransition()) {
         splitOptions =
-            attribute.getSplitTransition(attributeMap).checkedSplit(ruleConfig.getOptions());
+            attribute.getSplitTransition(attributeMap).split(ruleConfig.getOptions());
         hasSplitTransition = !SplitTransition.equals(ruleConfig.getOptions(), splitOptions);
       }
 
