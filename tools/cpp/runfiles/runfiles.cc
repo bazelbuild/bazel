@@ -82,71 +82,26 @@ class RunfilesImpl : public Runfiles {
 
   string Rlocation(const string& path) const override;
 
-  // Returns the runtime-location of a given runfile.
-  //
-  // This method assumes that the caller already validated the `path`. See
-  // Runfiles::Rlocation for requirements.
-  virtual string RlocationChecked(const string& path) const = 0;
-
-  const vector<pair<string, string> >& EnvVars() const { return envvars_; }
+  const vector<pair<string, string> >& EnvVars() const override {
+    return envvars_;
+  }
 
  protected:
-  RunfilesImpl(const vector<pair<string, string> >&& envvars)
-      : envvars_(std::move(envvars)) {}
+  RunfilesImpl(const map<string, string>&& runfiles_map,
+               const string&& directory,
+               const vector<pair<string, string> >&& envvars)
+      : runfiles_map_(std::move(runfiles_map)),
+        directory_(std::move(directory)),
+        envvars_(std::move(envvars)) {}
   virtual ~RunfilesImpl() {}
 
  private:
-  const vector<pair<string, string> > envvars_;
-};
-
-// Runfiles implementation that parses a runfiles-manifest to look up runfiles.
-class ManifestBased : public RunfilesImpl {
- public:
-  // Returns a new `ManifestBased` instance.
-  // Reads the file at `manifest_path` to build a map of the runfiles.
-  // Returns nullptr upon failure.
-  static ManifestBased* Create(const string& manifest_path,
-                               const vector<pair<string, string> >&& envvars,
-                               string* error);
-
-  string RlocationChecked(const string& path) const override;
-
- private:
-  ManifestBased(const string& manifest_path,
-                const map<string, string>&& runfiles_map,
-                const vector<pair<string, string> >&& envvars)
-      : RunfilesImpl(std::move(envvars)),
-        manifest_path_(manifest_path),
-        runfiles_map_(std::move(runfiles_map)) {}
-
-  ManifestBased(const ManifestBased&) = delete;
-  ManifestBased(ManifestBased&&) = delete;
-  ManifestBased& operator=(const ManifestBased&) = delete;
-  ManifestBased& operator=(ManifestBased&&) = delete;
-
   static bool ParseManifest(const string& path, map<string, string>* result,
                             string* error);
 
-  const string manifest_path_;
   const map<string, string> runfiles_map_;
-};
-
-// Runfiles implementation that appends runfiles paths to the runfiles root.
-class DirectoryBased : public RunfilesImpl {
- public:
-  DirectoryBased(string runfiles_path,
-                 const vector<pair<string, string> >&& envvars)
-      : RunfilesImpl(std::move(envvars)),
-        runfiles_path_(std::move(runfiles_path)) {}
-  string RlocationChecked(const string& path) const override;
-
- private:
-  DirectoryBased(const DirectoryBased&) = delete;
-  DirectoryBased(DirectoryBased&&) = delete;
-  DirectoryBased& operator=(const DirectoryBased&) = delete;
-  DirectoryBased& operator=(DirectoryBased&&) = delete;
-
-  const string runfiles_path_;
+  const string directory_;
+  const vector<pair<string, string> > envvars_;
 };
 
 bool IsReadableFile(const string& path) {
@@ -168,12 +123,18 @@ Runfiles* RunfilesImpl::Create(const string& argv0,
                                function<string(const string&)> env_lookup,
                                string* error) {
   string manifest, directory;
-  if (!Runfiles::PathsFrom(
-          argv0, env_lookup("RUNFILES_MANIFEST_FILE"),
-          env_lookup("RUNFILES_DIR"),
-          [](const string& path) { return IsReadableFile(path); },
-          [](const string& path) { return IsDirectory(path); }, &manifest,
-          &directory)) {
+  if (!Runfiles::PathsFrom(argv0, env_lookup("RUNFILES_MANIFEST_FILE"),
+                           env_lookup("RUNFILES_DIR"),
+                           [](const string& path) {
+                             return (ends_with(path, "MANIFEST") ||
+                                     ends_with(path, ".runfiles_manifest")) &&
+                                    IsReadableFile(path);
+                           },
+                           [](const string& path) {
+                             return ends_with(path, ".runfiles") &&
+                                    IsDirectory(path);
+                           },
+                           &manifest, &directory)) {
     if (error) {
       std::ostringstream err;
       err << "ERROR: " << __FILE__ << "(" << __LINE__
@@ -190,11 +151,15 @@ Runfiles* RunfilesImpl::Create(const string& argv0,
       // pick up RUNFILES_DIR.
       {"JAVA_RUNFILES", directory}};
 
+  map<string, string> runfiles;
   if (!manifest.empty()) {
-    return ManifestBased::Create(manifest, std::move(envvars), error);
-  } else {
-    return new DirectoryBased(directory, std::move(envvars));
+    if (!ParseManifest(manifest, &runfiles, error)) {
+      return nullptr;
+    }
   }
+
+  return new RunfilesImpl(std::move(runfiles), std::move(directory),
+                          std::move(envvars));
 }
 
 bool IsAbsolute(const string& path) {
@@ -232,26 +197,18 @@ string RunfilesImpl::Rlocation(const string& path) const {
   if (IsAbsolute(path)) {
     return path;
   }
-  return RlocationChecked(path);
-}
-
-ManifestBased* ManifestBased::Create(
-    const string& manifest_path, const vector<pair<string, string> >&& envvars,
-    string* error) {
-  map<string, string> runfiles;
-  return ParseManifest(manifest_path, &runfiles, error)
-             ? new ManifestBased(manifest_path, std::move(runfiles),
-                                 std::move(envvars))
-             : nullptr;
-}
-
-string ManifestBased::RlocationChecked(const string& path) const {
   const auto value = runfiles_map_.find(path);
-  return std::move(value == runfiles_map_.end() ? string() : value->second);
+  if (value != runfiles_map_.end()) {
+    return value->second;
+  }
+  if (!directory_.empty()) {
+    return directory_ + "/" + path;
+  }
+  return "";
 }
 
-bool ManifestBased::ParseManifest(const string& path,
-                                  map<string, string>* result, string* error) {
+bool RunfilesImpl::ParseManifest(const string& path,
+                                 map<string, string>* result, string* error) {
   std::ifstream stm(path);
   if (!stm.is_open()) {
     if (error) {
@@ -284,10 +241,6 @@ bool ManifestBased::ParseManifest(const string& path,
   return true;
 }
 
-string DirectoryBased::RlocationChecked(const string& path) const {
-  return std::move(runfiles_path_ + "/" + path);
-}
-
 }  // namespace
 
 namespace testing {
@@ -314,26 +267,6 @@ Runfiles* Runfiles::Create(const string& argv0, string* error) {
         }
       },
       error);
-}
-
-Runfiles* Runfiles::CreateManifestBased(const string& manifest_path,
-                                        string* error) {
-  return ManifestBased::Create(manifest_path,
-                               {{"RUNFILES_MANIFEST_FILE", manifest_path},
-                                {"RUNFILES_DIR", ""},
-                                {"JAVA_RUNFILES", ""}},
-                               error);
-}
-
-Runfiles* Runfiles::CreateDirectoryBased(const string& directory_path,
-                                         string* error) {
-  // Note: `error` is intentionally unused because we don't expect any errors
-  // here. We expect an `error` pointer so that we may use it in the future if
-  // need be, without having to change the API.
-  return new DirectoryBased(directory_path,
-                            {{"RUNFILES_MANIFEST_FILE", ""},
-                             {"RUNFILES_DIR", directory_path},
-                             {"JAVA_RUNFILES", directory_path}});
 }
 
 bool Runfiles::PathsFrom(const string& argv0, string mf, string dir,
