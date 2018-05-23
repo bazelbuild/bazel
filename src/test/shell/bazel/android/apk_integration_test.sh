@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2015 The Bazel Authors. All rights reserved.
+# Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,4 +49,4 @@ function test_build_with_legacy_apkbuilder() {
   assert_build //java/bazel:bin --nouse_singlejar_apkbuilder
 }
 
-run_suite "Android integration tests"
+run_suite "Android APK building integration tests"
