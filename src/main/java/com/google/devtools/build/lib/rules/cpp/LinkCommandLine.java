@@ -321,9 +321,15 @@ public final class LinkCommandLine extends CommandLine {
             commandlineArgs.add(args.get(++i));
           }
         }
-      } else if (arg.endsWith(".a") || arg.endsWith(".lo") || arg.endsWith(".so")
-          || arg.endsWith(".ifso") || arg.endsWith(".o")
-          || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(arg)) {
+      } else if (CppFileTypes.OBJECT_FILE.apply(arg)
+          || CppFileTypes.PIC_OBJECT_FILE.apply(arg)
+          || CppFileTypes.ARCHIVE.apply(arg)
+          || CppFileTypes.PIC_ARCHIVE.apply(arg)
+          || CppFileTypes.ALWAYS_LINK_LIBRARY.apply(arg)
+          || CppFileTypes.ALWAYS_LINK_PIC_LIBRARY.apply(arg)
+          || CppFileTypes.SHARED_LIBRARY.apply(arg)
+          || CppFileTypes.INTERFACE_SHARED_LIBRARY.apply(arg)
+          || CppFileTypes.VERSIONED_SHARED_LIBRARY.apply(arg)) {
         // All objects of any kind go into the linker parameters.
         paramFileArgs.add(arg);
       } else {

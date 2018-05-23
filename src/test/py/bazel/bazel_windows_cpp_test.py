@@ -287,49 +287,57 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def testDynamicLinkingMSVCRT(self):
     self.createProjectFiles()
+    bazel_output = self.getBazelInfo('output_path')
 
     # By default, it should link to msvcrt dynamically.
     exit_code, _, stderr = self.RunBazel(
         ['build', '//:A', '--output_groups=dynamic_library', '-s'])
+    paramfile = os.path.join(
+        bazel_output, 'x64_windows-fastbuild/bin/A.dll-2.params')
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('/MD', ''.join(stderr))
-    self.assertIn('/DEFAULTLIB:msvcrt.lib', ''.join(stderr))
+    self.AssertFileContentContains(paramfile, '/DEFAULTLIB:msvcrt.lib')
     self.assertNotIn('/MT', ''.join(stderr))
-    self.assertNotIn('/DEFAULTLIB:libcmt.lib', ''.join(stderr))
+    self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:libcmt.lib')
 
     # Test build in debug mode.
     exit_code, _, stderr = self.RunBazel(
         ['build', '-c', 'dbg', '//:A', '--output_groups=dynamic_library', '-s'])
+    paramfile = os.path.join(bazel_output, 'x64_windows-dbg/bin/A.dll-2.params')
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('/MDd', ''.join(stderr))
-    self.assertIn('/DEFAULTLIB:msvcrtd.lib', ''.join(stderr))
+    self.AssertFileContentContains(paramfile, '/DEFAULTLIB:msvcrtd.lib')
     self.assertNotIn('/MTd', ''.join(stderr))
-    self.assertNotIn('/DEFAULTLIB:libcmtd.lib', ''.join(stderr))
+    self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:libcmtd.lib')
 
   def testStaticLinkingMSVCRT(self):
     self.createProjectFiles()
+    bazel_output = self.getBazelInfo('output_path')
 
     # With static_link_msvcrt feature, it should link to msvcrt statically.
     exit_code, _, stderr = self.RunBazel([
         'build', '//:A', '--output_groups=dynamic_library',
         '--features=static_link_msvcrt', '-s'
     ])
+    paramfile = os.path.join(
+        bazel_output, 'x64_windows-fastbuild/bin/A.dll-2.params')
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertNotIn('/MD', ''.join(stderr))
-    self.assertNotIn('/DEFAULTLIB:msvcrt.lib', ''.join(stderr))
+    self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:msvcrt.lib')
     self.assertIn('/MT', ''.join(stderr))
-    self.assertIn('/DEFAULTLIB:libcmt.lib', ''.join(stderr))
+    self.AssertFileContentContains(paramfile, '/DEFAULTLIB:libcmt.lib')
 
     # Test build in debug mode.
     exit_code, _, stderr = self.RunBazel([
         'build', '-c', 'dbg', '//:A', '--output_groups=dynamic_library',
         '--features=static_link_msvcrt', '-s'
     ])
+    paramfile = os.path.join(bazel_output, 'x64_windows-dbg/bin/A.dll-2.params')
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertNotIn('/MDd', ''.join(stderr))
-    self.assertNotIn('/DEFAULTLIB:msvcrtd.lib', ''.join(stderr))
+    self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:msvcrtd.lib')
     self.assertIn('/MTd', ''.join(stderr))
-    self.assertIn('/DEFAULTLIB:libcmtd.lib', ''.join(stderr))
+    self.AssertFileContentContains(paramfile, '/DEFAULTLIB:libcmtd.lib')
 
   def testBuildSharedLibraryFromCcBinaryWithStaticLink(self):
     self.createProjectFiles()
