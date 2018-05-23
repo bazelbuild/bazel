@@ -76,7 +76,7 @@ public class UserDefinedFunction extends BaseFunction {
         env.update(name, arguments[i++]);
       }
 
-      Eval eval = new Eval(env);
+      Eval eval = Eval.fromEnvironment(env);
       try {
         for (Statement stmt : statements) {
           if (stmt instanceof ReturnStatement) {
