@@ -210,6 +210,22 @@ public class SkylarkListTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testListRepeat() throws Exception {
+    assertThat(listEval("[1, 2] * -1")).isEmpty();
+    assertThat(listEval("[1, 2] * 0")).isEmpty();
+    assertThat(listEval("[1, 2] * 1")).containsExactly(1, 2).inOrder();
+    assertThat(listEval("[1, 2] * 2")).containsExactly(1, 2, 1, 2).inOrder();
+  }
+
+  @Test
+  public void testTupleRepeat() throws Exception {
+    assertThat(listEval("(1, 2) * -1")).isEmpty();
+    assertThat(listEval("(1, 2) * 0")).isEmpty();
+    assertThat(listEval("(1, 2) * 1")).containsExactly(1, 2).inOrder();
+    assertThat(listEval("(1, 2) * 2")).containsExactly(1, 2, 1, 2).inOrder();
+  }
+
+  @Test
   public void testConcatListToString() throws Exception {
     eval("l = [1, 2] + [3, 4]",
          "s = str(l)");
