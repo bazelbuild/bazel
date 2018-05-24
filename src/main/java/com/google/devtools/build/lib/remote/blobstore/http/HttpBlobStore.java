@@ -48,6 +48,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -247,18 +248,17 @@ public final class HttpBlobStore implements SimpleBlobStore {
         // if we got a redirect, we should straight up follow it
         // and thus try again.
         if (isRedirect(response.status())) {
-          String location = response.headers().get("location");
+          // location header with either case
+          String location =
+            Optional.ofNullable(response.headers().get("location"))
+              .orElse(response.headers().get("Location"));
+
           if (location != null){
             // create a new download command that targets the redirected location
             URI redirected = URI.create(location);
-
-            System.out.println("==>> redirected to: "+redirected);
-
             DownloadCommand rdc = new DownloadCommand(redirected, casDownload, key, wrappedOut);
             return getAfterCredentialRefresh(rdc);
           } else {
-            System.out.println("==>> No specified location header");
-
             // we got a redirect response, but we didnt get a Location header
             // detailing where we should redirect too, so bail out.
             return false;
