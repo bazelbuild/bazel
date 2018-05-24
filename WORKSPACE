@@ -99,6 +99,21 @@ http_archive(
     strip_prefix = "desugar_jdk_libs-f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd",
 )
 
+load("//:distdir.bzl", "distdir_tar")
+distdir_tar(
+    name = "additional_distfiles",
+    dirname = "derived/distdir",
+    archives = ["f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip"],
+    urls = {
+        "f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip" :
+        ["https://github.com/google/desugar_jdk_libs/archive/f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip"],
+    },
+    sha256 = {
+        "f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip" :
+        "c80f3f3d442d8a6ca7adc83f90ecd638c3864087fdd6787ffac070b6f1cc8f9b",
+  },
+)
+
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
 http_file(
     name = "openjdk_linux",
