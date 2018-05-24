@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -56,7 +54,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -153,18 +150,8 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
             || attributeAndDep.getValue().getTransition() instanceof NoTransition) {
           continue;
         }
-        List<BuildOptions> toOptions;
         Dependency dep = attributeAndDep.getValue();
-        ConfigurationTransition transition = dep.getTransition();
-        if (transition instanceof SplitTransition) {
-          toOptions = ((SplitTransition) transition).split(fromOptions);
-        } else if (transition instanceof PatchTransition) {
-          toOptions = Collections.singletonList(((PatchTransition) transition).patch(fromOptions));
-        } else {
-          throw new IllegalStateException(
-              "If this error is thrown, cquery needs to be updated to take into account non-Patch"
-                  + " and non-Split Transitions");
-        }
+        List<BuildOptions> toOptions = dep.getTransition().apply(fromOptions);
         String hostConfigurationChecksum = hostConfiguration.checksum();
         addResult(
             "  "

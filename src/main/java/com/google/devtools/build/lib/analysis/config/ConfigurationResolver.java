@@ -28,8 +28,6 @@ import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Event;
@@ -424,16 +422,9 @@ public final class ConfigurationResolver {
       ConfigurationTransition transition,
       Iterable<Class<? extends BuildConfiguration.Fragment>> requiredFragments,
       RuleClassProvider ruleClassProvider, boolean trimResults) {
-    List<BuildOptions> result;
-    if (transition instanceof PatchTransition) {
-      // TODO(bazel-team): safety-check that this never mutates fromOptions.
-      result = ImmutableList.of(((PatchTransition) transition).patch(fromOptions));
-    } else if (transition instanceof SplitTransition) {
-      return ((SplitTransition) transition).split(fromOptions);
-    } else {
-      throw new IllegalStateException(String.format(
-          "unsupported config transition type: %s", transition.getClass().getName()));
-    }
+
+    // TODO(bazel-team): safety-check that this never mutates fromOptions.
+    List<BuildOptions> result = transition.apply(fromOptions);
 
     if (!trimResults) {
       return result;
