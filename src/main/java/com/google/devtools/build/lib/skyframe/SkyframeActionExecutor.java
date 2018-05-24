@@ -766,11 +766,6 @@ public final class SkyframeActionExecutor {
   }
 
   private void createOutputDirectories(Action action) throws ActionExecutionException {
-    if (usesActionFileSystem()) {
-      // ActionFileSystem constructs directories implicitly.
-      return;
-    }
-
     try {
       Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
       for (Artifact outputFile : action.getOutputs()) {
@@ -877,13 +872,17 @@ public final class SkyframeActionExecutor {
       long actionStartTime,
       ActionLookupData actionLookupData)
       throws ActionExecutionException, InterruptedException {
-    // Delete the outputs before executing the action, just to ensure that
-    // the action really does produce the outputs.
-    try {
-      action.prepare(context.getFileSystem(), context.getExecRoot());
-      createOutputDirectories(action);
-    } catch (IOException e) {
-      reportError("failed to delete output files before executing action", e, action, null);
+    // ActionFileSystem constructs directories implicitly, so no need to delete the old outputs
+    // and ensure directories exist in this case.
+    if (!usesActionFileSystem()) {
+      // Delete the outputs before executing the action, just to ensure that
+      // the action really does produce the outputs.
+      try {
+        action.prepare(context.getFileSystem(), context.getExecRoot());
+        createOutputDirectories(action);
+      } catch (IOException e) {
+        reportError("failed to delete output files before executing action", e, action, null);
+      }
     }
 
     eventHandler.post(new ActionStartedEvent(action, actionStartTime));
