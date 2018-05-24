@@ -490,6 +490,24 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testRangeIsList() throws Exception {
+    // range() may change in the future to a read-only view, but for now it's a list and can be
+    // updated. This test ensures we won't break backward compatibility until we intend to.
+    new BothModesTest()
+        .testStatement("a = range(2); a.append(2); str(a)", "[0, 1, 2]")
+        .testStatement("a = range(2); type(a)", "list");
+    new SkylarkTest()
+        .testStatement(
+            "def f():\n"
+            + "  a = range(2)\n"
+            + "  b = a\n"
+            + "  a += [2]\n"
+            + "  return str(b)\n"
+            + "f()\n",
+            "[0, 1, 2]");
+  }
+
+  @Test
   public void testEnumerate() throws Exception {
     new BothModesTest()
         .testStatement("str(enumerate([]))", "[]")
