@@ -106,6 +106,10 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     JavaProtoAspectCommon aspectCommon =
         JavaProtoAspectCommon.getSpeedInstance(ruleContext, javaSemantics, rpcSupport);
     Impl impl = new Impl(ruleContext, supportData, aspectCommon, rpcSupport);
+    if (impl.shouldGenerateCode()
+        && ActionReuser.reuseExistingActions(ctadBase.getConfiguredTarget(), ruleContext, aspect)) {
+      return aspect.build();
+    }
     impl.addProviders(aspect);
     return aspect.build();
   }

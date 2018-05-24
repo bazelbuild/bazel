@@ -913,6 +913,7 @@ java_library(
         "rules/java/ProguardSpecProvider.java",
         "rules/java/ProtoJavaApiInfoAspectProvider.java",
         "rules/java/ProtoJavaApiInfoProvider.java",
+        "rules/java/proto/ActionReuser.java",
         "rules/java/proto/JavaLiteProtoAspect.java",
         "rules/java/proto/JavaLiteProtoLibrary.java",
         "rules/java/proto/JavaProtoAspect.java",
