@@ -115,7 +115,6 @@ public class Parser {
 
   private final Lexer lexer;
   private final EventHandler eventHandler;
-  private final List<Comment> comments;
 
   private static final Map<TokenKind, Operator> binaryOperators =
       new ImmutableMap.Builder<TokenKind, Operator>()
@@ -167,7 +166,6 @@ public class Parser {
   private Parser(Lexer lexer, EventHandler eventHandler) {
     this.lexer = lexer;
     this.eventHandler = eventHandler;
-    this.comments = new ArrayList<>();
     nextToken();
   }
 
@@ -195,7 +193,7 @@ public class Parser {
     List<Statement> statements = parser.parseFileInput();
     boolean errors = parser.errorsCount > 0 || lexer.containsErrors();
     return new ParseResult(
-        statements, parser.comments, locationFromStatements(lexer, statements), errors);
+        statements, lexer.getComments(), locationFromStatements(lexer, statements), errors);
   }
 
   /**
@@ -415,11 +413,6 @@ public class Parser {
   private void nextToken() {
     if (token == null || token.kind != TokenKind.EOF) {
       token = lexer.nextToken();
-      // transparently handle comment tokens
-      while (token.kind == TokenKind.COMMENT) {
-        makeComment();
-        token = lexer.nextToken();
-      }
     }
     checkForbiddenKeywords();
     if (DEBUGGING) {
@@ -1343,10 +1336,5 @@ public class Parser {
       end = expression.getLocation().getEndOffset();
     }
     return setLocation(new ReturnStatement(expression), start, end);
-  }
-
-  // create a comment node
-  private void makeComment() {
-    comments.add(setLocation(new Comment((String) token.value), token.left, token.right));
   }
 }
