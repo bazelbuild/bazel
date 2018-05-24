@@ -533,7 +533,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       finalClassesDex = dexPostprocessingOutput.classesDexZip();
     }
 
-    ApkActionsBuilder.create("apk")
+    ApkActionsBuilder.create("apk for " + ruleContext.getLabel())
         .setClassesDex(finalClassesDex)
         .addInputZip(resourceApk.getArtifact())
         .setJavaResourceZip(dexingOutput.javaResourceJar, resourceExtractor)

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigningMethod;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
@@ -180,7 +181,7 @@ public class ApkActionsBuilder {
     SpawnAction.Builder actionBuilder =
         new SpawnAction.Builder()
             .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getApkBuilder())
-            .setProgressMessage("Generating unsigned %s", apkName)
+            .setProgressMessage("Generating unsigned %s with legacy apkbuilder", apkName)
             .setMnemonic("AndroidApkBuilder")
             .addOutput(outApk);
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder().addExecPath(outApk);
@@ -251,90 +252,78 @@ public class ApkActionsBuilder {
     ruleContext.registerAction(actionBuilder.build(ruleContext));
   }
 
-  /** Registers generating actions for {@code outApk} that build an unsigned APK using SingleJar. */
+  /** Registers generating actions for {@code outApk} that build an unsigned APK using SingleJar.
+   *
+   * <p>Depending on the flag --android_compress_apk_with_singlejar (default to true), this method
+   * either:
+   *
+   * <ol>
+   * <li>Builds the compressed APK, then builds the unsigned APK from that (2 actions, smaller APK)
+   * <li>Builds the unsigned APK directly (1 action,  bigger APK)
+   * </ol>
+   *
+   * <p>Note that these actions are *in the critical path* of any android_binary build, so that
+   * extra APK generation action will incur a non-trivial overhead.
+   */
   private void buildApk(RuleContext ruleContext, Artifact outApk) {
-    Artifact compressedApk = getApkArtifact(ruleContext, "compressed_" + outApk.getFilename());
-
-    SpawnAction.Builder compressedApkActionBuilder =
-        new SpawnAction.Builder()
-            .setMnemonic("ApkBuilder")
-            .setProgressMessage("Generating unsigned %s", apkName)
-            .addOutput(compressedApk);
-    CustomCommandLine.Builder compressedApkCommandLine =
-        CustomCommandLine.builder()
-            .add("--exclude_build_data")
-            .add("--compression")
-            .add("--normalize")
-            .addExecPath("--output", compressedApk);
-    setSingleJarAsExecutable(ruleContext, compressedApkActionBuilder);
-
-    if (classesDex != null) {
-      compressedApkActionBuilder.addInput(classesDex);
-      if (classesDex.getFilename().endsWith(".zip")) {
-        compressedApkCommandLine.addExecPath("--sources", classesDex);
-      } else {
-        compressedApkCommandLine
-            .add("--resources")
-            .addFormatted("%s:%s", classesDex, classesDex.getFilename());
-      }
-    }
-
-    if (javaResourceFile != null) {
-      compressedApkActionBuilder.addInput(javaResourceFile);
-      compressedApkCommandLine
-          .add("--resources")
-          .addFormatted("%s:%s", javaResourceFile, javaResourceFile.getFilename());
-    }
-
-    for (String architecture : nativeLibs.getMap().keySet()) {
-      for (Artifact nativeLib : nativeLibs.getMap().get(architecture)) {
-        compressedApkActionBuilder.addInput(nativeLib);
-        compressedApkCommandLine
-            .add("--resources")
-            .addFormatted("%s:lib/%s/%s", nativeLib, architecture, nativeLib.getFilename());
-      }
-    }
 
     SpawnAction.Builder singleJarActionBuilder =
         new SpawnAction.Builder()
             .setMnemonic("ApkBuilder")
             .setProgressMessage("Generating unsigned %s", apkName)
-            .addInput(compressedApk)
             .addOutput(outApk);
+    setSingleJarAsExecutable(ruleContext, singleJarActionBuilder);
+
     CustomCommandLine.Builder singleJarCommandLine = CustomCommandLine.builder();
     singleJarCommandLine
         .add("--exclude_build_data")
         .add("--dont_change_compression")
         .add("--normalize")
-        .addExecPath("--sources", compressedApk)
         .addExecPath("--output", outApk);
-    setSingleJarAsExecutable(ruleContext, singleJarActionBuilder);
 
-    if (javaResourceZip != null) {
-      // The javaResourceZip contains many files that are unwanted in the APK such as .class files.
-      Artifact extractedJavaResourceZip =
-          getApkArtifact(ruleContext, "extracted_" + javaResourceZip.getFilename());
-      ruleContext.registerAction(
+    Artifact extractedJavaResourceZip = null;
+
+    if (ruleContext.getFragment(AndroidConfiguration.class).getCompressApkWithSinglejar()) {
+
+      Artifact compressedApk = getApkArtifact(ruleContext, "compressed_" + outApk.getFilename());
+      SpawnAction.Builder compressedApkActionBuilder =
           new SpawnAction.Builder()
-              .setExecutable(resourceExtractor)
-              .setMnemonic("ResourceExtractor")
-              .setProgressMessage("Extracting Java resources from deploy jar for %s", apkName)
-              .addInput(javaResourceZip)
-              .addOutput(extractedJavaResourceZip)
-              .addCommandLine(
-                  CustomCommandLine.builder()
-                      .addExecPath(javaResourceZip)
-                      .addExecPath(extractedJavaResourceZip)
-                      .build())
-              .build(ruleContext));
+              .setMnemonic("ApkBuilder")
+              .setProgressMessage("Generating compressed unsigned %s", apkName)
+              .addOutput(compressedApk);
+      CustomCommandLine.Builder compressedApkCommandLine =
+          CustomCommandLine.builder()
+              .add("--exclude_build_data")
+              .add("--compression")
+              .add("--normalize")
+              .addExecPath("--output", compressedApk);
+      setSingleJarAsExecutable(ruleContext, compressedApkActionBuilder);
 
-      if (ruleContext.getFragment(AndroidConfiguration.class).compressJavaResources()) {
-        compressedApkActionBuilder.addInput(extractedJavaResourceZip);
-        compressedApkCommandLine.addExecPath("--sources", extractedJavaResourceZip);
-      } else {
-        singleJarActionBuilder.addInput(extractedJavaResourceZip);
-        singleJarCommandLine.addExecPath("--sources", extractedJavaResourceZip);
+      singleJarActionBuilder.addInput(compressedApk);
+      singleJarCommandLine.addExecPath("--sources", compressedApk);
+
+      addClassesDex(compressedApkActionBuilder, compressedApkCommandLine);
+      addJavaResourceFile(compressedApkActionBuilder, compressedApkCommandLine);
+      addNativeLibs(compressedApkActionBuilder, compressedApkCommandLine);
+
+      if (javaResourceZip != null) {
+        extractedJavaResourceZip = createResourceExtractionAction(ruleContext);
+        if (ruleContext.getFragment(AndroidConfiguration.class).compressJavaResources()) {
+          compressedApkActionBuilder.addInput(extractedJavaResourceZip);
+          compressedApkCommandLine.addExecPath("--sources", extractedJavaResourceZip);
+        }
       }
+
+      addNoCompressExtensions(ruleContext, compressedApkCommandLine);
+      compressedApkActionBuilder.addCommandLine(compressedApkCommandLine.build());
+      ruleContext.registerAction(compressedApkActionBuilder.build(ruleContext));
+
+    } else {
+
+      addClassesDex(singleJarActionBuilder, singleJarCommandLine);
+      addJavaResourceFile(singleJarActionBuilder, singleJarCommandLine);
+      addNativeLibs(singleJarActionBuilder, singleJarCommandLine);
+
     }
 
     if (nativeLibs.getName() != null) {
@@ -349,6 +338,55 @@ public class ApkActionsBuilder {
       singleJarCommandLine.addExecPath("--sources", inputZip);
     }
 
+    addNoCompressExtensions(ruleContext, singleJarCommandLine);
+
+    if (extractedJavaResourceZip != null
+        && !ruleContext.getFragment(AndroidConfiguration.class).compressJavaResources()) {
+      singleJarActionBuilder.addInput(extractedJavaResourceZip);
+      singleJarCommandLine.addExecPath("--sources", extractedJavaResourceZip);
+    }
+
+    singleJarActionBuilder.addCommandLine(singleJarCommandLine.build());
+    ruleContext.registerAction(singleJarActionBuilder.build(ruleContext));
+  }
+
+  private void addNativeLibs(Builder actionBuilder,
+      CustomCommandLine.Builder commandLineBuilder) {
+    for (String architecture : nativeLibs.getMap().keySet()) {
+      for (Artifact nativeLib : nativeLibs.getMap().get(architecture)) {
+        actionBuilder.addInput(nativeLib);
+        commandLineBuilder
+            .add("--resources")
+            .addFormatted("%s:lib/%s/%s", nativeLib, architecture, nativeLib.getFilename());
+      }
+    }
+  }
+
+  private void addJavaResourceFile(Builder actionBuilder,
+      CustomCommandLine.Builder commandLineBuilder) {
+    if (javaResourceFile != null) {
+      actionBuilder.addInput(javaResourceFile);
+      commandLineBuilder
+          .add("--resources")
+          .addFormatted("%s:%s", javaResourceFile, javaResourceFile.getFilename());
+    }
+  }
+
+  private void addClassesDex(Builder actionBuilder, CustomCommandLine.Builder commandLineBuilder) {
+    if (classesDex != null) {
+      actionBuilder.addInput(classesDex);
+      if (classesDex.getFilename().endsWith(".zip")) {
+        commandLineBuilder.addExecPath("--sources", classesDex);
+      } else {
+       commandLineBuilder
+            .add("--resources")
+            .addFormatted("%s:%s", classesDex, classesDex.getFilename());
+      }
+    }
+  }
+
+  private void addNoCompressExtensions(RuleContext ruleContext,
+      CustomCommandLine.Builder commandLineBuilder) {
     List<String> noCompressExtensions;
     if (ruleContext
         .getRule()
@@ -363,14 +401,29 @@ public class ApkActionsBuilder {
       noCompressExtensions = ImmutableList.of();
     }
     if (!noCompressExtensions.isEmpty()) {
-      compressedApkCommandLine.addAll("--nocompress_suffixes", noCompressExtensions);
-      singleJarCommandLine.addAll("--nocompress_suffixes", noCompressExtensions);
+      commandLineBuilder.addAll("--nocompress_suffixes", noCompressExtensions);
     }
+  }
 
-    compressedApkActionBuilder.addCommandLine(compressedApkCommandLine.build());
-    ruleContext.registerAction(compressedApkActionBuilder.build(ruleContext));
-    singleJarActionBuilder.addCommandLine(singleJarCommandLine.build());
-    ruleContext.registerAction(singleJarActionBuilder.build(ruleContext));
+  private Artifact createResourceExtractionAction(RuleContext ruleContext) {
+      // The javaResourceZip contains many files that are unwanted in the APK such as .class files.
+      Artifact extractedJavaResourceZip =
+          getApkArtifact(ruleContext, "extracted_" + javaResourceZip.getFilename());
+      ruleContext.registerAction(
+          new Builder()
+              .setExecutable(resourceExtractor)
+              .setMnemonic("ResourceExtractor")
+              .setProgressMessage("Extracting Java resources from deploy jar for %s", apkName)
+              .addInput(javaResourceZip)
+              .addOutput(extractedJavaResourceZip)
+              .addCommandLine(
+                  CustomCommandLine.builder()
+                      .addExecPath(javaResourceZip)
+                      .addExecPath(extractedJavaResourceZip)
+                      .build())
+              .build(ruleContext));
+
+      return extractedJavaResourceZip;
   }
 
   /** Uses the zipalign tool to align the zip boundaries for uncompressed resources by 4 bytes. */
