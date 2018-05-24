@@ -20,9 +20,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.LegacyAnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -150,11 +150,11 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
    */
   public static class AnalysisFailureRecorder {
     @Subscribe
-    public void analysisFailure(AnalysisFailureEvent event) {
+    public void analysisFailure(LegacyAnalysisFailureEvent event) {
       events.add(event);
     }
 
-    public final List<AnalysisFailureEvent> events = new ArrayList<>();
+    public final List<LegacyAnalysisFailureEvent> events = new ArrayList<>();
   }
 
   /**

@@ -28,8 +28,8 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
-import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.LegacyAnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestResult;
@@ -207,7 +207,7 @@ public class AggregatingTestListener {
   }
 
   @Subscribe
-  public void analysisFailure(AnalysisFailureEvent event) {
+  public void analysisFailure(LegacyAnalysisFailureEvent event) {
     targetFailure(event.getFailedTarget());
   }
 

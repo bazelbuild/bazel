@@ -847,11 +847,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return loadingRootCauses;
     }
 
-    public Label getAnalysisRootCause() {
+    @Nullable public Label getAnalysisRootCause() {
       return analysisRootCause;
     }
 
-    public BuildEventId getConfiguration() {
+    @Nullable public BuildEventId getConfiguration() {
       return configuration;
     }
   }
