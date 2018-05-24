@@ -16,20 +16,13 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkOSApi;
 
 import java.util.Map;
 
 /** A Skylark structure to deliver information about the system we are running on. */
 @Immutable
-@SkylarkModule(
-  name = "repository_os",
-  category = SkylarkModuleCategory.NONE,
-  doc = "Various data about the current platform Bazel is running on."
-)
-final class SkylarkOS {
+final class SkylarkOS implements SkylarkOSApi {
 
   private final ImmutableMap<String, String> environ;
 
@@ -37,16 +30,12 @@ final class SkylarkOS {
     this.environ = ImmutableMap.copyOf(environ);
   }
 
-  @SkylarkCallable(name = "environ", structField = true, doc = "The list of environment variables.")
+  @Override
   public ImmutableMap<String, String> getEnvironmentVariables() {
     return environ;
   }
 
-  @SkylarkCallable(
-    name = "name",
-    structField = true,
-    doc = "A string identifying the current system Bazel is running on."
-  )
+  @Override
   public String getName() {
     return System.getProperty("os.name").toLowerCase();
   }
