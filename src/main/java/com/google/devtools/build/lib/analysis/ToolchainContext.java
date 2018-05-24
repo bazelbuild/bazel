@@ -250,7 +250,7 @@ public class ToolchainContext {
                 requiredToolchains
                     .stream()
                     .map(toolchain -> toolchain.toString())
-                    .collect(joining())));
+                    .collect(joining(", "))));
       }
       return toolchains.get(toolchainType);
     }

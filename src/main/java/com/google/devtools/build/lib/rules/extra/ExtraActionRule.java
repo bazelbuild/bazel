@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 
@@ -35,7 +36,7 @@ public final class ExtraActionRule implements RuleDefinition {
     You may refer to this rule by <code>label</code> in the <code>extra_actions</code> argument
     of <a href="${link action_listener}"><code> action_listener</code></a> rules.
     <!-- #END_BLAZE_RULE.NAME -->*/
-    return builder
+    return ShToolchain.addDependency(builder, environment)
         /*<!-- #BLAZE_RULE(extra_action).ATTRIBUTE(tools) -->
         A list of <code>tool</code> dependencies for this rule.
         <p>

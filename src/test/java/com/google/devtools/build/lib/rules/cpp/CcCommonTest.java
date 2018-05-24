@@ -36,12 +36,15 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.bazel.rules.CcRules;
 import com.google.devtools.build.lib.bazel.rules.GenericRules;
+import com.google.devtools.build.lib.bazel.rules.ToolchainRules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.ToolchainType;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.transitions.LipoDataTransitionRuleSet;
+import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
+import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.util.FileType;
@@ -999,6 +1002,15 @@ public class CcCommonTest extends BuildViewTestCase {
           PlatformRules.INSTANCE.init(builder);
           GenericRules.INSTANCE.init(builder);
           CcRules.INSTANCE.init(builder);
+
+          // java_test, like all *_test rules, needs to run test-setup.sh, so it needs the shell
+          // toolchain, so it depends on @bazel_tools//tools/sh:toolchain_type. Every toolchain_type
+          // depends on the C++ and Java configuration fragments, therefore we add the toolchain
+          // rules and the Java fragments here.
+          ToolchainRules.INSTANCE.init(builder);
+          builder.addConfigurationOptions(JavaOptions.class);
+          builder.addConfigurationFragment(new JavaConfigurationLoader());
+
           return builder.build();
         }
 

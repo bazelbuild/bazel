@@ -23,4 +23,5 @@ sh_toolchain = rule(
         "path": attr.string(),
     },
     implementation = _sh_toolchain_impl,
+    supports_platforms = False,
 )

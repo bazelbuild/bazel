@@ -237,6 +237,13 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                 + "Skylark rules. This flag may be removed in the future."
       ),
       @Param(
+          name = "supports_platforms",
+          type = Boolean.class,
+          legacyNamed = true,
+          defaultValue = "True",
+          doc = "TODO"
+      ),
+      @Param(
         name = "toolchains",
         type = SkylarkList.class,
         legacyNamed = true,
@@ -280,6 +287,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       SkylarkList<?> fragments,
       SkylarkList<?> hostFragments,
       Boolean skylarkTestable,
+      Boolean supportsPlatforms,
       SkylarkList<String> toolchains,
       String doc,
       SkylarkList<?> providesArg,

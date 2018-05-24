@@ -2459,6 +2459,8 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "     return [ctx.rule.attr.dep[PCollector]]",
         "  if hasattr(ctx.rule.attr, '_same_attr'):",
         "     return [PCollector(attr_value = ctx.rule.attr._same_attr)]",
+        "  if ctx.label.package == 'tools/sh' and ctx.label.name == 'toolchain_type':",
+        "    return [PCollector()]",
         "  fail('???')",
         "  return [PCollector()]",
         "acollect = aspect(_rcollect, attr_aspects = ['*'], ",

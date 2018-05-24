@@ -139,6 +139,7 @@ public class SkylarkRepositoryModule {
               funcallEnv.getGlobals().getTransitiveLabel(),
               funcallEnv.getTransitiveContentHashCode());
           builder.setWorkspaceOnly();
+          builder.supportsPlatforms(false);
           return new RepositoryRuleFunction(builder);
         }
       };

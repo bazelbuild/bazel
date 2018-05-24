@@ -623,6 +623,12 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         .isTrue();
   }
 
+  private void assertShellPath(String s) {
+    if (!s.endsWith("/bash" + OsUtils.executableExtension()) && !s.equals("/mock/shell")) {
+      fail(String.format("\"%s\" is not a shell interpreter path", s));
+    }
+  }
+
   @Test
   public void testResolveCommandMakeVariables() throws Exception {
     evalRuleContextCode(
@@ -633,7 +639,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     @SuppressWarnings("unchecked")
     List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
     assertThat(argv).hasSize(3);
-    assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
+    assertShellPath(argv.get(0));
     assertThat(argv.get(1)).isEqualTo("-c");
     assertThat(argv.get(2)).isEqualTo("I got the World on a string");
   }
@@ -675,7 +681,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     @SuppressWarnings("unchecked")
     List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
     assertThat(argv).hasSize(3);
-    assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
+    assertShellPath(argv.get(0));
     assertThat(argv.get(1)).isEqualTo("-c");
     assertMatches("argv[2]", "A.*/mytool .*/mytool.sh B.*file3.dat", argv.get(2));
   }
@@ -705,7 +711,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     @SuppressWarnings("unchecked")
     List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
     assertThat(argv).hasSize(2);
-    assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
+    assertShellPath(argv.get(0));
     assertMatches("argv[1]", "^.*/resolve_me[.]script[.]sh$", argv.get(1));
   }
 

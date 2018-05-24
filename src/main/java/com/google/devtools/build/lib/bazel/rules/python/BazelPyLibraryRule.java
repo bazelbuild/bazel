@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
@@ -29,7 +30,7 @@ import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 public final class BazelPyLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-    return builder
+    return ShToolchain.addDependency(builder, env)
         .requiresConfigurationFragments(PythonConfiguration.class)
         /* <!-- #BLAZE_RULE(py_library).ATTRIBUTE(deps) -->
         The list of other libraries to be linked in to the library target.

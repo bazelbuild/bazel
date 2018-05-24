@@ -28,6 +28,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -99,7 +100,7 @@ public class BaseRuleClasses {
   public static final class TestBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
+      return ShToolchain.addDependency(builder, env)
           .requiresConfigurationFragments(TestConfiguration.class)
           .add(
               attr("size", STRING)

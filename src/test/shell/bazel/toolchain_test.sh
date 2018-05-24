@@ -329,7 +329,7 @@ use_toolchain(
 EOF
 
   bazel build //demo:use &> $TEST_log && fail "Build failure expected"
-  expect_log 'In use_toolchain rule //demo:use, toolchain type //toolchain:wrong_toolchain was requested but only types \[//toolchain:test_toolchain\] are configured'
+  expect_log 'In use_toolchain rule //demo:use, toolchain type //toolchain:wrong_toolchain was requested but only types \[//toolchain:test_toolchain, @bazel_tools//tools/sh:toolchain_type\] are configured'
 }
 
 function test_toolchain_debug_messages {
@@ -351,7 +351,8 @@ EOF
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log 'ToolchainResolution: Looking for toolchain of type //toolchain:test_toolchain'
   expect_log 'ToolchainResolution:   For toolchain type //toolchain:test_toolchain, possible execution platforms and toolchains: {@bazel_tools//platforms:host_platform -> //:test_toolchain_impl_1}'
-  expect_log 'ToolchainUtil: Selected execution platform @bazel_tools//platforms:host_platform, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
+  expect_log 'ToolchainUtil: Selected execution platform @bazel_tools//platforms:host_platform,.*type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
+  expect_log 'ToolchainUtil: Selected execution platform @bazel_tools//platforms:host_platform,.*type .*//tools/sh:toolchain_type -> toolchain '
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
@@ -431,7 +432,7 @@ EOF
   bazel build \
     --aspects //toolchain:aspect_use_toolchain.bzl%use_toolchain \
     //demo:demo &> $TEST_log && fail "Build failure expected"
-  expect_log 'In aspect //toolchain:aspect_use_toolchain.bzl%use_toolchain applied to demo rule //demo:demo, toolchain type //toolchain:wrong_toolchain was requested but only types \[//toolchain:test_toolchain\] are configured'
+  expect_log 'In aspect //toolchain:aspect_use_toolchain.bzl%use_toolchain applied to demo rule //demo:demo, toolchain type //toolchain:wrong_toolchain was requested but only types \[//toolchain:test_toolchain, @bazel_tools//tools/sh:toolchain_type\] are configured'
 }
 
 function test_toolchain_constraints() {
