@@ -14,6 +14,13 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -41,6 +48,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 /**
  * A RemoteActionCache implementation that uses a concurrent map as a distributed storage for files
@@ -57,8 +65,8 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   private final SimpleBlobStore blobStore;
 
   public SimpleBlobStoreActionCache(
-      RemoteOptions options, SimpleBlobStore blobStore, DigestUtil digestUtil) {
-    super(options, digestUtil);
+      RemoteOptions options, SimpleBlobStore blobStore, Retrier retrier, DigestUtil digestUtil) {
+    super(options, digestUtil, retrier);
     this.blobStore = blobStore;
   }
 
@@ -79,11 +87,13 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
 
   public void downloadTree(Digest rootDigest, Path rootLocation)
       throws IOException, InterruptedException {
-    FileSystemUtils.createDirectoryAndParents(rootLocation);
-    Directory directory = Directory.parseFrom(downloadBlob(rootDigest));
+    rootLocation.createDirectoryAndParents();
+    Directory directory = Directory.parseFrom(getFromFuture(downloadBlob(rootDigest)));
     for (FileNode file : directory.getFilesList()) {
-      downloadFile(
-          rootLocation.getRelative(file.getName()), file.getDigest(), file.getIsExecutable(), null);
+      Path dst = rootLocation.getRelative(file.getName());
+      getFromFuture(downloadFile(
+          dst, file.getDigest(), null));
+      dst.setExecutable(file.getIsExecutable());
     }
     for (DirectoryNode child : directory.getDirectoriesList()) {
       downloadTree(child.getDigest(), rootLocation.getRelative(child.getName()));
@@ -218,26 +228,23 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   }
 
   @Override
-  protected void downloadBlob(Digest digest, Path dest) throws IOException, InterruptedException {
-    try (OutputStream out = dest.getOutputStream()) {
-      boolean success = blobStore.get(digest.getHash(), out);
-      if (!success) {
-        throw new CacheNotFoundException(digest, digestUtil);
+  protected ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
+    SettableFuture<Void> outerF = SettableFuture.create();
+    Futures.addCallback(blobStore.get(digest.getHash(), out), new FutureCallback<Boolean>() {
+      @Override
+      public void onSuccess(Boolean found) {
+        if (found) {
+          outerF.set(null);
+        } else {
+          outerF.setException(new CacheNotFoundException(digest, digestUtil));
+        }
       }
-    }
-  }
 
-  @Override
-  public byte[] downloadBlob(Digest digest) throws IOException, InterruptedException {
-    if (digest.getSizeBytes() == 0) {
-      return new byte[0];
-    }
-    try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-      boolean success = blobStore.get(digest.getHash(), out);
-      if (!success) {
-        throw new CacheNotFoundException(digest, digestUtil);
+      @Override
+      public void onFailure(Throwable throwable) {
+        outerF.setException(throwable);
       }
-      return out.toByteArray();
-    }
+    }, MoreExecutors.directExecutor());
+    return outerF;
   }
 }

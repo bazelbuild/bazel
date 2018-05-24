@@ -71,7 +71,6 @@ final class ByteStreamUploader {
   private final CallCredentials callCredentials;
   private final long callTimeoutSecs;
   private final RemoteRetrier retrier;
-  private final ListeningScheduledExecutorService retryService;
 
   private final Object lock = new Object();
 
@@ -92,17 +91,13 @@ final class ByteStreamUploader {
    * @param callTimeoutSecs the timeout in seconds after which a {@code Write} gRPC call must be
    *     complete. The timeout resets between retries
    * @param retrier the {@link RemoteRetrier} whose backoff strategy to use for retry timings.
-   * @param retryService the executor service to schedule retries on. It's the responsibility of the
-   *     caller to properly shutdown the service after use. Users should avoid shutting down the
-   *     service before {@link #shutdown()} has been called
    */
   public ByteStreamUploader(
       @Nullable String instanceName,
       Channel channel,
       @Nullable CallCredentials callCredentials,
       long callTimeoutSecs,
-      RemoteRetrier retrier,
-      ListeningScheduledExecutorService retryService) {
+      RemoteRetrier retrier) {
     checkArgument(callTimeoutSecs > 0, "callTimeoutSecs must be gt 0.");
 
     this.instanceName = instanceName;
@@ -110,7 +105,6 @@ final class ByteStreamUploader {
     this.callCredentials = callCredentials;
     this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
-    this.retryService = retryService;
   }
 
   /**
@@ -192,27 +186,28 @@ final class ByteStreamUploader {
   }
 
   @VisibleForTesting
-  ListenableFuture<Void> uploadBlobAsync(Chunker chunker)
-      throws IOException {
+  ListenableFuture<Void> uploadBlobAsync(Chunker chunker) {
     Digest digest = checkNotNull(chunker.digest());
 
     synchronized (lock) {
       checkState(!isShutdown, "Must not call uploadBlobs after shutdown.");
 
-      ListenableFuture<Void> uploadResult = uploadsInProgress.get(digest);
-      if (uploadResult == null) {
-        uploadResult = SettableFuture.create();
-        uploadResult.addListener(
-            () -> {
-              synchronized (lock) {
-                uploadsInProgress.remove(digest);
-              }
-            },
-            MoreExecutors.directExecutor());
-        startAsyncUploadWithRetry(
-            chunker, retrier.newBackoff(), (SettableFuture<Void>) uploadResult);
-        uploadsInProgress.put(digest, uploadResult);
+      ListenableFuture<Void> inProgress = uploadsInProgress.get(digest);
+      if (inProgress != null) {
+        return inProgress;
       }
+
+      final SettableFuture<Void> uploadResult = SettableFuture.create();
+      uploadResult.addListener(
+          () -> {
+            synchronized (lock) {
+              uploadsInProgress.remove(digest);
+            }
+          },
+          MoreExecutors.directExecutor());
+      Context ctx = Context.current();
+      retrier.executeAsync(() -> ctx.call(() -> startAsyncUpload(chunker, uploadResult)), uploadResult);
+      uploadsInProgress.put(digest, uploadResult);
       return uploadResult;
     }
   }
@@ -224,77 +219,19 @@ final class ByteStreamUploader {
     }
   }
 
-  private void startAsyncUploadWithRetry(
-      Chunker chunker, Retrier.Backoff backoffTimes, SettableFuture<Void> overallUploadResult) {
-
-    AsyncUpload.Listener listener =
-        new AsyncUpload.Listener() {
-          @Override
-          public void success() {
-            overallUploadResult.set(null);
-          }
-
-          @Override
-          public void failure(Status status) {
-            StatusException cause = status.asException();
-            long nextDelayMillis = backoffTimes.nextDelayMillis();
-            if (nextDelayMillis < 0 || !retrier.isRetriable(cause)) {
-              // Out of retries or status not retriable.
-              RetryException error =
-                  new RetryException(
-                      "Out of retries or status not retriable.",
-                      backoffTimes.getRetryAttempts(),
-                      cause);
-              overallUploadResult.setException(error);
-            } else {
-              retryAsyncUpload(nextDelayMillis, chunker, backoffTimes, overallUploadResult);
-            }
-          }
-
-          private void retryAsyncUpload(
-              long nextDelayMillis,
-              Chunker chunker,
-              Retrier.Backoff backoffTimes,
-              SettableFuture<Void> overallUploadResult) {
-            try {
-              ListenableScheduledFuture<?> schedulingResult =
-                  retryService.schedule(
-                      Context.current()
-                          .wrap(
-                              () ->
-                                  startAsyncUploadWithRetry(
-                                      chunker, backoffTimes, overallUploadResult)),
-                      nextDelayMillis,
-                      MILLISECONDS);
-              // In case the scheduled execution errors, we need to notify the overallUploadResult.
-              schedulingResult.addListener(
-                  () -> {
-                    try {
-                      schedulingResult.get();
-                    } catch (Exception e) {
-                      overallUploadResult.setException(
-                          new RetryException(
-                              "Scheduled execution errored.", backoffTimes.getRetryAttempts(), e));
-                    }
-                  },
-                  MoreExecutors.directExecutor());
-            } catch (RejectedExecutionException e) {
-              // May be thrown by .schedule(...) if i.e. the executor is shutdown.
-              overallUploadResult.setException(
-                  new RetryException("Rejected by executor.", backoffTimes.getRetryAttempts(), e));
-            }
-          }
-        };
-
+  private ListenableFuture<Void> startAsyncUpload(
+      Chunker chunker, SettableFuture<Void> overallUploadResult) {
+    SettableFuture<Void> currUpload = SettableFuture.create();
     try {
       chunker.reset();
     } catch (IOException e) {
-      overallUploadResult.setException(e);
-      return;
+      currUpload.setException(e);
+      return currUpload;
     }
 
     AsyncUpload newUpload =
-        new AsyncUpload(channel, callCredentials, callTimeoutSecs, instanceName, chunker, listener);
+        new AsyncUpload(
+            channel, callCredentials, callTimeoutSecs, instanceName, chunker, currUpload);
     overallUploadResult.addListener(
         () -> {
           if (overallUploadResult.isCancelled()) {
@@ -303,22 +240,17 @@ final class ByteStreamUploader {
         },
         MoreExecutors.directExecutor());
     newUpload.start();
+    return currUpload;
   }
 
   private static class AsyncUpload {
-
-    interface Listener {
-      void success();
-
-      void failure(Status status);
-    }
 
     private final Channel channel;
     private final CallCredentials callCredentials;
     private final long callTimeoutSecs;
     private final String instanceName;
     private final Chunker chunker;
-    private final Listener listener;
+    private final SettableFuture<Void> uploadResult;
 
     private ClientCall<WriteRequest, WriteResponse> call;
 
@@ -328,13 +260,13 @@ final class ByteStreamUploader {
         long callTimeoutSecs,
         String instanceName,
         Chunker chunker,
-        Listener listener) {
+        SettableFuture<Void> uploadResult) {
       this.channel = channel;
       this.callCredentials = callCredentials;
       this.callTimeoutSecs = callTimeoutSecs;
       this.instanceName = instanceName;
       this.chunker = chunker;
-      this.listener = listener;
+      this.uploadResult = uploadResult;
     }
 
     void start() {
@@ -358,9 +290,9 @@ final class ByteStreamUploader {
             @Override
             public void onClose(Status status, Metadata trailers) {
               if (status.isOk()) {
-                listener.success();
+                uploadResult.set(null);
               } else {
-                listener.failure(status);
+                uploadResult.setException(status.asRuntimeException());
               }
             }
 

@@ -40,6 +40,7 @@ public final class SimpleBlobStoreFactory {
       return new HttpBlobStore(
           URI.create(options.remoteHttpCache),
           (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout),
+          options.remoteMaxConnections,
           creds);
     } catch (Exception e) {
       throw new RuntimeException(e);
