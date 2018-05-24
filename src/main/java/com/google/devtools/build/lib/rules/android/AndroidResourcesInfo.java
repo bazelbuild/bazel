@@ -106,6 +106,11 @@ public class AndroidResourcesInfo extends NativeInfo {
     return manifest;
   }
 
+  /** Returns the r.txt file for the target. */
+  @SkylarkCallable(
+      name = "r_txt",
+      doc = "Returns the R.txt file for the target.",
+      structField = true)
   public Artifact getRTxt() {
     return rTxt;
   }
