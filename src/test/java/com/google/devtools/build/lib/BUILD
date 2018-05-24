@@ -699,6 +699,7 @@ java_test(
         ":guava_junit_truth",
         ":test_runner",
         ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:android-rules",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
