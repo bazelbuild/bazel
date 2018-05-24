@@ -33,7 +33,7 @@ function is_darwin() {
 function _log_base() {
   prefix=$1
   shift
-  echo >&2 "${prefix}[$(basename "$0") $(date "+%Y-%m-%d %H:%M:%S (%z)")] $*"
+  echo >&2 "${prefix}[$(basename "${BASH_SOURCE[0]}"):${BASH_LINENO[1]} $(date "+%Y-%m-%d %H:%M:%S (%z)")] $*"
 }
 
 function log_info() {
@@ -61,7 +61,12 @@ fi
 
 # Make the command "bazel" available for tests.
 PATH_TO_BAZEL_BIN=$(rlocation io_bazel/src/bazel)
-PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation io_bazel/src/test/shell/bin/bazel))"
+[[ -f "${PATH_TO_BAZEL_BIN:-/dev/null}" ]] || log_fatal "failed to find io_bazel/src/bazel"
+
+PATH_TO_BAZEL_WRAPPER="$(rlocation io_bazel/src/test/shell/bin/bazel)"
+[[ -f "${PATH_TO_BAZEL_WRAPPER:-/dev/null}" ]] || log_fatal "failed to find io_bazel/src/test/shell/bin/bazel"
+PATH_TO_BAZEL_WRAPPER="$(dirname "$PATH_TO_BAZEL_WRAPPER")"
+
 # Convert PATH_TO_BAZEL_WRAPPER to Unix path style on Windows, because it will be
 # added into PATH. There's problem if PATH=C:/msys64/usr/bin:/usr/local,
 # because ':' is used as both path seperator and in C:/msys64/...
@@ -75,11 +80,12 @@ export PATH="$PATH_TO_BAZEL_WRAPPER:$PATH"
 ################### shell/bazel/testenv ##################################
 # Setting up the environment for Bazel integration tests.
 #
-[ -z "$TEST_SRCDIR" ] && log_fatal "TEST_SRCDIR not set!"
-BAZEL_RUNFILES="$TEST_SRCDIR/io_bazel"
+[[ -d "$TEST_SRCDIR" ]] || log_fatal "TEST_SRCDIR not set!"
+BAZEL_RUNFILES="$RUNFILES_DIR"
 
 # WORKSPACE file
-workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
+workspace_file="$(rlocation io_bazel/WORKSPACE)"
+[[ -f "${workspace_file:-/dev/null}" ]] || log_fatal "failed to find io_bazel/WORKSPACE"
 
 # Bazel
 bazel_tree="$(rlocation io_bazel/src/test/shell/bazel/doc-srcs.zip)"

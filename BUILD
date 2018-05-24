@@ -4,6 +4,11 @@ package(default_visibility = ["//scripts/release:__pkg__"])
 
 exports_files(["LICENSE"])
 
+exports_files(
+    ["WORKSPACE"],
+    visibility = ["//src/test/shell:__subpackages__"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(

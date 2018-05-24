@@ -14,20 +14,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+set -euo pipefail
+# --- begin runfiles.bash initialization ---
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  elif [[ -f "$TEST_SRCDIR/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$TEST_SRCDIR"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/io_bazel/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^io_bazel/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find //tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function test_external_location() {
+  local -r pkg=${FUNCNAME}
   cat > WORKSPACE <<EOF
 bind(
    name = "foo",
-   actual = "//bar:baz"
+   actual = "//$pkg:baz"
 )
 EOF
-  mkdir bar
-  cat > bar/BUILD <<EOF
+  mkdir $pkg
+  cat > $pkg/BUILD <<EOF
 genrule(
     name = "baz-rule",
     outs = ["baz"],
@@ -43,19 +66,20 @@ genrule(
 )
 EOF
 
-  bazel build //bar:loc &> $TEST_log || fail "Referencing external genrule didn't build"
-  assert_contains "hello" bazel-genfiles/bar/loc
+  bazel build //$pkg:loc &> $TEST_log || fail "Referencing external genrule didn't build"
+  assert_contains "hello" bazel-genfiles/$pkg/loc
 }
 
 function test_external_location_tool() {
+  local -r pkg=${FUNCNAME}
   cat > WORKSPACE <<EOF
 bind(
    name = "foo",
-   actual = "//bar:baz"
+   actual = "//$pkg:baz"
 )
 EOF
-  mkdir bar
-  cat > bar/BUILD <<EOF
+  mkdir $pkg
+  cat > $pkg/BUILD <<EOF
 genrule(
     name = "baz-rule",
     outs = ["baz"],
@@ -71,13 +95,14 @@ genrule(
 )
 EOF
 
-  bazel build //bar:loc &> $TEST_log || fail "Referencing external genrule in tools didn't build"
-  assert_contains "hello" bazel-genfiles/bar/loc
+  bazel build //$pkg:loc &> $TEST_log || fail "Referencing external genrule in tools didn't build"
+  assert_contains "hello" bazel-genfiles/$pkg/loc
 }
 
 function test_location_trim() {
-  mkdir bar
-  cat > bar/BUILD <<EOF
+  local -r pkg=${FUNCNAME}
+  mkdir $pkg
+  cat > $pkg/BUILD <<EOF
 genrule(
     name = "baz-rule",
     outs = ["baz"],
@@ -92,7 +117,7 @@ genrule(
 )
 EOF
 
-  bazel build //bar:loc || fail "Label was not trimmed before lookup"
+  bazel build //$pkg:loc || fail "Label was not trimmed before lookup"
 }
 
 run_suite "location tests"
