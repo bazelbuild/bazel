@@ -667,7 +667,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     public static <T> Tuple<T> concat(Tuple<? extends T> left, Tuple<? extends T> right) {
       // Build the ImmutableList directly rather than use Iterables.concat, to avoid unnecessary
       // array resizing.
-      return create(ImmutableList.<T>builder()
+      return create(ImmutableList.<T>builderWithExpectedSize(left.size() + right.size())
           .addAll(left)
           .addAll(right)
           .build());
@@ -678,7 +678,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         Object start, Object end, Object step, Location loc, Mutability mutability)
         throws EvalException {
       List<Integer> sliceIndices = EvalUtils.getSliceIndices(start, end, step, this.size(), loc);
-      ImmutableList.Builder<E> builder = ImmutableList.builder();
+      ImmutableList.Builder<E> builder = ImmutableList.builderWithExpectedSize(sliceIndices.size());
       for (int pos : sliceIndices) {
         builder.add(this.get(pos));
       }
@@ -687,7 +687,11 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
 
     @Override
     public Tuple<E> repeat(int times, Mutability mutability) {
-      ImmutableList.Builder<E> builder = ImmutableList.builder();
+      if (times <= 0) {
+        return empty();
+      }
+
+      ImmutableList.Builder<E> builder = ImmutableList.builderWithExpectedSize(this.size() * times);
       for (int i = 0; i < times; i++) {
         builder.addAll(this);
       }
