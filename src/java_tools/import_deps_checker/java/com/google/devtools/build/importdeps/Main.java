@@ -132,20 +132,9 @@ public class Main {
         help = "The rule label of the current target under analysis.")
     public String ruleLabel;
 
-    // TODO (cnsun): remove this flag.
-    @Option(
-      name = "fail_on_errors",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      deprecationWarning = "This will be replaced with --checking_mode.",
-      help = "Fail on incomplete dependencies, otherwise emit warnings."
-    )
-    public boolean failOnErrors;
-
     @Option(
       name = "checking_mode",
-      defaultValue = "null",
+      defaultValue = "WARNING",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = CheckingModeConverter.class,
@@ -228,10 +217,6 @@ public class Main {
         options.jdepsOutput == null || !Files.isDirectory(options.jdepsOutput),
         "Invalid value of --jdeps_output: '%s'",
         options.jdepsOutput);
-    if (options.checkingMode == null) {
-      // Convert --fail_on_errors to --checking_mode
-      options.checkingMode = options.failOnErrors ? CheckingMode.ERROR : CheckingMode.WARNING;
-    }
     if (!options.fullClasspath.containsAll(options.directClasspath)) {
       ArrayList<Path> missing = Lists.newArrayList(options.directClasspath);
       missing.removeAll(options.fullClasspath);
