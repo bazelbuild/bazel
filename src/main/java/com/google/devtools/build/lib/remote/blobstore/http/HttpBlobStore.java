@@ -243,6 +243,28 @@ public final class HttpBlobStore implements SimpleBlobStore {
           refreshCredentials();
           return getAfterCredentialRefresh(download);
         }
+
+        // if we got a redirect, we should straight up follow it
+        // and thus try again.
+        if (isRedirect(response.status())) {
+          String location = response.headers().get("location");
+          if (location != null){
+            // create a new download command that targets the redirected location
+            URI redirected = URI.create(location);
+
+            System.out.println("==>> redirected to: "+redirected);
+
+            DownloadCommand rdc = new DownloadCommand(redirected, casDownload, key, wrappedOut);
+            return getAfterCredentialRefresh(rdc);
+          } else {
+            System.out.println("==>> No specified location header");
+
+            // we got a redirect response, but we didnt get a Location header
+            // detailing where we should redirect too, so bail out.
+            return false;
+          }
+        }
+
         if (cacheMiss(response.status())) {
           return false;
         }
@@ -379,6 +401,15 @@ public final class HttpBlobStore implements SimpleBlobStore {
     downloadChannels.close();
     uploadChannels.close();
     eventLoop.shutdownGracefully();
+  }
+
+  private boolean isRedirect(HttpResponseStatus status) {
+    // supporting redirects here thus allowing users to leverage
+    // pre-signed URLs (and similar such approaches) so they can
+    // have a cache that doesn't stream artifacts but instead acts
+    // as a metadata system.
+    return status.equals(HttpResponseStatus.MOVED_PERMANENTLY)
+        || status.equals(HttpResponseStatus.TEMPORARY_REDIRECT);
   }
 
   private boolean cacheMiss(HttpResponseStatus status) {
