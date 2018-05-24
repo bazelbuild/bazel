@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
@@ -111,7 +111,7 @@ public class SkylarkRepositoryContext {
                     (com.google.devtools.build.lib.syntax.Environment) null));
       }
     }
-    attrObject = NativeProvider.STRUCT.create(attrBuilder.build(), "No such attribute '%s'");
+    attrObject = StructProvider.STRUCT.create(attrBuilder.build(), "No such attribute '%s'");
   }
 
   @SkylarkCallable(

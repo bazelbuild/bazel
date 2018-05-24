@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
@@ -243,7 +242,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         ImmutableMap.builder();
      private ImmutableList.Builder<Class<?>> skylarkModules =
         ImmutableList.<Class<?>>builder();
-    private ImmutableList.Builder<NativeProvider> nativeProviders = ImmutableList.builder();
     private Set<String> reservedActionMnemonics = new TreeSet<>();
     private BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
@@ -368,11 +366,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     public Builder addSkylarkModule(Class<?>... modules) {
       this.skylarkModules.add(modules);
-      return this;
-    }
-
-    public Builder addNativeProvider(NativeProvider provider) {
-      this.nativeProviders.add(provider);
       return this;
     }
 
@@ -514,8 +507,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           skylarkAccessibleTopLevels.build(),
           skylarkModules.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
-          actionEnvironmentProvider,
-          nativeProviders.build());
+          actionEnvironmentProvider);
     }
 
     @Override
@@ -628,8 +620,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider;
 
-  private final ImmutableList<NativeProvider> nativeProviders;
-
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
 
   private ConfiguredRuleClassProvider(
@@ -651,8 +641,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
       ImmutableList<Class<?>> skylarkModules,
       ImmutableSet<String> reservedActionMnemonics,
-      BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
-      ImmutableList<NativeProvider> nativeProviders) {
+      BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -671,7 +660,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
-    this.nativeProviders = nativeProviders;
     this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
   }
 
@@ -895,13 +883,5 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   public BuildConfiguration.ActionEnvironmentProvider getActionEnvironmentProvider() {
     return actionEnvironmentProvider;
-  }
-
-  /**
-   * Returns all registered {@link NativeProvider} instances, i.e. all built-in provider types that
-   * are based on {@link Provider} rather than {@link TransitiveInfoProvider}.
-   */
-  public ImmutableList<NativeProvider> getNativeProviders() {
-    return nativeProviders;
   }
 }

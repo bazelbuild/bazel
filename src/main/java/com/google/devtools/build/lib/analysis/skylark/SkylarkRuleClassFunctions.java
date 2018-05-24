@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -73,7 +72,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -207,19 +205,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           return "illegal";
         }
       };
-
-  @SkylarkSignature(
-    name = "struct",
-    returnType = Info.class,
-    doc =
-        "Creates an immutable struct using the keyword arguments as attributes. It is used to "
-            + "group multiple values together. Example:<br>"
-            + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
-            + "return s.x + getattr(s, \"y\")  # returns 5</pre>",
-    extraKeywords = @Param(name = "kwargs", doc = "the struct attributes."),
-    useLocation = true
-  )
-  private static final NativeProvider<?> struct = NativeProvider.STRUCT;
 
   @SkylarkSignature(
     name = "DefaultInfo",

@@ -1513,7 +1513,7 @@ public final class Attribute implements Comparable<Attribute> {
     private Object invokeCallback(EventHandler eventHandler, Map<String, Object> attrValues)
         throws EvalException, InterruptedException {
       ClassObject attrs =
-          NativeProvider.STRUCT.create(
+          StructProvider.STRUCT.create(
               attrValues, "No such regular (non computed) attribute '%s'.");
       Object result = callback.call(eventHandler, attrs);
       try {

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -385,7 +386,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         builder.put(nativeFunction,
             FuncallExpression.getBuiltinCallable(this, nativeFunction));
       }
-      return NativeProvider.STRUCT.create(builder.build(), "no native callable '%s'");
+      return StructProvider.STRUCT.create(builder.build(), "no native callable '%s'");
     }
 
     @SkylarkCallable(

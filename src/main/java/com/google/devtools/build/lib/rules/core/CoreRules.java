@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
-import com.google.devtools.build.lib.packages.NativeProvider;
 
 /** A set of basic rules - Bazel won't work correctly without these. */
 public final class CoreRules implements RuleSet {
@@ -38,7 +37,6 @@ public final class CoreRules implements RuleSet {
     builder.addRuleDefinition(new BaseRuleClasses.BinaryBaseRule());
     builder.addRuleDefinition(new BaseRuleClasses.TestBaseRule());
     builder.addRuleDefinition(new BaseRuleClasses.ErrorRule());
-    builder.addNativeProvider(NativeProvider.STRUCT);
   }
 
   @Override

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
@@ -1180,17 +1180,17 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   private static Info makeStruct(String field, Object value) {
-    return NativeProvider.STRUCT.create(ImmutableMap.of(field, value), "no field '%'");
+    return StructProvider.STRUCT.create(ImmutableMap.of(field, value), "no field '%'");
   }
 
   private static Info makeBigStruct(Environment env) {
     // struct(a=[struct(x={1:1}), ()], b=(), c={2:2})
-    return NativeProvider.STRUCT.create(
+    return StructProvider.STRUCT.create(
         ImmutableMap.<String, Object>of(
             "a",
                 MutableList.<Object>of(
                     env,
-                    NativeProvider.STRUCT.create(
+                    StructProvider.STRUCT.create(
                         ImmutableMap.<String, Object>of(
                             "x", SkylarkDict.<Object, Object>of(env, 1, 1)),
                         "no field '%s'"),
@@ -1311,9 +1311,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "data = struct(x = 1)"
     );
     Info data = (Info) lookup("data");
-    assertThat(NativeProvider.STRUCT.isExported()).isTrue();
-    assertThat(data.getProvider()).isEqualTo(NativeProvider.STRUCT);
-    assertThat(data.getProvider().getKey()).isEqualTo(NativeProvider.STRUCT.getKey());
+    assertThat(StructProvider.STRUCT.isExported()).isTrue();
+    assertThat(data.getProvider()).isEqualTo(StructProvider.STRUCT);
+    assertThat(data.getProvider().getKey()).isEqualTo(StructProvider.STRUCT.getKey());
   }
 
   @Test
@@ -1655,5 +1655,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     MutableList<Object> params = (MutableList<Object>) context.getAttr().getValue("params");
     assertThat(params.get(0)).isEqualTo("NoneType");
     assertThat(params.get(1)).isEqualTo("NoneType");
+  }
+
+  @Test
+  public void testTypeOfStruct() throws Exception {
+    eval("p = type(struct)", "s = type(struct())");
+
+    assertThat(lookup("p")).isEqualTo("Provider");
+    assertThat(lookup("s")).isEqualTo("struct");
   }
 }

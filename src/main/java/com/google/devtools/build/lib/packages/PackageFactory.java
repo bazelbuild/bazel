@@ -1514,7 +1514,7 @@ public final class PackageFactory {
         builder.put(function.getName(), function);
       }
     }
-    return NativeProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
+    return StructProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
   }
 
   private void buildPkgEnv(
