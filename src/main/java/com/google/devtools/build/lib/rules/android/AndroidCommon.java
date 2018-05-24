@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
@@ -102,6 +103,18 @@ public class AndroidCommon {
 
   public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
       RuleContext ruleContext, Mode mode, NativeProvider<T> key) {
+    IterablesChain.Builder<T> builder = IterablesChain.builder();
+    AttributeMap attributes = ruleContext.attributes();
+    for (String attr : TRANSITIVE_ATTRIBUTES) {
+      if (attributes.has(attr, BuildType.LABEL_LIST)) {
+        builder.add(ruleContext.getPrerequisites(attr, mode, key));
+      }
+    }
+    return builder.build();
+  }
+
+  public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
+      RuleContext ruleContext, Mode mode, BuiltinProvider<T> key) {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : TRANSITIVE_ATTRIBUTES) {

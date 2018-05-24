@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -242,19 +241,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             + "See the <a href='../rules.$DOC_EXT'>rules</a> page for more information."
   )
   private static final NativeProvider<?> defaultInfo = DefaultInfo.PROVIDER;
-
-  @SkylarkSignature(
-    name = "OutputGroupInfo",
-    returnType = Provider.class,
-    doc =
-        "A provider that indicates what output groups a rule has.<br>"
-            + "Instantiate this provider with <br>"
-            + "<pre class=language-python>"
-            + "OutputGroupInfo(group1 = &lt;files&gt;, group2 = &lt;files&gt;...)</pre>"
-            + "See <a href=\"../rules.$DOC_EXT#requesting-output-files\">Requesting output files"
-            + "</a> for more information."
-  )
-  private static final NativeProvider<?> outputGroupInfo = OutputGroupInfo.SKYLARK_CONSTRUCTOR;
 
   // TODO(bazel-team): Move to a "testing" namespace module. Normally we'd pass an objectType
   // to @SkylarkSignature to do this, but that doesn't work here because we're exposing an already-
