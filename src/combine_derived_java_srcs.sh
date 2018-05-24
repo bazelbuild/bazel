@@ -18,18 +18,14 @@ set -eu
 
 # Combine src jars to a single archive containing all the source files.
 
-
 if [[ "$1" = /* ]]; then
     JAVABASE="$1"
-    shift
-    OUTPUT="$1"
-    shift
 else
     JAVABASE="${PWD}/$1"
-    shift
-    OUTPUT="${PWD}/$1"
-    shift
 fi
+shift
+OUTPUT="${PWD}/$1"
+shift
 
 TMP_DIR=${TMPDIR:-/tmp}
 PACKAGE_DIR="$(mktemp -d ${TMP_DIR%%/}/bazel.XXXXXXXX)"
