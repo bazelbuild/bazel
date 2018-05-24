@@ -896,7 +896,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         supportsConstraintChecking,
         /*requiredToolchains=*/ ImmutableSet.of(),
         /*supportsPlatforms=*/ true,
-        ExecutionPlatformConstraintsAllowed.NONE,
+        ExecutionPlatformConstraintsAllowed.PER_RULE,
         /* executionPlatformConstraints= */ ImmutableSet.of(),
         ImmutableList.copyOf(attributes));
   }
@@ -1046,32 +1046,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertThat(ruleClass.getRequiredToolchains())
         .containsExactly(
             Label.parseAbsolute("//toolchain:tc1"), Label.parseAbsolute("//toolchain:tc2"));
-  }
-
-  @Test
-  public void testExecutionPlatformConstraints_none() {
-    RuleClass.Builder ruleClassBuilder =
-        new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
-            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .add(attr("tags", STRING_LIST))
-            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.NONE);
-
-    RuleClass ruleClass = ruleClassBuilder.build();
-    assertThat(ruleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isFalse();
-  }
-
-  @Test
-  public void testExecutionPlatformConstraints_none_constraintsCauseError() throws Exception {
-    RuleClass.Builder ruleClassBuilder =
-        new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
-            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .add(attr("tags", STRING_LIST))
-            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.NONE);
-
-    ruleClassBuilder.addExecutionPlatformConstraints(
-        Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"));
-
-    assertThrows(IllegalArgumentException.class, () -> ruleClassBuilder.build());
   }
 
   @Test

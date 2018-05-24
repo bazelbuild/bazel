@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
@@ -398,7 +399,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     execConstraintLabels.addAll(rule.getRuleClassObject().getExecutionPlatformConstraints());
 
-    if (rule.getRuleClassObject().executionPlatformConstraintsAllowed().allowsTarget()
+    if (rule.getRuleClassObject().executionPlatformConstraintsAllowed() == ExecutionPlatformConstraintsAllowed.PER_TARGET
         && mapper.has(PlatformSemantics.EXEC_COMPATIBLE_WITH_ATTR)) {
       execConstraintLabels.addAll(
           mapper.get(PlatformSemantics.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));

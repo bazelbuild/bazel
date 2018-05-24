@@ -203,34 +203,18 @@ public class RuleClass {
   /** Describes whether a rule implementation allows additional execution platform constraints. */
   public enum ExecutionPlatformConstraintsAllowed {
     /** The rule implementation does not allow any additional execution platform constraints. */
-    NONE(false, false),
+    NONE,
     /**
      * Allows additional execution platform constraints to be added in the rule definition,
      * which apply to all targets of that rule.
      */
-    PER_RULE(true, false),
+    PER_RULE,
     /**
      * Users are allowed to specify additional execution platform constraints for each target, using
      * the 'exec_compatible_with' attribute. This also allows setting constraints in the rule
      * definition, like PER_RULE.
      */
-    PER_TARGET(true, true);
-
-    private final boolean allowsRule;
-    private final boolean allowsTarget;
-
-    ExecutionPlatformConstraintsAllowed(boolean allowsRule, boolean allowsTarget) {
-      this.allowsRule = allowsRule;
-      this.allowsTarget = allowsTarget;
-    }
-
-    public boolean allowsRule() {
-      return allowsRule;
-    }
-
-    public boolean allowsTarget() {
-      return allowsTarget;
-    }
+    PER_TARGET;
   }
 
   /**
@@ -744,13 +728,7 @@ public class RuleClass {
       if (type == RuleClassType.PLACEHOLDER) {
         Preconditions.checkNotNull(ruleDefinitionEnvironmentHashCode, this.name);
       }
-      if (executionPlatformConstraintsAllowed == ExecutionPlatformConstraintsAllowed.NONE) {
-        Preconditions.checkArgument(
-            executionPlatformConstraints.isEmpty(),
-            "Rule %s does not allow setting execution platform constraints",
-            name);
-      } else if (executionPlatformConstraintsAllowed
-          == ExecutionPlatformConstraintsAllowed.PER_TARGET) {
+      if (executionPlatformConstraintsAllowed == ExecutionPlatformConstraintsAllowed.PER_TARGET) {
         // Only rules that allow per target execution constraints need this attribute.
         if (!this.attributes.containsKey("exec_compatible_with")) {
           this.add(
