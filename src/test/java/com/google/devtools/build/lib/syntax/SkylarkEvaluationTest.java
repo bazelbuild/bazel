@@ -510,14 +510,35 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     }
   }
 
-  @SkylarkModule(name = "MockMultipleMethodClass", doc = "")
-  static final class MockMultipleMethodClass {
-    @SuppressWarnings("unused")
-    @SkylarkCallable(documented = false)
-    public void method(Object o) {}
-    @SuppressWarnings("unused")
-    @SkylarkCallable(documented = false)
-    public void method(String i) {}
+  @SkylarkModule(name = "ParamterizedMock", doc = "")
+  static interface ParameterizedApi<ObjectT> {
+    @SkylarkCallable(
+        name = "method",
+        documented = false,
+        parameters = {
+            @Param(name = "foo", named = true, positional = true, type = Object.class),
+        }
+    )
+    public ObjectT method(ObjectT o);
+  }
+
+  static final class ParameterizedMock implements ParameterizedApi<String> {
+    @Override
+    public String method(String o) {
+      return o;
+    }
+  }
+
+  // Verifies that a method implementation overriding a parameterized annotated interface method
+  // is still treated as skylark-callable. Concretely, method() below should be treated as
+  // callable even though its method signature isn't an *exact* match of the annotated method
+  // declaration, due to the interface's method declaration being generic.
+  @Test
+  public void testParameterizedMock() throws Exception {
+    new SkylarkTest()
+        .update("mock", new ParameterizedMock())
+        .setUp("result = mock.method('bar')")
+        .testLookup("result", "bar");
   }
 
   @Test
@@ -997,15 +1018,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .testIfExactError(
             "type 'int' has no method bad(string, string, string)", "s = 3.bad('a', 'b', 'c')");
-  }
-
-  @Test
-  public void testJavaCallsMultipleMethod() throws Exception {
-    new SkylarkTest()
-        .update("mock", new MockMultipleMethodClass())
-        .testIfExactError(
-            "type 'MockMultipleMethodClass' has multiple matches for function method(string)",
-            "s = mock.method('string')");
   }
 
   @Test

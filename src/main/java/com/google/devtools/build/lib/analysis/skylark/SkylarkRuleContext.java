@@ -690,7 +690,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public Artifact newFile(String filename) throws EvalException {
+  public Artifact newFileFromFilename(String filename) throws EvalException {
     checkDeprecated("ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
     checkMutable("new_file");
     return actionFactory.declareFile(filename, Runtime.NONE);
@@ -698,13 +698,14 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   // Kept for compatibility with old code.
   @Override
-  public Artifact newFile(FileRootApi root, String filename) throws EvalException {
+  public Artifact newFileFromRoot(FileRootApi root, String filename) throws EvalException {
     checkMutable("new_file");
     return ruleContext.getPackageRelativeArtifact(filename, (ArtifactRoot) root);
   }
 
   @Override
-  public Artifact newFile(FileApi baseArtifact, String newBaseName) throws EvalException {
+  public Artifact newFileFromBaseFile(FileApi baseArtifact, String newBaseName)
+      throws EvalException {
     checkDeprecated("ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
     checkMutable("new_file");
     return actionFactory.declareFile(newBaseName, baseArtifact);
@@ -712,7 +713,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   // Kept for compatibility with old code.
   @Override
-  public Artifact newFile(FileRootApi root, FileApi baseArtifact, String suffix)
+  public Artifact newFileFromRootAndBase(FileRootApi root, FileApi baseArtifact, String suffix)
       throws EvalException {
     checkMutable("new_file");
     PathFragment original = ((Artifact) baseArtifact).getRootRelativePath();

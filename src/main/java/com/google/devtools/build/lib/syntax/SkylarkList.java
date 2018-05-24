@@ -441,7 +441,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         useLocation = true,
         useEnvironment = true
     )
-    public Runtime.NoneType remove(Object x, Location loc, Environment env)
+    public Runtime.NoneType removeObject(Object x, Location loc, Environment env)
         throws EvalException {
       for (int i = 0; i < size(); i++) {
         if (get(i).equals(x)) {

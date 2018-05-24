@@ -93,24 +93,18 @@ public class SkylarkInterfaceUtils {
 
   /**
    * Returns the {@link SkylarkCallable} annotation for the given method, if it exists, and
-   * null otherwise. The first annotation of an overridden version of the method that is found
-   * will be returned, starting with {@code classObj} and following its base classes and
-   * interfaces recursively. This skips any method annotated inside a class that is not
-   * marked {@link SkylarkModule} or is not a subclass of a class or interface marked
-   * {@link SkylarkModule}.
+   * null otherwise.
+   *
+   * <p>Note that the annotation may be defined on a supermethod, rather than directly on the given
+   * method.
+   *
+   * <p>{@code classObj} is the class on which the given method is defined.
    */
   @Nullable
   public static SkylarkCallable getSkylarkCallable(Class<?> classObj, Method method) {
-    try {
-      Method superMethod = classObj.getMethod(method.getName(), method.getParameterTypes());
-      boolean classAnnotatedForCallables = getParentWithSkylarkModule(classObj) != null
-          || hasSkylarkGlobalLibrary(classObj);
-      if (classAnnotatedForCallables
-          && superMethod.isAnnotationPresent(SkylarkCallable.class)) {
-        return superMethod.getAnnotation(SkylarkCallable.class);
-      }
-    } catch (NoSuchMethodException e) {
-      // The class might not have the specified method, so an exception is OK.
+    SkylarkCallable callable = getCallableOnClassMatchingSignature(classObj, method);
+    if (callable != null) {
+      return callable;
     }
     if (classObj.getSuperclass() != null) {
       SkylarkCallable annotation = getSkylarkCallable(classObj.getSuperclass(), method);
@@ -134,5 +128,57 @@ public class SkylarkInterfaceUtils {
   @Nullable
   public static SkylarkCallable getSkylarkCallable(Method method) {
     return getSkylarkCallable(method.getDeclaringClass(), method);
+  }
+
+  /**
+   * Returns the {@code SkylarkCallable} annotation corresponding to the given method of the given
+   * class, or null if there is no such annotation.
+   *
+   * <p>This method checks assignability instead of exact matches for purposes of generics. If
+   * Clazz has parameters BarT (extends BarInterface) and BazT (extends BazInterface), then
+   * foo(BarT, BazT) should match if the given method signature is foo(BarImpl, BazImpl). The
+   * signatures are in inexact match, but an "assignable" match.
+   */
+  @Nullable
+  private static SkylarkCallable getCallableOnClassMatchingSignature(
+      Class<?> classObj, Method signatureToMatch) {
+    // TODO(b/79877079): This method validates several invariants of @SkylarkCallable. These
+    // invariants should be verified in annotation processor or in test, and left out of this
+    // method.
+    Method[] methods = classObj.getDeclaredMethods();
+    Class<?>[] paramsToMatch = signatureToMatch.getParameterTypes();
+
+    SkylarkCallable callable = null;
+
+    for (Method method : methods) {
+      if (signatureToMatch.getName().equals(method.getName())
+          && method.isAnnotationPresent(SkylarkCallable.class)) {
+        Class<?>[] paramTypes = method.getParameterTypes();
+
+        if (paramTypes.length == paramsToMatch.length) {
+          for (int i = 0; i < paramTypes.length; i++) {
+            // This verifies assignability of the method signature to ensure this is not a
+            // coincidental overload. We verify assignability instead of matching exact parameter
+            // classes in order to match generic methods.
+            if (!paramTypes[i].isAssignableFrom(paramsToMatch[i])) {
+              throw new IllegalStateException(
+                  String.format(
+                      "Class %s has an incompatible overload of annotated method %s declared by %s",
+                      classObj, signatureToMatch.getName(), signatureToMatch.getDeclaringClass()));
+            }
+          }
+        }
+        if (callable == null) {
+          callable = method.getAnnotation(SkylarkCallable.class);
+        } else {
+          throw new IllegalStateException(
+              String.format(
+                  "Class %s has multiple overloaded methods named '%s' annotated "
+                      + "with @SkylarkCallable",
+                  classObj, signatureToMatch.getName()));
+        }
+      }
+    }
+    return callable;
   }
 }

@@ -315,10 +315,10 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       )
     }
   )
-  public FileApi newFile(String filename) throws EvalException;
+  public FileApi newFileFromFilename(String filename) throws EvalException;
 
-  @SkylarkCallable(documented = false)
-  public FileApi newFile(FileRootApi root, String filename) throws EvalException;
+  @SkylarkCallable(name = "new_file", documented = false)
+  public FileApi newFileFromRoot(FileRootApi root, String filename) throws EvalException;
 
   @SkylarkCallable(
     name = "new_file",
@@ -338,10 +338,10 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       )
     }
   )
-  public FileApi newFile(FileApi baseArtifact, String newBaseName) throws EvalException;
+  public FileApi newFileFromBaseFile(FileApi baseArtifact, String newBaseName) throws EvalException;
 
-  @SkylarkCallable(documented = false)
-  public FileApi newFile(FileRootApi root, FileApi baseArtifact, String suffix)
+  @SkylarkCallable(name = "new_file", documented = false)
+  public FileApi newFileFromRootAndBase(FileRootApi root, FileApi baseArtifact, String suffix)
       throws EvalException;
 
   @SkylarkCallable(
