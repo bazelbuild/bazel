@@ -39,8 +39,6 @@ import java.io.OutputStream;
 /** ChannelHandler for downloads. */
 final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
 
-  private long contentLength = -1;
-  private long bytesReceived;
   private OutputStream out;
   private boolean keepAlive = HttpVersion.HTTP_1_1.isKeepAliveDefault();
   private boolean downloadSucceeded;
@@ -86,25 +84,14 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
         out = new ByteArrayOutputStream();
       }
       keepAlive = HttpUtil.isKeepAlive((HttpResponse) msg);
-      if (HttpUtil.isContentLengthSet(response)) {
-        contentLength = HttpUtil.getContentLength(response);
-      }
-
-      if (!downloadSucceeded
-          && (contentLength == 0 || HttpUtil.isTransferEncodingChunked(response))) {
-        HttpException error = new HttpException(response, response.status().toString(), null);
-        failAndReset(error, ctx);
-        return;
-      }
     }
 
     if (msg instanceof HttpContent) {
       checkState(response != null, "content before headers");
 
       ByteBuf content = ((HttpContent) msg).content();
-      bytesReceived += content.readableBytes();
       content.readBytes(out, content.readableBytes());
-      if (bytesReceived == contentLength || msg instanceof LastHttpContent) {
+      if (msg instanceof LastHttpContent) {
         if (downloadSucceeded) {
           succeedAndReset(ctx);
         } else {
@@ -187,8 +174,6 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
         ctx.close();
       }
     } finally {
-      contentLength = -1;
-      bytesReceived = 0;
       out = null;
       keepAlive = HttpVersion.HTTP_1_1.isKeepAliveDefault();
       downloadSucceeded = false;
