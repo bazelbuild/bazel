@@ -734,8 +734,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void injectRemoteFile(
-        Artifact output, byte[] digest, long size, long modifiedTime, int locationIndex) {
+    public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
       throw new UnsupportedOperationException();
     }
 
