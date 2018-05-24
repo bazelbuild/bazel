@@ -33,6 +33,46 @@ public class SkylarkInterfaceUtils {
     }
   }
 
+  /**
+   * Returns the more specific class of two classes. Class x is more specific than class y
+   * if x is assignable to y. For example, of Integer.class and Object.class, Integer.class is more
+   * specific.
+   *
+   * <p>If either class is null, returns the other class.</p>
+   *
+   * <p>If the classes are identical, returns the class.</p>
+   *
+   * @throws IllegalArgumentException if neither class is assignable to the other
+   */
+  private static <T extends Annotation> ClassWithAnnotation<T> moreSpecificClass(
+      ClassWithAnnotation<T> x, ClassWithAnnotation<T> y) {
+    if (x == null) {
+      return y;
+    } else if (y == null) {
+      return x;
+    }
+    Class<?> xClass = x.klass;
+    Class<?> yClass = y.klass;
+    if (xClass.isAssignableFrom(yClass)) {
+      return y;
+    } else if (yClass.isAssignableFrom(xClass)) {
+      return x;
+    } else {
+      throw new IllegalArgumentException(String.format(
+          "Expected one of %s and %s to be assignable to each other",
+          xClass, yClass));
+    }
+  }
+
+  /**
+   * Searches a class or interface's class hierarchy for the given class annotation.
+   *
+   * <p>If the given class annotation appears multiple times within the class hierachy, this
+   * chooses the annotation on the most-specified class in the hierarchy.</p>
+   *
+   * @return a {@link ClassWithAnnotation} containing the best-fit annotation and the class
+   *     it was declared on
+   */
   @Nullable
   private static <T extends Annotation> ClassWithAnnotation<T> searchForClassAnnotation(
       Class<?> classObj,
@@ -40,20 +80,18 @@ public class SkylarkInterfaceUtils {
     if (classObj.isAnnotationPresent(annotationClass)) {
       return new ClassWithAnnotation<T>(classObj, classObj.getAnnotation(annotationClass));
     }
+    ClassWithAnnotation<T> bestCandidate = null;
+
     Class<?> superclass = classObj.getSuperclass();
     if (superclass != null) {
       ClassWithAnnotation<T> result = searchForClassAnnotation(superclass, annotationClass);
-      if (result != null) {
-        return result;
-      }
+      bestCandidate = moreSpecificClass(result, bestCandidate);
     }
     for (Class<?> interfaceObj : classObj.getInterfaces()) {
       ClassWithAnnotation<T> result = searchForClassAnnotation(interfaceObj, annotationClass);
-      if (result != null) {
-        return result;
-      }
+      bestCandidate = moreSpecificClass(result, bestCandidate);
     }
-    return null;
+    return bestCandidate;
   }
 
   /**

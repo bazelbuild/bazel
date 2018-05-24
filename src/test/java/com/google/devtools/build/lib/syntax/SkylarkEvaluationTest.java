@@ -477,6 +477,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     public Boolean isEmptyInterface(String str);
   }
 
+  @SkylarkModule(name = "MockSubClass", doc = "")
   static final class MockSubClass extends Mock implements MockInterface {
     @Override
     public Boolean isEmpty(String str) {

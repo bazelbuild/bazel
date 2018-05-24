@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
@@ -81,6 +82,65 @@ public class SkylarkInterfaceUtilsTest {
     public void foo() {}
   }
 
+  /**
+   * A mock class that implements two unrelated module interfaces. This is invalid as the skylark
+   * type of such an object is ambiguous.
+   */
+  public static class ImplementsTwoUnrelatedInterfaceModules
+      implements MockInterfaceB1, MockInterfaceB2 {
+    @Override
+    public void foo() {}
+    @Override
+    public void bar() {}
+    @Override
+    public void baz() {}
+    @Override
+    public void qux() {}
+  }
+
+  /** ClassAModule test class */
+  @SkylarkModule(name = "ClassAModule", doc = "ClassAModule")
+  public static class ClassAModule {}
+
+  /** ExtendsClassA test class */
+  public static class ExtendsClassA extends ClassAModule {}
+
+  /** InterfaceBModule test interface */
+  @SkylarkModule(name = "InterfaceBModule", doc = "InterfaceBModule")
+  public static interface InterfaceBModule {}
+
+  /** ExtendsInterfaceB test interface */
+  public static interface ExtendsInterfaceB extends InterfaceBModule {}
+
+  /**
+   * A mock class which has two transitive superclasses ({@link ClassAModule} and
+   * {@link InterfaceBModule})) which are unrelated modules. This is invalid as the skylark type
+   * of such an object is ambiguous.
+   *
+   * In other words:
+   *   AmbiguousClass -> ClassAModule
+   *   AmbiguousClass -> InterfaceBModule
+   *   ... but ClassAModule and InterfaceBModule have no relation.
+   */
+  public static class AmbiguousClass extends ExtendsClassA implements ExtendsInterfaceB {}
+
+  /** SubclassOfBoth test interface */
+  @SkylarkModule(name = "SubclassOfBoth", doc = "SubclassOfBoth")
+  public static class SubclassOfBoth extends ExtendsClassA implements ExtendsInterfaceB {}
+
+  /**
+   * A mock class similar to {@link AmbiugousClass} in that it has two separate superclass-paths
+   * to skylark modules, but is resolvable.
+   *
+   * Concretely:
+   *   UnambiguousClass -> SubclassOfBoth
+   *   UnambiguousClass -> InterfaceBModule
+   *   SubclassOfBoth -> InterfaceBModule
+   *
+   * ... so UnambiguousClass is of type SubclassOfBoth.
+   */
+  public static class UnambiguousClass extends SubclassOfBoth implements ExtendsInterfaceB {}
+
   /** MockClassZ */
   public static class MockClassZ {
   }
@@ -128,6 +188,27 @@ public class SkylarkInterfaceUtilsTest {
     Class<?> cls = SkylarkInterfaceUtils.getParentWithSkylarkModule(MockClassZ.class);
     assertThat(ann).isNull();
     assertThat(cls).isNull();
+  }
+
+  @Test
+  public void testGetSkylarkModuleAmbiguous() throws Exception {
+    assertThrows(IllegalArgumentException.class,
+        () -> SkylarkInterfaceUtils.getSkylarkModule(ImplementsTwoUnrelatedInterfaceModules.class));
+  }
+
+  @Test
+  public void testGetSkylarkModuleTransitivelyAmbiguous() throws Exception {
+    assertThrows(IllegalArgumentException.class,
+        () -> SkylarkInterfaceUtils.getSkylarkModule(AmbiguousClass.class));
+  }
+
+  @Test
+  public void testGetSkylarkModuleUnambiguousComplex() throws Exception {
+    assertThat(SkylarkInterfaceUtils.getSkylarkModule(SubclassOfBoth.class))
+        .isEqualTo(SubclassOfBoth.class.getAnnotation(SkylarkModule.class));
+
+    assertThat(SkylarkInterfaceUtils.getSkylarkModule(UnambiguousClass.class))
+        .isEqualTo(SubclassOfBoth.class.getAnnotation(SkylarkModule.class));
   }
 
   @Test

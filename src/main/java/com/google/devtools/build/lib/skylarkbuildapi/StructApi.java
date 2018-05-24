@@ -80,7 +80,7 @@ public interface StructApi extends SkylarkValue {
    * Callable Provider for new struct objects.
    */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
-  public interface StructProviderApi {
+  public interface StructProviderApi extends ProviderApi {
 
     @SkylarkCallable(
         name = "struct",
