@@ -35,7 +35,7 @@ def _clone_or_update(ctx):
     shallow='--shallow-since=%s' % ctx.attr.shallow_since
 
   if (ctx.attr.verbose):
-    print('git.bzl: Cloning or updating%s repository %s using strip_prefix of [%s]' %
+    print('git.bzl: Cloning or updating %s repository %s using strip_prefix of [%s]' %
     (' (%s)' % shallow if shallow else '',
      ctx.name,
      ctx.attr.strip_prefix if ctx.attr.strip_prefix else 'None',
@@ -188,11 +188,11 @@ Args:
   commit: specific commit to be checked out
     Either tag or commit must be specified.
 
-  shallow_since: an optional date, not after the specified commit; the
-    argument is not allowed if a tag is specified (which allows cloning
-    with depth 1). Setting such a date close to the specified commit
-    allows for a more shallow clone of the repository, saving bandwith and
-    wall-clock time.
+  shallow_since: an optional date in the form YYYY-MM-DD, not after
+    the specified commit; the argument is not allowed if a tag is specified
+    (which allows cloning with depth 1). Setting such a date close to the
+    specified commit allows for a more shallow clone of the repository, saving
+    bandwith and wall-clock time.
 
   strip_prefix: A directory prefix to strip from the extracted files.
 
