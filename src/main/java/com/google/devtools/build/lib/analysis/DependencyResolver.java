@@ -403,8 +403,15 @@ public abstract class DependencyResolver {
 
       LateBoundDefault<?, ?> lateBoundDefault = attribute.getLateBoundDefault();
 
-      Collection<BuildOptions> splitOptions = getSplitOptions(attributeMap, attribute, ruleConfig);
-      if (!splitOptions.isEmpty() && !ruleConfig.isHostConfiguration()) {
+      boolean hasSplitTransition = false;
+      List<BuildOptions> splitOptions = null;
+      if (attribute.hasSplitConfigurationTransition()) {
+        splitOptions =
+            attribute.getSplitTransition(attributeMap).split(ruleConfig.getOptions());
+        hasSplitTransition = !SplitTransition.equals(ruleConfig.getOptions(), splitOptions);
+      }
+
+      if (hasSplitTransition && !ruleConfig.isHostConfiguration()) {
         // Late-bound attribute with a split transition:
         // Since we want to get the same results as TransitionResolver.evaluateTransition (but
         // skip it since we've already applied the split), we want to make sure this logic
@@ -446,24 +453,6 @@ public abstract class DependencyResolver {
               label, HostTransition.INSTANCE, AspectCollection.EMPTY);
       dependencies.add(dependency);
     }
-  }
-
-  /**
-   * Returns the BuildOptions if the rule's attribute triggers a split in this configuration, or
-   * the empty collection if the attribute does not trigger a split transition or if the split
-   * transition does not apply.
-   *
-   * <p>Even though the attribute may have a split, splits don't have to apply in every
-   * configuration (see {@link SplitTransition#split}).
-   */
-  private static Collection<BuildOptions> getSplitOptions(ConfiguredAttributeMapper attributeMap,
-      Attribute attribute,
-      BuildConfiguration ruleConfig) {
-    if (!attribute.hasSplitConfigurationTransition()) {
-      return ImmutableList.<BuildOptions>of();
-    }
-    SplitTransition transition = attribute.getSplitTransition(attributeMap);
-    return transition.split(ruleConfig.getOptions());
   }
 
   /**
@@ -843,7 +832,7 @@ public abstract class DependencyResolver {
     }
 
     @Override
-    public BuildOptions apply(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options) {
       return toOptions;
     }
   }

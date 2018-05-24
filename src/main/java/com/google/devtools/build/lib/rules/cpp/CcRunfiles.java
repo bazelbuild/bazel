@@ -19,9 +19,12 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcRunfilesApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /**
- * Runfiles provider for C++ targets.
+ * Runfiles for C++ targets.
  *
  * <p>Contains two {@link Runfiles} objects: one for the statically linked binary and one for the
  * dynamically linked binary. Both contain dynamic libraries needed at runtime and data
@@ -29,7 +32,13 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
  */
 @Immutable
 @AutoCodec
-public final class CcRunfiles {
+@SkylarkModule(
+    name = "cc_runfiles",
+    category = SkylarkModuleCategory.NONE,
+    doc =
+        "CC runfiles. Separated into files needed for linking statically and files needed for "
+            + "linking dynamically.")
+public final class CcRunfiles implements CcRunfilesApi {
 
   private final Runfiles runfilesForLinkingStatically;
   private final Runfiles runfilesForLinkingDynamically;
@@ -40,10 +49,12 @@ public final class CcRunfiles {
     this.runfilesForLinkingDynamically = runfilesForLinkingDynamically;
   }
 
+  @Override
   public Runfiles getRunfilesForLinkingStatically() {
     return runfilesForLinkingStatically;
   }
 
+  @Override
   public Runfiles getRunfilesForLinkingDynamically() {
     return runfilesForLinkingDynamically;
   }

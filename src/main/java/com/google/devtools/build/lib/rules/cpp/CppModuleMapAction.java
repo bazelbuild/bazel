@@ -140,7 +140,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
                 "private",
                 artifact.getExecPath(),
                 leadingPeriods,
-                /*canCompile=*/ true,
+                /*canCompile=*/ false,
                 deduper,
                 /*isUmbrellaHeader*/ false);
           }

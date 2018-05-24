@@ -96,7 +96,7 @@ public class AppleCcToolchain extends CcToolchain {
             SDK_FRAMEWORK_DIR_KEY, AppleToolchain.sdkFrameworkDir(platform, ruleContext))
         .addStringVariable(
             PLATFORM_DEVELOPER_FRAMEWORK_DIR,
-            AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
+            AppleToolchain.platformFrameworkDirFromConfig(appleConfiguration))
         .addStringVariable(
             XCODE_VERISON_OVERRIDE_VALUE_KEY,
             appleEnv.getOrDefault(AppleConfiguration.XCODE_VERSION_ENV_NAME, ""))

@@ -102,7 +102,7 @@ public class AndroidAssets {
       }
     }
 
-    return new AndroidAssets(assets.build(), assetRoots.build());
+    return new AndroidAssets(assets.build(), assetRoots.build(), assetsDir.getPathString());
   }
 
   @Nullable
@@ -135,24 +135,31 @@ public class AndroidAssets {
   static AndroidAssets forAarImport(SpecialArtifact assetsDir) {
     Preconditions.checkArgument(assetsDir.isTreeArtifact());
     return new AndroidAssets(
-        ImmutableList.of(assetsDir), ImmutableList.of(assetsDir.getExecPath().getChild("assets")));
+        ImmutableList.of(assetsDir),
+        ImmutableList.of(assetsDir.getExecPath().getChild("assets")),
+        assetsDir.getExecPathString());
   }
 
   public static AndroidAssets empty() {
-    return new AndroidAssets(ImmutableList.of(), ImmutableList.of());
+    return new AndroidAssets(ImmutableList.of(), ImmutableList.of(), /* assetDir = */ null);
   }
 
   private final ImmutableList<Artifact> assets;
   private final ImmutableList<PathFragment> assetRoots;
+  private final @Nullable String assetDir;
 
   AndroidAssets(AndroidAssets other) {
-    this(other.assets, other.assetRoots);
+    this(other.assets, other.assetRoots, other.assetDir);
   }
 
   @VisibleForTesting
-  AndroidAssets(ImmutableList<Artifact> assets, ImmutableList<PathFragment> assetRoots) {
+  AndroidAssets(
+      ImmutableList<Artifact> assets,
+      ImmutableList<PathFragment> assetRoots,
+      @Nullable String assetDir) {
     this.assets = assets;
     this.assetRoots = assetRoots;
+    this.assetDir = assetDir;
   }
 
   public ImmutableList<Artifact> getAssets() {
@@ -161,6 +168,10 @@ public class AndroidAssets {
 
   public ImmutableList<PathFragment> getAssetRoots() {
     return assetRoots;
+  }
+
+  public @Nullable String getAssetDirAsString() {
+    return assetDir;
   }
 
   public ParsedAndroidAssets parse(AndroidDataContext dataContext) throws InterruptedException {

@@ -22,6 +22,7 @@ import java.util.Collection;
  * that internally is just a null pointer.
  */
 public class NullConfiguration implements BuildEvent {
+  public static final NullConfiguration INSTANCE = new NullConfiguration();
 
   @Override
   public BuildEventId getEventId() {

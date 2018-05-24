@@ -950,7 +950,7 @@ public final class CcCompilationHelper {
     ccCompilationContextBuilder.addDeclaredIncludeSrcs(additionalInputs);
     ccCompilationContextBuilder.addNonCodeInputs(additionalInputs);
     ccCompilationContextBuilder.addModularHdrs(publicHeaders.getHeaders());
-    ccCompilationContextBuilder.addModularHdrs(privateHeaders);
+    ccCompilationContextBuilder.addTextualHdrs(privateHeaders);
     ccCompilationContextBuilder.addTextualHdrs(publicTextualHeaders);
     ccCompilationContextBuilder.addPregreppedHeaders(
         CppHelper.createExtractInclusions(ruleContext, semantics, publicHeaders.getHeaders()));

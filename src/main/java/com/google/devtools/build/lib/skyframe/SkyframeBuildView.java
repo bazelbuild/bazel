@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.LegacyAnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
@@ -48,6 +49,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -331,6 +334,7 @@ public final class SkyframeBuildView {
       Exception cause = errorInfo.getException();
       Label analysisRootCause = null;
       BuildEventId configuration = null;
+      Iterable<Cause> rootCauses;
       if (cause instanceof ConfiguredValueCreationException) {
         ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) cause;
         for (Label rootCause : ctCause.getRootCauses()) {
@@ -338,24 +342,35 @@ public final class SkyframeBuildView {
           eventBus.post(new LoadingFailureEvent(topLevelLabel, rootCause));
         }
         analysisRootCause = ctCause.getAnalysisRootCause();
+        rootCauses = analysisRootCause != null
+            ? ImmutableList.of(new LabelCause(analysisRootCause))
+            : ImmutableList.copyOf(Iterables.transform(ctCause.getRootCauses(), LabelCause::new));
         configuration = ctCause.getConfiguration();
       } else if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
         analysisRootCause = maybeGetConfiguredTargetCycleCulprit(
             topLevelLabel, errorInfo.getCycleInfo());
+        // TODO(ulfjack): Report the dependency cycle.
+        rootCauses = analysisRootCause != null
+            ? ImmutableList.of(new LabelCause(analysisRootCause))
+            : ImmutableList.of();
       } else if (cause instanceof ActionConflictException) {
         ((ActionConflictException) cause).reportTo(eventHandler);
+        // TODO(ulfjack): Report the action conflict.
+        rootCauses = ImmutableList.of();
+      } else {
+        // TODO(ulfjack): Report something!
+        rootCauses = ImmutableList.of();
       }
       eventHandler.handle(
           Event.warn("errors encountered while analyzing target '"
               + topLevelLabel + "': it will not be built"));
+      ConfiguredTargetKey configuredTargetKey =
+          ConfiguredTargetKey.of(
+              topLevelLabel, label.getConfigurationKey(), label.isHostConfiguration());
       if (analysisRootCause != null) {
-        eventBus.post(
-            new AnalysisFailureEvent(
-                ConfiguredTargetKey.of(
-                    topLevelLabel, label.getConfigurationKey(), label.isHostConfiguration()),
-                configuration,
-                analysisRootCause));
+        eventBus.post(new LegacyAnalysisFailureEvent(configuredTargetKey, analysisRootCause));
       }
+      eventBus.post(new AnalysisFailureEvent(configuredTargetKey, configuration, rootCauses));
     }
 
     Collection<Exception> reportedExceptions = Sets.newHashSet();

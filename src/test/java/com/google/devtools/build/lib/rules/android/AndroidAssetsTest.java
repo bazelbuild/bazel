@@ -163,14 +163,16 @@ public class AndroidAssetsTest extends ResourceTestBase {
   private AndroidAssets getLocalAssets() {
     return new AndroidAssets(
         ImmutableList.of(getResource("asset_1"), getResource("asset_2")),
-        ImmutableList.of(PathFragment.create("asset_dir")));
+        ImmutableList.of(PathFragment.create("asset_dir")),
+        "asset_dir");
   }
 
   private ParsedAndroidAssets getDependencyAssets(RuleContext ruleContext, String depName) {
     return ParsedAndroidAssets.of(
         new AndroidAssets(
             ImmutableList.of(getResource(depName + "_asset_1"), getResource(depName + "_asset_2")),
-            ImmutableList.of(PathFragment.create(depName))),
+            ImmutableList.of(PathFragment.create(depName)),
+            depName),
         getResource("symbols_for_" + depName),
         ruleContext.getLabel());
   }

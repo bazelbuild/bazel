@@ -344,9 +344,6 @@ Otherwise, executables that are used at runtime (e.g. as part of a test) should
 be built for the target configuration. In this case, specify `cfg="target"` in
 the attribute.
 
-The configuration `"data"` is present for legacy reasons and should be used for
-the `data` attributes.
-
 ## <a name="fragments"></a> Configuration Fragments
 
 Rules may access [configuration fragments](lib/skylark-configuration-fragment.html)

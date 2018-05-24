@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Stack;
@@ -87,11 +89,18 @@ public final class Lexer {
   /** Last Token that was scanned. */
   private Token lastToken;
 
+  private final List<Comment> comments;
+
   // The number of unclosed open-parens ("(", '{', '[') at the current point in
   // the stream. Whitespace is handled differently when this is nonzero.
   private int openParenStackDepth = 0;
 
   private boolean containsErrors;
+  /**
+   * True after a NEWLINE token.
+   * In other words, we are outside an expression and we have to check the indentation.
+   */
+  private boolean checkIndentation;
 
   /**
    * Constructs a lexer which tokenizes the contents of the specified InputBuffer. Any errors during
@@ -104,12 +113,18 @@ public final class Lexer {
     this.pos = 0;
     this.eventHandler = eventHandler;
     this.locationInfo = new LocationInfo(input.getPath(), lineNumberTable);
+    this.checkIndentation = true;
+    this.comments = new ArrayList<>();
 
     indentStack.push(0);
   }
 
   public Lexer(ParserInputSource input, EventHandler eventHandler) {
     this(input, eventHandler, LineNumberTable.create(input.getContent(), input.getPath()));
+  }
+
+  List<Comment> getComments() {
+    return comments;
   }
 
   /**
@@ -216,18 +231,16 @@ public final class Lexer {
   }
 
   /**
-   * Parses an end-of-line sequence, handling statement indentation correctly.
+   * Parses an end-of-line sequence.
    *
    * <p>UNIX newlines are assumed (LF). Carriage returns are always ignored.
-   *
-   * <p>ON ENTRY: 'pos' is the index of the char after '\n'.
-   * ON EXIT: 'pos' is the index of the next non-space char after '\n'.
    */
   private void newline() {
     if (openParenStackDepth > 0) {
       newlineInsideExpression(); // in an expression: ignore space
     } else {
-      newlineOutsideExpression(); // generate NEWLINE/INDENT/OUTDENT tokens
+      checkIndentation = true;
+      addToken(new Token(TokenKind.NEWLINE, pos - 1, pos));
     }
   }
 
@@ -244,10 +257,6 @@ public final class Lexer {
   }
 
   private void newlineOutsideExpression() {
-    if (pos > 1) { // skip over newline at start of file
-      addToken(new Token(TokenKind.NEWLINE, pos - 1, pos));
-    }
-
     // we're in a stmt: suck up space at beginning of next line
     int indentLen = 0;
     while (pos < buffer.length) {
@@ -269,7 +278,7 @@ public final class Lexer {
         while (pos < buffer.length && c != '\n') {
           c = buffer[pos++];
         }
-        addToken(new Token(TokenKind.COMMENT, oldPos, pos - 1, bufferSlice(oldPos, pos - 1)));
+        makeComment(oldPos, pos - 1, bufferSlice(oldPos, pos - 1));
         indentLen = 0;
       } else { // printing character
         break;
@@ -707,6 +716,14 @@ public final class Lexer {
    * least one token will be added to the tokens queue.
    */
   private void tokenize() {
+    if (checkIndentation) {
+      checkIndentation = false;
+      newlineOutsideExpression(); // generate INDENT/OUTDENT tokens
+      if (!tokens.isEmpty()) {
+        return;
+      }
+    }
+
     while (pos < buffer.length) {
       if (tokenizeTwoChars()) {
         pos += 2;
@@ -837,7 +854,7 @@ public final class Lexer {
             pos++;
           }
         }
-        addToken(new Token(TokenKind.COMMENT, oldPos, pos, bufferSlice(oldPos, pos)));
+        makeComment(oldPos, pos, bufferSlice(oldPos, pos));
         break;
       }
       case '\'':
@@ -908,4 +925,7 @@ public final class Lexer {
     return new String(this.buffer, start, end - start);
   }
 
+  private void makeComment(int start, int end, String content) {
+    comments.add(ASTNode.setLocation(createLocation(start, end), new Comment(content)));
+  }
 }

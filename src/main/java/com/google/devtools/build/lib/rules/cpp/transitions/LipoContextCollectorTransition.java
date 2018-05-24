@@ -32,7 +32,7 @@ public class LipoContextCollectorTransition implements PatchTransition {
   private LipoContextCollectorTransition() {}
 
   @Override
-  public BuildOptions apply(BuildOptions options) {
+  public BuildOptions patch(BuildOptions options) {
     // If this target and its transitive closure don't have C++ options, there's no
     // LIPO context to change.
     if (!options.contains(CppOptions.class)) {

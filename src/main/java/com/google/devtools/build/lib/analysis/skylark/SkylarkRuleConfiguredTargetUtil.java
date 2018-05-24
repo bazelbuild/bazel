@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.DebugServerUtils;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
@@ -92,12 +93,19 @@ public final class SkylarkRuleConfiguredTargetUtil {
               .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
               .build(); // NB: loading phase functions are not available: this is analysis already,
       // so we do *not* setLoadingPhase().
+
+      final SkylarkRuleContext finalContext = skylarkRuleContext;
       Object target =
-          ruleImplementation.call(
-              /*args=*/ ImmutableList.of(skylarkRuleContext),
-              /*kwargs*/ ImmutableMap.of(),
-              /*ast=*/ null,
-              env);
+          DebugServerUtils.runWithDebuggingIfEnabled(
+              env,
+              () ->
+                  String.format("Target %s", ruleContext.getTarget().getLabel().getCanonicalForm()),
+              () ->
+                  ruleImplementation.call(
+                      /*args=*/ ImmutableList.of(finalContext),
+                      /*kwargs*/ ImmutableMap.of(),
+                      /*ast=*/ null,
+                      env));
 
       if (ruleContext.hasErrors()) {
         return null;

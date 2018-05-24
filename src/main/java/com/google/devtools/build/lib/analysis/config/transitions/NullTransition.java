@@ -25,7 +25,7 @@ public class NullTransition implements PatchTransition {
   }
 
   @Override
-  public BuildOptions apply(BuildOptions options) {
+  public BuildOptions patch(BuildOptions options) {
     throw new UnsupportedOperationException(
         "This is only referenced in a few places, so it's easier and more efficient to optimize "
         + "Blaze's transition logic in the presence of null transitions vs. actually call this "

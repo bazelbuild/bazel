@@ -258,9 +258,8 @@ public class CppHelper {
           toolchain.getLegacyMostlyStaticLinkFlags(
               config.getCompilationMode(), config.getLipoMode()));
     } else {
-      return toolchain
-          .getLegacyFullyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
-          .evaluate();
+      return toolchain.getLegacyFullyStaticLinkFlags(
+          config.getCompilationMode(), config.getLipoMode());
     }
   }
 
@@ -285,9 +284,8 @@ public class CppHelper {
               : toolchain.getLegacyDynamicLinkFlags(
                   config.getCompilationMode(), config.getLipoMode()));
     } else {
-      return toolchain
-          .getLegacyMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
-          .evaluate();
+      return toolchain.getLegacyMostlyStaticLinkFlags(
+          config.getCompilationMode(), config.getLipoMode());
     }
   }
 
@@ -307,9 +305,7 @@ public class CppHelper {
       return toolchain.getSharedLibraryLinkOptions(
           toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()));
     } else {
-      return toolchain
-          .getLegacyDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode())
-          .evaluate();
+      return toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode());
     }
   }
 

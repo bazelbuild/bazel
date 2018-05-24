@@ -376,6 +376,14 @@ public final class JavaInfo extends NativeInfo {
     return getProvider(JavaCompilationInfoProvider.class);
   }
 
+  @SkylarkCallable(
+      name = "runtime_output_jars",
+      doc = "Returns the runtime output jars provided by this Java target.",
+      structField = true)
+  public SkylarkList<Artifact> getRuntimeOutputJars() {
+    return SkylarkList.createImmutable(getDirectRuntimeJars());
+  }
+
   public ImmutableList<Artifact> getDirectRuntimeJars() {
     return directRuntimeJars;
   }

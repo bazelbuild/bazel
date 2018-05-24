@@ -467,9 +467,9 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("[    ] * 10", MutableList.empty())
         .testStatement("[1, 2] * 0", MutableList.empty())
         .testStatement("[1, 2] * -4", MutableList.empty())
-        .testStatement(" 2 * [1, 2]", MutableList.of(env, 1, 2, 1, 2))
+        .testStatement("2 * [1, 2]", MutableList.of(env, 1, 2, 1, 2))
         .testStatement("10 * []", MutableList.empty())
-        .testStatement(" 0 * [1, 2]", MutableList.empty())
+        .testStatement("0 * [1, 2]", MutableList.empty())
         .testStatement("-4 * [1, 2]", MutableList.empty());
   }
 
@@ -484,9 +484,9 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("(    ) * 10", Tuple.empty())
         .testStatement("(1, 2) * 0", Tuple.empty())
         .testStatement("(1, 2) * -4", Tuple.empty())
-        .testStatement(" 2 * (1, 2)", Tuple.of(1, 2, 1, 2))
+        .testStatement("2 * (1, 2)", Tuple.of(1, 2, 1, 2))
         .testStatement("10 * ()", Tuple.empty())
-        .testStatement(" 0 * (1, 2)", Tuple.empty())
+        .testStatement("0 * (1, 2)", Tuple.empty())
         .testStatement("-4 * (1, 2)", Tuple.empty());
   }
 

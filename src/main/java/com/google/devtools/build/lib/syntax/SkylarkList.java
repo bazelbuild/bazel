@@ -226,29 +226,19 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
 
     private final ArrayList<E> contents;
 
-    // Treat GlobList specially: external code depends on it.
-    // TODO(bazel-team): make data structures *and binary operators* extensible
-    // (via e.g. interface classes for each binary operator) so that GlobList
-    // can be implemented outside of the core of Skylark.
-    // TODO(bazel-team): move GlobList out of Skylark, into an extension.
-    @Nullable private GlobList<E> globList;
-
     /** Final except for {@link #unsafeShallowFreeze}; must not be modified any other way. */
     private Mutability mutability;
 
     private MutableList(
         ArrayList<E> rawContents,
-        @Nullable GlobList<E> globList,
         @Nullable Mutability mutability) {
       this.contents = Preconditions.checkNotNull(rawContents);
-      this.globList = globList;
       this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
     }
 
     /**
      * Creates an instance, taking ownership of the supplied {@link ArrayList}. This is exposed for
-     * performance reasons. May be used when the supplied list is certainly not a {@link GlobList}
-     * (should be enforced by type system) and the calling code will not modify the supplied list
+     * performance reasons. May be used when the calling code will not modify the supplied list
      * after calling (honor system).
      */
     static <T> MutableList<T> wrapUnsafe(@Nullable Environment env, ArrayList<T> rawContents) {
@@ -257,13 +247,12 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
 
     /**
      * Create an instance, taking ownership of the supplied {@link ArrayList}. This is exposed for
-     * performance reasons. May be used when the supplied list is certainly not a {@link GlobList}
-     * (enforced by type system as long as {@link GlobList} doesn't extend {@link ArrayList}) and
-     * the calling code will not modify the supplied list after calling (honor system).
+     * performance reasons. May be used when the calling code will not modify the supplied list
+     * after calling (honor system).
      */
     static <T> MutableList<T> wrapUnsafe(
         @Nullable Mutability mutability, ArrayList<T> rawContents) {
-      return new MutableList<>(rawContents, /*globList=*/ null, mutability);
+      return new MutableList<>(rawContents, mutability);
     }
 
     /**
@@ -286,12 +275,10 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
      * Returns a {@code MutableList} whose items are given by an iterable and which has the given
      * {@link Mutability}. If {@code mutability} is null, the list is immutable.
      */
-    @SuppressWarnings("unchecked")  // GlobList cast.
     public static <T> MutableList<T> copyOf(
         @Nullable Mutability mutability, Iterable<? extends T> contents) {
       return new MutableList<>(
           Lists.newArrayList(contents),
-          contents instanceof GlobList ? (GlobList<T>) contents : null,
           mutability);
     }
 
@@ -312,10 +299,9 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
      * {@link Environment}. If {@code env} is null, the list is immutable.
      */
     public static <T> MutableList<T> of(@Nullable Environment env, T... contents) {
-      // Safe since it's definitely not a GlobList, and we're taking a copy of the input.
+      // Safe since we're taking a copy of the input.
       return MutableList.wrapUnsafe(
-          env == null ? null : env.mutability(),
-          Lists.newArrayList(contents));
+          env == null ? null : env.mutability(), Lists.newArrayList(contents));
     }
 
     @Override
@@ -327,17 +313,6 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     public void unsafeShallowFreeze() {
       Mutability.Freezable.checkUnsafeShallowFreezePrecondition(this);
       this.mutability = Mutability.IMMUTABLE;
-    }
-
-    @Override
-    protected void checkMutable(Location loc, Mutability mutability) throws EvalException {
-      super.checkMutable(loc, mutability);
-      globList = null; // If you're going to mutate it, invalidate the underlying GlobList.
-    }
-
-    /** Returns the {@link GlobList} if there is one, or else null. */
-    @Nullable public GlobList<E> getGlobList() {
-      return globList;
     }
 
     @Override
@@ -355,11 +330,6 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
       return contents;
     }
 
-    /** Returns the {@link GlobList} if there is one, otherwise the regular contents. */
-    private List<E> getGlobListOrContentsUnsafe() {
-      return globList != null ? globList : contents;
-    }
-
     /**
      * Returns a new {@code MutableList} that is the concatenation of two {@code MutableList}s. The
      * new list will have the given {@link Mutability}.
@@ -368,18 +338,11 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         MutableList<? extends T> left,
         MutableList<? extends T> right,
         Mutability mutability) {
-      if (left.getGlobList() == null && right.getGlobList() == null) {
-        ArrayList<T> newContents = new ArrayList<>(left.size() + right.size());
-        addAll(newContents, left.contents);
-        addAll(newContents, right.contents);
-        return new MutableList<>(newContents, /*globList=*/ null, mutability);
-      } else {
-        // Preserve glob criteria.
-        GlobList<T> newGlobList = GlobList.concat(
-            left.getGlobListOrContentsUnsafe(),
-            right.getGlobListOrContentsUnsafe());
-        return new MutableList<>(new ArrayList<>(newGlobList), newGlobList, mutability);
-      }
+
+      ArrayList<T> newContents = new ArrayList<>(left.size() + right.size());
+      addAll(newContents, left.contents);
+      addAll(newContents, right.contents);
+      return new MutableList<>(newContents, mutability);
     }
 
     /**  More efficient {@link List#addAll} replacement when both lists are {@link ArrayList}s. */
@@ -396,21 +359,11 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         return MutableList.wrapUnsafe(mutability, new ArrayList<>());
       }
 
-      if (getGlobList() == null) {
-        ArrayList<E> repeated = new ArrayList<>(this.size() * times);
-        for (int i = 0; i < times; i++) {
-          repeated.addAll(this);
-        }
-        return MutableList.wrapUnsafe(mutability, repeated);
-      } else {
-        // Preserve glob criteria.
-        List<? extends E> globs = getGlobListOrContentsUnsafe();
-        List<? extends E> original = globs;
-        for (int i = 1; i < times; i++) {
-          globs = GlobList.concat(globs, original);
-        }
-        return MutableList.copyOf(mutability, globs);
+      ArrayList<E> repeated = new ArrayList<>(this.size() * times);
+      for (int i = 0; i < times; i++) {
+        repeated.addAll(this);
       }
+      return MutableList.wrapUnsafe(mutability, repeated);
     }
 
     @Override

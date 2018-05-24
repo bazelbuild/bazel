@@ -692,7 +692,7 @@ public final class FeatureFlagManualTrimmingTest extends SkylarkTestCase {
 
     assertThat(
             ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:used_flag"))
-                .getValue())
+                .getFlagValue())
         .isEqualTo("default");
   }
 

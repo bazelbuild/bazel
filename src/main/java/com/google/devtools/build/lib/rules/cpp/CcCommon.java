@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
@@ -41,7 +42,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
@@ -64,6 +68,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -99,6 +104,9 @@ public final class CcCommon {
       }
     }
   };
+
+  private static final ImmutableList<PathFragment> WHITELISTED_PACKAGES =
+      ImmutableList.of(PathFragment.create("tools/build_defs"));
 
   public static final ImmutableSet<String> ALL_COMPILE_ACTIONS =
       ImmutableSet.of(
@@ -192,6 +200,39 @@ public final class CcCommon {
           entryOutputGroupBuilder.getKey(), entryOutputGroupBuilder.getValue().build());
     }
     return mergedOutputGroups;
+  }
+
+  public static void checkRuleWhitelisted(SkylarkRuleContext skylarkRuleContext)
+      throws EvalException {
+    RuleContext context = skylarkRuleContext.getRuleContext();
+    Rule rule = context.getRule();
+    RuleClass ruleClass = rule.getRuleClassObject();
+    Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
+    if (label != null
+        && WHITELISTED_PACKAGES
+            .stream()
+            .noneMatch(path -> label.getPackageFragment().startsWith(path))) {
+      throwWhiteListError(rule.getLocation(), label.getPackageFragment().toString());
+    }
+  }
+
+  public static void checkLocationWhitelisted(Location location) throws EvalException {
+    String bzlPath = location.getPath().toString();
+    if (WHITELISTED_PACKAGES.stream().noneMatch(path -> bzlPath.contains(path.toString()))) {
+      throwWhiteListError(location, bzlPath);
+    }
+  }
+
+  private static void throwWhiteListError(Location location, String bzlPath) throws EvalException {
+    String whitelistedPackages =
+        WHITELISTED_PACKAGES.stream().map(p -> p.toString()).collect(Collectors.joining(", "));
+    throw new EvalException(
+        location,
+        String.format(
+            "the C++ Skylark API is for the time being only allowed for rules in in '//%s/...'; "
+                + "but this is defined in '//%s'. Contact blaze-rules@google.com for more "
+                + "information.",
+            whitelistedPackages, bzlPath));
   }
 
   /**

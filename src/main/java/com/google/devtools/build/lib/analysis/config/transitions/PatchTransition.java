@@ -13,10 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config.transitions;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import java.util.List;
 
 /**
- * Interface for a configuration transition.
+ * A configuration transition that maps a single input {@link BuildOptions} to a single output
+ * {@link BuildOptions}.
+ *
+ * <p>Also see {@link SplitTransition}, which maps a single input {@link BuildOptions} to possibly
+ * multiple {@link BuildOptions}.
  *
  * <p>The concept is simple: given the input configuration's build options, the
  * transition does whatever it wants to them and returns the modified result.
@@ -33,7 +39,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
  *   private MyTransition() {}
  *
  *   {@literal @}Override
- *   public BuildOptions apply(BuildOptions options) {
+ *   public BuildOptions patch(BuildOptions options) {
  *     BuildOptions toOptions = options.clone();
  *     // Change some setting on toOptions
  *     return toOptions;
@@ -48,14 +54,24 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
  * {@link com.google.devtools.build.lib.analysis.config.BuildOptions} doesn't currently
  * enforce immutability. So care must be taken not to modify the wrong instance.
  */
+@FunctionalInterface
 public interface PatchTransition extends ConfigurationTransition {
-
   /**
    * Applies the transition.
    *
-   * @param options the options representing the input configuration to this transition. DO NOT
-   *     MODIFY THIS VARIABLE WITHOUT CLONING IT FIRST.
+   * @param options the options representing the input configuration to this transition. <b>DO NOT
+   *     MODIFY THIS VARIABLE WITHOUT CLONING IT FIRST!</b>
    * @return the options representing the desired post-transition configuration
    */
-  BuildOptions apply(BuildOptions options);
+  BuildOptions patch(BuildOptions options);
+
+  @Override
+  default List<BuildOptions> apply(BuildOptions buildOptions) {
+    return ImmutableList.of(patch(buildOptions));
+  }
+
+  @Override
+  default String reasonForOverride() {
+    return "This is a fundamental transition modeling the simple, common case 1-1 options mapping";
+  }
 }

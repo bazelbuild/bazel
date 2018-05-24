@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -118,6 +119,10 @@ public class BazelJavaSemantics implements JavaSemantics {
   @Override
   public void checkForProtoLibraryAndJavaProtoLibraryOnSameProto(
       RuleContext ruleContext, JavaCommon javaCommon) {}
+
+  @Override
+  public void checkProtoDeps(
+      RuleContext ruleContext, Collection<? extends TransitiveInfoCollection> deps) {}
 
   private static final String JUNIT4_RUNNER = "org.junit.runner.JUnitCore";
 

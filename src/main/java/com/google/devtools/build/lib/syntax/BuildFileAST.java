@@ -193,6 +193,18 @@ public class BuildFileAST extends ASTNode {
    * @return true if no error occurred during execution.
    */
   public boolean exec(Environment env, EventHandler eventHandler) throws InterruptedException {
+    try {
+      // Handles debugging BUILD file evaluation
+      // TODO(bazel-team): add support for debugging skylark file evaluation
+      return DebugServerUtils.runWithDebuggingIfEnabled(
+          env, () -> Thread.currentThread().getName(), () -> doExec(env, eventHandler));
+    } catch (EvalException e) {
+      // runWithDebuggingIfEnabled() shouldn't throw EvalException, since doExec() does not
+      throw new AssertionError("Unexpected EvalException", e);
+    }
+  }
+
+  private boolean doExec(Environment env, EventHandler eventHandler) throws InterruptedException {
     boolean ok = true;
     for (Statement stmt : statements) {
       if (!execTopLevelStatement(stmt, env, eventHandler)) {
@@ -222,7 +234,7 @@ public class BuildFileAST extends ASTNode {
   public boolean execTopLevelStatement(Statement stmt, Environment env,
       EventHandler eventHandler) throws InterruptedException {
     try {
-      new Eval(env).exec(stmt);
+      Eval.fromEnvironment(env).exec(stmt);
       return true;
     } catch (EvalException e) {
       // Do not report errors caused by a previous parsing error, as it has already been
@@ -367,7 +379,7 @@ public class BuildFileAST extends ASTNode {
    */
   @Nullable public Object eval(Environment env) throws EvalException, InterruptedException {
     Object last = null;
-    Eval evaluator = new Eval(env);
+    Eval evaluator = Eval.fromEnvironment(env);
     for (Statement statement : statements) {
       if (statement instanceof ExpressionStatement) {
         last = ((ExpressionStatement) statement).getExpression().eval(env);

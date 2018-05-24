@@ -14,20 +14,54 @@
 
 package com.google.devtools.build.lib.analysis.config.transitions;
 
+import com.google.common.base.Verify;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import java.util.List;
 
 /**
- * A configuration split transition; this should be used to transition to multiple configurations
- * simultaneously. Note that the corresponding rule implementations must have special support to
- * handle this.
+ * A configuration transition that maps a single input {@link BuildOptions} to possibly multiple
+ * output {@link BuildOptions}. This provides the ability to transition to multiple configurations
+ * simultaneously.
+ *
+ * <p>Also see {@link PatchTransition}, which maps a single input {@BuildOptions} to a single
+ * output. If your transition never needs to produce multiple outputs, you should use a
+ * {@link PatchTransition}.
+ *
+ * Corresponding rule implementations may require special support to handle this in an organized
+ * way (e.g. for determining which CPU corresponds to which dep for a multi-arch split dependency).
  */
 @ThreadSafety.Immutable
 @FunctionalInterface
 public interface SplitTransition extends ConfigurationTransition {
   /**
-   * Return the list of {@code BuildOptions} after splitting; empty if not applicable.
+   * Returns the list of {@code BuildOptions} after splitting, or the original options if this
+   * split is a noop.
+   *
+   * <p>Returning an empty or null list triggers a {@link RuntimeException}.
    */
   List<BuildOptions> split(BuildOptions buildOptions);
+
+  /**
+   * Returns true iff {@code option} and {@splitOptions} are equal.
+   *
+   * <p>This can be used to determine if a split is a noop.
+   */
+  static boolean equals(BuildOptions options, List<BuildOptions> splitOptions) {
+    return splitOptions.size() == 1 && Iterables.getOnlyElement(splitOptions).equals(options);
+  }
+
+  @Override
+  default List<BuildOptions> apply(BuildOptions buildOptions) {
+    List<BuildOptions> splitOptions = split(buildOptions);
+    Verify.verifyNotNull(splitOptions, "Split transition output may not be null");
+    Verify.verify(!splitOptions.isEmpty(), "Split transition output may not be empty");
+    return splitOptions;
+  }
+
+  @Override
+  default String reasonForOverride() {
+    return "This is a fundamental transition modeling the need for multiply configured deps";
+  }
 }

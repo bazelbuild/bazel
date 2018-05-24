@@ -400,7 +400,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
           matches = false;
           continue;
         }
-        if (!provider.getValue().equals(specifiedValue)) {
+        if (!provider.getFlagValue().equals(specifiedValue)) {
           matches = false;
         }
       }

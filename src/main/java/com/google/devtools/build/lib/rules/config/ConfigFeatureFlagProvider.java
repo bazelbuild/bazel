@@ -94,7 +94,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo {
       doc = "The current value of the flag in the flag's current configuration.",
       structField = true
   )
-  public String getValue() {
+  public String getFlagValue() {
     return value;
   }
 

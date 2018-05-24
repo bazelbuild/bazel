@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config.transitions;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -59,27 +58,17 @@ public class ComposingSplitTransition implements SplitTransition {
   @AutoCodec.Instantiator
   public ComposingSplitTransition(
       ConfigurationTransition transition1, ConfigurationTransition transition2) {
-    this.transition1 = verifySupported(transition1);
-    this.transition2 = verifySupported(transition2);
+    this.transition1 = transition1;
+    this.transition2 = transition2;
   }
 
   @Override
   public List<BuildOptions> split(BuildOptions buildOptions) {
     ImmutableList.Builder<BuildOptions> toOptions = ImmutableList.builder();
-    for (BuildOptions transition1Options : apply(buildOptions, transition1)) {
-      toOptions.addAll(apply(transition1Options, transition2));
+    for (BuildOptions transition1Options : transition1.apply(buildOptions)) {
+      toOptions.addAll(transition2.apply(transition1Options));
     }
     return toOptions.build();
-  }
-
-  /**
-   * Verifies support for the given transition type. Throws an {@link IllegalArgumentException} if
-   * unsupported.
-   */
-  private ConfigurationTransition verifySupported(ConfigurationTransition transition) {
-    Preconditions.checkArgument(transition instanceof PatchTransition
-        || transition instanceof SplitTransition);
-    return transition;
   }
 
   @Override
@@ -110,27 +99,5 @@ public class ComposingSplitTransition implements SplitTransition {
    */
   public ComposingPatchTransition asPatch() {
     return new ComposingPatchTransition(this);
-  }
-
-  /**
-   * Applies the given transition over the given {@link BuildOptions}, returns the result.
-   */
-  // TODO(gregce): move this somewhere more general. This isn't intrinsic to composed splits.
-  static List<BuildOptions> apply(BuildOptions fromOptions, ConfigurationTransition transition) {
-    if (transition instanceof PatchTransition) {
-      return ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(fromOptions));
-    } else if (transition instanceof SplitTransition) {
-      SplitTransition split = (SplitTransition) transition;
-      List<BuildOptions> splitOptions = split.split(fromOptions);
-      if (splitOptions.isEmpty()) {
-        return ImmutableList.<BuildOptions>of(fromOptions);
-      } else {
-        return splitOptions;
-      }
-    } else {
-      throw new IllegalStateException(
-          String.format("Unsupported composite transition type: %s",
-              transition.getClass().getName()));
-    }
   }
 }
