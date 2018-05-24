@@ -105,10 +105,10 @@ public final class RemoteModule extends BlazeModule {
         if (e instanceof CacheNotFoundException) {
           return true;
         }
-        if (!(e instanceof StatusException) && !(e instanceof StatusRuntimeException)) {
-          return false;
+        if (e instanceof StatusRuntimeException) {
+          return Status.fromThrowable(e).getCode() == Status.Code.FAILED_PRECONDITION;
         }
-        return Status.fromThrowable(e).getCode() == Status.Code.FAILED_PRECONDITION;
+        return false;
       };
 
   @Override
