@@ -196,16 +196,18 @@ class RemoteSpawnRunner implements SpawnRunner {
           .build();
       try {
         try {
-          // Upload the command and all the inputs into the remote cache.
-          remoteCache.ensureInputsPresent(repository, execRoot, inputRoot, command);
+          return retrier.execute(() -> {
+            // Upload the command and all the inputs into the remote cache.
+            remoteCache.ensureInputsPresent(repository, execRoot, inputRoot, command);
 
-          ExecuteResponse reply = remoteExecutor.executeRemotely(request);
-          maybeDownloadServerLogs(reply, actionKey);
+            ExecuteResponse reply = remoteExecutor.executeRemotely(request);
+            maybeDownloadServerLogs(reply, actionKey);
 
-          return downloadRemoteResults(reply.getResult(), context.getFileOutErr())
-              .setRunnerName(reply.getCachedResult() ? "remote cache hit" : getName())
-              .setCacheHit(reply.getCachedResult())
-              .build();
+            return downloadRemoteResults(reply.getResult(), context.getFileOutErr())
+                .setRunnerName(reply.getCachedResult() ? "remote cache hit" : getName())
+                .setCacheHit(reply.getCachedResult())
+                .build();
+          });
         } catch (RetryException e) {
           if (e.getCause() instanceof IOException) {
             throw (IOException) e.getCause();
