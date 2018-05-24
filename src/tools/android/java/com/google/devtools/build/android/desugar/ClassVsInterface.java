@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.android.desugar.io.BitFlags;
@@ -54,9 +53,14 @@ class ClassVsInterface {
     if (result == null) {
       // We could just load the outer class here, but this tolerates incomplete classpaths better.
       // Note the outer class should be in the Jar we're desugaring, so it should always be there.
-      ClassReader outerClass = checkNotNull(classpath.readIfKnown(outerName),
-          "Couldn't find outer class %s of %s", outerName, innerName);
-      result = BitFlags.isInterface(outerClass.getAccess());
+      ClassReader outerClass = classpath.readIfKnown(outerName);
+      if (outerClass == null) {
+        System.err.printf("WARNING: Couldn't find outer class %s of %s%n", outerName, innerName);
+        // TODO(b/79155927): Make this an error when sources of this problem are fixed.
+        result = false;  // assume it's a class if we can't find it (b/79155927)
+      } else {
+        result = BitFlags.isInterface(outerClass.getAccess());
+      }
       known.put(outerName, result);
     }
     return result;
