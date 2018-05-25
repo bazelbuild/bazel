@@ -82,7 +82,6 @@ public final class JavaInfo extends NativeInfo {
       ImmutableSet.of(
         JavaCompilationArgsProvider.class,
         JavaSourceJarsProvider.class,
-        ProtoJavaApiInfoAspectProvider.class,
         JavaRuleOutputJarsProvider.class,
         JavaRunfilesProvider.class,
         JavaPluginInfoProvider.class,
@@ -132,8 +131,6 @@ public final class JavaInfo extends NativeInfo {
         JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaSourceJarsProvider.class);
-    List<ProtoJavaApiInfoAspectProvider> protoJavaApiInfoAspectProviders =
-        JavaInfo.fetchProvidersFromList(providers, ProtoJavaApiInfoAspectProvider.class);
     List<JavaRunfilesProvider> javaRunfilesProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaRunfilesProvider.class);
     List<JavaPluginInfoProvider> javaPluginInfoProviders =
@@ -154,9 +151,6 @@ public final class JavaInfo extends NativeInfo {
             JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
         .addProvider(
           JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
-        .addProvider(
-            ProtoJavaApiInfoAspectProvider.class,
-            ProtoJavaApiInfoAspectProvider.merge(protoJavaApiInfoAspectProviders))
         // When a rule merges multiple JavaProviders, its purpose is to pass on information, so
         // it doesn't have any output jars.
         .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.builder().build())
