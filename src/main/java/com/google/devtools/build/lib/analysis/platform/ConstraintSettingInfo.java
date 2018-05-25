@@ -21,20 +21,13 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintSettingInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 
 /** Provider for a platform constraint setting that is available to be fulfilled. */
-@SkylarkModule(
-  name = "ConstraintSettingInfo",
-  doc = "A specific constraint setting that may be used to define a platform.",
-  category = SkylarkModuleCategory.PROVIDER
-)
 @Immutable
 @AutoCodec
-public class ConstraintSettingInfo extends NativeInfo {
+public class ConstraintSettingInfo extends NativeInfo implements ConstraintSettingInfoApi {
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "ConstraintSettingInfo";
 
@@ -51,11 +44,7 @@ public class ConstraintSettingInfo extends NativeInfo {
     this.label = label;
   }
 
-  @SkylarkCallable(
-    name = "label",
-    doc = "The label of the target that created this constraint.",
-    structField = true
-  )
+  @Override
   public Label label() {
     return label;
   }
