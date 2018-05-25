@@ -323,11 +323,11 @@ public final class CcCommon {
   }
 
   /**
-   * Returns a list of ({@link Artifact}, {@link Label}) pairs. Each pair represents an input
-   * source file and the label of the rule that generates it (or the label of the source file
-   * itself if it is an input file).
+   * Returns a list of ({@link Artifact}, {@link Label}) pairs. Each pair represents an input source
+   * file and the label of the rule that generates it (or the label of the source file itself if it
+   * is an input file).
    */
-  List<Pair<Artifact, Label>> getSources() {
+  List<Pair<Artifact, Label>> getPrivateHeaders() {
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
     Iterable<? extends TransitiveInfoCollection> providers =
         ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class);
@@ -337,19 +337,43 @@ public final class CcCommon {
         // non-source artifacts with different labels, as that would require cleaning up the code
         // base without significant benefit; we should eventually make this consistent one way or
         // the other.
-        Label oldLabel = map.put(artifact, provider.getLabel());
-        boolean isHeader = CppFileTypes.CPP_HEADER.matches(artifact.getExecPath());
-        if (!isHeader
-            && SourceCategory.CC_AND_OBJC.getSourceTypes().matches(artifact.getExecPathString())
-            && oldLabel != null
-            && !oldLabel.equals(provider.getLabel())) {
-          ruleContext.attributeError("srcs", String.format(
-              "Artifact '%s' is duplicated (through '%s' and '%s')",
-              artifact.getExecPathString(), oldLabel, provider.getLabel()));
+        if (CppFileTypes.CPP_HEADER.matches(artifact.getExecPath())) {
+          map.put(artifact, provider.getLabel());
         }
       }
     }
+    return mapToListOfPairs(map);
+  }
 
+  /**
+   * Returns a list of ({@link Artifact}, {@link Label}) pairs. Each pair represents an input source
+   * file and the label of the rule that generates it (or the label of the source file itself if it
+   * is an input file).
+   */
+  List<Pair<Artifact, Label>> getSources() {
+    Map<Artifact, Label> map = Maps.newLinkedHashMap();
+    Iterable<? extends TransitiveInfoCollection> providers =
+        ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class);
+    for (TransitiveInfoCollection provider : providers) {
+      for (Artifact artifact : provider.getProvider(FileProvider.class).getFilesToBuild()) {
+        if (!CppFileTypes.CPP_HEADER.matches(artifact.getExecPath())) {
+          Label oldLabel = map.put(artifact, provider.getLabel());
+          if (SourceCategory.CC_AND_OBJC.getSourceTypes().matches(artifact.getExecPathString())
+              && oldLabel != null
+              && !oldLabel.equals(provider.getLabel())) {
+            ruleContext.attributeError(
+                "srcs",
+                String.format(
+                    "Artifact '%s' is duplicated (through '%s' and '%s')",
+                    artifact.getExecPathString(), oldLabel, provider.getLabel()));
+          }
+        }
+      }
+    }
+    return mapToListOfPairs(map);
+  }
+
+  private List<Pair<Artifact, Label>> mapToListOfPairs(Map<Artifact, Label> map) {
     ImmutableList.Builder<Pair<Artifact, Label>> result = ImmutableList.builder();
     for (Map.Entry<Artifact, Label> entry : map.entrySet()) {
       result.add(Pair.of(entry.getKey(), entry.getValue()));

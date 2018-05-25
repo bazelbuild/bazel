@@ -145,6 +145,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
             .fromCommon(common, additionalCopts)
             .addSources(common.getSources())
+            .addPrivateHeaders(common.getPrivateHeaders())
             .addPublicHeaders(common.getHeaders())
             .enableCompileProviders()
             .addPrecompiledFiles(precompiledFiles);
