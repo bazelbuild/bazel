@@ -383,6 +383,7 @@ public final class JavaCompileAction extends SpawnAction {
     info.setOutputjar(getOutputJar().getExecPathString());
 
     try {
+      info.addAllArgument(getArguments());
       return super.getExtraActionInfo(actionKeyContext)
           .setExtension(JavaCompileInfo.javaCompileInfo, info.build());
     } catch (CommandLineExpansionException e) {
