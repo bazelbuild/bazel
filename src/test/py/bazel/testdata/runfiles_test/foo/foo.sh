@@ -68,7 +68,7 @@ function main() {
   if is_windows; then
     export SYSTEMROOT="${SYSTEMROOT:-}"
   fi
-  for lang in py java sh; do
+  for lang in py java sh cc; do
     child_bin="$(rlocation "$(child_binary_name $lang)")"
     if ! "$child_bin"; then
       echo >&2 "ERROR: error running bar-$lang"

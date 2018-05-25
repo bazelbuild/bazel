@@ -44,13 +44,20 @@
 //
 //   std::unique_ptr<Runfiles> runfiles(Runfiles::Create(argv[0], &error));
 //
-//   for (const auto i : runfiles->EnvVars()) {
-//     setenv(i.first, i.second, 1);
-//   }
 //   std::string path = runfiles->Rlocation("path/to/binary"));
 //   if (!path.empty()) {
+//     ... // create "args" argument vector for execv
+//     const auto envvars = runfiles->EnvVars();
 //     pid_t child = fork();
-//     ...
+//     if (child) {
+//       int status;
+//       waitpid(child, &status, 0);
+//     } else {
+//       for (const auto i : envvars) {
+//         setenv(i.first.c_str(), i.second.c_str(), 1);
+//       }
+//       execv(args[0], args);
+//     }
 
 #ifndef TOOLS_CPP_RUNFILES_RUNFILES_H_
 #define TOOLS_CPP_RUNFILES_RUNFILES_H_ 1
