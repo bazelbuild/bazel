@@ -54,6 +54,7 @@ public class RealSandboxfsProcessTest extends BaseSandboxfsProcessTest {
     if (!sandboxfs.isExecutable()) {
       fail("SANDBOXFS must point to an executable binary");
     }
-    return RealSandboxfsProcess.mount(sandboxfs, mountPoint, fileSystem.getPath("/dev/stderr"));
+    return RealSandboxfsProcess.mount(
+        sandboxfs.asFragment(), mountPoint, fileSystem.getPath("/dev/stderr"));
   }
 }
