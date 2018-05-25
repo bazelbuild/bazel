@@ -36,7 +36,7 @@ public class ShLibrary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list())
         .addAll(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET).list())
-        .addAll(ruleContext.getPrerequisiteArtifacts("data", Mode.DATA).list())
+        .addAll(ruleContext.getPrerequisiteArtifacts("data", Mode.DONT_CHECK).list())
         .build();
     Runfiles runfiles = new Runfiles.Builder(
         ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())

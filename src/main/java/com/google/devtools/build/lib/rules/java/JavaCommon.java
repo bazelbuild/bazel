@@ -365,7 +365,7 @@ public class JavaCommon {
     builder.addJavaTargets(targetsTreatedAsDeps(ClasspathType.BOTH));
 
     if (ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
-      builder.addJavaTargets(ruleContext.getPrerequisites("data", Mode.DATA));
+      builder.addJavaTargets(ruleContext.getPrerequisites("data", Mode.DONT_CHECK));
     }
     return builder.build();
   }
