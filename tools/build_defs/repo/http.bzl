@@ -111,6 +111,8 @@ _http_archive_attrs = {
     "build_file_content": attr.string(),
     "patches": attr.label_list(default=[]),
     "patch_tool": attr.string(default="patch"),
+    "patch_arguments": attr.string_list(default=["-p0"]),
+    "patch_verbose": attr.bool(default=False),
     "patch_cmds": attr.string_list(default=[]),
     "workspace_file": attr.label(),
     "workspace_file_content": attr.string(),
