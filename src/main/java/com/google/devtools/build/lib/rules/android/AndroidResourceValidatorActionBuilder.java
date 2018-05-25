@@ -14,8 +14,19 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Builder for creating $android_resource_validator action. This action validates merged resources
@@ -25,6 +36,9 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidA
  * <p>This is split from merging, so that it can happen off of the compilation critical path.
  */
 public class AndroidResourceValidatorActionBuilder {
+
+  private final RuleContext ruleContext;
+  private final AndroidSdkProvider sdk;
 
   // Inputs
   private CompiledMergableAndroidData primary;
@@ -43,6 +57,12 @@ public class AndroidResourceValidatorActionBuilder {
   private Artifact aapt2RTxtOut;
   private Artifact compiledSymbols;
   private Artifact apkOut;
+
+  /** @param ruleContext The RuleContext that was used to create the SpawnAction.Builder. */
+  public AndroidResourceValidatorActionBuilder(RuleContext ruleContext) {
+    this.ruleContext = ruleContext;
+    this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
+  }
 
   public AndroidResourceValidatorActionBuilder setStaticLibraryOut(Artifact staticLibraryOut) {
     this.staticLibraryOut = staticLibraryOut;
@@ -96,19 +116,19 @@ public class AndroidResourceValidatorActionBuilder {
     return this;
   }
 
-  private void build(AndroidDataContext dataContext) {
+  private void build(ActionConstructionContext context) {
     if (rTxtOut != null) {
-      createValidateAction(dataContext);
+      createValidateAction(context);
     }
 
     if (compiledSymbols != null) {
-      createLinkStaticLibraryAction(dataContext);
+      createLinkStaticLibraryAction(context);
     }
   }
 
   public ResourceContainer build(
-      AndroidDataContext dataContext, ResourceContainer resourceContainer) {
-    withPrimary(resourceContainer).build(dataContext);
+      ActionConstructionContext context, ResourceContainer resourceContainer) {
+    withPrimary(resourceContainer).build(context);
     ResourceContainer.Builder builder = resourceContainer.toBuilder();
 
     if (rTxtOut != null) {
@@ -126,11 +146,17 @@ public class AndroidResourceValidatorActionBuilder {
   }
 
   public ValidatedAndroidResources build(
-      AndroidDataContext dataContext, MergedAndroidResources merged) {
-    withPrimary(merged).build(dataContext);
+      ActionConstructionContext context, MergedAndroidResources merged) {
+    withPrimary(merged).build(context);
 
     return ValidatedAndroidResources.of(
-        merged, rTxtOut, sourceJarOut, apkOut, aapt2RTxtOut, aapt2SourceJarOut, staticLibraryOut);
+        merged,
+        rTxtOut,
+        sourceJarOut,
+        apkOut,
+        aapt2RTxtOut,
+        aapt2SourceJarOut,
+        staticLibraryOut);
   }
 
   public AndroidResourceValidatorActionBuilder setCompiledSymbols(Artifact compiledSymbols) {
@@ -149,47 +175,130 @@ public class AndroidResourceValidatorActionBuilder {
    * <p>This allows the link action to replace the validate action for builds that use aapt2, as
    * opposed to executing both actions.
    */
-  private void createLinkStaticLibraryAction(AndroidDataContext dataContext) {
+  private void createLinkStaticLibraryAction(ActionConstructionContext context) {
+    Preconditions.checkNotNull(staticLibraryOut);
+    Preconditions.checkNotNull(aapt2SourceJarOut);
+    Preconditions.checkNotNull(aapt2RTxtOut);
     Preconditions.checkNotNull(resourceDeps);
 
-    BusyBoxActionBuilder builder =
-        BusyBoxActionBuilder.create(dataContext, "LINK_STATIC_LIBRARY")
-            .addAapt(AndroidAaptVersion.AAPT2)
-            .addInput("--libraries", dataContext.getSdk().getAndroidJar())
-            .addInput("--compiled", compiledSymbols)
-            .addInput("--manifest", primary.getManifest())
+    CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
+    ImmutableList.Builder<Artifact> inputs = ImmutableList.builder();
+    ImmutableList.Builder<Artifact> outs = ImmutableList.builder();
 
-            // Sets an alternative java package for the generated R.java
-            // this allows android rules to generate resources outside of the java{,tests} tree.
-            .maybeAddFlag("--packageForR", customJavaPackage);
+    // Set the busybox tool.
+    builder.add("--tool").add("LINK_STATIC_LIBRARY").add("--");
 
-    if (!resourceDeps.getTransitiveCompiledSymbols().isEmpty()) {
-      builder.addTransitiveVectoredInput(
-          "--compiledDep", resourceDeps.getTransitiveCompiledSymbols());
+    builder.addExecPath("--aapt2", sdk.getAapt2().getExecutable());
+
+    builder.add("--libraries").addExecPath(sdk.getAndroidJar());
+    inputs.add(sdk.getAndroidJar());
+
+    builder.addExecPath("--compiled", compiledSymbols);
+    inputs.add(compiledSymbols);
+
+    builder.addExecPath("--manifest", primary.getManifest());
+    inputs.add(primary.getManifest());
+
+    if (!Strings.isNullOrEmpty(customJavaPackage)) {
+      // Sets an alternative java package for the generated R.java
+      // this allows android rules to generate resources outside of the java{,tests} tree.
+      builder.add("--packageForR", customJavaPackage);
     }
 
-    builder
-        .addOutput("--sourceJarOut", aapt2SourceJarOut)
-        .addOutput("--rTxtOut", aapt2RTxtOut)
-        .addOutput("--staticLibraryOut", staticLibraryOut)
-        .buildAndRegister("Linking static android resource library", "AndroidResourceLink");
+    if (!resourceDeps.getTransitiveCompiledSymbols().isEmpty()) {
+      builder.addExecPaths(
+          "--compiledDep",
+          VectorArg.join(context.getConfiguration().getHostPathSeparator())
+              .each(resourceDeps.getTransitiveCompiledSymbols()));
+      inputs.addAll(resourceDeps.getTransitiveCompiledSymbols());
+    }
+
+    builder.addExecPath("--sourceJarOut", aapt2SourceJarOut);
+    outs.add(aapt2SourceJarOut);
+
+    builder.addExecPath("--rTxtOut", aapt2RTxtOut);
+    outs.add(aapt2RTxtOut);
+
+    builder.addExecPath("--staticLibraryOut", staticLibraryOut);
+    outs.add(staticLibraryOut);
+
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
+            .addTool(sdk.getAapt2())
+            .addInputs(inputs.build())
+            .addOutputs(outs.build())
+            .addCommandLine(
+                builder.build(), ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).build())
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+            .setProgressMessage(
+                "Linking static android resource library for %s", ruleContext.getLabel())
+            .setMnemonic("AndroidResourceLink")
+            .build(context));
   }
 
-  private void createValidateAction(AndroidDataContext dataContext) {
-    BusyBoxActionBuilder.create(dataContext, "VALIDATE")
-        .maybeAddFlag("--buildToolsVersion", dataContext.getSdk().getBuildToolsVersion())
-        .addAapt(AndroidAaptVersion.AAPT)
-        .addAndroidJar()
-        .addInput("--mergedResources", mergedResources)
-        .addInput("--manifest", primary.getManifest())
-        .maybeAddFlag("--debug", debug)
+  private void createValidateAction(ActionConstructionContext context) {
+    CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
 
-        // Sets an alternative java package for the generated R.java
-        // this allows android rules to generate resources outside of the java{,tests} tree.
-        .maybeAddFlag("--packageForR", customJavaPackage)
-        .addOutput("--rOutput", rTxtOut)
-        .addOutput("--srcJarOutput", sourceJarOut)
-        .maybeAddOutput("--packagePath", apkOut)
-        .buildAndRegister("Validating Android resources", "AndroidResourceValidator");
+    // Set the busybox tool.
+    builder.add("--tool").add("VALIDATE").add("--");
+
+    if (!Strings.isNullOrEmpty(sdk.getBuildToolsVersion())) {
+      builder.add("--buildToolsVersion", sdk.getBuildToolsVersion());
+    }
+
+    builder.addExecPath("--aapt", sdk.getAapt().getExecutable());
+
+    ImmutableList.Builder<Artifact> inputs = ImmutableList.builder();
+
+    builder.addExecPath("--androidJar", sdk.getAndroidJar());
+    inputs.add(sdk.getAndroidJar());
+
+    Preconditions.checkNotNull(mergedResources);
+    builder.addExecPath("--mergedResources", mergedResources);
+    inputs.add(mergedResources);
+
+    builder.addExecPath("--manifest", primary.getManifest());
+    inputs.add(primary.getManifest());
+
+    if (debug) {
+      builder.add("--debug");
+    }
+
+    if (!Strings.isNullOrEmpty(customJavaPackage)) {
+      // Sets an alternative java package for the generated R.java
+      // this allows android rules to generate resources outside of the java{,tests} tree.
+      builder.add("--packageForR", customJavaPackage);
+    }
+    List<Artifact> outs = new ArrayList<>();
+    Preconditions.checkNotNull(rTxtOut);
+    builder.addExecPath("--rOutput", rTxtOut);
+    outs.add(rTxtOut);
+
+    Preconditions.checkNotNull(sourceJarOut);
+    builder.addExecPath("--srcJarOutput", sourceJarOut);
+    outs.add(sourceJarOut);
+
+    if (apkOut != null) {
+      builder.addExecPath("--packagePath", apkOut);
+      outs.add(apkOut);
+    }
+
+    SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
+    // Create the spawn action.
+    ruleContext.registerAction(
+        spawnActionBuilder
+            .useDefaultShellEnvironment()
+            .addTool(sdk.getAapt())
+            .addInputs(inputs.build())
+            .addOutputs(ImmutableList.copyOf(outs))
+            .addCommandLine(
+                builder.build(), ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).build())
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+            .setProgressMessage("Validating Android resources for %s", ruleContext.getLabel())
+            .setMnemonic("AndroidResourceValidator")
+            .build(context));
   }
 }

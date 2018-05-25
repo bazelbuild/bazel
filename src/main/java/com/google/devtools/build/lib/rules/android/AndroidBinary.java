@@ -261,7 +261,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       resourceApk =
           applicationManifest.packBinaryWithDataAndResources(
               ruleContext,
-              dataContext,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
               resourceDeps,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),

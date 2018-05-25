@@ -54,7 +54,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
         "Should not use compiled merge if no compiled symbols are available!");
 
     AndroidResourceMergingActionBuilder builder =
-        new AndroidResourceMergingActionBuilder()
+        new AndroidResourceMergingActionBuilder(dataContext.getRuleContext())
             .setJavaPackage(parsed.getJavaPackage())
             .withDependencies(resourceDeps)
             .setThrowOnResourceConflict(androidConfiguration.throwOnResourceConflict())
@@ -72,7 +72,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
             dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
         .setClassJarOut(
             dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
-        .build(dataContext, parsed);
+        .build(dataContext.getRuleContext(), parsed);
   }
 
   public static MergedAndroidResources of(

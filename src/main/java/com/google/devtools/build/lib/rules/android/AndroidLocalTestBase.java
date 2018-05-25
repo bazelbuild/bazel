@@ -117,7 +117,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       resourceApk =
           applicationManifest.packBinaryWithDataAndResources(
               ruleContext,
-              dataContext,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
               resourceDependencies,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),

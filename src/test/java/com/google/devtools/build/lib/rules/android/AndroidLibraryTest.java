@@ -1059,9 +1059,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget foo = getConfiguredTarget(target);
     SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
         getFilesToBuild(foo), "r.srcjar");
-
-    assertThat(ImmutableList.copyOf(paramFileArgsOrActionArgs(action)).contains("--debug"))
-        .isEqualTo(isDebug);
+    assertThat(action.getArguments().contains("--debug")).isEqualTo(isDebug);
   }
 
   @Test

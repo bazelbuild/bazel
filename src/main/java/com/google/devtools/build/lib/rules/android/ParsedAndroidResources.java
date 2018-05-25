@@ -40,14 +40,15 @@ public class ParsedAndroidResources extends AndroidResources
 
     boolean isAapt2 = aaptVersion == AndroidAaptVersion.AAPT2;
 
-    AndroidResourceParsingActionBuilder builder = new AndroidResourceParsingActionBuilder();
+    AndroidResourceParsingActionBuilder builder =
+        new AndroidResourceParsingActionBuilder(dataContext.getRuleContext());
 
     if (enableDataBinding && isAapt2) {
       // TODO(corysmith): Centralize the data binding processing and zipping into a single
       // action. Data binding processing needs to be triggered here as well as the merger to
       // avoid aapt2 from throwing an error during compilation.
       builder.setDataBindingInfoZip(
-          DataBinding.getSuffixedInfoFile(dataContext.getActionConstructionContext(), "_unused"));
+          DataBinding.getSuffixedInfoFile(dataContext.getRuleContext(), "_unused"));
     }
 
     return builder
@@ -56,7 +57,7 @@ public class ParsedAndroidResources extends AndroidResources
             isAapt2
                 ? dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS)
                 : null)
-        .build(dataContext, resources, manifest);
+        .build(resources, manifest);
   }
 
   public static ParsedAndroidResources of(

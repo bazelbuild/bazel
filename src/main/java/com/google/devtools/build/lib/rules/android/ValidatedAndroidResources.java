@@ -56,7 +56,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
       AndroidDataContext dataContext, MergedAndroidResources merged, AndroidAaptVersion aaptVersion)
       throws InterruptedException {
     AndroidResourceValidatorActionBuilder builder =
-        new AndroidResourceValidatorActionBuilder()
+        new AndroidResourceValidatorActionBuilder(dataContext.getRuleContext())
             .setJavaPackage(merged.getJavaPackage())
             .setDebug(dataContext.useDebug())
             .setMergedResources(merged.getMergedResources())
@@ -82,7 +82,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
                   AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
     }
 
-    return builder.build(dataContext, merged);
+    return builder.build(dataContext.getRuleContext(), merged);
   }
 
   static ValidatedAndroidResources of(

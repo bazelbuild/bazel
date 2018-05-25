@@ -304,7 +304,7 @@ public final class ResourceApk {
       StampedAndroidManifest manifest)
       throws InterruptedException {
 
-    return new AndroidResourcesProcessorBuilder()
+    return new AndroidResourcesProcessorBuilder(dataContext.getRuleContext())
         .setLibrary(true)
         .setRTxtOut(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT))
         .setManifestOut(
@@ -316,6 +316,6 @@ public final class ResourceApk {
         .withAssetDependencies(assetDeps)
         .setDebug(dataContext.useDebug())
         .setThrowOnResourceConflict(dataContext.getAndroidConfig().throwOnResourceConflict())
-        .buildWithoutLocalResources(dataContext, manifest);
+        .buildWithoutLocalResources(manifest);
   }
 }
