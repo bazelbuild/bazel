@@ -27,18 +27,13 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleToolchainApi;
 
 /**
  * Utility class for resolving items for the Apple toolchain (such as common tool flags, and paths).
  */
-@SkylarkModule(
-  name = "apple_toolchain",
-  doc = "Utilities for resolving items from the Apple toolchain."
-)
 @Immutable
-public class AppleToolchain {
+public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
 
   // These next two strings are shared secrets with the xcrunwrapper.sh to allow
   // expansion of DeveloperDir and SDKRoot and runtime, since they aren't known
@@ -82,10 +77,6 @@ public class AppleToolchain {
   /**
    * Returns the platform directory inside of Xcode for a given configuration.
    */
-  @SkylarkCallable(
-    name = "sdk_dir",
-    doc = "Returns the platform directory inside of Xcode for a given configuration."
-  )
   public static String sdkDir() {
     return SDKROOT_DIR;
   }
@@ -93,12 +84,15 @@ public class AppleToolchain {
   /**
    * Returns the Developer directory inside of Xcode for a given configuration.
    */
-  @SkylarkCallable(
-    name = "developer_dir",
-    doc = "Returns the Developer directory inside of Xcode for a given configuration."
-  )
   public static String developerDir() {
     return DEVELOPER_DIR;
+  }
+
+  /**
+   * Returns the platform frameworks directory inside of Xcode for a given configuration.
+   */
+  public static String platformDeveloperFrameworkDir(AppleConfiguration configuration) {
+    return platformDeveloperFrameworkDir(configuration.getSingleArchPlatform());
   }
 
   /**
@@ -107,17 +101,6 @@ public class AppleToolchain {
   public static String platformDeveloperFrameworkDir(ApplePlatform platform) {
     String platformDir = platformDir(platform.getNameInPlist());
     return platformDir + "/Developer/Library/Frameworks";
-  }
-
-  /**
-   * Returns the platform frameworks directory inside of Xcode for a given configuration.
-   */
-  @SkylarkCallable(
-    name = "platform_developer_framework_dir",
-    doc = "Returns the platform frameworks directory inside of Xcode for a given configuration."
-  )
-  public static String platformFrameworkDirFromConfig(AppleConfiguration configuration) {
-    return platformDeveloperFrameworkDir(configuration.getSingleArchPlatform());
   }
 
   /** Returns the SDK frameworks directory inside of Xcode for a given configuration. */
@@ -154,6 +137,30 @@ public class AppleToolchain {
         Label.parseAbsoluteUnchecked(
             toolsRepository + AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL),
         (rule, attributes, appleConfig) -> appleConfig.getXcodeConfigLabel());
+  }
+
+  /**
+   * Returns the platform directory inside of Xcode for a given configuration.
+   */
+  @Override
+  public String sdkDirConstant() {
+    return sdkDir();
+  }
+
+  /**
+   * Returns the Developer directory inside of Xcode for a given configuration.
+   */
+  @Override
+  public String developerDirConstant() {
+    return developerDir();
+  }
+
+  /**
+   * Returns the platform frameworks directory inside of Xcode for a given configuration.
+   */
+  @Override
+  public String platformFrameworkDirFromConfig(AppleConfiguration configuration) {
+    return platformDeveloperFrameworkDir(configuration);
   }
 
   /**

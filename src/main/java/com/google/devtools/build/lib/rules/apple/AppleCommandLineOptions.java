@@ -29,10 +29,8 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBitcodeModeApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -402,19 +400,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
    * <p>This is a build-wide value, as bitcode mode needs to be consistent among a target and its
    * compiled dependencies.
    */
-  @SkylarkModule(
-    name = "apple_bitcode_mode",
-    category = SkylarkModuleCategory.NONE,
-    doc =
-        "The Bitcode mode to use when compiling Objective-C and Swift code on Apple platforms. "
-            + "Possible values are:<br><ul>"
-            + "<li><code>'none'</code></li>"
-            + "<li><code>'embedded'</code></li>"
-            + "<li><code>'embedded_markers'</code></li>"
-            + "</ul>"
-  )
   @Immutable
-  public enum AppleBitcodeMode implements SkylarkValue {
+  public enum AppleBitcodeMode implements AppleBitcodeModeApi {
 
     /** Do not compile bitcode. */
     NONE("none", ImmutableList.<String>of()),
