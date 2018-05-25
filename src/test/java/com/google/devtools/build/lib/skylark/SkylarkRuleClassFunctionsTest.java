@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -540,12 +539,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testAttrCfg() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'host', allow_files = True)");
     assertThat(attr.getConfigurationTransition().isHostTransition()).isTrue();
-  }
-
-  @Test
-  public void testAttrCfgData() throws Exception {
-    Attribute attr = buildAttribute("a1", "attr.label(cfg = 'data', allow_files = True)");
-    assertThat(attr.getConfigurationTransition()).isEqualTo(DisableLipoTransition.INSTANCE);
   }
 
   @Test
