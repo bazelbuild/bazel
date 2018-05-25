@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -49,7 +50,7 @@ public final class BusyBoxActionBuilder {
   private final AndroidDataContext dataContext;
   private final NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
   private final ImmutableList.Builder<Artifact> outputs = ImmutableList.builder();
-  private final ImmutableList.Builder<Artifact> tools = ImmutableList.builder();
+  private final SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
   private final CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
 
   public static BusyBoxActionBuilder create(
@@ -287,16 +288,16 @@ public final class BusyBoxActionBuilder {
 
   /** Adds aapt to the command line and inputs. */
   public BusyBoxActionBuilder addAapt(AndroidAaptVersion aaptVersion) {
-    Artifact aapt;
+    FilesToRunProvider aapt;
     if (aaptVersion == AndroidAaptVersion.AAPT2) {
-      aapt = dataContext.getSdk().getAapt2().getExecutable();
-      commandLine.addExecPath("--aapt2", aapt);
+      aapt = dataContext.getSdk().getAapt2();
+      commandLine.addExecPath("--aapt2", aapt.getExecutable());
     } else {
-      aapt = dataContext.getSdk().getAapt().getExecutable();
-      commandLine.addExecPath("--aapt", aapt);
+      aapt = dataContext.getSdk().getAapt();
+      commandLine.addExecPath("--aapt", aapt.getExecutable());
     }
 
-    tools.add(aapt);
+    spawnActionBuilder.addTool(aapt);
 
     return this;
   }
@@ -315,11 +316,10 @@ public final class BusyBoxActionBuilder {
    */
   public void buildAndRegister(String message, String mnemonic) {
     dataContext.registerAction(
-        new SpawnAction.Builder()
+        spawnActionBuilder
             .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(outputs.build())
-            .addTools(tools.build())
             .addCommandLine(commandLine.build(), FORCED_PARAM_FILE_INFO)
             .setExecutable(dataContext.getBusybox())
             .setProgressMessage("%s for %s", message, dataContext.getLabel())

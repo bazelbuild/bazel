@@ -100,8 +100,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     final AndroidDataContext dataContext = androidSemantics.makeContextForNative(ruleContext);
     final ResourceApk resourceApk;
     if (AndroidResources.decoupleDataProcessing(dataContext)) {
-      StampedAndroidManifest manifest =
-          AndroidManifest.forAarImport(androidManifestArtifact);
+      StampedAndroidManifest manifest = AndroidManifest.forAarImport(androidManifestArtifact);
 
       boolean neverlink = JavaCommon.isNeverLink(ruleContext);
       ValidatedAndroidResources validatedResources =
@@ -122,6 +121,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
       resourceApk =
           androidManifest.packAarWithDataAndResources(
               ruleContext,
+              dataContext,
               AndroidAssets.forAarImport(assets),
               AndroidResources.forAarImport(resources),
               ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
@@ -167,8 +167,6 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .addRuntimeJar(mergedJar)
             .addCompileTimeJarAsFullJar(mergedJar)
             .build());
-
-
 
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
     // TODO(cnsun): need to pass the transitive classpath too to emit add dep command.

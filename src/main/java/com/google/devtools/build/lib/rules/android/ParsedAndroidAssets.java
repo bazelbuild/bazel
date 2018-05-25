@@ -24,9 +24,9 @@ public class ParsedAndroidAssets extends AndroidAssets implements MergableAndroi
 
   public static ParsedAndroidAssets parseFrom(AndroidDataContext dataContext, AndroidAssets assets)
       throws InterruptedException {
-    return new AndroidResourceParsingActionBuilder(dataContext.getRuleContext())
+    return new AndroidResourceParsingActionBuilder()
         .setOutput(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_ASSET_SYMBOLS))
-        .build(assets);
+        .build(dataContext, assets);
   }
 
   public static ParsedAndroidAssets of(AndroidAssets assets, Artifact symbols, Label label) {

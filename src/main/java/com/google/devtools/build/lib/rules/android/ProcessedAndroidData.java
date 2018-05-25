@@ -95,6 +95,7 @@ public class ProcessedAndroidData {
             .setFeatureOf(featureOf)
             .setFeatureAfter(featureAfter);
     return buildActionForBinary(
+        dataContext,
         errorConsumer,
         builder,
         manifest,
@@ -121,6 +122,7 @@ public class ProcessedAndroidData {
             .setApkOut(apkOut);
 
     return buildActionForBinary(
+        dataContext,
         ruleContext,
         builder,
         manifest,
@@ -134,6 +136,7 @@ public class ProcessedAndroidData {
   }
 
   private static ProcessedAndroidData buildActionForBinary(
+      AndroidDataContext dataContext,
       RuleErrorConsumer errorConsumer,
       AndroidResourcesProcessorBuilder builder,
       StampedAndroidManifest manifest,
@@ -159,7 +162,7 @@ public class ProcessedAndroidData {
         .setCrunchPng(crunchPng)
         .withResourceDependencies(resourceDeps)
         .withAssetDependencies(assetDeps)
-        .build(resources, assets, manifest);
+        .build(dataContext, resources, assets, manifest);
   }
 
   /** Processes Android data (assets, resources, and manifest) for android_local_test targets. */
@@ -186,7 +189,7 @@ public class ProcessedAndroidData {
         .setCrunchPng(false)
         .withResourceDependencies(resourceDeps)
         .withAssetDependencies(assetDeps)
-        .build(resources, assets, manifest);
+        .build(dataContext, resources, assets, manifest);
   }
 
   /** Processes Android data (assets, resources, and manifest) for android_test targets. */
@@ -213,7 +216,7 @@ public class ProcessedAndroidData {
             .withResourceDependencies(resourceDeps)
             .withAssetDependencies(assetDeps);
 
-    return builder.build(resources, assets, manifest);
+    return builder.build(dataContext, resources, assets, manifest);
   }
 
   /**
@@ -249,7 +252,7 @@ public class ProcessedAndroidData {
       StampedAndroidManifest manifest,
       String proguardPrefix,
       Map<String, String> manifestValues) {
-    return new AndroidResourcesProcessorBuilder(dataContext.getRuleContext())
+    return new AndroidResourcesProcessorBuilder()
         // Settings
         .setDebug(dataContext.useDebug())
         .setJavaPackage(manifest.getPackage())
@@ -321,12 +324,12 @@ public class ProcessedAndroidData {
    */
   public ResourceApk generateRClass(AndroidDataContext dataContext, AndroidAaptVersion aaptVersion)
       throws InterruptedException {
-    return new RClassGeneratorActionBuilder(dataContext.getRuleContext())
+    return new RClassGeneratorActionBuilder()
         .targetAaptVersion(aaptVersion)
         .withDependencies(resourceDeps)
         .setClassJarOut(
             dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
-        .build(this);
+        .build(dataContext, this);
   }
 
   /**
