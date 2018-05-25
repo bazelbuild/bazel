@@ -49,9 +49,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.Picness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkingInfoApi;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -79,13 +77,7 @@ public final class CcLinkingHelper {
   public static final String DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME = "dynamic_library";
 
   /** Contains the providers as well as the linking outputs. */
-  @SkylarkModule(
-    name = "linking_info",
-    documented = false,
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "Helper class containing CC linking providers."
-  )
-  public static final class LinkingInfo {
+  public static final class LinkingInfo implements LinkingInfoApi {
     private final TransitiveInfoProviderMap providers;
     private final Map<String, NestedSet<Artifact>> outputGroups;
     private final CcLinkingOutputs linkingOutputs;
@@ -107,7 +99,7 @@ public final class CcLinkingHelper {
       return providers;
     }
 
-    @SkylarkCallable(name = "cc_linking_info", documented = false)
+    @Override
     public CcLinkingInfo getCcLinkParamsInfo() {
       return (CcLinkingInfo) providers.getProvider(CcLinkingInfo.PROVIDER.getKey());
     }
