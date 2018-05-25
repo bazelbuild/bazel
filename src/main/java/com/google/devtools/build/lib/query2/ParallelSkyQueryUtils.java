@@ -170,6 +170,22 @@ public class ParallelSkyQueryUtils {
     visitor.visitAndWaitForCompletion(env.getFileStateKeysForFileFragments(fileIdentifiers));
   }
 
+  static QueryTaskFuture<Void> getDepsUnboundedParallel(
+      SkyQueryEnvironment env,
+      QueryExpression expression,
+      VariableContext<Target> context,
+      Callback<Target> callback,
+      MultisetSemaphore<PackageIdentifier> packageSemaphore,
+      boolean depsNeedFiltering,
+      Callback<Target> errorReporter) {
+    return env.eval(
+        expression,
+        context,
+        ParallelVisitor.createParallelVisitorCallback(
+            new DepsUnboundedVisitor.Factory(
+                env, callback, packageSemaphore, depsNeedFiltering, errorReporter)));
+  }
+
   static class DepAndRdep {
     @Nullable final SkyKey dep;
     final SkyKey rdep;
