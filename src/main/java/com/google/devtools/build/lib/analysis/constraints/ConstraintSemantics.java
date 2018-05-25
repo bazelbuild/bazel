@@ -143,7 +143,22 @@ import javax.annotation.Nullable;
  * </code>.
  */
 public class ConstraintSemantics {
-  private ConstraintSemantics() {
+  public ConstraintSemantics() {
+  }
+
+  /**
+   * Logs an error message that the current rule violates constraints.
+   */
+  public void ruleError(RuleContext ruleContext, String message) {
+    ruleContext.ruleError(message);
+  }
+
+  /**
+   * Logs an error message that an attribute on the current rule doesn't properly declare
+   * constraints.
+   */
+  public void attributeError(RuleContext ruleContext, String attribute, String message) {
+    ruleContext.attributeError(attribute, message);
   }
 
   /**
@@ -194,7 +209,7 @@ public class ConstraintSemantics {
    * the given attributes. Only includes environments from "known" groups, i.e. the groups
    * owning the environments explicitly referenced from these attributes.
    */
-  private static class EnvironmentCollector {
+  private class EnvironmentCollector {
     private final RuleContext ruleContext;
     private final String restrictionAttr;
     private final String compatibilityAttr;
@@ -258,10 +273,10 @@ public class ConstraintSemantics {
           Label restrictionEnv = restrictionEnvironments.getEnvironments(group).iterator().next();
 
           if (compatibilityEnv.equals(restrictionEnv)) {
-            ruleContext.attributeError(compatibilityAttr, compatibilityEnv
+            attributeError(ruleContext, compatibilityAttr, compatibilityEnv
                 + " cannot appear both here and in " + restrictionAttr);
           } else {
-            ruleContext.attributeError(compatibilityAttr, compatibilityEnv + " and "
+            attributeError(ruleContext, compatibilityAttr, compatibilityEnv + " and "
                 + restrictionEnv + " belong to the same environment group. They should be declared "
                 + "together either here or in " + restrictionAttr);
           }
@@ -322,7 +337,7 @@ public class ConstraintSemantics {
      * environment: itself. Extract that from its more generic provider interface and sanity
      * check that that's in fact what we see.
      */
-    private static EnvironmentWithGroup resolveEnvironment(TransitiveInfoCollection envRule) {
+    private EnvironmentWithGroup resolveEnvironment(TransitiveInfoCollection envRule) {
       SupportedEnvironmentsProvider prereq =
           Preconditions.checkNotNull(envRule.getProvider(SupportedEnvironmentsProvider.class));
       return Iterables.getOnlyElement(prereq.getStaticEnvironments().getGroupedEnvironments());
@@ -378,7 +393,7 @@ public class ConstraintSemantics {
    *     as described above. Returns null if any errors are encountered.
    */
   @Nullable
-  public static EnvironmentCollection getSupportedEnvironments(RuleContext ruleContext) {
+  public EnvironmentCollection getSupportedEnvironments(RuleContext ruleContext) {
     if (!validateAttributes(ruleContext)) {
       return null;
     }
@@ -420,7 +435,7 @@ public class ConstraintSemantics {
    * no such defaults.
    */
   @Nullable
-  private static EnvironmentCollector maybeGetRuleClassDefaults(RuleContext ruleContext) {
+  private EnvironmentCollector maybeGetRuleClassDefaults(RuleContext ruleContext) {
     Rule rule = ruleContext.getRule();
     String restrictionAttr = RuleClass.DEFAULT_RESTRICTED_ENVIRONMENT_ATTR;
     String compatibilityAttr = RuleClass.DEFAULT_COMPATIBLE_ENVIRONMENT_ATTR;
@@ -459,7 +474,7 @@ public class ConstraintSemantics {
    * Validity-checks this rule's constraint-related attributes. Returns true if all is good,
    * returns false and reports appropriate errors if there are any problems.
    */
-  private static boolean validateAttributes(RuleContext ruleContext) {
+  private boolean validateAttributes(RuleContext ruleContext) {
     AttributeMap attributes = ruleContext.attributes();
 
     // Report an error if "restricted to" is explicitly set to nothing. Even if this made
@@ -469,7 +484,7 @@ public class ConstraintSemantics {
         .getPrerequisites(restrictionAttr, RuleConfiguredTarget.Mode.DONT_CHECK);
     if (restrictionEnvironments.isEmpty()
         && attributes.isAttributeValueExplicitlySpecified(restrictionAttr)) {
-      ruleContext.attributeError(restrictionAttr, "attribute cannot be empty");
+      attributeError(ruleContext, restrictionAttr, "attribute cannot be empty");
       return false;
     }
 
@@ -518,7 +533,7 @@ public class ConstraintSemantics {
    *     pruning away environments through refinement. If multiple dependencies qualify (e.g. two
    *     direct deps under the current rule), one is arbitrarily chosen.
    */
-  public static void checkConstraints(
+  public void checkConstraints(
       RuleContext ruleContext,
       EnvironmentCollection staticEnvironments,
       EnvironmentCollection.Builder refinedEnvironments,
@@ -561,15 +576,15 @@ public class ConstraintSemantics {
    * @param staticEnvironments the static environments of the rule being analyzed
    * @param dep the dep to check
    */
-  private static void checkStaticConstraints(RuleContext ruleContext,
+  private void checkStaticConstraints(RuleContext ruleContext,
       EnvironmentCollection staticEnvironments, TransitiveInfoCollection dep) {
     SupportedEnvironmentsProvider depEnvironments =
         dep.getProvider(SupportedEnvironmentsProvider.class);
     Collection<Label> unsupportedEnvironments =
         getUnsupportedEnvironments(depEnvironments.getStaticEnvironments(), staticEnvironments);
     if (!unsupportedEnvironments.isEmpty()) {
-      ruleContext.ruleError("dependency " + dep.getLabel()
-          + " doesn't support expected environment"
+      ruleError(ruleContext,
+          "dependency " + dep.getLabel() + " doesn't support expected environment"
           + (unsupportedEnvironments.size() == 1 ? "" : "s")
           + ": " + Joiner.on(", ").join(unsupportedEnvironments));
     }
@@ -642,7 +657,7 @@ public class ConstraintSemantics {
    *
    * <p>Violations of this expectation trigger rule analysis errors.
    */
-  private static void checkRefinedConstraints(
+  private void checkRefinedConstraints(
       RuleContext ruleContext,
       Set<EnvironmentLabels> groupsWithEnvironmentsRemoved,
       Set<EnvironmentWithGroup> refinedEnvironmentsSoFar,
@@ -658,7 +673,7 @@ public class ConstraintSemantics {
             ? ImmutableSet.of()
             : Sets.difference(groupsWithEnvironmentsRemoved, refinedGroups);
     if (!newlyEmptyGroups.isEmpty()) {
-      ruleContext.ruleError(getOverRefinementError(newlyEmptyGroups, removedEnvironmentCulprits));
+      ruleError(ruleContext, getOverRefinementError(newlyEmptyGroups, removedEnvironmentCulprits));
     }
   }
 

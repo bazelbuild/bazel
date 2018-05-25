@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
@@ -185,6 +186,7 @@ public final class RuleContext extends TargetContext
   private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
   private final ErrorReporter reporter;
   @Nullable private final ToolchainContext toolchainContext;
+  private final ConstraintSemantics constraintSemantics;
 
   private ActionOwner actionOwner;
 
@@ -200,7 +202,8 @@ public final class RuleContext extends TargetContext
       ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments,
       String ruleClassNameForLogging,
       ImmutableMap<String, Attribute> aspectAttributes,
-      @Nullable ToolchainContext toolchainContext) {
+      @Nullable ToolchainContext toolchainContext,
+      ConstraintSemantics constraintSemantics) {
     super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.rule;
@@ -227,6 +230,7 @@ public final class RuleContext extends TargetContext
     this.disableLipoTransition = builder.disableLipoTransition;
     reporter = builder.reporter;
     this.toolchainContext = toolchainContext;
+    this.constraintSemantics = constraintSemantics;
   }
 
   private void getAllFeatures(Set<String> allEnabledFeatures, Set<String> allDisabledFeatures) {
@@ -1067,6 +1071,10 @@ public final class RuleContext extends TargetContext
     return toolchainContext;
   }
 
+  public ConstraintSemantics getConstraintSemantics() {
+    return constraintSemantics;
+  }
+
   @Override
   @Nullable
   public PlatformInfo getExecutionPlatform() {
@@ -1403,6 +1411,7 @@ public final class RuleContext extends TargetContext
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableList<Aspect> aspects;
     private ToolchainContext toolchainContext;
+    private ConstraintSemantics constraintSemantics;
 
     Builder(
         AnalysisEnvironment env,
@@ -1428,6 +1437,7 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(prerequisiteMap);
       Preconditions.checkNotNull(configConditions);
       Preconditions.checkNotNull(visibility);
+      Preconditions.checkNotNull(constraintSemantics);
       AttributeMap attributes = ConfiguredAttributeMapper.of(rule, configConditions);
       validateAttributes(attributes);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
@@ -1442,7 +1452,8 @@ public final class RuleContext extends TargetContext
           universalFragments,
           getRuleClassNameForLogging(),
           aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of(),
-          toolchainContext);
+          toolchainContext,
+          constraintSemantics);
     }
 
     private void validateAttributes(AttributeMap attributes) {
@@ -1497,6 +1508,11 @@ public final class RuleContext extends TargetContext
     /** Sets the {@link ToolchainContext} used to access toolchains used by this rule. */
     Builder setToolchainContext(ToolchainContext toolchainContext) {
       this.toolchainContext = toolchainContext;
+      return this;
+    }
+
+    Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
+      this.constraintSemantics = constraintSemantics;
       return this;
     }
 

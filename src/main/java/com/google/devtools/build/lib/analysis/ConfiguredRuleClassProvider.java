@@ -23,7 +23,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -37,6 +36,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -245,8 +245,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private Set<String> reservedActionMnemonics = new TreeSet<>();
     private BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
-    private ImmutableBiMap.Builder<String, Class<? extends TransitiveInfoProvider>>
-        registeredSkylarkProviders = ImmutableBiMap.builder();
+    private ConstraintSemantics constraintSemantics = new ConstraintSemantics();
 
     // TODO(pcloudy): Remove this field after Bazel rule definitions are not used internally.
     private String nativeLauncherLabel;
@@ -381,6 +380,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
 
     /**
+     * Sets the logic that lets rules declare which environments they support and validates rules
+     * don't depend on rules that aren't compatible with the same environments. Defaults to
+     * {@ConstraintSemantics}. See {@ConstraintSemantics} for more details.
+     */
+    public Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
+      this.constraintSemantics = constraintSemantics;
+      return this;
+    }
+
+    /**
      * Sets the C++ LIPO data transition, as defined in {@link
      * com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition}.
      *
@@ -507,7 +516,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           skylarkAccessibleTopLevels.build(),
           skylarkModules.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
-          actionEnvironmentProvider);
+          actionEnvironmentProvider,
+          constraintSemantics);
     }
 
     @Override
@@ -622,6 +632,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
 
+  private final ConstraintSemantics constraintSemantics;
+
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
       String runfilesPrefix,
@@ -641,7 +653,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
       ImmutableList<Class<?>> skylarkModules,
       ImmutableSet<String> reservedActionMnemonics,
-      BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider) {
+      BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
+      ConstraintSemantics constraintSemantics) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -661,6 +674,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
     this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
+    this.constraintSemantics = constraintSemantics;
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -858,6 +872,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Override
   public Map<String, Class<?>> getConfigurationFragmentMap() {
     return configurationFragmentMap;
+  }
+
+  public ConstraintSemantics getConstraintSemantics() {
+    return constraintSemantics;
   }
 
   /** Returns all skylark objects in global scope for this RuleClassProvider. */
