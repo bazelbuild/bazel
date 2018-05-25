@@ -21,8 +21,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.TemplateVariableInfoApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
@@ -31,24 +30,9 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.Map;
 
 /** Provides access to make variables from the current fragments. */
-@SkylarkModule(
-    name = "TemplateVariableInfo",
-    doc = "<b>WARNING</b>: The constructor of this provider is experimental and may go away at any "
-        + "time."
-        + "<p>Encapsulates template variables, that is, variables that can be referenced by "
-        + "strings like <code>$(VARIABLE)</code> in BUILD files and expanded by "
-        + "<code>ctx.expand_make_variables</code> and implicitly in certain attributes of "
-        + "built-in rules."
-        + "</p>"
-        + "<p><code>TemplateVariableInfo</code> can be created by calling its eponymous "
-        + "constructor with a string-to-string dict as an argument that specifies the variables "
-        + "provided."
-        + "</p>"
-        + "<p>Example: <code>platform_common.TemplateVariableInfo({'FOO': 'bar'})</code>"
-        + "</p>")
 @Immutable
 @AutoCodec
-public final class TemplateVariableInfo extends NativeInfo {
+public final class TemplateVariableInfo extends NativeInfo implements TemplateVariableInfoApi {
   public static final String SKYLARK_NAME = "TemplateVariableInfo";
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
@@ -77,12 +61,7 @@ public final class TemplateVariableInfo extends NativeInfo {
     this.variables = variables;
   }
 
-  @SkylarkCallable(
-    name = "variables",
-    doc = "Returns the make variables defined by this target as a dictionary with string keys "
-        + "and string values",
-    structField = true
-  )
+  @Override
   public ImmutableMap<String, String> getVariables() {
     return variables;
   }
