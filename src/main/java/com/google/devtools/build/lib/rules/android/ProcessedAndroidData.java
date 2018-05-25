@@ -90,7 +90,7 @@ public class ProcessedAndroidData {
             .conditionalKeepRules(conditionalKeepRules)
             .setDataBindingInfoZip(
                 dataBindingEnabled
-                    ? DataBinding.getLayoutInfoFile(dataContext.getActionConstructionContext())
+                    ? DataBinding.getLayoutInfoFile(dataContext.getRuleContext())
                     : null)
             .setFeatureOf(featureOf)
             .setFeatureAfter(featureAfter);

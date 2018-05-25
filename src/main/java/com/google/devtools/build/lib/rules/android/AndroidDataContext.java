@@ -43,6 +43,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
             + " manifests")
 public class AndroidDataContext {
 
+  private final RuleContext ruleContext;
+
   private final Label label;
   private final ActionConstructionContext actionConstructionContext;
   private final FilesToRunProvider busybox;
@@ -54,19 +56,16 @@ public class AndroidDataContext {
 
   public static AndroidDataContext makeContext(RuleContext ruleContext) {
     return new AndroidDataContext(
-        ruleContext.getLabel(),
         ruleContext,
         ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST),
         AndroidSdkProvider.fromRuleContext(ruleContext));
   }
 
   protected AndroidDataContext(
-      Label label,
-      ActionConstructionContext actionConstructionContext,
-      FilesToRunProvider busybox,
-      AndroidSdkProvider sdk) {
-    this.label = label;
-    this.actionConstructionContext = actionConstructionContext;
+      RuleContext ruleContext, FilesToRunProvider busybox, AndroidSdkProvider sdk) {
+    this.ruleContext = ruleContext;
+    this.label = ruleContext.getLabel();
+    this.actionConstructionContext = ruleContext;
     this.busybox = busybox;
     this.sdk = sdk;
   }
@@ -85,6 +84,17 @@ public class AndroidDataContext {
 
   public AndroidSdkProvider getSdk() {
     return sdk;
+  }
+
+  /**
+   * Gets the current RuleContext.
+   *
+   * @deprecated RuleContext is only exposed to help migrate away from it. New code should only be
+   *     written using other methods from this class.
+   */
+  @Deprecated
+  public RuleContext getRuleContext() {
+    return ruleContext;
   }
 
   /*
