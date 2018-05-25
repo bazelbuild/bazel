@@ -611,6 +611,17 @@ public final class JavaInfo extends NativeInfo {
                     + "<code>source_jar</code> are used. "
                     + "<p>The host_javabase to be used for packing source files to Jar.</p>"
             ),
+            @Param(
+                name = "jdeps",
+                type = FileApi.class,
+                named = true,
+                defaultValue = "None",
+                noneable = true,
+                doc = "jdeps information for the rule output (if available). This should be a "
+                    + "binary proto encoded using the deps.proto protobuf included with Bazel.  "
+                    + "If available this file is typically produced by a compiler. IDEs and other "
+                    + "tools can use this information for more efficient processing."
+            ),
         },
         selfCall = true,
         useLocation = true,
@@ -635,6 +646,7 @@ public final class JavaInfo extends NativeInfo {
         Object useIjarApi,
         Object javaToolchainApi,
         Object hostJavabaseApi,
+        Object jdepsApi,
         Location loc,
         Environment env) throws EvalException {
       Artifact outputJar = (Artifact) outputJarApi;
@@ -651,6 +663,7 @@ public final class JavaInfo extends NativeInfo {
       @Nullable Boolean useIjar = nullIfNone(useIjarApi, Boolean.class);
       @Nullable Object javaToolchain = nullIfNone(javaToolchainApi);
       @Nullable Object hostJavabase = nullIfNone(hostJavabaseApi);
+      @Nullable Artifact jdeps = nullIfNone(jdepsApi, Artifact.class);
 
       boolean hasLegacyArg =
           actions != null
@@ -690,6 +703,7 @@ public final class JavaInfo extends NativeInfo {
                 actions,
                 javaToolchain,
                 hostJavabase,
+                jdeps,
                 loc);
       }
       if (compileJar == null) {
@@ -700,7 +714,7 @@ public final class JavaInfo extends NativeInfo {
               outputJar, compileJar, sourceJar, neverlink,
               (SkylarkList<JavaInfo>) deps,
               (SkylarkList<JavaInfo>) runtimeDeps,
-              (SkylarkList<JavaInfo>) exports, loc);
+              (SkylarkList<JavaInfo>) exports, jdeps, loc);
     }
   }
 

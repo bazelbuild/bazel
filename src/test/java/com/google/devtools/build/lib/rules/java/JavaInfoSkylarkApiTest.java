@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -83,7 +84,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void buildHelperCreateJavaInfoWithOutputJarAndUseIJar() throws Exception {
-   
+
     ruleBuilder()
         .withIJar()
         .build();
@@ -205,7 +206,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
     ruleBuilder()
         .withNeverLink()
         .build();
-    
+
     scratch.file(
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
@@ -660,6 +661,44 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void buildHelperCreateJavaInfoWithJdeps_javaRuleOutputJarsProvider() throws Exception {
+    ruleBuilder().build();
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_direct', srcs = ['java/A.java'])",
+        "my_rule(",
+        "  name = 'my_skylark_rule',",
+        "  output_jar = 'my_skylark_rule_lib.jar',",
+        "  source_jars = ['my_skylark_rule_src.jar'],",
+        "  dep = [':my_java_lib_direct'],",
+        "  jdeps = 'my_jdeps.pb',",
+        ")");
+    assertNoEvents();
+
+    JavaRuleOutputJarsProvider ruleOutputs =
+        fetchJavaInfo().getProvider(JavaRuleOutputJarsProvider.class);
+
+    assertThat(
+            prettyArtifactNames(
+                ruleOutputs
+                    .getOutputJars()
+                    .stream()
+                    .map(o -> o.getClassJar())
+                    .collect(ImmutableList.toImmutableList())))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+            prettyArtifactNames(
+                ruleOutputs
+                    .getOutputJars()
+                    .stream()
+                    .flatMap(o -> Streams.stream(o.getSrcJars()))
+                    .collect(ImmutableList.toImmutableList())))
+        .containsExactly("foo/my_skylark_rule_src.jar");
+    assertThat(ruleOutputs.getJdeps().prettyPrint()).isEqualTo("foo/my_jdeps.pb");
+  }
+
+  @Test
   public void testMixMatchNewAndLegacyArgsIsError() throws Exception {
     ImmutableList.Builder<String> lines = ImmutableList.builder();
     lines.add(
@@ -753,6 +792,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
         "    deps = dp,",
         "    runtime_deps = dp_runtime,",
         "    exports = dp_exports,",
+        "    jdeps = ctx.file.jdeps,",
         useIJar || sourceFiles ? "    actions = ctx.actions," : "",
         useIJar || sourceFiles ? "    java_toolchain = ctx.attr._toolchain," : "",
         sourceFiles ? "    host_javabase = ctx.attr._host_javabase," : "",
@@ -801,13 +841,14 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
       }
       lines.add(
           "  javaInfo = JavaInfo(",
-          "    output_jar = ctx.outputs.output_jar, ",
+          "    output_jar = ctx.outputs.output_jar,",
           "    compile_jar = compile_jar,",
           "    source_jar = source_jar,",
           neverLink ? "    neverlink = True," : "",
           "    deps = dp,",
           "    runtime_deps = dp_runtime,",
           "    exports = dp_exports,",
+          "    jdeps = ctx.file.jdeps,",
           "  )",
           "  return [result(property = javaInfo)]");
       return lines.build().toArray(new String[] {});
@@ -837,6 +878,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
           "    'output_jar' : attr.output(default=None, mandatory=True),",
           "    'source_jars' : attr.label_list(allow_files=['.jar']),",
           "    'sources' : attr.label_list(allow_files=['.java']),",
+          "    'jdeps' : attr.label(allow_single_file=True),",
           useIJar || stampJar || sourceFiles
               ? "    '_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),"
               : "",
