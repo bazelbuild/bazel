@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FilesToRunProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import javax.annotation.Nullable;
 
 /** Returns information about executables produced by a target and the files needed to run it. */
@@ -70,12 +69,7 @@ public final class FilesToRunProvider implements TransitiveInfoProvider, FilesTo
   }
 
   /** Returns the Executable or null if it does not exist. */
-  @SkylarkCallable(
-    name = "executable",
-    doc = "The main executable or None if it does not exist.",
-    structField = true,
-    allowReturnNones = true
-  )
+  @Override
   @Nullable
   public Artifact getExecutable() {
     return executable;
@@ -85,12 +79,7 @@ public final class FilesToRunProvider implements TransitiveInfoProvider, FilesTo
    * Returns the RunfilesManifest or null if it does not exist. It is a shortcut to
    * getRunfilesSupport().getRunfilesManifest().
    */
-  @SkylarkCallable(
-    name = "runfiles_manifest",
-    doc = "The runfiles manifest or None if it does not exist.",
-    structField = true,
-    allowReturnNones = true
-  )
+  @Override
   @Nullable
   public Artifact getRunfilesManifest() {
     return runfilesSupport != null ? runfilesSupport.getRunfilesManifest() : null;
