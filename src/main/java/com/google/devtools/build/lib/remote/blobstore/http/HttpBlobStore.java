@@ -235,9 +235,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
     Channel ch = null;
     try {
       ch = acquireDownloadChannel();
-
-      System.out.println("================== first ch hashCode: "+ ch.hashCode());
-
       ChannelFuture downloadFuture = ch.writeAndFlush(download);
       downloadFuture.sync();
       return true;
@@ -261,30 +258,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
             // create a new download command that targets the redirected location
             URI redirected = URI.create(location);
             System.out.println("redirected too: '"+redirected+"'");
-            OutputStream wrappedOut2 =
-              new OutputStream() {
-                // OutputStream.close() does nothing, which is what we want to ensure that the
-                // OutputStream can't be closed somewhere in the Netty pipeline, so that we can support
-                // retries. The OutputStream is closed in the finally block below.
-
-                @Override
-                public void write(byte[] b, int offset, int length) throws IOException {
-                  dataWritten.set(true);
-                  out.write(b, offset, length);
-                }
-
-                @Override
-                public void write(int b) throws IOException {
-                  dataWritten.set(true);
-                  out.write(b);
-                }
-
-                @Override
-                public void flush() throws IOException {
-                  out.flush();
-                }
-              };
-            DownloadCommand rdc = new DownloadCommand(redirected, casDownload, key, wrappedOut2, false);
+            DownloadCommand rdc = new DownloadCommand(redirected, casDownload, key, wrappedOut, false);
             return getAfterCredentialRefresh(rdc);
           } else {
             // we got a redirect response, but we didnt get a Location header
@@ -311,7 +285,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
     try {
       System.out.println("++++ retrieving: "+cmd.uri());
       ch = acquireDownloadChannel();
-      System.out.println("================== second ch hashCode: "+ ch.hashCode());
       ChannelFuture downloadFuture = ch.writeAndFlush(cmd);
       downloadFuture.sync();
       System.out.println("++++ cache hit: "+cmd.uri());
@@ -322,7 +295,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
         String location = response.headers().getAsString(HttpHeaderNames.LOCATION);
 
         System.out.println("==<< response code: "+response.status()+"; location='"+location+"'");
-        System.out.println(response);
 
         if (cacheMiss(response.status())) {
           System.out.println("---- cache miss ("+response.status()+"): "+cmd.uri());
