@@ -38,6 +38,8 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.stream.ChunkedWriteHandler;
+import io.netty.handler.logging.LoggingHandler;
+import io.netty.handler.logging.LogLevel;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.util.internal.PlatformDependent;
 import java.io.ByteArrayInputStream;
@@ -154,6 +156,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
                   engine.setUseClientMode(true);
                   p.addFirst(new SslHandler(engine));
                 }
+                p.addLast(new LoggingHandler(LogLevel.INFO));
                 p.addLast(new HttpClientCodec());
                 p.addLast(new HttpDownloadHandler(creds));
               }
@@ -176,6 +179,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
                   engine.setUseClientMode(true);
                   p.addFirst(new SslHandler(engine));
                 }
+                p.addLast(new LoggingHandler(LogLevel.INFO));
                 p.addLast(new HttpResponseDecoder());
                 // The 10KiB limit was chosen at random. We only expect HTTP servers to respond with
                 // an error message in the body and that should always be less than 10KiB.
@@ -231,6 +235,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
     Channel ch = null;
     try {
       ch = acquireDownloadChannel();
+
+      System.out.println("================== first ch hashCode: "+ ch.hashCode());
+
       ChannelFuture downloadFuture = ch.writeAndFlush(download);
       downloadFuture.sync();
       return true;
@@ -248,15 +255,36 @@ public final class HttpBlobStore implements SimpleBlobStore {
         // if we got a redirect, we should straight up follow it
         // and thus try again.
         if (isRedirect(response.status())) {
-          // location header with either case
-          String location =
-            Optional.ofNullable(response.headers().get("location"))
-              .orElse(response.headers().get("Location"));
+          String location = response.headers().getAsString(HttpHeaderNames.LOCATION);
 
           if (location != null){
             // create a new download command that targets the redirected location
             URI redirected = URI.create(location);
-            DownloadCommand rdc = new DownloadCommand(redirected, casDownload, key, wrappedOut);
+            System.out.println("redirected too: '"+redirected+"'");
+            OutputStream wrappedOut2 =
+              new OutputStream() {
+                // OutputStream.close() does nothing, which is what we want to ensure that the
+                // OutputStream can't be closed somewhere in the Netty pipeline, so that we can support
+                // retries. The OutputStream is closed in the finally block below.
+
+                @Override
+                public void write(byte[] b, int offset, int length) throws IOException {
+                  dataWritten.set(true);
+                  out.write(b, offset, length);
+                }
+
+                @Override
+                public void write(int b) throws IOException {
+                  dataWritten.set(true);
+                  out.write(b);
+                }
+
+                @Override
+                public void flush() throws IOException {
+                  out.flush();
+                }
+              };
+            DownloadCommand rdc = new DownloadCommand(redirected, casDownload, key, wrappedOut2, false);
             return getAfterCredentialRefresh(rdc);
           } else {
             // we got a redirect response, but we didnt get a Location header
@@ -281,14 +309,23 @@ public final class HttpBlobStore implements SimpleBlobStore {
   private boolean getAfterCredentialRefresh(DownloadCommand cmd) throws InterruptedException {
     Channel ch = null;
     try {
+      System.out.println("++++ retrieving: "+cmd.uri());
       ch = acquireDownloadChannel();
+      System.out.println("================== second ch hashCode: "+ ch.hashCode());
       ChannelFuture downloadFuture = ch.writeAndFlush(cmd);
       downloadFuture.sync();
+      System.out.println("++++ cache hit: "+cmd.uri());
       return true;
     } catch (Exception e) {
       if (e instanceof HttpException) {
         HttpResponse response = ((HttpException) e).response();
+        String location = response.headers().getAsString(HttpHeaderNames.LOCATION);
+
+        System.out.println("==<< response code: "+response.status()+"; location='"+location+"'");
+        System.out.println(response);
+
         if (cacheMiss(response.status())) {
+          System.out.println("---- cache miss ("+response.status()+"): "+cmd.uri());
           return false;
         }
       }
@@ -402,6 +439,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
     uploadChannels.close();
     eventLoop.shutdownGracefully();
   }
+
+  // private DownloadCommand commandFromURI(u: URI)
 
   private boolean isRedirect(HttpResponseStatus status) {
     // supporting redirects here thus allowing users to leverage
