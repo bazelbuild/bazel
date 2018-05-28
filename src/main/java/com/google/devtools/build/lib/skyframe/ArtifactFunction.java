@@ -290,16 +290,24 @@ class ArtifactFunction implements SkyFunction {
       }
       inputs.add(Pair.of(input, (FileArtifactValue) inputValue));
     }
-    return new AggregatingArtifactValue(inputs.build(), value);
+    return (action.getActionType() == MiddlemanType.AGGREGATING_MIDDLEMAN)
+        ? new AggregatingArtifactValue(inputs.build(), value)
+        : new RunfilesArtifactValue(inputs.build(), value);
   }
 
   /**
    * Returns whether this value needs to contain the data of all its inputs. Currently only tests to
-   * see if the action is an aggregating middleman action. However, may include runfiles middleman
-   * actions and Fileset artifacts in the future.
+   * see if the action is an aggregating or runfiles middleman action. However, may include Fileset
+   * artifacts in the future.
    */
   private static boolean isAggregatingValue(ActionAnalysisMetadata action) {
-    return action.getActionType() == MiddlemanType.AGGREGATING_MIDDLEMAN;
+    switch (action.getActionType()) {
+      case AGGREGATING_MIDDLEMAN:
+      case RUNFILES_MIDDLEMAN:
+        return true;
+      default:
+        return false;
+    }
   }
 
   @Override
