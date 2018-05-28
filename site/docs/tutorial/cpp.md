@@ -59,16 +59,16 @@ and is structured as follows:
 examples
 └── cpp-tutorial
     ├──stage1
-    │  └── main
-    │      ├── BUILD
-    │      ├── hello-world.cc
+    │  ├── main
+    │  │   ├── BUILD
+    │  │   └── hello-world.cc
     │  └── WORKSPACE
     ├──stage2
     │  ├── main
     │  │   ├── BUILD
     │  │   ├── hello-world.cc
     │  │   ├── hello-greet.cc
-    │  │   ├── hello-greet.h
+    │  │   └── hello-greet.h
     │  └── WORKSPACE
     └──stage3
        ├── main
