@@ -146,7 +146,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     }
 
     ConfiguredAspect configuredAspect = builder.build();
-    SkylarkProviderValidationUtil.checkOrphanArtifacts(ruleContext);
+    SkylarkProviderValidationUtil.validateArtifacts(ruleContext);
     return configuredAspect;
   }
 

@@ -154,5 +154,11 @@ public interface AnalysisEnvironment extends ActionRegistry {
    */
   ImmutableSet<Artifact> getOrphanArtifacts();
 
+  /**
+   * Returns the set of tree artifacts that have the same exec path as some other artifacts.
+   * Should only be called after the ConfiguredTarget is created.
+   */
+  ImmutableSet<Artifact> getTreeArtifactsConflictingWithFiles();
+
   ActionKeyContext getActionKeyContext();
 }
