@@ -595,6 +595,12 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
+  public ImmutableList<String> getDisabledFeatures() throws EvalException {
+    checkMutable("disabled_features");
+    return ImmutableList.copyOf(ruleContext.getDisabledFeatures());
+  }
+
+  @Override
   public ArtifactRoot getBinDirectory() throws EvalException {
     checkMutable("bin_dir");
     return getConfiguration().getBinDirectory(ruleContext.getRule().getRepository());
