@@ -99,7 +99,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private final int shardNum;
   private final int runNumber;
   private final String workspaceName;
-  private final boolean useTestRunner;
 
   // Mutable state related to test caching. Lazily initialized: null indicates unknown.
   private Boolean unconditionalExecution;
@@ -146,8 +145,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       int runNumber,
       BuildConfiguration configuration,
       String workspaceName,
-      PathFragment shExecutable,
-      boolean useTestRunner) {
+      PathFragment shExecutable) {
     super(
         owner,
         /*tools=*/ ImmutableList.of(),
@@ -194,7 +192,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     this.undeclaredOutputsAnnotationsPath = undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS");
     this.testInfrastructureFailure = baseDir.getChild("test.infrastructure_failure");
     this.workspaceName = workspaceName;
-    this.useTestRunner = useTestRunner;
 
     this.extraTestEnv = ImmutableMap.copyOf(extraTestEnv);
     this.requiredClientEnvVariables =
@@ -683,10 +680,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   public TestTargetExecutionSettings getExecutionSettings() {
     return executionSettings;
-  }
-
-  public boolean useTestRunner() {
-    return useTestRunner;
   }
 
   public boolean isSharded() {
