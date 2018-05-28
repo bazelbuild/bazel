@@ -77,7 +77,7 @@ public final class SimpleBlobStoreFactory {
     return options.diskCache != null;
   }
 
-  private static boolean isRestUrlOptions(RemoteOptions options) {
+  static boolean isRestUrlOptions(RemoteOptions options) {
     return options.remoteHttpCache != null;
   }
 }

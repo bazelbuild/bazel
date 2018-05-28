@@ -164,11 +164,12 @@ public final class RemoteOptions extends OptionsBase {
   )
   public double experimentalRemoteRetryJitter;
 
+  @Deprecated
   @Option(
     name = "experimental_remote_spawn_cache",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    effectTags = {OptionEffectTag.NO_OP},
     help =
         "Whether to use the experimental spawn cache infrastructure for remote caching. "
             + "Enabling this flag makes Bazel ignore any setting for remote_executor."

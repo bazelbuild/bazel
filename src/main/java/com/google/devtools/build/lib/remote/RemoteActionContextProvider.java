@@ -38,8 +38,8 @@ import javax.annotation.Nullable;
  */
 final class RemoteActionContextProvider extends ActionContextProvider {
   private final CommandEnvironment env;
-  private final AbstractRemoteActionCache cache;
-  private final GrpcRemoteExecutor executor;
+  @Nullable private final AbstractRemoteActionCache cache;
+  @Nullable private final GrpcRemoteExecutor executor;
   private final DigestUtil digestUtil;
   private final Path logDir;
 
@@ -64,7 +64,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     String buildRequestId = env.getBuildRequestId().toString();
     String commandId = env.getCommandId().toString();
 
-    if (remoteOptions.experimentalRemoteSpawnCache || remoteOptions.diskCache != null) {
+    if (executor == null && cache != null) {
       RemoteSpawnCache spawnCache =
           new RemoteSpawnCache(
               env.getExecRoot(),
