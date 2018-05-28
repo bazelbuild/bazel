@@ -261,7 +261,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // Determine what toolchains are needed by this target.
       if (target instanceof Rule) {
         Rule rule = ((Rule) target);
-
         if (rule.getRuleClassObject().supportsPlatforms()) {
           ImmutableSet<Label> requiredToolchains =
               rule.getRuleClassObject().getRequiredToolchains();
