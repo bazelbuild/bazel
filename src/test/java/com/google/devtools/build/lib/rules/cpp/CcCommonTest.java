@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.bazel.rules.CcRules;
 import com.google.devtools.build.lib.bazel.rules.GenericRules;
+import com.google.devtools.build.lib.bazel.rules.ToolchainRules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -999,6 +1000,10 @@ public class CcCommonTest extends BuildViewTestCase {
           PlatformRules.INSTANCE.init(builder);
           GenericRules.INSTANCE.init(builder);
           CcRules.INSTANCE.init(builder);
+
+          // Some tests use genrules so they need the shell toolchain (//tools/sh:toolchain_type) so
+          // we need to support the toolchain rules.
+          ToolchainRules.INSTANCE.init(builder);
           return builder.build();
         }
 
