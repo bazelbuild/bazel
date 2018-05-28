@@ -122,7 +122,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
         return null;
       }
       ConfiguredTarget configuredTarget = createTarget(skylarkRuleContext, target);
-      SkylarkProviderValidationUtil.checkOrphanArtifacts(ruleContext);
+      SkylarkProviderValidationUtil.validateArtifacts(ruleContext);
       checkDeclaredProviders(configuredTarget, advertisedProviders, location);
       return configuredTarget;
     } catch (EvalException e) {

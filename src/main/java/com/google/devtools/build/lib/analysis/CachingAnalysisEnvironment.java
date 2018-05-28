@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static java.util.stream.Collectors.toSet;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -48,6 +50,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -164,9 +167,30 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public ImmutableSet<Artifact> getOrphanArtifacts() {
     if (!allowRegisteringActions) {
-      return ImmutableSet.<Artifact>of();
+      return ImmutableSet.of();
     }
     return ImmutableSet.copyOf(getOrphanArtifactMap().keySet());
+  }
+
+  @Override
+  public ImmutableSet<Artifact> getTreeArtifactsConflictingWithFiles() {
+    if (!allowRegisteringActions) {
+      return ImmutableSet.of();
+    }
+
+    if (artifacts.keySet().stream().noneMatch(Artifact::isTreeArtifact)) {
+      return ImmutableSet.of();
+    }
+
+    Set<PathFragment> collect = artifacts.keySet().stream()
+        .filter(artifact -> !artifact.isSourceArtifact() && !artifact.isTreeArtifact())
+        .map(Artifact::getExecPath)
+        .collect(toSet());
+
+    return artifacts.keySet().stream()
+        .filter(Artifact::isTreeArtifact)
+        .filter(artifact -> collect.contains(artifact.getExecPath()))
+        .collect(ImmutableSet.toImmutableSet());
   }
 
   private Map<Artifact, String> getOrphanArtifactMap() {

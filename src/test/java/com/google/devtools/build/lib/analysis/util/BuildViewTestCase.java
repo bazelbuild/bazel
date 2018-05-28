@@ -1922,6 +1922,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
+    public ImmutableSet<Artifact> getTreeArtifactsConflictingWithFiles() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ActionKeyContext getActionKeyContext() {
       return actionKeyContext;
     }
