@@ -387,6 +387,33 @@ public final class CcCompilationHelper {
     return this;
   }
 
+  public CcCompilationHelper addPrivateHeaders(Collection<Artifact> privateHeaders) {
+    for (Artifact privateHeader : privateHeaders) {
+      addPrivateHeader(privateHeader, ruleContext.getLabel());
+    }
+    return this;
+  }
+
+  public CcCompilationHelper addPrivateHeaders(Iterable<Pair<Artifact, Label>> privateHeaders) {
+    for (Pair<Artifact, Label> headerLabelPair : privateHeaders) {
+      addPrivateHeader(headerLabelPair.first, headerLabelPair.second);
+    }
+    return this;
+  }
+
+  private CcCompilationHelper addPrivateHeader(Artifact privateHeader, Label label) {
+    boolean isHeader = CppFileTypes.CPP_HEADER.matches(privateHeader.getExecPath());
+    boolean isTextualInclude =
+        CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(privateHeader.getExecPath());
+    Preconditions.checkState(isHeader || isTextualInclude);
+
+    if (shouldProcessHeaders() && !isTextualInclude) {
+      compilationUnitSources.add(CppSource.create(privateHeader, label, CppSource.Type.HEADER));
+    }
+    this.privateHeaders.add(privateHeader);
+    return this;
+  }
+
   /**
    * Add the corresponding files as source files. These may also be header files, in which case they
    * will not be compiled, but also not made visible as includes to dependent rules. The given build
@@ -453,23 +480,19 @@ public final class CcCompilationHelper {
    */
   private void addSource(Artifact source, Label label) {
     Preconditions.checkNotNull(featureConfiguration);
-    boolean isHeader = CppFileTypes.CPP_HEADER.matches(source.getExecPath());
-    boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(source.getExecPath());
+    Preconditions.checkState(!CppFileTypes.CPP_HEADER.matches(source.getExecPath()));
     // We assume TreeArtifacts passed in are directories containing proper sources for compilation.
-    boolean isCompiledSource =
-        sourceCategory.getSourceTypes().matches(source.getExecPathString())
-            || source.isTreeArtifact();
-    if (isHeader || isTextualInclude) {
-      privateHeaders.add(source);
-    }
-    if (isTextualInclude || !isCompiledSource || (isHeader && !shouldProcessHeaders())) {
+    if (!sourceCategory.getSourceTypes().matches(source.getExecPathString())
+        && !source.isTreeArtifact()) {
+      // TODO(plf): If it's a non-source file we ignore it. This is only the case for precompiled
+      // files which should be forbidden in srcs of cc_library|binary and instead be migrated to
+      // cc_import rules.
       return;
     }
+
     boolean isClifInputProto = CppFileTypes.CLIF_INPUT_PROTO.matches(source.getExecPathString());
     CppSource.Type type;
-    if (isHeader) {
-      type = CppSource.Type.HEADER;
-    } else if (isClifInputProto) {
+    if (isClifInputProto) {
       type = CppSource.Type.CLIF_INPUT_PROTO;
     } else {
       type = CppSource.Type.SOURCE;

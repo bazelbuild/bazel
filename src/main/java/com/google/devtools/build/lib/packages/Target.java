@@ -14,12 +14,9 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-
+import com.google.devtools.build.lib.skylarkbuildapi.TargetApi;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -29,20 +26,7 @@ import javax.annotation.Nullable;
  * This SkylarkModule does not contain any documentation since Skylark's Target type refers to
  * TransitiveInfoCollection.class, which contains the appropriate documentation.
  */
-@SkylarkModule(name = "target", doc = "", documented = false)
-public interface Target {
-
-  /**
-   *  Returns the label of this target.  (e.g. "//foo:bar")
-   */
-  @SkylarkCallable(name = "label", documented = false)
-  Label getLabel();
-
-  /**
-   *  Returns the name of this rule (relative to its owning package).
-   */
-  @SkylarkCallable(name = "name", documented = false)
-  String getName();
+public interface Target extends TargetApi {
 
   /**
    *  Returns the Package to which this rule belongs.

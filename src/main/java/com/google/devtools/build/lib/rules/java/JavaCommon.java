@@ -307,16 +307,26 @@ public class JavaCommon {
    * @param outDeps output (compile-time) dependency artifact of this target
    */
   public NestedSet<Artifact> collectCompileTimeDependencyArtifacts(@Nullable Artifact outDeps) {
+    return collectCompileTimeDependencyArtifacts(
+        outDeps,
+        JavaInfo.getProvidersFromListOfTargets(
+            JavaCompilationArgsProvider.class, getExports(ruleContext)));
+  }
+
+  /**
+   * Collects Java dependency artifacts for a target.
+   *
+   * @param jdeps dependency artifact of this target
+   * @param exports dependencies with export-like semantics
+   */
+  public static NestedSet<Artifact> collectCompileTimeDependencyArtifacts(
+      @Nullable Artifact jdeps, Iterable<JavaCompilationArgsProvider> exports) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    if (outDeps != null) {
-      builder.add(outDeps);
+    if (jdeps != null) {
+      builder.add(jdeps);
     }
-
-    for (JavaCompilationArgsProvider provider : JavaInfo.getProvidersFromListOfTargets(
-        JavaCompilationArgsProvider.class, getExports(ruleContext))) {
-      builder.addTransitive(provider.getCompileTimeJavaDependencyArtifacts());
-    }
-
+    exports.forEach(
+        export -> builder.addTransitive(export.getCompileTimeJavaDependencyArtifacts()));
     return builder.build();
   }
 
@@ -365,7 +375,7 @@ public class JavaCommon {
     builder.addJavaTargets(targetsTreatedAsDeps(ClasspathType.BOTH));
 
     if (ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
-      builder.addJavaTargets(ruleContext.getPrerequisites("data", Mode.DATA));
+      builder.addJavaTargets(ruleContext.getPrerequisites("data", Mode.DONT_CHECK));
     }
     return builder.build();
   }
@@ -626,8 +636,6 @@ public class JavaCommon {
     javaTargetAttributes.addSourceArtifacts(sources);
     javaTargetAttributes.addSourceArtifacts(extraSrcs);
     processRuntimeDeps(javaTargetAttributes);
-
-    semantics.checkProtoDeps(ruleContext, targetsTreatedAsDeps(ClasspathType.BOTH));
 
     if (disallowDepsWithoutSrcs(ruleContext.getRule().getRuleClass())
         && ruleContext.attributes().get("srcs", BuildType.LABEL_LIST).isEmpty()

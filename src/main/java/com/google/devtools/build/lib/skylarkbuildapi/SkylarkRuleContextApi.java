@@ -240,9 +240,15 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   @SkylarkCallable(
     name = "features",
     structField = true,
-    doc = "Returns the set of features that are enabled for this rule."
+    doc = "Returns the set of features that are explicitly enabled by the user for this rule."
   )
   public ImmutableList<String> getFeatures() throws EvalException;
+
+  @SkylarkCallable(
+      name = "disabled_features",
+      structField = true,
+      doc = "Returns the set of features that are explicitly disabled by the user for this rule.")
+  ImmutableList<String> getDisabledFeatures() throws EvalException;
 
   @SkylarkCallable(
     name = "bin_dir",

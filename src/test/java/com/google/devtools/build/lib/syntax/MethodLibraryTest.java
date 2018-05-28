@@ -491,20 +491,65 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testRangeIsList() throws Exception {
-    // range() may change in the future to a read-only view, but for now it's a list and can be
-    // updated. This test ensures we won't break backward compatibility until we intend to.
+    // range(), and slices of ranges, may change in the future to return read-only views. But for
+    // now it's just a list and can therefore be ordered, mutated, and concatenated. This test
+    // ensures we don't break backward compatibility until we intend to, even if range() is
+    // optimized to return lazy list-like values.
+    runRangeIsListAssertions("range(3)");
+    runRangeIsListAssertions("range(4)[:3]");
+  }
+
+  /**
+   * Helper function for testRangeIsList that expects a range or range slice expression producing
+   * the range value containing [0, 1, 2].
+   */
+  private void runRangeIsListAssertions(String range3expr) throws Exception {
+    // Check stringifications.
     new BothModesTest()
-        .testStatement("a = range(2); a.append(2); str(a)", "[0, 1, 2]")
-        .testStatement("a = range(2); type(a)", "list");
+        .setUp("a = " + range3expr)
+        .testStatement("str(a)", "[0, 1, 2]")
+        .testStatement("repr(a)", "[0, 1, 2]")
+        .testStatement("type(a)", "list");
+
+    // Check comparisons.
+    new BothModesTest()
+        .setUp("a = " + range3expr)
+        .setUp("b = range(0, 3, 1)")
+        .setUp("c = range(1, 4)")
+        .setUp("L = [0, 1, 2]")
+        .setUp("T = (0, 1, 2)")
+        .testStatement("a == b", true)
+        .testStatement("a == c", false)
+        .testStatement("a < b", false)
+        .testStatement("a < c", true)
+        .testStatement("a == L", true)
+        .testStatement("a == T", false)
+        .testStatement("a < L", false)
+        .testIfErrorContains("Cannot compare list with tuple", "a < T");
+
+    // Check mutations.
+    new BothModesTest()
+        .setUp("a = " + range3expr)
+        .testStatement("a.append(3); str(a)", "[0, 1, 2, 3]");
     new SkylarkTest()
         .testStatement(
             "def f():\n"
-            + "  a = range(2)\n"
+            + "  a = " + range3expr + "\n"
             + "  b = a\n"
-            + "  a += [2]\n"
+            + "  a += [3]\n"
             + "  return str(b)\n"
             + "f()\n",
-            "[0, 1, 2]");
+            "[0, 1, 2, 3]");
+
+    // Check concatenations.
+    new BothModesTest()
+        .setUp("a = " + range3expr)
+        .setUp("b = range(3, 4)")
+        .setUp("L = [3]")
+        .setUp("T = (3,)")
+        .testStatement("str(a + b)", "[0, 1, 2, 3]")
+        .testStatement("str(a + L)", "[0, 1, 2, 3]")
+        .testIfErrorContains("unsupported operand type(s) for +: 'list' and 'tuple", "str(a + T)");
   }
 
   @Test

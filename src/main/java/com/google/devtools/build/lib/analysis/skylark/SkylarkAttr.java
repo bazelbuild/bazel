@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -45,7 +44,6 @@ import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
@@ -226,7 +224,9 @@ public final class SkylarkAttr implements SkylarkAttrApi {
     if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
       Object trans = arguments.get(CONFIGURATION_ARG);
       if (trans.equals("data")) {
-        builder.cfg((PatchTransition) SkylarkUtils.getLipoDataTransition(env));
+        // This used to apply the "disable LIPO" (a.k.a. "data") transition. But now that LIPO is
+        // turned down this is a noop. Still, there are cfg = "data"' references in the depot. So
+        // we have to remove them via b/28688645 before we can remove this path.
       } else if (trans.equals("host")) {
         builder.cfg(HostTransition.INSTANCE);
       } else if (trans instanceof SplitTransition) {

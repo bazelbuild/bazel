@@ -22,9 +22,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingInfoApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
@@ -33,13 +31,7 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 /** Wrapper for every C++ linking provider. */
 @Immutable
 @AutoCodec
-@SkylarkModule(
-  name = "cc_linking_info",
-  documented = false,
-  category = SkylarkModuleCategory.PROVIDER,
-  doc = "Wrapper for every C++ linking provider"
-)
-public final class CcLinkingInfo extends NativeInfo {
+public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi {
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
       FunctionSignature.WithValues.create(
@@ -86,11 +78,7 @@ public final class CcLinkingInfo extends NativeInfo {
     return ccLinkParamsStore;
   }
 
-  @SkylarkCallable(
-      name = "cc_runfiles",
-      documented = false,
-      allowReturnNones = true,
-      structField = true)
+  @Override
   public CcRunfiles getCcRunfiles() {
     return ccRunfiles;
   }

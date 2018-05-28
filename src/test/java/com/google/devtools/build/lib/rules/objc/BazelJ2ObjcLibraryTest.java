@@ -1219,7 +1219,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             .add("-F")
             .add(AppleToolchain.sdkDir() + "/Developer/Library/Frameworks")
             .add("-F")
-            .add(AppleToolchain.platformFrameworkDirFromConfig(appleConfiguration))
+            .add(AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
             .add("-O0")
             .add("-DDEBUG=1")
             .add("-iquote")

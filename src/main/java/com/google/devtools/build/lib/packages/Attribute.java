@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -276,7 +277,7 @@ public final class Attribute implements Comparable<Attribute> {
    * based on attributes of that rule. For instance, a split transition on a rule's deps may differ
    * depending on the 'platform' attribute of the rule.
    */
-  public interface SplitTransitionProvider {
+  public interface SplitTransitionProvider extends SplitTransitionProviderApi {
     /**
      * Returns the {@link SplitTransition} given the attribute mapper of the originating rule.
      */

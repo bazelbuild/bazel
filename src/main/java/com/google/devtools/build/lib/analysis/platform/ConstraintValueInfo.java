@@ -21,20 +21,13 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 
 /** Provider for a platform constraint value that fulfills a {@link ConstraintSettingInfo}. */
-@SkylarkModule(
-  name = "ConstraintValueInfo",
-  doc = "A value for a constraint setting that can be used to define a platform.",
-  category = SkylarkModuleCategory.PROVIDER
-)
 @Immutable
 @AutoCodec
-public class ConstraintValueInfo extends NativeInfo {
+public class ConstraintValueInfo extends NativeInfo implements ConstraintValueInfoApi {
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "ConstraintValueInfo";
 
@@ -55,22 +48,12 @@ public class ConstraintValueInfo extends NativeInfo {
     this.label = label;
   }
 
-  @SkylarkCallable(
-    name = "constraint",
-    doc =
-        "The <a href=\"ConstraintSettingInfo.html\">ConstraintSettingInfo</a> this value can be "
-            + "applied to.",
-    structField = true
-  )
+  @Override
   public ConstraintSettingInfo constraint() {
     return constraint;
   }
 
-  @SkylarkCallable(
-    name = "label",
-    doc = "The label of the target that created this constraint value.",
-    structField = true
-  )
+  @Override
   public Label label() {
     return label;
   }

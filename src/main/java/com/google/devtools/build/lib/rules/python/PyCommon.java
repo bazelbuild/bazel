@@ -480,7 +480,7 @@ public final class PyCommon {
     try {
       return checkForSharedLibraries(Iterables.concat(
               ruleContext.getPrerequisites("deps", Mode.TARGET),
-              ruleContext.getPrerequisites("data", Mode.DATA)));
+              ruleContext.getPrerequisites("data", Mode.DONT_CHECK)));
     } catch (EvalException e) {
       ruleContext.ruleError(e.getMessage());
       return false;

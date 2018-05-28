@@ -20,8 +20,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcRunfilesApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /**
  * Runfiles for C++ targets.
@@ -32,12 +30,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
  */
 @Immutable
 @AutoCodec
-@SkylarkModule(
-    name = "cc_runfiles",
-    category = SkylarkModuleCategory.NONE,
-    doc =
-        "CC runfiles. Separated into files needed for linking statically and files needed for "
-            + "linking dynamically.")
 public final class CcRunfiles implements CcRunfilesApi {
 
   private final Runfiles runfilesForLinkingStatically;

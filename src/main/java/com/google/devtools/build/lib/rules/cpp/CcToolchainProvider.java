@@ -33,8 +33,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -44,10 +43,10 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
-@SkylarkModule(name = "CcToolchainInfo", doc = "Information about the C++ compiler being used.")
 @Immutable
 @AutoCodec
-public final class CcToolchainProvider extends ToolchainInfo {
+public final class CcToolchainProvider extends ToolchainInfo
+    implements CcToolchainProviderApi<PathFragment> {
   public static final String SKYLARK_NAME = "CcToolchainInfo";
 
   /** An empty toolchain to be returned in the error case (instead of null). */
@@ -289,11 +288,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
             getAdditionalMakeVariables()));
   }
 
-  @SkylarkCallable(
-      name = "built_in_include_directories",
-      doc = "Returns the list of built-in directories of the compiler.",
-      structField = true
-  )
+  @Override
   public ImmutableList<PathFragment> getBuiltInIncludeDirectories() {
     return builtInIncludeDirectories;
   }
@@ -581,14 +576,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return interfaceSoBuilder;
   }
 
-  @SkylarkCallable(
-    name = "sysroot",
-    structField = true,
-    doc =
-        "Returns the sysroot to be used. If the toolchain compiler does not support "
-            + "different sysroots, or the sysroot is the same as the default sysroot, then "
-            + "this method returns <code>None</code>."
-  )
+  @Override
   public PathFragment getSysroot() {
     return sysroot;
   }
@@ -641,22 +629,19 @@ public final class CcToolchainProvider extends ToolchainInfo {
   }
 
   /** Returns the compiler version string (e.g. "gcc-4.1.1"). */
-  @SkylarkCallable(name = "compiler", structField = true, doc = "C++ compiler.",
-      allowReturnNones = true)
+  @Override
   public String getCompiler() {
     return toolchainInfo == null ? null : toolchainInfo.getCompiler();
   }
 
   /** Returns the libc version string (e.g. "glibc-2.2.2"). */
-  @SkylarkCallable(name = "libc", structField = true, doc = "libc version string.",
-      allowReturnNones = true)
+  @Override
   public String getTargetLibc() {
     return toolchainInfo == null ? null : toolchainInfo.getTargetLibc();
   }
 
   /** Returns the target architecture using blaze-specific constants (e.g. "piii"). */
-  @SkylarkCallable(name = "cpu", structField = true, doc = "Target CPU of the C++ toolchain.",
-      allowReturnNones = true)
+  @Override
   public String getTargetCpu() {
     return toolchainInfo == null ? null : toolchainInfo.getTargetCpu();
   }
@@ -681,11 +666,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return toolchainInfo.supportsFission();
   }
 
-  @SkylarkCallable(
-      name = "unfiltered_compiler_options",
-      doc =
-          "Returns the default list of options which cannot be filtered by BUILD "
-              + "rules. These should be appended to the command line after filtering.")
+  @Override
   // TODO(b/24373706): Remove this method once new C++ toolchain API is available
   public ImmutableList<String> getUnfilteredCompilerOptionsWithSysroot(
       Iterable<String> featuresNotUsedAnymore) {
@@ -706,13 +687,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return toolchainInfo.getTargetOS();
   }
 
-  @SkylarkCallable(
-    name = "link_options_do_not_use",
-    structField = true,
-    doc =
-        "Returns the set of command-line linker options, including any flags "
-            + "inferred from the command-line options."
-  )
+  @Override
   public ImmutableList<String> getLinkOptionsWithSysroot() {
     return cppConfiguration == null
         ? ImmutableList.of()
@@ -868,12 +843,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   }
 
   /** Returns the GNU System Name */
-  @SkylarkCallable(
-    name = "target_gnu_system_name",
-    structField = true,
-    doc = "The GNU System Name.",
-    allowReturnNones = true
-  )
+  @Override
   public String getTargetGnuSystemName() {
     return toolchainInfo == null ? null : toolchainInfo.getTargetGnuSystemName();
   }
@@ -895,14 +865,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
    * WARNING: This method is only added to allow incremental migration of existing users. Please do
    * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
    */
-  @SkylarkCallable(
-      name = "compiler_options",
-      doc =
-          "Returns the default options to use for compiling C, C++, and assembler. "
-              + "This is just the options that should be used for all three languages. "
-              + "There may be additional C-specific or C++-specific options that should be used, "
-              + "in addition to the ones returned by this method"
-  )
+  @Override
   public ImmutableList<String> getCompilerOptions() {
     return getLegacyCompileOptionsWithCopts();
   }
@@ -915,12 +878,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
    * on the command line after the common options returned by {@link
    * CcToolchainProvider#getLegacyCompileOptionsWithCopts()}.
    */
-  @SkylarkCallable(
-      name = "c_options",
-      doc =
-          "Returns the list of additional C-specific options to use for compiling C. "
-              + "These should be go on the command line after the common options returned by "
-              + "<code>compiler_options</code>")
+  @Override
   public ImmutableList<String> getCOptions() {
     return cppConfiguration.getCOptions();
   }
@@ -932,12 +890,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
    * <p>Returns the list of additional C++-specific options to use for compiling C++. These should
    * be on the command line after the common options returned by {@link #getCompilerOptions}.
    */
-  @SkylarkCallable(
-      name = "cxx_options",
-      doc =
-          "Returns the list of additional C++-specific options to use for compiling C++. "
-              + "These should be go on the command line after the common options returned by "
-              + "<code>compiler_options</code>")
+  @Override
   @Deprecated
   public ImmutableList<String> getCxxOptionsWithCopts() {
     return ImmutableList.<String>builder()
@@ -963,12 +916,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
    *
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
-  @SkylarkCallable(
-      name = "fully_static_link_options",
-      doc =
-          "Returns the immutable list of linker options for fully statically linked "
-              + "outputs. Does not include command-line options passed via --linkopt or "
-              + "--linkopts.")
+  @Override
   @Deprecated
   public ImmutableList<String> getFullyStaticLinkOptions(Boolean sharedLib) throws EvalException {
     if (!sharedLib) {
@@ -987,12 +935,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
    *
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
-  @SkylarkCallable(
-      name = "mostly_static_link_options",
-      doc =
-          "Returns the immutable list of linker options for mostly statically linked "
-              + "outputs. Does not include command-line options passed via --linkopt or "
-              + "--linkopts.")
+  @Override
   @Deprecated
   public ImmutableList<String> getMostlyStaticLinkOptions(Boolean sharedLib) {
     return CppHelper.getMostlyStaticLinkOptions(
@@ -1008,13 +951,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
    *
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
-  @SkylarkCallable(
-      name = "dynamic_link_options",
-      doc =
-          "Returns the immutable list of linker options for artifacts that are not "
-              + "fully or mostly statically linked. Does not include command-line options "
-              + "passed via --linkopt or --linkopts."
-  )
+  @Override
   @Deprecated
   public ImmutableList<String> getDynamicLinkOptions(Boolean sharedLib) {
     return CppHelper.getDynamicLinkOptions(cppConfiguration, this, sharedLib);

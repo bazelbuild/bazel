@@ -29,9 +29,9 @@ public class AndroidResourcesProcessorBuilder {
           .withRoots(ValidatedAndroidData::getResourceRoots)
           .withRoots(ValidatedAndroidData::getAssetRoots)
           .withArtifact(ValidatedAndroidData::getManifest)
-          .withArtifact(ValidatedAndroidData::getAapt2RTxt)
-          .withArtifact(ValidatedAndroidData::getCompiledSymbols)
-          .withArtifact(ValidatedAndroidData::getSymbols)
+          .maybeWithArtifact(ValidatedAndroidData::getAapt2RTxt)
+          .maybeWithArtifact(ValidatedAndroidData::getCompiledSymbols)
+          .maybeWithArtifact(ValidatedAndroidData::getSymbols)
           .build();
 
   private static final AndroidDataConverter<ValidatedAndroidData>
@@ -40,8 +40,8 @@ public class AndroidResourcesProcessorBuilder {
               .withRoots(ValidatedAndroidData::getResourceRoots)
               .withRoots(ValidatedAndroidData::getAssetRoots)
               .withArtifact(ValidatedAndroidData::getManifest)
-              .withArtifact(ValidatedAndroidData::getAapt2RTxt)
-              .withArtifact(ValidatedAndroidData::getCompiledSymbols)
+              .maybeWithArtifact(ValidatedAndroidData::getAapt2RTxt)
+              .maybeWithArtifact(ValidatedAndroidData::getCompiledSymbols)
               .build();
 
   private static final AndroidDataConverter<ValidatedAndroidData> RESOURCE_DEP_TO_ARG =
@@ -49,8 +49,8 @@ public class AndroidResourcesProcessorBuilder {
           .withRoots(ValidatedAndroidData::getResourceRoots)
           .withRoots(ValidatedAndroidData::getAssetRoots)
           .withArtifact(ValidatedAndroidData::getManifest)
-          .withArtifact(ValidatedAndroidData::getRTxt)
-          .withArtifact(ValidatedAndroidData::getSymbols)
+          .maybeWithArtifact(ValidatedAndroidData::getRTxt)
+          .maybeWithArtifact(ValidatedAndroidData::getSymbols)
           .build();
 
   private ResourceDependencies resourceDependencies = ResourceDependencies.empty();
