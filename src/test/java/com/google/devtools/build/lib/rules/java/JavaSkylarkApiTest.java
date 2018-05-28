@@ -1704,5 +1704,60 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     }
     return true;
   }
-}
 
+  @Test
+  public void testCompileExports() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  srcs = ['Main.java'],",
+        "  exports = [':dep']",
+        ")",
+        "java_library(",
+        "  name = 'dep',",
+        "  srcs = [ 'Dep.java'],",
+        ")");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('amazing.jar')",
+        "  exports = [export[java_common.provider] for export in ctx.attr.exports]",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    exports = exports,",
+        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    host_javabase = ctx.attr._host_javabase",
+        "  )",
+        "  return struct(",
+        "    files = depset([output_jar]),",
+        "    providers = [compilation_provider]",
+        "  )",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'output': 'amazing.jar',",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    'exports': attr.label_list(),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+
+    JavaCompilationArgsProvider provider =
+        JavaInfo.getProvider(
+            JavaCompilationArgsProvider.class, getConfiguredTarget("//java/test:custom"));
+    assertThat(prettyArtifactNames(provider.getDirectCompileTimeJars()))
+        .containsExactly("java/test/amazing-hjar.jar", "java/test/libdep-hjar.jar");
+    assertThat(prettyArtifactNames(provider.getCompileTimeJavaDependencyArtifacts()))
+        .containsExactly("java/test/amazing-hjar.jdeps", "java/test/libdep-hjar.jdeps");
+  }
+}
