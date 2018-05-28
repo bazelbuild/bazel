@@ -34,6 +34,7 @@ def _make_legacy_toolchain(ctx):
         ar_executable = _get_cpp_toolchain_attr(ctx, "ar_executable"),
         strip_executable = _get_cpp_toolchain_attr(ctx, "strip_executable"),
         ld_executable = _get_cpp_toolchain_attr(ctx, "ld_executable"),
+        compiler = _get_cpp_toolchain_attr(ctx, "compiler"),
     )
 
 def find_cpp_toolchain(ctx):
