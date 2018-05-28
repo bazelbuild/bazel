@@ -158,7 +158,6 @@ public class CppCompileAction extends AbstractAction
 
   protected final Artifact outputFile;
   private final Artifact sourceFile;
-  private final Artifact optionalSourceFile;
   private final NestedSet<Artifact> mandatoryInputs;
   private final Iterable<Artifact> inputsForInvalidation;
 
@@ -247,7 +246,6 @@ public class CppCompileAction extends AbstractAction
    * @param gcnoFile the coverage notes that are written in coverage mode, can be null
    * @param dwoFile the .dwo output file where debug information is stored for Fission builds (null
    *     if Fission mode is disabled)
-   * @param optionalSourceFile an additional optional source file (null if unneeded)
    * @param ccCompilationContext the {@code CcCompilationContext}
    * @param coptsFilter regular expression to remove options from {@code copts}
    * @param lipoScannables List of artifacts to include-scan when this action is a lipo action
@@ -279,7 +277,6 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
-      Artifact optionalSourceFile,
       ActionEnvironment env,
       CcCompilationContext ccCompilationContext,
       CoptsFilter coptsFilter,
@@ -303,7 +300,6 @@ public class CppCompileAction extends AbstractAction
         env,
         Preconditions.checkNotNull(outputFile),
         sourceFile,
-        optionalSourceFile,
         // We do not need to include the middleman artifact since it is a generated
         // artifact and will definitely exist prior to this action execution.
         mandatoryInputs,
@@ -352,7 +348,6 @@ public class CppCompileAction extends AbstractAction
       ActionEnvironment env,
       Artifact outputFile,
       Artifact sourceFile,
-      Artifact optionalSourceFile,
       NestedSet<Artifact> mandatoryInputs,
       Iterable<Artifact> inputsForInvalidation,
       NestedSet<Artifact> prunableInputs,
@@ -384,7 +379,6 @@ public class CppCompileAction extends AbstractAction
     super(owner, inputs, outputs, env);
     this.outputFile = outputFile;
     this.sourceFile = sourceFile;
-    this.optionalSourceFile = optionalSourceFile;
     this.mandatoryInputs = mandatoryInputs;
     this.inputsForInvalidation = inputsForInvalidation;
     this.prunableInputs = prunableInputs;
@@ -867,9 +861,6 @@ public class CppCompileAction extends AbstractAction
       allowedIncludes.add(input);
     }
 
-    if (optionalSourceFile != null) {
-      allowedIncludes.add(optionalSourceFile);
-    }
     Iterable<PathFragment> ignoreDirs =
         isStrictSystemIncludes
             ? getBuiltInIncludeDirectories()
@@ -1013,9 +1004,6 @@ public class CppCompileAction extends AbstractAction
     Profiler.instance().startTask(ProfilerTask.ACTION_UPDATE, describe());
     try {
       inputs.addTransitive(mandatoryInputs);
-      if (optionalSourceFile != null) {
-        inputs.add(optionalSourceFile);
-      }
       inputs.addAll(inputsForInvalidation);
       inputs.addTransitive(discoveredInputs);
       updateInputs(inputs.build());
