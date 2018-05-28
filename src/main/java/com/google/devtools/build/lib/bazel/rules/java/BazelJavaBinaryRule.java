@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -40,7 +41,7 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
     application (minus the extension). For example, if your entry point is called
     <code>Main.java</code>, then your name could be <code>Main</code>.
     <!-- #END_BLAZE_RULE.NAME --> */
-    return builder
+    return ShToolchain.addDependency(builder, env)
         .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
         /* <!-- #BLAZE_RULE(java_binary).IMPLICIT_OUTPUTS -->
         <ul>

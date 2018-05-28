@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBinaryBaseRule;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -46,7 +47,7 @@ public final class BazelPyBinaryRule implements RuleDefinition {
           .cfg(HostTransition.INSTANCE)
           .value(launcher));
     }
-    return builder
+    return ShToolchain.addDependency(builder, env)
         .requiresConfigurationFragments(PythonConfiguration.class, BazelPythonConfiguration.class)
         .cfg(PyRuleClasses.DEFAULT_PYTHON_VERSION_TRANSITION)
         .add(attr("$zipper", LABEL)

@@ -259,8 +259,8 @@ public final class CommandHelper {
    * Fixes up the input artifact list with the created bash script when required.
    */
   public List<String> buildCommandLine(
-      String command, NestedSetBuilder<Artifact> inputs, String scriptPostFix) {
-    return buildCommandLine(command, inputs, scriptPostFix, ImmutableMap.<String, String>of());
+      PathFragment shExecutable, String command, NestedSetBuilder<Artifact> inputs, String scriptPostFix) {
+    return buildCommandLine(shExecutable, command, inputs, scriptPostFix, ImmutableMap.<String, String>of());
   }
 
   /**
@@ -272,11 +272,11 @@ public final class CommandHelper {
    *     built.
    */
   public List<String> buildCommandLine(
-      String command, NestedSetBuilder<Artifact> inputs, String scriptPostFix,
+      PathFragment shExecutable, String command, NestedSetBuilder<Artifact> inputs, String scriptPostFix,
       Map<String, String> executionInfo) {
     Pair<List<String>, Artifact> argvAndScriptFile =
         buildCommandLineMaybeWithScriptFile(ruleContext, command, scriptPostFix,
-            shellPath(executionInfo));
+            shellPath(executionInfo, shExecutable));
     if (argvAndScriptFile.second != null) {
       inputs.add(argvAndScriptFile.second);
     }
@@ -289,10 +289,10 @@ public final class CommandHelper {
    * Fixes up the input artifact list with the created bash script when required.
    */
   public List<String> buildCommandLine(
-      String command, List<Artifact> inputs, String scriptPostFix,
+      PathFragment shExecutable, String command, List<Artifact> inputs, String scriptPostFix,
       Map<String, String> executionInfo) {
     Pair<List<String>, Artifact> argvAndScriptFile = buildCommandLineMaybeWithScriptFile(
-        ruleContext, command, scriptPostFix, shellPath(executionInfo));
+        ruleContext, command, scriptPostFix, shellPath(executionInfo, shExecutable));
     if (argvAndScriptFile.second != null) {
       inputs.add(argvAndScriptFile.second);
     }
@@ -302,10 +302,10 @@ public final class CommandHelper {
   /**
    * Returns the path to the shell for an action with the given execution requirements.
    */
-  private PathFragment shellPath(Map<String, String> executionInfo) {
+  private PathFragment shellPath(Map<String, String> executionInfo, PathFragment shExecutable) {
     // Use vanilla /bin/bash for actions running on mac machines.
     return executionInfo.containsKey(ExecutionRequirements.REQUIRES_DARWIN)
         ? PathFragment.create("/bin/bash")
-        : ShToolchain.getPathOrError(ruleContext);
+        : shExecutable;
   }
 }

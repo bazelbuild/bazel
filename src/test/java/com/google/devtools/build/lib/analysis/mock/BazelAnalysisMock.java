@@ -59,9 +59,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
             "local_repository(name = 'local_config_xcode', path = '/local_config_xcode')",
             "local_repository(name = 'com_google_protobuf', path = '/protobuf')",
+            "local_repository(name = 'local_sh_toolchain', path = '/local_sh_toolchain')",
             "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
             "bind(name = 'tools/python', actual='//tools/python')",
-            "register_toolchains('@bazel_tools//tools/cpp:all')"));
+            "register_toolchains('@bazel_tools//tools/cpp:all')",
+            "register_toolchains('@local_sh_toolchain//:toolchain')"));
   }
 
   @Override
@@ -189,6 +191,39 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("/bazel_tools_workspace/objcproto/empty.m");
     config.create("/bazel_tools_workspace/objcproto/empty.cc");
     config.create("/bazel_tools_workspace/objcproto/well_known_type.proto");
+
+    config.create(
+        "/bazel_tools_workspace/tools/sh/sh_toolchain.bzl",
+        "def _sh_toolchain_impl(ctx):",
+        "  return [platform_common.ToolchainInfo(path = ctx.attr.path)]",
+        "",
+        "sh_toolchain = rule(",
+        "    attrs = {'path': attr.string()},",
+        "    implementation = _sh_toolchain_impl,",
+        "    supports_platforms = False,",
+        ")");
+    config.create(
+        "/bazel_tools_workspace/tools/sh/BUILD",
+        "toolchain_type(",
+        "    name = 'toolchain_type',",
+        "    visibility = ['//visibility:public'],",
+        ")");
+    config.create("/local_sh_toolchain/WORKSPACE", "workspace(name = 'local_sh_toolchain')");
+    config.create(
+        "/local_sh_toolchain/BUILD",
+        "load('@bazel_tools//tools/sh:sh_toolchain.bzl', 'sh_toolchain')",
+        "",
+        "sh_toolchain(",
+        "    name = 'toolchain_def',",
+        "    path = '/mock/shell',",
+        "    visibility = ['//visibility:public'],",
+        ")",
+        "",
+        "toolchain(",
+        "    name = 'toolchain',",
+        "    toolchain = ':toolchain_def',",
+        "    toolchain_type = '@bazel_tools//tools/sh:toolchain_type',",
+        ")");
 
     ccSupport().setup(config);
   }

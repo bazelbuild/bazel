@@ -425,7 +425,12 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     evalAndExport(
         "def _impl(ctx): pass", "a1 = aspect(_impl, toolchains=['//test:my_toolchain_type'])");
     SkylarkDefinedAspect a = (SkylarkDefinedAspect) lookup("a1");
-    assertThat(a.getRequiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
+    assertThat(a.getRequiredToolchains()).hasSize(2);
+    assertThat(
+            Iterables.transform(
+                // Omit the repository name from the label: it's different for Blaze and Bazel.
+                a.getRequiredToolchains(), e -> "//" + e.getPackageName() + ":" + e.getName()))
+        .containsExactly("//test:my_toolchain_type", "//tools/sh:toolchain_type");
   }
 
   @Test
@@ -1621,7 +1626,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     evalAndExport(
         "def impl(ctx): return None", "r1 = rule(impl, toolchains=['//test:my_toolchain_type'])");
     RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
-    assertThat(c.getRequiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
+    assertThat(c.getRequiredToolchains()).hasSize(2);
+    assertThat(
+            Iterables.transform(
+                // Omit the repository name from the label: it's different for Blaze and Bazel.
+                c.getRequiredToolchains(), e -> "//" + e.getPackageName() + ":" + e.getName()))
+        .containsExactly("//test:my_toolchain_type", "//tools/sh:toolchain_type");
+
   }
 
   @Test

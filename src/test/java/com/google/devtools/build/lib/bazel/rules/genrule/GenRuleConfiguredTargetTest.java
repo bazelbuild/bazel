@@ -170,7 +170,18 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testActionIsShellCommand() throws Exception {
+  public void testActionIsShellCommandUsingShellFromShellConfig() throws Exception {
+    useConfiguration("--shell_executable=/my/shell");
+    assertActionIsShellCommand("/my/shell");
+  }
+
+  @Test
+  public void testActionIsShellCommandUsingShellFromShellToolchain() throws Exception {
+    useConfiguration("--shell_executable=");
+    assertActionIsShellCommand("/mock/shell");
+  }
+
+  private void assertActionIsShellCommand(String expectedShell) throws Exception {
     scratch.file(
         "genrule1/BUILD",
         "genrule(name = 'hello_world',",
@@ -189,8 +200,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
 
     String expected = "echo \"Hello, world.\" >" + messageArtifact.getExecPathString();
-    assertThat(shellAction.getArguments().get(0)).isEqualTo(
-        targetConfig.getFragment(ShellConfiguration.class).getShellExecutable().getPathString());
+    assertThat(shellAction.getArguments().get(0)).isEqualTo(expectedShell);
     assertThat(shellAction.getArguments().get(1)).isEqualTo("-c");
     assertCommandEquals(expected, shellAction.getArguments().get(2));
   }
@@ -475,6 +485,10 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     boolean foundTool = false;
     boolean foundSetup = false;
     for (ConfiguredTarget prereq : prereqs) {
+      String label = prereq.getLabel().toString();
+      if (label.endsWith("//tools/sh:sh_toolchain") || label.endsWith("//tools/sh:toolchain_type")) {
+        continue;
+      }
       String name = prereq.getLabel().getName();
       if (name.contains("cc-") || name.contains("jdk")) {
           // Ignore these, they are present due to the implied genrule dependency on crosstool and

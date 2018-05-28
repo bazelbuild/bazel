@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.JavaRule;
@@ -40,7 +41,7 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
 
-    return ConfigAwareRuleClassBuilder.of(builder)
+    return ConfigAwareRuleClassBuilder.of(ShToolchain.addDependency(builder, env))
         // For getting the host Java executable.
         .requiresHostConfigurationFragments(JavaConfiguration.class)
         .originalBuilder()

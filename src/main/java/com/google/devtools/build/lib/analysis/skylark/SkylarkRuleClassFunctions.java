@@ -32,10 +32,12 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -115,24 +117,28 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
   // TODO(bazel-team): Remove the code duplication (BaseRuleClasses and this class).
   /** Parent rule class for non-executable non-test Skylark rules. */
-  public static final RuleClass baseRule =
-      BaseRuleClasses.commonCoreAndSkylarkAttributes(
-              BaseRuleClasses.nameAttribute(
-                      new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true))
-                  .add(attr("expect_failure", STRING)))
-          .build();
+  public static final RuleClass getBaseRule(String toolsRepository) {
+    return ShToolchain.addDependency(
+            BaseRuleClasses.commonCoreAndSkylarkAttributes(
+                  BaseRuleClasses.nameAttribute(
+                          new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true))
+                      .add(attr("expect_failure", STRING))),
+            v -> labelCache.getUnchecked(toolsRepository + v))
+        .build();
+  }
 
   /** Parent rule class for executable non-test Skylark rules. */
-  public static final RuleClass binaryBaseRule =
-      new RuleClass.Builder("$binary_base_rule", RuleClassType.ABSTRACT, true, baseRule)
+  private static final RuleClass getBinaryBaseRule(String toolsRepository) {
+    return new RuleClass.Builder("$binary_base_rule", RuleClassType.ABSTRACT, true, getBaseRule(toolsRepository))
           .add(attr("args", STRING_LIST))
           .add(attr("output_licenses", LICENSE))
           .build();
+  }
 
   /** Parent rule class for test Skylark rules. */
   public static final RuleClass getTestBaseRule(String toolsRepository,
       PatchTransition lipoDataTransition) {
-    return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
+    return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, getBaseRule(toolsRepository))
         .requiresConfigurationFragments(TestConfiguration.class)
         .add(
             attr("size", STRING)
@@ -299,6 +305,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<?> fragments,
       SkylarkList<?> hostFragments,
       Boolean skylarkTestable,
+      Boolean supportsPlatforms,
       SkylarkList<String> toolchains,
       String doc,
       SkylarkList<?> providesArg,
@@ -307,12 +314,13 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       throws EvalException, ConversionException {
     funcallEnv.checkLoadingOrWorkspacePhase("rule", ast.getLocation());
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
+    String toolsRepo = SkylarkUtils.getToolsRepository(funcallEnv);
     RuleClass parent =
         test
             ? getTestBaseRule(
-                SkylarkUtils.getToolsRepository(funcallEnv),
+                toolsRepo,
                 (PatchTransition) SkylarkUtils.getLipoDataTransition(funcallEnv))
-            : (executable ? binaryBaseRule : baseRule);
+            : (executable ? getBinaryBaseRule(toolsRepo) : getBaseRule(toolsRepo));
 
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
@@ -366,6 +374,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
         funcallEnv.getGlobals().getTransitiveLabel(),
         funcallEnv.getTransitiveContentHashCode());
+    builder.supportsPlatforms(supportsPlatforms);
     builder.addRequiredToolchains(collectToolchainLabels(toolchains, ast));
 
     for (Object o : providesArg) {
@@ -469,6 +478,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         attrObjectToAttributesList(attrs, ast);
     ImmutableList.Builder<Attribute> attributes = ImmutableList.builder();
     ImmutableSet.Builder<String> requiredParams = ImmutableSet.builder();
+    java.util.List<String> attrNames = new java.util.ArrayList<>();
     for (Pair<String, Descriptor> nameDescriptorPair : descriptors) {
       String nativeName = nameDescriptorPair.first;
       boolean hasDefault = nameDescriptorPair.second.hasDefault();
@@ -506,6 +516,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             String.format("Aspect attribute '%s' has no default value.", skylarkName));
       }
       attributes.add(attribute);
+      attrNames.add(attribute.getName());
     }
 
     for (Object o : providesArg) {
@@ -518,6 +529,23 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                 EvalUtils.getDataTypeName(o, true)));
       }
     }
+
+    // Aspects, like Skylark rules, may call `ctx.actions.run_shell()`. Aspects have their own set
+    // of toolchains and don't inherit the toolchains of the rule. Therefore aspects can and must
+    // require the shell toolchain.
+    // Unlike Skylark rules though, aspects do not depend on the toolchain_type rule. Skylark rules
+    // depend on the toolchain_type rule for two reasons: to ensure Bazel loads the toolchain_type
+    // (even if no toolchains are registered for it), and to have an easily accessible place for the
+    // toolchain_type's label -- in the RuleContext in an attribute --, because that label is
+    // required to look up the active toolchain. Bazel however creates a new RuleContext for each
+    // application of an aspect on a given rule, and this RuleContext inherits the rule's attributes
+    // (but not its toolchains).
+    Iterable<String> toolchainsIter =
+        Iterables.concat(
+            toolchains,
+            ImmutableList.of(
+                SkylarkUtils.getToolsRepository(funcallEnv) + ShToolchain.getToolchainTypeLabel()));
+
     return new SkylarkDefinedAspect(
         implementation,
         attrAspects.build(),
@@ -529,7 +557,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
-        collectToolchainLabels(toolchains, ast));
+        collectToolchainLabels(toolchainsIter, ast));
   }
 
   /**
