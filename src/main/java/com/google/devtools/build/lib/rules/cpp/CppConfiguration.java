@@ -983,6 +983,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.pruneCppModules;
   }
 
+  public boolean getPruneCppInputDiscovery() {
+    return cppOptions.pruneCppInputDiscovery;
+  }
+
   public boolean getParseHeadersVerifiesModules() {
     return cppOptions.parseHeadersVerifiesModules;
   }
