@@ -17,7 +17,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
-import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -30,7 +29,6 @@ public final class ActionListenerRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-    // return ShToolchain.addDependency(builder, environment)
         /*<!-- #BLAZE_RULE(action_listener).ATTRIBUTE(mnemonics) -->
         A list of action mnemonics this <code>action_listener</code> should listen
         for, e.g. <code>[ "Javac" ]</code>.
