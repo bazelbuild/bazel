@@ -24,7 +24,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.RemoteOptions;
+import com.google.devtools.build.lib.remote.RemoteRetrier;
+import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
@@ -66,6 +70,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -267,18 +272,25 @@ public final class RemoteWorker {
       blobStore = new ConcurrentMapBlobStore(new ConcurrentHashMap<String, byte[]>());
     }
 
+    ListeningScheduledExecutorService retryService =
+        MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
+    RemoteRetrier retrier =
+        new RemoteRetrier(
+            remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService, Retrier.ALLOW_ALL_CALLS);
     DigestUtil digestUtil = new DigestUtil(fs.getDigestFunction());
     RemoteWorker worker =
         new RemoteWorker(
             fs,
             remoteWorkerOptions,
-            new SimpleBlobStoreActionCache(remoteOptions, blobStore, digestUtil),
+            new SimpleBlobStoreActionCache(remoteOptions, blobStore, retrier, digestUtil),
             sandboxPath,
             digestUtil);
 
     final Server server = worker.startServer();
     worker.createPidFile();
     server.awaitTermination();
+    retryService.shutdownNow();
   }
 
   private static Path prepareSandboxRunner(FileSystem fs, RemoteWorkerOptions remoteWorkerOptions) {

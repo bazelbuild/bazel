@@ -11,6 +11,7 @@ java_library(
     srcs = glob(["*.java"]),
     tags = ["bazel"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",

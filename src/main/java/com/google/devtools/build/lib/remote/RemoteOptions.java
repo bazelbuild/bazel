@@ -36,16 +36,14 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteHttpCache;
 
   @Option(
-    name = "remote_rest_cache_pool_size",
-    defaultValue = "20",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Size of the HTTP pool for making requests to the REST cache.",
-    deprecationWarning =
-        "The value will be ignored and the option will be removed in the next "
-            + "release. Bazel selects the ideal pool size automatically."
+      name = "remote_max_connections",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help = "The max. number of concurrent network connections to the remote cache/executor. By "
+          + "default Bazel selects the ideal number of connections automatically."
   )
-  public int restCachePoolSize;
+  public int remoteMaxConnections;
 
   @Option(
     name = "remote_executor",

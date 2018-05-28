@@ -13,6 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+
+import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -35,6 +44,8 @@ import com.google.devtools.remoteexecution.v1test.OutputDirectory;
 import com.google.devtools.remoteexecution.v1test.OutputFile;
 import com.google.devtools.remoteexecution.v1test.Tree;
 import com.google.protobuf.ByteString;
+import io.grpc.Context;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -43,17 +54,30 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
 
 /** A cache for storing artifacts (input and output) as well as the output of running an action. */
 @ThreadSafety.ThreadSafe
 public abstract class AbstractRemoteActionCache implements AutoCloseable {
+
+  private static final ListenableFuture<Void> COMPLETED_SUCCESS = SettableFuture.create();
+  private static final ListenableFuture<byte[]> EMPTY_BYTES = SettableFuture.create();
+
+  static {
+    ((SettableFuture<Void>) COMPLETED_SUCCESS).set(null);
+    ((SettableFuture<byte[]>) EMPTY_BYTES).set(new byte[0]);
+  }
+
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
+  private final Retrier retrier;
 
-  public AbstractRemoteActionCache(RemoteOptions options, DigestUtil digestUtil) {
+  public AbstractRemoteActionCache(RemoteOptions options, DigestUtil digestUtil, Retrier retrier) {
     this.options = options;
     this.digestUtil = digestUtil;
+    this.retrier = retrier;
   }
 
   /**
@@ -107,8 +131,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @param dest The path to the local file.
    * @throws IOException if download failed.
    */
-  protected abstract void downloadBlob(Digest digest, Path dest)
-      throws IOException, InterruptedException;
+  protected abstract ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out);
 
   /**
    * Download a remote blob and store it in memory.
@@ -117,7 +140,28 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @return The remote blob.
    * @throws IOException if download failed.
    */
-  protected abstract byte[] downloadBlob(Digest digest) throws IOException, InterruptedException;
+  public ListenableFuture<byte[]> downloadBlob(Digest digest) {
+    if (digest.getSizeBytes() == 0) {
+      return EMPTY_BYTES;
+    }
+    ByteArrayOutputStream bOut = new ByteArrayOutputStream((int) digest.getSizeBytes());
+    SettableFuture<byte[]> outerF = SettableFuture.create();
+    Futures.addCallback(
+        downloadBlob(digest, bOut),
+        new FutureCallback<Void>() {
+          @Override
+          public void onSuccess(Void aVoid) {
+            outerF.set(bOut.toByteArray());
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            outerF.setException(t);
+          }
+        },
+        MoreExecutors.directExecutor());
+    return outerF;
+  }
 
   /**
    * Download the output files and directory trees of a remotely executed action to the local
@@ -132,12 +176,28 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
   public void download(ActionResult result, Path execRoot, FileOutErr outErr)
       throws ExecException, IOException, InterruptedException {
     try {
+      Context ctx = Context.current();
+      Map<ListenableFuture<Void>, OutputFile> futures =
+          new HashMap<>(result.getOutputFilesList().size());
       for (OutputFile file : result.getOutputFilesList()) {
         Path path = execRoot.getRelative(file.getPath());
-        downloadFile(path, file.getDigest(), file.getIsExecutable(), file.getContent());
+
+        futures.put(
+            retrier.executeAsync(
+                () -> ctx.call(() -> downloadFile(path, file.getDigest(), file.getContent()))),
+            file);
       }
+
+      for (Map.Entry<ListenableFuture<Void>, OutputFile> e : futures.entrySet()) {
+        getFromFuture(e.getKey());
+        execRoot.getRelative(e.getValue().getPath()).setExecutable(e.getValue().getIsExecutable());
+      }
+
       for (OutputDirectory dir : result.getOutputDirectoriesList()) {
-        byte[] b = downloadBlob(dir.getTreeDigest());
+        byte[] b =
+            getFromFuture(
+                retrier.executeAsync(
+                    () -> ctx.call(() -> downloadBlob(dir.getTreeDigest()))));
         Tree tree = Tree.parseFrom(b);
         Map<Digest, Directory> childrenMap = new HashMap<>();
         for (Directory child : tree.getChildrenList()) {
@@ -186,11 +246,22 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
   private void downloadDirectory(Path path, Directory dir, Map<Digest, Directory> childrenMap)
       throws IOException, InterruptedException {
     // Ensure that the directory is created here even though the directory might be empty
-    FileSystemUtils.createDirectoryAndParents(path);
+    path.createDirectoryAndParents();
 
+    Context ctx = Context.current();
+    Map<ListenableFuture<Void>, FileNode> futures = new HashMap<>(dir.getFilesList().size());
     for (FileNode child : dir.getFilesList()) {
       Path childPath = path.getRelative(child.getName());
-      downloadFile(childPath, child.getDigest(), child.getIsExecutable(), null);
+      futures.put(
+          retrier.executeAsync(
+              () -> ctx.call(() -> downloadFile(childPath, child.getDigest(), null))),
+          child);
+    }
+
+    for (Map.Entry<ListenableFuture<Void>, FileNode> e : futures.entrySet()) {
+      getFromFuture(e.getKey());
+      Path childPath = path.getRelative(e.getValue().getName());
+      childPath.setExecutable(e.getValue().getIsExecutable());
     }
 
     for (DirectoryNode child : dir.getDirectoriesList()) {
@@ -215,36 +286,47 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * Download a file (that is not a directory). If the {@code content} is not given, the content is
    * fetched from the digest.
    */
-  public void downloadFile(
-      Path path, Digest digest, boolean isExecutable, @Nullable ByteString content)
-      throws IOException, InterruptedException {
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+  public ListenableFuture<Void> downloadFile(Path path, Digest digest, @Nullable ByteString content)
+      throws IOException {
+    Preconditions.checkNotNull(path.getParentDirectory()).createDirectoryAndParents();
     if (digest.getSizeBytes() == 0) {
       // Handle empty file locally.
       FileSystemUtils.writeContent(path, new byte[0]);
+      return COMPLETED_SUCCESS;
     } else {
       if (content != null && !content.isEmpty()) {
         try (OutputStream stream = path.getOutputStream()) {
           content.writeTo(stream);
         }
+        return COMPLETED_SUCCESS;
       } else {
-        downloadBlob(digest, path);
-        Digest receivedDigest = digestUtil.compute(path);
-        if (!receivedDigest.equals(digest)) {
-          throw new IOException("Digest does not match " + receivedDigest + " != " + digest);
-        }
+        OutputStream out = new LazyFileOutputStream(path);
+        ListenableFuture<Void> f = downloadBlob(digest, out);
+        f.addListener(
+            () -> {
+              try {
+                out.close();
+              } catch (IOException e) {
+                // Intentionally left empty.
+              }
+            },
+            MoreExecutors.directExecutor());
+        return f;
       }
     }
-    path.setExecutable(isExecutable);
   }
 
   private void downloadOutErr(ActionResult result, FileOutErr outErr)
       throws IOException, InterruptedException {
+    Context ctx = Context.current();
     if (!result.getStdoutRaw().isEmpty()) {
       result.getStdoutRaw().writeTo(outErr.getOutputStream());
       outErr.getOutputStream().flush();
     } else if (result.hasStdoutDigest()) {
-      byte[] stdoutBytes = downloadBlob(result.getStdoutDigest());
+      byte[] stdoutBytes =
+          getFromFuture(
+              retrier.executeAsync(
+                  () -> ctx.call(() -> downloadBlob(result.getStdoutDigest()))));
       outErr.getOutputStream().write(stdoutBytes);
       outErr.getOutputStream().flush();
     }
@@ -252,7 +334,10 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       result.getStderrRaw().writeTo(outErr.getErrorStream());
       outErr.getErrorStream().flush();
     } else if (result.hasStderrDigest()) {
-      byte[] stderrBytes = downloadBlob(result.getStderrDigest());
+      byte[] stderrBytes =
+          getFromFuture(
+              retrier.executeAsync(
+                  () -> ctx.call(() -> downloadBlob(result.getStderrDigest()))));
       outErr.getErrorStream().write(stderrBytes);
       outErr.getErrorStream().flush();
     }
@@ -291,8 +376,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
      * <p>Attempting to a upload symlink results in a {@link
      * com.google.build.lib.actions.ExecException}, since cachable actions shouldn't emit symlinks.
      */
-    public void addFiles(Collection<Path> files)
-        throws ExecException, IOException, InterruptedException {
+    public void addFiles(Collection<Path> files) throws ExecException, IOException {
       for (Path file : files) {
         // TODO(ulfjack): Maybe pass in a SpawnResult here, add a list of output files to that, and
         // rely on the local spawn runner to stat the files, instead of statting here.
@@ -396,6 +480,56 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
   }
 
   /** Release resources associated with the cache. The cache may not be used after calling this. */
-  @Override
   public abstract void close();
+
+  /**
+   * Creates an {@link OutputStream} that isn't actually opened until the first data is written.
+   * This is useful to only have as many open file descriptors as necessary at a time to avoid
+   * running into system limits.
+   */
+  private static class LazyFileOutputStream extends OutputStream {
+
+    private final Path path;
+    private OutputStream out;
+
+    public LazyFileOutputStream(Path path) {
+      this.path = path;
+    }
+
+    @Override
+    public void write(byte[] b) throws IOException {
+      ensureOpen();
+      out.write(b);
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+      ensureOpen();
+      out.write(b, off, len);
+    }
+
+    @Override
+    public void flush() throws IOException {
+      ensureOpen();
+      out.flush();
+    }
+
+    @Override
+    public void close() throws IOException {
+      ensureOpen();
+      out.close();
+    }
+
+    @Override
+    public void write(int b) throws IOException {
+      ensureOpen();
+      out.write(b);
+    }
+
+    private void ensureOpen() throws IOException {
+      if (out == null) {
+        out = path.getOutputStream();
+      }
+    }
+  }
 }

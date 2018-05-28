@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -66,6 +69,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -234,7 +238,7 @@ class RemoteSpawnRunner implements SpawnRunner {
           logPath = parent.getRelative(e.getKey());
           logCount++;
           try {
-            remoteCache.downloadFile(logPath, e.getValue().getDigest(), false, null);
+            getFromFuture(remoteCache.downloadFile(logPath, e.getValue().getDigest(), null));
           } catch (IOException ex) {
             reportOnce(Event.warn("Failed downloading server logs from the remote cache."));
           }

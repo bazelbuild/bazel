@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.remote.worker;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.util.logging.Level.FINE;
 import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
@@ -65,6 +66,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -178,7 +180,7 @@ final class ExecutionServer extends ExecutionImplBase {
     try {
       command =
           com.google.devtools.remoteexecution.v1test.Command.parseFrom(
-              cache.downloadBlob(action.getCommandDigest()));
+              getFromFuture(cache.downloadBlob(action.getCommandDigest())));
       cache.downloadTree(action.getInputRootDigest(), execRoot);
     } catch (CacheNotFoundException e) {
       throw StatusUtils.notFoundError(e.getMissingDigest());

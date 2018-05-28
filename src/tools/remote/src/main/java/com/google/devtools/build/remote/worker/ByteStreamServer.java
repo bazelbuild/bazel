@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.remote.worker;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.util.logging.Level.SEVERE;
 import static java.util.logging.Level.WARNING;
 
@@ -22,6 +23,7 @@ import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.Chunker;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
@@ -36,6 +38,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -80,7 +83,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
     try {
       // This still relies on the blob size to be small enough to fit in memory.
       // TODO(olaola): refactor to fix this if the need arises.
-      Chunker c = new Chunker(cache.downloadBlob(digest), digestUtil);
+      Chunker c = new Chunker(getFromFuture(cache.downloadBlob(digest)), digestUtil);
       while (c.hasNext()) {
         responseObserver.onNext(
             ReadResponse.newBuilder().setData(c.next().getData()).build());
