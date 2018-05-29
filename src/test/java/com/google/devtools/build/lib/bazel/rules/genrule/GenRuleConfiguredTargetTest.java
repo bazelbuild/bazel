@@ -475,6 +475,11 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     boolean foundTool = false;
     boolean foundSetup = false;
     for (ConfiguredTarget prereq : prereqs) {
+      String label = prereq.getLabel().toString();
+      if (label.endsWith("//tools/sh:sh_toolchain")
+          || label.endsWith("//tools/sh:toolchain_type")) {
+        continue;
+      }
       String name = prereq.getLabel().getName();
       if (name.contains("cc-") || name.contains("jdk")) {
           // Ignore these, they are present due to the implied genrule dependency on crosstool and
