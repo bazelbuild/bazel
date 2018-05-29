@@ -1195,7 +1195,7 @@ public abstract class AndroidSkylarkData {
           resourceApk.getArtifact(),
           resourceApk.getResourceProguardConfig(),
           resourceApk.toResourceInfo(ctx.getLabel()),
-          resourceApk.toAssetsInfo(ctx.getLabel()).get(),
+          resourceApk.toAssetsInfo(ctx.getLabel()),
           resourceApk.toManifestInfo().get());
 
     } catch (RuleErrorException e) {
@@ -1313,11 +1313,10 @@ public abstract class AndroidSkylarkData {
       ResourceApk resourceApk, Label label) {
     ImmutableMap.Builder<Provider, NativeInfo> builder = ImmutableMap.builder();
 
-    builder.put(AndroidResourcesInfo.PROVIDER, resourceApk.toResourceInfo(label));
+    builder
+        .put(AndroidResourcesInfo.PROVIDER, resourceApk.toResourceInfo(label))
+        .put(AndroidAssetsInfo.PROVIDER, resourceApk.toAssetsInfo(label));
 
-    resourceApk
-        .toAssetsInfo(label)
-        .ifPresent(info -> builder.put(AndroidAssetsInfo.PROVIDER, info));
     resourceApk.toManifestInfo().ifPresent(info -> builder.put(AndroidManifestInfo.PROVIDER, info));
 
     builder.put(JavaInfo.PROVIDER, getJavaInfoForRClassJar(resourceApk.getResourceJavaClassJar()));
