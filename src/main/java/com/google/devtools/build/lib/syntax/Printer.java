@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
@@ -68,6 +69,15 @@ public class Printer {
    */
   public static BasePrinter getPrinter() {
     return new BasePrinter(new StringBuilder());
+  }
+
+  /**
+   * Creates an instance of {@link PrettyPrinter} with an empty buffer.
+   *
+   * @return new {@link PrettyPrinter}
+   */
+  public static PrettyPrinter getPrettyPrinter() {
+    return new PrettyPrinter(new StringBuilder());
   }
 
   /**
@@ -640,6 +650,50 @@ public class Printer {
 
     BasePrinter append(CharSequence sequence, int start, int end) {
       return this.append(sequence.subSequence(start, end));
+    }
+  }
+
+
+  /** A printer that breaks lines beteen the entries of lists, with proper indenting. */
+ public static class PrettyPrinter extends BasePrinter {
+    static final int BASE_INDENT = 4;
+    private int indent;
+
+    protected PrettyPrinter(Appendable buffer) {
+      super(buffer);
+      indent = 0;
+    }
+
+    @Override
+    public BasePrinter printList(
+        Iterable<?> list,
+        String before,
+        String untrimmedSeparator,
+        String after,
+        @Nullable String singletonTerminator) {
+
+      String separator = untrimmedSeparator.trim();
+
+      this.append(before + "\n");
+      indent += BASE_INDENT;
+      boolean printSeparator = false; // don't print the separator before the first element
+      int len = 0;
+      for (Object o : list) {
+        if (printSeparator) {
+          this.append(separator + "\n");
+        }
+        this.append(Strings.repeat(" ", indent));
+        this.repr(o);
+        printSeparator = true;
+        len++;
+      }
+      if (singletonTerminator != null && len == 1) {
+        this.append(singletonTerminator);
+      }
+      this.append("\n");
+      indent -= BASE_INDENT;
+      this.append(Strings.repeat(" ", indent) + after);
+      return this;
     }
   }
 
