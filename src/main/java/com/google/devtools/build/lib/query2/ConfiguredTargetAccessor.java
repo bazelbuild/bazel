@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccess
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.List;
@@ -109,12 +111,14 @@ class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget> {
   public Target getTargetFromConfiguredTarget(ConfiguredTarget configuredTarget) {
     Target target = null;
     try {
+      Label label =
+          configuredTarget instanceof AliasConfiguredTarget
+              ? ((AliasConfiguredTarget) configuredTarget).getOriginalLabel()
+              : configuredTarget.getLabel();
       target =
-          ((PackageValue)
-                  walkableGraph.getValue(
-                      PackageValue.key(configuredTarget.getLabel().getPackageIdentifier())))
+          ((PackageValue) walkableGraph.getValue(PackageValue.key(label.getPackageIdentifier())))
               .getPackage()
-              .getTarget(configuredTarget.getLabel().getName());
+              .getTarget(label.getName());
     } catch (NoSuchTargetException e) {
       throw new IllegalStateException("Unable to get target from package in accessor.");
     } catch (InterruptedException e2) {
