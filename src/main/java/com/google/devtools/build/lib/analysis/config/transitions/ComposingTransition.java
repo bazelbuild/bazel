@@ -28,47 +28,47 @@ import java.util.Objects;
  * <pre>
  *   transition1: { someSetting = $oldVal + " foo" }
  *   transition2: { someSetting = $oldVal + " bar" }
- *   ComposingSplitTransition(transition1, transition2): { someSetting = $oldVal + " foo bar" }
+ *   ComposingTransition(transition1, transition2): { someSetting = $oldVal + " foo bar" }
  * </pre>
- *
- * <p>Child transitions can be {@link SplitTransition}s, {@link PatchTransition}s, or any
- * combination thereof. We implement this class as a {@link SplitTransition} since that abstraction
- * captures all possible combinations.
  */
 @AutoCodec
-public class ComposingSplitTransition implements SplitTransition {
+public class ComposingTransition implements ConfigurationTransition {
   private ConfigurationTransition transition1;
   private ConfigurationTransition transition2;
 
-  @Override
-  public String getName() {
-    return "(" + transition1.getName() + " + " + transition2.getName() + ")";
-  }
-
   /**
-   * Creates a {@link ComposingSplitTransition} that applies the sequence: {@code fromOptions ->
+   * Creates a {@link ComposingTransition} that applies the sequence: {@code fromOptions ->
    * transition1 -> transition2 -> toOptions }.
    *
    * <p>Note that it's possible to create silly transitions with this constructor (e.g., if one or
-   * both of the transitions is NoTransition). Use composeTransitions instead, which checks for
-   * these states and avoids instantiation appropriately.
-   *
-   * @see TransitionResolver#composeTransitions
+   * both of the transitions is {@link NoTransition}). Use
+   * {@link com.google.devtools.build.lib.analysis.config.TransitionResolver#composeTransitions}
+   * for these cases - it checks for for these states and avoids instantiation appropriately.
    */
   @AutoCodec.Instantiator
-  public ComposingSplitTransition(
+  public ComposingTransition(
       ConfigurationTransition transition1, ConfigurationTransition transition2) {
     this.transition1 = transition1;
     this.transition2 = transition2;
   }
 
   @Override
-  public List<BuildOptions> split(BuildOptions buildOptions) {
+  public List<BuildOptions> apply(BuildOptions buildOptions) {
     ImmutableList.Builder<BuildOptions> toOptions = ImmutableList.builder();
     for (BuildOptions transition1Options : transition1.apply(buildOptions)) {
       toOptions.addAll(transition2.apply(transition1Options));
     }
     return toOptions.build();
+  }
+
+  @Override
+  public String reasonForOverride() {
+    return "Basic abstraction for combining other transitions";
+  }
+
+  @Override
+  public String getName() {
+    return "(" + transition1.getName() + " + " + transition2.getName() + ")";
   }
 
   @Override
@@ -78,26 +78,8 @@ public class ComposingSplitTransition implements SplitTransition {
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof ComposingSplitTransition
-        && ((ComposingSplitTransition) other).transition1.equals(this.transition1)
-        && ((ComposingSplitTransition) other).transition2.equals(this.transition2);
-  }
-
-  /**
-   * Returns whether this transition contains only patches (and is thus suitable as a delegate
-   * for {@link ComposingPatchTransition}).
-   */
-  public boolean isPatchOnly() {
-    return transition1 instanceof PatchTransition && transition2 instanceof PatchTransition;
-  }
-
-  /**
-   * Allows this transition to be used in patch-only contexts if it contains only
-   * {@link PatchTransition}s.
-   *
-   * <p>Can only be called if {@link #isPatchOnly()} returns true.
-   */
-  public ComposingPatchTransition asPatch() {
-    return new ComposingPatchTransition(this);
+    return other instanceof ComposingTransition
+        && ((ComposingTransition) other).transition1.equals(this.transition1)
+        && ((ComposingTransition) other).transition2.equals(this.transition2);
   }
 }

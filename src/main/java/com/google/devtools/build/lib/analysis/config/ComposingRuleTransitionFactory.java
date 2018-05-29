@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
@@ -38,7 +40,15 @@ public class ComposingRuleTransitionFactory implements RuleTransitionFactory {
 
   @Override
   public PatchTransition buildTransitionFor(Rule rule) {
-    return TransitionResolver.composePatchTransitions(
+    ConfigurationTransition composedTransition = TransitionResolver.composeTransitions(
         rtf1.buildTransitionFor(rule), rtf2.buildTransitionFor(rule));
+    // Even though we know the composed transition isn't a split (because neither of its children
+    // can be splits), the returned type is a generic ConfigurationTransition. So cast that back to
+    // a PatchTransition here.
+    //
+    // We could alternatively change RuleTransitionFactory's signature to a ConfigurationTransition.
+    // But it's nice to strongly enforce the interface expectation that rule transitions don't
+    // split.
+    return (BuildOptions options) -> Iterables.getOnlyElement(composedTransition.apply(options));
   }
 }
