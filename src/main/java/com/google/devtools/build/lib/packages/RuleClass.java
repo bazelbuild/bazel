@@ -202,8 +202,6 @@ public class RuleClass {
 
   /** Describes whether a rule implementation allows additional execution platform constraints. */
   public enum ExecutionPlatformConstraintsAllowed {
-    /** The rule implementation does not allow any additional execution platform constraints. */
-    NONE,
     /**
      * Allows additional execution platform constraints to be added in the rule definition,
      * which apply to all targets of that rule.
