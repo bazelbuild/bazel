@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 public class PlatformSemantics {
 
   public static final String TOOLCHAINS_ATTR = "$toolchains";
+  public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
 
   public static RuleClass.Builder platformAttributes(RuleClass.Builder builder) {
     return builder
