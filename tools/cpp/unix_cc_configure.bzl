@@ -21,9 +21,9 @@ load(
     "auto_configure_fail",
     "escape_string",
     "get_env_var",
+    "resolve_labels",
     "split_escaped",
     "which",
-    "tpl",
 )
 
 def _uniq(iterable):
@@ -423,6 +423,13 @@ def find_cc(repository_ctx, overriden_tools):
 
 def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
   """Configure C++ toolchain on Unix platforms."""
+  paths = resolve_labels(repository_ctx, [
+      "@bazel_tools//tools/cpp:BUILD.tpl",
+      "@bazel_tools//tools/cpp:CROSSTOOL.tpl",
+      "@bazel_tools//tools/cpp:linux_cc_wrapper.sh.tpl",
+      "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl",
+  ])
+
   repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
   darwin = cpu_value == "darwin"
 
@@ -439,42 +446,57 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
   crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
   opt_content = _opt_content(darwin)
   dbg_content = _dbg_content()
-  tpl(repository_ctx, "BUILD", {
-      "%{name}": cpu_value,
-      "%{supports_param_files}": "0" if darwin else "1",
-      "%{cc_compiler_deps}": ":cc_wrapper" if darwin else ":empty",
-      "%{compiler}": get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False),
-  })
-  tpl(repository_ctx,
-      "osx_cc_wrapper.sh" if darwin else "linux_cc_wrapper.sh",
-      {"%{cc}": escape_string(str(cc)),
-       "%{env}": escape_string(get_env(repository_ctx))},
-      "cc_wrapper.sh")
-  tpl(repository_ctx, "CROSSTOOL", {
-      "%{cpu}": escape_string(cpu_value),
-      "%{default_toolchain_name}": escape_string(
-          get_env_var(repository_ctx,
-                      "CC_TOOLCHAIN_NAME",
-                      "local",
-                      False)),
-      "%{toolchain_name}": escape_string(
-          get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False)),
-      "%{content}": _build_crosstool(crosstool_content) + "\n" +
-                    _build_tool_path(tool_paths),
-      "%{opt_content}": _build_crosstool(opt_content, "    "),
-      "%{dbg_content}": _build_crosstool(dbg_content, "    "),
-      "%{cxx_builtin_include_directory}": "",
-      "%{coverage}": _coverage_feature(repository_ctx, darwin),
-      "%{msvc_env_tmp}": "",
-      "%{msvc_env_path}": "",
-      "%{msvc_env_include}": "",
-      "%{msvc_env_lib}": "",
-      "%{msvc_cl_path}": "",
-      "%{msvc_ml_path}": "",
-      "%{msvc_link_path}": "",
-      "%{msvc_lib_path}": "",
-      "%{msys_x64_mingw_content}": "",
-      "%{dbg_mode_debug}": "",
-      "%{fastbuild_mode_debug}": "",
-      "%{compilation_mode_content}": "",
-  })
+
+  repository_ctx.template(
+      "BUILD",
+      paths["@bazel_tools//tools/cpp:BUILD.tpl"],
+      {
+          "%{name}": cpu_value,
+          "%{supports_param_files}": "0" if darwin else "1",
+          "%{cc_compiler_deps}": ":cc_wrapper" if darwin else ":empty",
+          "%{compiler}": get_env_var(
+              repository_ctx, "BAZEL_COMPILER", "compiler", False),
+      })
+
+  cc_wrapper_src = (
+      "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl"
+      if darwin else "@bazel_tools//tools/cpp:linux_cc_wrapper.sh.tpl")
+  repository_ctx.template(
+      "cc_wrapper.sh",
+      paths[cc_wrapper_src],
+      {
+          "%{cc}": escape_string(str(cc)),
+          "%{env}": escape_string(get_env(repository_ctx)),
+      })
+
+  repository_ctx.template(
+      "CROSSTOOL",
+      paths["@bazel_tools//tools/cpp:CROSSTOOL.tpl"],
+      {
+          "%{cpu}": escape_string(cpu_value),
+          "%{default_toolchain_name}": escape_string(
+              get_env_var(repository_ctx,
+                          "CC_TOOLCHAIN_NAME",
+                          "local",
+                          False)),
+          "%{toolchain_name}": escape_string(
+              get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False)),
+          "%{content}": _build_crosstool(crosstool_content) + "\n" +
+                        _build_tool_path(tool_paths),
+          "%{opt_content}": _build_crosstool(opt_content, "    "),
+          "%{dbg_content}": _build_crosstool(dbg_content, "    "),
+          "%{cxx_builtin_include_directory}": "",
+          "%{coverage}": _coverage_feature(repository_ctx, darwin),
+          "%{msvc_env_tmp}": "",
+          "%{msvc_env_path}": "",
+          "%{msvc_env_include}": "",
+          "%{msvc_env_lib}": "",
+          "%{msvc_cl_path}": "",
+          "%{msvc_ml_path}": "",
+          "%{msvc_link_path}": "",
+          "%{msvc_lib_path}": "",
+          "%{msys_x64_mingw_content}": "",
+          "%{dbg_mode_debug}": "",
+          "%{fastbuild_mode_debug}": "",
+          "%{compilation_mode_content}": "",
+      })

@@ -15,12 +15,37 @@
 """Base library for configuring the C++ toolchain."""
 
 
+def resolve_labels(repository_ctx, labels):
+  """Resolves a collection of labels to their paths.
+
+  Label resolution can cause the evaluation of Skylark functions to restart.
+  For functions with side-effects (like the auto-configuration functions, which
+  inspect the system and touch the file system), such restarts are costly.
+  We cannot avoid the restarts, but we can minimize their penalty by resolving
+  all labels upfront.
+
+  Among other things, doing less work on restarts can cut analysis times by
+  several seconds and may also prevent tickling kernel conditions that cause
+  build failures.  See https://github.com/bazelbuild/bazel/issues/5196 for
+  more details.
+
+  Args:
+    repository_ctx: The context with which to resolve the labels.
+    labels: Labels to be resolved expressed as a list of strings.
+
+  Returns:
+    A dictionary with the labels as keys and their paths as values.
+  """
+  return dict([(label, repository_ctx.path(Label(label))) for label in labels])
+
+
 def escape_string(arg):
   """Escape percent sign (%) in the string so it can appear in the Crosstool."""
   if arg != None:
     return str(arg).replace("%", "%%")
   else:
     return None
+
 
 def split_escaped(string, delimiter):
   """Split string on the delimiter unless %-escaped.
@@ -39,11 +64,12 @@ def split_escaped(string, delimiter):
       split_escaped("a::b", ":") -> [ "a", "", "", "b" ]
 
   Args:
-    string: a string to be splitted
-    delimiter: non-empty string not containing %-sign to be used as a delimiter
+    string: The string to be split.
+    delimiter: Non-empty string not containing %-sign to be used as a
+        delimiter.
 
   Returns:
-    a list of substrings
+    A list of substrings.
   """
   if delimiter == "": fail("Delimiter cannot be empty")
   if delimiter.find("%") != -1: fail("Delimiter cannot contain %-sign")
@@ -160,15 +186,6 @@ def get_cpu_value(repository_ctx):
   if result.stdout.strip() in ["arm", "armv7l", "aarch64"]:
     return "arm"
   return "k8" if result.stdout.strip() in ["amd64", "x86_64", "x64"] else "piii"
-
-
-def tpl(repository_ctx, template, substitutions={}, out=None):
-  if not out:
-    out = template
-  repository_ctx.template(
-      out,
-      Label("@bazel_tools//tools/cpp:%s.tpl" % template),
-      substitutions)
 
 
 def is_cc_configure_debug(repository_ctx):

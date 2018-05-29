@@ -23,8 +23,8 @@ load(
     "which",
     "which_cmd",
     "execute",
-    "tpl",
     "is_cc_configure_debug",
+    "resolve_labels",
 )
 
 def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = False):
@@ -294,49 +294,66 @@ def _escaped_cuda_compute_capabilities(repository_ctx):
 
 def configure_windows_toolchain(repository_ctx):
   """Configure C++ toolchain on Windows."""
-  repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static.windows"), "BUILD")
+  paths = resolve_labels(repository_ctx, [
+      "@bazel_tools//tools/cpp:BUILD.static.windows",
+      "@bazel_tools//tools/cpp:CROSSTOOL",
+      "@bazel_tools//tools/cpp:CROSSTOOL.tpl",
+      "@bazel_tools//tools/cpp:vc_installation_error.bat.tpl",
+      "@bazel_tools//tools/cpp:wrapper/bin/call_python.bat.tpl",
+      "@bazel_tools//tools/cpp:wrapper/bin/pydir/msvc_tools.py.tpl",
+  ])
+
+  repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.static.windows"], "BUILD")
 
   vc_path = find_vc_path(repository_ctx)
   missing_tools = None
-  vc_installation_error_script = "vc_installation_error.bat"
   if not vc_path:
-    tpl(repository_ctx, vc_installation_error_script, {"%{vc_error_message}" : ""})
+    repository_ctx.template(
+        "vc_installation_error.bat",
+        paths["@bazel_tools//tools/cpp:vc_installation_error.bat.tpl"],
+        {"%{vc_error_message}": ""})
   else:
     missing_tools = _find_missing_vc_tools(repository_ctx, vc_path)
     if missing_tools:
-      tpl(repository_ctx, vc_installation_error_script, {
-        "%{vc_error_message}" : "\r\n".join([
+      message = "\r\n".join([
           "echo. 1>&2",
           "echo Visual C++ build tools seems to be installed at %s 1>&2" % vc_path,
           "echo But Bazel can't find the following tools: 1>&2",
           "echo     %s 1>&2" % ", ".join(missing_tools),
           "echo. 1>&2",
-      ])})
+      ])
+      repository_ctx.template(
+          "vc_installation_error.bat",
+          paths["@bazel_tools//tools/cpp:vc_installation_error.bat.tpl"],
+          {"%{vc_error_message}": message})
 
   if not vc_path or missing_tools:
-    tpl(repository_ctx, "CROSSTOOL", {
-        "%{cpu}": "x64_windows",
-        "%{default_toolchain_name}": "msvc_x64",
-        "%{toolchain_name}": "msys_x64",
-        "%{msvc_env_tmp}": "",
-        "%{msvc_env_path}": "",
-        "%{msvc_env_include}": "",
-        "%{msvc_env_lib}": "",
-        "%{msvc_cl_path}": vc_installation_error_script,
-        "%{msvc_ml_path}": vc_installation_error_script,
-        "%{msvc_link_path}": vc_installation_error_script,
-        "%{msvc_lib_path}": vc_installation_error_script,
-        "%{dbg_mode_debug}": "/DEBUG",
-        "%{fastbuild_mode_debug}": "/DEBUG",
-        "%{compilation_mode_content}": "",
-        "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-        "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
-        "%{opt_content}": "",
-        "%{dbg_content}": "",
-        "%{link_content}": "",
-        "%{cxx_builtin_include_directory}": "",
-        "%{coverage}": "",
-    })
+    repository_ctx.template(
+        "CROSSTOOL",
+        paths["@bazel_tools//tools/cpp:CROSSTOOL.tpl"],
+        {
+            "%{cpu}": "x64_windows",
+            "%{default_toolchain_name}": "msvc_x64",
+            "%{toolchain_name}": "msys_x64",
+            "%{msvc_env_tmp}": "",
+            "%{msvc_env_path}": "",
+            "%{msvc_env_include}": "",
+            "%{msvc_env_lib}": "",
+            "%{msvc_cl_path}": "vc_installation_error.bat",
+            "%{msvc_ml_path}": "vc_installation_error.bat",
+            "%{msvc_link_path}": "vc_installation_error.bat",
+            "%{msvc_lib_path}": "vc_installation_error.bat",
+            "%{dbg_mode_debug}": "/DEBUG",
+            "%{fastbuild_mode_debug}": "/DEBUG",
+            "%{compilation_mode_content}": "",
+            "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
+            "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
+            "%{opt_content}": "",
+            "%{dbg_content}": "",
+            "%{link_content}": "",
+            "%{cxx_builtin_include_directory}": "",
+            "%{coverage}": "",
+         })
     return
 
   env = setup_vc_env_vars(repository_ctx, vc_path)
@@ -363,24 +380,32 @@ def configure_windows_toolchain(repository_ctx):
     if cuda_path:
       escaped_paths = escape_string(cuda_path.replace("\\", "\\\\") + "/bin;") + escaped_paths
     escaped_compute_capabilities = _escaped_cuda_compute_capabilities(repository_ctx)
-    tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
-        "%{lib_tool}": escape_string(msvc_lib_path),
-        "%{support_whole_archive}": support_whole_archive,
-        "%{cuda_compute_capabilities}": ", ".join(
-            ["\"%s\"" % c for c in escaped_compute_capabilities]),
-        "%{nvcc_tmp_dir_name}": nvcc_tmp_dir_name,
-    })
+    repository_ctx.template(
+        "wrapper/bin/pydir/msvc_tools.py",
+        paths["@bazel_tools//tools/cpp:wrapper/bin/pydir/msvc_tools.py.tpl"],
+        {
+            "%{lib_tool}": escape_string(msvc_lib_path),
+            "%{support_whole_archive}": support_whole_archive,
+            "%{cuda_compute_capabilities}": ", ".join(
+                ["\"%s\"" % c for c in escaped_compute_capabilities]),
+            "%{nvcc_tmp_dir_name}": nvcc_tmp_dir_name,
+        })
     # nvcc will generate some source files under %{nvcc_tmp_dir_name}
     # The generated files are guranteed to have unique name, so they can share the same tmp directory
     escaped_cxx_include_directories += [ "cxx_builtin_include_directory: \"%s\"" % nvcc_tmp_dir_name ]
-    msvc_wrapper = repository_ctx.path(Label("@bazel_tools//tools/cpp:CROSSTOOL")).dirname.get_child("wrapper").get_child("bin")
+    msvc_wrapper = repository_ctx.path(
+        paths["@bazel_tools//tools/cpp:CROSSTOOL"]).dirname.get_child(
+            "wrapper").get_child("bin")
     for f in ["msvc_cl.bat", "msvc_link.bat", "msvc_nop.bat"]:
       repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/" + f)
     msvc_wrapper = msvc_wrapper.get_child("pydir")
     for f in ["msvc_cl.py", "msvc_link.py"]:
       repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/pydir/" + f)
     python_binary = _find_python(repository_ctx)
-    tpl(repository_ctx, "wrapper/bin/call_python.bat", {"%{python_binary}": escape_string(python_binary)})
+    repository_ctx.template(
+        "wrapper/bin/call_python.bat",
+        paths["@bazel_tools//tools/cpp:wrapper/bin/call_python.bat.tpl"],
+        {"%{python_binary}": escape_string(python_binary)})
     msvc_cl_path = "wrapper/bin/msvc_cl.bat"
     msvc_link_path = "wrapper/bin/msvc_link.bat"
     msvc_lib_path = "wrapper/bin/msvc_link.bat"
@@ -392,26 +417,29 @@ def configure_windows_toolchain(repository_ctx):
 
   support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, vc_path)
 
-  tpl(repository_ctx, "CROSSTOOL", {
-      "%{cpu}": "x64_windows",
-      "%{default_toolchain_name}": "msvc_x64",
-      "%{toolchain_name}": "msys_x64",
-      "%{msvc_env_tmp}": escaped_tmp_dir,
-      "%{msvc_env_path}": escaped_paths,
-      "%{msvc_env_include}": escaped_include_paths,
-      "%{msvc_env_lib}": escaped_lib_paths,
-      "%{msvc_cl_path}": msvc_cl_path,
-      "%{msvc_ml_path}": msvc_ml_path,
-      "%{msvc_link_path}": msvc_link_path,
-      "%{msvc_lib_path}": msvc_lib_path,
-      "%{dbg_mode_debug}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
-      "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
-      "%{compilation_mode_content}": compilation_mode_content,
-      "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-      "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
-      "%{opt_content}": "",
-      "%{dbg_content}": "",
-      "%{link_content}": "",
-      "%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories),
-      "%{coverage}": "",
-  })
+  repository_ctx.template(
+      "CROSSTOOL",
+      paths["@bazel_tools//tools/cpp:CROSSTOOL.tpl"],
+      {
+          "%{cpu}": "x64_windows",
+          "%{default_toolchain_name}": "msvc_x64",
+          "%{toolchain_name}": "msys_x64",
+          "%{msvc_env_tmp}": escaped_tmp_dir,
+          "%{msvc_env_path}": escaped_paths,
+          "%{msvc_env_include}": escaped_include_paths,
+          "%{msvc_env_lib}": escaped_lib_paths,
+          "%{msvc_cl_path}": msvc_cl_path,
+          "%{msvc_ml_path}": msvc_ml_path,
+          "%{msvc_link_path}": msvc_link_path,
+          "%{msvc_lib_path}": msvc_lib_path,
+          "%{dbg_mode_debug}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
+          "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
+          "%{compilation_mode_content}": compilation_mode_content,
+          "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
+          "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
+          "%{opt_content}": "",
+          "%{dbg_content}": "",
+          "%{link_content}": "",
+          "%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories),
+          "%{coverage}": "",
+      })
