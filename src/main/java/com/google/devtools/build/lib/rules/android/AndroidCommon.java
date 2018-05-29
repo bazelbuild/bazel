@@ -289,6 +289,14 @@ public class AndroidCommon {
     return ideInfoProviderBuilder.build();
   }
 
+  /**
+   * Gets the Java package for the current target.
+   *
+   * @deprecated If no custom_package is specified, this method will derive the Java package from
+   *     the package path, even if that path is not a valid Java path. Use {@link
+   *     AndroidManifest#getAndroidPackage(RuleContext)} instead.
+   */
+  @Deprecated
   public static String getJavaPackage(RuleContext ruleContext) {
     AttributeMap attributes = ruleContext.attributes();
     if (attributes.isAttributeValueExplicitlySpecified("custom_package")) {

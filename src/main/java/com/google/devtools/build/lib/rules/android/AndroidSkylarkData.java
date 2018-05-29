@@ -144,7 +144,9 @@ public abstract class AndroidSkylarkData {
         SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
       String pkg = fromNoneable(customPackage, String.class);
       if (pkg == null) {
-        pkg = AndroidManifest.getDefaultPackage(ctx.getActionConstructionContext(), errorReporter);
+        pkg =
+            AndroidManifest.getDefaultPackage(
+                env.getCallerLabel(), ctx.getActionConstructionContext(), errorReporter);
       }
       return ResourceApk.processFromTransitiveLibraryData(
               ctx,
@@ -206,7 +208,9 @@ public abstract class AndroidSkylarkData {
     try (SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
       if (pkg == null) {
-        pkg = AndroidManifest.getDefaultPackage(ctx.getActionConstructionContext(), errorReporter);
+        pkg =
+            AndroidManifest.getDefaultPackage(
+                env.getCallerLabel(), ctx.getActionConstructionContext(), errorReporter);
       }
     }
 
