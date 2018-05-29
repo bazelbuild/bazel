@@ -38,7 +38,8 @@ Ensure you have installed:
 
 *   **The required MSYS2 packages.** Run the following command in the MSYS2
     shell:
-    ```sh
+
+    ```
     pacman -Syu zip unzip
     ```
 
