@@ -36,7 +36,7 @@ default_toolchain {
 toolchain {
   abi_version: "local"
   abi_libc_version: "local"
-  builtin_sysroot: ""
+  builtin_sysroot: "/test/"
   compiler: "compiler"
   host_system_name: "local"
   needsPic: true
@@ -181,7 +181,7 @@ toolchain {
   needsPic: true
   supports_fission: true
 
-  builtin_sysroot: ""
+  builtin_sysroot: "/usr/grte/v1"
   cxx_flag: "-std=c++0x"
   linker_flag: "-lstdc++"
   cxx_builtin_include_directory: "/usr/lib/gcc/"
@@ -296,7 +296,7 @@ toolchain {
 
   needsPic: false
 
-  builtin_sysroot: ""
+  builtin_sysroot: "/usr/grte/v1"
   cxx_flag: "-std=c++0x"
   linker_flag: "-lstdc++"
   cxx_builtin_include_directory: "/usr/include"
@@ -447,7 +447,7 @@ toolchain {
   tool_path { name: "objdump" path: "C:/msys64/mingw64/bin/objdump" }
   tool_path { name: "strip" path: "C:/msys64/mingw64/bin/strip" }
 
-  builtin_sysroot: ""
+  builtin_sysroot: "/usr/grte/v1"
   cxx_flag: "-std=c++0x"
   cxx_builtin_include_directory: "C:/msys64/mingw64/x86_64-w64-mingw32/include"
   objcopy_embed_flag: "-I"
@@ -536,7 +536,7 @@ toolchain {
 toolchain {
    abi_version: "local"
    abi_libc_version: "local"
-   builtin_sysroot: ""
+   builtin_sysroot: "/usr/grte/v1"
    compiler: "windows_msys64"
    host_system_name: "local"
    needsPic: false
