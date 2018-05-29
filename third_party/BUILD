@@ -85,7 +85,13 @@ java_import(
         "android_common/com.android.tools.build_builder-test-api_2.0.0.jar",
         "android_common/com.android.tools.build_manifest-merger_25.0.0.jar",
         "android_common/com.android.tools.external.lombok_lombok-ast_0.2.3.jar",
-        "android_common/com.android.tools.layoutlib_layoutlib_25.0.0.jar",
+        # layoutlib has been upgraded to 26.1.2 *just* for font resource support.
+        # We are unable to upgrade the other libraries yet due to internal
+        # constraints with Blaze. See
+        # https://github.com/bazelbuild/bazel/issues/4381
+        # TODO(bazel-team): Upgrade entire android_common suite to 26+ after
+        # resolving internal constraint.
+        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2.jar",
         "android_common/com.android.tools.lint_lint-api_25.0.0.jar",
         "android_common/com.android.tools.lint_lint-checks_25.0.0.jar",
         "android_common/com.android.tools_common_25.0.0.jar",
