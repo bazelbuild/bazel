@@ -31,6 +31,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -603,22 +604,15 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Defines the configuration transition for this attribute. Defaults to
-     * {@code NONE}.
-     */
-    public Builder<TYPE> cfg(SplitTransition configTransition) {
-      return cfg(new BasicSplitTransitionProvider(Preconditions.checkNotNull(configTransition)));
-    }
-
-    /**
-     * Defines the configuration transition for this attribute. Defaults to
-     * {@code NONE}.
+     * Defines the configuration transition for this attribute (e.g. a {@link PatchTransition} or
+     * {@link SplitTransition}). Defaults to {@code NONE}.
      */
     public Builder<TYPE> cfg(ConfigurationTransition configTransition) {
+      Preconditions.checkNotNull(configTransition);
       Preconditions.checkState(this.configTransition == NoTransition.INSTANCE,
           "the configuration transition is already set");
       if (configTransition instanceof SplitTransition) {
-        return cfg((SplitTransition) configTransition);
+        return cfg(new BasicSplitTransitionProvider((SplitTransition) configTransition));
       } else {
         this.configTransition = configTransition;
         return this;

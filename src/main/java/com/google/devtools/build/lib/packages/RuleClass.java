@@ -32,6 +32,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -895,23 +896,21 @@ public class RuleClass {
     /**
      * Applies the given transition to all incoming edges for this rule class.
      *
+     * <p>This cannot be a {@link SplitTransition} because that requires coordination with the
+     * rule's parent: use {@link Attribute.Builder#cfg(ConfigurationTransition)} on the parent to
+     * declare splits.
+     *
      * <p>If you need the transition to depend on the rule it's being applied to, use
      * {@link #cfg(RuleTransitionFactory)}.
      */
     public Builder cfg(PatchTransition transition) {
-      Preconditions.checkState(type != RuleClassType.ABSTRACT,
-          "Setting not inherited property (cfg) of abstract rule class '%s'", name);
-      Preconditions.checkState(this.transitionFactory == null,
-          "Property cfg has already been set");
-      Preconditions.checkNotNull(transition);
-      this.transitionFactory = new FixedTransitionFactory(transition);
-      return this;
+      return cfg(new FixedTransitionFactory(transition));
     }
 
     /**
      * Applies the given transition factory to all incoming edges for this rule class.
      *
-     * <p>Unlike{@link #cfg(ConfigurationTransition)}, the factory can examine the rule when
+     * <p>Unlike{@link #cfg(PatchTransition)}, the factory can examine the rule when
      * deciding what transition to use.
      */
     public Builder cfg(RuleTransitionFactory transitionFactory) {
