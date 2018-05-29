@@ -99,7 +99,6 @@ public class AndroidResourcesInfo extends NativeInfo implements AndroidResources
     return manifest;
   }
 
-  /** Returns the r.txt file for the target. */
   @Override
   public Artifact getRTxt() {
     return rTxt;
