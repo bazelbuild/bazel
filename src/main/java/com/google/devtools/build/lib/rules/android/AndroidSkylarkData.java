@@ -35,9 +35,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataSettingsApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataProcessingApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -50,89 +48,28 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Skylark-visible methods for working with Android data (manifests, resources, and assets). */
-@SkylarkModule(
-    name = "android_data",
-    doc =
-        "Utilities for working with Android data (manifests, resources, and assets). "
-            + "This API is non-final and subject to change without warning; do not rely on it.")
-public abstract class AndroidSkylarkData {
+public abstract class AndroidSkylarkData
+    implements AndroidDataProcessingApi<
+        AndroidDataContext,
+        ConfiguredTarget,
+        Artifact,
+        SpecialArtifact,
+        AndroidAssetsInfo,
+        AndroidResourcesInfo,
+        AndroidManifestInfo,
+        AndroidLibraryAarInfo,
+        AndroidBinaryDataInfo> {
 
   public abstract AndroidSemantics getAndroidSemantics();
 
-  @SkylarkCallable(
-      name = "assets_from_deps",
-      parameters = {
-        @Param(
-            name = "deps",
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = AndroidAssetsInfo.class,
-            positional = false,
-            named = true,
-            doc = "Dependencies to inherit assets from"),
-        @Param(
-            name = "neverlink",
-            defaultValue = "False",
-            type = Boolean.class,
-            positional = false,
-            named = true,
-            doc =
-                "Defaults to False. If true, assets will not be exposed to targets that depend on"
-                    + " them.")
-      },
-      useEnvironment = true,
-      doc =
-          "Creates an AndroidAssetsInfo from this target's asset dependencies, ignoring local"
-              + " assets. No processing will be done. This method is deprecated and exposed only"
-              + " for backwards-compatibility with existing Native behavior.")
-  public static AndroidAssetsInfo assetsFromDeps(
+  @Override
+  public AndroidAssetsInfo assetsFromDeps(
       SkylarkList<AndroidAssetsInfo> deps, boolean neverlink, Environment env) {
     return AssetDependencies.fromProviders(deps, neverlink).toInfo(env.getCallerLabel());
   }
 
-  @SkylarkCallable(
-      name = "resources_from_deps",
-      mandatoryPositionals = 1, // context
-      parameters = {
-        @Param(
-            name = "deps",
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = AndroidResourcesInfo.class,
-            positional = false,
-            named = true,
-            doc = "Dependencies to inherit resources from"),
-        @Param(
-            name = "neverlink",
-            defaultValue = "False",
-            type = Boolean.class,
-            positional = false,
-            named = true,
-            doc =
-                "Defaults to False. If true, resources will not be exposed to targets that depend"
-                    + " on them."),
-        @Param(
-            name = "custom_package",
-            positional = false,
-            defaultValue = "None",
-            type = String.class,
-            noneable = true,
-            named = true,
-            doc =
-                "The Android application package to stamp the manifest with. If not provided, the"
-                    + " current Java package, derived from the location of this target's BUILD"
-                    + " file, will be used. For example, given a BUILD file in"
-                    + " 'java/com/foo/bar/BUILD', the package would be 'com.foo.bar'."),
-      },
-      useLocation = true,
-      useEnvironment = true,
-      doc =
-          "Creates an AndroidResourcesInfo from this target's resource dependencies, ignoring local"
-              + " resources. Only processing of deps will be done. This method is deprecated and"
-              + " exposed only for backwards-compatibility with existing Native behavior. An empty"
-              + " manifest will be generated and included in the provider - this path should not"
-              + " be used when an explicit manifest is specified.")
-  public static AndroidResourcesInfo resourcesFromDeps(
+  @Override
+  public AndroidResourcesInfo resourcesFromDeps(
       AndroidDataContext ctx,
       SkylarkList<AndroidResourcesInfo> deps,
       boolean neverlink,
@@ -158,44 +95,7 @@ public abstract class AndroidSkylarkData {
     }
   }
 
-  @SkylarkCallable(
-      name = "stamp_manifest",
-      mandatoryPositionals = 1, // AndroidDataContext ctx is mandatory
-      parameters = {
-        @Param(
-            name = "manifest",
-            positional = false,
-            defaultValue = "None",
-            type = Artifact.class,
-            noneable = true,
-            named = true,
-            doc = "The manifest to stamp. If not passed, a dummy manifest will be generated"),
-        @Param(
-            name = "custom_package",
-            positional = false,
-            defaultValue = "None",
-            type = String.class,
-            noneable = true,
-            named = true,
-            doc =
-                "The Android application package to stamp the manifest with. If not provided, the"
-                    + " current Java package, derived from the location of this target's BUILD"
-                    + " file, will be used. For example, given a BUILD file in"
-                    + " 'java/com/foo/bar/BUILD', the package would be 'com.foo.bar'."),
-        @Param(
-            name = "exports_manifest",
-            positional = false,
-            defaultValue = "False",
-            type = Boolean.class,
-            named = true,
-            doc =
-                "Defaults to False. If passed as True, this manifest will be exported to and"
-                    + " eventually merged into targets that depend on it. Otherwise, it won't be"
-                    + " inherited."),
-      },
-      useLocation = true,
-      useEnvironment = true,
-      doc = "Stamps a manifest with package information.")
+  @Override
   public AndroidManifestInfo stampAndroidManifest(
       AndroidDataContext ctx,
       Object manifest,
@@ -226,58 +126,7 @@ public abstract class AndroidSkylarkData {
     return new AndroidManifest(renamedManifest, pkg, exported).stamp(ctx).toProvider();
   }
 
-  @SkylarkCallable(
-      name = "merge_assets",
-      mandatoryPositionals = 1, // context
-      parameters = {
-        @Param(
-            name = "assets",
-            positional = false,
-            defaultValue = "None",
-            type = SkylarkList.class,
-            generic1 = ConfiguredTarget.class,
-            noneable = true,
-            named = true,
-            doc =
-                "Targets containing raw assets for this target. If passed, 'assets_dir' must also"
-                    + " be passed."),
-        @Param(
-            name = "assets_dir",
-            positional = false,
-            defaultValue = "None",
-            type = String.class,
-            noneable = true,
-            named = true,
-            doc =
-                "Directory the assets are contained in. Must be passed if and only if 'assets' is"
-                    + " passed. This path will be split off of the asset paths on the device."),
-        @Param(
-            name = "deps",
-            positional = false,
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = AndroidAssetsInfo.class,
-            named = true,
-            doc =
-                "Providers containing assets from dependencies. These assets will be merged"
-                    + " together with each other and this target's assets."),
-        @Param(
-            name = "neverlink",
-            positional = false,
-            defaultValue = "False",
-            type = Boolean.class,
-            named = true,
-            doc =
-                "Defaults to False. If passed as True, these assets will not be inherited by"
-                    + " targets that depend on this one.")
-      },
-      useLocation = true,
-      useEnvironment = true,
-      doc =
-          "Merges this target's assets together with assets inherited from dependencies. Note that,"
-              + " by default, actions for validating the merge are created but may not be called."
-              + " You may want to force these actions to be called - see the 'validation_result'"
-              + " field in AndroidAssetsInfo")
+  @Override
   public AndroidAssetsInfo mergeAssets(
       AndroidDataContext ctx,
       Object assets,
@@ -295,7 +144,7 @@ public abstract class AndroidSkylarkData {
               isNone(assetsDir) ? null : PathFragment.create(fromNoneable(assetsDir, String.class)))
           .process(
               ctx,
-              AssetDependencies.fromProviders(deps.getImmutableList(), neverlink),
+              AssetDependencies.fromProviders(deps, neverlink),
               ctx.getAndroidConfig().getAndroidAaptVersion())
           .toProvider();
     } catch (RuleErrorException e) {
@@ -303,58 +152,7 @@ public abstract class AndroidSkylarkData {
     }
   }
 
-  @SkylarkCallable(
-      name = "merge_resources",
-      mandatoryPositionals = 2, // context, manifest
-      parameters = {
-        @Param(
-            name = "resources",
-            positional = false,
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = FileProvider.class,
-            named = true,
-            doc = "Providers of this target's resources"),
-        @Param(
-            name = "deps",
-            positional = false,
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = AndroidResourcesInfo.class,
-            named = true,
-            doc =
-                "Targets containing raw resources from dependencies. These resources will be merged"
-                    + " together with each other and this target's resources."),
-        @Param(
-            name = "neverlink",
-            positional = false,
-            defaultValue = "False",
-            type = Boolean.class,
-            named = true,
-            doc =
-                "Defaults to False. If passed as True, these resources will not be inherited by"
-                    + " targets that depend on this one."),
-        @Param(
-            name = "enable_data_binding",
-            positional = false,
-            defaultValue = "False",
-            type = Boolean.class,
-            named = true,
-            doc =
-                "Defaults to False. If True, processes data binding expressions in layout"
-                    + " resources."),
-      },
-      useLocation = true,
-      useEnvironment = true,
-      doc =
-          "Merges this target's resources together with resources inherited from dependencies."
-              + " Returns a dict of provider type to actual info, with elements for"
-              + " AndroidResourcesInfo (various resource information) and JavaInfo (wrapping the"
-              + " R.class jar, for use in Java compilation). The passed manifest provider is used"
-              + " to get Android package information and to validate that all resources it refers"
-              + " to are available. Note that this method might do additional processing to this"
-              + " manifest, so in the future, you may want to use the manifest contained in this"
-              + " method's output instead of this one.")
+  @Override
   public SkylarkDict<Provider, NativeInfo> mergeResources(
       AndroidDataContext ctx,
       AndroidManifestInfo manifest,
@@ -392,42 +190,7 @@ public abstract class AndroidSkylarkData {
     }
   }
 
-  @SkylarkCallable(
-      name = "make_aar",
-      mandatoryPositionals = 4, // context, resource info, asset info, and library class jar
-      parameters = {
-        @Param(
-            name = "proguard_specs",
-            type = SkylarkList.class,
-            generic1 = ConfiguredTarget.class,
-            defaultValue = "[]",
-            positional = false,
-            named = true,
-            doc =
-                "Files to be used as Proguard specification for this target, which will be"
-                    + " inherited in the top-level target"),
-        @Param(
-            name = "deps",
-            type = SkylarkList.class,
-            generic1 = AndroidLibraryAarInfo.class,
-            defaultValue = "[]",
-            positional = false,
-            named = true,
-            doc = "Dependant AAR providers used to build this AAR."),
-        @Param(
-            name = "neverlink",
-            type = Boolean.class,
-            defaultValue = "False",
-            positional = false,
-            named = true,
-            doc =
-                "Defaults to False. If true, this target's Aar will not be generated or propagated"
-                    + " to targets that depend upon it."),
-      },
-      doc =
-          "Builds an AAR and corresponding provider for this target. The resource and asset"
-              + " providers from this same target must both be passed, as must the class JAR output"
-              + " of building the Android Java library.")
+  @Override
   public AndroidLibraryAarInfo makeAar(
       AndroidDataContext ctx,
       AndroidResourcesInfo resourcesInfo,
@@ -494,117 +257,7 @@ public abstract class AndroidSkylarkData {
         .toProvider(deps, definesLocalResources);
   }
 
-  @SkylarkCallable(
-      name = "process_library_data",
-      mandatoryPositionals = 2, // ctx and libraryClassJar are required
-      parameters = {
-        @Param(
-            name = "manifest",
-            positional = false,
-            type = Artifact.class,
-            defaultValue = "None",
-            named = true,
-            noneable = true,
-            doc =
-                "If passed, the manifest to use for this target. Otherwise, a dummy manifest will"
-                    + " be generated."),
-        @Param(
-            name = "resources",
-            positional = false,
-            defaultValue = "None",
-            type = SkylarkList.class,
-            generic1 = FileProvider.class,
-            named = true,
-            noneable = true,
-            doc = "Providers of this target's resources"),
-        @Param(
-            name = "assets",
-            positional = false,
-            defaultValue = "None",
-            type = SkylarkList.class,
-            generic1 = ConfiguredTarget.class,
-            noneable = true,
-            named = true,
-            doc =
-                "Targets containing raw assets for this target. If passed, 'assets_dir' must also"
-                    + " be passed."),
-        @Param(
-            name = "assets_dir",
-            positional = false,
-            defaultValue = "None",
-            type = String.class,
-            noneable = true,
-            named = true,
-            doc =
-                "Directory the assets are contained in. Must be passed if and only if 'assets' is"
-                    + " passed. This path will be split off of the asset paths on the device."),
-        @Param(
-            name = "exports_manifest",
-            positional = false,
-            defaultValue = "None",
-            type = Boolean.class,
-            named = true,
-            noneable = true,
-            doc =
-                "Defaults to False. If passed as True, this manifest will be exported to and"
-                    + " eventually merged into targets that depend on it. Otherwise, it won't be"
-                    + " inherited."),
-        @Param(
-            name = "custom_package",
-            positional = false,
-            defaultValue = "None",
-            type = String.class,
-            noneable = true,
-            named = true,
-            doc =
-                "The Android application package to stamp the manifest with. If not provided, the"
-                    + " current Java package, derived from the location of this target's BUILD"
-                    + " file, will be used. For example, given a BUILD file in"
-                    + " 'java/com/foo/bar/BUILD', the package would be 'com.foo.bar'."),
-        @Param(
-            name = "neverlink",
-            positional = false,
-            defaultValue = "False",
-            type = Boolean.class,
-            named = true,
-            doc =
-                "Defaults to False. If passed as True, these resources and assets will not be"
-                    + " inherited by targets that depend on this one."),
-        @Param(
-            name = "enable_data_binding",
-            positional = false,
-            defaultValue = "False",
-            type = Boolean.class,
-            named = true,
-            doc =
-                "Defaults to False. If True, processes data binding expressions in layout"
-                    + " resources."),
-        @Param(
-            name = "proguard_specs",
-            type = SkylarkList.class,
-            generic1 = ConfiguredTarget.class,
-            defaultValue = "[]",
-            positional = false,
-            named = true,
-            doc =
-                "Files to be used as Proguard specification for this target, which will be"
-                    + " inherited in the top-level target"),
-        @Param(
-            name = "deps",
-            positional = false,
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = AndroidAssetsInfo.class,
-            named = true,
-            doc =
-                "Dependency targets. Providers will be extracted from these dependencies for each"
-                    + " type of data."),
-      },
-      useLocation = true,
-      useEnvironment = true,
-      doc =
-          "Performs full processing of data for android_library or similar rules. Returns a dict"
-              + " from provider type to providers for the target.")
+  @Override
   public SkylarkDict<Provider, NativeInfo> processLibraryData(
       AndroidDataContext ctx,
       Artifact libraryClassJar,
@@ -698,21 +351,7 @@ public abstract class AndroidSkylarkData {
             .build());
   }
 
-  @SkylarkCallable(
-      name = "process_aar_import_data",
-      // context, resource and asset TreeArtifacts, and manifest artifact are all mandatory
-      mandatoryPositionals = 4,
-      parameters = {
-        @Param(
-            name = "deps",
-            type = SkylarkList.class,
-            generic1 = ConfiguredTarget.class,
-            named = true,
-            positional = false,
-            defaultValue = "[]",
-            doc = "Targets to inherit asset and resource dependencies from.")
-      },
-      doc = "Processes assets, resources, and manifest for aar_import targets")
+  @Override
   public SkylarkDict<Provider, NativeInfo> processAarImportData(
       AndroidDataContext ctx,
       SpecialArtifact resources,
@@ -746,96 +385,7 @@ public abstract class AndroidSkylarkData {
     return getNativeInfosFrom(resourceApk, ctx.getLabel());
   }
 
-  @SkylarkCallable(
-      name = "process_local_test_data",
-      mandatoryPositionals = 1, // context is mandatory
-      parameters = {
-        @Param(
-            name = "manifest",
-            positional = false,
-            type = Artifact.class,
-            defaultValue = "None",
-            named = true,
-            noneable = true,
-            doc =
-                "If passed, the manifest to use for this target. Otherwise, a dummy manifest will"
-                    + " be generated."),
-        @Param(
-            name = "resources",
-            positional = false,
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = FileProvider.class,
-            named = true,
-            doc = "Providers of this target's resources"),
-        @Param(
-            name = "assets",
-            positional = false,
-            defaultValue = "None",
-            type = SkylarkList.class,
-            generic1 = ConfiguredTarget.class,
-            noneable = true,
-            named = true,
-            doc =
-                "Targets containing raw assets for this target. If passed, 'assets_dir' must also"
-                    + " be passed."),
-        @Param(
-            name = "assets_dir",
-            positional = false,
-            defaultValue = "None",
-            type = String.class,
-            noneable = true,
-            named = true,
-            doc =
-                "Directory the assets are contained in. Must be passed if and only if 'assets' is"
-                    + " passed. This path will be split off of the asset paths on the device."),
-        @Param(
-            name = "custom_package",
-            positional = false,
-            defaultValue = "None",
-            type = String.class,
-            noneable = true,
-            named = true,
-            doc =
-                "The Android application package to stamp the manifest with. If not provided, the"
-                    + " current Java package, derived from the location of this target's BUILD"
-                    + " file, will be used. For example, given a BUILD file in"
-                    + " 'java/com/foo/bar/BUILD', the package would be 'com.foo.bar'."),
-        @Param(
-            name = "aapt_version",
-            positional = false,
-            defaultValue = "'auto'",
-            type = String.class,
-            named = true,
-            doc =
-                "The version of aapt to use. Defaults to 'auto'. 'aapt' and 'aapt2' are also"
-                    + " supported."),
-        @Param(
-            name = "manifest_values",
-            positional = false,
-            defaultValue = "{}",
-            type = SkylarkDict.class,
-            generic1 = String.class,
-            named = true,
-            doc =
-                "A dictionary of values to be overridden in the manifest. You must expand any"
-                    + " templates in these values before they are passed to this function."),
-        @Param(
-            name = "deps",
-            positional = false,
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = AndroidAssetsInfo.class,
-            named = true,
-            doc =
-                "Dependency targets. Providers will be extracted from these dependencies for each"
-                    + " type of data."),
-      },
-      useLocation = true,
-      useEnvironment = true,
-      doc =
-          "Processes resources, assets, and manifests for android_local_test and returns a dict"
-              + " from provider type to the appropriate provider.")
+  @Override
   public SkylarkDict<Provider, NativeInfo> processLocalTestData(
       AndroidDataContext ctx,
       Object manifest,
@@ -885,66 +435,7 @@ public abstract class AndroidSkylarkData {
     }
   }
 
-  @SkylarkCallable(
-      name = "make_binary_settings",
-      mandatoryPositionals = 1, // AndroidDataContext is mandatory
-      parameters = {
-        @Param(
-            name = "shrink_resources",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            type = Boolean.class,
-            named = true,
-            doc =
-                "Whether to shrink resources. Defaults to the value used in Android"
-                    + " configuration."),
-        @Param(
-            name = "resource_configuration_filters",
-            positional = false,
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = String.class,
-            named = true,
-            doc =
-                "A list of resource configuration filters, such 'en' that will limit the resources"
-                    + " in the apk to only the ones in the 'en' configuration."),
-        @Param(
-            name = "densities",
-            positional = false,
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = String.class,
-            named = true,
-            doc =
-                "Densities to filter for when building the apk. A corresponding compatible-screens"
-                    + " section will also be added to the manifest if it does not already contain a"
-                    + " superset listing."),
-        @Param(
-            name = "nocompress_extensions",
-            positional = false,
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = String.class,
-            named = true,
-            doc =
-                "A list of file extension to leave uncompressed in apk. Templates must be expanded"
-                    + " before passing this value in."),
-        @Param(
-            name = "aapt_version",
-            positional = false,
-            defaultValue = "'auto'",
-            type = String.class,
-            named = true,
-            doc =
-                "The version of aapt to use. Defaults to 'auto'. 'aapt' and 'aapt2' are also"
-                    + " supported."),
-      },
-      useLocation = true,
-      useEnvironment = true,
-      doc =
-          "Returns a wrapper object containing various settings shared across multiple methods for"
-              + " processing binary data.")
+  @Override
   public BinaryDataSettings makeBinarySettings(
       AndroidDataContext ctx,
       Object shrinkResources,
@@ -1008,122 +499,7 @@ public abstract class AndroidSkylarkData {
     }
   }
 
-  @SkylarkCallable(
-      name = "process_binary_data",
-      mandatoryPositionals = 1, // AndroidDataContext is mandatory
-      parameters = {
-        @Param(
-            name = "resources",
-            positional = false,
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = FileProvider.class,
-            named = true,
-            doc = "Providers of this target's resources"),
-        @Param(
-            name = "assets",
-            positional = false,
-            defaultValue = "None",
-            type = SkylarkList.class,
-            generic1 = ConfiguredTarget.class,
-            noneable = true,
-            named = true,
-            doc =
-                "Targets containing raw assets for this target. If passed, 'assets_dir' must also"
-                    + " be passed."),
-        @Param(
-            name = "assets_dir",
-            positional = false,
-            defaultValue = "None",
-            type = String.class,
-            noneable = true,
-            named = true,
-            doc =
-                "Directory the assets are contained in. Must be passed if and only if 'assets' is"
-                    + " passed. This path will be split off of the asset paths on the device."),
-        @Param(
-            name = "manifest",
-            positional = false,
-            type = Artifact.class,
-            defaultValue = "None",
-            named = true,
-            noneable = true,
-            doc =
-                "If passed, the manifest to use for this target. Otherwise, a dummy manifest will"
-                    + " be generated."),
-        @Param(
-            name = "custom_package",
-            positional = false,
-            defaultValue = "None",
-            type = String.class,
-            noneable = true,
-            named = true,
-            doc =
-                "The Android application package to stamp the manifest with. If not provided, the"
-                    + " current Java package, derived from the location of this target's BUILD"
-                    + " file, will be used. For example, given a BUILD file in"
-                    + " 'java/com/foo/bar/BUILD', the package would be 'com.foo.bar'."),
-        @Param(
-            name = "manifest_values",
-            positional = false,
-            defaultValue = "{}",
-            type = SkylarkDict.class,
-            generic1 = String.class,
-            named = true,
-            doc =
-                "A dictionary of values to be overridden in the manifest. You must expand any"
-                    + " templates in the values before calling this function."),
-        @Param(
-            name = "deps",
-            positional = false,
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = ConfiguredTarget.class,
-            named = true,
-            doc =
-                "Dependency targets. Providers will be extracted from these dependencies for each"
-                    + " type of data."),
-        @Param(
-            name = "manifest_merger",
-            type = String.class,
-            defaultValue = "'auto'",
-            positional = false,
-            named = true,
-            doc =
-                "The manifest merger to use. Defaults to 'auto', but 'android' and 'legacy' are"
-                    + " also supported."),
-        @Param(
-            name = "binary_settings",
-            type = BinaryDataSettings.class,
-            noneable = true,
-            defaultValue = "None",
-            positional = false,
-            named = true,
-            doc =
-                "Settings common to various binary processing methods, created with"
-                    + " make_binary_data_settings"),
-        @Param(
-            name = "crunch_png",
-            positional = false,
-            defaultValue = "True",
-            type = Boolean.class,
-            named = true,
-            doc = "Whether PNG crunching should be done. Defaults to True."),
-        @Param(
-            name = "enable_data_binding",
-            positional = false,
-            defaultValue = "False",
-            type = Boolean.class,
-            named = true,
-            doc =
-                "Defaults to False. If True, processes data binding expressions in layout"
-                    + " resources."),
-      },
-      useLocation = true,
-      useEnvironment = true,
-      doc =
-          "Processes resources, assets, and manifests for android_binary and returns the"
-              + " appropriate providers.")
+  @Override
   public AndroidBinaryDataInfo processBinaryData(
       AndroidDataContext ctx,
       SkylarkList<ConfiguredTarget> resources,
@@ -1211,57 +587,7 @@ public abstract class AndroidSkylarkData {
     }
   }
 
-  @SkylarkCallable(
-      name = "shrink_data_apk",
-      // Required: AndroidDataContext, AndroidBinaryDataInfo to shrink, and two proguard outputs
-      mandatoryPositionals = 4,
-      parameters = {
-        @Param(
-            name = "binary_settings",
-            type = BinaryDataSettings.class,
-            noneable = true,
-            defaultValue = "None",
-            positional = false,
-            named = true,
-            doc =
-                "Settings common to various binary processing methods, created with"
-                    + " make_binary_data_settings"),
-        @Param(
-            name = "deps",
-            positional = false,
-            defaultValue = "[]",
-            type = SkylarkList.class,
-            generic1 = ConfiguredTarget.class,
-            named = true,
-            doc =
-                "Dependency targets. Providers will be extracted from these dependencies for each"
-                    + " type of data."),
-        @Param(
-            name = "proguard_specs",
-            type = SkylarkList.class,
-            generic1 = ConfiguredTarget.class,
-            defaultValue = "[]",
-            positional = false,
-            named = true,
-            doc =
-                "Files to be used as Proguard specification for this target, which will be"
-                    + " inherited in the top-level target"),
-        @Param(
-            name = "extra_proguard_specs,",
-            type = SkylarkList.class,
-            generic1 = ConfiguredTarget.class,
-            defaultValue = "[]",
-            positional = false,
-            named = true,
-            doc =
-                "Additional proguard specs that should be added for top-level targets. This  value"
-                    + " is controlled by Java configuration."),
-      },
-      useLocation = true,
-      useEnvironment = true,
-      doc =
-          "Possibly shrinks the data APK by removing resources that were marked as unused during"
-              + " proguarding.")
+  @Override
   public AndroidBinaryDataInfo shrinkDataApk(
       AndroidDataContext ctx,
       AndroidBinaryDataInfo binaryDataInfo,
