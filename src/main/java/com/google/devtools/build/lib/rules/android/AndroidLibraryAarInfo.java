@@ -24,8 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidLibraryAarInfoApi;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -33,12 +32,8 @@ import javax.annotation.Nullable;
  * A target that can provide the aar artifact of Android libraries and all the manifests that are
  * merged into the main aar manifest.
  */
-@SkylarkModule(
-    name = "AndroidLibraryAarInfo",
-    doc = "Android AARs provided by a library rule and its dependencies",
-    category = SkylarkModuleCategory.PROVIDER)
 @Immutable
-public class AndroidLibraryAarInfo extends NativeInfo {
+public class AndroidLibraryAarInfo extends NativeInfo implements AndroidLibraryAarInfoApi {
   private static final String SKYLARK_NAME = "AndroidLibraryAarInfo";
   public static final NativeProvider<AndroidLibraryAarInfo> PROVIDER =
       new NativeProvider<AndroidLibraryAarInfo>(AndroidLibraryAarInfo.class, SKYLARK_NAME) {};

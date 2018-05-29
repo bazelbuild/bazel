@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataContextApi;
 
 /**
  * Wraps common tools and settings used for working with Android assets, resources, and manifests.
@@ -36,13 +36,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
  * bundle them together. Additionally, this class includes some common tools (such as an SDK) that
  * are used in BusyBox actions.
  */
-@SkylarkModule(
-    name = "AndroidDataContext",
-    doc =
-        "Wraps common tools and settings used for working with Android assets, resources, and"
-            + " manifests")
-public class AndroidDataContext {
-
+public class AndroidDataContext implements AndroidDataContextApi {
   private final Label label;
   private final ActionConstructionContext actionConstructionContext;
   private final FilesToRunProvider busybox;

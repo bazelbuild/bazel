@@ -22,18 +22,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidAssetsInfoApi;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Provides information about transitive Android assets. */
-@SkylarkModule(
-    name = "AndroidAssetsInfo",
-    doc = "Information about the Android assets provided by a rule.",
-    category = SkylarkModuleCategory.PROVIDER)
-public class AndroidAssetsInfo extends NativeInfo {
+public class AndroidAssetsInfo extends NativeInfo implements AndroidAssetsInfoApi {
 
   private static final String SKYLARK_NAME = "AndroidAssetsInfo";
 
@@ -100,17 +94,7 @@ public class AndroidAssetsInfo extends NativeInfo {
     return label;
   }
 
-  @SkylarkCallable(
-      name = "validation_result",
-      structField = true,
-      allowReturnNones = true,
-      doc =
-          "If not None, represents the output of asset merging and validation for this target. The"
-              + " action to merge and validate assets is not run be default; to force it, add this"
-              + " artifact to your target's outputs. The validation action is somewhat expensive -"
-              + " in native code, this artifact is added to the top-level output group (so"
-              + " validation is only done if the target is requested on the command line). The"
-              + " contents of this artifact are subject to change and should not be relied upon.")
+  @Override
   @Nullable
   public Artifact getValidationResult() {
     return validationResult;
@@ -120,22 +104,12 @@ public class AndroidAssetsInfo extends NativeInfo {
     return directParsedAssets;
   }
 
-  /** Returns the local assets for the target. */
-  @SkylarkCallable(
-      name = "local_assets",
-      doc = "Returns the local assets for the target.",
-      allowReturnNones = true,
-      structField = true)
+  @Override
   public ImmutableList<Artifact> getLocalAssets() {
     return getLocalParsedAndroidAssets().map(AndroidAssets::getAssets).orElse(null);
   }
 
-  /** Returns the local asset dir for the target. */
-  @SkylarkCallable(
-      name = "local_asset_dir",
-      doc = "Returns the local asset directory for the target.",
-      allowReturnNones = true,
-      structField = true)
+  @Override
   public String getLocalAssetDir() {
     return getLocalParsedAndroidAssets().map(AndroidAssets::getAssetDirAsString).orElse(null);
   }
