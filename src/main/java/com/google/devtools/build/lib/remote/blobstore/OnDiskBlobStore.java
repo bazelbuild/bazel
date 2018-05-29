@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.remote.blobstore;
 
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
 import java.util.UUID;
 
 /** A on-disk store for the remote action cache. */
@@ -53,10 +55,10 @@ public final class OnDiskBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void put(String key, long length, InputStream in) throws IOException {
+  public URI put(String key, long length, InputStream in) throws IOException {
     Path target = toPath(key);
     if (target.exists()) {
-      return;
+      return FileSystemUtils.pathToUri(target.getPathString());
     }
 
     // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
@@ -67,6 +69,7 @@ public final class OnDiskBlobStore implements SimpleBlobStore {
     // TODO(ulfjack): Fsync temp here before we rename it to avoid data loss in the case of machine
     // crashes (the OS may reorder the writes and the rename).
     temp.renameTo(target);
+    return FileSystemUtils.pathToUri(target.getPathString());
   }
 
   @Override

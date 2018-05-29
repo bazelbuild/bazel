@@ -15,6 +15,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//third_party:auth",
         "//third_party:guava",
         "//third_party:jsr305",

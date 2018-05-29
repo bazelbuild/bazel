@@ -14,14 +14,23 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.google.auth.Credentials;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.buildeventstream.BuildEventTransport.TransportKind;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.remote.blobstore.BlobStoreBuildEventArtifactUploader;
+import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStore;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -36,64 +45,33 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.remoteexecution.v1test.Digest;
+import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
 import java.io.IOException;
+import java.net.URI;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
   private static final Logger logger = Logger.getLogger(RemoteModule.class.getName());
+  private final BuildEventArtifactUploaderDelegate buildEventArtifactUploader =
+      new BuildEventArtifactUploaderDelegate();
+
+  private ByteStreamUploader uploader;
+  private ListeningScheduledExecutorService retryScheduler;
   private AsynchronousFileOutputStream rpcLogFile;
-
-  @VisibleForTesting
-  static final class CasPathConverter implements PathConverter {
-    // Not final; unfortunately, the Bazel startup process requires us to create this object before
-    // we have the options available, so we have to create it first, and then set the options
-    // afterwards. At the time of this writing, I believe that we aren't using the PathConverter
-    // before the options are available, so this should be safe.
-    // TODO(ulfjack): Change the Bazel startup process to make the options available when we create
-    // the PathConverter.
-    RemoteOptions options;
-    DigestUtil digestUtil;
-
-    @Override
-    public String apply(Path path) {
-      if (options == null || digestUtil == null || !remoteEnabled(options)) {
-        return null;
-      }
-      String server = options.remoteCache;
-      String remoteInstanceName = options.remoteInstanceName;
-      try {
-        Digest digest = digestUtil.compute(path);
-        return remoteInstanceName.isEmpty()
-            ? String.format(
-                "bytestream://%s/blobs/%s/%d",
-                server,
-                digest.getHash(),
-                digest.getSizeBytes())
-            : String.format(
-                "bytestream://%s/%s/blobs/%s/%d",
-                server,
-                remoteInstanceName,
-                digest.getHash(),
-                digest.getSizeBytes());
-      } catch (IOException e) {
-        // TODO(ulfjack): Don't fail silently!
-        return null;
-      }
-    }
-  }
-
-  private final CasPathConverter converter = new CasPathConverter();
-
   private RemoteActionContextProvider actionContextProvider;
 
   @Override
-  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder)
-      throws AbruptExitException {
-    builder.addPathToUriConverter(converter);
+  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
+    builder.addBuildEventArtifactUploader(buildEventArtifactUploader);
   }
 
   @Override
@@ -115,28 +93,28 @@ public final class RemoteModule extends BlazeModule {
           .handle(Event.error("Could not create base directory for remote logs: " + logDir));
       throw new AbruptExitException(ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e);
     }
-    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
+    RemoteOptions options = env.getOptions().getOptions(RemoteOptions.class);
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     HashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
-    converter.options = remoteOptions;
-    converter.digestUtil = digestUtil;
 
     // Quit if no remote options specified.
-    if (remoteOptions == null) {
+    if (options == null) {
       return;
     }
 
-    boolean enableRestCache = SimpleBlobStoreFactory.isRestUrlOptions(remoteOptions);
-    boolean enableDiskCache = SimpleBlobStoreFactory.isDiskCache(remoteOptions);
-    if (enableRestCache && enableDiskCache) {
+    boolean enableHttpCache = options.remoteHttpCache != null;
+    boolean enableDiskCache = options.diskCache != null;
+    boolean enableBlobStoreCache = enableHttpCache || enableDiskCache;
+    boolean enableGrpcCache = options.remoteCache != null;
+    boolean enableExecutor = options.remoteExecutor != null;
+
+    if (enableHttpCache && enableDiskCache) {
       throw new AbruptExitException(
           "Cannot enable HTTP-based and local disk cache simultaneously",
           ExitCode.COMMAND_LINE_ERROR);
     }
-    boolean enableBlobStoreCache = enableRestCache || enableDiskCache;
-    boolean enableGrpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
-    if (enableBlobStoreCache && remoteOptions.remoteExecutor != null) {
+    if (enableBlobStoreCache && enableExecutor) {
       throw new AbruptExitException(
           "Cannot combine gRPC based remote execution with local disk or HTTP-based caching",
           ExitCode.COMMAND_LINE_ERROR);
@@ -144,47 +122,60 @@ public final class RemoteModule extends BlazeModule {
 
     try {
       LoggingInterceptor logger = null;
-      if (!remoteOptions.experimentalRemoteGrpcLog.isEmpty()) {
-        rpcLogFile = new AsynchronousFileOutputStream(remoteOptions.experimentalRemoteGrpcLog);
+      if (!options.experimentalRemoteGrpcLog.isEmpty()) {
+        rpcLogFile = new AsynchronousFileOutputStream(options.experimentalRemoteGrpcLog);
         logger = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
       }
-
       RemoteRetrier retrier =
-          new RemoteRetrier(
-              remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
+          new RemoteRetrier(options, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
+
       final AbstractRemoteActionCache cache;
-      if (enableBlobStoreCache) {
-        cache =
-            new SimpleBlobStoreActionCache(
-                remoteOptions,
-                SimpleBlobStoreFactory.create(
-                    remoteOptions,
-                    GoogleAuthUtils.newCredentials(authAndTlsOptions),
-                    env.getWorkingDirectory()),
-                digestUtil);
-      } else if (enableGrpcCache || remoteOptions.remoteExecutor != null) {
+      if (enableHttpCache) {
+        URI uri = URI.create(options.remoteHttpCache);
+        Credentials credentials = GoogleAuthUtils.newCredentials(authAndTlsOptions);
+        int timeoutSeconds = (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout);
+        SimpleBlobStore blobStore = new HttpBlobStore(uri, timeoutSeconds, credentials);
+        buildEventArtifactUploader.initialize(
+            new BlobStoreBuildEventArtifactUploader(
+                blobStore, Collections.singletonList(TransportKind.BES_GRPC)));
+        cache = new SimpleBlobStoreActionCache(options, blobStore, digestUtil);
+      } else if (enableDiskCache) {
+        Path cacheDir = env.getWorkingDirectory().getRelative(options.diskCache);
+        if (!cacheDir.exists()) {
+          cacheDir.createDirectoryAndParents();
+        }
+        SimpleBlobStore blobStore = new OnDiskBlobStore(cacheDir);
+        buildEventArtifactUploader.initialize(
+            new BlobStoreBuildEventArtifactUploader(
+                blobStore, Collections.singletonList(TransportKind.BEP_FILE)));
+        cache = new SimpleBlobStoreActionCache(options, blobStore, digestUtil);
+      } else if (enableGrpcCache || enableExecutor) {
         // If a remote executor but no remote cache is specified, assume both at the same target.
-        String target = enableGrpcCache ? remoteOptions.remoteCache : remoteOptions.remoteExecutor;
+        String target = enableGrpcCache ? options.remoteCache : options.remoteExecutor;
         Channel ch = GoogleAuthUtils.newChannel(target, authAndTlsOptions);
         if (logger != null) {
           ch = ClientInterceptors.intercept(ch, logger);
         }
-        cache =
-            new GrpcRemoteCache(
+        retryScheduler = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+        CallCredentials creds = GoogleAuthUtils.newCallCredentials(authAndTlsOptions);
+        uploader =
+            new ByteStreamUploader(
+                options.remoteInstanceName,
                 ch,
-                GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
-                remoteOptions,
+                creds,
+                options.remoteTimeout,
                 retrier,
-                digestUtil);
+                retryScheduler);
+        buildEventArtifactUploader.initialize(
+            new ByteStreamBuildEventArtifactUploader(uploader, target, options.remoteInstanceName));
+        cache = new GrpcRemoteCache(ch, creds, options, retrier, digestUtil, uploader);
       } else {
         cache = null;
       }
-
-      // TODO(davido): The naming is wrong here. "Remote"-prefix in RemoteActionCache class has no
-      // meaning.
+      
       final GrpcRemoteExecutor executor;
-      if (remoteOptions.remoteExecutor != null) {
-        Channel ch = GoogleAuthUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions);
+      if (enableExecutor) {
+        Channel ch = GoogleAuthUtils.newChannel(options.remoteExecutor, authAndTlsOptions);
         if (logger != null) {
           ch = ClientInterceptors.intercept(ch, logger);
         }
@@ -192,17 +183,19 @@ public final class RemoteModule extends BlazeModule {
             new GrpcRemoteExecutor(
                 ch,
                 GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
-                remoteOptions.remoteTimeout,
+                options.remoteTimeout,
                 retrier);
       } else {
         executor = null;
       }
       actionContextProvider =
           new RemoteActionContextProvider(env, cache, executor, digestUtil, logDir);
-    } catch (IOException e) {
+    } catch (Exception e) {
       env.getReporter().handle(Event.error(e.getMessage()));
-      env.getBlazeModuleEnvironment().exit(new AbruptExitException(
-          "Error initializing RemoteModule", ExitCode.COMMAND_LINE_ERROR));
+      env.getBlazeModuleEnvironment()
+          .exit(
+              new AbruptExitException(
+                  "Error initializing RemoteModule", ExitCode.COMMAND_LINE_ERROR));
     }
   }
 
@@ -215,6 +208,20 @@ public final class RemoteModule extends BlazeModule {
         throw new RuntimeException(e);
       } finally {
         rpcLogFile = null;
+      }
+    }
+    if (retryScheduler != null) {
+      try {
+        retryScheduler.shutdownNow();
+      } finally {
+        retryScheduler = null;
+      }
+    }
+    if (uploader != null) {
+      try {
+        uploader.shutdown();
+      } finally {
+        uploader = null;
       }
     }
   }
@@ -234,8 +241,28 @@ public final class RemoteModule extends BlazeModule {
         : ImmutableList.<Class<? extends OptionsBase>>of();
   }
 
-  public static boolean remoteEnabled(RemoteOptions options) {
-    return SimpleBlobStoreFactory.isRemoteCacheOptions(options)
-        || GrpcRemoteCache.isRemoteCacheOptions(options);
+  private static class BuildEventArtifactUploaderDelegate implements BuildEventArtifactUploader {
+
+    private BuildEventArtifactUploader delegate;
+
+    void initialize(BuildEventArtifactUploader buildEventArtifactUploader) {
+      this.delegate = Preconditions.checkNotNull(buildEventArtifactUploader);
+    }
+
+    @Override
+    public PathConverter upload(Set<Path> files) throws IOException, InterruptedException {
+      Preconditions.checkState(
+          delegate != null,
+          "No BuildEventArtifactUploader has been specified." + " This is a bug in Bazel.");
+      return delegate.upload(files);
+    }
+
+    @Override
+    public List<TransportKind> supportedTransports() {
+      if (delegate == null) {
+        return Collections.emptyList();
+      }
+      return delegate.supportedTransports();
+    }
   }
 }

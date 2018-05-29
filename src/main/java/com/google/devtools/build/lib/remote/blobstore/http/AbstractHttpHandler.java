@@ -78,17 +78,6 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
     }
   }
 
-  protected String constructPath(URI uri, String hash, boolean isCas) {
-    StringBuilder builder = new StringBuilder();
-    builder.append(uri.getPath());
-    if (!uri.getPath().endsWith("/")) {
-      builder.append("/");
-    }
-    builder.append(isCas ? "cas/" : "ac/");
-    builder.append(hash);
-    return builder.toString();
-  }
-
   protected String constructHost(URI uri) {
     return uri.getHost() + ":" + uri.getPort();
   }

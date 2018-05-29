@@ -18,7 +18,9 @@ import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
 import java.util.concurrent.ConcurrentMap;
+import javax.annotation.Nullable;
 
 /** A {@link SimpleBlobStore} implementation using a {@link ConcurrentMap}. */
 public final class ConcurrentMapBlobStore implements SimpleBlobStore {
@@ -49,11 +51,13 @@ public final class ConcurrentMapBlobStore implements SimpleBlobStore {
     return get(key, out);
   }
 
+  @Nullable
   @Override
-  public void put(String key, long length, InputStream in) throws IOException {
+  public URI put(String key, long length, InputStream in) throws IOException {
     byte[] value = ByteStreams.toByteArray(in);
     Preconditions.checkState(value.length == length);
     map.put(key, value);
+    return null;
   }
 
   @Override

@@ -19,6 +19,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.NullUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -76,7 +77,7 @@ public class JsonFormatFileTransportTest {
             .build();
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     JsonFormatFileTransport transport =
-        new JsonFormatFileTransport(output.getAbsolutePath(), defaultOpts, pathConverter);
+        new JsonFormatFileTransport(output.getAbsolutePath(), defaultOpts, new NullUploader(), (e) -> {});
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     transport.close().get();

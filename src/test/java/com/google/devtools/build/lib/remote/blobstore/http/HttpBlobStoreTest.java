@@ -94,7 +94,9 @@ public class HttpBlobStoreTest {
     Credentials credentials = newCredentials();
     HttpBlobStore blobStore =
         new HttpBlobStore(new URI("http://localhost:" + serverPort), 5, credentials);
-    blobStore.get("key", new ByteArrayOutputStream());
+    blobStore.get(
+        "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+        new ByteArrayOutputStream());
     fail("Exception expected");
   }
 
@@ -116,7 +118,9 @@ public class HttpBlobStoreTest {
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore =
           new HttpBlobStore(new URI("http://localhost:" + serverPort), 5, credentials);
-      blobStore.get("key", new ByteArrayOutputStream());
+      blobStore.get(
+          "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+          new ByteArrayOutputStream());
       fail("Exception expected");
     } finally {
       closeServerChannel(server);
@@ -139,7 +143,7 @@ public class HttpBlobStoreTest {
       HttpBlobStore blobStore =
           new HttpBlobStore(new URI("http://localhost:" + serverPort), 30, credentials);
       ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
-      blobStore.get("key", out);
+      blobStore.get("2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae", out);
       assertThat(out.toString(Charsets.US_ASCII.name())).isEqualTo("File Contents");
       verify(credentials, times(1)).refresh();
       verify(credentials, times(2)).getRequestMetadata(any(URI.class));
@@ -169,7 +173,8 @@ public class HttpBlobStoreTest {
           new HttpBlobStore(new URI("http://localhost:" + serverPort), 30, credentials);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
       ByteArrayInputStream in = new ByteArrayInputStream(data);
-      blobStore.put("key", data.length, in);
+      blobStore.put(
+          "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae", data.length, in);
       verify(credentials, times(1)).refresh();
       verify(credentials, times(2)).getRequestMetadata(any(URI.class));
       verify(credentials, times(2)).hasRequestMetadata();
@@ -195,7 +200,9 @@ public class HttpBlobStoreTest {
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore =
           new HttpBlobStore(new URI("http://localhost:" + serverPort), 30, credentials);
-      blobStore.get("key", new ByteArrayOutputStream());
+      blobStore.get(
+          "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+          new ByteArrayOutputStream());
       fail("Exception expected.");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(HttpException.class);
@@ -222,7 +229,10 @@ public class HttpBlobStoreTest {
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore =
           new HttpBlobStore(new URI("http://localhost:" + serverPort), 30, credentials);
-      blobStore.put("key", 1, new ByteArrayInputStream(new byte[] {0}));
+      blobStore.put(
+          "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+          1,
+          new ByteArrayInputStream(new byte[] {0}));
       fail("Exception expected.");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(HttpException.class);

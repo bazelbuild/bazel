@@ -137,6 +137,11 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     public void closeNow() {
     }
 
+    @Override
+    public TransportKind kind() {
+      return TransportKind.BEP_FILE;
+    }
+
     List<BuildEvent> getEvents() {
       return events;
     }

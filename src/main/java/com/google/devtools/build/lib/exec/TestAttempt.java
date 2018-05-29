@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 /** This event is raised whenever an individual test attempt is completed. */
 // TODO(ulfjack): This class should be in the same package as the TestResult class, and TestSummary
@@ -182,6 +184,15 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
               attempt + 1,
               testAction.getConfiguration().getEventId()));
     }
+  }
+
+  @Override
+  public Set<Path> referencedArtifacts() {
+    ImmutableSet.Builder<Path> artifacts = ImmutableSet.builder();
+    for (Pair<String, Path> file : files) {
+      artifacts.add(file.getSecond());
+    }
+    return artifacts.build();
   }
 
   @Override

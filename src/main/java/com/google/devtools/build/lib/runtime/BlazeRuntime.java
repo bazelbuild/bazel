@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
-import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
@@ -154,7 +154,7 @@ public final class BlazeRuntime {
   private final String defaultsPackageContent;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
   private final String productName;
-  private final PathConverter pathToUriConverter;
+  private final List<BuildEventArtifactUploader> buildEventArtifactUploaders;
   private final ActionKeyContext actionKeyContext;
 
   // Workspace state (currently exactly one workspace per server)
@@ -179,7 +179,7 @@ public final class BlazeRuntime {
       InvocationPolicy moduleInvocationPolicy,
       Iterable<BlazeCommand> commands,
       String productName,
-      PathConverter pathToUriConverter) {
+      List<BuildEventArtifactUploader> buildEventArtifactUploaders) {
     // Server state
     this.fileSystem = fileSystem;
     this.blazeModules = blazeModules;
@@ -206,7 +206,7 @@ public final class BlazeRuntime {
     CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(
         new CommandNameCacheImpl(getCommandMap()));
     this.productName = productName;
-    this.pathToUriConverter = pathToUriConverter;
+    this.buildEventArtifactUploaders = buildEventArtifactUploaders;
   }
 
   public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -1241,8 +1241,8 @@ public final class BlazeRuntime {
     return productName;
   }
 
-  public PathConverter getPathToUriConverter() {
-    return pathToUriConverter;
+  public List<BuildEventArtifactUploader> getBuildEventArtifactUploaders() {
+    return buildEventArtifactUploaders;
   }
 
   /**
@@ -1349,7 +1349,7 @@ public final class BlazeRuntime {
           serverBuilder.getInvocationPolicy(),
           serverBuilder.getCommands(),
           productName,
-          serverBuilder.getPathToUriConverter());
+          serverBuilder.getBuildEventArtifactUploader());
     }
 
     public Builder setProductName(String productName) {

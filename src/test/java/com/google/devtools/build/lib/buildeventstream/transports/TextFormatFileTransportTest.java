@@ -21,6 +21,7 @@ import com.google.common.base.Joiner;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.NullUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -77,7 +78,7 @@ public class TextFormatFileTransportTest {
             .build();
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     TextFormatFileTransport transport =
-        new TextFormatFileTransport(output.getAbsolutePath(), defaultOpts, pathConverter);
+        new TextFormatFileTransport(output.getAbsolutePath(), defaultOpts, new NullUploader(), (e) -> {});
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     BuildEventStreamProtos.BuildEvent progress =

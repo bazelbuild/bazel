@@ -107,7 +107,7 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
         new DefaultHttpRequest(
             HttpVersion.HTTP_1_1,
             HttpMethod.PUT,
-            constructPath(msg.uri(), msg.hash(), msg.casUpload()));
+            Utils.constructPath(msg.uri(), msg.hash(), msg.casUpload()));
     request.headers().set(HttpHeaderNames.HOST, constructHost(msg.uri()));
     request.headers().set(HttpHeaderNames.ACCEPT, "*/*");
     request.headers().set(HttpHeaderNames.CONTENT_LENGTH, msg.contentLength());

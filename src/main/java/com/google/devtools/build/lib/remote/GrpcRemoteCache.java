@@ -79,14 +79,13 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       CallCredentials credentials,
       RemoteOptions options,
       RemoteRetrier retrier,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      ByteStreamUploader uploader) {
     super(options, digestUtil);
     this.credentials = credentials;
     this.channel = channel;
     this.retrier = retrier;
-
-    uploader = new ByteStreamUploader(options.remoteInstanceName, channel, credentials,
-        options.remoteTimeout, retrier, retryScheduler);
+    this.uploader = uploader;
   }
 
   private ContentAddressableStorageBlockingStub casBlockingStub() {
@@ -108,16 +107,6 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
         .withCallCredentials(credentials)
         .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
-  }
-
-  @Override
-  public void close() {
-    retryScheduler.shutdownNow();
-    uploader.shutdown();
-  }
-
-  public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    return options.remoteCache != null;
   }
 
   private ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
@@ -230,6 +219,11 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       }
       throw e;
     }
+  }
+
+  @Override
+  public void close() {
+    // Intentionally left empty.
   }
 
   @Override

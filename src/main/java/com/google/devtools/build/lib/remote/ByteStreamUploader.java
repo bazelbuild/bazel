@@ -27,6 +27,9 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Sets;
+import com.google.common.hash.HashCode;
+import com.google.common.io.BaseEncoding;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableScheduledFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -48,6 +51,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -62,7 +66,7 @@ import javax.annotation.concurrent.GuardedBy;
  *
  * <p>Users must call {@link #shutdown()} before exiting.
  */
-final class ByteStreamUploader {
+class ByteStreamUploader {
 
   private static final Logger logger = Logger.getLogger(ByteStreamUploader.class.getName());
 
@@ -74,6 +78,8 @@ final class ByteStreamUploader {
   private final ListeningScheduledExecutorService retryService;
 
   private final Object lock = new Object();
+
+  private final Set<HashCode> knownRemoteBlobs = Sets.newHashSet();
 
   @GuardedBy("lock")
   private final Map<Digest, ListenableFuture<Void>> uploadsInProgress = new HashMap<>();
@@ -146,15 +152,29 @@ final class ByteStreamUploader {
    * @throws RetryException when the upload failed after a retry
    */
   public void uploadBlobs(Iterable<Chunker> chunkers) throws IOException, InterruptedException {
-    List<ListenableFuture<Void>> uploads = new ArrayList<>();
+    class HashCodeFuture {
+      private HashCode hash;
+      private ListenableFuture<Void> upload;
 
+      private HashCodeFuture(HashCode hash, ListenableFuture<Void> upload) {
+        this.hash = hash;
+        this.upload = upload;
+      }
+    }
+
+    List<HashCodeFuture> uploads = new ArrayList<>();
     for (Chunker chunker : chunkers) {
-      uploads.add(uploadBlobAsync(chunker));
+      HashCode hashCode = keyToHashCode(chunker.digest().getHash());
+      if (knownRemoteBlobs.contains(hashCode)) {
+        continue;
+      }
+      uploads.add(new HashCodeFuture(hashCode, uploadBlobAsync(chunker)));
     }
 
     try {
-      for (ListenableFuture<Void> upload : uploads) {
-        upload.get();
+      for (HashCodeFuture h : uploads) {
+        h.upload.get();
+        knownRemoteBlobs.add(h.hash);
       }
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
@@ -432,5 +452,9 @@ final class ByteStreamUploader {
         call.cancel("Cancelled by user.", null);
       }
     }
+  }
+
+  private static HashCode keyToHashCode(String key) {
+    return HashCode.fromBytes(BaseEncoding.base16().lowerCase().decode(key));
   }
 }

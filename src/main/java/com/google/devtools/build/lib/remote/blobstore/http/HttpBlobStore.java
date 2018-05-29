@@ -14,6 +14,9 @@
 package com.google.devtools.build.lib.remote.blobstore.http;
 
 import com.google.auth.Credentials;
+import com.google.common.collect.Sets;
+import com.google.common.hash.HashCode;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -47,7 +50,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -84,6 +89,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
 
   private static final Pattern INVALID_TOKEN_ERROR =
       Pattern.compile("\\s*error\\s*=\\s*\"?invalid_token\"?");
+
+
+  private final Set<HashCode> knownRemoteBlobs = Sets.newConcurrentHashSet();
 
   private final NioEventLoopGroup eventLoop = new NioEventLoopGroup(2 /* number of threads */);
   private final ChannelPool downloadChannels;
@@ -194,6 +202,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
 
   @Override
   public boolean get(String key, OutputStream out) throws IOException, InterruptedException {
+    knownRemoteBlobs.add(keyToHashCode(key));
     return get(key, out, true);
   }
 
@@ -285,13 +294,20 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void put(String key, long length, InputStream in)
+  public URI put(String key, long length, InputStream in)
       throws IOException, InterruptedException {
-    put(key, length, in, true);
+    HashCode hashCode = keyToHashCode(key);
+    if (knownRemoteBlobs.contains(hashCode)) {
+      return Utils.constructBlobURI(uri, key);
+    }
+
+    URI downloadUri = put(key, length, in, true);
+    knownRemoteBlobs.add(hashCode);
+    return downloadUri;
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
-  private void put(String key, long length, InputStream in, boolean casUpload)
+  private URI put(String key, long length, InputStream in, boolean casUpload)
       throws IOException, InterruptedException {
     InputStream wrappedIn =
         new FilterInputStream(in) {
@@ -302,6 +318,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
             // the finally block below.
           }
         };
+    URI blobDownloadUri = Utils.constructBlobURI(uri, key);
     UploadCommand upload = new UploadCommand(uri, casUpload, key, wrappedIn, length);
     Channel ch = null;
     try {
@@ -322,7 +339,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
             throw e;
           }
           putAfterCredentialRefresh(upload);
-          return;
+          return blobDownloadUri;
         }
       }
       throw e;
@@ -332,6 +349,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
         uploadChannels.release(ch);
       }
     }
+    return blobDownloadUri;
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -376,6 +394,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
   @SuppressWarnings("FutureReturnValueIgnored")
   @Override
   public void close() {
+    knownRemoteBlobs.clear();
     downloadChannels.close();
     uploadChannels.close();
     eventLoop.shutdownGracefully();
@@ -433,5 +452,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
         creds.refresh();
       }
     }
+  }
+
+  private static HashCode keyToHashCode(String key) {
+    return HashCode.fromBytes(BaseEncoding.base16().lowerCase().decode(key));
   }
 }

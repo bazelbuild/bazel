@@ -43,6 +43,7 @@ import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.Collections;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -146,7 +147,7 @@ public class BazelBuildEventServiceModuleTest {
         commandLineReporter,
         moduleEnvironment,
         clock,
-        PATH_CONVERTER,
+        Collections.emptyList(),
         reporter,
         /* buildRequestId= */ "foo",
         /* invocationId= */ "bar",
