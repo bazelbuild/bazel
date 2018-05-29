@@ -136,7 +136,7 @@ public class AndroidResourceParsingActionBuilder {
     setAssets(assets);
     build(dataContext);
 
-    return ParsedAndroidAssets.of(assets, output, dataContext.getLabel());
+    return ParsedAndroidAssets.of(assets, output, compiledSymbols, dataContext.getLabel());
   }
 
   /**

@@ -289,7 +289,10 @@ public abstract class AndroidSkylarkData {
               errorReporter,
               listFromNoneable(assets, ConfiguredTarget.class),
               isNone(assetsDir) ? null : PathFragment.create(fromNoneable(assetsDir, String.class)))
-          .process(ctx, AssetDependencies.fromProviders(deps.getImmutableList(), neverlink))
+          .process(
+              ctx,
+              AssetDependencies.fromProviders(deps.getImmutableList(), neverlink),
+              ctx.getAndroidConfig().getAndroidAaptVersion())
           .toProvider();
     } catch (RuleErrorException e) {
       throw new EvalException(Location.BUILTIN, e);
@@ -731,7 +734,8 @@ public abstract class AndroidSkylarkData {
             .process(
                 ctx,
                 AssetDependencies.fromProviders(
-                    getProviders(deps, AndroidAssetsInfo.PROVIDER), /* neverlink = */ false));
+                    getProviders(deps, AndroidAssetsInfo.PROVIDER), /* neverlink = */ false),
+                aaptVersion);
 
     ResourceApk resourceApk = ResourceApk.of(validatedResources, mergedAssets, null, null);
 

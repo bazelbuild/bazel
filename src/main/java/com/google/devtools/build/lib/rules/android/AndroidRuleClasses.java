@@ -141,6 +141,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_symbols/assets.bin");
   public static final SafeImplicitOutputsFunction ANDROID_COMPILED_SYMBOLS =
       fromTemplates("%{name}_symbols/symbols.zip");
+  public static final SafeImplicitOutputsFunction ANDROID_ASSET_COMPILED_SYMBOLS =
+      fromTemplates("%{name}_symbols/assets.zip");
   public static final SafeImplicitOutputsFunction ANDROID_SYMLINKED_MANIFEST =
       fromTemplates("%{name}_symlinked_manifest/AndroidManifest.xml");
   public static final SafeImplicitOutputsFunction ANDROID_PROCESSED_MANIFEST =

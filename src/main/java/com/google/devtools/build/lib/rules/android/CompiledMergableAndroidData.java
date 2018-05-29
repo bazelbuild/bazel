@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import javax.annotation.Nullable;
 
 /**
  * A {@link MergableAndroidData} that may also contain a compiled symbols file.
@@ -23,9 +22,6 @@ import javax.annotation.Nullable;
  * ResourceContainer} is removed, this interface can be replaced with {@link ParsedAndroidResources}
  */
 public interface CompiledMergableAndroidData extends MergableAndroidData {
-  @Nullable
-  Artifact getCompiledSymbols();
-
   Iterable<Artifact> getArtifacts();
 
   Artifact getManifest();
