@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -73,6 +75,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   private final CppModuleMap cppModuleMap;
   private final CppModuleMap verificationModuleMap;
+  private final ImmutableList<Artifact> headerMaps;
 
   private final boolean propagateModuleMapAsActionInput;
 
@@ -95,7 +98,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       ImmutableList<Artifact> directModuleMaps,
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
-      boolean propagateModuleMapAsActionInput) {
+      boolean propagateModuleMapAsActionInput,
+      ImmutableList<Artifact> headerMaps) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
     this.commandLineCcCompilationContext = commandLineCcCompilationContext;
     this.declaredIncludeDirs = declaredIncludeDirs;
@@ -107,6 +111,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     this.transitiveModules = transitiveModules;
     this.transitivePicModules = transitivePicModules;
     this.cppModuleMap = cppModuleMap;
+    this.headerMaps = headerMaps;
     this.nonCodeInputs = nonCodeInputs;
     this.verificationModuleMap = verificationModuleMap;
     this.compilationPrerequisites = compilationPrerequisites;
@@ -268,6 +273,9 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     if (cppModuleMap != null && propagateModuleMapAsActionInput) {
       builder.add(cppModuleMap.getArtifact());
     }
+    if (headerMaps != null) {
+      builder.addAll(headerMaps);
+    }
     return builder.build();
   }
 
@@ -317,7 +325,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         ccCompilationContext.directModuleMaps,
         ccCompilationContext.cppModuleMap,
         ccCompilationContext.verificationModuleMap,
-        ccCompilationContext.propagateModuleMapAsActionInput);
+        ccCompilationContext.propagateModuleMapAsActionInput,
+        ccCompilationContext.headerMaps);
   }
 
   /** @return the C++ module map of the owner. */
@@ -378,6 +387,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final Set<String> defines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
+    private ImmutableList<Artifact> headerMaps;
+
     private boolean propagateModuleMapAsActionInput = true;
 
     /** The rule that owns the context */
@@ -615,6 +626,11 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
+    public Builder setHeaderMaps(ImmutableList<Artifact> headerMaps) {
+      this.headerMaps = headerMaps;
+      return this;
+    }
+
     /** Sets the C++ module map used to verify that headers are modules compatible. */
     public Builder setVerificationModuleMap(CppModuleMap verificationModuleMap) {
       this.verificationModuleMap = verificationModuleMap;
@@ -684,7 +700,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           ImmutableList.copyOf(directModuleMaps),
           cppModuleMap,
           verificationModuleMap,
-          propagateModuleMapAsActionInput);
+          propagateModuleMapAsActionInput,
+          headerMaps);
     }
 
     /**

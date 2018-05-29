@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -996,6 +998,79 @@ public final class CcCompilationHelper {
       for (PathFragment looseIncludeDir : looseIncludeDirs) {
         ccCompilationContextBuilder.addDeclaredIncludeDir(looseIncludeDir);
       }
+    }
+
+    // Setup Experimental implicit header maps if needed
+    if (ruleContext.getFragment(CppConfiguration.class).experimentalEnableImplicitHeaderMaps()) {
+      ImmutableList.Builder<Artifact> headerMapsBuilder = ImmutableList.builder();
+      String targetName = ruleContext.getTarget().getName();
+
+      HeaderMapInfo.Builder internalHeaderMapInfo = new HeaderMapInfo.Builder();
+      internalHeaderMapInfo.addHeaders(publicHeaders.getHeaders());
+      internalHeaderMapInfo.addHeaders(privateHeaders);
+      internalHeaderMapInfo.addHeaders(publicTextualHeaders);
+      Artifact internalHeaderMap = ruleContext.getPackageRelativeArtifact(PathFragment.create(targetName + "_internal.hmap"),
+                ruleContext
+                .getConfiguration()
+                .getGenfilesDirectory(ruleContext.getRule().getRepository()));
+      ruleContext.registerAction(
+        new HeaderMapAction(ruleContext.getActionOwner(),
+            internalHeaderMapInfo.build().getSources(),
+            internalHeaderMap));
+      ccCompilationContextBuilder.addQuoteIncludeDir(internalHeaderMap.getExecPath());
+      headerMapsBuilder.add(internalHeaderMap);
+
+      String includePrefix;
+      if (ruleContext.attributes().has("include_prefix")) {
+         includePrefix = ruleContext.attributes().get("include_prefix", Type.STRING);
+      } else {
+         includePrefix = ruleContext.getRule().getName();
+      }
+
+      // Construct the dep headermap.
+      // This header map additionally contains include prefixed headers so that a user
+      // can import headers of the form IncludePrefix/Header.h from headers within
+      // the current target.
+      HeaderMapInfo.Builder depHeaderMapInfo = new HeaderMapInfo.Builder();
+      depHeaderMapInfo.setIncludePrefix(includePrefix);
+      depHeaderMapInfo.addIncludePrefixdHeaders(publicHeaders.getHeaders());
+      depHeaderMapInfo.addIncludePrefixdHeaders(privateHeaders);
+      depHeaderMapInfo.addIncludePrefixdHeaders(publicTextualHeaders);
+
+      // Flatten virtual headers into the headermap.
+      boolean flattenVirtualHeaders = ruleContext.attributes().has("flatten_virtual_headers") &&
+          ruleContext.attributes().get("flatten_virtual_headers", Type.BOOLEAN);
+      if (flattenVirtualHeaders) {
+        depHeaderMapInfo.addHeaders(publicTextualHeaders);
+        depHeaderMapInfo.addHeaders(publicHeaders.getHeaders());
+        depHeaderMapInfo.addHeaders(privateHeaders);
+      }
+
+      // Merge all of the header map info from deps. The headers within a given
+      // target have precedence over over dep headers ( See
+      // HeaderMapInfo.build() ).
+      if (ruleContext.attributes().has("deps")){
+        for (HeaderMapInfoProvider hmapProvider : ruleContext.getPrerequisites("deps", Mode.TARGET, HeaderMapInfoProvider.class)) {
+          depHeaderMapInfo.mergeHeaderMapInfo(hmapProvider.getInfo());
+        }
+      }
+      Artifact depHeaderMap = ruleContext.getPackageRelativeArtifact(PathFragment.create(targetName + ".hmap"),
+                ruleContext
+                .getConfiguration()
+                .getGenfilesDirectory(ruleContext.getRule().getRepository()));
+      ruleContext.registerAction(
+        new HeaderMapAction(ruleContext.getActionOwner(),
+            depHeaderMapInfo.build().getSources(),
+            depHeaderMap));
+      ccCompilationContextBuilder.addIncludeDir(depHeaderMap.getExecPath());
+      headerMapsBuilder.add(depHeaderMap);
+
+      // If we have headermaps, then we need to add an include of
+      // the working directory ( i.e. exec root ) in this form
+      // and it must be after including the header map files
+      ccCompilationContextBuilder.addIncludeDir(PathFragment.create("."));
+      ImmutableList headerMaps = headerMapsBuilder.build();
+      ccCompilationContextBuilder.setHeaderMaps(headerMaps);
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {

@@ -1795,6 +1795,40 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testObjcNamespacedImports() throws Exception {
+    useConfiguration(
+        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
+        "--experimental_enable_implicit_headermaps=true");
+    scratch.file(
+        "x/importer.m",
+        // By default, we would be able to import this header
+        // under the namespace of dep_liba.
+        "#import \"dep_liba/header.h\"",
+        // This header has a custom namespace
+        "#import \"some/headerb.h\"");
+    scratch.file(
+        "x/headerb.h");
+    scratch.file(
+        "x/BUILD",
+        "objc_library(",
+        "   name = 'objc',",
+        "   srcs = ['importer.m'],",
+        "   deps = [':dep_liba', ':dep_libb'],",
+        ")",
+        "objc_library(",
+        "   name = 'dep_liba',",
+        "   hdrs = ['header.h'],",
+        ")",
+        "objc_library(",
+        "   name = 'dep_libb',",
+        "   include_prefix = 'some',",
+        "   hdrs = ['headerb.h'],",
+        ")");
+
+    assertThat(getConfiguredTarget("//x:objc")).isNotNull();
+  }
+
+  @Test
   public void testObjcImportDoesNotCrash() throws Exception {
     useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     scratch.file(

@@ -889,6 +889,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.fissionModes.contains(compilationMode);
   }
 
+  /**
+   * Returns whether we are implicitly creating header maps.
+   */
+  public boolean experimentalEnableImplicitHeaderMaps() {
+    return cppOptions.experimentalEnableImplicitHeaderMaps;
+  }
+
   /** Returns true if --build_test_dwp is set on this build. */
   public boolean buildTestDwpIsActivated() {
     return cppOptions.buildTestDwp;
