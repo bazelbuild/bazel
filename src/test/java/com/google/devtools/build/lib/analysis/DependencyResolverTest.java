@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
+import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -81,7 +82,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
           @Nullable
           @Override
-          protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses) {
+          protected Target getTarget(Target from, Label label, NestedSetBuilder<Cause> rootCauses) {
             try {
               return packageManager.getTarget(reporter, label);
             } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {

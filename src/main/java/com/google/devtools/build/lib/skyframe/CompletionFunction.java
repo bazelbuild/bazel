@@ -322,7 +322,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
         missingCount++;
         final Label inputOwner = input.getOwner();
         if (inputOwner != null) {
-          Cause cause = new LabelCause(inputOwner);
+          Cause cause = new LabelCause(inputOwner, e.getMessage());
           rootCausesBuilder.add(cause);
           env.getListener().handle(completor.getRootCauseError(value, cause, env));
         }

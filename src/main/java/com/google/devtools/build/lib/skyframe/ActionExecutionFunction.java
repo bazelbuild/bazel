@@ -703,7 +703,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       } catch (MissingInputFileException e) {
         missingCount++;
         if (input.getOwner() != null) {
-          rootCauses.add(new LabelCause(input.getOwner()));
+          rootCauses.add(new LabelCause(input.getOwner(), e.getMessage()));
         }
       } catch (ActionExecutionException e) {
         actionFailures++;

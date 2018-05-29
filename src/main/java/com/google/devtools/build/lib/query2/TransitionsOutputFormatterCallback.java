@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -240,7 +241,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
     }
 
     @Override
-    protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses)
+    protected Target getTarget(Target from, Label label, NestedSetBuilder<Cause> rootCauses)
         throws InterruptedException {
       return partialResultMap.get(label);
     }

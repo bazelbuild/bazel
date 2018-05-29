@@ -23,8 +23,10 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * This event is fired during the build, when it becomes known that the analysis of a target cannot
@@ -33,21 +35,35 @@ import java.util.Collection;
 public class AnalysisFailureEvent implements BuildEvent {
   private final ConfiguredTargetKey failedTarget;
   private final BuildEventId configuration;
-  private final Iterable<Cause> causes;
+  private final Iterable<Cause> rootCauses;
 
   public AnalysisFailureEvent(
-      ConfiguredTargetKey failedTarget, BuildEventId configuration, Iterable<Cause> causes) {
+      ConfiguredTargetKey failedTarget, BuildEventId configuration, Iterable<Cause> rootCauses) {
     this.failedTarget = failedTarget;
     if (configuration != null) {
       this.configuration = configuration;
     } else {
       this.configuration = NullConfiguration.INSTANCE.getEventId();
     }
-    this.causes = causes;
+    this.rootCauses = rootCauses;
   }
 
   public ConfiguredTargetKey getFailedTarget() {
     return failedTarget;
+  }
+
+  /**
+   * Returns the label of a single root cause. Use {@link #getRootCauses} to report all root causes.
+   */
+  @Nullable public Label getLegacyFailureReason() {
+    if (!rootCauses.iterator().hasNext()) {
+      return null;
+    }
+    return rootCauses.iterator().next().getLabel();
+  }
+
+  public Iterable<Cause> getRootCauses() {
+    return rootCauses;
   }
 
   @Override
@@ -57,7 +73,7 @@ public class AnalysisFailureEvent implements BuildEvent {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.copyOf(Iterables.transform(causes, BuildEventId::fromCause));
+    return ImmutableList.copyOf(Iterables.transform(rootCauses, BuildEventId::fromCause));
   }
 
   @Override

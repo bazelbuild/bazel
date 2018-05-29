@@ -60,7 +60,7 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    ImmutableList.Builder childrenBuilder = ImmutableList.builder();
+    ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
     for (BuildConfiguration config : configurations) {
       if (config != null) {
         childrenBuilder.add(BuildEventId.targetCompleted(target.getLabel(), config.getEventId()));

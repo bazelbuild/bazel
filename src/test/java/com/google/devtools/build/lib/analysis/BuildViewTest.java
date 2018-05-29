@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -73,13 +74,13 @@ import org.junit.runners.JUnit4;
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class BuildViewTest extends BuildViewTestBase {
-  private static final Function<LegacyAnalysisFailureEvent, Pair<String, String>>
+  private static final Function<AnalysisFailureEvent, Pair<String, String>>
       ANALYSIS_EVENT_TO_STRING_PAIR =
-          new Function<LegacyAnalysisFailureEvent, Pair<String, String>>() {
+          new Function<AnalysisFailureEvent, Pair<String, String>>() {
     @Override
-    public Pair<String, String> apply(LegacyAnalysisFailureEvent event) {
+    public Pair<String, String> apply(AnalysisFailureEvent event) {
       return Pair.of(
-          event.getFailedTarget().getLabel().toString(), event.getFailureReason().toString());
+          event.getFailedTarget().getLabel().toString(), event.getLegacyFailureReason().toString());
     }
   };
 
@@ -219,8 +220,8 @@ public class BuildViewTest extends BuildViewTestBase {
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
     assertThat(recorder.events).hasSize(1);
-    LegacyAnalysisFailureEvent event = recorder.events.get(0);
-    assertThat(event.getFailureReason().toString()).isEqualTo("//foo:bar");
+    AnalysisFailureEvent event = recorder.events.get(0);
+    assertThat(event.getLegacyFailureReason().toString()).isEqualTo("//foo:bar");
     assertThat(event.getFailedTarget().getLabel().toString()).isEqualTo("//foo:foo");
   }
 
@@ -243,14 +244,17 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(result.hasError()).isTrue();
     assertThat(recorder.events)
         .contains(
-            Pair.of(Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//nopackage:missing")));
+            new LoadingFailureEvent(
+                Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//nopackage:missing")));
     assertContainsEvent("missing value for mandatory attribute 'outs'");
     assertContainsEvent("no such package 'nopackage'");
     // Skyframe correctly reports the other root cause as the genrule itself (since it is
     // missing attributes).
     assertThat(recorder.events).hasSize(2);
     assertThat(recorder.events)
-        .contains(Pair.of(Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//pkg:foo")));
+        .contains(
+            new LoadingFailureEvent(
+                Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//pkg:foo")));
   }
 
   @Test
@@ -279,12 +283,12 @@ public class BuildViewTest extends BuildViewTestBase {
     assertWithMessage(recorder.events.toString())
         .that(
             recorder.events.contains(
-                Pair.of(
+                new LoadingFailureEvent(
                     Label.parseAbsolute("//third_party/first"),
                     Label.parseAbsolute("//third_party/fourth"))))
         .isTrue();
     assertThat(recorder.events)
-        .contains(Pair.of(
+        .contains(new LoadingFailureEvent(
             Label.parseAbsolute("//third_party/third"),
             Label.parseAbsolute("//third_party/fourth")));
   }
@@ -304,13 +308,12 @@ public class BuildViewTest extends BuildViewTestBase {
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
     assertThat(result.hasError()).isTrue();
     assertThat(recorder.events).hasSize(2);
-    assertWithMessage(recorder.events.toString())
-        .that(
-            recorder.events.contains(
-                Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//c1:not"))))
-        .isTrue();
     assertThat(recorder.events)
-        .contains(Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//c2:not")));
+        .contains(
+            new LoadingFailureEvent(Label.parseAbsolute("//gp"), Label.parseAbsolute("//c1:not")));
+    assertThat(recorder.events)
+        .contains(
+            new LoadingFailureEvent(Label.parseAbsolute("//gp"), Label.parseAbsolute("//c2:not")));
   }
 
   /**
@@ -865,17 +868,10 @@ public class BuildViewTest extends BuildViewTestBase {
     eventBus.register(recorder);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
     assertThat(result.hasError()).isTrue();
-    assertThat(recorder.events).hasSize(2);
-    assertWithMessage(recorder.events.toString())
-        .that(
-            recorder.events.contains(
-                Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles1"))))
-        .isTrue();
-    assertWithMessage(recorder.events.toString())
-        .that(
-            recorder.events.contains(
-                Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles2"))))
-        .isTrue();
+    assertThat(recorder.events)
+        .containsExactly(
+            new LoadingFailureEvent(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles1")),
+            new LoadingFailureEvent(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles2")));
   }
 
   /**

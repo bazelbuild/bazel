@@ -39,8 +39,11 @@ public class VisibilityErrorEvent implements BuildEventWithConfiguration {
 
   @Override
   public BuildEventId getEventId() {
-    // TODO(aehlig): track the configuration as well
-    return BuildEventId.unconfiguredLabelId(label);
+    // This needs to match AnalysisFailedCause.
+    if (configuration == null) {
+      return BuildEventId.unconfiguredLabelId(label);
+    }
+    return BuildEventId.configuredLabelId(label, configuration.getEventId());
   }
 
   @Override

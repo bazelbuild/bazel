@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 
 /** Contains toolchain-related information needed for a {@link RuleContext}. */
@@ -130,9 +131,8 @@ public class ToolchainContext {
   }
 
   /** Returns the {@link Label}s from the {@link NestedSet} that refer to toolchain dependencies. */
-  public Set<Label> filterToolchainLabels(Set<Label> labels) {
-    return labels
-        .stream()
+  public Set<Label> filterToolchainLabels(Iterable<Label> labels) {
+    return StreamSupport.stream(labels.spliterator(), false)
         .filter(label -> resolvedToolchainLabels.isToolchainDependency(label))
         .collect(ImmutableSet.toImmutableSet());
   }

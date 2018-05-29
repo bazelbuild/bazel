@@ -723,7 +723,7 @@ function test_independent_visibility_failures() {
      > aborted_events
   [ `grep '^aborted' aborted_events | wc -l` \
         -eq `grep ANALYSIS_FAILURE aborted_events | wc -l` ] \
-      || fail "events should only be aborted due to analysis failre"
+      || fail "events should only be aborted due to analysis failure"
 }
 
 function test_loading_failure_keep_going() {
