@@ -866,18 +866,18 @@ public class CppCompileAction extends AbstractAction
             ? getBuiltInIncludeDirectories()
             : getValidationIgnoredDirs();
 
-    // Copy the sets to hash sets for fast contains checking.
+    // Copy the nested sets to hash sets for fast contains checking, but do so lazily.
     // Avoid immutable sets here to limit memory churn.
-    Set<PathFragment> declaredIncludeDirs =
-        Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs());
-    Set<PathFragment> warnIncludeDirs =
-        Sets.newHashSet(ccCompilationContext.getDeclaredIncludeWarnDirs());
-    Set<Artifact> declaredIncludeSrcs = Sets.newHashSet(getDeclaredIncludeSrcs());
-    Set<Artifact> transitiveModules =
-        Sets.newHashSet(ccCompilationContext.getTransitiveModules(usePic));
+    Set<PathFragment> declaredIncludeDirs = null;
+    Set<PathFragment> warnIncludeDirs = null;
     for (Artifact input : inputsForValidation) {
+      // Module input validation is already done by the dotd-file discovery.
+      if (input.isFileType(CppFileTypes.CPP_MODULE)) {
+        continue;
+      }
+      // The transitive compilation prerequisites contain all declaredIncludeSrcs() and thus we
+      // don't need to check those separately.
       if (ccCompilationContext.getTransitiveCompilationPrerequisites().contains(input)
-          || transitiveModules.contains(input)
           || allowedIncludes.contains(input)) {
         continue; // ignore our fixed source in mandatoryInput: we just want includes
       }
@@ -885,11 +885,15 @@ public class CppCompileAction extends AbstractAction
       if (FileSystemUtils.startsWithAny(input.getExecPath(), ignoreDirs)) {
         continue;
       }
-      if (!isDeclaredIn(actionExecutionContext, input, declaredIncludeDirs, declaredIncludeSrcs)) {
+      if (declaredIncludeDirs == null) {
+        declaredIncludeDirs = Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs());
+      }
+      if (!isDeclaredIn(actionExecutionContext, input, declaredIncludeDirs)) {
+        if (warnIncludeDirs == null) {
+          warnIncludeDirs = Sets.newHashSet(ccCompilationContext.getDeclaredIncludeWarnDirs());
+        }
         // This call can never match the declared include sources (they would be matched above).
-        // There are no declared include sources we need to warn about, so use an empty set here.
-        if (isDeclaredIn(
-            actionExecutionContext, input, warnIncludeDirs, ImmutableSet.<Artifact>of())) {
+        if (isDeclaredIn(actionExecutionContext, input, warnIncludeDirs)) {
           warnings.add(input.getExecPath().toString());
         } else {
           errors.add(input.getExecPath().toString());
@@ -955,12 +959,7 @@ public class CppCompileAction extends AbstractAction
   private static boolean isDeclaredIn(
       ActionExecutionContext actionExecutionContext,
       Artifact input,
-      Set<PathFragment> declaredIncludeDirs,
-      Set<Artifact> declaredIncludeSrcs) {
-    // First check if it's listed in "srcs". If so, then its declared & OK.
-    if (declaredIncludeSrcs.contains(input)) {
-      return true;
-    }
+      Set<PathFragment> declaredIncludeDirs) {
     // If it's a derived artifact, then it MUST be listed in "srcs" as checked above.
     // We define derived here as being not source and not under the include link tree.
     if (!input.isSourceArtifact()
