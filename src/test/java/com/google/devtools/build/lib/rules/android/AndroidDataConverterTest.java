@@ -68,6 +68,16 @@ public class AndroidDataConverterTest {
   }
 
   @Test
+  public void testMaybeWithArtifact() {
+    assertMap(
+            AndroidDataConverter.<String>builder(JoinerType.COLON_COMMA)
+                .maybeWithArtifact(getFunction(null))
+                .maybeWithArtifact(getFunction(null))
+                .build())
+        .isEqualTo(":");
+  }
+
+  @Test
   public void test() {
     assertMap(
             AndroidDataConverter.<String>builder(JoinerType.SEMICOLON_AMPERSAND)

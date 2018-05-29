@@ -468,8 +468,7 @@ public class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public void injectRemoteFile(
-      Artifact output, byte[] digest, long size, long modifiedTime, int locationIndex) {
+  public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
     Preconditions.checkState(
         executionMode.get(), "Tried to inject %s outside of execution.", output);
     Preconditions.checkArgument(
@@ -487,8 +486,7 @@ public class ActionMetadataHandler implements MetadataHandler {
     // `locationIndex` to `FileStateValue`.
     try {
       injectOutputData(
-          output,
-          new FileArtifactValue.RemoteFileArtifactValue(digest, size, modifiedTime, locationIndex));
+          output, new FileArtifactValue.RemoteFileArtifactValue(digest, size, locationIndex));
     } catch (IOException e) {
       throw new IllegalStateException(e); // Should never happen.
     }

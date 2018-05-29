@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -385,7 +386,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         builder.put(nativeFunction,
             FuncallExpression.getBuiltinCallable(this, nativeFunction));
       }
-      return NativeProvider.STRUCT.create(builder.build(), "no native callable '%s'");
+      return StructProvider.STRUCT.create(builder.build(), "no native callable '%s'");
     }
 
     @SkylarkCallable(
@@ -476,6 +477,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     public Boolean isEmptyInterface(String str);
   }
 
+  @SkylarkModule(name = "MockSubClass", doc = "")
   static final class MockSubClass extends Mock implements MockInterface {
     @Override
     public Boolean isEmpty(String str) {
@@ -509,14 +511,35 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     }
   }
 
-  @SkylarkModule(name = "MockMultipleMethodClass", doc = "")
-  static final class MockMultipleMethodClass {
-    @SuppressWarnings("unused")
-    @SkylarkCallable(documented = false)
-    public void method(Object o) {}
-    @SuppressWarnings("unused")
-    @SkylarkCallable(documented = false)
-    public void method(String i) {}
+  @SkylarkModule(name = "ParamterizedMock", doc = "")
+  static interface ParameterizedApi<ObjectT> {
+    @SkylarkCallable(
+        name = "method",
+        documented = false,
+        parameters = {
+            @Param(name = "foo", named = true, positional = true, type = Object.class),
+        }
+    )
+    public ObjectT method(ObjectT o);
+  }
+
+  static final class ParameterizedMock implements ParameterizedApi<String> {
+    @Override
+    public String method(String o) {
+      return o;
+    }
+  }
+
+  // Verifies that a method implementation overriding a parameterized annotated interface method
+  // is still treated as skylark-callable. Concretely, method() below should be treated as
+  // callable even though its method signature isn't an *exact* match of the annotated method
+  // declaration, due to the interface's method declaration being generic.
+  @Test
+  public void testParameterizedMock() throws Exception {
+    new SkylarkTest()
+        .update("mock", new ParameterizedMock())
+        .setUp("result = mock.method('bar')")
+        .testLookup("result", "bar");
   }
 
   @Test
@@ -999,15 +1022,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testJavaCallsMultipleMethod() throws Exception {
-    new SkylarkTest()
-        .update("mock", new MockMultipleMethodClass())
-        .testIfExactError(
-            "type 'MockMultipleMethodClass' has multiple matches for function method(string)",
-            "s = mock.method('string')");
-  }
-
-  @Test
   public void testJavaCallWithKwargs() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
@@ -1347,7 +1361,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testStructAccessOfMethod() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("object of type 'Mock' has no field 'function'", "v = mock.function");
+        .testIfExactError(
+            "object of type 'Mock' has no field 'function', however, a method of that name exists",
+            "v = mock.function");
   }
 
   @Test
@@ -1357,6 +1373,15 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .testIfExactError(
             "object of type 'MockClassObject' has no field 'fild' (did you mean 'field'?)",
             "mock.fild");
+  }
+
+  @Test
+  public void testStructAccessType_nonClassObject() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .testIfExactError(
+            "object of type 'Mock' has no field 'sturct_field' (did you mean 'struct_field'?)",
+            "v = mock.sturct_field");
   }
 
   @Test

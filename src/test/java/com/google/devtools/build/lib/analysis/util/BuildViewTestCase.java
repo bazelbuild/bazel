@@ -1633,7 +1633,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       return null;
     } else {
       return skyframeExecutor.getConfigurationForTesting(
-          reporter, fromConfig.fragmentClasses(), transition.apply(fromConfig.getOptions()));
+          reporter, fromConfig.fragmentClasses(), transition.patch(fromConfig.getOptions()));
     }
   }
 

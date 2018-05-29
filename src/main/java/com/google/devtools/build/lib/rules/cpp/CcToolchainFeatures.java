@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.io.IOException;
@@ -954,6 +955,17 @@ public class CcToolchainFeatures implements Serializable {
                 "Invalid toolchain configuration: Artifact category %s not recognized",
                 artifactNamePattern.getCategoryName()));
       }
+
+      String extension = artifactNamePattern.getExtension();
+      if (!foundCategory.getAllowedExtensions().contains(extension)) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "Unrecognized file extension '%s', allowed extensions are %s,"
+                    + " please check artifact_name_pattern configuration for %s in your CROSSTOOL.",
+                extension,
+                StringUtil.joinEnglishList(foundCategory.getAllowedExtensions(), "or", "'"),
+                foundCategory.getCategoryName()));
+      }
       this.artifactCategory = foundCategory;
       this.prefix = artifactNamePattern.getPrefix();
       this.extension = artifactNamePattern.getExtension();
@@ -962,6 +974,14 @@ public class CcToolchainFeatures implements Serializable {
     /** Returns the ArtifactCategory for this ArtifactNamePattern. */
     ArtifactCategory getArtifactCategory() {
       return this.artifactCategory;
+    }
+
+    public String getPrefix() {
+      return this.prefix;
+    }
+
+    public String getExtension() {
+      return this.extension;
     }
 
     /** Returns the artifact name that this pattern selects. */
@@ -1449,6 +1469,27 @@ public class CcToolchainFeatures implements Serializable {
 
     return output.getParentDirectory()
         .getChild(patternForCategory.getArtifactName(output.getBaseName())).getPathString();
+  }
+
+  /**
+   * Returns the artifact name extension selected by the toolchain for the given artifact category.
+   *
+   * @throws InvalidConfigurationException if the category is not supported by the action config.
+   */
+  String getArtifactNameExtensionForCategory(ArtifactCategory artifactCategory)
+      throws InvalidConfigurationException {
+    ArtifactNamePattern patternForCategory = null;
+    for (ArtifactNamePattern artifactNamePattern : artifactNamePatterns) {
+      if (artifactNamePattern.getArtifactCategory() == artifactCategory) {
+        patternForCategory = artifactNamePattern;
+      }
+    }
+    if (patternForCategory == null) {
+      throw new InvalidConfigurationException(
+          String.format(
+              MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName()));
+    }
+    return patternForCategory.getExtension();
   }
 
   /** Returns true if the toolchain defines an ArtifactNamePattern for the given category. */

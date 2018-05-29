@@ -20,18 +20,46 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationInfoApi;
+import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /** Wrapper for every C++ compilation provider. */
 @Immutable
 @AutoCodec
 public final class CcCompilationInfo extends NativeInfo implements CcCompilationInfoApi {
+  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
+      FunctionSignature.WithValues.create(
+          FunctionSignature.of(
+              /* numMandatoryPositionals= */ 0,
+              /* numOptionalPositionals= */ 0,
+              /* numMandatoryNamedOnly= */ 1,
+              /* starArg= */ false,
+              /* kwArg= */ false,
+              "cc_compilation_context"),
+          /* defaultValues= */ ImmutableList.of(),
+          /* types= */ ImmutableList.of(SkylarkType.of(CcCompilationContext.class)));
+
   public static final NativeProvider<CcCompilationInfo> PROVIDER =
-      new NativeProvider<CcCompilationInfo>(CcCompilationInfo.class, "CcCompilationInfo") {};
+      new NativeProvider<CcCompilationInfo>(
+          CcCompilationInfo.class, "CcCompilationInfo", SIGNATURE) {
+        @Override
+        @SuppressWarnings("unchecked")
+        protected CcCompilationInfo createInstanceFromSkylark(
+            Object[] args, Environment env, Location loc) throws EvalException {
+          CcCommon.checkLocationWhitelisted(loc);
+          CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
+          ccCompilationInfoBuilder.setCcCompilationContext((CcCompilationContext) args[0]);
+          return ccCompilationInfoBuilder.build();
+        }
+      };
 
   private final CcCompilationContext ccCompilationContext;
 

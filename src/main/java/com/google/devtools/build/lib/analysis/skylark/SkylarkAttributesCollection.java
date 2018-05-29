@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttributesCollectionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -59,21 +59,21 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
     this.skylarkRuleContext = skylarkRuleContext;
     this.ruleClassName = ruleClassName;
     attrObject =
-        NativeProvider.STRUCT.create(
+        StructProvider.STRUCT.create(
             attrs,
             "No attribute '%s' in attr. Make sure you declared a rule attribute with this name.");
     executableObject =
-        NativeProvider.STRUCT.create(
+        StructProvider.STRUCT.create(
             executables,
             "No attribute '%s' in executable. Make sure there is a label type attribute marked "
                 + "as 'executable' with this name");
     fileObject =
-        NativeProvider.STRUCT.create(
+        StructProvider.STRUCT.create(
             singleFiles,
             "No attribute '%s' in file. Make sure there is a label type attribute marked "
                 + "as 'single_file' with this name");
     filesObject =
-        NativeProvider.STRUCT.create(
+        StructProvider.STRUCT.create(
             files,
             "No attribute '%s' in files. Make sure there is a label or label_list type attribute "
                 + "with this name");

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -243,8 +242,8 @@ public class HeaderDiscovery {
 
     /** Creates a CppHeaderDiscovery instance. */
     public HeaderDiscovery build() {
-      HashMap<PathFragment, Artifact> allowedDerivedInputsMap = new HashMap<>();
-      HashSet<PathFragment> treeArtifactPrefixes = new HashSet<>();
+      ImmutableMap.Builder<PathFragment, Artifact> allowedDerivedInputsMap = ImmutableMap.builder();
+      ImmutableSet.Builder<PathFragment> treeArtifactPrefixes = ImmutableSet.builder();
       for (Artifact a : allowedDerivedInputs) {
         if (a.isTreeArtifact()) {
           treeArtifactPrefixes.add(a.getExecPath());
@@ -258,8 +257,8 @@ public class HeaderDiscovery {
           shouldValidateInclusions,
           dependencies,
           permittedSystemIncludePrefixes,
-          ImmutableMap.copyOf(allowedDerivedInputsMap),
-          ImmutableSet.copyOf(treeArtifactPrefixes));
+          allowedDerivedInputsMap.build(),
+          treeArtifactPrefixes.build());
     }
   }
 }

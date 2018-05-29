@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSema
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -1053,7 +1054,7 @@ public class BuildView {
       }
 
       @Override
-      protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses)
+      protected Target getTarget(Target from, Label label, NestedSetBuilder<Cause> rootCauses)
           throws InterruptedException {
         try {
           return skyframeExecutor.getPackageManager().getTarget(eventHandler, label);
@@ -1263,6 +1264,7 @@ public class BuildView {
         .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
         .setUniversalFragments(ruleClassProvider.getUniversalFragments())
         .setToolchainContext(toolchainContext)
+        .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
         .build();
   }
 

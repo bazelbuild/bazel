@@ -18,7 +18,11 @@ set -eu
 
 # Combine src jars to a single archive containing all the source files.
 
-JAVABASE="${PWD}/$1"
+
+case $1 in
+  "/"*) JAVABASE="$1" ;;
+  *) JAVABASE="${PWD}/$1" ;;
+esac
 shift
 OUTPUT="${PWD}/$1"
 shift

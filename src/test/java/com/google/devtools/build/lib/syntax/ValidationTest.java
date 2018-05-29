@@ -212,7 +212,7 @@ public class ValidationTest extends EvaluationTestCase {
     setFailFast(false);
     parseFile(
         "def GenerateMapNames():", "  a = 2", "  b = [3, 4]", "  if a not b:", "    print(a)");
-    assertContainsError("syntax error at 'b': expected in");
+    assertContainsError("syntax error at 'b': expected 'in'");
     // Parser uses "$error" symbol for error recovery.
     // It should not be used in error messages.
     for (Event event : getEventCollector()) {

@@ -35,9 +35,6 @@ public interface RpcSupport {
 
   NestedSet<Artifact> getBlacklist(RuleContext ruleContext);
 
-  void mutateProtoCompileAction(
-      RuleContext ruleContext, Artifact sourceJar, ProtoCompileActionBuilder actionBuilder);
-
   ImmutableList<TransitiveInfoCollection> getRuntimes(RuleContext ruleContext);
 
   void mutateAspectDefinition(AspectDefinition.Builder def, AspectParameters aspectParameters);

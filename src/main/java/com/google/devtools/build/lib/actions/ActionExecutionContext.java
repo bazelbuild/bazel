@@ -146,11 +146,16 @@ public class ActionExecutionContext implements Closeable {
   }
 
   public FileSystem getFileSystem() {
+    if (actionFileSystem != null) {
+      return actionFileSystem;
+    }
     return executor.getFileSystem();
   }
 
   public Path getExecRoot() {
-    return executor.getExecRoot();
+    return actionFileSystem != null
+        ? actionFileSystem.getPath(executor.getExecRoot().asFragment())
+        : executor.getExecRoot();
   }
 
   /**
@@ -170,7 +175,7 @@ public class ActionExecutionContext implements Closeable {
       }
       return artifact.getPath();
     }
-    return executor.getExecRoot().getRelative(input.getExecPath());
+    return getExecRoot().getRelative(input.getExecPath());
   }
 
   public Root getRoot(Artifact artifact) {
@@ -230,11 +235,6 @@ public class ActionExecutionContext implements Closeable {
    */
   public <T extends ActionContext> T getContext(Class<? extends T> type) {
     return executor.getContext(type);
-  }
-
-  /** Returns the action context implementation for a given spawn action. */
-  public SpawnActionContext getSpawnActionContext(Spawn spawn) {
-    return executor.getSpawnActionContext(spawn);
   }
 
   /**

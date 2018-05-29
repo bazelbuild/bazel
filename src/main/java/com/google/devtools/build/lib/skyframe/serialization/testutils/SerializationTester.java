@@ -58,7 +58,7 @@ public class SerializationTester {
     void verifyDeserialized(T original, T deserialized) throws Exception;
   }
 
-  private final ImmutableList<Object> subjects;
+  private final ImmutableList<?> subjects;
   private final ImmutableMap.Builder<Class<?>, Object> dependenciesBuilder;
   private final ArrayList<ObjectCodec<?>> additionalCodecs = new ArrayList<>();
   private boolean memoize;
@@ -75,7 +75,7 @@ public class SerializationTester {
     this(ImmutableList.copyOf(subjects));
   }
 
-  public SerializationTester(ImmutableList<Object> subjects) {
+  public SerializationTester(ImmutableList<?> subjects) {
     Preconditions.checkArgument(!subjects.isEmpty());
     this.subjects = subjects;
     this.dependenciesBuilder = ImmutableMap.builder();

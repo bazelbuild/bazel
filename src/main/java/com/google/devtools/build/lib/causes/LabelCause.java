@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,20 +13,27 @@
 // limitations under the License.
 package com.google.devtools.build.lib.causes;
 
+import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
+import java.util.Objects;
 
-/** Class describing a {@link Cause} that can uniquely be described by a {@link Label}. */
+/** Failure due to something associated with a label; also adds a message. */
 public class LabelCause implements Cause {
   private final Label label;
+  private final String msg;
 
-  public LabelCause(Label label) {
+  public LabelCause(Label label, String msg) {
     this.label = label;
+    this.msg = msg;
   }
 
   @Override
   public String toString() {
-    return label.toString();
+    return MoreObjects.toStringHelper(this)
+        .add("label", label)
+        .add("msg", msg)
+        .toString();
   }
 
   @Override
@@ -42,5 +49,21 @@ public class LabelCause implements Cause {
                 .setLabel(label.toString())
                 .build())
         .build();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    } else if (!(o instanceof LabelCause)) {
+      return false;
+    }
+    LabelCause a = (LabelCause) o;
+    return label.equals(a.label) && msg.equals(a.msg);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(label, msg);
   }
 }

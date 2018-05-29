@@ -87,6 +87,7 @@ import javax.annotation.Nullable;
 @ThreadCompatible
 public class CppCompileAction extends AbstractAction
     implements IncludeScannable, ExecutionInfoSpecifier, CommandAction {
+
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 
   private static final int VALIDATION_DEBUG = 0;  // 0==none, 1==warns/errors, 2==all
@@ -157,7 +158,6 @@ public class CppCompileAction extends AbstractAction
 
   protected final Artifact outputFile;
   private final Artifact sourceFile;
-  private final Artifact optionalSourceFile;
   private final NestedSet<Artifact> mandatoryInputs;
   private final Iterable<Artifact> inputsForInvalidation;
 
@@ -175,6 +175,7 @@ public class CppCompileAction extends AbstractAction
   @Nullable private final Artifact grepIncludes;
   private final boolean shouldScanIncludes;
   private final boolean shouldPruneModules;
+  private final boolean pruneCppInputDiscovery;
   private final boolean usePic;
   private final boolean useHeaderModules;
   private final boolean isStrictSystemIncludes;
@@ -245,7 +246,6 @@ public class CppCompileAction extends AbstractAction
    * @param gcnoFile the coverage notes that are written in coverage mode, can be null
    * @param dwoFile the .dwo output file where debug information is stored for Fission builds (null
    *     if Fission mode is disabled)
-   * @param optionalSourceFile an additional optional source file (null if unneeded)
    * @param ccCompilationContext the {@code CcCompilationContext}
    * @param coptsFilter regular expression to remove options from {@code copts}
    * @param lipoScannables List of artifacts to include-scan when this action is a lipo action
@@ -264,6 +264,7 @@ public class CppCompileAction extends AbstractAction
       Artifact sourceFile,
       boolean shouldScanIncludes,
       boolean shouldPruneModules,
+      boolean pruneCppInputDiscovery,
       boolean usePic,
       boolean useHeaderModules,
       boolean isStrictSystemIncludes,
@@ -276,7 +277,6 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
-      Artifact optionalSourceFile,
       ActionEnvironment env,
       CcCompilationContext ccCompilationContext,
       CoptsFilter coptsFilter,
@@ -300,7 +300,6 @@ public class CppCompileAction extends AbstractAction
         env,
         Preconditions.checkNotNull(outputFile),
         sourceFile,
-        optionalSourceFile,
         // We do not need to include the middleman artifact since it is a generated
         // artifact and will definitely exist prior to this action execution.
         mandatoryInputs,
@@ -312,6 +311,7 @@ public class CppCompileAction extends AbstractAction
         // the inputs are as declared, hence known, and remain so.
         shouldScanIncludes,
         shouldPruneModules,
+        pruneCppInputDiscovery,
         usePic,
         useHeaderModules,
         isStrictSystemIncludes,
@@ -348,12 +348,12 @@ public class CppCompileAction extends AbstractAction
       ActionEnvironment env,
       Artifact outputFile,
       Artifact sourceFile,
-      Artifact optionalSourceFile,
       NestedSet<Artifact> mandatoryInputs,
       Iterable<Artifact> inputsForInvalidation,
       NestedSet<Artifact> prunableInputs,
       boolean shouldScanIncludes,
       boolean shouldPruneModules,
+      boolean pruneCppInputDiscovery,
       boolean usePic,
       boolean useHeaderModules,
       boolean isStrictSystemIncludes,
@@ -379,12 +379,12 @@ public class CppCompileAction extends AbstractAction
     super(owner, inputs, outputs, env);
     this.outputFile = outputFile;
     this.sourceFile = sourceFile;
-    this.optionalSourceFile = optionalSourceFile;
     this.mandatoryInputs = mandatoryInputs;
     this.inputsForInvalidation = inputsForInvalidation;
     this.prunableInputs = prunableInputs;
     this.shouldScanIncludes = shouldScanIncludes;
     this.shouldPruneModules = shouldPruneModules;
+    this.pruneCppInputDiscovery = pruneCppInputDiscovery;
     this.usePic = usePic;
     this.useHeaderModules = useHeaderModules;
     this.isStrictSystemIncludes = isStrictSystemIncludes;
@@ -632,6 +632,14 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   @Nullable
+  public Set<Artifact> getModularHeaders() {
+    return useHeaderModules && pruneCppInputDiscovery
+        ? ccCompilationContext.getModularHeaders(usePic)
+        : null;
+  }
+
+  @Override
+  @Nullable
   public Artifact getGrepIncludes() {
     return grepIncludes;
   }
@@ -853,26 +861,23 @@ public class CppCompileAction extends AbstractAction
       allowedIncludes.add(input);
     }
 
-    if (optionalSourceFile != null) {
-      allowedIncludes.add(optionalSourceFile);
-    }
     Iterable<PathFragment> ignoreDirs =
         isStrictSystemIncludes
             ? getBuiltInIncludeDirectories()
             : getValidationIgnoredDirs();
 
-    // Copy the sets to hash sets for fast contains checking.
+    // Copy the nested sets to hash sets for fast contains checking, but do so lazily.
     // Avoid immutable sets here to limit memory churn.
-    Set<PathFragment> declaredIncludeDirs =
-        Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs());
-    Set<PathFragment> warnIncludeDirs =
-        Sets.newHashSet(ccCompilationContext.getDeclaredIncludeWarnDirs());
-    Set<Artifact> declaredIncludeSrcs = Sets.newHashSet(getDeclaredIncludeSrcs());
-    Set<Artifact> transitiveModules =
-        Sets.newHashSet(ccCompilationContext.getTransitiveModules(usePic));
+    Set<PathFragment> declaredIncludeDirs = null;
+    Set<PathFragment> warnIncludeDirs = null;
     for (Artifact input : inputsForValidation) {
+      // Module input validation is already done by the dotd-file discovery.
+      if (input.isFileType(CppFileTypes.CPP_MODULE)) {
+        continue;
+      }
+      // The transitive compilation prerequisites contain all declaredIncludeSrcs() and thus we
+      // don't need to check those separately.
       if (ccCompilationContext.getTransitiveCompilationPrerequisites().contains(input)
-          || transitiveModules.contains(input)
           || allowedIncludes.contains(input)) {
         continue; // ignore our fixed source in mandatoryInput: we just want includes
       }
@@ -880,11 +885,15 @@ public class CppCompileAction extends AbstractAction
       if (FileSystemUtils.startsWithAny(input.getExecPath(), ignoreDirs)) {
         continue;
       }
-      if (!isDeclaredIn(actionExecutionContext, input, declaredIncludeDirs, declaredIncludeSrcs)) {
+      if (declaredIncludeDirs == null) {
+        declaredIncludeDirs = Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs());
+      }
+      if (!isDeclaredIn(actionExecutionContext, input, declaredIncludeDirs)) {
+        if (warnIncludeDirs == null) {
+          warnIncludeDirs = Sets.newHashSet(ccCompilationContext.getDeclaredIncludeWarnDirs());
+        }
         // This call can never match the declared include sources (they would be matched above).
-        // There are no declared include sources we need to warn about, so use an empty set here.
-        if (isDeclaredIn(
-            actionExecutionContext, input, warnIncludeDirs, ImmutableSet.<Artifact>of())) {
+        if (isDeclaredIn(actionExecutionContext, input, warnIncludeDirs)) {
           warnings.add(input.getExecPath().toString());
         } else {
           errors.add(input.getExecPath().toString());
@@ -950,12 +959,7 @@ public class CppCompileAction extends AbstractAction
   private static boolean isDeclaredIn(
       ActionExecutionContext actionExecutionContext,
       Artifact input,
-      Set<PathFragment> declaredIncludeDirs,
-      Set<Artifact> declaredIncludeSrcs) {
-    // First check if it's listed in "srcs". If so, then its declared & OK.
-    if (declaredIncludeSrcs.contains(input)) {
-      return true;
-    }
+      Set<PathFragment> declaredIncludeDirs) {
     // If it's a derived artifact, then it MUST be listed in "srcs" as checked above.
     // We define derived here as being not source and not under the include link tree.
     if (!input.isSourceArtifact()
@@ -999,9 +1003,6 @@ public class CppCompileAction extends AbstractAction
     Profiler.instance().startTask(ProfilerTask.ACTION_UPDATE, describe());
     try {
       inputs.addTransitive(mandatoryInputs);
-      if (optionalSourceFile != null) {
-        inputs.add(optionalSourceFile);
-      }
       inputs.addAll(inputsForInvalidation);
       inputs.addTransitive(discoveredInputs);
       updateInputs(inputs.build());

@@ -43,20 +43,20 @@ public final class SpawnStatsTest {
   @Test
   public void one() {
     stats.countRunnerName("foo");
-    assertThat(stats.getSummary()).isEqualTo("1 process, foo.");
+    assertThat(stats.getSummary()).isEqualTo("1 process: 1 foo.");
   }
 
   @Test
   public void oneRemote() {
     stats.countRunnerName("remote cache hit");
-    assertThat(stats.getSummary()).isEqualTo("1 process, remote cache hit.");
+    assertThat(stats.getSummary()).isEqualTo("1 process: 1 remote cache hit.");
   }
 
   @Test
   public void two() {
     stats.countRunnerName("foo");
     stats.countRunnerName("foo");
-    assertThat(stats.getSummary()).isEqualTo("2 processes, foo.");
+    assertThat(stats.getSummary()).isEqualTo("2 processes: 2 foo.");
   }
 
   @Test
@@ -105,7 +105,7 @@ public final class SpawnStatsTest {
     spawns.add(rA);
 
     stats.countActionResult(ActionResult.create(spawns));
-    assertThat(stats.getSummary()).isEqualTo("1 process, abc.");
+    assertThat(stats.getSummary()).isEqualTo("1 process: 1 abc.");
   }
 
   @Test
@@ -118,7 +118,7 @@ public final class SpawnStatsTest {
     spawns.add(rA);
 
     stats.countActionResult(ActionResult.create(spawns));
-    assertThat(stats.getSummary()).isEqualTo("3 processes, abc.");
+    assertThat(stats.getSummary()).isEqualTo("3 processes: 3 abc.");
   }
 
   @Test

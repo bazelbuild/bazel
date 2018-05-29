@@ -235,7 +235,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<EOF > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     timeout = "short",
     srcs = [ "test.sh" ],
@@ -297,7 +297,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     srcs = [ "test.sh" ],
   )
@@ -328,7 +328,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     srcs = [ "test.sh" ],
   )
@@ -360,7 +360,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     timeout = "short",
     srcs = [ "test.sh" ],
@@ -589,7 +589,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     srcs = [ "test.sh" ],
   )
@@ -640,7 +640,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     srcs = [ "test.sh" ],
   )
@@ -674,7 +674,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     srcs = [ "test.sh" ],
   )

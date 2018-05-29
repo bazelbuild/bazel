@@ -26,34 +26,28 @@
 //     if (runfiles == nullptr) {
 //       ...  // error handling
 //     }
-//     std::string path(runfiles->Rlocation("io_bazel/src/bazel"));
-//     std::ifstream data(path);
-//     if (data.is_open()) {
-//       ...  // use the runfile
+//     std::string path = runfiles->Rlocation("io_bazel/src/bazel");
+//     if (!path.empty()) {
+//       std::ifstream data(path);
+//       if (data.is_open()) {
+//         ...  // use the runfile
 //
-// The code above creates a manifest- or directory-based implementations
-// depending on it finding a runfiles manifest or -directory near argv[0] or
-// finding appropriate environment variables that tell it where to find the
-// manifest or directory. See `Runfiles::Create` for more info.
+// The code above creates a Runfiles object and retrieves a runfile path.
 //
-// If you want to explicitly create a manifest- or directory-based
-// implementation, you can do so as follows:
+// The Runfiles::Create function uses the runfiles manifest and the runfiles
+// directory from the RUNFILES_MANIFEST_FILE and RUNFILES_DIR environment
+// variables. If not present, the function looks for the manifest and directory
+// near argv[0], the path of the main program.
 //
-//   std::unique_ptr<Runfiles> runfiles1(
-//       Runfiles::CreateManifestBased(path/to/foo.runfiles/MANIFEST", &error));
-//
-//   std::unique_ptr<Runfiles> runfiles2(
-//       Runfiles::CreateDirectoryBased(path/to/foo.runfiles", &error));
-//
-// If you want to start child processes that also need runfiles, you need to set
-// the right environment variables for them:
+// To start child processes that also need runfiles, you need to set the right
+// environment variables for them:
 //
 //   std::unique_ptr<Runfiles> runfiles(Runfiles::Create(argv[0], &error));
 //
 //   for (const auto i : runfiles->EnvVars()) {
 //     setenv(i.first, i.second, 1);
 //   }
-//   std::string path(runfiles->Rlocation("path/to/binary"));
+//   std::string path = runfiles->Rlocation("path/to/binary"));
 //   if (!path.empty()) {
 //     pid_t child = fork();
 //     ...
@@ -62,6 +56,7 @@
 #define TOOLS_CPP_RUNFILES_RUNFILES_H_ 1
 
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -77,51 +72,33 @@ class Runfiles {
 
   // Returns a new `Runfiles` instance.
   //
-  // The returned object is either:
-  // - manifest-based, meaning it looks up runfile paths from a manifest file,
-  //   or
-  // - directory-based, meaning it looks up runfile paths under a given
-  //   directory path
-  //
-  // This method:
-  // 1. checks the RUNFILES_MANIFEST_FILE or RUNFILES_DIR environment variables;
-  //    if either is non-empty, returns a manifest- or directory-based Runfiles
-  //    object; otherwise
-  // 2. checks if there's a runfiles manifest (argv0 + ".runfiles_manifest") or
-  //    runfiles directory (argv0 + ".runfiles") next to this binary; if so,
-  //    returns a manifest- or directory-based Runfiles object; otherwise
-  // 3. returns nullptr.
-  //
-  // The manifest-based Runfiles object eagerly reads and caches the whole
-  // manifest file upon instantiation; this may be relevant for performance
-  // consideration.
-  //
   // Returns nullptr on error. If `error` is provided, the method prints an
   // error message into it.
+  //
+  // This method looks at the RUNFILES_MANIFEST_FILE and RUNFILES_DIR
+  // environment variables. If either is empty, the method looks for the
+  // manifest or directory using the other environment variable, or using argv0.
   static Runfiles* Create(const std::string& argv0,
                           std::string* error = nullptr);
 
-  // Returns a new manifest-based `Runfiles` instance.
-  // Returns nullptr on error. If `error` is provided, the method prints an
-  // error message into it.
-  static Runfiles* CreateManifestBased(const std::string& manifest_path,
-                                       std::string* error = nullptr);
-
-  // Returns a new directory-based `Runfiles` instance.
-  // Returns nullptr on error. If `error` is provided, the method prints an
-  // error message into it.
-  static Runfiles* CreateDirectoryBased(const std::string& directory_path,
-                                        std::string* error = nullptr);
+  // Returns a new `Runfiles` instance.
+  //
+  // Same as `Create(argv0, error)`, except it uses `runfiles_manifest_file` and
+  // `runfiles_dir` as the corresponding environment variable values, instead of
+  // looking up the actual environment variables.
+  static Runfiles* Create(const std::string& argv0,
+                          const std::string& runfiles_manifest_file,
+                          const std::string& runfiles_dir,
+                          std::string* error = nullptr);
 
   // Returns the runtime path of a runfile.
   //
   // Runfiles are data-dependencies of Bazel-built binaries and tests.
   //
-  // The returned path may not be valid. The caller should check the path's
-  // validity and that the path exists.
+  // The returned path may not exist. The caller should verify the path's
+  // existence.
   //
-  // The function may return an empty string. In that case the caller can be
-  // sure that the Runfiles object does not know about this data-dependency.
+  // The function may return an empty string if it cannot find a runfile.
   //
   // Args:
   //   path: runfiles-root-relative path of the runfile; must not be empty and
@@ -129,44 +106,32 @@ class Runfiles {
   // Returns:
   //   the path to the runfile, which the caller should check for existence, or
   //   an empty string if the method doesn't know about this runfile
-  virtual std::string Rlocation(const std::string& path) const = 0;
+  std::string Rlocation(const std::string& path) const;
 
   // Returns environment variables for subprocesses.
   //
   // The caller should set the returned key-value pairs in the environment of
-  // subprocesses in case those subprocesses are also Bazel-built binaries that
-  // need to use runfiles.
-  virtual std::vector<std::pair<std::string, std::string> > EnvVars() const = 0;
-
-  // Computes the path of the runfiles manifest and the runfiles directory.
-  //
-  // If the method finds both a valid manifest and valid directory according to
-  // `is_runfiles_manifest` and `is_runfiles_directory`, then the method sets
-  // the corresponding values to `out_manifest` and `out_directory` and returns
-  // true.
-  //
-  // If the method only finds a valid manifest or a valid directory, but not
-  // both, then it sets the corresponding output variable (`out_manifest` or
-  // `out_directory`) to the value while clearing the other output variable. The
-  // method still returns true in this case.
-  //
-  // If the method cannot find either a valid manifest or valid directory, it
-  // clears both output variables and returns false.
-  static bool PathsFrom(
-      const std::string& argv0, std::string runfiles_manifest_file,
-      std::string runfiles_dir,
-      std::function<bool(const std::string&)> is_runfiles_manifest,
-      std::function<bool(const std::string&)> is_runfiles_directory,
-      std::string* out_manifest, std::string* out_directory);
-
- protected:
-  Runfiles() {}
+  // subprocesses, so that those subprocesses can also access runfiles (in case
+  // they are also Bazel-built binaries).
+  const std::vector<std::pair<std::string, std::string> >& EnvVars() const {
+    return envvars_;
+  }
 
  private:
+  Runfiles(const std::map<std::string, std::string>&& runfiles_map,
+           const std::string&& directory,
+           const std::vector<std::pair<std::string, std::string> >&& envvars)
+      : runfiles_map_(std::move(runfiles_map)),
+        directory_(std::move(directory)),
+        envvars_(std::move(envvars)) {}
   Runfiles(const Runfiles&) = delete;
   Runfiles(Runfiles&&) = delete;
   Runfiles& operator=(const Runfiles&) = delete;
   Runfiles& operator=(Runfiles&&) = delete;
+
+  const std::map<std::string, std::string> runfiles_map_;
+  const std::string directory_;
+  const std::vector<std::pair<std::string, std::string> > envvars_;
 };
 
 // The "testing" namespace contains functions that allow unit testing the code.
@@ -177,18 +142,26 @@ namespace testing {
 
 // For testing only.
 //
-// Create a new Runfiles instance, looking up environment variables using
-// `env_lookup`.
+// Computes the path of the runfiles manifest and the runfiles directory.
 //
-// Args:
-//   argv0: name of the binary; if this string is not empty, then the function
-//     looks for a runfiles manifest or directory next to this
-//   env_lookup: a function that returns envvar values if an envvar is known, or
-//     empty string otherwise
-Runfiles* TestOnly_CreateRunfiles(
-    const std::string& argv0,
-    std::function<std::string(const std::string&)> env_lookup,
-    std::string* error);
+// If the method finds both a valid manifest and valid directory according to
+// `is_runfiles_manifest` and `is_runfiles_directory`, then the method sets
+// the corresponding values to `out_manifest` and `out_directory` and returns
+// true.
+//
+// If the method only finds a valid manifest or a valid directory, but not
+// both, then it sets the corresponding output variable (`out_manifest` or
+// `out_directory`) to the value while clearing the other output variable. The
+// method still returns true in this case.
+//
+// If the method cannot find either a valid manifest or valid directory, it
+// clears both output variables and returns false.
+bool TestOnly_PathsFrom(
+    const std::string& argv0, std::string runfiles_manifest_file,
+    std::string runfiles_dir,
+    std::function<bool(const std::string&)> is_runfiles_manifest,
+    std::function<bool(const std::string&)> is_runfiles_directory,
+    std::string* out_manifest, std::string* out_directory);
 
 // For testing only.
 // Returns true if `path` is an absolute Unix or Windows path.

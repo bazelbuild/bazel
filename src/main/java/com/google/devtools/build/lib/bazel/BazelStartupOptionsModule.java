@@ -13,8 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -54,5 +59,25 @@ public class BazelStartupOptionsModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getStartupOptions() {
     return ImmutableList.of(Options.class);
+  }
+
+  /**
+   * Post a deprecation warning about batch mode. This is in beforeCommand, and not earlier, so that
+   * we can post the warning event to the correctly set up channels.
+   */
+  @Override
+  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+    BlazeServerStartupOptions startupOptions =
+        Preconditions.checkNotNull(
+            env.getRuntime()
+                .getStartupOptionsProvider()
+                .getOptions(BlazeServerStartupOptions.class));
+    if (startupOptions.batch) {
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "--batch mode is deprecated. Please instead explicitly shut down your Bazel "
+                      + "server using the command \"bazel shutdown\"."));
+    }
   }
 }

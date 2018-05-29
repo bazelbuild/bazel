@@ -133,40 +133,6 @@ public abstract class AbstractAction implements Action, ActionApi {
         env);
   }
 
-  /**
-   * Construct an abstract action with the specified tools, inputs and outputs;
-   */
-  protected AbstractAction(
-      ActionOwner owner,
-      Iterable<Artifact> tools,
-      Iterable<Artifact> inputs,
-      Iterable<Artifact> outputs) {
-    this(owner, tools, inputs, EmptyRunfilesSupplier.INSTANCE, outputs, ActionEnvironment.EMPTY);
-  }
-
-  protected AbstractAction(
-      ActionOwner owner,
-      Iterable<Artifact> inputs,
-      RunfilesSupplier runfilesSupplier,
-      Iterable<Artifact> outputs) {
-    this(
-        owner,
-        /*tools=*/ImmutableList.of(),
-        inputs,
-        runfilesSupplier,
-        outputs,
-        ActionEnvironment.EMPTY);
-  }
-
-  protected AbstractAction(
-      ActionOwner owner,
-      Iterable<Artifact> tools,
-      Iterable<Artifact> inputs,
-      RunfilesSupplier runfilesSupplier,
-      Iterable<Artifact> outputs) {
-    this(owner, tools, inputs, runfilesSupplier, outputs, ActionEnvironment.EMPTY);
-  }
-
   protected AbstractAction(
       ActionOwner owner,
       Iterable<Artifact> tools,

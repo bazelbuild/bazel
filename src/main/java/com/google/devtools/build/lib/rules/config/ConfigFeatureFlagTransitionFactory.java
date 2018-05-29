@@ -55,7 +55,7 @@ public class ConfigFeatureFlagTransitionFactory implements RuleTransitionFactory
     }
 
     @Override
-    public BuildOptions apply(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options) {
       if (!options.contains(ConfigFeatureFlagOptions.class)) {
         return options;
       }

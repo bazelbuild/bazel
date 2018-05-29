@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -48,6 +47,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.causes.LabelCause;
+import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -75,10 +77,10 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -87,8 +89,6 @@ import javax.annotation.Nullable;
  * <p>Covers enough functionality to work as a substitute for {@code BuildView#configureTargets}.
  */
 public final class SkyframeBuildView {
-  private static final Logger logger = Logger.getLogger(BuildView.class.getName());
-
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
   private final SkyframeExecutor skyframeExecutor;
@@ -329,33 +329,50 @@ public final class SkyframeBuildView {
       skyframeExecutor.getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey,
           eventHandler);
       Exception cause = errorInfo.getException();
-      Label analysisRootCause = null;
       BuildEventId configuration = null;
+      Iterable<Cause> rootCauses;
       if (cause instanceof ConfiguredValueCreationException) {
         ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) cause;
-        for (Label rootCause : ctCause.getRootCauses()) {
-          hasLoadingError = true;
-          eventBus.post(new LoadingFailureEvent(topLevelLabel, rootCause));
+        // Previously, the nested set was de-duplicating loading root cause labels. Now that we
+        // track Cause instances including a message, we get one event per label and message. In
+        // order to keep backwards compatibility, we de-duplicate root cause labels here.
+        // TODO(ulfjack): Remove this code once we've migrated to the BEP.
+        Set<Label> loadingRootCauses = new HashSet<>();
+        for (Cause rootCause : ctCause.getRootCauses()) {
+          if (rootCause instanceof LoadingFailedCause) {
+            hasLoadingError = true;
+            loadingRootCauses.add(rootCause.getLabel());
+          }
         }
-        analysisRootCause = ctCause.getAnalysisRootCause();
+        for (Label loadingRootCause : loadingRootCauses) {
+          // This event is only for backwards compatibility with the old event protocol. Remove
+          // once we've migrated to the build event protocol.
+          eventBus.post(new LoadingFailureEvent(topLevelLabel, loadingRootCause));
+        }
+        rootCauses = ctCause.getRootCauses();
         configuration = ctCause.getConfiguration();
       } else if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
-        analysisRootCause = maybeGetConfiguredTargetCycleCulprit(
+        Label analysisRootCause = maybeGetConfiguredTargetCycleCulprit(
             topLevelLabel, errorInfo.getCycleInfo());
+        rootCauses = analysisRootCause != null
+            ? ImmutableList.of(new LabelCause(analysisRootCause, "Dependency cycle"))
+            // TODO(ulfjack): We need to report the dependency cycle here. How?
+            : ImmutableList.of();
       } else if (cause instanceof ActionConflictException) {
         ((ActionConflictException) cause).reportTo(eventHandler);
+        // TODO(ulfjack): Report the action conflict.
+        rootCauses = ImmutableList.of();
+      } else {
+        // TODO(ulfjack): Report something!
+        rootCauses = ImmutableList.of();
       }
       eventHandler.handle(
           Event.warn("errors encountered while analyzing target '"
               + topLevelLabel + "': it will not be built"));
-      if (analysisRootCause != null) {
-        eventBus.post(
-            new AnalysisFailureEvent(
-                ConfiguredTargetKey.of(
-                    topLevelLabel, label.getConfigurationKey(), label.isHostConfiguration()),
-                configuration,
-                analysisRootCause));
-      }
+      ConfiguredTargetKey configuredTargetKey =
+          ConfiguredTargetKey.of(
+              topLevelLabel, label.getConfigurationKey(), label.isHostConfiguration());
+      eventBus.post(new AnalysisFailureEvent(configuredTargetKey, configuration, rootCauses));
     }
 
     Collection<Exception> reportedExceptions = Sets.newHashSet();

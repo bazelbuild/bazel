@@ -22,37 +22,28 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuleOutputJarsProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.java.OutputJarApi;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Provides information about jar files produced by a Java rule. */
 @Immutable
-@SkylarkModule(
-  name = "java_output_jars",
-  category = SkylarkModuleCategory.NONE,
-  doc = "Information about outputs of a Java rule."
-)
 @AutoCodec
-public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider {
+public final class JavaRuleOutputJarsProvider
+    implements TransitiveInfoProvider, JavaRuleOutputJarsProviderApi<OutputJar> {
 
   public static final JavaRuleOutputJarsProvider EMPTY =
       new JavaRuleOutputJarsProvider(
           ImmutableList.<OutputJar>of(), /* jdeps= */ null, /* nativeHeaders= */ null);
 
   /** A collection of artifacts associated with a jar output. */
-  @SkylarkModule(
-    name = "java_output",
-    category = SkylarkModuleCategory.NONE,
-    doc = "Java classes jar, together with their associated source and interface archives."
-  )
   @Immutable
   @AutoCodec
-  public static class OutputJar {
+  public static class OutputJar implements OutputJarApi<Artifact> {
     @Nullable private final Artifact classJar;
     @Nullable private final Artifact iJar;
     @Nullable private final ImmutableList<Artifact> srcJars;
@@ -67,47 +58,25 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
     }
 
     @Nullable
-    @SkylarkCallable(
-      name = "class_jar",
-      doc = "A classes jar file.",
-      allowReturnNones = true,
-      structField = true
-    )
+    @Override
     public Artifact getClassJar() {
       return classJar;
     }
 
     @Nullable
-    @SkylarkCallable(
-      name = "ijar",
-      doc = "A interface jar file.",
-      allowReturnNones = true,
-      structField = true
-    )
+    @Override
     public Artifact getIJar() {
       return iJar;
     }
 
     @Nullable
-    @SkylarkCallable(
-      name = "source_jar",
-      doc = "A sources archive file. Deprecated. Kept for migration reasons. "
-          + "Please use source_jars instead.",
-      allowReturnNones = true,
-      structField = true
-    )
-    @Deprecated
+    @Override
     public Artifact getSrcJar() {
       return Iterables.getOnlyElement(srcJars, null);
     }
 
     @Nullable
-    @SkylarkCallable(
-      name = "source_jars",
-      doc = "A list of sources archive files.",
-      allowReturnNones = true,
-      structField = true
-    )
+    @Override
     public SkylarkList<Artifact> getSrcJarsSkylark() {
       return SkylarkList.createImmutable(srcJars);
     }
@@ -143,7 +112,7 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
     return new JavaRuleOutputJarsProvider(outputJars, jdeps, nativeHeaders);
   }
 
-  @SkylarkCallable(name = "jars", doc = "A list of jars the rule outputs.", structField = true)
+  @Override
   public ImmutableList<OutputJar> getOutputJars() {
     return outputJars;
   }
@@ -166,23 +135,13 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
   }
 
   @Nullable
-  @SkylarkCallable(
-    name = "jdeps",
-    doc = "The jdeps file for rule outputs.",
-    structField = true,
-    allowReturnNones = true
-  )
+  @Override
   public Artifact getJdeps() {
     return jdeps;
   }
 
   @Nullable
-  @SkylarkCallable(
-    name = "native_headers",
-    doc = "An archive of native header files.",
-    structField = true,
-    allowReturnNones = true
-  )
+  @Override
   public Artifact getNativeHeaders() {
     return nativeHeaders;
   }

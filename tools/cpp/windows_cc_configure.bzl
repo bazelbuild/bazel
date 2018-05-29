@@ -56,6 +56,7 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = Fals
       '   tool_path { name: "cpp" path: "%s%s/bin/cpp" }\n' % (escaped_msys_root, prefix) +
       '   tool_path { name: "dwp" path: "%s%s/bin/dwp" }\n' % (escaped_msys_root, prefix) +
       '   tool_path { name: "gcc" path: "%s%s/bin/gcc" }\n' % (escaped_msys_root, prefix) +
+      '   artifact_name_pattern { category_name: "executable" prefix: "" extension: ".exe"}\n' +
       '   cxx_flag: "-std=gnu++0x"\n' +
       '   linker_flag: "-lstdc++"\n' +
       '   cxx_builtin_include_directory: "%s%s/"\n' % (escaped_msys_root, prefix) +

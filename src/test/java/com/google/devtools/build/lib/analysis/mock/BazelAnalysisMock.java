@@ -61,7 +61,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "local_repository(name = 'com_google_protobuf', path = '/protobuf')",
             "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
             "bind(name = 'tools/python', actual='//tools/python')",
-            "register_toolchains('@bazel_tools//tools/cpp:all')"));
+            "register_toolchains('@bazel_tools//tools/cpp:all')",
+            "register_toolchains('@bazel_tools//tools/sh:toolchain')"));
   }
 
   @Override
@@ -189,6 +190,31 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("/bazel_tools_workspace/objcproto/empty.m");
     config.create("/bazel_tools_workspace/objcproto/empty.cc");
     config.create("/bazel_tools_workspace/objcproto/well_known_type.proto");
+
+    config.create(
+        "/bazel_tools_workspace/tools/sh/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load(':sh_toolchain.bzl', 'sh_toolchain')",
+        "",
+        "toolchain_type(name = 'toolchain_type')",
+        "sh_toolchain(",
+        "    name = 'dummy_toolchain',",
+        "    path = '/mock/shell/toolchain',",
+        ")",
+        "toolchain(",
+        "    name = 'toolchain',",
+        "    toolchain = ':dummy_toolchain',",
+        "    toolchain_type = ':toolchain_type',",
+        ")");
+    config.create(
+        "/bazel_tools_workspace/tools/sh/sh_toolchain.bzl",
+        "def _sh_toolchain_impl(ctx):",
+        "  return [platform_common.ToolchainInfo(path = ctx.attr.path)]",
+        "",
+        "sh_toolchain = rule(",
+        "    attrs = {'path': attr.string()},",
+        "    implementation = _sh_toolchain_impl,",
+        ")");
 
     ccSupport().setup(config);
   }

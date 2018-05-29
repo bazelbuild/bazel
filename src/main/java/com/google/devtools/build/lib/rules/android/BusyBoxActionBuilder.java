@@ -13,18 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.util.OS;
 import com.google.errorprone.annotations.CompileTimeConstant;
+import java.util.Collection;
+import java.util.List;
+import javax.annotation.Nullable;
 
 /** Builder for actions that invoke the Android BusyBox. */
 public final class BusyBoxActionBuilder {
@@ -42,43 +47,109 @@ public final class BusyBoxActionBuilder {
           .setUseAlways(OS.getCurrent() == OS.WINDOWS)
           .build();
 
-  private final RuleContext ruleContext;
+  private final AndroidDataContext dataContext;
   private final NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
   private final ImmutableList.Builder<Artifact> outputs = ImmutableList.builder();
+  private final SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
   private final CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
 
   public static BusyBoxActionBuilder create(
-      RuleContext ruleContext, @CompileTimeConstant String toolName) {
-    BusyBoxActionBuilder builder = new BusyBoxActionBuilder(ruleContext);
+      AndroidDataContext dataContext, @CompileTimeConstant String toolName) {
+    BusyBoxActionBuilder builder = new BusyBoxActionBuilder(dataContext);
     builder.commandLine.add("--tool").add(toolName).add("--");
     return builder;
   }
 
-  private BusyBoxActionBuilder(RuleContext ruleContext) {
-    this.ruleContext = ruleContext;
+  private BusyBoxActionBuilder(AndroidDataContext dataContext) {
+    this.dataContext = dataContext;
   }
 
+  /** Adds a direct input artifact. */
   public BusyBoxActionBuilder addInput(@CompileTimeConstant String arg, Artifact value) {
+    Preconditions.checkNotNull(value);
     commandLine.addExecPath(arg, value);
     inputs.add(value);
     return this;
   }
 
   /**
-   * Adds a series of input artifacts. For efficiency, when adding a NestedSet of artifacts, use
-   * {@link #addTransitiveFlag(String, NestedSet, AndroidDataConverter)} and {@link
-   * #addTransitiveInputValues(NestedSet)} instead.
+   * Adds a series of direct input artifacts.
+   *
+   * <p>For efficiency, when adding a NestedSet of artifacts, use one of the transitive methods,
+   * such as {@link #addTransitiveFlag(String, NestedSet, AndroidDataConverter)} and {@link
+   * #addTransitiveInputValues(NestedSet)}, instead.
+   *
+   * @param value a string representation of the value artifacts
    */
   public BusyBoxActionBuilder addInput(
       @CompileTimeConstant String arg, String value, Iterable<Artifact> valueArtifacts) {
+    Preconditions.checkState(
+        !(valueArtifacts instanceof NestedSet),
+        "NestedSet values should not be added here, since they will be inefficiently collapsed in"
+            + " analysis time. Use one of the transitive input methods instead.");
     commandLine.add(arg, value);
     inputs.addAll(valueArtifacts);
     return this;
   }
 
+  /** Adds an input artifact if it is non-null */
+  public BusyBoxActionBuilder maybeAddInput(
+      @CompileTimeConstant String arg, @Nullable Artifact value) {
+    if (value != null) {
+      addInput(arg, value);
+    }
+    return this;
+  }
+
+  /**
+   * Adds a series of direct input artifacts if the list containing them is not null or empty.
+   *
+   * <p>For efficiency, when adding a NestedSet of artifacts, use one of the transitive methods,
+   * such as {@link #addTransitiveFlag(String, NestedSet, AndroidDataConverter)} and {@link
+   * #addTransitiveInputValues(NestedSet)}, instead.
+   */
+  public BusyBoxActionBuilder maybeAddInput(
+      @CompileTimeConstant String arg, @Nullable Collection<Artifact> values) {
+    if (values != null && !values.isEmpty()) {
+      commandLine.addExecPaths(arg, values);
+      inputs.addAll(values);
+    }
+    return this;
+  }
+
+  /**
+   * Adds a series of direct input artifacts if the list containing them is not null or empty.
+   *
+   * <p>For efficiency, when adding a NestedSet of artifacts, use one of the transitive methods,
+   * such as {@link #addTransitiveFlag(String, NestedSet, AndroidDataConverter)} and {@link
+   * #addTransitiveInputValues(NestedSet)}, instead.
+   *
+   * @param value a string representation of the value artifacts
+   */
+  public BusyBoxActionBuilder maybeAddInput(
+      @CompileTimeConstant String arg,
+      String value,
+      @Nullable Collection<Artifact> valueArtifacts) {
+    if (valueArtifacts != null && !valueArtifacts.isEmpty()) {
+      addInput(arg, value, valueArtifacts);
+    }
+    return this;
+  }
+
+  /** Adds an output artifact */
   public BusyBoxActionBuilder addOutput(@CompileTimeConstant String arg, Artifact value) {
+    Preconditions.checkNotNull(value);
     commandLine.addExecPath(arg, value);
     outputs.add(value);
+    return this;
+  }
+
+  /** Adds an output artifact if it is non-null */
+  public BusyBoxActionBuilder maybeAddOutput(
+      @CompileTimeConstant String arg, @Nullable Artifact value) {
+    if (value != null) {
+      return addOutput(arg, value);
+    }
     return this;
   }
 
@@ -96,6 +167,9 @@ public final class BusyBoxActionBuilder {
   /**
    * Adds an efficient flag based on transitive values.
    *
+   * <p>The flag will only be specified once, followed by the joined values specified by the
+   * converter, for example: --flag value1,value2
+   *
    * <p>The values will only be collapsed and turned into a flag at execution time.
    *
    * <p>The values will not be added as inputs - use {@link #addTransitiveInputValues(NestedSet)}
@@ -109,9 +183,128 @@ public final class BusyBoxActionBuilder {
     return this;
   }
 
+  /**
+   * Adds an efficient flag based on transitive values.
+   *
+   * <p>Each transitive value, as created using the converter, will be proceeded by the flag, for
+   * example: --flag value1 --flag value2
+   *
+   * <p>The values will only be collapsed and turned into a flag at execution time.
+   *
+   * <p>The values will not be added as inputs - use {@link #addTransitiveInputValues(NestedSet)}
+   * for that.
+   */
+  public <T> BusyBoxActionBuilder addTransitiveFlagForEach(
+      @CompileTimeConstant String arg,
+      NestedSet<? extends T> transitiveValues,
+      AndroidDataConverter<T> converter) {
+    commandLine.addAll(converter.getVectorArgForEach(arg, transitiveValues));
+    return this;
+  }
+
+  /**
+   * Adds an efficient flag and inputs based on transitive values.
+   *
+   * <p>Each value will be separated on the command line by the host-specific path separator.
+   *
+   * <p>Unlike other transitive input methods in this class, this method adds the values to both the
+   * command line and the list of inputs.
+   */
+  public BusyBoxActionBuilder addTransitiveVectoredInput(
+      @CompileTimeConstant String arg, NestedSet<Artifact> values) {
+    commandLine.addExecPaths(
+        arg,
+        VectorArg.join(
+                dataContext
+                    .getActionConstructionContext()
+                    .getConfiguration()
+                    .getHostPathSeparator())
+            .each(values));
+    inputs.addTransitive(values);
+    return this;
+  }
+
+  /** Adds a flag with a value set to the current target's label */
+  public BusyBoxActionBuilder addLabelFlag(@CompileTimeConstant String arg) {
+    commandLine.addLabel(arg, dataContext.getLabel());
+    return this;
+  }
+
+  /** Adds a flag with no arguments to the command line. */
   public BusyBoxActionBuilder addFlag(@CompileTimeConstant String value) {
     commandLine.add(value);
     return this;
+  }
+
+  /** Adds a flag with a String value to the command line. */
+  public BusyBoxActionBuilder addFlag(@CompileTimeConstant String arg, String value) {
+    Preconditions.checkNotNull(value);
+    commandLine.add(arg, value);
+    return this;
+  }
+
+  /** If the condition is true, adds a flag with no arguments to the command line. */
+  public BusyBoxActionBuilder maybeAddFlag(@CompileTimeConstant String arg, boolean condition) {
+    if (condition) {
+      commandLine.add(arg);
+    }
+    return this;
+  }
+
+  /** If the flag is a non-null, non-empty String, adds the flag and value to the command line. */
+  public BusyBoxActionBuilder maybeAddFlag(
+      @CompileTimeConstant String arg, @Nullable String value) {
+    if (value != null && !value.isEmpty()) {
+      addFlag(arg, value);
+    }
+    return this;
+  }
+
+  /**
+   * Efficiently adds a flag and a list of values to the command line.
+   *
+   * <p>The values will be joined in execution and separated by commas.
+   */
+  public BusyBoxActionBuilder addVectoredFlag(
+      @CompileTimeConstant String arg, List<String> values) {
+    Preconditions.checkNotNull(values);
+    commandLine.addAll(arg, VectorArg.join(",").each(values));
+
+    return this;
+  }
+
+  /**
+   * If the values are not null or empty, efficiently adds a flag with them to the command line.
+   *
+   * <p>The values will be joined in execution and separated by commas.
+   */
+  public BusyBoxActionBuilder maybeAddVectoredFlag(
+      @CompileTimeConstant String arg, @Nullable List<String> values) {
+    if (values != null && !values.isEmpty()) {
+      addVectoredFlag(arg, values);
+    }
+    return this;
+  }
+
+  /** Adds aapt to the command line and inputs. */
+  public BusyBoxActionBuilder addAapt(AndroidAaptVersion aaptVersion) {
+    FilesToRunProvider aapt;
+    if (aaptVersion == AndroidAaptVersion.AAPT2) {
+      aapt = dataContext.getSdk().getAapt2();
+      commandLine.addExecPath("--aapt2", aapt.getExecutable());
+    } else {
+      aapt = dataContext.getSdk().getAapt();
+      commandLine.addExecPath("--aapt", aapt.getExecutable());
+    }
+
+    spawnActionBuilder.addTool(aapt);
+
+    return this;
+  }
+
+  /** Adds the Android JAR from the SDK to the command line and inputs */
+  public BusyBoxActionBuilder addAndroidJar() {
+    return addInput("--androidJar", dataContext.getSdk().getAndroidJar());
   }
 
   /**
@@ -122,16 +315,14 @@ public final class BusyBoxActionBuilder {
    * @param mnemonic a mnemonic used to indicate the tool being run, for example, "BusyBoxTool".
    */
   public void buildAndRegister(String message, String mnemonic) {
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
+    dataContext.registerAction(
+        spawnActionBuilder
             .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(outputs.build())
             .addCommandLine(commandLine.build(), FORCED_PARAM_FILE_INFO)
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("%s for %s", message, ruleContext.getLabel())
-            .setMnemonic(mnemonic)
-            .build(ruleContext));
+            .setExecutable(dataContext.getBusybox())
+            .setProgressMessage("%s for %s", message, dataContext.getLabel())
+            .setMnemonic(mnemonic));
   }
 }

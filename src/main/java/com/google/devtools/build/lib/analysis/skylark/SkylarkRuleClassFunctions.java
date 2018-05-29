@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -51,7 +50,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -73,7 +71,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -209,19 +206,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       };
 
   @SkylarkSignature(
-    name = "struct",
-    returnType = Info.class,
-    doc =
-        "Creates an immutable struct using the keyword arguments as attributes. It is used to "
-            + "group multiple values together. Example:<br>"
-            + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
-            + "return s.x + getattr(s, \"y\")  # returns 5</pre>",
-    extraKeywords = @Param(name = "kwargs", doc = "the struct attributes."),
-    useLocation = true
-  )
-  private static final NativeProvider<?> struct = NativeProvider.STRUCT;
-
-  @SkylarkSignature(
     name = "DefaultInfo",
     returnType = Provider.class,
     doc =
@@ -257,19 +241,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             + "See the <a href='../rules.$DOC_EXT'>rules</a> page for more information."
   )
   private static final NativeProvider<?> defaultInfo = DefaultInfo.PROVIDER;
-
-  @SkylarkSignature(
-    name = "OutputGroupInfo",
-    returnType = Provider.class,
-    doc =
-        "A provider that indicates what output groups a rule has.<br>"
-            + "Instantiate this provider with <br>"
-            + "<pre class=language-python>"
-            + "OutputGroupInfo(group1 = &lt;files&gt;, group2 = &lt;files&gt;...)</pre>"
-            + "See <a href=\"../rules.$DOC_EXT#requesting-output-files\">Requesting output files"
-            + "</a> for more information."
-  )
-  private static final NativeProvider<?> outputGroupInfo = OutputGroupInfo.SKYLARK_CONSTRUCTOR;
 
   // TODO(bazel-team): Move to a "testing" namespace module. Normally we'd pass an objectType
   // to @SkylarkSignature to do this, but that doesn't work here because we're exposing an already-

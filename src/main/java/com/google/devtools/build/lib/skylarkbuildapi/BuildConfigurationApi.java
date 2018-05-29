@@ -31,11 +31,11 @@ public interface BuildConfigurationApi {
 
   @SkylarkCallable(name = "bin_dir", structField = true, documented = false)
   @Deprecated
-  public FileRootApi getBinDirectory();
+  public FileRootApi getBinDir();
 
   @SkylarkCallable(name = "genfiles_dir", structField = true, documented = false)
   @Deprecated
-  public FileRootApi getGenfilesDirectory();
+  public FileRootApi getGenfilesDir();
 
   @SkylarkCallable(name = "host_path_separator", structField = true,
       doc = "Returns the separator for PATH environment variable, which is ':' on Unix.")

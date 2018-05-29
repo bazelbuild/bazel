@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import java.util.ArrayList;
@@ -327,10 +325,10 @@ public final class JavaLibraryHelper {
             /* runtimeDeps= */ ImmutableList.of(),
             exports);
 
-    Artifact compileTimeDepArtifact = artifacts.getCompileTimeDependencyArtifact();
-    NestedSet<Artifact> compileTimeJavaDepArtifacts = compileTimeDepArtifact != null 
-        ? NestedSetBuilder.create(Order.STABLE_ORDER, compileTimeDepArtifact)
-        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
+    NestedSet<Artifact> compileTimeJavaDepArtifacts =
+        JavaCommon.collectCompileTimeDependencyArtifacts(
+            artifacts.getCompileTimeDependencyArtifact(), exports);
+
     return JavaCompilationArgsProvider.create(
         isReportedAsStrict ? directArgs : transitiveArgs,
         transitiveArgs,

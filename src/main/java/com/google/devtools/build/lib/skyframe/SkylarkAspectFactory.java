@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.DebugServerUtils;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
@@ -37,9 +38,7 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.Map;
 
-/**
- * A factory for aspects that are defined in Skylark.
- */
+/** A factory for aspects that are defined in Skylark. */
 public class SkylarkAspectFactory implements ConfiguredAspectFactory {
 
   private final SkylarkDefinedAspect skylarkAspect;
@@ -54,12 +53,13 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
       throws InterruptedException {
     SkylarkRuleContext skylarkRuleContext = null;
     try (Mutability mutability = Mutability.create("aspect")) {
-      AspectDescriptor aspectDescriptor = new AspectDescriptor(
-          skylarkAspect.getAspectClass(), parameters);
+      AspectDescriptor aspectDescriptor =
+          new AspectDescriptor(skylarkAspect.getAspectClass(), parameters);
       AnalysisEnvironment analysisEnv = ruleContext.getAnalysisEnvironment();
       try {
-        skylarkRuleContext = new SkylarkRuleContext(
-            ruleContext, aspectDescriptor, analysisEnv.getSkylarkSemantics());
+        skylarkRuleContext =
+            new SkylarkRuleContext(
+                ruleContext, aspectDescriptor, analysisEnv.getSkylarkSemantics());
       } catch (EvalException e) {
         ruleContext.ruleError(e.getMessage());
         return null;
@@ -71,16 +71,25 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
               // NB: loading phase functions are not available: this is analysis already, so we do
               // *not* setLoadingPhase().
               .build();
-      Object aspectSkylarkObject;
       try {
-        aspectSkylarkObject =
-            skylarkAspect
-                .getImplementation()
-                .call(
-                    /*args=*/ ImmutableList.of(ctadBase.getConfiguredTarget(), skylarkRuleContext),
-                    /* kwargs= */ ImmutableMap.of(),
-                    /*ast=*/ null,
-                    env);
+        final SkylarkRuleContext finalRuleContext = skylarkRuleContext;
+        Object aspectSkylarkObject =
+            DebugServerUtils.runWithDebuggingIfEnabled(
+                env,
+                () ->
+                    String.format(
+                        "Aspect %s on %s",
+                        skylarkAspect.getName(),
+                        ruleContext.getTarget().getLabel().getCanonicalForm()),
+                () ->
+                    skylarkAspect
+                        .getImplementation()
+                        .call(
+                            /*args=*/ ImmutableList.of(
+                                ctadBase.getConfiguredTarget(), finalRuleContext),
+                            /* kwargs= */ ImmutableMap.of(),
+                            /*ast=*/ null,
+                            env));
 
         if (ruleContext.hasErrors()) {
           return null;
@@ -99,9 +108,9 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
         return null;
       }
     } finally {
-       if (skylarkRuleContext != null) {
-         skylarkRuleContext.nullify();
-       }
+      if (skylarkRuleContext != null) {
+        skylarkRuleContext.nullify();
+      }
     }
   }
 
@@ -160,8 +169,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     }
   }
 
-  private static void addOutputGroups(Object value, Location loc,
-      ConfiguredAspect.Builder builder)
+  private static void addOutputGroups(Object value, Location loc, ConfiguredAspect.Builder builder)
       throws EvalException {
     Map<String, SkylarkValue> outputGroups =
         SkylarkType.castMap(value, String.class, SkylarkValue.class, "output_groups");

@@ -63,6 +63,22 @@ public final class Spawns {
   }
 
   /**
+   * Parse the timeout key in the spawn execution info, if it exists. Otherwise, return
+   * defaultTimeout, or 0 if that is null.
+   */
+  public static Duration getTimeout(Spawn spawn, Duration defaultTimeout) throws ExecException {
+    String timeoutStr = spawn.getExecutionInfo().get(ExecutionRequirements.TIMEOUT);
+    if (timeoutStr == null) {
+      return defaultTimeout == null ? Duration.ZERO : defaultTimeout;
+    }
+    try {
+      return Duration.ofSeconds(Integer.parseInt(timeoutStr));
+    } catch (NumberFormatException e) {
+      throw new UserExecException("could not parse timeout: ", e);
+    }
+  }
+
+  /**
    * Returns whether a local {@link Spawn} runner implementation should prefetch the inputs before
    * execution, based on the spawns execution info.
    */

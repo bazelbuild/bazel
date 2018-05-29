@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Objects;
 
@@ -23,11 +22,11 @@ public class ParsedAndroidAssets extends AndroidAssets implements MergableAndroi
   private final Artifact symbols;
   private final Label label;
 
-  public static ParsedAndroidAssets parseFrom(RuleContext ruleContext, AndroidAssets assets)
+  public static ParsedAndroidAssets parseFrom(AndroidDataContext dataContext, AndroidAssets assets)
       throws InterruptedException {
-    return new AndroidResourceParsingActionBuilder(ruleContext)
-        .setOutput(ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_ASSET_SYMBOLS))
-        .build(assets);
+    return new AndroidResourceParsingActionBuilder()
+        .setOutput(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_ASSET_SYMBOLS))
+        .build(dataContext, assets);
   }
 
   public static ParsedAndroidAssets of(AndroidAssets assets, Artifact symbols, Label label) {
@@ -44,10 +43,9 @@ public class ParsedAndroidAssets extends AndroidAssets implements MergableAndroi
     this.label = label;
   }
 
-  /** Merges these assets with assets from dependencies. */
-  MergedAndroidAssets merge(RuleContext ruleContext, AssetDependencies assetDeps)
+  MergedAndroidAssets merge(AndroidDataContext dataContext, AssetDependencies assetDeps)
       throws InterruptedException {
-    return MergedAndroidAssets.mergeFrom(ruleContext, this, assetDeps);
+    return MergedAndroidAssets.mergeFrom(dataContext, this, assetDeps);
   }
 
   @Override

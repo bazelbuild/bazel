@@ -58,7 +58,6 @@ public class CppCompileActionBuilder {
   private CcToolchainVariables variables = CcToolchainVariables.EMPTY;
   private Artifact sourceFile;
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
-  private Artifact optionalSourceFile;
   private Artifact outputFile;
   private Artifact dwoFile;
   private Artifact ltoIndexingFile;
@@ -142,7 +141,6 @@ public class CppCompileActionBuilder {
     this.inputsForInvalidation = other.inputsForInvalidation;
     this.additionalIncludeScanningRoots =
         new ImmutableList.Builder<Artifact>().addAll(other.additionalIncludeScanningRoots.build());
-    this.optionalSourceFile = other.optionalSourceFile;
     this.outputFile = other.outputFile;
     this.dwoFile = other.dwoFile;
     this.ltoIndexingFile = other.ltoIndexingFile;
@@ -320,9 +318,7 @@ public class CppCompileActionBuilder {
     // finalizeCompileActionBuilder on this builder.
     Preconditions.checkNotNull(shouldScanIncludes);
     Preconditions.checkNotNull(featureConfiguration);
-    boolean useHeaderModules =
-        allowUsingHeaderModules
-            && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES);
+    boolean useHeaderModules = useHeaderModules();
 
     if (featureConfiguration.actionIsConfigured(getActionName())) {
       for (String executionRequirement :
@@ -370,6 +366,7 @@ public class CppCompileActionBuilder {
               sourceFile,
               shouldScanIncludes,
               shouldPruneModules(),
+              cppConfiguration.getPruneCppInputDiscovery(),
               usePic,
               useHeaderModules,
               cppConfiguration.isStrictSystemIncludes(),
@@ -398,6 +395,7 @@ public class CppCompileActionBuilder {
               sourceFile,
               shouldScanIncludes,
               shouldPruneModules(),
+              cppConfiguration.getPruneCppInputDiscovery(),
               usePic,
               useHeaderModules,
               cppConfiguration.isStrictSystemIncludes(),
@@ -410,7 +408,6 @@ public class CppCompileActionBuilder {
               gcnoFile,
               dwoFile,
               ltoIndexingFile,
-              optionalSourceFile,
               env,
               ccCompilationContext,
               coptsFilter,
@@ -463,9 +460,6 @@ public class CppCompileActionBuilder {
    */
   NestedSet<Artifact> buildAllInputs(NestedSet<Artifact> mandatoryInputs) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    if (optionalSourceFile != null) {
-      builder.add(optionalSourceFile);
-    }
     builder.addTransitive(mandatoryInputs);
     builder.addAll(inputsForInvalidation);
     return builder.build();
@@ -473,7 +467,10 @@ public class CppCompileActionBuilder {
 
   private boolean useHeaderModules() {
     return allowUsingHeaderModules
-        && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES);
+        && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
+        && (sourceFile.isFileType(CppFileTypes.CPP_SOURCE)
+            || sourceFile.isFileType(CppFileTypes.CPP_HEADER)
+            || sourceFile.isFileType(CppFileTypes.CPP_MODULE_MAP));
   }
 
   private boolean shouldPruneModules() {
@@ -553,17 +550,6 @@ public class CppCompileActionBuilder {
 
   public CppCompileActionBuilder setActionClassId(UUID uuid) {
     this.actionClassId = uuid;
-    return this;
-  }
-
-  /**
-   * Set an optional source file (usually with metadata of the main source file). The optional
-   * source file can only be set once, whether via this method or through the constructor
-   * {@link #CppCompileActionBuilder(CppCompileActionBuilder)}.
-   */
-  public CppCompileActionBuilder addOptionalSourceFile(Artifact artifact) {
-    Preconditions.checkState(optionalSourceFile == null, "%s %s", optionalSourceFile, artifact);
-    optionalSourceFile = artifact;
     return this;
   }
 

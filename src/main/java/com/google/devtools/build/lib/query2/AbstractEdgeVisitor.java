@@ -50,6 +50,12 @@ abstract class AbstractEdgeVisitor<T> extends ParallelVisitor<T, Target> {
   protected void processPartialResults(
       Iterable<SkyKey> keysToUseForResult, Callback<Target> callback)
       throws QueryException, InterruptedException {
+    processResultsAndReturnTargets(keysToUseForResult, callback);
+  }
+
+  protected Iterable<Target> processResultsAndReturnTargets(
+      Iterable<SkyKey> keysToUseForResult, Callback<Target> callback)
+      throws QueryException, InterruptedException {
     Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
         env.makePackageKeyToTargetKeyMap(keysToUseForResult);
     Set<PackageIdentifier> pkgIdsNeededForResult =
@@ -59,12 +65,14 @@ abstract class AbstractEdgeVisitor<T> extends ParallelVisitor<T, Target> {
             .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
             .collect(toImmutableSet());
     packageSemaphore.acquireAll(pkgIdsNeededForResult);
+    Iterable<Target> targets;
     try {
-      callback.process(
-          env.makeTargetsFromPackageKeyToTargetKeyMap(packageKeyToTargetKeyMap).values());
+      targets = env.makeTargetsFromPackageKeyToTargetKeyMap(packageKeyToTargetKeyMap).values();
+      callback.process(targets);
     } finally {
       packageSemaphore.releaseAll(pkgIdsNeededForResult);
     }
+    return targets;
   }
 
   protected abstract SkyKey getNewNodeFromEdge(T visit);

@@ -18,11 +18,9 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -51,7 +49,9 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory
 import com.google.devtools.build.lib.rules.cpp.LibrariesToLinkCollector.CollectedLibrariesToLink;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -673,74 +673,6 @@ public class CppLinkActionBuilder {
     }
   }
 
-  private ImmutableList<String> getToolchainFlags(List<String> linkopts) {
-    if (LinkerOrArchiver.ARCHIVER.equals(linkType.linkerOrArchiver())) {
-      return ImmutableList.of();
-    }
-    boolean fullyStatic = (linkingMode == Link.LinkingMode.LEGACY_FULLY_STATIC);
-    boolean mostlyStatic = (linkingMode == Link.LinkingMode.STATIC);
-    boolean sharedLinkopts =
-        linkType == LinkTargetType.DYNAMIC_LIBRARY
-            || linkopts.contains("-shared")
-            || cppConfiguration.hasSharedLinkOption();
-
-    List<String> result = new ArrayList<>();
-
-    /*
-     * For backwards compatibility, linkopts come _after_ inputFiles.
-     * This is needed to allow linkopts to contain libraries and
-     * positional library-related options such as
-     *    -Wl,--begin-group -lfoo -lbar -Wl,--end-group
-     * or
-     *    -Wl,--as-needed -lfoo -Wl,--no-as-needed
-     *
-     * As for the relative order of the three different flavours of linkopts
-     * (global defaults, per-target linkopts, and command-line linkopts),
-     * we have no idea what the right order should be, or if anyone cares.
-     */
-    result.addAll(linkopts);
-    // Extra toolchain link options based on the output's link staticness.
-    if (fullyStatic) {
-      result.addAll(
-          CppHelper.getFullyStaticLinkOptions(cppConfiguration, toolchain, sharedLinkopts));
-    } else if (mostlyStatic) {
-      if (!featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINKING_MODE)) {
-        result.addAll(
-            CppHelper.getMostlyStaticLinkOptions(
-                cppConfiguration,
-                toolchain,
-                sharedLinkopts,
-                featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)));
-      } else {
-        result.addAll(toolchain.getLegacyLinkOptions());
-      }
-    } else {
-      if (!featureConfiguration.isEnabled(CppRuleClasses.DYNAMIC_LINKING_MODE)) {
-        result.addAll(CppHelper.getDynamicLinkOptions(cppConfiguration, toolchain, sharedLinkopts));
-      } else {
-        result.addAll(toolchain.getLegacyLinkOptions());
-      }
-    }
-
-    // Extra test-specific link options.
-    if (useTestOnlyFlags) {
-      result.addAll(toolchain.getTestOnlyLinkOptions());
-    }
-
-    result.addAll(toolchain.getLinkOptions());
-
-    // -pie is not compatible with shared and should be
-    // removed when the latter is part of the link command. Should we need to further
-    // distinguish between shared libraries and executables, we could add additional
-    // command line / CROSSTOOL flags that distinguish them. But as long as this is
-    // the only relevant use case we're just special-casing it here.
-    if (linkType == LinkTargetType.DYNAMIC_LIBRARY) {
-      Iterables.removeIf(result, Predicates.equalTo("-pie"));
-    }
-
-    return ImmutableList.copyOf(result);
-  }
-
   /** Builds the Action as configured and returns it. */
   public CppLinkAction build() throws InterruptedException {
     // Executable links do not have library identifiers.
@@ -992,30 +924,38 @@ public class CppLinkActionBuilder {
     ImmutableSet<Artifact> expandedLinkerArtifactsNoLinkstamps =
         Sets.difference(expandedLinkerArtifacts, linkstampObjectArtifacts).immutableCopy();
 
-    CcToolchainVariables variables =
-        LinkBuildVariables.setupVariables(
-            getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
-            configuration,
-            output,
-            paramFile,
-            thinltoParamFile,
-            thinltoMergedObjectFile,
-            mustKeepDebug,
-            symbolCounts,
-            toolchain,
-            featureConfiguration,
-            useTestOnlyFlags,
-            isLtoIndexing,
-            toolchain.getInterfaceSoBuilder(),
-            interfaceOutput,
-            ltoOutputRootPrefix,
-            defFile,
-            fdoSupport,
-            collectedLibrariesToLink.getRuntimeLibrarySearchDirectories(),
-            collectedLibrariesToLink.getLibrariesToLink(),
-            collectedLibrariesToLink.getLibrarySearchDirectories());
+    try {
+      CcToolchainVariables variables =
+          LinkBuildVariables.setupVariables(
+              getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
+              configuration,
+              output,
+              linkType.equals(LinkTargetType.DYNAMIC_LIBRARY),
+              paramFile,
+              thinltoParamFile,
+              thinltoMergedObjectFile,
+              mustKeepDebug,
+              symbolCounts,
+              toolchain,
+              featureConfiguration,
+              useTestOnlyFlags,
+              isLtoIndexing,
+              ImmutableList.copyOf(linkopts),
+              toolchain.getInterfaceSoBuilder(),
+              interfaceOutput,
+              ltoOutputRootPrefix,
+              defFile,
+              fdoSupport,
+              collectedLibrariesToLink.getRuntimeLibrarySearchDirectories(),
+              collectedLibrariesToLink.getLibrariesToLink(),
+              collectedLibrariesToLink.getLibrarySearchDirectories(),
+              linkingMode.equals(LinkingMode.LEGACY_FULLY_STATIC),
+              linkingMode.equals(LinkingMode.STATIC));
+      buildVariablesBuilder.addAllNonTransitive(variables);
+    } catch (EvalException e) {
+      ruleContext.ruleError(e.getLocalizedMessage());
+    }
 
-    buildVariablesBuilder.addAllNonTransitive(variables);
     for (VariablesExtension extraVariablesExtension : variablesExtensions) {
       extraVariablesExtension.addVariables(buildVariablesBuilder);
     }
@@ -1065,35 +1005,11 @@ public class CppLinkActionBuilder {
           toolchain.getLinkDynamicLibraryTool().getExecPathString());
     }
 
-    ImmutableList<String> linkoptsForVariables;
     if (!isLtoIndexing) {
-      linkoptsForVariables = ImmutableList.copyOf(linkopts);
       linkCommandLineBuilder.setBuildInfoHeaderArtifacts(buildInfoHeaderArtifacts);
-
-    } else {
-      List<String> opts = new ArrayList<>(linkopts);
-      opts.addAll(
-          featureConfiguration.getCommandLine(
-              "lto-indexing", buildVariables, /* expander= */ null));
-      opts.addAll(cppConfiguration.getLtoIndexOptions());
-      linkoptsForVariables = ImmutableList.copyOf(opts);
     }
 
-    // For now, silently ignore linkopts if this is a static library
-    linkoptsForVariables =
-        linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
-            ? ImmutableList.of()
-            : linkoptsForVariables;
-    linkCommandLineBuilder.setLinkopts(linkoptsForVariables);
-
-    CcToolchainVariables patchedVariables =
-        new CcToolchainVariables.Builder(buildVariables)
-            .addStringSequenceVariable(
-                LinkBuildVariables.LEGACY_LINK_FLAGS.getVariableName(),
-                getToolchainFlags(linkoptsForVariables))
-            .build();
-
-    linkCommandLineBuilder.setBuildVariables(patchedVariables);
+    linkCommandLineBuilder.setBuildVariables(buildVariables);
     LinkCommandLine linkCommandLine = linkCommandLineBuilder.build();
 
     // Compute the set of inputs - we only need stable order here.

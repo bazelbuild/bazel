@@ -24,6 +24,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -190,6 +191,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
   NestedSet<TaggedEvents> buildEvents(NodeEntry entry, boolean missingChildren)
       throws InterruptedException {
+    if (!evaluatorContext.getStoredEventFilter().storeEventsAndPosts()) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
     // Aggregate the nested set of events from the direct deps, also adding the events from
     // building this value.
     NestedSetBuilder<TaggedEvents> eventBuilder = NestedSetBuilder.stableOrder();
@@ -197,29 +201,29 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     if (!events.isEmpty()) {
       eventBuilder.add(new TaggedEvents(getTagFromKey(), events));
     }
-    if (evaluatorContext.getStoredEventFilter().storeEvents()) {
-      // Only do the work of processing children if we're going to store events.
-      GroupedList<SkyKey> depKeys = entry.getTemporaryDirectDeps();
-      Collection<SkyValue> deps = getDepValuesForDoneNodeMaybeFromError(depKeys);
-      if (!missingChildren && depKeys.numElements() != deps.size()) {
-        throw new IllegalStateException(
-            "Missing keys for "
-                + skyKey
-                + ". Present values: "
-                + deps
-                + " requested from: "
-                + depKeys
-                + ", "
-                + entry);
-      }
-      for (SkyValue value : deps) {
-        eventBuilder.addTransitive(ValueWithMetadata.getEvents(value));
-      }
+    GroupedList<SkyKey> depKeys = entry.getTemporaryDirectDeps();
+    Collection<SkyValue> deps = getDepValuesForDoneNodeMaybeFromError(depKeys);
+    if (!missingChildren && depKeys.numElements() != deps.size()) {
+      throw new IllegalStateException(
+          "Missing keys for "
+              + skyKey
+              + ". Present values: "
+              + deps
+              + " requested from: "
+              + depKeys
+              + ", "
+              + entry);
+    }
+    for (SkyValue value : deps) {
+      eventBuilder.addTransitive(ValueWithMetadata.getEvents(value));
     }
     return eventBuilder.build();
   }
 
   NestedSet<Postable> buildPosts(NodeEntry entry) throws InterruptedException {
+    if (!evaluatorContext.getStoredEventFilter().storeEventsAndPosts()) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
     NestedSetBuilder<Postable> postBuilder = NestedSetBuilder.stableOrder();
     postBuilder.addAll(eventHandler.getPosts());
 

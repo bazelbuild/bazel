@@ -44,6 +44,7 @@ import java.util.Map;
  */
 @Immutable
 public final class ExtraActionSpec implements TransitiveInfoProvider {
+  private final PathFragment shExecutable;
   private final ImmutableList<Artifact> resolvedTools;
   private final RunfilesSupplier runfilesSupplier;
   private final ImmutableList<Artifact> resolvedData;
@@ -54,6 +55,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
   private final Label label;
 
   public ExtraActionSpec(
+      PathFragment shExecutable,
       Iterable<Artifact> resolvedTools,
       RunfilesSupplier runfilesSupplier,
       Iterable<Artifact> resolvedData,
@@ -62,6 +64,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
       Label label,
       Map<String, String> executionInfo,
       boolean requiresActionOutput) {
+    this.shExecutable = shExecutable;
     this.resolvedTools = ImmutableList.copyOf(resolvedTools);
     this.runfilesSupplier = runfilesSupplier;
     this.resolvedData = ImmutableList.copyOf(resolvedData);
@@ -132,8 +135,13 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
         actionToShadow.getPrimaryOutput().getExecPath().getBaseName()
             + "."
             + actionToShadow.getKey(owningRule.getActionKeyContext());
-    List<String> argv = commandHelper.buildCommandLine(command, extraActionInputs,
-        "." + actionUniquifier + ".extra_action_script.sh", executionInfo);
+    List<String> argv =
+        commandHelper.buildCommandLine(
+            shExecutable,
+            command,
+            extraActionInputs,
+            "." + actionUniquifier + ".extra_action_script.sh",
+            executionInfo);
 
     String commandMessage = String.format("Executing extra_action %s on %s", label, ownerLabel);
     owningRule.registerAction(

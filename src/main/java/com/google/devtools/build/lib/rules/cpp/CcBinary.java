@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -122,7 +121,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
     if (linkCompileOutputSeparately) {
       builder.addArtifacts(
-          LinkerInputs.toLibraryArtifacts(ccLibraryLinkingOutputs.getExecutionDynamicLibraries()));
+          LinkerInputs.toLibraryArtifacts(ccLibraryLinkingOutputs.getDynamicLibrariesForRuntime()));
     }
     // For cc_binary and cc_test rules, there is an implicit dependency on
     // the malloc library package, which is specified by the "malloc" attribute.
@@ -199,12 +198,16 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // linkopt "-shared", which causes the result of linking to be a shared
     // library. In this case, the name of the executable target should end
     // in ".so" or "dylib" or ".dll".
+    Artifact binary;
     PathFragment binaryPath = PathFragment.create(ruleContext.getTarget().getName());
     if (!isLinkShared(ruleContext)) {
-      binaryPath = PathFragment.create(binaryPath.getPathString() + OsUtils.executableExtension());
+      binary =
+          CppHelper.getLinkedArtifact(
+              ruleContext, ccToolchain, ruleContext.getConfiguration(), LinkTargetType.EXECUTABLE);
+    } else {
+      binary = ruleContext.getBinArtifact(binaryPath);
     }
 
-    Artifact binary = ruleContext.getBinArtifact(binaryPath);
     if (isLinkShared(ruleContext)
         && !CppFileTypes.SHARED_LIBRARY.matches(binary.getFilename())
         && !CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(binary.getFilename())) {
@@ -232,7 +235,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcCompilationHelper compilationHelper =
         new CcCompilationHelper(
                 ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
-            .fromCommon(common, /* additionalCopts= */ImmutableList.of())
+            .fromCommon(common, /* additionalCopts= */ ImmutableList.of())
+            .addPrivateHeaders(common.getPrivateHeaders())
             .addSources(common.getSources())
             .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
             .setFake(fake)
@@ -361,7 +365,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         // If we are using a toolchain supporting interface library and targeting Windows, we build
         // the interface library with the link action and add it to `interface_output` output group.
         if (CppHelper.useInterfaceSharedObjects(cppConfiguration, ccToolchain)) {
-          interfaceLibrary = ruleContext.getRelatedArtifact(binary.getRootRelativePath(), ".ifso");
+          interfaceLibrary = CppHelper.getLinkedArtifact(
+              ruleContext,
+              ccToolchain,
+              ruleContext.getConfiguration(),
+              LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
           linkActionBuilder.setInterfaceOutput(interfaceLibrary);
           linkActionBuilder.addActionOutput(interfaceLibrary);
         }
@@ -585,7 +593,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // Either link in the .o files generated for the sources of this target or link in the
     // generated dynamic library they are compiled into.
     if (linkCompileOutputSeparately) {
-      for (LibraryToLink library : linkingOutputs.getDynamicLibraries()) {
+      for (LibraryToLink library : linkingOutputs.getDynamicLibrariesForLinking()) {
         builder.addLibrary(library);
       }
     } else {
@@ -904,7 +912,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     ccLinkingInfoBuilder.setCcExecutionDynamicLibraries(
         new CcExecutionDynamicLibraries(
             collectExecutionDynamicLibraryArtifacts(
-                ruleContext, linkingOutputs.getExecutionDynamicLibraries())));
+                ruleContext, linkingOutputs.getDynamicLibrariesForRuntime())));
 
     builder
         .setFilesToBuild(filesToBuild)
@@ -915,7 +923,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             CcNativeLibraryProvider.class,
             new CcNativeLibraryProvider(
                 collectTransitiveCcNativeLibraries(
-                    ruleContext, linkingOutputs.getDynamicLibraries())))
+                    ruleContext, linkingOutputs.getDynamicLibrariesForLinking())))
         .addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider)
         .addProvider(
             CppDebugFileProvider.class,

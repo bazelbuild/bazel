@@ -75,6 +75,7 @@ final class JavaInfoBuildHelper {
    *     target="_top">java_library.exports</a>
    * @param actions used to create the ijar and single jar actions
    * @param javaToolchain the toolchain to be used for retrieving the ijar tool
+   * @param jdeps optional jdeps information for outputJar
    * @return new created JavaInfo instance
    * @throws EvalException if some mandatory parameter are missing
    */
@@ -91,6 +92,7 @@ final class JavaInfoBuildHelper {
       Object actions,
       Object javaToolchain,
       Object hostJavabase,
+      @Nullable Artifact jdeps,
       Location location)
       throws EvalException {
     final Artifact sourceJar;
@@ -137,7 +139,15 @@ final class JavaInfoBuildHelper {
     }
 
     return createJavaInfo(
-        outputJar, iJar, sourceJar, neverlink, compileTimeDeps, runtimeDeps, exports, location);
+        outputJar,
+        iJar,
+        sourceJar,
+        neverlink,
+        compileTimeDeps,
+        runtimeDeps,
+        exports,
+        jdeps,
+        location);
   }
 
   /**
@@ -154,6 +164,7 @@ final class JavaInfoBuildHelper {
    * @param exports libraries to make available for users of this library. <a
    *     href="https://docs.bazel.build/versions/master/be/java.html#java_library"
    *     target="_top">java_library.exports</a>
+   * @param jdeps optional jdeps information for outputJar
    * @return new created JavaInfo instance
    */
   JavaInfo createJavaInfo(
@@ -164,6 +175,7 @@ final class JavaInfoBuildHelper {
       SkylarkList<JavaInfo> compileTimeDeps,
       SkylarkList<JavaInfo> runtimeDeps,
       SkylarkList<JavaInfo> exports,
+      @Nullable Artifact jdeps,
       Location location) {
     compileJar = compileJar != null ? compileJar : outputJar;
     ImmutableList<Artifact> sourceJars =
@@ -183,6 +195,7 @@ final class JavaInfoBuildHelper {
     JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
         JavaRuleOutputJarsProvider.builder()
             .addOutputJar(outputJar, compileJar, sourceJars)
+            .setJdeps(jdeps)
             .build();
     javaInfoBuilder.addProvider(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider);
 

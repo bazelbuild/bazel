@@ -19,18 +19,15 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.XcodeConfigProviderApi;
 import javax.annotation.Nullable;
 
 /**
  * The set of Apple versions computed from command line options and the {@code xcode_config} rule.
  */
 @Immutable
-@SkylarkModule(
-    name = XcodeConfigProvider.SKYLARK_NAME,
-    doc = "The set of Apple versions computed from command line options and the xcode_config rule.")
-public class XcodeConfigProvider extends NativeInfo {
+public class XcodeConfigProvider extends NativeInfo
+    implements XcodeConfigProviderApi<ApplePlatform, ApplePlatform.PlatformType> {
   /** Skylark name for this provider. */
   public static final String SKYLARK_NAME = "XcodeVersionConfig";
 
@@ -66,18 +63,12 @@ public class XcodeConfigProvider extends NativeInfo {
     this.xcodeVersion = xcodeVersion;
   }
 
-  @SkylarkCallable(name = "xcode_version",
-      doc = "Returns the Xcode version that is being used to build.<p>"
-          + "This will return <code>None</code> if no Xcode versions are available.",
-      allowReturnNones = true)
+  @Override
   public DottedVersion getXcodeVersion() {
     return xcodeVersion;
   }
 
-  @SkylarkCallable(
-      name = "minimum_os_for_platform_type",
-      doc = "The minimum compatible OS version for target simulator and devices for a particular "
-          + "platform type.")
+  @Override
   public DottedVersion getMinimumOsForPlatformType(ApplePlatform.PlatformType platformType) {
     // TODO(b/37240784): Look into using only a single minimum OS flag tied to the current
     // apple_platform_type.
@@ -95,10 +86,7 @@ public class XcodeConfigProvider extends NativeInfo {
     }
   }
 
-  @SkylarkCallable(
-      name = "sdk_version_for_platform",
-      doc = "The version of the platform SDK that will be used to build targets for the given "
-          + "platform.")
+  @Override
   public DottedVersion getSdkVersionForPlatform(ApplePlatform platform) {
     switch (platform) {
       case IOS_DEVICE:

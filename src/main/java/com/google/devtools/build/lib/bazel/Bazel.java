@@ -43,6 +43,7 @@ public final class Bazel {
           com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
           com.google.devtools.build.lib.bazel.BazelDiffAwarenessModule.class,
           com.google.devtools.build.lib.bazel.BazelRepositoryModule.class,
+          com.google.devtools.build.lib.skylarkdebug.module.SkylarkDebuggerModule.class,
           com.google.devtools.build.lib.bazel.repository.RepositoryResolvedModule.class,
           com.google.devtools.build.lib.bazel.SpawnLogModule.class,
           com.google.devtools.build.lib.ssd.SsdModule.class,

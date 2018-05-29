@@ -31,12 +31,6 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
   public abstract boolean documented();
 
   /**
-   * Returns a string representing the method signature of the Skylark method, which contains
-   * HTML links to the documentation of parameter types if available.
-   */
-  public abstract String getSignature();
-
-  /**
    * Returns a string containing additional documentation about the method's return value.
    *
    * <p>Returns an empty string by default.
@@ -81,14 +75,25 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
     return Joiner.on(", ").join(argList);
   }
 
+  /**
+   * Returns a string representing the method signature of the Skylark method, which contains
+   * HTML links to the documentation of parameter types if available.
+   */
+  public abstract String getSignature();
+
   protected String getSignature(String objectName, String methodName, Method method) {
     String objectDotExpressionPrefix =
         objectName.isEmpty() ? "" : objectName + ".";
+
+    return getSignature(objectDotExpressionPrefix + methodName, method);
+  }
+
+  protected String getSignature(String fullyQualifiedMethodName, Method method) {
     String args = SkylarkInterfaceUtils.getSkylarkCallable(method).structField()
         ? "" : "(" + getParameterString(method) + ")";
 
-    return String.format("%s %s%s%s",
-        getTypeAnchor(method.getReturnType()), objectDotExpressionPrefix, methodName, args);
+    return String.format("%s %s%s",
+        getTypeAnchor(method.getReturnType()), fullyQualifiedMethodName, args);
   }
 
   protected String getSignature(String objectName, SkylarkSignature method) {

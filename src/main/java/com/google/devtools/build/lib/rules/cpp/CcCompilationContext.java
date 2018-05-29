@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -205,6 +207,18 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   public NestedSet<Artifact> getTransitiveModules(boolean usePic) {
     return usePic ? picModuleInfo.transitiveModules : moduleInfo.transitiveModules;
+  }
+
+  public Set<Artifact> getModularHeaders(boolean usePic) {
+    ModuleInfo info = usePic ? picModuleInfo : moduleInfo;
+    Set<Artifact> result = new HashSet<>();
+    for (TransitiveModuleHeaders moduleHeaders : info.transitiveModuleHeaders) {
+      result.addAll(moduleHeaders.headers);
+    }
+    // Remove headers belonging to this module.
+    result.removeAll(info.modularHeaders);
+    result.removeAll(info.textualHeaders);
+    return Collections.unmodifiableSet(result);
   }
 
   public Collection<TransitiveModuleHeaders> getUsedModules(
@@ -846,7 +860,15 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       }
 
       public Builder addHeaders(Collection<Artifact> headers) {
-        this.modularHeaders.addAll(headers);
+        // TODO(djasper): CPP_TEXTUAL_INCLUDEs are currently special cased here and in
+        // CppModuleMapAction. These should be moved to a place earlier in the Action construction.
+        for (Artifact header : headers) {
+          if (header.isFileType(CppFileTypes.CPP_TEXTUAL_INCLUDE)) {
+            this.textualHeaders.add(header);
+          } else {
+            this.modularHeaders.add(header);
+          }
+        }
         return this;
       }
 

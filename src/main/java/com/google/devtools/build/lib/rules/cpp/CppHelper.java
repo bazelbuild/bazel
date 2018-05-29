@@ -258,9 +258,8 @@ public class CppHelper {
           toolchain.getLegacyMostlyStaticLinkFlags(
               config.getCompilationMode(), config.getLipoMode()));
     } else {
-      return toolchain
-          .getLegacyFullyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
-          .evaluate();
+      return toolchain.getLegacyFullyStaticLinkFlags(
+          config.getCompilationMode(), config.getLipoMode());
     }
   }
 
@@ -285,9 +284,8 @@ public class CppHelper {
               : toolchain.getLegacyDynamicLinkFlags(
                   config.getCompilationMode(), config.getLipoMode()));
     } else {
-      return toolchain
-          .getLegacyMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
-          .evaluate();
+      return toolchain.getLegacyMostlyStaticLinkFlags(
+          config.getCompilationMode(), config.getLipoMode());
     }
   }
 
@@ -307,9 +305,7 @@ public class CppHelper {
       return toolchain.getSharedLibraryLinkOptions(
           toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()));
     } else {
-      return toolchain
-          .getLegacyDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode())
-          .evaluate();
+      return toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode());
     }
   }
 
@@ -621,18 +617,49 @@ public class CppHelper {
   }
 
   /**
-   * Returns the linked artifact for linux.
+   * Returns the linked artifact.
    *
    * @param ruleContext the ruleContext to be used to scope the artifact
    * @param config the configuration to be used to scope the artifact
    * @param linkType the type of artifact, used to determine extension
    */
-  public static Artifact getLinuxLinkedArtifact(
-      RuleContext ruleContext, BuildConfiguration config, LinkTargetType linkType) {
-    return getLinuxLinkedArtifact(ruleContext, config, linkType, "");
+  public static Artifact getLinkedArtifact(
+      RuleContext ruleContext,
+      CcToolchainProvider ccToolchain,
+      BuildConfiguration config,
+      LinkTargetType linkType)
+      throws RuleErrorException {
+    return getLinkedArtifact(
+      ruleContext, ccToolchain, config, linkType, /* linkedArtifactNameSuffix= */ "");
   }
 
-  /** Returns the linked artifact with the given suffix for linux. */
+  /** Returns the linked artifact with the given suffix. */
+  public static Artifact getLinkedArtifact(
+      RuleContext ruleContext,
+      CcToolchainProvider ccToolchain,
+      BuildConfiguration config,
+      LinkTargetType linkType,
+      String linkedArtifactNameSuffix)
+      throws RuleErrorException {
+    PathFragment name = PathFragment.create(ruleContext.getLabel().getName());
+    try {
+      name =
+          name.replaceName(
+              getArtifactNameForCategory(
+                  ruleContext,
+                  ccToolchain,
+                  linkType.getLinkerOutput(),
+                  name.getBaseName()
+                      + linkedArtifactNameSuffix
+                      + linkType.getPicExtensionWhenApplicable()));
+    } catch (RuleErrorException e) {
+      ruleContext.throwWithRuleError("Cannot get linked artifact name: " + e.getMessage());
+    }
+
+    return ruleContext.getPackageRelativeArtifact(
+        name, config.getBinDirectory(ruleContext.getRule().getRepository()));
+  }
+
   public static Artifact getLinuxLinkedArtifact(
       RuleContext ruleContext,
       BuildConfiguration config,
@@ -641,7 +668,10 @@ public class CppHelper {
     PathFragment name = PathFragment.create(ruleContext.getLabel().getName());
     if (linkType != LinkTargetType.EXECUTABLE) {
       name = name.replaceName(
-          "lib" + name.getBaseName() + linkedArtifactNameSuffix  + linkType.getExtension());
+          "lib" + name.getBaseName()
+              + linkedArtifactNameSuffix
+              + linkType.getPicExtensionWhenApplicable()
+              + linkType.getDefaultExtension());
     }
 
     return ruleContext.getPackageRelativeArtifact(
@@ -969,7 +999,7 @@ public class CppHelper {
         objectDir.getRelative(outputName), sourceTreeArtifact.getRoot());
   }
 
-  static String getArtifactNameForCategory(
+  public static String getArtifactNameForCategory(
       RuleContext ruleContext,
       CcToolchainProvider toolchain,
       ArtifactCategory category,

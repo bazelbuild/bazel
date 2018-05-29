@@ -327,7 +327,24 @@ public final class Runtime {
   }
 
   /**
-   * Registers global (top-level) symbols provided by the given class object.
+   * Convenience overload of {@link #setupModuleGlobals(ImmutableMap.Builder, Class)} to add
+   * bindings directly to an {@link Environment}.
+   *
+   * @param env the Environment into which to register fields.
+   * @param moduleClass the Class object containing globals.
+   */
+  public static void setupModuleGlobals(Environment env, Class<?> moduleClass) {
+    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
+
+    setupModuleGlobals(envBuilder, moduleClass);
+    for (Map.Entry<String, Object> envEntry : envBuilder.build().entrySet()) {
+      env.setup(envEntry.getKey(), envEntry.getValue());
+    }
+  }
+
+  /**
+   * Adds global (top-level) symbols, provided by the given class object, to the given bindings
+   * builder.
    *
    * <p>Global symbols may be provided by the given class in the following ways:
    * <ul>
@@ -345,14 +362,16 @@ public final class Runtime {
    * multiple global libraries have functions of the same name, two modules of the same name
    * are given, or if two subclasses of the same module are given.
    *
-   * @param env the Environment into which to register fields.
-   * @param moduleClass the Class object containing globals.
+   * @param builder the builder for the "bindings" map, which maps from symbol names to objects,
+   *     and which will be built into a global frame
+   * @param moduleClass the Class object containing globals
    */
-  public static void setupModuleGlobals(Environment env, Class<?> moduleClass) {
+  public static void setupModuleGlobals(ImmutableMap.Builder<String, Object> builder,
+      Class<?> moduleClass) {
     try {
       SkylarkModule skylarkModule = SkylarkInterfaceUtils.getSkylarkModule(moduleClass);
       if (skylarkModule != null) {
-        env.setup(
+        builder.put(
             skylarkModule.name(),
             moduleClass.getConstructor().newInstance());
       }
@@ -367,30 +386,18 @@ public final class Runtime {
           if (!(value instanceof BuiltinFunction.Factory
               || (value instanceof BaseFunction
                   && !annotation.objectType().equals(Object.class)))) {
-            env.setup(annotation.name(), value);
+            builder.put(annotation.name(), value);
           }
         }
       }
       if (SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(moduleClass)) {
         Object moduleInstance = moduleClass.getConstructor().newInstance();
         for (String methodName : FuncallExpression.getMethodNames(moduleClass)) {
-          env.setup(methodName, FuncallExpression.getBuiltinCallable(moduleInstance, methodName));
+          builder.put(methodName, FuncallExpression.getBuiltinCallable(moduleInstance, methodName));
         }
       }
     } catch (ReflectiveOperationException e) {
       throw new AssertionError(e);
     }
-  }
-
-  /**
-   * Registers global fields with SkylarkSignature into the specified Environment. Alias for
-   * {@link #setupModuleGlobals}.
-   *
-   * @deprecated Use {@link #setupModuleGlobals} instead.
-   */
-  @Deprecated
-  // TODO(bazel-team): Remove after all callers updated.
-  public static void registerModuleGlobals(Environment env, Class<?> moduleClass) {
-    setupModuleGlobals(env, moduleClass);
   }
 }

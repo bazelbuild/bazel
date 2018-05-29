@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -109,14 +108,13 @@ public class Parser {
           TokenKind.RPAREN,
           TokenKind.SLASH);
 
-  private Token token; // current lookahead token
-  private Token pushedToken = null; // used to implement LL(2)
+  /** Current lookahead token. May be mutated by the parser. */
+  private Token token;
 
   private static final boolean DEBUGGING = false;
 
   private final Lexer lexer;
   private final EventHandler eventHandler;
-  private final List<Comment> comments;
 
   private static final Map<TokenKind, Operator> binaryOperators =
       new ImmutableMap.Builder<TokenKind, Operator>()
@@ -162,15 +160,12 @@ public class Parser {
       EnumSet.of(Operator.MINUS, Operator.PLUS),
       EnumSet.of(Operator.DIVIDE, Operator.FLOOR_DIVIDE, Operator.MULT, Operator.PERCENT));
 
-  private final Iterator<Token> tokens;
   private int errorsCount;
   private boolean recoveryMode;  // stop reporting errors until next statement
 
   private Parser(Lexer lexer, EventHandler eventHandler) {
     this.lexer = lexer;
     this.eventHandler = eventHandler;
-    this.tokens = lexer.getTokens().iterator();
-    this.comments = new ArrayList<>();
     nextToken();
   }
 
@@ -198,7 +193,7 @@ public class Parser {
     List<Statement> statements = parser.parseFileInput();
     boolean errors = parser.errorsCount > 0 || lexer.containsErrors();
     return new ParseResult(
-        statements, parser.comments, locationFromStatements(lexer, statements), errors);
+        statements, lexer.getComments(), locationFromStatements(lexer, statements), errors);
   }
 
   /**
@@ -303,7 +298,7 @@ public class Parser {
     }
   }
 
-  private void syntaxError(Token token, String message) {
+  private void syntaxError(String message) {
     if (!recoveryMode) {
       String msg = token.kind == TokenKind.INDENT
           ? "indentation error"
@@ -320,7 +315,7 @@ public class Parser {
   private boolean expect(TokenKind kind) {
     boolean expected = token.kind == kind;
     if (!expected) {
-      syntaxError(token, "expected " + kind.getPrettyName());
+      syntaxError("expected " + kind.getPrettyName());
     }
     nextToken();
     return expected;
@@ -394,7 +389,7 @@ public class Parser {
           TokenKind.WHILE,
           TokenKind.YIELD);
 
-  private void checkForbiddenKeywords(Token token) {
+  private void checkForbiddenKeywords() {
     if (!FORBIDDEN_KEYWORDS.contains(token.kind)) {
       return;
     }
@@ -416,31 +411,13 @@ public class Parser {
   }
 
   private void nextToken() {
-    if (pushedToken != null) {
-      token = pushedToken;
-      pushedToken = null;
-    } else {
-      if (token == null || token.kind != TokenKind.EOF) {
-        token = tokens.next();
-        // transparently handle comment tokens
-        while (token.kind == TokenKind.COMMENT) {
-          makeComment(token);
-          token = tokens.next();
-        }
-      }
+    if (token == null || token.kind != TokenKind.EOF) {
+      token = lexer.nextToken();
     }
-    checkForbiddenKeywords(token);
+    checkForbiddenKeywords();
     if (DEBUGGING) {
       System.err.print(token);
     }
-  }
-
-  private void pushToken(Token tokenToPush) {
-    if (pushedToken != null) {
-      throw new IllegalStateException("Exceeded LL(2) lookahead!");
-    }
-    pushedToken = token;
-    token = tokenToPush;
   }
 
   // create an error expression
@@ -466,33 +443,32 @@ public class Parser {
   //       | **kwargs
   private Argument.Passed parseFuncallArgument() {
     final int start = token.left;
+    Expression expr;
     // parse **expr
     if (token.kind == TokenKind.STAR_STAR) {
       nextToken();
-      Expression expr = parseNonTupleExpression();
+      expr = parseNonTupleExpression();
       return setLocation(new Argument.StarStar(expr), start, expr);
     }
     // parse *expr
     if (token.kind == TokenKind.STAR) {
       nextToken();
-      Expression expr = parseNonTupleExpression();
+      expr = parseNonTupleExpression();
       return setLocation(new Argument.Star(expr), start, expr);
     }
-    // parse keyword = expr
-    if (token.kind == TokenKind.IDENTIFIER) {
-      Token identToken = token;
-      String name = (String) token.value;
-      nextToken();
-      if (token.kind == TokenKind.EQUALS) { // it's a named argument
+
+    expr = parseNonTupleExpression();
+    if (expr instanceof Identifier) {
+      // parse a named argument
+      if (token.kind == TokenKind.EQUALS) {
+        String name = ((Identifier) expr).getName();
         nextToken();
-        Expression expr = parseNonTupleExpression();
-        return setLocation(new Argument.Keyword(name, expr), start, expr);
-      } else { // oops, back up!
-        pushToken(identToken);
+        Expression val = parseNonTupleExpression();
+        return setLocation(new Argument.Keyword(name, val), start, val);
       }
     }
+
     // parse a positional argument
-    Expression expr = parseNonTupleExpression();
     return setLocation(new Argument.Positional(expr), start, expr);
   }
 
@@ -553,7 +529,7 @@ public class Parser {
       Identifier ident = parseIdent();
       return setLocation(new DotExpression(receiver, ident), start, ident);
     } else {
-      syntaxError(token, "expected identifier after dot");
+      syntaxError("expected identifier after dot");
       int end = syncTo(EXPR_TERMINATOR_SET);
       return makeErrorExpression(start, end);
     }
@@ -689,7 +665,7 @@ public class Parser {
         }
       default:
         {
-          syntaxError(token, "expected expression");
+          syntaxError("expected expression");
           int end = syncTo(EXPR_TERMINATOR_SET);
           return makeErrorExpression(start, end);
         }
@@ -810,7 +786,7 @@ public class Parser {
         nextToken();
         return expr;
       } else {
-        syntaxError(token, "expected '" + closingBracket.getPrettyName() + "', 'for' or 'if'");
+        syntaxError("expected '" + closingBracket.getPrettyName() + "', 'for' or 'if'");
         syncPast(LIST_TERMINATOR_SET);
         return makeErrorExpression(comprehensionStartOffset, token.right);
       }
@@ -869,7 +845,7 @@ public class Parser {
         }
       default:
         {
-          syntaxError(token, "expected ',', 'for' or ']'");
+          syntaxError("expected ',', 'for' or ']'");
           int end = syncPast(LIST_TERMINATOR_SET);
           return makeErrorExpression(start, end);
         }
@@ -942,8 +918,10 @@ public class Parser {
         // If NOT appears when we expect a binary operator, it must be followed by IN.
         // Since the code expects every operator to be a single token, we push a NOT_IN token.
         expect(TokenKind.NOT);
-        expect(TokenKind.IN);
-        pushToken(new Token(TokenKind.NOT_IN, token.left, token.right));
+        if (token.kind != TokenKind.IN) {
+          syntaxError("expected 'in'");
+        }
+        token.kind = TokenKind.NOT_IN;
       }
 
       if (!binaryOperators.containsKey(token.kind)) {
@@ -1059,7 +1037,7 @@ public class Parser {
 
     StringLiteral importString = parseStringLiteral();
     if (token.kind == TokenKind.RPAREN) {
-      syntaxError(token, "expected at least one symbol to load");
+      syntaxError("expected at least one symbol to load");
       return;
     }
     expect(TokenKind.COMMA);
@@ -1091,43 +1069,33 @@ public class Parser {
    * entry in the map.
    */
   private void parseLoadSymbol(Map<Identifier, String> symbols) {
-    Token nameToken;
-    Token declaredToken;
+    if (token.kind != TokenKind.STRING && token.kind != TokenKind.IDENTIFIER) {
+      syntaxError("expected either a literal string or an identifier");
+      return;
+    }
 
+    String name = (String) token.value;
+    Identifier identifier = new Identifier(name);
+    if (symbols.containsKey(identifier)) {
+      syntaxError(
+          String.format("Identifier '%s' is used more than once", identifier.getName()));
+    }
+    setLocation(identifier, token.left, token.right);
+
+    String declared;
     if (token.kind == TokenKind.STRING) {
-      nameToken = token;
-      declaredToken = nameToken;
+      declared = name;
     } else {
-      if (token.kind != TokenKind.IDENTIFIER) {
-        syntaxError(token, "Expected either a literal string or an identifier");
-      }
-
-      nameToken = token;
-
       expect(TokenKind.IDENTIFIER);
       expect(TokenKind.EQUALS);
-
-      declaredToken = token;
-    }
-
-    expect(TokenKind.STRING);
-
-    try {
-      Identifier identifier = new Identifier(nameToken.value.toString());
-
-      if (symbols.containsKey(identifier)) {
-        syntaxError(
-            nameToken, String.format("Identifier '%s' is used more than once",
-                identifier.getName()));
-      } else {
-        symbols.put(
-            setLocation(identifier, nameToken.left, nameToken.right),
-            declaredToken.value.toString());
+      if (token.kind != TokenKind.STRING) {
+        syntaxError("expected string");
+        return;
       }
-    } catch (NullPointerException npe) {
-      // This means that the value of at least one token is null. In this case, the previous
-      // expect() call has already logged an error.
+      declared = token.value.toString();
     }
+    nextToken();
+    symbols.put(identifier, declared);
   }
 
   private void parseTopLevelStatement(List<Statement> list) {
@@ -1368,10 +1336,5 @@ public class Parser {
       end = expression.getLocation().getEndOffset();
     }
     return setLocation(new ReturnStatement(expression), start, end);
-  }
-
-  // create a comment node
-  private void makeComment(Token token) {
-    comments.add(setLocation(new Comment((String) token.value), token.left, token.right));
   }
 }

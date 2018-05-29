@@ -42,9 +42,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.transitions.ContextCollectorOwnerTransition;
 import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
@@ -59,13 +57,9 @@ import javax.annotation.Nullable;
  * information about the tools locations and the flags required for compiling.
  */
 @AutoCodec
-@SkylarkModule(
-  name = "cpp",
-  doc = "A configuration fragment for C++.",
-  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
 @Immutable
-public final class CppConfiguration extends BuildConfiguration.Fragment {
+public final class CppConfiguration extends BuildConfiguration.Fragment
+    implements CppConfigurationApi<InvalidConfigurationException> {
   /**
    * String indicating a Mac system, for example when used in a crosstool configuration's host or
    * target system name.
@@ -173,14 +167,14 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   private final PathFragment nonConfiguredSysroot;
   private final Label sysrootLabel;
 
-  private final FlagList compilerFlags;
-  private final FlagList cxxFlags;
-  private final FlagList unfilteredCompilerFlags;
+  private final ImmutableList<String> compilerFlags;
+  private final ImmutableList<String> cxxFlags;
+  private final ImmutableList<String> unfilteredCompilerFlags;
   private final ImmutableList<String> cOptions;
 
-  private final FlagList mostlyStaticLinkFlags;
-  private final FlagList mostlyStaticSharedLinkFlags;
-  private final FlagList dynamicLinkFlags;
+  private final ImmutableList<String> mostlyStaticLinkFlags;
+  private final ImmutableList<String> mostlyStaticSharedLinkFlags;
+  private final ImmutableList<String> dynamicLinkFlags;
   private final ImmutableList<String> copts;
   private final ImmutableList<String> cxxopts;
 
@@ -227,17 +221,26 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
       coptsBuilder.add("-fasynchronous-unwind-tables");
       coptsBuilder.add("-DNO_FRAME_POINTER");
     }
+    coptsBuilder.addAll(cppOptions.coptList);
 
-    ImmutableList.Builder<String> cxxOptsBuilder =
+    ImmutableList<String> cxxOpts =
         ImmutableList.<String>builder()
             .addAll(cppToolchainInfo.getCxxFlags())
             .addAll(cppToolchainInfo.getCxxFlagsByCompilationMode().get(compilationMode))
-            .addAll(cppToolchainInfo.getLipoCxxFlags().get(cppOptions.getLipoMode()));
+            .addAll(cppToolchainInfo.getLipoCxxFlags().get(cppOptions.getLipoMode()))
+            .addAll(cppOptions.cxxoptList)
+            .build();
 
     ImmutableList.Builder<String> linkoptsBuilder = ImmutableList.builder();
     linkoptsBuilder.addAll(cppOptions.linkoptList);
     if (cppOptions.experimentalOmitfp) {
       linkoptsBuilder.add("-Wl,--eh-frame-hdr");
+    }
+
+    if (cppOptions.getLipoMode() != LipoMode.OFF
+        && !cppOptions.convertLipoToThinLto
+        && !cppOptions.allowLipo) {
+      throw new InvalidConfigurationException("LIPO is disallowed");
     }
 
     return new CppConfiguration(
@@ -254,25 +257,16 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
             ? cppToolchainInfo.getDefaultSysroot()
             : params.sysrootLabel.getPackageFragment(),
         params.sysrootLabel,
-        new FlagList(coptsBuilder.build(), ImmutableList.copyOf(cppOptions.coptList)),
-        new FlagList(cxxOptsBuilder.build(), ImmutableList.copyOf(cppOptions.cxxoptList)),
-        new FlagList(
-            ImmutableList.copyOf(toolchain.getUnfilteredCxxFlagList()), ImmutableList.of()),
+        coptsBuilder.build(),
+        cxxOpts,
+        ImmutableList.copyOf(toolchain.getUnfilteredCxxFlagList()),
         ImmutableList.copyOf(cppOptions.conlyoptList),
-        new FlagList(
-            cppToolchainInfo.configureAllLegacyLinkOptions(
-                compilationMode, cppOptions.getLipoMode(), LinkingMode.STATIC),
-            ImmutableList.of()),
-        new FlagList(
-            cppToolchainInfo.configureAllLegacyLinkOptions(
-                compilationMode,
-                cppOptions.getLipoMode(),
-                LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES),
-            ImmutableList.of()),
-        new FlagList(
-            cppToolchainInfo.configureAllLegacyLinkOptions(
-                compilationMode, cppOptions.getLipoMode(), LinkingMode.DYNAMIC),
-            ImmutableList.of()),
+        cppToolchainInfo.configureAllLegacyLinkOptions(
+            compilationMode, cppOptions.getLipoMode(), LinkingMode.STATIC),
+        cppToolchainInfo.configureAllLegacyLinkOptions(
+            compilationMode, cppOptions.getLipoMode(), LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES),
+        cppToolchainInfo.configureAllLegacyLinkOptions(
+            compilationMode, cppOptions.getLipoMode(), LinkingMode.DYNAMIC),
         ImmutableList.copyOf(cppOptions.coptList),
         ImmutableList.copyOf(cppOptions.cxxoptList),
         linkoptsBuilder.build(),
@@ -303,13 +297,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
       Label stlLabel,
       PathFragment nonConfiguredSysroot,
       Label sysrootLabel,
-      FlagList compilerFlags,
-      FlagList cxxFlags,
-      FlagList unfilteredCompilerFlags,
+      ImmutableList<String> compilerFlags,
+      ImmutableList<String> cxxFlags,
+      ImmutableList<String> unfilteredCompilerFlags,
       ImmutableList<String> cOptions,
-      FlagList mostlyStaticLinkFlags,
-      FlagList mostlyStaticSharedLinkFlags,
-      FlagList dynamicLinkFlags,
+      ImmutableList<String> mostlyStaticLinkFlags,
+      ImmutableList<String> mostlyStaticSharedLinkFlags,
+      ImmutableList<String> dynamicLinkFlags,
       ImmutableList<String> copts,
       ImmutableList<String> cxxopts,
       ImmutableList<String> linkOptions,
@@ -419,7 +413,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * <p>Deprecated: Use {@link CcToolchainProvider#getCompiler()}
    */
   // TODO(b/68038647): Remove once make variables are no longer derived from CppConfiguration.
-  @SkylarkCallable(name = "compiler", structField = true, doc = "C++ compiler.")
+  @Override
   @Deprecated
   public String getCompiler() {
     return cppToolchainInfo.getCompiler();
@@ -431,7 +425,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * <p>Deprecated: Use {@link CcToolchainProvider#getTargetLibc()}
    */
   // TODO(b/68038647): Remove once make variables are no longer derived from CppConfiguration.
-  @SkylarkCallable(name = "libc", structField = true, doc = "libc version string.")
+  @Override
   @Deprecated
   public String getTargetLibc() {
     return cppToolchainInfo.getTargetLibc();
@@ -443,7 +437,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * <p>Deprecated: Use {@link CcToolchainProvider#getTargetCpu()}
    */
   // TODO(b/68038647): Remove once skylark callers are migrated.
-  @SkylarkCallable(name = "cpu", structField = true, doc = "Target CPU of the C++ toolchain.")
+  @Override
   @Deprecated
   public String getTargetCpu() {
     return cppToolchainInfo.getTargetCpu();
@@ -500,14 +494,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     return compilationMode;
   }
 
-  @SkylarkCallable(
-    name = "built_in_include_directories",
-    structField = true,
-    doc =
-        "Built-in system include paths for the toolchain compiler. All paths in this list"
-            + " should be relative to the exec directory. They may be absolute if they are also"
-            + " installed on the remote build nodes or for local compilation."
-  )
+  @Override
   public ImmutableList<String> getBuiltInIncludeDirectoriesForSkylark()
       throws InvalidConfigurationException {
     return getBuiltInIncludeDirectories(nonConfiguredSysroot)
@@ -539,10 +526,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * different sysroots, or the sysroot is the same as the default sysroot, then
    * this method returns <code>null</code>.
    */
-  @SkylarkCallable(name = "sysroot", structField = true,
-      doc = "Returns the sysroot to be used. If the toolchain compiler does not support "
-      + "different sysroots, or the sysroot is the same as the default sysroot, then "
-      + "this method returns <code>None</code>.")
+  @Override
   public String getSysroot() {
     return nonConfiguredSysroot.getPathString();
   }
@@ -559,17 +543,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * <p>Deprecated: Use {@link CcToolchainProvider#getLegacyCompileOptionsWithCopts()}
    */
   // TODO(b/64384912): Migrate skylark callers and remove.
-  @SkylarkCallable(
-    name = "compiler_options",
-    doc =
-        "Returns the default options to use for compiling C, C++, and assembler. "
-            + "This is just the options that should be used for all three languages. "
-            + "There may be additional C-specific or C++-specific options that should be used, "
-            + "in addition to the ones returned by this method"
-  )
+  @Override
   @Deprecated
   public ImmutableList<String> getCompilerOptions(Iterable<String> featuresNotUsedAnymore) {
-    return compilerFlags.evaluate();
+    return compilerFlags;
   }
 
   /**
@@ -577,13 +554,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * the command line after the common options returned by {@link #getCompilerOptions}.
    */
   // TODO(b/64384912): Migrate skylark callers and remove.
-  @SkylarkCallable(
-      name = "c_options",
-      structField = true,
-      doc =
-          "Returns the list of additional C-specific options to use for compiling C. "
-              + "These should be go on the command line after the common options returned by "
-              + "<code>compiler_options</code>")
+  @Override
   public ImmutableList<String> getCOptions() {
     return cOptions;
   }
@@ -595,16 +566,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * <p>Deprecated: Use {@link CcToolchainProvider#getCxxOptionsWithCopts}
    */
   // TODO(b/64384912): Migrate skylark callers and remove.
-  @SkylarkCallable(
-    name = "cxx_options",
-    doc =
-        "Returns the list of additional C++-specific options to use for compiling C++. "
-            + "These should be go on the command line after the common options returned by "
-            + "<code>compiler_options</code>"
-  )
+  @Override
   @Deprecated
   public ImmutableList<String> getCxxOptions(Iterable<String> featuresNotUsedAnymore) {
-    return cxxFlags.evaluate();
+    return cxxFlags;
   }
 
   /**
@@ -617,12 +582,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    */
   // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
   @Deprecated
-  @SkylarkCallable(
-    name = "unfiltered_compiler_options",
-    doc =
-        "Returns the default list of options which cannot be filtered by BUILD "
-            + "rules. These should be appended to the command line after filtering."
-  )
+  @Override
   public ImmutableList<String> getUnfilteredCompilerOptionsWithLegacySysroot(
       Iterable<String> featuresNotUsedAnymore) {
     return getUnfilteredCompilerOptionsDoNotUse(nonConfiguredSysroot);
@@ -636,11 +596,11 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   @Deprecated
   ImmutableList<String> getUnfilteredCompilerOptionsDoNotUse(@Nullable PathFragment sysroot) {
     if (sysroot == null) {
-      return unfilteredCompilerFlags.evaluate();
+      return unfilteredCompilerFlags;
     }
     return ImmutableList.<String>builder()
         .add("--sysroot=" + sysroot)
-        .addAll(unfilteredCompilerFlags.evaluate())
+        .addAll(unfilteredCompilerFlags)
         .build();
   }
 
@@ -654,13 +614,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    */
   // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
   @Deprecated
-  @SkylarkCallable(
-    name = "link_options",
-    structField = true,
-    doc =
-        "Returns the set of command-line linker options, including any flags "
-            + "inferred from the command-line options."
-  )
+  @Override
   public ImmutableList<String> getLinkOptionsWithLegacySysroot() {
     return getLinkOptionsDoNotUse(nonConfiguredSysroot);
   }
@@ -714,13 +668,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    *     CcToolchainProvider, Boolean)}
    */
   // TODO(b/64384912): Migrate skylark users to cc_common and remove.
-  @SkylarkCallable(
-    name = "fully_static_link_options",
-    doc =
-        "Returns the immutable list of linker options for fully statically linked "
-            + "outputs. Does not include command-line options passed via --linkopt or "
-            + "--linkopts."
-  )
+  @Override
   @Deprecated
   public ImmutableList<String> getFullyStaticLinkOptions(
       Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) throws EvalException {
@@ -741,13 +689,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    *     CcToolchainProvider, boolean, boolean)}
    */
   // TODO(b/64384912): Migrate skylark users to cc_common and remove.
-  @SkylarkCallable(
-    name = "mostly_static_link_options",
-    doc =
-        "Returns the immutable list of linker options for mostly statically linked "
-            + "outputs. Does not include command-line options passed via --linkopt or "
-            + "--linkopts."
-  )
+  @Override
   @Deprecated
   public ImmutableList<String> getMostlyStaticLinkOptions(
       Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) {
@@ -757,7 +699,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
               ? mostlyStaticSharedLinkFlags
               : dynamicLinkFlags);
     } else {
-      return mostlyStaticLinkFlags.evaluate();
+      return mostlyStaticLinkFlags;
     }
   }
 
@@ -771,20 +713,14 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    *     CcToolchainProvider, Boolean)}
    */
   // TODO(b/64384912): Migrate skylark users to cc_common and remove.
-  @SkylarkCallable(
-    name = "dynamic_link_options",
-    doc =
-        "Returns the immutable list of linker options for artifacts that are not "
-            + "fully or mostly statically linked. Does not include command-line options "
-            + "passed via --linkopt or --linkopts."
-  )
+  @Override
   @Deprecated
   public ImmutableList<String> getDynamicLinkOptions(
       Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) {
     if (sharedLib) {
       return getSharedLibraryLinkOptions(dynamicLinkFlags);
     } else {
-      return dynamicLinkFlags.evaluate();
+      return dynamicLinkFlags;
     }
   }
 
@@ -795,7 +731,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * <p>Deprecated: Use {@link CcToolchainProvider#getSharedLibraryLinkOptions}
    */
   // TODO(b/64384912): Migrate skylark dependants and delete.
-  private ImmutableList<String> getSharedLibraryLinkOptions(FlagList flags) {
+  private ImmutableList<String> getSharedLibraryLinkOptions(ImmutableList<String> flags) {
     return cppToolchainInfo.getSharedLibraryLinkOptions(flags);
   }
 
@@ -815,7 +751,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the execution path to the linker binary to use for this build. Relative paths are
    * relative to the execution root.
    */
-  @SkylarkCallable(name = "ld_executable", structField = true, doc = "Path to the linker binary.")
+  @Override
   public String getLdExecutableForSkylark() {
     PathFragment ldExecutable = getToolPathFragment(CppConfiguration.Tool.LD);
     return ldExecutable != null ? ldExecutable.getPathString() : "";
@@ -1047,6 +983,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.pruneCppModules;
   }
 
+  public boolean getPruneCppInputDiscovery() {
+    return cppOptions.pruneCppInputDiscovery;
+  }
+
   public boolean getParseHeadersVerifiesModules() {
     return cppOptions.parseHeadersVerifiesModules;
   }
@@ -1059,31 +999,19 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the path to the GNU binutils 'objcopy' binary to use for this build. (Corresponds to
    * $(OBJCOPY) in make-dbg.) Relative paths are relative to the execution root.
    */
-  @SkylarkCallable(
-    name = "objcopy_executable",
-    structField = true,
-    doc = "Path to GNU binutils 'objcopy' binary."
-  )
+  @Override
   public String getObjCopyExecutableForSkylark() {
     PathFragment objCopyExecutable = getToolPathFragment(Tool.OBJCOPY);
     return objCopyExecutable != null ? objCopyExecutable.getPathString() : "";
   }
 
-  @SkylarkCallable(
-    name = "compiler_executable",
-    structField = true,
-    doc = "Path to C/C++ compiler binary."
-  )
+  @Override
   public String getCppExecutableForSkylark() {
     PathFragment cppExecutable = getToolPathFragment(Tool.GCC);
     return cppExecutable != null ? cppExecutable.getPathString() : "";
   }
 
-  @SkylarkCallable(
-    name = "preprocessor_executable",
-    structField = true,
-    doc = "Path to C/C++ preprocessor binary."
-  )
+  @Override
   public String getCpreprocessorExecutableForSkylark() {
     PathFragment cpreprocessorExecutable = getToolPathFragment(Tool.CPP);
     return cpreprocessorExecutable != null ? cpreprocessorExecutable.getPathString() : "";
@@ -1097,41 +1025,25 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     return getToolPathFragment(CppConfiguration.Tool.GCOVTOOL);
   }
 
-  @SkylarkCallable(
-    name = "nm_executable",
-    structField = true,
-    doc = "Path to GNU binutils 'nm' binary."
-  )
+  @Override
   public String getNmExecutableForSkylark() {
     PathFragment nmExecutable = getToolPathFragment(Tool.NM);
     return nmExecutable != null ? nmExecutable.getPathString() : "";
   }
 
-  @SkylarkCallable(
-    name = "objdump_executable",
-    structField = true,
-    doc = "Path to GNU binutils 'objdump' binary."
-  )
+  @Override
   public String getObjdumpExecutableForSkylark() {
     PathFragment objdumpExecutable = getToolPathFragment(Tool.OBJDUMP);
     return objdumpExecutable != null ? objdumpExecutable.getPathString() : "";
   }
 
-  @SkylarkCallable(
-    name = "ar_executable",
-    structField = true,
-    doc = "Path to GNU binutils 'ar' binary."
-  )
+  @Override
   public String getArExecutableForSkylark() {
     PathFragment arExecutable = getToolPathFragment(Tool.AR);
     return arExecutable != null ? arExecutable.getPathString() : "";
   }
 
-  @SkylarkCallable(
-    name = "strip_executable",
-    structField = true,
-    doc = "Path to GNU binutils 'strip' binary."
-  )
+  @Override
   public String getStripExecutableForSkylark() {
     PathFragment stripExecutable = getToolPathFragment(Tool.STRIP);
     return stripExecutable != null ? stripExecutable.getPathString() : "";
@@ -1142,8 +1054,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    *
    */
   //TODO(b/70225490): Migrate skylark dependants to CcToolchainProvider and delete.
-  @SkylarkCallable(name = "target_gnu_system_name", structField = true,
-      doc = "The GNU System Name.")
+  @Override
   @Deprecated
   public String getTargetGnuSystemName() {
     return cppToolchainInfo.getTargetGnuSystemName();

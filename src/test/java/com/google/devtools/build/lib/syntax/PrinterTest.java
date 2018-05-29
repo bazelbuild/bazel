@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -136,6 +137,29 @@ public class PrinterTest {
         "%.3g", 1, 2);
     checkFormatPositionalFails("unsupported format character \".\" at index 1 in \"%.s\"",
         "%.s");
+  }
+
+  @Test
+  public void testPrettyPrinter() throws Exception {
+    assertThat(Printer.getPrettyPrinter().repr(ImmutableList.of(1, 2, 3)).toString())
+        .isEqualTo(
+            "[\n" +
+            "    1,\n" +
+            "    2,\n" +
+            "    3\n" +
+            "]");
+    assertThat(
+            Printer.getPrettyPrinter()
+                .repr(ImmutableMap.<Object, Object>of("foo", "bar", "baz", ImmutableList.of(1, 2)))
+                .toString())
+        .isEqualTo(
+            "{\n" +
+            "    \"foo\": \"bar\",\n" +
+            "    \"baz\": [\n" +
+            "        1,\n" +
+            "        2\n" +
+            "    ]\n" +
+            "}");
   }
 
   private SkylarkPrinter makeSimplifiedFormatPrinter() {

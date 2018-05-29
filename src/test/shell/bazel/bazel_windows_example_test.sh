@@ -63,11 +63,15 @@ function assert_binary_run_from_subdir() {
 #
 function test_cpp() {
   local cpp_pkg=examples/cpp
-  assert_build_output ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world
-  assert_build_output ./bazel-bin/${cpp_pkg}/hello-world.pdb ${cpp_pkg}:hello-world --output_groups=pdb_file
-  assert_build_output ./bazel-bin/${cpp_pkg}/hello-world.pdb -c dbg ${cpp_pkg}:hello-world --output_groups=pdb_file
+  assert_build_output \
+    ./bazel-bin/${cpp_pkg}/hello-lib.lib ${cpp_pkg}:hello-world
+  assert_build_output ./bazel-bin/${cpp_pkg}/hello-world.pdb \
+    ${cpp_pkg}:hello-world --output_groups=pdb_file
+  assert_build_output ./bazel-bin/${cpp_pkg}/hello-world.pdb -c dbg \
+    ${cpp_pkg}:hello-world --output_groups=pdb_file
   assert_build -c opt ${cpp_pkg}:hello-world --output_groups=pdb_file
-  test -f ./bazel-bin/${cpp_pkg}/hello-world.pdb && fail "PDB file should not be generated in OPT mode"
+  test -f ./bazel-bin/${cpp_pkg}/hello-world.pdb \
+    && fail "PDB file should not be generated in OPT mode"
   assert_build ${cpp_pkg}:hello-world
   ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
     || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"

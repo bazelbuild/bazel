@@ -14,10 +14,34 @@
 
 package com.google.devtools.build.lib.analysis.config.transitions;
 
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import java.util.List;
+
 /**
  * A configuration transition.
  */
 public interface ConfigurationTransition {
+  /**
+   * Returns the list of {@code BuildOptions} after applying this transition.
+   *
+   * <p>Returning an empty or null list triggers a {@link RuntimeException}.
+   */
+  List<BuildOptions> apply(BuildOptions buildOptions);
+
+  /**
+   * We want to keep the number of transition interfaces no larger than what's necessary to
+   * maintain a clear configuration API.
+   *
+   * <p>This method provides a speed bump against creating new interfaces too casually. While we
+   * could provide stronger enforcement by making {@link ConfigurationTransition} an abstract class
+   * with a limited access constructor, keeping it as an interface supports definining transitions
+   * with lambdas.
+   *
+   * <p>If you're considering adding a new override, contact bazel-dev@googlegroups.com to discuss.
+   */
+  @SuppressWarnings("unused")
+  String reasonForOverride();
+
   /**
    * Does this transition switch to a "host" configuration?
    */

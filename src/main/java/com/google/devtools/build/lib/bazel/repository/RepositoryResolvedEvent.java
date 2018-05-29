@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Rule;
@@ -26,7 +26,7 @@ import java.util.Map;
 /**
  * Event indicating that a repository rule was executed, together with the return value of the rule.
  */
-public class RepositoryResolvedEvent implements Postable {
+public class RepositoryResolvedEvent implements ProgressLike {
   public static final String ORIGINAL_RULE_CLASS = "original_rule_class";
   public static final String ORIGINAL_ATTRIBUTES = "original_attributes";
   public static final String RULE_CLASS = "rule_class";
@@ -56,16 +56,11 @@ public class RepositoryResolvedEvent implements Postable {
 
     ImmutableMap.Builder<String, Object> origAttrBuilder = ImmutableMap.builder();
     for (Attribute attr : rule.getAttributes()) {
-      String name = attr.getPublicName();
-      if (!name.startsWith("_")) {
-        // TODO(aehlig): filter out remaining attributes that cannot be set in a
-        // WORKSPACE file.
+      if (rule.isAttributeValueExplicitlySpecified(attr)) {
+        String name = attr.getPublicName();
         try {
           Object value = attrs.getValue(name, Object.class);
-          // Only record explicit values, skip computed defaults
-          if (!(value instanceof Attribute.ComputedDefault)) {
-            origAttrBuilder.put(name, value);
-          }
+          origAttrBuilder.put(name, value);
         } catch (EvalException e) {
           // Do nothing, just ignore the value.
         }

@@ -19,10 +19,25 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * A marker interface for Java methods which can be called from Skylark.
+ * Annotates a Java method that can be called from Skylark.
  *
- * <p>Methods annotated with this annotation are expected to meet certain requirements which are
- * enforced by an annotation processor:
+ * <p>This annotation is only allowed to appear on methods of classes that are directly annotated
+ * with {@link SkylarkModule} or {@link SkylarkGlobalLibrary}. Since subtypes can't add new
+ * Skylark-accessible methods unless they have their own {@code @SkylarkModule} annotation, this
+ * implies that you can always determine the complete set of Skylark entry points for a given {@link
+ * SkylarkValue} type by looking at the ancestor class or interface from which it inherits its
+ * {@code @SkylarkModule}.
+ *
+ * <p>If a method is annotated with {@code @SkylarkCallable}, it is not allowed to have any
+ * overloads or hide any static or default methods. Overriding is allowed, but the {@code
+ * @SkylarkCallable} annotation itself must not be repeated on the override. This ensures that given
+ * a method, we can always determine its corresponding {@code @SkylarkCallable} annotation, if it
+ * has one, by scanning all methods of the same name in its class hierarchy, without worrying about
+ * complications like overloading or generics. The lookup functionality is implemented by {@link
+ * SkylarkInterfaceUtils#getSkylarkCallable}.
+ *
+ * <p>Methods having this annotation are required to satisfy the following (enforced by an
+ * annotation processor):
  *
  * <ul>
  *   <li>The method must be public.

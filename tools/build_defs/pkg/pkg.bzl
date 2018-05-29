@@ -31,9 +31,18 @@ def _pkg_tar_impl(ctx):
       "--owner=" + ctx.attr.owner,
       "--owner_name=" + ctx.attr.ownername,
       ]
+
   file_inputs = ctx.files.srcs[:]
+
+  # Add runfiles if requested
+  if ctx.attr.include_runfiles:
+    for f in ctx.attr.srcs:
+      if hasattr(f, "default_runfiles"):
+        run_files = f.default_runfiles.files.to_list()
+        file_inputs += run_files
+
   args += ["--file=%s=%s" % (f.path, dest_path(f, data_path))
-           for f in ctx.files.srcs]
+           for f in file_inputs]
   for target, f_dest_path in ctx.attr.files.items():
     target_files = target.files.to_list()
     if len(target_files) != 1:
@@ -180,6 +189,7 @@ _real_pkg_tar = rule(
         "extension": attr.string(default="tar"),
         "symlinks": attr.string_dict(),
         "empty_files": attr.string_list(),
+        "include_runfiles": attr.bool(default=False, mandatory=False),
         "empty_dirs": attr.string_list(),
         # Implicit dependencies.
         "build_tar": attr.label(

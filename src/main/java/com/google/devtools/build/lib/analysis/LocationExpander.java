@@ -376,7 +376,7 @@ public final class LocationExpander {
     if (allowDataAttributeEntriesInLabel
         && ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
       Iterables.addAll(depsDataAndTools,
-          ruleContext.getPrerequisitesIf("data", Mode.DATA, FilesToRunProvider.class));
+          ruleContext.getPrerequisitesIf("data", Mode.DONT_CHECK, FilesToRunProvider.class));
     }
     if (ruleContext.getRule().isAttrDefined("tools", BuildType.LABEL_LIST)) {
       Iterables.addAll(depsDataAndTools,

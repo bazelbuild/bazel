@@ -214,7 +214,7 @@ public final class ConfiguredTargetFactory {
                   BuildConfigurationValue.key(
                       fromConfig.fragmentClasses(),
                       BuildOptions.diffForReconstruction(
-                          defaultBuildOptions, ownerTransition.apply(fromConfig.getOptions()))),
+                          defaultBuildOptions, ownerTransition.patch(fromConfig.getOptions()))),
                   InvalidConfigurationException.class);
       return ownerConfig == null ? null : ownerConfig.getConfiguration();
     } catch (InvalidConfigurationException e) {
@@ -340,6 +340,7 @@ public final class ConfiguredTargetFactory {
             .setConfigConditions(configConditions)
             .setUniversalFragments(ruleClassProvider.getUniversalFragments())
             .setToolchainContext(toolchainContext)
+            .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .build();
     if (ruleContext.hasErrors()) {
       return null;
@@ -464,6 +465,7 @@ public final class ConfiguredTargetFactory {
             .setConfigConditions(configConditions)
             .setUniversalFragments(ruleClassProvider.getUniversalFragments())
             .setToolchainContext(toolchainContext)
+            .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .build();
     if (ruleContext.hasErrors()) {
       return null;

@@ -170,12 +170,7 @@ public class ConfiguredTargetKey extends ActionLookupKey {
 
   @Override
   public String toString() {
-    return String.format(
-        "%s %s %s (%s)",
-        label,
-        configurationKey,
-        isHostConfiguration(),
-        System.identityHashCode(this));
+    return String.format("%s %s %s", label, configurationKey, isHostConfiguration());
   }
 
   static class HostConfiguredTargetKey extends ConfiguredTargetKey {

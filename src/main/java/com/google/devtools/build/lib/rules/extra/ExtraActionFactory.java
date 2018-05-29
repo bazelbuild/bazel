@@ -27,12 +27,14 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 
 /**
@@ -52,7 +54,7 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     CommandHelper commandHelper =
         new CommandHelper(context, tools, ImmutableMap.<Label, Iterable<Artifact>>of());
 
-    resolvedData.addAll(context.getPrerequisiteArtifacts("data", Mode.DATA).list());
+    resolvedData.addAll(context.getPrerequisiteArtifacts("data", Mode.DONT_CHECK).list());
     List<String>outputTemplates =
         context.attributes().get("out_templates", Type.STRING_LIST);
 
@@ -76,15 +78,21 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     boolean requiresActionOutput =
         context.attributes().get("requires_action_output", Type.BOOLEAN);
 
-    ExtraActionSpec spec = new ExtraActionSpec(
-        commandHelper.getResolvedTools(),
-        new CompositeRunfilesSupplier(commandHelper.getToolsRunfilesSuppliers()),
-        resolvedData,
-        outputTemplates,
-        command,
-        context.getLabel(),
-        TargetUtils.getExecutionInfo(context.getRule()),
-        requiresActionOutput);
+    PathFragment shExecutable = ShToolchain.getPathOrError(context);
+    if (context.hasErrors()) {
+      return null;
+    }
+    ExtraActionSpec spec =
+        new ExtraActionSpec(
+            shExecutable,
+            commandHelper.getResolvedTools(),
+            new CompositeRunfilesSupplier(commandHelper.getToolsRunfilesSuppliers()),
+            resolvedData,
+            outputTemplates,
+            command,
+            context.getLabel(),
+            TargetUtils.getExecutionInfo(context.getRule()),
+            requiresActionOutput);
     return new RuleConfiguredTargetBuilder(context)
         .addProvider(ExtraActionSpec.class, spec)
         .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))

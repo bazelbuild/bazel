@@ -1220,12 +1220,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     ConfigurationTransition dataTransition =
         ((ConfiguredRuleClassProvider) ruleClassProvider).getLipoDataTransition();
     BuildOptions dataOptions = dataTransition != NoTransition.INSTANCE
-        ? ((PatchTransition) dataTransition).apply(firstTargetConfig.getOptions())
+        ? ((PatchTransition) dataTransition).patch(firstTargetConfig.getOptions())
         : firstTargetConfig.getOptions();
 
     BuildOptions hostOptions =
         dataOptions.get(BuildConfiguration.Options.class).useDistinctHostConfiguration
-            ? HostTransition.INSTANCE.apply(dataOptions)
+            ? HostTransition.INSTANCE.patch(dataOptions)
             : dataOptions;
     BuildConfiguration hostConfig = getConfiguration(eventHandler, hostOptions, keepGoing);
 

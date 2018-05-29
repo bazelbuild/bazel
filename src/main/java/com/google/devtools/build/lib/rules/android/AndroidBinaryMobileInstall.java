@@ -59,13 +59,14 @@ public final class AndroidBinaryMobileInstall {
 
   static MobileInstallResourceApks createMobileInstallResourceApks(
       RuleContext ruleContext,
+      AndroidDataContext dataContext,
       ApplicationManifest applicationManifest,
       ResourceDependencies resourceDeps)
       throws RuleErrorException, InterruptedException {
 
     final ResourceApk incrementalResourceApk;
     final ResourceApk splitResourceApk;
-    if (AndroidResources.decoupleDataProcessing(ruleContext)) {
+    if (AndroidResources.decoupleDataProcessing(dataContext)) {
       StampedAndroidManifest manifest =
           new StampedAndroidManifest(
               applicationManifest.getManifest(), /* pkg = */ null, /* exported = */ true);
@@ -73,6 +74,7 @@ public final class AndroidBinaryMobileInstall {
       incrementalResourceApk =
           ProcessedAndroidData.processIncrementalBinaryDataFrom(
                   ruleContext,
+                  dataContext,
                   manifest.addMobileInstallStubApplication(ruleContext),
                   ruleContext.getImplicitOutputArtifact(
                       AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
@@ -85,6 +87,7 @@ public final class AndroidBinaryMobileInstall {
       splitResourceApk =
           ProcessedAndroidData.processIncrementalBinaryDataFrom(
                   ruleContext,
+                  dataContext,
                   manifest.createSplitManifest(ruleContext, "android_resources", false),
                   getMobileInstallArtifact(ruleContext, "android_resources.ap_"),
                   "incremental_split",
@@ -98,6 +101,7 @@ public final class AndroidBinaryMobileInstall {
               .addMobileInstallStubApplication(ruleContext)
               .packIncrementalBinaryWithDataAndResources(
                   ruleContext,
+                  dataContext,
                   ruleContext.getImplicitOutputArtifact(
                       AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
                   resourceDeps,
@@ -111,6 +115,7 @@ public final class AndroidBinaryMobileInstall {
               .createSplitManifest(ruleContext, "android_resources", false)
               .packIncrementalBinaryWithDataAndResources(
                   ruleContext,
+                  dataContext,
                   getMobileInstallArtifact(ruleContext, "android_resources.ap_"),
                   resourceDeps,
                   ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),

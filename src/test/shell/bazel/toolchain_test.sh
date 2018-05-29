@@ -675,7 +675,7 @@ EOF
   # Write an invalid rule to be the platform.
   mkdir -p platform
   cat >> platform/BUILD <<EOF
-  filegroup(name = 'not_a_platform')
+filegroup(name = 'not_a_platform')
 EOF
 
   bazel build --platforms=//platform:not_a_platform //demo:use &> $TEST_log && fail "Build failure expected"

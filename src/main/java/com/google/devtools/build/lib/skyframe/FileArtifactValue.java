@@ -241,13 +241,11 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
   static final class RemoteFileArtifactValue extends FileArtifactValue {
     private final byte[] digest;
     private final long size;
-    private final long modifiedTime;
     private final int locationIndex;
 
-    RemoteFileArtifactValue(byte[] digest, long size, long modifiedTime, int locationIndex) {
+    RemoteFileArtifactValue(byte[] digest, long size, int locationIndex) {
       this.digest = digest;
       this.size = size;
-      this.modifiedTime = modifiedTime;
       this.locationIndex = locationIndex;
     }
 
@@ -268,7 +266,8 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
 
     @Override
     public long getModifiedTime() {
-      return modifiedTime;
+      throw new UnsupportedOperationException(
+          "RemoteFileArifactValue doesn't support getModifiedTime");
     }
 
     @Override
@@ -285,15 +284,12 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
         return false;
       }
       RemoteFileArtifactValue r = (RemoteFileArtifactValue) o;
-      return Arrays.equals(digest, r.digest)
-          && size == r.size
-          && modifiedTime == r.modifiedTime
-          && locationIndex == r.locationIndex;
+      return Arrays.equals(digest, r.digest) && size == r.size;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(Arrays.hashCode(digest), size, modifiedTime, locationIndex);
+      return Objects.hash(Arrays.hashCode(digest), size);
     }
 
     @Override

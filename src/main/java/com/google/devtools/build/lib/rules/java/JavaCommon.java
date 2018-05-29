@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -306,16 +307,26 @@ public class JavaCommon {
    * @param outDeps output (compile-time) dependency artifact of this target
    */
   public NestedSet<Artifact> collectCompileTimeDependencyArtifacts(@Nullable Artifact outDeps) {
+    return collectCompileTimeDependencyArtifacts(
+        outDeps,
+        JavaInfo.getProvidersFromListOfTargets(
+            JavaCompilationArgsProvider.class, getExports(ruleContext)));
+  }
+
+  /**
+   * Collects Java dependency artifacts for a target.
+   *
+   * @param jdeps dependency artifact of this target
+   * @param exports dependencies with export-like semantics
+   */
+  public static NestedSet<Artifact> collectCompileTimeDependencyArtifacts(
+      @Nullable Artifact jdeps, Iterable<JavaCompilationArgsProvider> exports) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    if (outDeps != null) {
-      builder.add(outDeps);
+    if (jdeps != null) {
+      builder.add(jdeps);
     }
-
-    for (JavaCompilationArgsProvider provider : JavaInfo.getProvidersFromListOfTargets(
-        JavaCompilationArgsProvider.class, getExports(ruleContext))) {
-      builder.addTransitive(provider.getCompileTimeJavaDependencyArtifacts());
-    }
-
+    exports.forEach(
+        export -> builder.addTransitive(export.getCompileTimeJavaDependencyArtifacts()));
     return builder.build();
   }
 
@@ -364,7 +375,7 @@ public class JavaCommon {
     builder.addJavaTargets(targetsTreatedAsDeps(ClasspathType.BOTH));
 
     if (ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
-      builder.addJavaTargets(ruleContext.getPrerequisites("data", Mode.DATA));
+      builder.addJavaTargets(ruleContext.getPrerequisites("data", Mode.DONT_CHECK));
     }
     return builder.build();
   }
@@ -917,6 +928,10 @@ public class JavaCommon {
     return AnalysisUtils.getProviders(getDependencies(), provider);
   }
 
+  /** Gets all the deps that implement a particular provider. */
+  public final <P extends Info> Iterable<P> getDependencies(BuiltinProvider<P> provider) {
+    return AnalysisUtils.getProviders(getDependencies(), provider);
+  }
 
   /**
    * Returns true if and only if this target has the neverlink attribute set to

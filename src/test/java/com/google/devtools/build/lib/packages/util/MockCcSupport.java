@@ -478,7 +478,7 @@ public abstract class MockCcSupport {
           + "artifact_name_pattern {"
           + "   category_name: 'static_library'"
           + "   prefix: 'lib'"
-          + "   extension: '.tweaked.a'"
+          + "   extension: '.lib'"
           + "}";
 
   public static final String STATIC_LINK_AS_DOT_A_CONFIGURATION =

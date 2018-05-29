@@ -145,28 +145,31 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     ResourceDependencies resourceDeps = ResourceDependencies.fromRuleDeps(ruleContext, isNeverLink);
     AssetDependencies assetDeps = AssetDependencies.fromRuleDeps(ruleContext, isNeverLink);
 
+    final AndroidDataContext dataContext = androidSemantics.makeContextForNative(ruleContext);
     final ResourceApk resourceApk;
     if (definesLocalResources) {
       if (androidConfig.decoupleDataProcessing()) {
         StampedAndroidManifest manifest =
-            AndroidManifest.fromAttributes(ruleContext, androidSemantics).stamp(ruleContext);
+            AndroidManifest.fromAttributes(ruleContext, dataContext, androidSemantics)
+                .stamp(dataContext);
 
         ValidatedAndroidResources resources =
             AndroidResources.from(ruleContext, "resource_files")
-                .process(ruleContext, manifest, isNeverLink);
+                .process(ruleContext, dataContext, manifest, isNeverLink);
 
         MergedAndroidAssets assets =
-            AndroidAssets.from(ruleContext).process(ruleContext, isNeverLink);
+            AndroidAssets.from(ruleContext).process(dataContext, assetDeps);
 
         resourceApk = ResourceApk.of(resources, assets, null, null);
       } else {
         ApplicationManifest applicationManifest =
             androidSemantics
                 .getManifestForRule(ruleContext)
-                .renamePackage(ruleContext, AndroidCommon.getJavaPackage(ruleContext));
+                .renamePackage(dataContext, AndroidCommon.getJavaPackage(ruleContext));
         resourceApk =
             applicationManifest.packLibraryWithDataAndResources(
                 ruleContext,
+                dataContext,
                 resourceDeps,
                 ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
                 ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_MERGED_SYMBOLS),
@@ -184,7 +187,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       // Process transitive resources so we can build artifacts needed to export an aar.
       resourceApk =
           ResourceApk.processFromTransitiveLibraryData(
-              ruleContext,
+              dataContext,
               resourceDeps,
               assetDeps,
               StampedAndroidManifest.createEmpty(ruleContext, /* exported = */ false));
@@ -206,7 +209,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
 
     final Aar aar =
         Aar.makeAar(
-            ruleContext,
+            dataContext,
             resourceApk,
             proguardLibrary.collectLocalProguardSpecs(),
             androidCommon.getClassJar());

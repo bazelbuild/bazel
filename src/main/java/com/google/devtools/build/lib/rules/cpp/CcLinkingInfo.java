@@ -15,26 +15,48 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingInfoApi;
+import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /** Wrapper for every C++ linking provider. */
 @Immutable
 @AutoCodec
-@SkylarkModule(
-  name = "cc_linking_info",
-  documented = false,
-  category = SkylarkModuleCategory.PROVIDER,
-  doc = "Wrapper for every C++ linking provider"
-)
-public final class CcLinkingInfo extends NativeInfo {
+public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi {
+
+  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
+      FunctionSignature.WithValues.create(
+          FunctionSignature.of(
+              /* numMandatoryPositionals= */ 0,
+              /* numOptionalPositionals= */ 0,
+              /* numMandatoryNamedOnly= */ 1,
+              /* starArg= */ false,
+              /* kwArg= */ false,
+              "cc_runfiles"),
+          /* defaultValues= */ ImmutableList.of(),
+          /* types= */ ImmutableList.of(SkylarkType.of(CcRunfiles.class)));
+
   public static final NativeProvider<CcLinkingInfo> PROVIDER =
-      new NativeProvider<CcLinkingInfo>(CcLinkingInfo.class, "CcLinkingInfo") {};
+      new NativeProvider<CcLinkingInfo>(CcLinkingInfo.class, "CcLinkingInfo", SIGNATURE) {
+        @Override
+        @SuppressWarnings("unchecked")
+        protected CcLinkingInfo createInstanceFromSkylark(
+            Object[] args, Environment env, Location loc) throws EvalException {
+          CcCommon.checkLocationWhitelisted(loc);
+          CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
+          ccLinkingInfoBuilder.setCcRunfiles((CcRunfiles) args[0]);
+          return ccLinkingInfoBuilder.build();
+        }
+      };
 
   private final CcLinkParamsStore ccLinkParamsStore;
   private final CcRunfiles ccRunfiles;
@@ -56,6 +78,7 @@ public final class CcLinkingInfo extends NativeInfo {
     return ccLinkParamsStore;
   }
 
+  @Override
   public CcRunfiles getCcRunfiles() {
     return ccRunfiles;
   }

@@ -1408,8 +1408,12 @@ public class BuildConfiguration implements BuildConfigurationApi {
             repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
-  /** Returns the bin directory for this build configuration. */
   @Override
+  public ArtifactRoot getBinDir() {
+    return getBinDirectory(RepositoryName.MAIN);
+  }
+
+  /** Returns the bin directory for this build configuration. */
   public ArtifactRoot getBinDirectory() {
     return getBinDirectory(RepositoryName.MAIN);
   }
@@ -1442,8 +1446,12 @@ public class BuildConfiguration implements BuildConfigurationApi {
             repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
-  /** Returns the genfiles directory for this build configuration. */
   @Override
+  public ArtifactRoot getGenfilesDir() {
+    return getGenfilesDirectory(RepositoryName.MAIN);
+  }
+
+  /** Returns the genfiles directory for this build configuration. */
   public ArtifactRoot getGenfilesDirectory() {
     return getGenfilesDirectory(RepositoryName.MAIN);
   }

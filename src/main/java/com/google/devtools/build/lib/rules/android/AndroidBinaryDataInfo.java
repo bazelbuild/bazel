@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataInfoApi;
 
 /**
  * Provides information on Android resource, asset, and manifest information specific to binaries.
@@ -23,8 +24,8 @@ import com.google.devtools.build.lib.packages.NativeInfo;
  * <p>This includes both android_binary targets and other top-level targets (such as
  * android_local_test)
  */
-public class AndroidBinaryDataInfo extends NativeInfo {
-  public static final String SKYLARK_NAME = "AndroidBinaryData";
+public class AndroidBinaryDataInfo extends NativeInfo implements AndroidBinaryDataInfoApi {
+  private static final String SKYLARK_NAME = "AndroidBinaryData";
 
   public static final BuiltinProvider<AndroidBinaryDataInfo> PROVIDER =
       new BuiltinProvider<AndroidBinaryDataInfo>(SKYLARK_NAME, AndroidBinaryDataInfo.class) {};

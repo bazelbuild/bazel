@@ -1,3 +1,27 @@
+## Release 0.13.1 (2018-05-23)
+
+```
+Baseline: fdee70e6e39b74bfd9144b1e350d2d8806386e05
+
+Cherry picks:
+   + f083e7623cd03e20ed216117c5ea8c8b4ec61948:
+     windows: GetOutputRoot() returns GetHomeDir()
+   + fa36d2f48965b127e8fd397348d16e991135bfb6:
+     Automated rollback of commit
+     4465dae23de989f1452e93d0a88ac2a289103dd9.
+   + 4abd2babcc50900afd0271bf30dc64055f34e100:
+     Add error message on empty public resources
+   + 2c957575ff24c183d48ade4345a79ffa5bec3724:
+     test-setup: remove leading "./" from test name
+   + e6eaf251acb3b7054c8c5ced58a49c054b5f23b1:
+     Sort entries by segment when building a parent node to prevent
+     unordered directory structures.
+```
+
+Important changes:
+
+  - Remote Execution: Fixes a regression that produces directories with unsorted file/directory lists
+
 ## Release 0.13.0 (2018-04-30)
 
 ```
@@ -2727,6 +2751,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 

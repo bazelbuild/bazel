@@ -43,7 +43,7 @@ public class TestConfigFragments {
     }
 
     @Override
-    public BuildOptions apply(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options) {
       BuildOptions toOptions = options.clone();
       BuildConfiguration.Options coreOptions =
           toOptions.get(BuildConfiguration.Options.class);

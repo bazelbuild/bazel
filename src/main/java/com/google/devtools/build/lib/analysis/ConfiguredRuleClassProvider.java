@@ -23,7 +23,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -37,6 +36,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
@@ -61,8 +60,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
+import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -239,14 +240,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private PrerequisiteValidator prerequisiteValidator;
     private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
         ImmutableMap.builder();
-    private ImmutableList.Builder<Class<?>> skylarkModules =
-        ImmutableList.<Class<?>>builder().addAll(SkylarkModules.MODULES);
-    private ImmutableList.Builder<NativeProvider> nativeProviders = ImmutableList.builder();
+     private ImmutableList.Builder<Class<?>> skylarkModules =
+        ImmutableList.<Class<?>>builder();
     private Set<String> reservedActionMnemonics = new TreeSet<>();
     private BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
-    private ImmutableBiMap.Builder<String, Class<? extends TransitiveInfoProvider>>
-        registeredSkylarkProviders = ImmutableBiMap.builder();
+    private ConstraintSemantics constraintSemantics = new ConstraintSemantics();
 
     // TODO(pcloudy): Remove this field after Bazel rule definitions are not used internally.
     private String nativeLauncherLabel;
@@ -369,11 +368,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public Builder addNativeProvider(NativeProvider provider) {
-      this.nativeProviders.add(provider);
-      return this;
-    }
-
     public Builder addReservedActionMnemonic(String mnemonic) {
       this.reservedActionMnemonics.add(mnemonic);
       return this;
@@ -382,6 +376,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     public Builder setActionEnvironmentProvider(
         BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider) {
       this.actionEnvironmentProvider = actionEnvironmentProvider;
+      return this;
+    }
+
+    /**
+     * Sets the logic that lets rules declare which environments they support and validates rules
+     * don't depend on rules that aren't compatible with the same environments. Defaults to
+     * {@ConstraintSemantics}. See {@ConstraintSemantics} for more details.
+     */
+    public Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
+      this.constraintSemantics = constraintSemantics;
       return this;
     }
 
@@ -513,7 +517,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           skylarkModules.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
-          nativeProviders.build());
+          constraintSemantics);
     }
 
     @Override
@@ -626,9 +630,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider;
 
-  private final ImmutableList<NativeProvider> nativeProviders;
-
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
+
+  private final ConstraintSemantics constraintSemantics;
 
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
@@ -650,7 +654,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<Class<?>> skylarkModules,
       ImmutableSet<String> reservedActionMnemonics,
       BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
-      ImmutableList<NativeProvider> nativeProviders) {
+      ConstraintSemantics constraintSemantics) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -669,8 +673,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
-    this.nativeProviders = nativeProviders;
     this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
+    this.constraintSemantics = constraintSemantics;
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -790,21 +794,17 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   private Environment.GlobalFrame createGlobals(
-      ImmutableMap<String, Object> skylarkAccessibleToplLevels,
+      ImmutableMap<String, Object> skylarkAccessibleTopLevels,
       ImmutableList<Class<?>> modules) {
-    try (Mutability mutability = Mutability.create("ConfiguredRuleClassProvider globals")) {
-      Environment env = createSkylarkRuleClassEnvironment(
-          mutability,
-          SkylarkModules.getGlobals(modules),
-          SkylarkSemantics.DEFAULT_SEMANTICS,
-          /*eventHandler=*/ null,
-          /*astFileContentHashCode=*/ null,
-          /*importMap=*/ null);
-      for (Map.Entry<String, Object> entry : skylarkAccessibleToplLevels.entrySet()) {
-        env.setup(entry.getKey(), entry.getValue());
-      }
-      return env.getGlobals();
+    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
+
+    SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
+    for (Class<?> module : modules) {
+      Runtime.setupModuleGlobals(envBuilder, module);
     }
+    envBuilder.putAll(skylarkAccessibleTopLevels.entrySet());
+
+    return GlobalFrame.createForBuiltins(envBuilder.build());
   }
 
   private static ImmutableMap<String, Class<?>> createFragmentMap(
@@ -874,6 +874,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return configurationFragmentMap;
   }
 
+  public ConstraintSemantics getConstraintSemantics() {
+    return constraintSemantics;
+  }
+
   /** Returns all skylark objects in global scope for this RuleClassProvider. */
   public Map<String, Object> getTransitiveGlobalBindings() {
     return globals.getTransitiveBindings();
@@ -897,13 +901,5 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   public BuildConfiguration.ActionEnvironmentProvider getActionEnvironmentProvider() {
     return actionEnvironmentProvider;
-  }
-
-  /**
-   * Returns all registered {@link NativeProvider} instances, i.e. all built-in provider types that
-   * are based on {@link Provider} rather than {@link TransitiveInfoProvider}.
-   */
-  public ImmutableList<NativeProvider> getNativeProviders() {
-    return nativeProviders;
   }
 }

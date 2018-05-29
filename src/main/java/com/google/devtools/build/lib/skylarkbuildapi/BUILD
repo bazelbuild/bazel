@@ -3,7 +3,7 @@
 #   (but not the implementation of that API). Ultimately, this package
 #   may be broken out of the Bazel package hierarchy to be standalone.
 #   Thus, this package should not depend on Bazel-specific packages (only
-#   those which contain pure-Skylark concepts, such as the interpretter or
+#   those which contain pure-Skylark concepts, such as the interpreter or
 #   annotation interfaces).
 
 package(default_visibility = ["//src:__subpackages__"])

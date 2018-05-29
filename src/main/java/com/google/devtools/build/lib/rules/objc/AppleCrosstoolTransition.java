@@ -36,7 +36,7 @@ public class AppleCrosstoolTransition implements PatchTransition {
   public static final PatchTransition APPLE_CROSSTOOL_TRANSITION = new AppleCrosstoolTransition();
 
   @Override
-  public BuildOptions apply(BuildOptions buildOptions) {
+  public BuildOptions patch(BuildOptions buildOptions) {
     BuildOptions result = buildOptions.clone();
 
     if (!appleCrosstoolTransitionIsAppliedForAllObjc(buildOptions)) {

@@ -1742,7 +1742,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
               "artifact_name_pattern {",
               "category_name: 'static_library'",
               "prefix: 'foo'",
-              "extension: 'bar'}");
+              "extension: '.a'}");
       toolchainFeatures.getArtifactNameForCategory(ArtifactCategory.DYNAMIC_LIBRARY, "output_name");
       fail("Should throw InvalidConfigurationException.");
     } catch (InvalidConfigurationException e) {
@@ -1753,5 +1753,33 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
                   CcToolchainFeatures.MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE,
                   ArtifactCategory.DYNAMIC_LIBRARY.toString().toLowerCase()));
     }
+  }
+
+  @Test
+  public void testGetArtifactNameExtensionForCategory() throws Exception {
+    CcToolchainFeatures toolchainFeatures =
+        buildFeatures(
+            "artifact_name_pattern {",
+            "  category_name: 'object_file'",
+            "  prefix: ''",
+            "  extension: '.obj'",
+            "}",
+            "artifact_name_pattern {",
+            "  category_name: 'executable'",
+            "  prefix: ''",
+            "  extension: ''",
+            "}",
+            "artifact_name_pattern {",
+            "  category_name: 'static_library'",
+            "  prefix: ''",
+            "  extension: '.a'",
+            "}");
+    assertThat(toolchainFeatures.getArtifactNameExtensionForCategory(ArtifactCategory.OBJECT_FILE))
+        .isEqualTo(".obj");
+    assertThat(toolchainFeatures.getArtifactNameExtensionForCategory(ArtifactCategory.EXECUTABLE))
+        .isEmpty();
+    assertThat(
+        toolchainFeatures.getArtifactNameExtensionForCategory(ArtifactCategory.STATIC_LIBRARY))
+        .isEqualTo(".a");
   }
 }

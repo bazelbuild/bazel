@@ -16,11 +16,8 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryPathApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
@@ -31,12 +28,7 @@ import java.io.IOException;
  * something other than a SkylarkRepositoryContext.
  */
 @Immutable
-@SkylarkModule(
-  name = "path",
-  category = SkylarkModuleCategory.NONE,
-  doc = "A structure representing a file to be used inside a repository."
-)
-final class SkylarkPath implements SkylarkValue {
+final class SkylarkPath implements RepositoryPathApi<SkylarkPath> {
   private final Path path;
 
   SkylarkPath(Path path) {
@@ -57,20 +49,12 @@ final class SkylarkPath implements SkylarkValue {
     return path.hashCode();
   }
 
-  @SkylarkCallable(
-    name = "basename",
-    structField = true,
-    doc = "A string giving the basename of the file."
-  )
+  @Override
   public String getBasename() {
     return path.getBaseName();
   }
 
-  @SkylarkCallable(
-      name = "readdir",
-      structField = false,
-      doc = "The list of entries in the directory denoted by this path."
-  )
+  @Override
   public ImmutableList<SkylarkPath> readdir() throws IOException {
     ImmutableList.Builder<SkylarkPath> builder = ImmutableList.builder();
     for (Path p : path.getDirectoryEntries()) {
@@ -79,39 +63,23 @@ final class SkylarkPath implements SkylarkValue {
     return builder.build();
   }
 
-  @SkylarkCallable(
-    name = "dirname",
-    structField = true,
-    doc = "The parent directory of this file, or None if this file does not have a parent."
-  )
+  @Override
   public SkylarkPath getDirname() {
     Path parentPath = path.getParentDirectory();
     return parentPath == null ? null : new SkylarkPath(parentPath);
   }
 
-  @SkylarkCallable(
-    name = "get_child",
-    doc = "Append the given path to this path and return the resulted path."
-  )
+  @Override
   public SkylarkPath getChild(String childPath) {
     return new SkylarkPath(path.getChild(childPath));
   }
 
-  @SkylarkCallable(
-    name = "exists",
-    structField = true,
-    doc = "Returns true if the file denoted by this path exists."
-  )
+  @Override
   public boolean exists() {
     return path.exists();
   }
 
-  @SkylarkCallable(
-    name = "realpath",
-    structField = true,
-    doc = "Returns the canonical path for this path by repeatedly replacing all symbolic links "
-        + "with their referents."
-  )
+  @Override
   public SkylarkPath realpath() throws IOException {
     return new SkylarkPath(path.resolveSymbolicLinks());
   }

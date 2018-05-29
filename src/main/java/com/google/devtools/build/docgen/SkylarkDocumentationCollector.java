@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
+import com.google.devtools.build.docgen.skylark.SkylarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
+import com.google.devtools.build.lib.util.StringUtilities;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayDeque;
@@ -74,13 +76,10 @@ final class SkylarkDocumentationCollector {
       throws ClassPathException {
     Map<String, SkylarkModuleDoc> modules = new TreeMap<>();
     for (Class<?> candidateClass : Classpath.findClasses(MODULES_PACKAGE_PREFIX)) {
-      SkylarkModule annotation = candidateClass.getAnnotation(SkylarkModule.class);
-      if (annotation != null) {
-        collectJavaObjects(annotation, candidateClass, modules);
-      }
-      SkylarkGlobalLibrary
-          globalNamespaceAnnotation = candidateClass.getAnnotation(SkylarkGlobalLibrary.class);
-      if (globalNamespaceAnnotation != null) {
+      SkylarkModule moduleAnnotation = candidateClass.getAnnotation(SkylarkModule.class);
+      if (moduleAnnotation != null) {
+        collectJavaObjects(moduleAnnotation, candidateClass, modules);
+      } else if (candidateClass.getAnnotation(SkylarkGlobalLibrary.class) != null) {
         collectBuiltinMethods(modules, candidateClass);
       }
       collectBuiltinDoc(modules, candidateClass.getDeclaredFields());
@@ -222,6 +221,24 @@ final class SkylarkDocumentationCollector {
         Preconditions.checkNotNull(method.getAnnotation(SkylarkConstructor.class));
     Class<?> objectClass = constructorAnnotation.objectType();
     SkylarkModuleDoc module = getSkylarkModuleDoc(objectClass, modules);
-    module.setConstructor(new SkylarkJavaMethodDoc(originatingModuleName, method, callable));
+
+    String fullyQualifiedName;
+    if (!constructorAnnotation.receiverNameForDoc().isEmpty()) {
+      fullyQualifiedName = constructorAnnotation.receiverNameForDoc();
+    } else {
+      fullyQualifiedName = getFullyQualifiedName(originatingModuleName, method, callable);
+    }
+
+    module.setConstructor(new SkylarkConstructorMethodDoc(fullyQualifiedName, method, callable));
+  }
+
+  private static String getFullyQualifiedName(
+      String objectName, Method method, SkylarkCallable callable) {
+    String objectDotExpressionPrefix =
+      objectName.isEmpty() ? "" : objectName + ".";
+    String methodName = callable.name().isEmpty()
+        ? StringUtilities.toPythonStyleFunctionName(method.getName())
+        : callable.name();
+    return objectDotExpressionPrefix + methodName;
   }
 }

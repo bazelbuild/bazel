@@ -102,7 +102,7 @@ public class SerializationContext {
    * context.
    */
   @CheckReturnValue
-  SerializationContext getMemoizingContext() {
+  public SerializationContext getMemoizingContext() {
     if (serializer != null) {
       return this;
     }

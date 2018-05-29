@@ -16,7 +16,6 @@ package com.google.devtools.build.docgen;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
@@ -436,13 +435,11 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
                 + "MockClassWithContainerReturnValues.skylark()");
   }
 
-  private Iterable<Method> extractMethods(Collection<SkylarkJavaMethodDoc> methods) {
-    return Iterables.transform(methods, new Function<SkylarkJavaMethodDoc, Method>() {
-      @Override
-      public Method apply(SkylarkJavaMethodDoc input) {
-        return input.getMethod();
-      }
-    });
+  private Iterable<Method> extractMethods(Collection<SkylarkMethodDoc> methods) {
+    return methods.stream()
+        .filter(methodDoc -> methodDoc instanceof SkylarkJavaMethodDoc)
+        .map(methodDoc -> ((SkylarkJavaMethodDoc) methodDoc).getMethod())
+        .collect(Collectors.toList());
   }
 
   private Map<String, SkylarkModuleDoc> collect(Class<?> classObject) {

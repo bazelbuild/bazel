@@ -392,3 +392,7 @@ filegroup(
     name = "crosstool_lib",
     srcs = ["crosstool_lib.bzl"],
 )
+
+load(":compiler_flag.bzl", "compiler_flag")
+
+compiler_flag(name = "compiler")
