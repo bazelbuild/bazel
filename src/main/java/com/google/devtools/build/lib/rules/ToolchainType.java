@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.TreeMap;
 
@@ -82,7 +83,10 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
       ResolvedToolchainProviders providers =
           (ResolvedToolchainProviders)
               ruleContext.getToolchainContext().getResolvedToolchainProviders();
-      providers.getForToolchainType(ruleContext.getLabel()).addGlobalMakeVariables(fragmentBuilder);
+      ToolchainInfo toolchainInfo = providers.getForToolchainType(ruleContext.getLabel());
+      if (toolchainInfo != null) {
+        toolchainInfo.addGlobalMakeVariables(fragmentBuilder);
+      }
     } else {
       Class<? extends BuildConfiguration.Fragment> fragmentClass =
           fragmentMap.get(ruleContext.getLabel());

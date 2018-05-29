@@ -998,6 +998,7 @@ public class CcCommonTest extends BuildViewTestCase {
           CoreRules.INSTANCE.init(builder);
           CoreWorkspaceRules.INSTANCE.init(builder);
           PlatformRules.INSTANCE.init(builder);
+          ToolchainRules.INSTANCE.init(builder);
           GenericRules.INSTANCE.init(builder);
           CcRules.INSTANCE.init(builder);
           // Some tests use genrules so they need the shell toolchain (//tools/sh:toolchain_type) so
