@@ -988,6 +988,7 @@ public class CppOptions extends FragmentOptions {
     host.fdoProfileLabel = null;
     host.lipoModeForBuild = LipoMode.OFF;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
+    host.pruneCppInputDiscovery = pruneCppInputDiscovery;
 
     return host;
   }
