@@ -74,6 +74,7 @@ class RunfilesTest(test_base.TestBase):
     exit_code, stdout, stderr = self.RunProgram(
         [bin_path], env_add={"TEST_SRCDIR": "__ignore_me__"})
     self.AssertExitCode(exit_code, 0, stderr)
+    # 10 output lines: 2 from foo-<family>, and 2 from each of bar-<lang>.
     if len(stdout) != 10:
       self.fail("stdout: %s" % stdout)
 
