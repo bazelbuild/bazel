@@ -1094,11 +1094,10 @@ public class RuleClassTest extends PackageLoadingTestCase {
                 Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"))
             .build();
 
-    RuleClass.Builder childRuleClassBuilder =
+    RuleClass childRuleClass =
         new RuleClass.Builder("childRuleClass", RuleClassType.NORMAL, false, parentRuleClass)
-            .factory(DUMMY_CONFIGURED_TARGET_FACTORY);
-
-    RuleClass childRuleClass = childRuleClassBuilder.build();
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .build();
 
     assertThat(childRuleClass.getExecutionPlatformConstraints())
         .containsExactly(
@@ -1126,5 +1125,42 @@ public class RuleClassTest extends PackageLoadingTestCase {
         .containsExactly(
             Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"));
     assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isFalse();
+  }
+
+  @Test
+  public void testExecutionPlatformConstraints_inherit_parentAllowsPerTarget() {
+    RuleClass parentRuleClass =
+        new RuleClass.Builder("parentRuleClass", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST))
+            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
+            .build();
+
+    RuleClass.Builder childRuleClassBuilder =
+        new RuleClass.Builder("childRuleClass", RuleClassType.NORMAL, false, parentRuleClass)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE);
+
+    RuleClass childRuleClass = childRuleClassBuilder.build();
+
+    assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isFalse();
+  }
+
+  @Test
+  public void testExecutionPlatformConstraints_inherit_childAllowsPerTarget() {
+    RuleClass parentRuleClass =
+        new RuleClass.Builder("$parentRuleClass", RuleClassType.ABSTRACT, false)
+            .add(attr("tags", STRING_LIST))
+            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE)
+            .build();
+
+    RuleClass.Builder childRuleClassBuilder =
+        new RuleClass.Builder("childRuleClass", RuleClassType.NORMAL, false, parentRuleClass)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET);
+
+    RuleClass childRuleClass = childRuleClassBuilder.build();
+
+    assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isTrue();
   }
 }

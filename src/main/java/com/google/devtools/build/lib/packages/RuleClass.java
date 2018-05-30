@@ -674,6 +674,10 @@ public class RuleClass {
               "Attribute %s is inherited multiple times in %s ruleclass",
               attrName,
               name);
+          if (attrName.equals("exec_compatible_with") && parent.executionPlatformConstraintsAllowed == ExecutionPlatformConstraintsAllowed.PER_TARGET) {
+            // This attribute should not be inherited because executionPlatformConstraintsAllowed is not inherited.
+            continue;
+          }
           attributes.put(attrName, attribute);
         }
 
@@ -1181,29 +1185,60 @@ public class RuleClass {
       return this;
     }
 
+    /**
+     * Causes rules of this type to require the specified toolchains be available via toolchain
+     * resolution when a target is configured.
+     */
     public Builder addRequiredToolchains(Iterable<Label> toolchainLabels) {
       Iterables.addAll(this.requiredToolchains, toolchainLabels);
       return this;
     }
 
+    /**
+     * Causes rules of this type to require the specified toolchains be available via toolchain
+     * resolution when a target is configured.
+     */
     public Builder addRequiredToolchains(Label... toolchainLabels) {
       return this.addRequiredToolchains(Lists.newArrayList(toolchainLabels));
     }
 
+    /**
+     * Rules that support platforms can use toolchains and execution platforms. Rules that are part
+     * of configuring toolchains and platforms should set this to {@code false}.
+     */
     public Builder supportsPlatforms(boolean flag) {
       this.supportsPlatforms = flag;
       return this;
     }
 
+    /**
+     * Specifies whether targets of this rule can add additional constraints on the execution
+     * platform selected. If this is {@link ExecutionPlatformConstraintsAllowed#PER_TARGET}, there
+     * will be an attribute named {@code exec_compatible_with} that can be used to add these
+     * constraints.
+     *
+     * <p> Please note that this value is not inherited by child rules, and must be re-set on
+     * them if the same behavior is required.
+     */
     public Builder executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed value) {
       this.executionPlatformConstraintsAllowed = value;
       return this;
     }
 
+    /**
+     * Adds additional execution platform constraints that apply for all targets from this rule.
+     *
+     * <p> Please note that this value is inherited by child rules.
+     */
     public Builder addExecutionPlatformConstraints(Label... constraints) {
       return this.addExecutionPlatformConstraints(Lists.newArrayList(constraints));
     }
 
+    /**
+     * Adds additional execution platform constraints that apply for all targets from this rule.
+     *
+     * <p> Please note that this value is inherited by child rules.
+     */
     public Builder addExecutionPlatformConstraints(Iterable<Label> constraints) {
       Iterables.addAll(this.executionPlatformConstraints, constraints);
       return this;
