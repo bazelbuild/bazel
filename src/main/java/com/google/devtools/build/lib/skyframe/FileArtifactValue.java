@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
@@ -290,6 +291,62 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
     @Override
     public int hashCode() {
       return Objects.hash(Arrays.hashCode(digest), size);
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  static final class InlineFileArtifactValue extends FileArtifactValue {
+    private final byte[] data;
+    private final byte[] digest;
+
+    InlineFileArtifactValue(byte[] data, byte[] digest) {
+      this.data = Preconditions.checkNotNull(data);
+      this.digest = Preconditions.checkNotNull(digest);
+    }
+
+    public ByteArrayInputStream getInputStream() {
+      return new ByteArrayInputStream(data);
+    }
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
+    public long getSize() {
+      return data.length;
+    }
+
+    @Override
+    public long getModifiedTime() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o == this) {
+        return true;
+      }
+      if (!(o instanceof InlineFileArtifactValue)) {
+        return false;
+      }
+      InlineFileArtifactValue that = (InlineFileArtifactValue) o;
+      return Arrays.equals(digest, that.digest);
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(digest);
     }
 
     @Override
