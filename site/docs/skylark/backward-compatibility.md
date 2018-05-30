@@ -241,13 +241,18 @@ This flag disables certain deprecated resource fields on
 
 ### Remove native git repository
 
-When set, the native `git_repository` rule is disabled. The Skylark version
+When set, the native `git_repository` and `new_git_repository` rules are
+disabled. The Skylark versions
 
 ```python
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+load("@bazel_tools//tools/build_defs/repo:git.bzl",
+     "git_repository", "new_git_repository")
 ```
 
-should be used instead.
+should be used instead. These are drop-in replacements of the corresponding
+native rules, however with the additional requirement that all label arguments
+be provided as a fully qualified label (usually starting with `@//`),
+for example: `build_file = "@//third_party:repo.BUILD"`.
 
 *   Flag: `--incompatible_remove_native_git_repository`
 *   Default: `false`
@@ -255,13 +260,20 @@ should be used instead.
 
 ### Remove native http archive
 
-When set, the native `http_archive` rule is disabled. The skylark version
+When set, the native `http_archive` and all related rules are disabled.
+The Skylark version
 
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 ```
 
-should be used instead.
+should be used instead. This is a drop-in replacement, however with the
+additional requirement that all label arguments be provided as
+fully qualified labels (usually starting with `@//`). The Skylark `http_archive`
+is also a drop-in replacement for the native `new_http_archive` (with
+the same proviso). `http.bzl` also
+provides `http_jar` and `http_file` (the latter only supports the `urls`
+parameter, not `url`).
 
 *   Flag: `--incompatible_remove_native_http_archive`
 *   Default: `false`
