@@ -22,3 +22,10 @@ sh_binary(
     data = ["bar-sh-data.txt"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
+
+cc_binary(
+    name = "bar-cc",
+    srcs = ["bar.cc"],
+    data = ["bar-cc-data.txt"],
+    deps = ["@bazel_tools//tools/cpp/runfiles"],
+)

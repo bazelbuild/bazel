@@ -17,6 +17,7 @@ filegroup(
     srcs = [
         "BUILD.tools",
         "runfiles.cc",
+        "runfiles.h",
     ],
     visibility = ["//tools:__pkg__"],
 )
