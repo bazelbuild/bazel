@@ -280,7 +280,7 @@ public class FilesetManifestTest {
       assertThat(e).hasMessageThat()
           .isEqualTo(
               "runfiles target 'foo' is not absolute, and could not be resolved in the same "
-              + "Fileset");
+                  + "Fileset");
     }
   }
 

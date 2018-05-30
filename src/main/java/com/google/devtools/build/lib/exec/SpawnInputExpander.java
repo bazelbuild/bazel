@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior.ERROR;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -27,6 +25,7 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
+import com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -46,6 +45,7 @@ public class SpawnInputExpander {
 
   private final Path execRoot;
   private final boolean strict;
+  private final RelativeSymlinkBehavior relSymlinkBehavior;
 
   /**
    * Creates a new instance. If strict is true, then the expander checks for directories in runfiles
@@ -63,8 +63,29 @@ public class SpawnInputExpander {
    * for now.
    */
   public SpawnInputExpander(Path execRoot, boolean strict) {
+    this(execRoot, strict, RelativeSymlinkBehavior.ERROR);
+  }
+
+  /**
+   * Creates a new instance. If strict is true, then the expander checks for directories in runfiles
+   * and throws an exception if it finds any. Otherwise it silently ignores directories in runfiles
+   * and adds a mapping for them. At this time, directories in filesets are always silently added as
+   * mappings.
+   *
+   * <p>Directories in inputs are a correctness issue: Bazel only tracks dependencies at the action
+   * level, and it does not track dependencies on directories. Making a directory available to a
+   * spawn even though it's contents are not tracked as dependencies leads to incorrect incremental
+   * builds, since changes to the contents do not trigger action invalidation.
+   *
+   * <p>As such, all spawn strategies should always be strict and not make directories available to
+   * the subprocess. However, that's a breaking change, and therefore we make it depend on this flag
+   * for now.
+   */
+  public SpawnInputExpander(
+      Path execRoot, boolean strict, RelativeSymlinkBehavior relSymlinkBehavior) {
     this.execRoot = execRoot;
     this.strict = strict;
+    this.relSymlinkBehavior = relSymlinkBehavior;
   }
 
   private void addMapping(
@@ -115,7 +136,8 @@ public class SpawnInputExpander {
       Map<PathFragment, ActionInput> inputMappings, Artifact manifest, String workspaceName)
       throws IOException {
     FilesetManifest filesetManifest =
-        FilesetManifest.parseManifestFile(manifest.getExecPath(), execRoot, workspaceName, ERROR);
+        FilesetManifest.parseManifestFile(
+            manifest.getExecPath(), execRoot, workspaceName, relSymlinkBehavior);
     for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
       String value = mapping.getValue();
       ActionInput artifact = value == null ? EMPTY_FILE : ActionInputHelper.fromPath(value);
@@ -123,14 +145,16 @@ public class SpawnInputExpander {
     }
   }
 
-  public void addFilesetManifests(
+  @VisibleForTesting
+  void addFilesetManifests(
       Map<PathFragment, ImmutableList<FilesetOutputSymlink>> filesetMappings,
       Map<PathFragment, ActionInput> inputMappings)
       throws IOException {
     for (PathFragment manifestExecpath : filesetMappings.keySet()) {
       ImmutableList<FilesetOutputSymlink> outputSymlinks = filesetMappings.get(manifestExecpath);
       FilesetManifest filesetManifest =
-          FilesetManifest.constructFilesetManifest(outputSymlinks, manifestExecpath, ERROR);
+          FilesetManifest.constructFilesetManifest(
+              outputSymlinks, manifestExecpath, relSymlinkBehavior);
 
       for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
         String value = mapping.getValue();
