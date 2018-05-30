@@ -526,14 +526,50 @@ public final class EvalUtils {
   public static List<Integer> getSliceIndices(
       Object startObj, Object endObj, Object stepObj, int length, Location loc)
       throws EvalException {
-    int start;
-    int end;
-    int step;
+    int step = getSliceStep(stepObj, loc);
+    int end = getSliceEnd(endObj, length, loc, step);
+    int start = getSliceStart(startObj, length, loc, step);
+    return getSliceIndices(start, end, step, length);
+  }
 
+  /** @return The valid slice end index or throws {@link EvalException}. */
+  public static int getSliceEnd(Object endObj, int length, Location loc, int step)
+      throws EvalException {
+    int end;
+    if (endObj == Runtime.NONE) {
+      // If step is negative, can't use -1 for end since that would be converted
+      // to the rightmost element's position.
+      end = (step > 0) ? length : -length - 1;
+    } else if (endObj instanceof Integer) {
+      end = (Integer) endObj;
+    } else {
+      throw new EvalException(loc, String.format("slice end must be an integer, not '%s'", endObj));
+    }
+    return end;
+  }
+
+  /** @return The valid slice start index or throws {@link EvalException}. */
+  public static int getSliceStart(Object startObj, int length, Location loc, int step)
+      throws EvalException {
+    int start;
+    if (startObj == Runtime.NONE) {
+      start = (step > 0) ? 0 : length - 1;
+    } else if (startObj instanceof Integer) {
+      start = (Integer) startObj;
+    } else {
+      throw new EvalException(
+          loc, String.format("slice start must be an integer, not '%s'", startObj));
+    }
+    return start;
+  }
+
+  /** @return The valid slice step or throws {@link EvalException}. */
+  public static int getSliceStep(Object stepObj, Location loc) throws EvalException {
+    int step;
     if (stepObj == Runtime.NONE) {
       step = 1;
     } else if (stepObj instanceof Integer) {
-      step = ((Integer) stepObj).intValue();
+      step = (Integer) stepObj;
     } else {
       throw new EvalException(
           loc, String.format("slice step must be an integer, not '%s'", stepObj));
@@ -541,26 +577,7 @@ public final class EvalUtils {
     if (step == 0) {
       throw new EvalException(loc, "slice step cannot be zero");
     }
-
-    if (startObj == Runtime.NONE) {
-      start = (step > 0) ? 0 : length - 1;
-    } else if (startObj instanceof Integer) {
-      start = ((Integer) startObj).intValue();
-    } else {
-      throw new EvalException(
-          loc, String.format("slice start must be an integer, not '%s'", startObj));
-    }
-    if (endObj == Runtime.NONE) {
-      // If step is negative, can't use -1 for end since that would be converted
-      // to the rightmost element's position.
-      end = (step > 0) ? length : -length - 1;
-    } else if (endObj instanceof Integer) {
-      end = ((Integer) endObj).intValue();
-    } else {
-      throw new EvalException(loc, String.format("slice end must be an integer, not '%s'", endObj));
-    }
-
-    return getSliceIndices(start, end, step, length);
+    return step;
   }
 
   /** @return true if x is Java null or Skylark None */
