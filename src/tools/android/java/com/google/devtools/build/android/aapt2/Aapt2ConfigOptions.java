@@ -180,7 +180,7 @@ public class Aapt2ConfigOptions extends OptionsBase {
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     name = "generatePseudoLocale",
-    defaultValue = "false",
+    defaultValue = "true",
     category = "config",
     help = "Whether to generate pseudo locales during compilation."
   )
