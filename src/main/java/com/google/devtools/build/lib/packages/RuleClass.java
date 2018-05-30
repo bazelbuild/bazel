@@ -615,6 +615,7 @@ public class RuleClass {
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<Label> requiredToolchains = new HashSet<>();
     private boolean supportsPlatforms = true;
+    private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
 
     /**
      * Constructs a new {@code RuleClassBuilder} using all attributes from all
@@ -734,6 +735,7 @@ public class RuleClass {
           supportsConstraintChecking,
           requiredToolchains,
           supportsPlatforms,
+          outputFileKind,
           attributes.values());
     }
 
@@ -1080,6 +1082,18 @@ public class RuleClass {
     }
 
     /**
+     * Sets the kind of output files this rule creates.
+     * DO NOT USE! This only exists to support the non-open-sourced {@code fileset} rule.
+     * {@see OutputFile.Kind}.
+     */
+    public Builder setOutputFileKind(OutputFile.Kind outputFileKind) {
+      this.outputFileKind = outputFileKind;
+      return this;
+    }
+
+
+
+    /**
      * Declares that instances of this rule are compatible with the specified environments,
      * in addition to the defaults declared by their environment groups. This can be overridden
      * by rule-specific declarations. See
@@ -1264,6 +1278,7 @@ public class RuleClass {
   @Nullable private final Label ruleDefinitionEnvironmentLabel;
 
   @Nullable private final String ruleDefinitionEnvironmentHashCode;
+  private final OutputFile.Kind outputFileKind;
 
   /**
    * The set of configuration fragments which are legal for this rule's implementation to access.
@@ -1328,6 +1343,7 @@ public class RuleClass {
       boolean supportsConstraintChecking,
       Set<Label> requiredToolchains,
       boolean supportsPlatforms,
+      OutputFile.Kind  outputFileKind,
       Collection<Attribute> attributes) {
     this.name = name;
     this.key = key;
@@ -1350,6 +1366,7 @@ public class RuleClass {
     this.optionReferenceFunction = optionReferenceFunction;
     this.ruleDefinitionEnvironmentLabel = ruleDefinitionEnvironmentLabel;
     this.ruleDefinitionEnvironmentHashCode = ruleDefinitionEnvironmentHashCode;
+    this.outputFileKind = outputFileKind;
     validateNoClashInPublicNames(attributes);
     this.attributes = ImmutableList.copyOf(attributes);
     this.workspaceOnly = workspaceOnly;
@@ -2172,6 +2189,11 @@ public class RuleClass {
 
   public boolean supportsPlatforms() {
     return supportsPlatforms;
+  }
+
+  @Nullable
+  public OutputFile.Kind  getOutputFileKind() {
+    return outputFileKind;
   }
 
   public static boolean isThirdPartyPackage(PackageIdentifier packageIdentifier) {

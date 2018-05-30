@@ -554,7 +554,7 @@ public final class RuleContext extends TargetContext
    * which this target (which must be an OutputFile or a Rule) is associated.
    */
   public Artifact createOutputArtifact() {
-    return internalCreateOutputArtifact(getTarget());
+    return internalCreateOutputArtifact(getTarget(), OutputFile.Kind.FILE);
   }
 
   /**
@@ -563,7 +563,7 @@ public final class RuleContext extends TargetContext
    * @see #createOutputArtifact()
    */
   public Artifact createOutputArtifact(OutputFile out) {
-    return internalCreateOutputArtifact(out);
+    return internalCreateOutputArtifact(out, out.getKind());
   }
 
   /**
@@ -572,13 +572,22 @@ public final class RuleContext extends TargetContext
    * {@link #createOutputArtifact(OutputFile)} can have a more specific
    * signature.
    */
-  private Artifact internalCreateOutputArtifact(Target target) {
+  private Artifact internalCreateOutputArtifact(Target target, OutputFile.Kind outputFileKind) {
     Preconditions.checkState(
         target.getLabel().getPackageIdentifier().equals(getLabel().getPackageIdentifier()),
         "Creating output artifact for target '%s' in different package than the rule '%s' "
             + "being analyzed", target.getLabel(), getLabel());
     ArtifactRoot root = getBinOrGenfilesDirectory();
-    return getPackageRelativeArtifact(target.getName(), root);
+    PathFragment packageRelativePath = getPackageDirectory()
+        .getRelative(PathFragment.create(target.getName()));
+    switch (outputFileKind) {
+      case FILE:
+        return getDerivedArtifact(packageRelativePath, root);
+      case FILESET:
+        return getAnalysisEnvironment().getFilesetArtifact(packageRelativePath, root);
+      default:
+        throw new IllegalStateException();
+    }
   }
 
   /**
@@ -598,6 +607,14 @@ public final class RuleContext extends TargetContext
    */
   public Artifact getPackageRelativeArtifact(String relative, ArtifactRoot root) {
     return getPackageRelativeArtifact(PathFragment.create(relative), root);
+  }
+
+  /**
+   * Creates an artifact in a directory that is unique to the package that contains the rule, thus
+   * guaranteeing that it never clashes with artifacts created by rules in other packages.
+   */
+  public Artifact getPackageRelativeTreeArtifact(String relative, ArtifactRoot root) {
+    return getPackageRelativeTreeArtifact(PathFragment.create(relative), root);
   }
 
   /**

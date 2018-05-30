@@ -22,14 +22,35 @@ import com.google.devtools.build.lib.events.Location;
  */
 public final class OutputFile extends FileTarget {
 
+  /**
+   * A kind of output file.
+   *
+   * The FILESET kind is only supported for a non-open-sourced {@code fileset} rule.
+   */
+  public enum Kind {
+    FILE,
+    FILESET
+  }
+
   private final Rule generatingRule;
+  private final Kind kind;
 
   /**
    * Constructs an output file with the given label, which must be in the given
    * package.
    */
   OutputFile(Package pkg, Label label, Rule generatingRule) {
+    this(pkg, label, Kind.FILE, generatingRule);
+  }
+
+  /**
+   * Constructs an output file with the given label, which must be in the given
+   * package.
+   */
+  OutputFile(Package pkg, Label label,
+      Kind kind, Rule generatingRule) {
     super(pkg, label);
+    this.kind = kind;
     this.generatingRule = generatingRule;
   }
 
@@ -48,6 +69,13 @@ public final class OutputFile extends FileTarget {
    */
   public Rule getGeneratingRule() {
     return generatingRule;
+  }
+
+  /**
+   * Returns the kind of this output file.
+   */
+  public Kind getKind() {
+    return kind;
   }
 
   @Override

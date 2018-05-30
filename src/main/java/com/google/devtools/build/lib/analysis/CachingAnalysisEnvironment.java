@@ -164,9 +164,43 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public ImmutableSet<Artifact> getOrphanArtifacts() {
     if (!allowRegisteringActions) {
-      return ImmutableSet.<Artifact>of();
+      return ImmutableSet.of();
     }
     return ImmutableSet.copyOf(getOrphanArtifactMap().keySet());
+  }
+
+  @Override
+  public ImmutableSet<Artifact> getTreeArtifactsConflictingWithFiles() {
+    if (!allowRegisteringActions) {
+      return ImmutableSet.of();
+    }
+
+    boolean hasTreeArtifacts = false;
+    for (Artifact artifact : artifacts.keySet()) {
+      if (artifact.isTreeArtifact()) {
+        hasTreeArtifacts = true;
+        break;
+      }
+    }
+    if (!hasTreeArtifacts) {
+      return ImmutableSet.of();
+    }
+
+    HashSet<PathFragment> collect = new HashSet<>();
+    for (Artifact artifact : artifacts.keySet()) {
+      if (!artifact.isSourceArtifact() && !artifact.isTreeArtifact()) {
+        collect.add(artifact.getExecPath());
+      }
+    }
+
+    ImmutableSet.Builder<Artifact> sameExecPathTreeArtifacts = ImmutableSet.builder();
+    for (Artifact artifact : artifacts.keySet()) {
+      if (artifact.isTreeArtifact() && collect.contains(artifact.getExecPath())) {
+        sameExecPathTreeArtifacts.add(artifact);
+      }
+    }
+
+    return sameExecPathTreeArtifacts.build();
   }
 
   private Map<Artifact, String> getOrphanArtifactMap() {
