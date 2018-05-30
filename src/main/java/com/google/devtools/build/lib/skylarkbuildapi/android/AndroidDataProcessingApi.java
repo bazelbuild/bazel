@@ -572,7 +572,7 @@ public interface AndroidDataProcessingApi<
             positional = false,
             defaultValue = "[]",
             type = SkylarkList.class,
-            generic1 = AndroidAssetsInfoApi.class,
+            generic1 = TransitiveInfoCollectionApi.class,
             named = true,
             doc =
                 "Dependency targets. Providers will be extracted from these dependencies for each"
