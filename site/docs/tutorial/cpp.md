@@ -408,7 +408,7 @@ Then, check out the following:
 *  The [Java build tutorial](java.md) to get started with
    building Java applications with Bazel.
 
-*  The [android application tutorial](android-app.md) to get started with
+*  The [Android application tutorial](android-app.md) to get started with
    building mobile applications for Android with Bazel.
 
 *  The [iOS application tutorial](ios-app.md) to get started with
