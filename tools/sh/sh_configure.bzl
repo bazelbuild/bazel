@@ -54,7 +54,7 @@ load("@bazel_tools//tools/sh:sh_toolchain.bzl", "sh_toolchain")
 
 sh_toolchain(
     name = "local_sh",
-    path = {sh_path},
+    path = "{sh_path}",
     visibility = ["//visibility:public"],
 )
 
@@ -63,7 +63,7 @@ toolchain(
     toolchain = ":local_sh",
     toolchain_type = "@bazel_tools//tools/sh:toolchain_type",
 )
-""".format(sh_path = "\"%s\"" % sh_path if sh_path else "None"))
+""".format(sh_path = sh_path))
 
 sh_config = repository_rule(
     environ = [

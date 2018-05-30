@@ -1001,9 +1001,6 @@ public class CcCommonTest extends BuildViewTestCase {
           ToolchainRules.INSTANCE.init(builder);
           GenericRules.INSTANCE.init(builder);
           CcRules.INSTANCE.init(builder);
-          // Some tests use genrules so they need the shell toolchain (//tools/sh:toolchain_type) so
-          // we need to support the toolchain rules.
-          ToolchainRules.INSTANCE.init(builder);
           return builder.build();
         }
 

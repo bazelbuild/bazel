@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
@@ -476,10 +475,6 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     boolean foundTool = false;
     boolean foundSetup = false;
     for (ConfiguredTarget prereq : prereqs) {
-      String label = prereq.getLabel().toString();
-      if (label.endsWith(ShToolchain.getToolchainTypeLabelForTesting())) {
-        continue;
-      }
       String name = prereq.getLabel().getName();
       if (name.contains("cc-") || name.contains("jdk")) {
           // Ignore these, they are present due to the implied genrule dependency on crosstool and
