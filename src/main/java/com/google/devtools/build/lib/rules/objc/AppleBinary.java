@@ -139,9 +139,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
     ApplePlatform platform = appleConfiguration.getMultiArchPlatform(platformType);
-    ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap =
-        ruleContext.getPrerequisitesByConfiguration(
-            "non_propagated_deps", Mode.SPLIT, ObjcProvider.SKYLARK_CONSTRUCTOR);
     ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap =
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
     ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndData>
@@ -160,7 +157,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             childConfigurations,
             configToDepsCollectionMap,
             configToCTATDepsCollectionMap,
-            configurationToNonPropagatedObjcMap,
             getDylibProviderTargets(ruleContext));
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();

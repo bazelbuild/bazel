@@ -92,7 +92,6 @@ public class AppleBinarySkylarkApiTest extends AppleBinaryTest {
         "            default=Label('" + toolsLoc + ":xcrunwrapper')),",
         "        'binary_type': attr.string(),",
         "        'bundle_loader': attr.label(aspects=[apple_common.objc_proto_aspect],),",
-        "        'non_propagated_deps': attr.label_list(cfg=apple_common.multi_arch_split),",
         "        'deps': attr.label_list(",
         "             cfg=apple_common.multi_arch_split,",
         "             aspects=[apple_common.objc_proto_aspect],",
