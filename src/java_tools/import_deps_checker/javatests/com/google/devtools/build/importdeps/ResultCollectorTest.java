@@ -24,7 +24,6 @@ import com.google.devtools.build.importdeps.ResultCollector.MissingMember;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,12 +32,21 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ResultCollectorTest {
 
-  private ResultCollector collector;
-
-  @Before
-  public void setup() throws IOException {
-    collector = new ResultCollector();
-  }
+  private final ClassInfo objectClass =
+      ClassInfo.create(
+          "java/lang/Object",
+          Paths.get("bootclasspath.jar"),
+          false,
+          ImmutableList.of(),
+          ImmutableSet.of());
+  private final ClassInfo stringClass =
+      ClassInfo.create(
+          "java/lang/String",
+          Paths.get("string.jar"),
+          false,
+          ImmutableList.of(objectClass),
+          ImmutableSet.of());
+  private ResultCollector collector = new ResultCollector();
 
   @Test
   public void testEmptyCollector() throws IOException {
@@ -67,14 +75,16 @@ public class ResultCollectorTest {
     collector.addMissingOrIncompleteClass(
         "java/lang/String",
         IncompleteState.create(
-            ClassInfo.create(
-                "java/lang/String", Paths.get("a"), true, ImmutableList.of(), ImmutableSet.of()),
-            ImmutableList.of("java/lang/Object")));
+            stringClass, ResolutionFailureChain.createMissingClass("java/lang/Object")));
     assertThat(collector.getSortedIncompleteClasses()).hasSize(1);
     assertThat(collector.getSortedIncompleteClasses().get(0).classInfo().get())
         .isEqualTo(
             ClassInfo.create(
-                "java/lang/String", Paths.get("a"), true, ImmutableList.of(), ImmutableSet.of()));
+                "java/lang/String",
+                Paths.get("string.jar"),
+                false,
+                ImmutableList.of(objectClass),
+                ImmutableSet.of()));
     assertThat(collector.isEmpty()).isFalse();
   }
 

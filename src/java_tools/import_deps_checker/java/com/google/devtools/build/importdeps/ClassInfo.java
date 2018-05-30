@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Strings;
+import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.nio.file.Path;
@@ -27,7 +28,7 @@ import java.nio.file.Path;
  * classes.
  */
 @AutoValue
-public abstract class ClassInfo {
+public abstract class ClassInfo implements Comparable<ClassInfo> {
 
   public static ClassInfo create(
       String internalName,
@@ -62,6 +63,15 @@ public abstract class ClassInfo {
       }
     }
     return false;
+  }
+
+  @Override
+  public int compareTo(ClassInfo other) {
+    return ComparisonChain.start()
+        .compare(internalName(), other.internalName())
+        .compare(jarPath(), other.jarPath())
+        .compareFalseFirst(directDep(), other.directDep())
+        .result();
   }
 
   /** A member is either a method or a field. */

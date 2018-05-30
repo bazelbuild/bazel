@@ -21,93 +21,49 @@ Missing java.lang.invoke.MethodHandle
 Missing java.lang.invoke.MethodHandles$Lookup
 Missing java.lang.invoke.MethodType
 Missing java.util.Objects
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Client
-    missing ancestor: java.lang.Object
-    resolution failure path: com.google.devtools.build.importdeps.testdata.Library -> java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Client$EnumTest
-    missing ancestor: java.lang.Enum
-    resolution failure path: java.lang.Enum
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Client$InnerClassWithSyntheticConstructorParam
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Library
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Library$Class1
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Library$Class10
-    missing ancestor: java.lang.Object
-    resolution failure path: com.google.devtools.build.importdeps.testdata.Library$Class9 -> java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Library$Class2
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Library$Class3
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Library$Class4
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Library$Class5
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Library$Class6
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Library$Class7
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Library$Class8
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Library$Class9
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryAnnotations
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationAnnotation
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationFlag
-    missing ancestor: java.lang.Enum
-    resolution failure path: java.lang.Enum
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ClassAnnotation
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ConstructorAnnotation
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryAnnotations$FieldAnnotation
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryAnnotations$MethodAnnotation
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ParameterAnnotation
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryAnnotations$TypeAnnotation
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryException
-    missing ancestor: java.lang.Exception
-    resolution failure path: java.lang.Exception
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryInterface
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryInterface$Func
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryInterface$One
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryInterface$Two
-    missing ancestor: java.lang.Object
-    resolution failure path: java.lang.Object
+Indirectly missing class java.lang.Enum. Referenced by:
+    com.google.devtools.build.importdeps.testdata.Client$EnumTest
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationFlag
+Indirectly missing class java.lang.Exception. Referenced by:
+    com.google.devtools.build.importdeps.testdata.LibraryException
+Indirectly missing class java.lang.Object. Referenced by:
+    com.google.devtools.build.importdeps.testdata.Client$InnerClassWithSyntheticConstructorParam
+    com.google.devtools.build.importdeps.testdata.Library
+    com.google.devtools.build.importdeps.testdata.Library$Class1
+    com.google.devtools.build.importdeps.testdata.Library$Class11
+    com.google.devtools.build.importdeps.testdata.Library$Class2
+    com.google.devtools.build.importdeps.testdata.Library$Class3
+    com.google.devtools.build.importdeps.testdata.Library$Class4
+    com.google.devtools.build.importdeps.testdata.Library$Class5
+    com.google.devtools.build.importdeps.testdata.Library$Class6
+    com.google.devtools.build.importdeps.testdata.Library$Class7
+    com.google.devtools.build.importdeps.testdata.Library$Class8
+    com.google.devtools.build.importdeps.testdata.Library$Class9
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ClassAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ConstructorAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$FieldAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$MethodAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ParameterAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$TypeAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryInterface
+    com.google.devtools.build.importdeps.testdata.LibraryInterface$Func
+    com.google.devtools.build.importdeps.testdata.LibraryInterface$InterfaceBar
+    com.google.devtools.build.importdeps.testdata.LibraryInterface$InterfaceFoo
+    com.google.devtools.build.importdeps.testdata.LibraryInterface$One
+    com.google.devtools.build.importdeps.testdata.LibraryInterface$Two
+Indirectly missing class java.lang.annotation.Annotation. Referenced by:
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ClassAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ConstructorAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$FieldAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$MethodAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ParameterAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$TypeAnnotation
 Missing member 'name' in class com.google.devtools.build.importdeps.testdata.Client$EnumTest : name=name, descriptor=()Ljava/lang/String;
 Missing member 'ordinal' in class com.google.devtools.build.importdeps.testdata.Client$EnumTest : name=ordinal, descriptor=()I
 ===Total===
 missing=20
-incomplete=28
+incomplete=29
 missing_members=2

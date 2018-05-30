@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.importdeps;
 
-import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -100,20 +99,15 @@ public abstract class AbstractClassEntryState {
   public abstract static class IncompleteState extends AbstractClassEntryState {
 
     public static IncompleteState create(
-        ClassInfo classInfo, ImmutableList<String> resolutionFailurePath) {
-      checkArgument(
-          !resolutionFailurePath.isEmpty(),
-          "The resolution path should contain at least one element, the missing ancestor. %s",
-          resolutionFailurePath);
+        ClassInfo classInfo, ResolutionFailureChain resolutionFailureChain) {
       return new AutoValue_AbstractClassEntryState_IncompleteState(
-          Optional.of(classInfo), resolutionFailurePath);
+          Optional.of(classInfo), resolutionFailureChain);
     }
 
-    public abstract ImmutableList<String> getResolutionFailurePath();
+    public abstract ResolutionFailureChain resolutionFailureChain();
 
-    public String getMissingAncestor() {
-      ImmutableList<String> path = getResolutionFailurePath();
-      return path.get(path.size() - 1);
+    public ImmutableList<String> missingAncestors() {
+      return resolutionFailureChain().missingClasses();
     }
 
     @Override

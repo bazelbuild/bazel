@@ -48,7 +48,8 @@ public class ResultCollector {
           "The old value and the new value are not the same object. old=%s, new=%s",
           oldValue,
           state);
-      missingClasss.add(state.asIncompleteState().getMissingAncestor()); // Add the real missing.
+      // Add the real missing.
+      state.asIncompleteState().missingAncestors().forEach(missingClasss::add);
     } else if (state.isMissingState()) {
       missingClasss.add(internalName);
     } else {
