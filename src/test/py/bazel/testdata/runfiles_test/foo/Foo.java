@@ -28,7 +28,7 @@ public class Foo {
     Runfiles r = Runfiles.create();
     System.out.println("rloc=" + r.rlocation("foo_ws/foo/datadep/hello.txt"));
 
-    for (String lang : new String[] {"py", "java", "sh"}) {
+    for (String lang : new String[] {"py", "java", "sh", "cc"}) {
       String path = r.rlocation(childBinaryName(lang));
       if (path == null || path.isEmpty()) {
         throw new IOException("cannot find child binary for " + lang);
