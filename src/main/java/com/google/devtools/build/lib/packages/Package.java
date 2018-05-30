@@ -498,11 +498,13 @@ public class Package {
     // stat(2) is executed.
     Path filename = getPackageDirectory().getRelative(targetName);
     String suffix;
-    if (!PathFragment.isNormalized(targetName)) {
-      // Don't check for file existence in this case because the error message
-      // would be confusing and wrong. If the targetName is "foo/bar/.", and
-      // there is a directory "foo/bar", it doesn't mean that "//pkg:foo/bar/."
-      // is a valid label.
+    if (!PathFragment.isNormalized(targetName) || "*".equals(targetName)) {
+      // Don't check for file existence if the target name is not normalized
+      // because the error message would be confusing and wrong. If the
+      // targetName is "foo/bar/.", and there is a directory "foo/bar", it
+      // doesn't mean that "//pkg:foo/bar/." is a valid label.
+      // Also don't check if the target name is a single * character since
+      // it's invalid on Windows.
       suffix = "";
     } else if (filename.isDirectory()) {
       suffix = "; however, a source directory of this name exists.  (Perhaps add "
