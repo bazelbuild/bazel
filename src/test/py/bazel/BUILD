@@ -138,6 +138,13 @@ py_test(
     }),
 )
 
+py_test(
+    name = "query_test",
+    size = "medium",
+    srcs = ["query_test.py"],
+    deps = [":test_base"],
+)
+
 test_suite(
     name = "windows_tests",
     tags = [
