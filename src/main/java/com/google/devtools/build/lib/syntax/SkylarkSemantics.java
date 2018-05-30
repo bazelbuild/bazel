@@ -69,6 +69,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatiblePackageNameIsAFunction();
 
+  public abstract boolean incompatibleRangeType();
+
   public abstract boolean incompatibleRemoveNativeGitRepository();
 
   public abstract boolean incompatibleRemoveNativeHttpArchive();
@@ -107,6 +109,7 @@ public abstract class SkylarkSemantics {
           .incompatibleNewActionsApi(false)
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatiblePackageNameIsAFunction(false)
+          .incompatibleRangeType(false)
           .incompatibleRemoveNativeGitRepository(false)
           .incompatibleRemoveNativeHttpArchive(false)
           .incompatibleStringIsNotIterable(false)
@@ -147,6 +150,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
 
     public abstract Builder incompatiblePackageNameIsAFunction(boolean value);
+
+    public abstract Builder incompatibleRangeType(boolean value);
 
     public abstract Builder incompatibleRemoveNativeGitRepository(boolean value);
 

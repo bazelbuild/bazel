@@ -266,6 +266,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatiblePackageNameIsAFunction;
 
   @Option(
+      name = "incompatible_range_type",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, range() will use the 'range' type instead of 'list'."
+  )
+  public boolean incompatibleRangeType;
+
+  @Option(
     name = "incompatible_remove_native_git_repository",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -338,6 +351,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
         .incompatiblePackageNameIsAFunction(incompatiblePackageNameIsAFunction)
+        .incompatibleRangeType(incompatibleRangeType)
         .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)
         .incompatibleRemoveNativeHttpArchive(incompatibleRemoveNativeHttpArchive)
         .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)

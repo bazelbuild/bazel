@@ -58,6 +58,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     codedOut.writeBoolNoTag(semantics.incompatibleNewActionsApi());
     codedOut.writeBoolNoTag(semantics.incompatibleNoSupportToolsInActionInputs());
     codedOut.writeBoolNoTag(semantics.incompatiblePackageNameIsAFunction());
+    codedOut.writeBoolNoTag(semantics.incompatibleRangeType());
     codedOut.writeBoolNoTag(semantics.incompatibleRemoveNativeGitRepository());
     codedOut.writeBoolNoTag(semantics.incompatibleRemoveNativeHttpArchive());
     codedOut.writeBoolNoTag(semantics.incompatibleStringIsNotIterable());
@@ -85,6 +86,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     builder.incompatibleNewActionsApi(codedIn.readBool());
     builder.incompatibleNoSupportToolsInActionInputs(codedIn.readBool());
     builder.incompatiblePackageNameIsAFunction(codedIn.readBool());
+    builder.incompatibleRangeType(codedIn.readBool());
     builder.incompatibleRemoveNativeGitRepository(codedIn.readBool());
     builder.incompatibleRemoveNativeHttpArchive(codedIn.readBool());
     builder.incompatibleStringIsNotIterable(codedIn.readBool());
