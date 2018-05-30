@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
@@ -28,11 +27,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     doc = "Wrapper for every C++ compilation provider"
 )
 public interface CcCompilationInfoApi {
-  @SkylarkCallable(
-      name = "cc_compilation_context",
-      structField = true,
-      allowReturnNones = true,
-      doc = "Returns compilation information for this C++ target."
-  )
-  public CcCompilationContextApi getCcCompilationContext();
 }
