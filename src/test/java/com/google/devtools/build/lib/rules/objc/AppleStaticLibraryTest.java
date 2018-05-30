@@ -215,8 +215,8 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         "--crosstool_top=//tools/osx/crosstool:crosstool");
 
     CommandAction action = (CommandAction) lipoLibAction("//package:test");
-    String i386Prefix = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS, null);
-    String x8664Prefix = configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null);
+    String i386Prefix = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS);
+    String x8664Prefix = configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS);
 
     CommandAction i386BinAction =
         (CommandAction)
