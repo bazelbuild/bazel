@@ -250,7 +250,7 @@ public class IjarTests {
       Enumeration<JarEntry> entries = jf.entries();
       while (entries.hasMoreElements()) {
         JarEntry je = entries.nextElement();
-        if (!je.getName().endsWith(".class")) {
+        if (!je.getName().endsWith(".class") && !je.getName().endsWith(".kotlin_module")) {
           continue;
         }
         classes.put(je.getName(), ByteStreams.toByteArray(jf.getInputStream(je)));
@@ -282,6 +282,15 @@ public class IjarTests {
     // ijar passes module-infos through unmodified, so it doesn't care that these ones are bogus
     assertThat(new String(lib.get("module-info.class"), UTF_8)).isEqualTo("hello");
     assertThat(new String(lib.get("foo/module-info.class"), UTF_8)).isEqualTo("goodbye");
+  }
+
+  @Test
+  public void kotlinModule() throws Exception {
+    Map<String, byte[]> lib = readJar("third_party/ijar/test/kotlin_module-interface.jar");
+    assertThat(lib.keySet())
+        .containsExactly("java/lang/String.class", "META-INF/bar.kotlin_module");
+    // ijar passes kotlin modules through unmodified
+    assertThat(new String(lib.get("META-INF/bar.kotlin_module"), UTF_8)).isEqualTo("hello");
   }
 
   @Test
