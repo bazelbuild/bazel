@@ -551,6 +551,19 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     assertDoesNotContainEvent("//conditions:a"); // This one is legitimate..
   }
 
+  @Test
+  public void configKeyNonexistentTarget() throws Exception {
+    reporter.removeHandler(failFastHandler); // Expect errors.
+    scratch.file("foo/BUILD",
+        "genrule(",
+        "    name = 'g',",
+        "    outs = ['g.out'],",
+        "    cmd = select({':fake': ''})",
+        ")");
+    assertThat(getConfiguredTarget("//foo:g")).isNull();
+    assertContainsEvent("//foo:fake is not a valid configuration key for //foo:g");
+  }
+
   /**
    * Tests config keys with multiple requirements.
    */
