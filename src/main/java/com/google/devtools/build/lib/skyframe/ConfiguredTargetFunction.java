@@ -399,7 +399,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     execConstraintLabels.addAll(rule.getRuleClassObject().getExecutionPlatformConstraints());
 
-    if (rule.getRuleClassObject().executionPlatformConstraintsAllowed() == ExecutionPlatformConstraintsAllowed.PER_TARGET
+    if (rule.getRuleClassObject().executionPlatformConstraintsAllowed()
+            == ExecutionPlatformConstraintsAllowed.PER_TARGET
         && mapper.has(PlatformSemantics.EXEC_COMPATIBLE_WITH_ATTR)) {
       execConstraintLabels.addAll(
           mapper.get(PlatformSemantics.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));

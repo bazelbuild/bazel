@@ -674,8 +674,11 @@ public class RuleClass {
               "Attribute %s is inherited multiple times in %s ruleclass",
               attrName,
               name);
-          if (attrName.equals("exec_compatible_with") && parent.executionPlatformConstraintsAllowed == ExecutionPlatformConstraintsAllowed.PER_TARGET) {
-            // This attribute should not be inherited because executionPlatformConstraintsAllowed is not inherited.
+          if (attrName.equals("exec_compatible_with")
+              && parent.executionPlatformConstraintsAllowed
+                  == ExecutionPlatformConstraintsAllowed.PER_TARGET) {
+            // This attribute should not be inherited because executionPlatformConstraintsAllowed is
+            // not inherited.
             continue;
           }
           attributes.put(attrName, attribute);
@@ -1217,8 +1220,8 @@ public class RuleClass {
      * will be an attribute named {@code exec_compatible_with} that can be used to add these
      * constraints.
      *
-     * <p> Please note that this value is not inherited by child rules, and must be re-set on
-     * them if the same behavior is required.
+     * <p>Please note that this value is not inherited by child rules, and must be re-set on them if
+     * the same behavior is required.
      */
     public Builder executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed value) {
       this.executionPlatformConstraintsAllowed = value;
@@ -1228,7 +1231,7 @@ public class RuleClass {
     /**
      * Adds additional execution platform constraints that apply for all targets from this rule.
      *
-     * <p> Please note that this value is inherited by child rules.
+     * <p>Please note that this value is inherited by child rules.
      */
     public Builder addExecutionPlatformConstraints(Label... constraints) {
       return this.addExecutionPlatformConstraints(Lists.newArrayList(constraints));
@@ -1237,7 +1240,7 @@ public class RuleClass {
     /**
      * Adds additional execution platform constraints that apply for all targets from this rule.
      *
-     * <p> Please note that this value is inherited by child rules.
+     * <p>Please note that this value is inherited by child rules.
      */
     public Builder addExecutionPlatformConstraints(Iterable<Label> constraints) {
       Iterables.addAll(this.executionPlatformConstraints, constraints);
