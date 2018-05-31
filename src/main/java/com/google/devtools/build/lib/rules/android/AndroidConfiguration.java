@@ -37,8 +37,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidConfigurationApi;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -50,13 +49,9 @@ import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
 @AutoCodec
-@SkylarkModule(
-  name = "android",
-  doc = "A configuration fragment for Android.",
-  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
 @Immutable
-public class AndroidConfiguration extends BuildConfiguration.Fragment {
+public class AndroidConfiguration extends BuildConfiguration.Fragment
+    implements AndroidConfigurationApi {
   /**
    * Converter for {@link
    * com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher}
@@ -1069,11 +1064,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   @SkylarkConfigurationField(
-    name = "android_sdk_label",
-    doc = "Returns the target denoted by the value of the --android_sdk flag",
-    defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
-    defaultInToolRepository = true
-  )
+      name = "android_sdk_label",
+      doc = "Returns the target denoted by the value of the --android_sdk flag",
+      defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
+      defaultInToolRepository = true)
   public Label getSdk() {
     return sdk;
   }

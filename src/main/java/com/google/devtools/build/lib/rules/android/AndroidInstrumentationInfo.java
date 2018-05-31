@@ -19,9 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidInstrumentationInfoApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -29,13 +27,9 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 /**
  * A provider for targets that create Android instrumentations. Consumed by Android testing rules.
  */
- @SkylarkModule(
-    name = "AndroidInstrumentationInfo",
-    doc = "Android instrumentation and target APKs to run in a test",
-    category = SkylarkModuleCategory.PROVIDER
-)
 @Immutable
-public class AndroidInstrumentationInfo extends NativeInfo {
+public class AndroidInstrumentationInfo extends NativeInfo
+    implements AndroidInstrumentationInfoApi<Artifact> {
 
   private static final String SKYLARK_NAME = "AndroidInstrumentationInfo";
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
@@ -50,7 +44,7 @@ public class AndroidInstrumentationInfo extends NativeInfo {
               "instrumentation_apk"),
           /*defaultValues=*/ null,
           /*types=*/ ImmutableList.of(
-              SkylarkType.of(Artifact.class),   // target_apk
+              SkylarkType.of(Artifact.class), // target_apk
               SkylarkType.of(Artifact.class))); // instrumentation_apk
   public static final NativeProvider<AndroidInstrumentationInfo> PROVIDER =
       new NativeProvider<AndroidInstrumentationInfo>(
@@ -72,20 +66,12 @@ public class AndroidInstrumentationInfo extends NativeInfo {
     this.instrumentationApk = instrumentationApk;
   }
 
-  @SkylarkCallable(
-      name = "target_apk",
-      doc = "Returns the target APK of the instrumentation test.",
-      structField = true
-  )
+  @Override
   public Artifact getTargetApk() {
     return targetApk;
   }
 
-  @SkylarkCallable(
-      name = "instrumentation_apk",
-      doc = "Returns the instrumentation APK that should be executed.",
-      structField = true
-  )
+  @Override
   public Artifact getInstrumentationApk() {
     return instrumentationApk;
   }

@@ -6,7 +6,7 @@
 #   those which contain pure-Skylark concepts, such as the interpreter or
 #   annotation interfaces).
 
-package(default_visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"])
+package(default_visibility = ["//src:__subpackages__"])
 
 licenses(["notice"])  # Apache 2.0
 

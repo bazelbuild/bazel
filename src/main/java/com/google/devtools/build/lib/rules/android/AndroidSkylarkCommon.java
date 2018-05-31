@@ -14,49 +14,25 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSkylarkCommonApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Common utilities for Skylark rules related to Android. */
-@SkylarkModule(
-  name = "android_common",
-  doc = "Common utilities and functionality related to Android rules."
-)
-public class AndroidSkylarkCommon {
+public class AndroidSkylarkCommon implements AndroidSkylarkCommonApi<Artifact> {
 
-  @SkylarkCallable(
-    name = "create_device_broker_info",
-    documented = false,
-    parameters = {@Param(name = "type", type = String.class)}
-  )
+  @Override
   public AndroidDeviceBrokerInfo createDeviceBrokerInfo(String deviceBrokerType) {
     return new AndroidDeviceBrokerInfo(deviceBrokerType);
   }
 
-  @SkylarkCallable(
-    name = "resource_source_directory",
-    allowReturnNones = true,
-    doc =
-        "Returns a source directory for Android resource file. "
-            + "The source directory is a prefix of resource's relative path up to "
-            + "a directory that designates resource kind (cf. "
-            + "http://developer.android.com/guide/topics/resources/providing-resources.html)."
-  )
+  @Override
   public PathFragment getSourceDirectoryRelativePathFromResource(Artifact resource) {
     return AndroidCommon.getSourceDirectoryRelativePathFromResource(resource);
   }
 
-  @SkylarkCallable(
-    name = "multi_cpu_configuration",
-    doc =
-        "A configuration for rule attributes that compiles native code according to "
-            + "the --fat_apk_cpu and --android_crosstool_top flags.",
-    structField = true
-  )
-  public SplitTransition getAndroidSplitTransition() {
+  @Override
+  public AndroidSplitTransititionApi getAndroidSplitTransition() {
     return AndroidRuleClasses.ANDROID_SPLIT_TRANSITION;
   }
 }

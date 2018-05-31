@@ -60,8 +60,8 @@ import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -206,9 +206,12 @@ public final class AndroidRuleClasses {
   }
 
   @AutoCodec
-  public static final SplitTransition ANDROID_SPLIT_TRANSITION = new AndroidSplitTransition();
+  public static final AndroidSplitTransition ANDROID_SPLIT_TRANSITION =
+      new AndroidSplitTransition();
 
-  private static final class AndroidSplitTransition implements SplitTransition, SkylarkValue {
+  /** Android Split configuration transition for properly handling native dependencies */
+  public static final class AndroidSplitTransition
+      implements SplitTransition, AndroidSplitTransititionApi {
     private static void setCrosstoolToAndroid(BuildOptions output, BuildOptions input) {
       AndroidConfiguration.Options inputAndroidOptions =
           input.get(AndroidConfiguration.Options.class);
@@ -375,79 +378,97 @@ public final class AndroidRuleClasses {
           // build_tools_version is assumed to be the latest version if omitted.
           .add(attr("build_tools_version", STRING))
           // This is the Proguard that comes from the --proguard_top attribute.
-          .add(attr(":proguard", LABEL)
-              .cfg(HostTransition.INSTANCE)
-              .value(JavaSemantics.PROGUARD).exec())
+          .add(
+              attr(":proguard", LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .value(JavaSemantics.PROGUARD)
+                  .exec())
           // This is the Proguard in the BUILD file that contains the android_sdk rule. Used when
           // --proguard_top is not specified.
-          .add(attr("proguard", LABEL).mandatory()
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE)
-              .exec())
-          .add(attr("aapt", LABEL).mandatory()
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE)
-              .exec())
-          .add(attr("aapt2", LABEL)
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE)
-              .exec())
-          .add(attr("dx", LABEL).mandatory()
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE)
-              .exec())
+          .add(
+              attr("proguard", LABEL)
+                  .mandatory()
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE)
+                  .exec())
+          .add(
+              attr("aapt", LABEL)
+                  .mandatory()
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE)
+                  .exec())
+          .add(attr("aapt2", LABEL).cfg(HostTransition.INSTANCE).allowedFileTypes(ANY_FILE).exec())
+          .add(
+              attr("dx", LABEL)
+                  .mandatory()
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE)
+                  .exec())
           .add(
               attr("main_dex_list_creator", LABEL)
                   .mandatory()
                   .cfg(HostTransition.INSTANCE)
                   .allowedFileTypes(ANY_FILE)
                   .exec())
-          .add(attr("adb", LABEL)
-              .mandatory()
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE)
-              .exec())
-          .add(attr("framework_aidl", LABEL)
-              .mandatory()
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE))
-          .add(attr("aidl", LABEL)
-              .mandatory()
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE)
-              .exec())
+          .add(
+              attr("adb", LABEL)
+                  .mandatory()
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE)
+                  .exec())
+          .add(
+              attr("framework_aidl", LABEL)
+                  .mandatory()
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE))
+          .add(
+              attr("aidl", LABEL)
+                  .mandatory()
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE)
+                  .exec())
           .add(attr("aidl_lib", LABEL).allowedFileTypes(JavaSemantics.JAR))
-          .add(attr("android_jar", LABEL)
-              .mandatory()
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(JavaSemantics.JAR))
+          .add(
+              attr("android_jar", LABEL)
+                  .mandatory()
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(JavaSemantics.JAR))
           // TODO(b/67903726): Make this attribute mandatory after updating all android_sdk rules.
-          .add(attr("source_properties", LABEL)
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE))
-          .add(attr("shrinked_android_jar", LABEL)
-              .mandatory()
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE))
-          .add(attr("annotations_jar", LABEL)
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE))
-          .add(attr("main_dex_classes", LABEL)
-              .mandatory().cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE))
-          .add(attr("apkbuilder", LABEL)
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE)
-              .exec())
-          .add(attr("apksigner", LABEL)
-              .mandatory()
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE)
-              .exec())
-          .add(attr("zipalign", LABEL)
-              .mandatory()
-              .cfg(HostTransition.INSTANCE)
-              .allowedFileTypes(ANY_FILE).exec())
+          .add(
+              attr("source_properties", LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE))
+          .add(
+              attr("shrinked_android_jar", LABEL)
+                  .mandatory()
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE))
+          .add(
+              attr("annotations_jar", LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE))
+          .add(
+              attr("main_dex_classes", LABEL)
+                  .mandatory()
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE))
+          .add(
+              attr("apkbuilder", LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE)
+                  .exec())
+          .add(
+              attr("apksigner", LABEL)
+                  .mandatory()
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE)
+                  .exec())
+          .add(
+              attr("zipalign", LABEL)
+                  .mandatory()
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE)
+                  .exec())
           .add(
               attr(":java_toolchain", LABEL)
                   .useOutputLicenses()

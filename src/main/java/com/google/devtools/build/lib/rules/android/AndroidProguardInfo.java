@@ -20,19 +20,18 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidProguardInfoApi;
 
 /**
- * A target that can provide local proguard specifications, returned by the
- * {@link ProguardLibrary#collectLocalProguardSpecs()} method.
- * <p> This class provides additional data, not available in the pure native
- * {@link com.google.devtools.build.lib.rules.java.ProguardSpecProvider} provider.
+ * A target that can provide local proguard specifications, returned by the {@link
+ * ProguardLibrary#collectLocalProguardSpecs()} method.
+ *
+ * <p>This class provides additional data, not available in the pure native {@link
+ * com.google.devtools.build.lib.rules.java.ProguardSpecProvider} provider.
  */
 @AutoCodec
 @Immutable
-public class AndroidProguardInfo extends NativeInfo {
-  public static final String PROVIDER_NAME = "AndroidProguardInfo";
+public class AndroidProguardInfo extends NativeInfo implements AndroidProguardInfoApi<Artifact> {
   public static final Provider PROVIDER = new Provider();
 
   private final ImmutableList<Artifact> localProguardSpecs;
@@ -42,11 +41,7 @@ public class AndroidProguardInfo extends NativeInfo {
     this.localProguardSpecs = localProguardSpecs;
   }
 
-  @SkylarkCallable(
-      name = "local_proguard_specs",
-      structField = true,
-      doc = "Returns the local proguard specs defined by this target."
-  )
+  @Override
   public ImmutableList<Artifact> getLocalProguardSpecs() {
     return localProguardSpecs;
   }
@@ -58,14 +53,10 @@ public class AndroidProguardInfo extends NativeInfo {
     private Provider() {
       super(PROVIDER_NAME, AndroidProguardInfo.class);
     }
+  }
 
-    @SkylarkCallable(
-        name = PROVIDER_NAME,
-        doc = "The <code>AndroidProguardInfo</code> constructor.",
-        selfCall = true)
-    @SkylarkConstructor(objectType = AndroidProguardInfo.class)
-    public AndroidProguardInfo androidProguardInfo(ImmutableList<Artifact> localProguardSpecs) {
-      return new AndroidProguardInfo(localProguardSpecs);
-    }
+  @Override
+  public AndroidProguardInfo androidProguardInfo(ImmutableList<Artifact> localProguardSpecs) {
+    return new AndroidProguardInfo(localProguardSpecs);
   }
 }
