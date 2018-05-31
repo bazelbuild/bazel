@@ -939,9 +939,9 @@ public class MethodLibrary {
   public static final class BoolModule {}
 
   /** Adds bindings for all the builtin functions of this class to the given map builder. */
-  public static void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
+  public static void addBindingsToBuilder(ImmutableMap.Builder<Identifier, Object> builder) {
     for (BaseFunction function : allFunctions) {
-      builder.put(function.getName(), function);
+      builder.put(Identifier.of(function.getName()), function);
     }
   }
 

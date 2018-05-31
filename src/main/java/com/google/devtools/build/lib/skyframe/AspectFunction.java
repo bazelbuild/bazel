@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.Dependenc
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -191,7 +192,7 @@ public final class AspectFunction implements SkyFunction {
       }
 
       Object skylarkValue = skylarkImportLookupValue.getEnvironmentExtension().getBindings()
-          .get(skylarkValueName);
+          .get(Identifier.of(skylarkValueName));
       if (skylarkValue == null) {
         throw new ConversionException(
             String.format(

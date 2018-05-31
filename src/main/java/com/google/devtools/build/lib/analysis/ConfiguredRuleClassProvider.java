@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
@@ -813,13 +814,18 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableMap<String, Object> skylarkAccessibleTopLevels,
       ImmutableList<Bootstrap> bootstraps,
       ImmutableList<Class<?>> modules) {
-    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<Identifier, Object> envBuilder = ImmutableMap.builder();
 
     SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
     for (Class<?> module : modules) {
       Runtime.setupModuleGlobals(envBuilder, module);
     }
-    envBuilder.putAll(skylarkAccessibleTopLevels.entrySet());
+    envBuilder.putAll(
+        skylarkAccessibleTopLevels
+            .entrySet()
+            .stream()
+            .collect(
+                ImmutableMap.toImmutableMap(e -> Identifier.of(e.getKey()), e -> e.getValue())));
     for (Bootstrap bootstrap : bootstraps) {
       bootstrap.addBindingsToBuilder(envBuilder);
     }
@@ -899,7 +905,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   /** Returns all skylark objects in global scope for this RuleClassProvider. */
-  public Map<String, Object> getTransitiveGlobalBindings() {
+  public Map<Identifier, Object> getTransitiveGlobalBindings() {
     return globals.getTransitiveBindings();
   }
 

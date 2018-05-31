@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.syntax.Identifier;
 
 /**
  * A helper for registering a portion of the build API to skylark environment globals.
@@ -27,5 +28,5 @@ public interface Bootstrap {
   /**
    * Adds this bootstrap's bindings to the given environment map builder.
    */
-  public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder);
+  public void addBindingsToBuilder(ImmutableMap.Builder<Identifier, Object> builder);
 }

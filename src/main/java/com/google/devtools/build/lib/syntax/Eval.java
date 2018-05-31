@@ -157,7 +157,7 @@ public class Eval {
         }
         // The key is the original name that was used to define the symbol
         // in the loaded bzl file.
-        env.importSymbol(node.getImport().getValue(), name, declared.getName());
+        env.importSymbol(node.getImport().getValue(), name, declared);
       } catch (Environment.LoadFailedException e) {
         throw new EvalException(node.getLocation(), e.getMessage());
       }

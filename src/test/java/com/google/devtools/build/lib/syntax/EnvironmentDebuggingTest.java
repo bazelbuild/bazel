@@ -64,7 +64,11 @@ public class EnvironmentDebuggingTest {
             DebugFrame.builder()
                 .setFunctionName("<top level>")
                 .setLocation(Location.BUILTIN)
-                .setGlobalBindings(ImmutableMap.of("a", 1, "b", 2, "c", 3))
+                .setGlobalBindings(
+                    ImmutableMap.of(
+                        Identifier.of("a"), 1,
+                        Identifier.of("b"), 2,
+                        Identifier.of("c"), 3))
                 .build());
   }
 
@@ -90,15 +94,19 @@ public class EnvironmentDebuggingTest {
             DebugFrame.builder()
                 .setFunctionName("function")
                 .setLocation(Location.BUILTIN)
-                .setLexicalFrameBindings(ImmutableMap.of("a", 4, "y", 5, "z", 6))
-                .setGlobalBindings(ImmutableMap.of("a", 1, "b", 2, "c", 3))
+                .setLexicalFrameBindings(ImmutableMap.of(Identifier.of("a"), 4, Identifier.of("y"), 5, Identifier.of("z"), 6))
+                .setGlobalBindings(
+                    ImmutableMap.of(
+                        Identifier.of("a"), 1, Identifier.of("b"), 2, Identifier.of("c"), 3))
                 .build());
     assertThat(frames.get(1))
         .isEqualTo(
             DebugFrame.builder()
                 .setFunctionName("<top level>")
                 .setLocation(funcallLocation)
-                .setGlobalBindings(ImmutableMap.of("a", 1, "b", 2, "c", 3))
+                .setGlobalBindings(
+                    ImmutableMap.of(
+                        Identifier.of("a"), 1, Identifier.of("b"), 2, Identifier.of("c"), 3))
                 .build());
   }
 

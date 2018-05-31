@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.config;
 
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
+import com.google.devtools.build.lib.syntax.Identifier;
 
 /**
  * A {@link Bootstrap} for config-related libraries of the build API.
@@ -29,7 +30,7 @@ public class ConfigBootstrap implements Bootstrap {
   }
 
   @Override
-  public void addBindingsToBuilder(Builder<String, Object> builder) {
-    builder.put("config_common", configSkylarkCommonApi);
+  public void addBindingsToBuilder(Builder<Identifier, Object> builder) {
+    builder.put(Identifier.of("config_common"), configSkylarkCommonApi);
   }
 }

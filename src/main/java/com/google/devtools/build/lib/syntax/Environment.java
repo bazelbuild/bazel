@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -107,11 +108,11 @@ public final class Environment implements Freezable, Debuggable {
      * <p>In case of conflicts, the binding found in the {@link Frame} closest to the current one is
      * used; the remaining bindings are shadowed.
      *
-     * @param varname the name of the variable whose value should be retrieved
-     * @return the value bound to the variable, or null if no binding is found
+     * @param identifier the identifier of the variable whose value should be retrieved
+     * @return the value bound to the variable, or {@code null} if no binding is found
      */
     @Nullable
-    Object get(String varname);
+    Object get(Identifier identifier);
 
     /**
      * Assigns or reassigns a binding in the current {@code Frame}.
@@ -120,16 +121,16 @@ public final class Environment implements Freezable, Debuggable {
      * shadowed (i.e., the parent is unaffected).
      *
      * @param env the {@link Environment} attempting the mutation
-     * @param varname the name of the variable to be bound
+     * @param identifier the identifier of the variable to be bound
      * @param value the value to bind to the variable
      */
-    void put(Environment env, String varname, Object value) throws MutabilityException;
+    void put(Environment env, Identifier identifier, Object value) throws MutabilityException;
 
     /**
      * TODO(laurentlb): Remove this method when possible. It should probably not
      * be part of the public interface.
      */
-    void remove(Environment env, String varname) throws MutabilityException;
+    void remove(Environment env, Identifier identifier) throws MutabilityException;
 
     /**
      * Returns a map containing all bindings of this {@link Frame} and of its transitive
@@ -138,7 +139,7 @@ public final class Environment implements Freezable, Debuggable {
      * <p>The bindings are returned in a deterministic order (for a given sequence of initial values
      * and updates).
      */
-    Map<String, Object> getTransitiveBindings();
+    Map<Identifier, Object> getTransitiveBindings();
   }
 
   interface LexicalFrame extends Frame {
@@ -164,24 +165,24 @@ public final class Environment implements Freezable, Debuggable {
 
     @Nullable
     @Override
-    public Object get(String varname) {
+    public Object get(Identifier identifier) {
       return null;
     }
 
     @Override
-    public void put(Environment env, String varname, Object value) throws MutabilityException {
+    public void put(Environment env, Identifier identifier, Object value) throws MutabilityException {
       Mutability.checkMutable(this, env.mutability());
       throw new IllegalStateException();
     }
 
     @Override
-    public void remove(Environment env, String varname) throws MutabilityException {
+    public void remove(Environment env, Identifier identifier) throws MutabilityException {
       Mutability.checkMutable(this, env.mutability());
       throw new IllegalStateException();
     }
 
     @Override
-    public Map<String, Object> getTransitiveBindings() {
+    public Map<Identifier, Object> getTransitiveBindings() {
       return ImmutableMap.of();
     }
 
@@ -194,7 +195,7 @@ public final class Environment implements Freezable, Debuggable {
   private static final class MutableLexicalFrame implements LexicalFrame {
     private final Mutability mutability;
     /** Bindings are maintained in order of creation. */
-    private final LinkedHashMap<String, Object> bindings;
+    private final LinkedHashMap<Identifier, Object> bindings;
 
     private MutableLexicalFrame(Mutability mutability, int initialCapacity) {
       this.mutability = mutability;
@@ -213,24 +214,24 @@ public final class Environment implements Freezable, Debuggable {
 
     @Nullable
     @Override
-    public Object get(String varname) {
-      return bindings.get(varname);
+    public Object get(Identifier identifier) {
+      return bindings.get(identifier);
     }
 
     @Override
-    public void put(Environment env, String varname, Object value) throws MutabilityException {
+    public void put(Environment env, Identifier identifier, Object value) throws MutabilityException {
       Mutability.checkMutable(this, env.mutability());
-      bindings.put(varname, value);
+      bindings.put(identifier, value);
     }
 
     @Override
-    public void remove(Environment env, String varname) throws MutabilityException {
+    public void remove(Environment env, Identifier identifier) throws MutabilityException {
       Mutability.checkMutable(this, env.mutability());
-      bindings.remove(varname);
+      bindings.remove(identifier);
     }
 
     @Override
-    public Map<String, Object> getTransitiveBindings() {
+    public Map<Identifier, Object> getTransitiveBindings() {
       return bindings;
     }
 
@@ -274,7 +275,7 @@ public final class Environment implements Freezable, Debuggable {
     private Label label;
 
     /** Bindings are maintained in order of creation. */
-    private final LinkedHashMap<String, Object> bindings;
+    private final LinkedHashMap<Identifier, Object> bindings;
 
     /** Constructs an uninitialized instance; caller must call {@link #initialize} before use. */
     public GlobalFrame() {
@@ -288,7 +289,7 @@ public final class Environment implements Freezable, Debuggable {
         Mutability mutability,
         @Nullable GlobalFrame parent,
         @Nullable Label label,
-        @Nullable Map<String, Object> bindings) {
+        @Nullable Map<Identifier, Object> bindings) {
       this.mutability = Preconditions.checkNotNull(mutability);
       this.parent = parent;
       this.label = label;
@@ -311,7 +312,7 @@ public final class Environment implements Freezable, Debuggable {
     }
 
     /** Constructs a global frame for the given builtin bindings. */
-    public static GlobalFrame createForBuiltins(Map<String, Object> bindings) {
+    public static GlobalFrame createForBuiltins(Map<Identifier, Object> bindings) {
       Mutability mutability = Mutability.create("<builtins>").freeze();
       return new GlobalFrame(mutability, null, null, bindings);
     }
@@ -322,7 +323,7 @@ public final class Environment implements Freezable, Debuggable {
 
     public void initialize(
         Mutability mutability, @Nullable GlobalFrame parent,
-        @Nullable Label label, Map<String, Object> bindings) {
+        @Nullable Label label, Map<Identifier, Object> bindings) {
       Preconditions.checkState(this.mutability == null,
           "Attempted to initialize an already initialized Frame");
       this.mutability = Preconditions.checkNotNull(mutability);
@@ -394,21 +395,21 @@ public final class Environment implements Freezable, Debuggable {
      * <p>For efficiency an unmodifiable view is returned. Callers should assume that the view is
      * invalidated by any subsequent modification to the {@link GlobalFrame}'s bindings.
      */
-    public Map<String, Object> getBindings() {
+    public Map<Identifier, Object> getBindings() {
       checkInitialized();
       return Collections.unmodifiableMap(bindings);
     }
 
     @Override
-    public Map<String, Object> getTransitiveBindings() {
+    public Map<Identifier, Object> getTransitiveBindings() {
       checkInitialized();
       // Can't use ImmutableMap.Builder because it doesn't allow duplicates.
-      LinkedHashMap<String, Object> collectedBindings = new LinkedHashMap<>();
+      LinkedHashMap<Identifier, Object> collectedBindings = new LinkedHashMap<>();
       accumulateTransitiveBindings(collectedBindings);
       return collectedBindings;
     }
 
-    private void accumulateTransitiveBindings(LinkedHashMap<String, Object> accumulator) {
+    private void accumulateTransitiveBindings(LinkedHashMap<Identifier, Object> accumulator) {
       checkInitialized();
       // Put parents first, so child bindings take precedence.
       if (parent != null) {
@@ -418,31 +419,31 @@ public final class Environment implements Freezable, Debuggable {
     }
 
     @Override
-    public Object get(String varname) {
+    public Object get(Identifier identifier) {
       checkInitialized();
-      Object val = bindings.get(varname);
+      Object val = bindings.get(identifier);
       if (val != null) {
         return val;
       }
       if (parent != null) {
-        return parent.get(varname);
+        return parent.get(identifier);
       }
       return null;
     }
 
     @Override
-    public void put(Environment env, String varname, Object value)
+    public void put(Environment env, Identifier identifier, Object value)
         throws MutabilityException {
       checkInitialized();
       Mutability.checkMutable(this, env.mutability());
-      bindings.put(varname, value);
+      bindings.put(identifier, value);
     }
 
     @Override
-    public void remove(Environment env, String varname) throws MutabilityException {
+    public void remove(Environment env, Identifier identifier) throws MutabilityException {
       checkInitialized();
       Mutability.checkMutable(this, env.mutability());
-      bindings.remove(varname);
+      bindings.remove(identifier);
     }
 
     @Override
@@ -475,7 +476,7 @@ public final class Environment implements Freezable, Debuggable {
     final GlobalFrame globalFrame;
 
     /** The set of known global variables of the caller. */
-    @Nullable final LinkedHashSet<String> knownGlobalVariables;
+    @Nullable final LinkedHashSet<Identifier> knownGlobalVariables;
 
     Continuation(
         Continuation continuation,
@@ -483,7 +484,7 @@ public final class Environment implements Freezable, Debuggable {
         FuncallExpression caller,
         LexicalFrame lexicalFrame,
         GlobalFrame globalFrame,
-        LinkedHashSet<String> knownGlobalVariables) {
+        LinkedHashSet<Identifier> knownGlobalVariables) {
       this.continuation = continuation;
       this.function = function;
       this.caller = caller;
@@ -500,7 +501,7 @@ public final class Environment implements Freezable, Debuggable {
   @AutoCodec
   public static final class Extension {
 
-    private final ImmutableMap<String, Object> bindings;
+    private final ImmutableMap<Identifier, Object> bindings;
 
     /**
      * Cached hash code for the transitive content of this {@code Extension} and its dependencies.
@@ -511,7 +512,7 @@ public final class Environment implements Freezable, Debuggable {
 
     /** Constructs with the given hash code and bindings. */
     @AutoCodec.Instantiator
-    public Extension(ImmutableMap<String, Object> bindings, String transitiveContentHashCode) {
+    public Extension(ImmutableMap<Identifier, Object> bindings, String transitiveContentHashCode) {
       this.bindings = bindings;
       this.transitiveContentHashCode = transitiveContentHashCode;
     }
@@ -529,7 +530,7 @@ public final class Environment implements Freezable, Debuggable {
     }
 
     /** Retrieves all bindings, in a deterministic order. */
-    public ImmutableMap<String, Object> getBindings() {
+    public ImmutableMap<Identifier, Object> getBindings() {
       return bindings;
     }
 
@@ -569,22 +570,22 @@ public final class Environment implements Freezable, Debuggable {
             obj == null ? "null" : obj.getClass().getName()));
       }
       Extension other = (Extension) obj;
-      ImmutableMap<String, Object> otherBindings = other.getBindings();
+      ImmutableMap<Identifier, Object> otherBindings = other.getBindings();
 
-      Set<String> names = bindings.keySet();
-      Set<String> otherNames = otherBindings.keySet();
-      if (!names.equals(otherNames)) {
+      Set<Identifier> identifiers = bindings.keySet();
+      Set<Identifier> otherIdentifiers = otherBindings.keySet();
+      if (!identifiers.equals(otherIdentifiers)) {
         throw new IllegalStateException(String.format(
             "Expected Extensions to be equal, but they don't define the same bindings: "
                 + "in this one but not given one: [%s]; in given one but not this one: [%s]",
-            Joiner.on(", ").join(Sets.difference(names, otherNames)),
-            Joiner.on(", ").join(Sets.difference(otherNames, names))));
+            Joiner.on(", ").join(Sets.difference(identifiers, otherIdentifiers)),
+            Joiner.on(", ").join(Sets.difference(otherIdentifiers, identifiers))));
       }
 
       ArrayList<String> badEntries = new ArrayList<>();
-      for (String name : names) {
-        Object value = bindings.get(name);
-        Object otherValue = otherBindings.get(name);
+      for (Identifier identifier : identifiers) {
+        Object value = bindings.get(identifier);
+        Object otherValue = otherBindings.get(identifier);
         if (value.equals(otherValue)) {
           continue;
         }
@@ -622,7 +623,7 @@ public final class Environment implements Freezable, Debuggable {
         badEntries.add(
             String.format(
                 "%s: this one has %s (class %s, %s), but given one has %s (class %s, %s)",
-                name,
+                identifier,
                 Printer.repr(value),
                 value.getClass().getName(),
                 value,
@@ -702,7 +703,7 @@ public final class Environment implements Freezable, Debuggable {
    * reads a global variable after which a local variable with the same name is assigned an
    * Exception needs to be thrown.
    */
-  @Nullable private LinkedHashSet<String> knownGlobalVariables;
+  @Nullable private LinkedHashSet<Identifier> knownGlobalVariables;
 
   /**
    * When in a lexical (Skylark) frame, this lists the names of the functions in the call stack.
@@ -988,46 +989,53 @@ public final class Environment implements Freezable, Debuggable {
   /**
    * Sets a binding for a special dynamic variable in this Environment.
    * This is not for end-users, and will throw an AssertionError in case of conflict.
-   * @param varname the name of the dynamic variable to be bound
+   * @param identifier the identifier of the dynamic variable to be bound
    * @param value a value to bind to the variable
    * @return this Environment, in fluid style
    */
-  public Environment setupDynamic(String varname, Object value) {
-    if (dynamicFrame.get(varname) != null) {
+  public Environment setupDynamic(Identifier identifier, Object value) {
+    if (dynamicFrame.get(identifier) != null) {
       throw new AssertionError(
           String.format("Trying to bind dynamic variable '%s' but it is already bound",
-              varname));
+              identifier));
     }
-    if (lexicalFrame != null && lexicalFrame.get(varname) != null) {
+    if (lexicalFrame != null && lexicalFrame.get(identifier) != null) {
       throw new AssertionError(
           String.format("Trying to bind dynamic variable '%s' but it is already bound lexically",
-              varname));
+              identifier));
     }
-    if (globalFrame.get(varname) != null) {
+    if (globalFrame.get(identifier) != null) {
       throw new AssertionError(
           String.format("Trying to bind dynamic variable '%s' but it is already bound globally",
-              varname));
+              identifier));
     }
     try {
-      dynamicFrame.put(this, varname, value);
+      dynamicFrame.put(this, identifier, value);
     } catch (MutabilityException e) {
       // End users don't have access to setupDynamic, and it is an implementation error
       // if we encounter a mutability exception.
       throw new AssertionError(
           String.format(
-              "Trying to bind dynamic variable '%s' in frozen environment %s", varname, this),
+              "Trying to bind dynamic variable '%s' in frozen environment %s", identifier, this),
           e);
     }
     return this;
   }
 
   /** Remove variable from local bindings. */
-  void removeLocalBinding(String varname) {
+  void removeLocalBinding(Identifier identifier) {
     try {
-      currentFrame().remove(this, varname);
+      currentFrame().remove(this, identifier);
     } catch (MutabilityException e) {
       throw new AssertionError(e);
     }
+  }
+
+  /**
+   * @see #update(Identifier, Object)
+   */
+  public Environment update(String varname, Object value) throws EvalException {
+    return update(Identifier.of(varname), value);
   }
 
   /**
@@ -1035,23 +1043,23 @@ public final class Environment implements Freezable, Debuggable {
    * {@link AssignmentStatement}. Does not try to modify an inherited binding.
    * This will shadow any inherited binding, which may be an error
    * that you want to guard against before calling this function.
-   * @param varname the name of the variable to be bound
+   * @param identifier the identifier of the variable to be bound
    * @param value the value to bind to the variable
    * @return this Environment, in fluid style
    */
-  public Environment update(String varname, Object value) throws EvalException {
+  public Environment update(Identifier identifier, Object value) throws EvalException {
     Preconditions.checkNotNull(value, "update(value == null)");
     // prevents clashes between static and dynamic variables.
-    if (dynamicFrame.get(varname) != null) {
+    if (dynamicFrame.get(identifier) != null) {
       throw new EvalException(
-          null, String.format("Trying to update special read-only global variable '%s'", varname));
+          null, String.format("Trying to update special read-only global variable '%s'", identifier));
     }
-    if (isKnownGlobalVariable(varname)) {
+    if (isKnownGlobalVariable(identifier)) {
       throw new EvalException(
-          null, String.format("Trying to update read-only global variable '%s'", varname));
+          null, String.format("Trying to update read-only global variable '%s'", identifier));
     }
     try {
-      currentFrame().put(this, varname, Preconditions.checkNotNull(value));
+      currentFrame().put(this, identifier, Preconditions.checkNotNull(value));
     } catch (MutabilityException e) {
       // Note that since at this time we don't accept the global keyword, and don't have closures,
       // end users should never be able to mutate a frozen Environment, and a MutabilityException
@@ -1059,63 +1067,63 @@ public final class Environment implements Freezable, Debuggable {
       // imported from a parent Environment by updating the current Environment, which will not
       // trigger a MutabilityException.
       throw new AssertionError(
-          Printer.format("Can't update %s to %r in frozen environment", varname, value),
+          Printer.format("Can't update %s to %r in frozen environment", identifier, value),
           e);
     }
     return this;
   }
 
-  public boolean hasVariable(String varname) {
-    return lookup(varname) != null;
+  public boolean hasVariable(Identifier identifier) {
+    return lookup(identifier) != null;
   }
 
   /**
    * Initializes a binding in this Environment. It is an error if the variable is already bound.
    * This is not for end-users, and will throw an AssertionError in case of conflict.
-   * @param varname the name of the variable to be bound
+   * @param identifier the identifier of the variable to be bound
    * @param value the value to bind to the variable
    * @return this Environment, in fluid style
    */
-  public Environment setup(String varname, Object value) {
-    if (hasVariable(varname)) {
-      throw new AssertionError(String.format("variable '%s' already bound", varname));
+  public Environment setup(Identifier identifier, Object value) {
+    if (hasVariable(identifier)) {
+      throw new AssertionError(String.format("variable '%s' already bound", identifier));
     }
-    return setupOverride(varname, value);
+    return setupOverride(identifier, value);
   }
 
   /**
    * Initializes a binding in this environment. Overrides any previous binding.
    * This is not for end-users, and will throw an AssertionError in case of conflict.
-   * @param varname the name of the variable to be bound
+   * @param identifier the identifier of the variable to be bound
    * @param value the value to bind to the variable
    * @return this Environment, in fluid style
    */
-  public Environment setupOverride(String varname, Object value) {
+  public Environment setupOverride(Identifier identifier, Object value) {
     try {
-      return update(varname, value);
+      return update(identifier, value);
     } catch (EvalException ee) {
       throw new AssertionError(ee);
     }
   }
 
   /**
-   * Returns the value from the environment whose name is "varname" if it exists, otherwise null.
+   * Returns the value from the environment of the identifier if it exists, otherwise {@code null}.
    */
-  public Object lookup(String varname) {
+  public Object lookup(Identifier identifier) {
     // Lexical frame takes precedence, then globals, then dynamics.
     if (lexicalFrame != null) {
-      Object lexicalValue = lexicalFrame.get(varname);
+      Object lexicalValue = lexicalFrame.get(identifier);
       if (lexicalValue != null) {
         return lexicalValue;
       }
     }
-    Object globalValue = globalFrame.get(varname);
-    Object dynamicValue = dynamicFrame.get(varname);
+    Object globalValue = globalFrame.get(identifier);
+    Object dynamicValue = dynamicFrame.get(identifier);
     if (globalValue == null && dynamicValue == null) {
       return null;
     }
     if (knownGlobalVariables != null) {
-      knownGlobalVariables.add(varname);
+      knownGlobalVariables.add(identifier);
     }
     if (globalValue != null) {
       return globalValue;
@@ -1127,8 +1135,8 @@ public final class Environment implements Freezable, Debuggable {
    * Returns true if varname is a known global variable (i.e., it has been read in the context of
    * the current function).
    */
-  boolean isKnownGlobalVariable(String varname) {
-    return knownGlobalVariables != null && knownGlobalVariables.contains(varname);
+  boolean isKnownGlobalVariable(Identifier identifier) {
+    return knownGlobalVariables != null && knownGlobalVariables.contains(identifier);
   }
 
   public SkylarkSemantics getSemantics() {
@@ -1144,13 +1152,13 @@ public final class Environment implements Freezable, Debuggable {
    * deterministic order.
    */
   public Set<String> getVariableNames() {
-    LinkedHashSet<String> vars = new LinkedHashSet<>();
+    LinkedHashSet<Identifier> vars = new LinkedHashSet<>();
     if (lexicalFrame != null) {
       vars.addAll(lexicalFrame.getTransitiveBindings().keySet());
     }
     vars.addAll(globalFrame.getTransitiveBindings().keySet());
     vars.addAll(dynamicFrame.getTransitiveBindings().keySet());
-    return vars;
+    return vars.stream().map(Identifier::getName).collect(ImmutableSet.toImmutableSet());
   }
 
   private static final class EvalEventHandler implements EventHandler {
@@ -1272,7 +1280,7 @@ public final class Environment implements Freezable, Debuggable {
     }
   }
 
-  void importSymbol(String importString, Identifier symbol, String nameInLoadedFile)
+  void importSymbol(String importString, Identifier symbol, Identifier nameInLoadedFile)
       throws LoadFailedException {
     Preconditions.checkState(isGlobal()); // loading is only allowed at global scope.
 
@@ -1282,9 +1290,16 @@ public final class Environment implements Freezable, Debuggable {
 
     Extension ext = importedExtensions.get(importString);
 
-    Map<String, Object> bindings = ext.getBindings();
+    Map<Identifier, Object> bindings = ext.getBindings();
     if (!bindings.containsKey(nameInLoadedFile)) {
-      throw new LoadFailedException(importString, nameInLoadedFile, bindings.keySet());
+      throw new LoadFailedException(
+          importString,
+          nameInLoadedFile.getName(),
+          bindings
+              .keySet()
+              .stream()
+              .map(Identifier::getName)
+              .collect(ImmutableList.toImmutableList()));
     }
 
     Object value = bindings.get(nameInLoadedFile);
@@ -1335,13 +1350,13 @@ public final class Environment implements Freezable, Debuggable {
   public static final GlobalFrame SKYLARK = DEFAULT_GLOBALS;
 
   private static Environment.GlobalFrame createConstantsGlobals() {
-    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+    ImmutableMap.Builder<Identifier, Object> builder = ImmutableMap.builder();
     Runtime.addConstantsToBuilder(builder);
     return GlobalFrame.createForBuiltins(builder.build());
   }
 
   private static Environment.GlobalFrame createDefaultGlobals() {
-    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+    ImmutableMap.Builder<Identifier, Object> builder = ImmutableMap.builder();
     Runtime.addConstantsToBuilder(builder);
     MethodLibrary.addBindingsToBuilder(builder);
     return GlobalFrame.createForBuiltins(builder.build());

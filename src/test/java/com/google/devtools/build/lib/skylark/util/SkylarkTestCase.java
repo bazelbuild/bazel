@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
@@ -55,7 +56,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
   }
 
   private static final Environment.GlobalFrame getSkylarkGlobals() {
-    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<Identifier, Object> envBuilder = ImmutableMap.builder();
 
     SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
     Runtime.setupModuleGlobals(envBuilder, PlatformCommon.class);

@@ -287,7 +287,7 @@ public abstract class AbstractComprehension extends Expression {
       LValue lvalue = clause.getLValue();
       if (lvalue != null) {
         for (Identifier ident : lvalue.boundIdentifiers()) {
-          env.removeLocalBinding(ident.getName());
+          env.removeLocalBinding(ident);
         }
       }
     }

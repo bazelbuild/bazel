@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -260,7 +261,7 @@ public final class PackageFactory {
     }
   }
 
-  public static final String PKG_CONTEXT = "$pkg_context";
+  public static final Identifier PKG_CONTEXT = Identifier.of("$pkg_context");
 
   // Used outside of Bazel!
   /** {@link Globber} that uses the legacy GlobCache. */
@@ -1541,19 +1542,19 @@ public final class PackageFactory {
           exception);
     }
     pkgEnv
-        .setup("native", nativeModule)
-        .setup("distribs", newDistribsFunction.apply(context))
-        .setup("glob", newGlobFunction.apply(context))
-        .setup("licenses", newLicensesFunction.apply(context))
-        .setup("exports_files", newExportsFilesFunction.apply())
-        .setup("package_group", newPackageGroupFunction.apply())
-        .setup("package", newPackageFunction(packageArguments))
-        .setup("package_name", packageNameFunction)
-        .setup("repository_name", repositoryNameFunction)
-        .setup("environment_group", newEnvironmentGroupFunction.apply(context));
+        .setup(Identifier.of("native"), nativeModule)
+        .setup(Identifier.of("distribs"), newDistribsFunction.apply(context))
+        .setup(Identifier.of("glob"), newGlobFunction.apply(context))
+        .setup(Identifier.of("licenses"), newLicensesFunction.apply(context))
+        .setup(Identifier.of("exports_files"), newExportsFilesFunction.apply())
+        .setup(Identifier.of("package_group"), newPackageGroupFunction.apply())
+        .setup(Identifier.of("package"), newPackageFunction(packageArguments))
+        .setup(Identifier.of("package_name"), packageNameFunction)
+        .setup(Identifier.of("repository_name"), repositoryNameFunction)
+        .setup(Identifier.of("environment_group"), newEnvironmentGroupFunction.apply(context));
 
     for (Map.Entry<String, BuiltinRuleFunction> entry : ruleFunctions.entrySet()) {
-      pkgEnv.setup(entry.getKey(), entry.getValue());
+      pkgEnv.setup(Identifier.of(entry.getKey()), entry.getValue());
     }
 
     for (EnvironmentExtension extension : environmentExtensions) {

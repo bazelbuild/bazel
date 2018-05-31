@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi.OutputGroupInfoApiProvider;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Runtime;
 
 /**
@@ -48,13 +49,13 @@ public class TopLevelBootstrap implements Bootstrap {
   }
 
   @Override
-  public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
+  public void addBindingsToBuilder(ImmutableMap.Builder<Identifier, Object> builder) {
     Runtime.setupModuleGlobals(builder, skylarkAttrApi);
     Runtime.setupModuleGlobals(builder, skylarkBuildApiGlobals);
     Runtime.setupModuleGlobals(builder, skylarkCommandLineApi);
     Runtime.setupModuleGlobals(builder, skylarkNativeModuleApi);
     Runtime.setupModuleGlobals(builder, skylarkRuleFunctionsApi);
-    builder.put("struct", structProvider);
-    builder.put("OutputGroupInfo", outputGroupInfoProvider);
+    builder.put(Identifier.of("struct"), structProvider);
+    builder.put(Identifier.of("OutputGroupInfo"), outputGroupInfoProvider);
   }
 }

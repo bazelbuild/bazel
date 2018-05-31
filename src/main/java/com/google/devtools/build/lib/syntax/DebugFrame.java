@@ -33,10 +33,10 @@ public abstract class DebugFrame {
    * The local bindings associated with the current lexical frame. For the outer-most scope this
    * will be empty.
    */
-  public abstract ImmutableMap<String, Object> lexicalFrameBindings();
+  public abstract ImmutableMap<Identifier, Object> lexicalFrameBindings();
 
   /** The global vars and builtins for this frame. May be shadowed by the lexical frame bindings. */
-  public abstract ImmutableMap<String, Object> globalBindings();
+  public abstract ImmutableMap<Identifier, Object> globalBindings();
 
   public static Builder builder() {
     return new AutoValue_DebugFrame.Builder().setLexicalFrameBindings(ImmutableMap.of());
@@ -49,9 +49,9 @@ public abstract class DebugFrame {
 
     public abstract Builder setFunctionName(String functionName);
 
-    public abstract Builder setLexicalFrameBindings(ImmutableMap<String, Object> bindings);
+    public abstract Builder setLexicalFrameBindings(ImmutableMap<Identifier, Object> bindings);
 
-    public abstract Builder setGlobalBindings(ImmutableMap<String, Object> bindings);
+    public abstract Builder setGlobalBindings(ImmutableMap<Identifier, Object> bindings);
 
     public abstract DebugFrame build();
   }
