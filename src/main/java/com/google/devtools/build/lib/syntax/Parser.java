@@ -422,7 +422,7 @@ public class Parser {
 
   // create an error expression
   private Identifier makeErrorExpression(int start, int end) {
-    return setLocation(new Identifier("$error$"), start, end);
+    return setLocation(Identifier.of("$error$"), start, end);
   }
 
   // Convenience wrapper method around ASTNode.setLocation
@@ -896,7 +896,7 @@ public class Parser {
       expect(TokenKind.IDENTIFIER);
       return makeErrorExpression(token.left, token.right);
     }
-    Identifier ident = new Identifier(((String) token.value));
+    Identifier ident = Identifier.of(((String) token.value));
     setLocation(ident, token.left, token.right);
     nextToken();
     return ident;
@@ -1075,7 +1075,7 @@ public class Parser {
     }
 
     String name = (String) token.value;
-    Identifier identifier = new Identifier(name);
+    Identifier identifier = Identifier.of(name);
     if (symbols.containsKey(identifier)) {
       syntaxError(
           String.format("Identifier '%s' is used more than once", identifier.getName()));

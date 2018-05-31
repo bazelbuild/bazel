@@ -117,4 +117,9 @@ public final class Identifier extends Expression {
     String suggestion = SpellChecker.didYouMean(name, symbols);
     return new EvalException(getLocation(), "name '" + name + "' is not defined" + suggestion);
   }
+
+  /** @return The {@link Identifier} of the provided name. */
+  public static Identifier of(String name) {
+    return new Identifier(name);
+  }
 }

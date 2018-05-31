@@ -375,7 +375,7 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
     // load("foo.bzl", a="A", "B")
     ASTNode loadStatement = new LoadStatement(
         new StringLiteral("foo.bzl"),
-        ImmutableMap.of(new Identifier("a"), "A", new Identifier("B"), "B"));
+        ImmutableMap.of(Identifier.of("a"), "A", Identifier.of("B"), "B"));
     assertIndentedPrettyMatches(
         loadStatement,
         "  load(\"foo.bzl\", a=\"A\", \"B\")\n");
@@ -393,8 +393,8 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
         new ReturnStatement(new StringLiteral("foo")),
         "return \"foo\"\n");
 
-    assertIndentedPrettyMatches(new ReturnStatement(new Identifier("None")), "  return None\n");
-    assertTostringMatches(new ReturnStatement(new Identifier("None")), "return None\n");
+    assertIndentedPrettyMatches(new ReturnStatement(Identifier.of("None")), "  return None\n");
+    assertTostringMatches(new ReturnStatement(Identifier.of("None")), "return None\n");
 
     assertIndentedPrettyMatches(new ReturnStatement(null), "  return\n");
     assertTostringMatches(new ReturnStatement(null), "return\n");

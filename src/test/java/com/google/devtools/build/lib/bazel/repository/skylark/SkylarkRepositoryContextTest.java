@@ -82,7 +82,7 @@ public class SkylarkRepositoryContextTest {
     Package.Builder packageBuilder = Package.newExternalPackageBuilder(
         Package.Builder.DefaultHelper.INSTANCE, workspaceFile, "runfiles");
     FuncallExpression ast =
-        new FuncallExpression(new Identifier("test"), ImmutableList.<Passed>of());
+        new FuncallExpression(Identifier.of("test"), ImmutableList.<Passed>of());
     ast.setLocation(Location.BUILTIN);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(

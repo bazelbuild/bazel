@@ -25,7 +25,7 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ExceptionTest {
-  private static final ASTNode DUMMY_NODE = new Identifier("DUMMY");
+  private static final ASTNode DUMMY_NODE = Identifier.of("DUMMY");
 
   @Test
   public void testEmptyMessage() throws Exception {
