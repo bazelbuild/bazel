@@ -1027,58 +1027,6 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
     }
 
     /**
-     * Add elements from providers, but don't propagate them to any dependers on this ObjcProvider.
-     * These elements will be exposed to {@link #get(Key)} calls, but not to any ObjcProviders
-     * which add this provider to themselves.
-     */
-    public Builder addTransitiveWithoutPropagating(Iterable<ObjcProvider> providers) {
-      for (ObjcProvider provider : providers) {
-        addTransitiveWithoutPropagating(provider);
-      }
-      return this;
-    }
-
-    /**
-     * Add all keys and values from provider, without propagating them to any (transitive) dependers
-     * on this ObjcProvider. These elements will be exposed to {@link #get(Key)} calls, but not to
-     * any ObjcProviders which add this provider to themselves.
-     */
-    public Builder addTransitiveWithoutPropagating(ObjcProvider provider) {
-      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.items.entrySet()) {
-        uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.nonPropagatedItems);
-      }
-      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.strictDependencyItems.entrySet()) {
-        uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.nonPropagatedItems);
-      }
-      return this;
-    }
-
-    /**
-     * Add a single key from provider, without propagating them to any (transitive) dependers
-     * on this ObjcProvider. These elements will be exposed to {@link #get(Key)} calls, but not to
-     * any ObjcProviders which add this provider to themselves.
-     */
-    public Builder addTransitiveWithoutPropagating(Key key, ObjcProvider provider) {
-      if (provider.items.containsKey(key)) {
-        uncheckedAddTransitive(key, provider.items.get(key), this.nonPropagatedItems);
-      }
-      if (provider.strictDependencyItems.containsKey(key)) {
-        uncheckedAddTransitive(
-            key, provider.strictDependencyItems.get(key), this.nonPropagatedItems);
-      }
-      return this;
-    }
-
-    /**
-     * Adds elements in items, without propagating them to any (transitive) dependers on this
-     * ObjcProvider.
-     */
-    public <E> Builder addTransitiveWithoutPropagating(Key<E> key, NestedSet<E> items) {
-      uncheckedAddTransitive(key, items, this.nonPropagatedItems);
-      return this;
-    }
-
-    /**
      * Add element, and propagate it to any (transitive) dependers on this ObjcProvider.
      */
     public <E> Builder add(Key<E> key, E toAdd) {
