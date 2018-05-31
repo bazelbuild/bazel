@@ -479,28 +479,24 @@ public class Parser {
     if (token.kind == TokenKind.STAR_STAR) { // kwarg
       nextToken();
       Identifier ident = parseIdent();
-      return setLocation(new Parameter.StarStar<Expression, Expression>(
-          ident.getName()), start, ident);
+      return setLocation(new Parameter.StarStar<>(ident), start, ident);
     } else if (token.kind == TokenKind.STAR) { // stararg
       int end = token.right;
       nextToken();
       if (token.kind == TokenKind.IDENTIFIER) {
         Identifier ident = parseIdent();
-        return setLocation(new Parameter.Star<Expression, Expression>(ident.getName()),
-            start, ident);
+        return setLocation(new Parameter.Star<>(ident), start, ident);
       } else {
-        return setLocation(new Parameter.Star<Expression, Expression>(null), start, end);
+        return setLocation(new Parameter.Star<>(null), start, end);
       }
     } else {
       Identifier ident = parseIdent();
       if (token.kind == TokenKind.EQUALS) { // there's a default value
         nextToken();
         Expression expr = parseNonTupleExpression();
-        return setLocation(new Parameter.Optional<Expression, Expression>(
-            ident.getName(), expr), start, expr);
+        return setLocation(new Parameter.Optional<>(ident, expr), start, expr);
       } else {
-        return setLocation(new Parameter.Mandatory<Expression, Expression>(
-            ident.getName()), start, ident);
+        return setLocation(new Parameter.Mandatory<>(ident), start, ident);
       }
     }
   }
