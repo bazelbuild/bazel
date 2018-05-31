@@ -560,19 +560,7 @@ public class AndroidCommon {
             javaCommon.getJavacOpts(),
             attributes,
             useDataBinding ? DataBinding.processDeps(ruleContext) : ImmutableList.<Artifact>of(),
-            /* We have to disable strict deps checking with data binding because data binding
-             * propagates layout XML up the dependency chain. Say a library's XML references a Java
-             * class, e.g.: "<variable type="some.package.SomeClass" />". Data binding's annotation
-             * processor triggers a compile against SomeClass. Because data binding reprocesses
-             * bindings each step up the dependency chain (via merged resources), that means this
-             * compile also happens at the top-level binary. Since SomeClass.java is declared in the
-             * library, this creates a strict deps violation.
-             *
-             * This weakening of strict deps is unfortunate and deserves to be fixed. Once data
-             * binding integrates with aapt2 this problem should naturally go away (since
-             * reprocessing will no longer happen).
-             */
-            /*disableStrictDeps=*/ useDataBinding);
+            /*disableStrictDeps=*/ false);
 
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     attributes.setTargetLabel(ruleContext.getLabel());
