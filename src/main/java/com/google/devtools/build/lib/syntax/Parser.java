@@ -461,10 +461,9 @@ public class Parser {
     if (expr instanceof Identifier) {
       // parse a named argument
       if (token.kind == TokenKind.EQUALS) {
-        String name = ((Identifier) expr).getName();
         nextToken();
         Expression val = parseNonTupleExpression();
-        return setLocation(new Argument.Keyword(name, val), start, val);
+        return setLocation(new Argument.Keyword(((Identifier) expr), val), start, val);
       }
     }
 
