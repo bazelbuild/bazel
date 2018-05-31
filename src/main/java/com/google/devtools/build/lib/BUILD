@@ -59,6 +59,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/config:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform:srcs",
