@@ -27,9 +27,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.J2ObjcConfigurationApi;
 import java.util.Collections;
 import javax.annotation.Nullable;
 
@@ -40,12 +38,7 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 @Immutable
-@SkylarkModule(
-    name = "j2objc",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
-    doc = "A configuration fragment for j2Objc."
-)
-public class J2ObjcConfiguration extends Fragment {
+public class J2ObjcConfiguration extends Fragment implements J2ObjcConfigurationApi {
   /**
    * Always-on flags for J2ObjC translation. These flags are always used when invoking the J2ObjC
    * transpiler, and cannot be overridden by user-specified flags in {@link
@@ -131,11 +124,7 @@ public class J2ObjcConfiguration extends Fragment {
    * #J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS}. The set of disallowed flags can be found at
    * {@link #J2OBJC_BLACKLISTED_TRANSLATION_FLAGS}.
    */
-  @SkylarkCallable(
-      name = "translation_flags",
-      structField = true,
-      doc = "The list of flags to be used when the j2objc compiler is invoked. "
-  )
+  @Override
   public ImmutableList<String> getTranslationFlags() {
     return translationFlags;
   }

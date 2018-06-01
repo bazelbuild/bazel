@@ -18,9 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleExecutableBinaryApi;
 
 /**
  * Provider containing the executable binary output that was built using an apple_binary target with
@@ -34,13 +32,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
  * </ul>
  */
 @Immutable
-@SkylarkModule(
-    name = "AppleExecutableBinary",
-    category = SkylarkModuleCategory.PROVIDER,
-    doc = "A provider containing the executable binary output that was built using an "
-        + "apple_binary target with the 'executable' type."
-)
-public final class AppleExecutableBinaryInfo extends NativeInfo {
+public final class AppleExecutableBinaryInfo extends NativeInfo
+    implements AppleExecutableBinaryApi {
 
   /** Skylark name for the AppleExecutableBinaryInfo. */
   public static final String SKYLARK_NAME = "AppleExecutableBinary";
@@ -67,10 +60,7 @@ public final class AppleExecutableBinaryInfo extends NativeInfo {
   /**
    * Returns the multi-architecture executable binary that apple_binary created.
    */
-  @SkylarkCallable(name = "binary",
-      structField = true,
-      doc = "The executable binary file output by apple_binary."
-  )
+  @Override
   public Artifact getAppleExecutableBinary() {
     return appleExecutableBinary;
   }
@@ -79,11 +69,7 @@ public final class AppleExecutableBinaryInfo extends NativeInfo {
    * Returns the {@link ObjcProvider} which contains information about the transitive dependencies
    * linked into the dylib.
    */
-  @SkylarkCallable(name = "objc",
-      structField = true,
-      doc = "A provider which contains information about the transitive dependencies linked into "
-          + "the binary."
-  )
+  @Override
   public ObjcProvider getDepsObjcProvider() {
     return depsObjcProvider;
   }
