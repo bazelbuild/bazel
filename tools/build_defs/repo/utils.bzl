@@ -56,11 +56,11 @@ def workspace_and_buildfile(ctx):
   if ctx.attr.build_file:
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     ctx.execute([bash_exe, "-c", "rm -f BUILD BUILD.bazel"])
-    ctx.symlink(ctx.attr.build_file, "BUILD")
+    ctx.symlink(ctx.attr.build_file, "BUILD.bazel")
   elif ctx.attr.build_file_content:
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     ctx.execute([bash_exe, "-c", "rm -f BUILD.bazel"])
-    ctx.file("BUILD", ctx.attr.build_file_content)
+    ctx.file("BUILD.bazel", ctx.attr.build_file_content)
 
 def patch(ctx):
   """Implementation of patching an already extracted repository"""
