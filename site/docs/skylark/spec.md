@@ -3135,7 +3135,7 @@ the final element does not necessarily end with a line terminator.
 <a id='string·title'></a>
 ### string·title
 
-`S.lower()` returns a copy of the string S with letters converted to titlecase.
+`S.title()` returns a copy of the string S with letters converted to titlecase.
 
 Letters are converted to uppercase at the start of words, lowercase elsewhere.
 
@@ -3146,7 +3146,7 @@ Letters are converted to uppercase at the start of words, lowercase elsewhere.
 <a id='string·upper'></a>
 ### string·upper
 
-`S.lower()` returns a copy of the string S with letters converted to lowercase.
+`S.upper()` returns a copy of the string S with letters converted to uppercase.
 
 ```python
 "Hello, World!".upper()                 # "HELLO, WORLD!"
