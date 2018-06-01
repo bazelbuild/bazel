@@ -414,6 +414,10 @@ static vector<string> GetArgumentArray(
   string heap_crash_path = globals->options->output_base;
   result.push_back("-XX:HeapDumpPath=" + blaze::PathAsJvmFlag(heap_crash_path));
 
+  // quiet warnings from com.google.protobuf.UnsafeUtil,
+  // see: https://github.com/google/protobuf/issues/3781
+  result.push_back("--add-opens=java.base/java.nio=ALL-UNNAMED");
+
   result.push_back("-Xverify:none");
 
   vector<string> user_options;
