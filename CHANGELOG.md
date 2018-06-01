@@ -1,3 +1,125 @@
+## Release 0.14.0 (2018-06-01)
+
+```
+Baseline: 5c3f5c9be7fa40d4fb3c35756891fab8483ca406
+
+Cherry picks:
+   + f96f037f8f77335dc444844abcc31a372a3e1849:
+     Windows, Java launcher: Support jar files under different drives
+   + ff8162d01409db34893de98bd840a51c5f13e257:
+     sh_configure.bzl: FreeBSD is also a known platform
+   + 7092ed324137f03fcd34856bdb0595a1bdec3069:
+     Remove unneeded exec_compatible_with from local_sh_toolchain
+   + 57bc201346e61c62a921c1cbf32ad24f185c10c9:
+     Do not autodetect C++ toolchain when
+     BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 is present
+   + 35a78c09cf2fbfc3de9c124d2142e3d72aac4348:
+     remote: recursively delete incomplete downloaded output
+     directory.
+   + 3c9cd82b847f3ece8ec04b2029bd5e8ad0eb7502:
+     distfile: pack the archives needed later in the build
+   + 27487c77387e457df18be3b6833697096d074eab:
+     Slightly refactor SpawnAction to improve env handling
+   + 1b333a2c37add9d04fe5bc5258ee4f73c93115e2:
+     Fix Cpp{Compile,Link}Action environment and cache key computation
+   + 3da8929963e9c70dff5d8859d6e988e6e7f4f9d7:
+     Make SymlinkTreeAction properly use the configuration's
+     environment
+   + eca7b81cf8cc51e1fe56e5ed7d4ad5cd1668a17a:
+     Add a missing dependency from checker framework dataflow to
+     javacutils
+```
+
+Incompatible changes:
+
+  - Add --incompatible_disallow_legacy_javainfo flag.
+  - Added flag --incompatible_disallow_old_style_args_add to help
+    migrate from args.add() to args.add_all() / args.add_joined()
+    where appropriate.
+
+New features:
+
+  - Bash,runfiles: use the new platform-independent library in
+    `@bazel_tools//tools/bash/runfiles` to access runfiles
+    (data-dependencies). See
+    https://github.com/bazelbuild/bazel/blob/master/tools/bash/runfile
+    s/runfiles.bash for usage information.
+  - TemplateVariableInfo can now be constructed from Skylark.
+  - The java_host_runtime_alias rule is now implemented in Java.
+
+Important changes:
+
+  - Flip default value of --experimental_shortened_obj_file_path to
+    true, Bazel now generates short object file path by default.
+  - Introduce fdo_profile rule that allows architecture-sensitive
+    specification of fdo profiles.
+  - canonicalize-flags no longer reorders the flags
+  - CppRules: optional_compiler_flag was removed from CROSSTOOL, use
+    features instead.
+  - Labels of the form ////foo are disallowed.
+  - The `/` operator is deprecated in favor of `//` (floor integer
+    division).
+      Try the `--incompatible_disallow_slash_operator` flag to ensure
+    your code
+      is forward-compatible.
+  - Flip default value of --experimental_shortened_obj_file_path to
+    true, Bazel now generates short object file path by default.
+  - Exposed "mnemonic" and "env" fields on skylark "Action" objects.
+  - Removed flag `--incompatible_disallow_toplevel_if_statement`.
+  - Remove vestigial 'deps' and 'data' attributes from
+    proto_lang_toolchain
+  - Args objects (ctx.actions.args()) have new methods add_all() and
+    add_joined() for building command lines using depsets.
+  - `FileType` is deprecated and will be removed soon.
+      Try the `--incompatible_disallow_filetype` flag to ensure your
+    code
+      is forward-compatible.
+  - Introduce absolute_path_profile attribute that allows fdo_profile
+    to accept absolute paths.
+  - Support two-arg overloads for ctx.actions.args (eg.
+    args.add("--foo", val))
+  - Introduce 'tools' attribute to ctx.actions.run.
+  - Fixed error message for proguard_apply_dictionary.
+  - "bazel run" now lets one run interactive binaries. The
+    BUILD_WORKSPACE_DIRECTORY and BUILD_WORKING_DIRECTORY environment
+    variables indicate the working directory and the workspace root
+    of the Bazel invocation. Tests are provided with an approximation
+    of the official test environment.
+  - repository rules are no longer restricted to return None.
+  - Add --high_priority_workers flag.
+  - CppRules: Feature configuration can be created from Skylark
+  - Adds new-style JavaInfo provider constructor.
+  - Make java_common.compile now uses java_toolchain javacopts by
+    default; explicitly retrieving them using
+    java_common.default_javac_opts is unnecessary.
+  - CppRules: C++ command lines and env variables for C++ actions can
+    be retrieved from feature configuration.
+  - Skylark rule definitions may advertise providers that targets of
+    the rule must propagate.
+  - Bazel now supports running actions inside Docker containers.
+    To use this feature, run "bazel build --spawn_strategy=docker
+    --experimental_docker_image=myimage:latest".
+  - Remote execution works for Windows binaries with launchers.
+  - Fixing start/end lib expansion for linking. There were many cases
+    where archive files were still being used with toolchains that
+    support start/end lib. This change consolidates the places that
+    make that decision so they can be more consistent.
+  - Add support for reporting an error if
+    android_test.binary_under_test contains incompatible versions of
+    deps
+  - We replaced the --experimental_local_disk_cache and
+    --experimental_local_disk_cache_path flags into a single
+    --disk_cache flag. Additionally, Bazel now tries to create the disk cache
+    directory if it doesn't exist.
+  - Save Blaze memory by not storing LinkerInput objects in
+    LinkCommandLine
+  - In the JavaInfo created by java_common.create_provider now
+    includes both direct and transitive arguments in
+    transitive_compile_time_jars and transitive_runtime_jars
+  - Allow --worker_max_instances to take MnemonicName=value to
+    specify max for each worker.
+  - Allow java_toolchain.header_compiler to be an arbitrary executable
+
 ## Release 0.13.1 (2018-05-23)
 
 ```
@@ -2751,6 +2873,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 
