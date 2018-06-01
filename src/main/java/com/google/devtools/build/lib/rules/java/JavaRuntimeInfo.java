@@ -26,16 +26,14 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeInfoApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
-@SkylarkModule(name = "JavaRuntimeInfo", doc = "Information about the Java runtime being used.")
 @Immutable
 @AutoCodec
-public class JavaRuntimeInfo extends NativeInfo {
+public class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
   public static final String SKYLARK_NAME = "JavaRuntimeInfo";
 
   public static final NativeProvider<JavaRuntimeInfo> PROVIDER =
@@ -125,33 +123,18 @@ public class JavaRuntimeInfo extends NativeInfo {
   }
 
   /** The root directory of the Java installation. */
-  @SkylarkCallable(
-      name = "java_home",
-      doc = "Returns the execpath of the root of the Java installation.",
-      structField = true
-  )
+  @Override
   public PathFragment javaHome() {
     return javaHome;
   }
 
-  @SkylarkCallable(
-      name = "java_executable_exec_path",
-      doc = "Returns the execpath of the Java executable.",
-      structField = true
-  )
+  @Override
   /** The execpath of the Java binary. */
   public PathFragment javaBinaryExecPath() {
     return javaBinaryExecPath;
   }
 
-  @SkylarkCallable(
-      name = "java_executable_runfiles_path",
-      doc = "Returns the path of the Java executable in runfiles trees. This should only be used "
-          + "when one needs to access the JVM during the execution of a binary or a test built "
-          + "by Bazel. In particular, when one needs to invoke the JVM during an action, "
-          + "java_executable_exec_path should be used instead.",
-      structField = true
-  )
+  @Override
   /** The runfiles path of the Java binary. */
   public PathFragment javaBinaryRunfilesPath() {
     return javaBinaryRunfilesPath;

@@ -88,7 +88,7 @@ public class JavaRules implements RuleSet {
     builder.addSkylarkAccessibleTopLevels("java_common",
         new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE));
     builder.addSkylarkAccessibleTopLevels("JavaInfo", JavaInfo.PROVIDER);
-    builder.addSkylarkAccessibleTopLevels("java_proto_common", JavaProtoSkylarkCommon.class);
+    builder.addSkylarkAccessibleTopLevels("java_proto_common", new JavaProtoSkylarkCommon());
 
     try {
       builder.addWorkspaceFilePrefix(
