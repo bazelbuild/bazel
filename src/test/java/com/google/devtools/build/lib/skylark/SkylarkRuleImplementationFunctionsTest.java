@@ -985,6 +985,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "        rule_default_runfiles = provider.default_runfiles,",
         "        rule_files = provider.files,",
         "        rule_files_to_run = provider.files_to_run,",
+        "        rule_file_executable = provider.files_to_run.executable",
         "    )",
         "bar_rule = rule(",
         "    implementation = _impl,",
@@ -1030,6 +1031,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     assertThat(configuredTarget.get("rule_files")).isInstanceOf(SkylarkNestedSet.class);
     assertThat(configuredTarget.get("rule_files_to_run")).isInstanceOf(FilesToRunProvider.class);
+    assertThat(configuredTarget.get("rule_file_executable")).isEqualTo(Runtime.NONE);
   }
 
   @Test
