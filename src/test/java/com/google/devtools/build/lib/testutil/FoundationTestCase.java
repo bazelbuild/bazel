@@ -51,7 +51,7 @@ public abstract class FoundationTestCase {
 
   // Individual tests can opt-out of this handler if they expect an error, by
   // calling reporter.removeHandler(failFastHandler).
-  protected static final EventHandler failFastHandler =
+  public static final EventHandler failFastHandler =
       new EventHandler() {
         @Override
         public void handle(Event event) {
