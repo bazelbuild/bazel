@@ -1290,7 +1290,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
       fragment.addGlobalMakeVariables(globalMakeEnvBuilder);
     }
 
+    // TODO(configurability-team): Deprecate TARGET_CPU in favor of platforms.
+    globalMakeEnvBuilder.put("TARGET_CPU", options.cpu);
+
     globalMakeEnvBuilder.put("COMPILATION_MODE", options.compilationMode.toString());
+
     /*
      * Attention! Document these in the build-encyclopedia
      */
