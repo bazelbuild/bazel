@@ -61,7 +61,8 @@ import java.util.regex.Pattern;
           + "<pre class=\"language-python\">\"bc\" in \"abcd\"   # evaluates to True\n"
           + "x = [s for s in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
           + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
-          + "operator instead."
+          + "operator instead. Comparison operators perform a lexicographical comparison; "
+          + "use <code>==</code> to test for equality."
 )
 public final class StringModule {
 
