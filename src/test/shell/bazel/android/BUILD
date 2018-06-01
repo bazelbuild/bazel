@@ -117,3 +117,15 @@ sh_test(
     ],
     shard_count = 4,
 )
+
+sh_test(
+    name = "resource_processing_integration_test",
+    size = "medium",
+    srcs = ["resource_processing_integration_test.sh"],
+    data = [
+        ":android_helper",
+        "//external:android_sdk_for_testing",
+        "//src/test/shell/bazel:test-deps",
+        ":testdata/roboto.ttf",
+    ],
+)
