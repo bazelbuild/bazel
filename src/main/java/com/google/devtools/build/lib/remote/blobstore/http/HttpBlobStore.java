@@ -38,8 +38,6 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.stream.ChunkedWriteHandler;
-import io.netty.handler.logging.LoggingHandler;
-import io.netty.handler.logging.LogLevel;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.util.internal.PlatformDependent;
 import java.io.ByteArrayInputStream;
@@ -50,7 +48,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -156,7 +153,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
                   engine.setUseClientMode(true);
                   p.addFirst(new SslHandler(engine));
                 }
-                p.addLast(new LoggingHandler(LogLevel.INFO));
                 p.addLast(new HttpClientCodec());
                 p.addLast(new HttpDownloadHandler(creds));
               }
@@ -179,7 +175,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
                   engine.setUseClientMode(true);
                   p.addFirst(new SslHandler(engine));
                 }
-                p.addLast(new LoggingHandler(LogLevel.INFO));
                 p.addLast(new HttpResponseDecoder());
                 // The 10KiB limit was chosen at random. We only expect HTTP servers to respond with
                 // an error message in the body and that should always be less than 10KiB.
@@ -244,9 +239,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
       // checked exception that hasn't been declared in the method signature.
       if (e instanceof HttpException) {
         HttpResponse response = ((HttpException) e).response();
-
-        // System.out.println("response was: "+response.status());
-
         if (!dataWritten.get() && authTokenExpired(response)) {
           // The error is due to an auth token having expired. Let's try again.
           refreshCredentials();
@@ -261,7 +253,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
           if (location != null){
             // create a new download command that targets the redirected location
             URI redirected = URI.create(location);
-            // System.out.println("redirected too: '"+redirected+"'");
             // clear our output stream here so we can reuse this (believe this should be safe?).
             wrappedOut.flush();
             DownloadCommand rdc = new DownloadCommand(redirected, casDownload, key, wrappedOut, false);
@@ -289,21 +280,15 @@ public final class HttpBlobStore implements SimpleBlobStore {
   private boolean getAfterCredentialRefresh(DownloadCommand cmd) throws InterruptedException {
     Channel ch = null;
     try {
-      // System.out.println("++++ retrieving: "+cmd.uri());
       ch = acquireDownloadChannel();
       ChannelFuture downloadFuture = ch.writeAndFlush(cmd);
       downloadFuture.sync();
-      // System.out.println("++++ cache hit: "+cmd.uri());
       return true;
     } catch (Exception e) {
       if (e instanceof HttpException) {
         HttpResponse response = ((HttpException) e).response();
         String location = response.headers().getAsString(HttpHeaderNames.LOCATION);
-
-        // System.out.println("==<< response code: "+response.status()+"; location='"+location+"'");
-
         if (cacheMiss(response.status())) {
-          // System.out.println("---- cache miss ("+response.status()+"): "+cmd.uri());
           return false;
         }
       }
