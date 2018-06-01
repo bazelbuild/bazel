@@ -381,9 +381,7 @@ public final class CcLinkParams {
     /** Processes typical dependencies of a C/C++ library. */
     public Builder addCcLibrary(RuleContext context) {
       addTransitiveTargets(
-          context.getPrerequisites("deps", Mode.TARGET),
-          CcLinkParamsStore.TO_LINK_PARAMS,
-          CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
+          context.getPrerequisites("deps", Mode.TARGET), CcLinkParamsStore.TO_LINK_PARAMS);
       return this;
     }
   }

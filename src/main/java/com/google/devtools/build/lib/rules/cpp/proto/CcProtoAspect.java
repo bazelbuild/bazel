@@ -268,7 +268,6 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                   ccToolchain(ruleContext),
                   CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext),
                   ruleContext.getConfiguration())
-              .enableCcSpecificLinkParamsProvider()
               .enableCcNativeLibrariesProvider();
       TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
       if (runtime != null) {

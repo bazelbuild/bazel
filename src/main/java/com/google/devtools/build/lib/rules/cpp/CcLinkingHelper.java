@@ -167,7 +167,6 @@ public final class CcLinkingHelper {
   private boolean checkDepsGenerateCpp = true;
   private boolean emitLinkActionsIfEmpty;
   private boolean emitCcNativeLibrariesProvider;
-  private boolean emitCcSpecificLinkParamsProvider;
   private boolean emitInterfaceSharedObjects;
   private boolean shouldCreateDynamicLibrary = true;
   private boolean shouldCreateStaticLibraries = true;
@@ -373,15 +372,6 @@ public final class CcLinkingHelper {
   }
 
   /**
-   * This adds the {@link CcSpecificLinkParamsProvider} to the providers created by this class.
-   * Otherwise the result will contain an instance of {@link CcLinkParamsStore}.
-   */
-  public CcLinkingHelper enableCcSpecificLinkParamsProvider() {
-    this.emitCcSpecificLinkParamsProvider = true;
-    return this;
-  }
-
-  /**
    * Enables or disables generation of link actions if there are no object files. Some rules declare
    * a <code>.a</code> or <code>.so</code> implicit output, which requires that these files are
    * created even if there are no object files, so be careful when calling this.
@@ -539,15 +529,9 @@ public final class CcLinkingHelper {
 
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     boolean forcePic = cppConfiguration.forcePic();
-    if (emitCcSpecificLinkParamsProvider) {
-      providers.add(
-          new CcSpecificLinkParamsProvider(
-              createCcLinkParamsStore(ccLinkingOutputs, ccCompilationContext, forcePic)));
-    } else {
-      ccLinkingInfoBuilder.setCcLinkParamsStore(
-          new CcLinkParamsStore(
-              createCcLinkParamsStore(ccLinkingOutputs, ccCompilationContext, forcePic)));
-    }
+    ccLinkingInfoBuilder.setCcLinkParamsStore(
+        new CcLinkParamsStore(
+            createCcLinkParamsStore(ccLinkingOutputs, ccCompilationContext, forcePic)));
     providers.put(ccLinkingInfoBuilder.build());
     return new LinkingInfo(
         providers.build(), outputGroups, ccLinkingOutputs, originalLinkingOutputs);
@@ -640,8 +624,7 @@ public final class CcLinkingHelper {
       protected void collect(
           CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
         builder.addLinkstamps(linkstamps.build(), ccCompilationContext);
-        builder.addTransitiveTargets(
-            deps, CcLinkParamsStore.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
+        builder.addTransitiveTargets(deps, CcLinkParamsStore.TO_LINK_PARAMS);
         if (!neverlink) {
           builder.addLibraries(
               ccLinkingOutputs.getPreferredLibraries(
