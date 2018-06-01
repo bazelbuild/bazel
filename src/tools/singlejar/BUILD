@@ -334,6 +334,7 @@ cc_library(
     srcs = ["desugar_checking.cc"],
     hdrs = ["desugar_checking.h"],
     deps = [
+        "//src/main/protobuf:desugar_deps_cc_proto",
         ":combiners",
     ],
 )
