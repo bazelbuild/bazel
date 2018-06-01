@@ -84,7 +84,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.protobuf.ByteString;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collection;
@@ -1273,28 +1272,6 @@ public final class SkyframeActionExecutor {
       return (metadata != null) && (metadata != FileArtifactValue.MISSING_FILE_MARKER)
           ? metadata
           : perBuildFileCache.getMetadata(input);
-    }
-
-    @Override
-    public boolean contentsAvailableLocally(ByteString digest) {
-      return perActionCache.contentsAvailableLocally(digest)
-          || perBuildFileCache.contentsAvailableLocally(digest);
-    }
-
-    @Nullable
-    @Override
-    public ActionInput getInputFromDigest(ByteString digest) {
-      ActionInput file = perActionCache.getInputFromDigest(digest);
-      return file != null ? file : perBuildFileCache.getInputFromDigest(digest);
-    }
-
-    @Override
-    public Path getInputPath(ActionInput input) {
-      if (input instanceof Artifact) {
-        return perActionCache.getInputPath(input);
-      } else {
-        return perBuildFileCache.getInputPath(input);
-      }
     }
   }
 }

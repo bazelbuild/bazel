@@ -13,13 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static java.nio.charset.StandardCharsets.US_ASCII;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.Maps;
-import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -28,17 +25,13 @@ import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.skyframe.FileArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.util.Map;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * An in-memory cache to ensure we do I/O for source files only once during a single build.
  *
- * <p>Simply maintains a two-way cached mapping from digest <--> filename that may be populated
- * only once.
+ * <p>Simply maintains a cached mapping from filename to metadata that may be populated only once.
  */
 @ThreadSafe
 public class SingleBuildFileCache implements ActionInputFileCache {
@@ -73,12 +66,6 @@ public class SingleBuildFileCache implements ActionInputFileCache {
                       throw new DigestOfDirectoryException(
                           "Input is a directory: " + input.getExecPathString());
                     }
-                    BaseEncoding hex = BaseEncoding.base16().lowerCase();
-                    ByteString hexDigest =
-                        ByteString.copyFrom(hex.encode(metadata.getDigest()).getBytes(US_ASCII));
-                    // Inject reverse mapping. Doing this unconditionally in getDigest() showed up
-                    // as a hotspot in CPU profiling.
-                    digestToPath.put(hexDigest, input);
                     return new ActionInputMetadata(metadata);
                   } catch (IOException e) {
                     return new ActionInputMetadata(e);
@@ -86,27 +73,9 @@ public class SingleBuildFileCache implements ActionInputFileCache {
                 }
               });
 
-  private final Map<ByteString, ActionInput> digestToPath = Maps.newConcurrentMap();
-
   @Override
   public Metadata getMetadata(ActionInput input) throws IOException {
     return pathToMetadata.getUnchecked(input).getMetadata();
-  }
-
-  @Nullable
-  @Override
-  public ActionInput getInputFromDigest(ByteString digest) {
-    return digestToPath.get(digest);
-  }
-
-  @Override
-  public Path getInputPath(ActionInput input) {
-    return execRoot.getRelative(input.getExecPath());
-  }
-
-  @Override
-  public boolean contentsAvailableLocally(ByteString digest) {
-    return digestToPath.containsKey(digest);
   }
 
   /** Container class for caching I/O around ActionInputs. */

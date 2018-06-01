@@ -29,9 +29,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.Tree;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
-import javax.annotation.Nullable;
 
 /** A fake implementation of the {@link ActionInputFileCache} interface. */
 final class FakeActionInputFileCache implements ActionInputFileCache {
@@ -55,23 +53,6 @@ final class FakeActionInputFileCache implements ActionInputFileCache {
 
   void setDigest(ActionInput input, String digest) {
     cas.put(input, digest);
-  }
-
-  @Override
-  public boolean contentsAvailableLocally(ByteString digest) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  @Nullable
-  public ActionInput getInputFromDigest(ByteString hexDigest) {
-    HashCode code = HashCode.fromString(hexDigest.toStringUtf8());
-    return Preconditions.checkNotNull(cas.inverse().get(code.toString()));
-  }
-
-  @Override
-  public Path getInputPath(ActionInput input) {
-    throw new UnsupportedOperationException();
   }
 
   public Digest createScratchInput(ActionInput input, String content) throws IOException {

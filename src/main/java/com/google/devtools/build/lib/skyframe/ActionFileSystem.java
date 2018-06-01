@@ -156,26 +156,6 @@ final class ActionFileSystem extends FileSystem implements ActionInputFileCache 
     return getMetadataChecked(actionInput.getExecPath());
   }
 
-  @Override
-  public boolean contentsAvailableLocally(ByteString digest) {
-    return optionalInputsByDigest.containsKey(digest) || inputArtifactData.contains(digest);
-  }
-
-  @Override
-  @Nullable
-  public ActionInput getInputFromDigest(ByteString digest) {
-    Artifact artifact = optionalInputsByDigest.get(digest);
-    return artifact != null ? artifact : inputArtifactData.get(digest);
-  }
-
-  @Override
-  public Path getInputPath(ActionInput actionInput) {
-    if (actionInput instanceof Artifact) {
-      return getPath(((Artifact) actionInput).getPath().asFragment());
-    }
-    return execRootPath.getRelative(actionInput.getExecPath());
-  }
-
   // -------------------- FileSystem implementation --------------------
 
   @Override

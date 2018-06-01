@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static java.nio.charset.StandardCharsets.US_ASCII;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableCollection;
@@ -22,10 +24,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.graph.Traverser;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -49,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.SortedMap;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -57,6 +61,8 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public final class TreeNodeRepository {
+  private static final BaseEncoding LOWER_CASE_HEX = BaseEncoding.base16().lowerCase();
+
   // In this implementation, symlinks are NOT followed when expanding directory artifacts
   public static final Symlinks SYMLINK_POLICY = Symlinks.NOFOLLOW;
 
@@ -217,7 +223,8 @@ public final class TreeNodeRepository {
   // Merkle hashes are computed and cached by the repository, therefore execRoot must
   // be part of the state.
   private final Path execRoot;
-  private final ActionInputFileCache inputFileCache;
+  private final MetadataProvider inputFileCache;
+  private final Map<ByteString, ActionInput> reverseInputMap = new ConcurrentHashMap<>();
   // For directories that are themselves artifacts, map of the ActionInput to the Merkle hash
   private final Map<ActionInput, Digest> inputDirectoryDigestCache = new HashMap<>();
   private final Map<TreeNode, Digest> treeNodeDigestCache = new HashMap<>();
@@ -227,14 +234,13 @@ public final class TreeNodeRepository {
   private final Map<Digest, VirtualActionInput> digestVirtualInputCache = new HashMap<>();
   private final DigestUtil digestUtil;
 
-  public TreeNodeRepository(
-      Path execRoot, ActionInputFileCache inputFileCache, DigestUtil digestUtil) {
+  public TreeNodeRepository(Path execRoot, MetadataProvider inputFileCache, DigestUtil digestUtil) {
     this.execRoot = execRoot;
     this.inputFileCache = inputFileCache;
     this.digestUtil = digestUtil;
   }
 
-  public ActionInputFileCache getInputFileCache() {
+  public MetadataProvider getInputFileCache() {
     return inputFileCache;
   }
 
@@ -321,9 +327,7 @@ public final class TreeNodeRepository {
       ActionInput input = inputs.get(inputsStart);
       try {
         if (!(input instanceof VirtualActionInput)
-            && Preconditions.checkNotNull(inputFileCache.getMetadata(input))
-                .getType()
-                .isDirectory()) {
+            && getInputMetadata(input).getType().isDirectory()) {
           Path leafPath = execRoot.getRelative(input.getExecPathString());
           return interner.intern(new TreeNode(buildInputDirectoryEntries(leafPath), input));
         }
@@ -437,7 +441,7 @@ public final class TreeNodeRepository {
     if (input instanceof VirtualActionInput) {
       return Preconditions.checkNotNull(virtualInputDigestCache.get(input));
     }
-    Metadata metadata = Preconditions.checkNotNull(inputFileCache.getMetadata(input));
+    Metadata metadata = getInputMetadata(input);
     byte[] digest = metadata.getDigest();
     if (digest == null) {
       // If the artifact does not have a digest, it is because it is a directory.
@@ -478,7 +482,7 @@ public final class TreeNodeRepository {
         nodes.add(Preconditions.checkNotNull(directoryCache.get(treeNode)));
       } else { // If not there, it must be an ActionInput.
         ByteString hexDigest = ByteString.copyFromUtf8(digest.getHash());
-        ActionInput input = inputFileCache.getInputFromDigest(hexDigest);
+        ActionInput input = reverseInputMap.get(hexDigest);
         if (input == null) {
           // ... or a VirtualActionInput.
           input = digestVirtualInputCache.get(digest);
@@ -486,5 +490,17 @@ public final class TreeNodeRepository {
         actionInputs.add(Preconditions.checkNotNull(input));
       }
     }
+  }
+
+  private Metadata getInputMetadata(ActionInput input) throws IOException {
+    Metadata metadata =
+        Preconditions.checkNotNull(
+            inputFileCache.getMetadata(input), "Missing metadata for: %s", input);
+    if (metadata.getDigest() != null) {
+      reverseInputMap.put(
+          ByteString.copyFrom(LOWER_CASE_HEX.encode(metadata.getDigest()).getBytes(US_ASCII)),
+          input);
+    }
+    return metadata;
   }
 }

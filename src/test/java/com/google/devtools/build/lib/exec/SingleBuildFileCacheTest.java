@@ -116,14 +116,7 @@ public class SingleBuildFileCacheTest {
     byte[] digestBytes = underTest.getMetadata(empty).getDigest();
     ByteString digest = ByteString.copyFromUtf8(
         BaseEncoding.base16().lowerCase().encode(digestBytes));
-
     assertThat(digest.toStringUtf8()).isEqualTo(EMPTY_MD5);
-    assertThat(underTest.getInputFromDigest(digest).getExecPathString()).isEqualTo("/empty");
-    assert(underTest.contentsAvailableLocally(digest));
-
-    ByteString other = ByteString.copyFrom("f41d8cd98f00b204e9800998ecf8427e", "UTF-16");
-    assert(!underTest.contentsAvailableLocally(other));
-    assert(calls.containsKey("/empty"));
   }
 
   @Test

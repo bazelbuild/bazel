@@ -23,18 +23,13 @@ import com.google.protobuf.ByteString;
 import java.util.HashMap;
 import javax.annotation.Nullable;
 
-/** An bidirectional mapping between artifacts and metadata. */
+/** A mapping from artifacts to metadata. */
 interface InputArtifactData {
 
   boolean contains(ActionInput input);
 
   @Nullable
   FileArtifactValue get(ActionInput input);
-
-  boolean contains(ByteString digest);
-
-  @Nullable
-  Artifact get(ByteString digest);
 
   @Nullable
   FileArtifactValue get(PathFragment fragment);
@@ -47,11 +42,9 @@ interface InputArtifactData {
    */
   final class MutableInputArtifactData implements InputArtifactData {
     private final HashMap<PathFragment, FileArtifactValue> inputs;
-    private final HashMap<ByteString, Artifact> reverseMap;
 
     public MutableInputArtifactData(int sizeHint) {
       this.inputs = new HashMap<>(sizeHint);
-      this.reverseMap = new HashMap<>(sizeHint);
     }
 
     @Override
@@ -66,17 +59,6 @@ interface InputArtifactData {
     }
 
     @Override
-    public boolean contains(ByteString digest) {
-      return reverseMap.containsKey(digest);
-    }
-
-    @Override
-    @Nullable
-    public Artifact get(ByteString digest) {
-      return reverseMap.get(digest);
-    }
-
-    @Override
     @Nullable
     public FileArtifactValue get(PathFragment fragment) {
       return inputs.get(fragment);
@@ -84,9 +66,6 @@ interface InputArtifactData {
 
     public void put(Artifact artifact, FileArtifactValue value) {
       inputs.put(artifact.getExecPath(), value);
-      if (value.getType().exists() && value.getDigest() != null) {
-        reverseMap.put(toByteString(value.getDigest()), artifact);
-      }
     }
 
     @Override
