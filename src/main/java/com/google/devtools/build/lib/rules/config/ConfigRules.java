@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
 
 /**
  * Set of rules to specify or manipulate configuration settings.
@@ -39,7 +40,7 @@ public final class ConfigRules implements RuleSet {
         new ConfigFeatureFlagConfiguration.Loader());
 
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigFeatureFlagRule());
-    builder.addSkylarkAccessibleTopLevels("config_common", new ConfigSkylarkCommon());
+    builder.addSkylarkBootstrap(new ConfigBootstrap(new ConfigSkylarkCommon()));
   }
 
   @Override
