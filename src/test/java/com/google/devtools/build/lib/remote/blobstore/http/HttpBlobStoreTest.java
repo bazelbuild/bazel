@@ -123,6 +123,41 @@ public class HttpBlobStoreTest {
     }
   }
 
+
+  @Test
+  public void followRedirectHeaders_get() throws Exception {
+    followRedirectHeaders_get("http://localhost:80/some/random/place");
+    followRedirectHeaders_get("http://localhost/some/random/place");
+    followRedirectHeaders_get("https://localhost:9000/some/random/place");
+    followRedirectHeaders_get("https://localhost/some/random/place");
+    followRedirectHeaders_get("https://localhost/some/random/place?foo=bar&baz=qux");
+    followRedirectHeaders_get("https://localhost/?zing=boom");
+  }
+
+  private void followRedirectHeaders_get(String uri) throws Exception {
+    ServerSocketChannel server = null;
+    try {
+      server = startServer(new RedirectingHandler(uri));
+      int serverPort = server.localAddress().getPort();
+
+      Credentials credentials = newCredentials();
+      HttpBlobStore blobStore =
+          new HttpBlobStore(new URI("http://localhost:" + serverPort), 30, credentials);
+      ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
+      blobStore.get("key", out);
+      assertThat(out.toString(Charsets.US_ASCII.name())).isEqualTo("File Contents");
+      // The caller is responsible to the close the stream.
+      verify(out, never()).close();
+    } catch (Exception e){
+      assertThat(e).isInstanceOf(HttpException.class);
+      assertThat(((HttpException) e).response().status())
+          .isEqualTo(HttpResponseStatus.TEMPORARY_REDIRECT);
+    } finally {
+      closeServerChannel(server);
+    }
+  }
+
+
   @Test
   public void expiredAuthTokensShouldBeRetried_get() throws Exception {
     expiredAuthTokensShouldBeRetried_get(ErrorType.UNAUTHORIZED);
@@ -249,6 +284,60 @@ public class HttpBlobStoreTest {
         .when(credentials)
         .refresh();
     return credentials;
+  }
+
+  /**
+   * {@link ChannelHandler} that on the first request responds with a 307 TEMPOARY_REDIRECT status code,
+   * which the client is expected to follow and download the URI specified by the so-called Location
+   * header on the redirect.
+   */
+    @Sharable
+  static class RedirectingHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+    private int requestCount;
+    private String redirectedTo;
+
+    RedirectingHandler(String uri){
+      this.redirectedTo = uri;
+    }
+
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
+      if (requestCount == 0) {
+        final FullHttpResponse response;
+        response = new DefaultFullHttpResponse(
+            HttpVersion.HTTP_1_1,
+            HttpResponseStatus.TEMPORARY_REDIRECT
+        );
+        response
+              .headers()
+              .set(
+                  HttpHeaderNames.LOCATION,
+                  redirectedTo
+              );
+        ctx.writeAndFlush(response)
+          .addListener(ChannelFutureListener.CLOSE);
+        requestCount++;
+      } else if (requestCount == 1) {
+        // on the second request, check the URI path is as expected such
+        // that we know we followed the redirect correctly.
+        ByteBuf content = ctx.alloc().buffer();
+        content.writeCharSequence("File Contents", Charsets.US_ASCII);
+        FullHttpResponse response =
+            new DefaultFullHttpResponse(
+                HttpVersion.HTTP_1_1,
+                HttpResponseStatus.OK, content);
+        HttpUtil.setKeepAlive(response, true);
+        HttpUtil.setContentLength(response, content.readableBytes());
+        ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+        requestCount++;
+      } else {
+        // other requests are not expected.
+        ctx.writeAndFlush(
+            new DefaultFullHttpResponse(
+                HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR)
+        ).addListener(ChannelFutureListener.CLOSE);
+      }
+    }
   }
 
   /**

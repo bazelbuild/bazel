@@ -230,6 +230,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
             out.flush();
           }
         };
+
     DownloadCommand download = new DownloadCommand(uri, casDownload, key, wrappedOut);
 
     Channel ch = null;
@@ -243,6 +244,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
       // checked exception that hasn't been declared in the method signature.
       if (e instanceof HttpException) {
         HttpResponse response = ((HttpException) e).response();
+
+        // System.out.println("response was: "+response.status());
+
         if (!dataWritten.get() && authTokenExpired(response)) {
           // The error is due to an auth token having expired. Let's try again.
           refreshCredentials();
@@ -257,7 +261,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
           if (location != null){
             // create a new download command that targets the redirected location
             URI redirected = URI.create(location);
-            System.out.println("redirected too: '"+redirected+"'");
+            // System.out.println("redirected too: '"+redirected+"'");
+            // clear our output stream here so we can reuse this (believe this should be safe?).
+            wrappedOut.flush();
             DownloadCommand rdc = new DownloadCommand(redirected, casDownload, key, wrappedOut, false);
             return getAfterCredentialRefresh(rdc);
           } else {
@@ -283,21 +289,21 @@ public final class HttpBlobStore implements SimpleBlobStore {
   private boolean getAfterCredentialRefresh(DownloadCommand cmd) throws InterruptedException {
     Channel ch = null;
     try {
-      System.out.println("++++ retrieving: "+cmd.uri());
+      // System.out.println("++++ retrieving: "+cmd.uri());
       ch = acquireDownloadChannel();
       ChannelFuture downloadFuture = ch.writeAndFlush(cmd);
       downloadFuture.sync();
-      System.out.println("++++ cache hit: "+cmd.uri());
+      // System.out.println("++++ cache hit: "+cmd.uri());
       return true;
     } catch (Exception e) {
       if (e instanceof HttpException) {
         HttpResponse response = ((HttpException) e).response();
         String location = response.headers().getAsString(HttpHeaderNames.LOCATION);
 
-        System.out.println("==<< response code: "+response.status()+"; location='"+location+"'");
+        // System.out.println("==<< response code: "+response.status()+"; location='"+location+"'");
 
         if (cacheMiss(response.status())) {
-          System.out.println("---- cache miss ("+response.status()+"): "+cmd.uri());
+          // System.out.println("---- cache miss ("+response.status()+"): "+cmd.uri());
           return false;
         }
       }

@@ -137,8 +137,11 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     } else {
       StringBuilder builder = new StringBuilder();
       builder.append(request.uri().getPath());
-      builder.append("?");
-      builder.append(request.uri().getQuery());
+      String qry = request.uri().getQuery();
+      if (qry != null){
+        builder.append("?");
+        builder.append(qry);
+      }
       path = builder.toString();
     }
 
