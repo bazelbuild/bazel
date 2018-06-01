@@ -150,7 +150,7 @@ def get_escaped_cxx_inc_directories(repository_ctx, cc, lang_flag, additional_fl
         for p in inc_dirs.split("\n")
     ]
 
-def _is_option_supported(repository_ctx, cc, option):
+def _is_compiler_option_supported(repository_ctx, cc, option):
     """Checks that `option` is supported by the C compiler. Doesn't %-escape the option."""
     result = repository_ctx.execute([
         cc,
@@ -162,9 +162,16 @@ def _is_option_supported(repository_ctx, cc, option):
     ])
     return result.stderr.find(option) == -1
 
-def _add_option_if_supported(repository_ctx, cc, option):
-    """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
-    return [option] if _is_option_supported(repository_ctx, cc, option) else []
+def _is_linker_option_supported(repository_ctx, cc, option):
+    """Checks that `option` is supported by the C compiler. Doesn't %-escape the option."""
+    result = repository_ctx.execute([
+        cc,
+        option,
+        "-o",
+        "/dev/null",
+        str(repository_ctx.path("tools/cpp/empty.cc")),
+    ])
+    return result.stderr.find(option) == -1
 
 def _is_gold_supported(repository_ctx, cc):
     """Checks that `gold` is supported by the C compiler."""
@@ -182,6 +189,14 @@ def _is_gold_supported(repository_ctx, cc):
     ])
     return result.return_code == 0
 
+def _add_compiler_option_if_supported(repository_ctx, cc, option):
+    """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
+    return [option] if _is_compiler_option_supported(repository_ctx, cc, option) else []
+
+def _add_linker_option_if_supported(repository_ctx, cc, option):
+    """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
+    return [option] if _is_linker_option_supported(repository_ctx, cc, option) else []
+
 def _get_no_canonical_prefixes_opt(repository_ctx, cc):
     # If the compiler sometimes rewrites paths in the .d files without symlinks
     # (ie when they're shorter), it confuses Bazel's logic for verifying all
@@ -190,13 +205,13 @@ def _get_no_canonical_prefixes_opt(repository_ctx, cc):
     # The '-fno-canonical-system-headers' should be enough, but clang does not
     # support it, so we also try '-no-canonical-prefixes' if first option does
     # not work.
-    opt = _add_option_if_supported(
+    opt = _add_compiler_option_if_supported(
         repository_ctx,
         cc,
         "-fno-canonical-system-headers",
     )
     if len(opt) == 0:
-        return _add_option_if_supported(
+        return _add_compiler_option_if_supported(
             repository_ctx,
             cc,
             "-no-canonical-prefixes",
@@ -251,11 +266,11 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
         ] + _escaped_cplus_include_paths(repository_ctx),
         "linker_flag": (
             ["-fuse-ld=gold"] if supports_gold_linker else []
-        ) + _add_option_if_supported(
+        ) + _add_linker_option_if_supported(
             repository_ctx,
             cc,
             "-Wl,-no-as-needed",
-        ) + _add_option_if_supported(
+        ) + _add_linker_option_if_supported(
             repository_ctx,
             cc,
             "-Wl,-z,relro,-z,now",
@@ -270,7 +285,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
                 # Gold linker only? Can we enable this by default?
                 # "-Wl,--warn-execstack",
                 # "-Wl,--detect-odr-violations"
-            ] + _add_option_if_supported(
+            ] + _add_compiler_option_if_supported(
                 # Have gcc return the exit code from ld.
                 repository_ctx,
                 cc,
@@ -298,24 +313,27 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
             # All warnings are enabled. Maybe enable -Werror as well?
             "-Wall",
             # Enable a few more warnings that aren't part of -Wall.
-        ] + (["-Wthread-safety", "-Wself-assign"] if darwin else bin_search_flag + [
+        ] + ((
+            _add_compiler_option_if_supported(repository_ctx, cc, "-Wthread-safety") +
+            _add_compiler_option_if_supported(repository_ctx, cc, "-Wself-assign")
+        ) if darwin else bin_search_flag + [
             # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
             "-B/usr/bin",
         ]) + (
             # Disable problematic warnings.
-            _add_option_if_supported(repository_ctx, cc, "-Wunused-but-set-parameter") +
+            _add_compiler_option_if_supported(repository_ctx, cc, "-Wunused-but-set-parameter") +
             # has false positives
-            _add_option_if_supported(repository_ctx, cc, "-Wno-free-nonheap-object") +
+            _add_compiler_option_if_supported(repository_ctx, cc, "-Wno-free-nonheap-object") +
             # Enable coloring even if there's no attached terminal. Bazel removes the
             # escape sequences if --nocolor is specified.
-            _add_option_if_supported(repository_ctx, cc, "-fcolor-diagnostics")
+            _add_compiler_option_if_supported(repository_ctx, cc, "-fcolor-diagnostics")
         ) + [
             # Keep stack frames for debugging, even in opt mode.
             "-fno-omit-frame-pointer",
         ],
     }
 
-def _opt_content(darwin):
+def _opt_content(repository_ctx, cc, darwin):
     """Return the content of the opt specific section of the CROSSTOOL file."""
     return {
         "compiler_flag": [
@@ -341,7 +359,9 @@ def _opt_content(darwin):
             "-ffunction-sections",
             "-fdata-sections",
         ],
-        "linker_flag": [] if darwin else ["-Wl,--gc-sections"],
+        "linker_flag": (
+            [] if darwin else _add_linker_option_if_supported(repository_ctx, cc, "-Wl,--gc-sections")
+        ),
     }
 
 def _dbg_content():
@@ -470,7 +490,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
 
     tool_paths = _get_tool_paths(repository_ctx, overriden_tools)
     crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
-    opt_content = _opt_content(darwin)
+    opt_content = _opt_content(repository_ctx, cc, darwin)
     dbg_content = _dbg_content()
 
     repository_ctx.template(
