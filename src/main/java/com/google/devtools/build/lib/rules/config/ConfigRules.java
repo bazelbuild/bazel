@@ -32,7 +32,7 @@ public final class ConfigRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    builder.setTrimmingTransitionFactory(
+    builder.addTrimmingTransitionFactory(
         new ConfigFeatureFlagTaggedTrimmingTransitionFactory(BaseRuleClasses.TAGGED_TRIMMING_ATTR));
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigBaseRule());
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigSettingRule());

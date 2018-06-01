@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -413,17 +414,22 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
 
     /**
-     * Sets the transition factory that produces a trimming transition to be run over all targets
+     * Adds a transition factory that produces a trimming transition to be run over all targets
      * after other transitions.
      *
-     * <p>This is a temporary measure for supporting manual trimming of feature flags, and support
-     * for this transition factory will likely be removed at some point in the future (whenever
-     * automatic trimming is sufficiently workable).
+     * <p>Transitions are run in the order they're added.
+     *
+     * <p>This is a temporary measure for supporting trimming of test rules and manual trimming of
+     * feature flags, and support for this transition factory will likely be removed at some point
+     * in the future (whenever automatic trimming is sufficiently workable).
      */
-    public Builder setTrimmingTransitionFactory(RuleTransitionFactory factory) {
-      Preconditions.checkState(
-          trimmingTransitionFactory == null, "Trimming transition factory already set");
-      trimmingTransitionFactory = Preconditions.checkNotNull(factory);
+    public Builder addTrimmingTransitionFactory(RuleTransitionFactory factory) {
+      if (trimmingTransitionFactory == null) {
+        trimmingTransitionFactory = Preconditions.checkNotNull(factory);
+      } else {
+        trimmingTransitionFactory = new ComposingRuleTransitionFactory(
+            trimmingTransitionFactory, Preconditions.checkNotNull(factory));
+      }
       return this;
     }
 
@@ -435,7 +441,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     @VisibleForTesting(/* for testing trimming transition factories without relying on prod use */)
     public Builder overrideTrimmingTransitionFactoryForTesting(RuleTransitionFactory factory) {
       trimmingTransitionFactory = null;
-      return this.setTrimmingTransitionFactory(factory);
+      return this.addTrimmingTransitionFactory(factory);
     }
 
     @Override
