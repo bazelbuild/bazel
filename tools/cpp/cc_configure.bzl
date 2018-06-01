@@ -23,35 +23,37 @@ load(
 )
 
 def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
-  paths = resolve_labels(repository_ctx, [
-      "@bazel_tools//tools/cpp:BUILD.static.freebsd",
-      "@bazel_tools//tools/cpp:CROSSTOOL",
-      "@bazel_tools//tools/cpp:dummy_toolchain.bzl",
-  ])
+    paths = resolve_labels(repository_ctx, [
+        "@bazel_tools//tools/cpp:BUILD.static.freebsd",
+        "@bazel_tools//tools/cpp:CROSSTOOL",
+        "@bazel_tools//tools/cpp:dummy_toolchain.bzl",
+    ])
 
-  repository_ctx.symlink(
-      paths["@bazel_tools//tools/cpp:dummy_toolchain.bzl"], "dummy_toolchain.bzl")
-  env = repository_ctx.os.environ
-  cpu_value = get_cpu_value(repository_ctx)
-  if "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" in env and env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] == "1":
-    repository_ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL.empty"), "CROSSTOOL")
-    repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.empty"), "BUILD")
-  elif cpu_value == "freebsd":
-    # This is defaulting to the static crosstool, we should eventually
-    # autoconfigure this platform too.  Theorically, FreeBSD should be
-    # straightforward to add but we cannot run it in a docker container so
-    # skipping until we have proper tests for FreeBSD.
-    repository_ctx.symlink(paths["@bazel_tools//tools/cpp:CROSSTOOL"], "CROSSTOOL")
-    repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.static.freebsd"], "BUILD")
-  elif cpu_value == "x64_windows":
-    # TODO(ibiryukov): overriden_tools are only supported in configure_unix_toolchain.
-    # We might want to add that to Windows too(at least for msys toolchain).
-    configure_windows_toolchain(repository_ctx)
-  elif (cpu_value == "darwin" and
-      ("BAZEL_USE_CPP_ONLY_TOOLCHAIN" not in env or env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] != "1")):
-    configure_osx_toolchain(repository_ctx, overriden_tools)
-  else:
-    configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools)
+    repository_ctx.symlink(
+        paths["@bazel_tools//tools/cpp:dummy_toolchain.bzl"],
+        "dummy_toolchain.bzl",
+    )
+    env = repository_ctx.os.environ
+    cpu_value = get_cpu_value(repository_ctx)
+    if "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" in env and env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] == "1":
+        repository_ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL.empty"), "CROSSTOOL")
+        repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.empty"), "BUILD")
+    elif cpu_value == "freebsd":
+        # This is defaulting to the static crosstool, we should eventually
+        # autoconfigure this platform too.  Theorically, FreeBSD should be
+        # straightforward to add but we cannot run it in a docker container so
+        # skipping until we have proper tests for FreeBSD.
+        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:CROSSTOOL"], "CROSSTOOL")
+        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.static.freebsd"], "BUILD")
+    elif cpu_value == "x64_windows":
+        # TODO(ibiryukov): overriden_tools are only supported in configure_unix_toolchain.
+        # We might want to add that to Windows too(at least for msys toolchain).
+        configure_windows_toolchain(repository_ctx)
+    elif (cpu_value == "darwin" and
+          ("BAZEL_USE_CPP_ONLY_TOOLCHAIN" not in env or env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] != "1")):
+        configure_osx_toolchain(repository_ctx, overriden_tools)
+    else:
+        configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools)
 
 cc_autoconf = repository_rule(
     environ = [
@@ -92,9 +94,10 @@ cc_autoconf = repository_rule(
 )
 
 def cc_configure():
-  """A C++ configuration rules that generate the crosstool file."""
-  cc_autoconf(name="local_config_cc")
-  native.bind(name="cc_toolchain", actual="@local_config_cc//:toolchain")
-  native.register_toolchains(
-      # Use register_toolchain's target pattern expansion to register all toolchains in the package.
-      "@local_config_cc//:all")
+    """A C++ configuration rules that generate the crosstool file."""
+    cc_autoconf(name = "local_config_cc")
+    native.bind(name = "cc_toolchain", actual = "@local_config_cc//:toolchain")
+    native.register_toolchains(
+        # Use register_toolchain's target pattern expansion to register all toolchains in the package.
+        "@local_config_cc//:all",
+    )

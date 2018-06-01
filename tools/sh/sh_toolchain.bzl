@@ -14,8 +14,8 @@
 """Define a toolchain rule for the shell."""
 
 def _sh_toolchain_impl(ctx):
-  """sh_toolchain rule implementation."""
-  return [platform_common.ToolchainInfo(path = ctx.attr.path)]
+    """sh_toolchain rule implementation."""
+    return [platform_common.ToolchainInfo(path = ctx.attr.path)]
 
 sh_toolchain = rule(
     attrs = {

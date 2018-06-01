@@ -21,20 +21,20 @@ the CppConfiguration.
 """
 
 def find_cpp_toolchain(ctx):
-  """
-  Finds the c++ toolchain.
+    """
+    Finds the c++ toolchain.
 
-  If the c++ toolchain is in use, returns it.  Otherwise, returns a c++
-  toolchain derived from legacy toolchain selection.
+    If the c++ toolchain is in use, returns it.  Otherwise, returns a c++
+    toolchain derived from legacy toolchain selection.
 
-  Args:
-    ctx: The rule context for which to find a toolchain.
+    Args:
+      ctx: The rule context for which to find a toolchain.
 
-  Returns:
-    A CcToolchainProvider.
-  """
+    Returns:
+      A CcToolchainProvider.
+    """
 
-  if Label("@bazel_tools//tools/cpp:toolchain_type") in ctx.fragments.platform.enabled_toolchain_types:
-    return ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"]
-  else:
-    return ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
+    if Label("@bazel_tools//tools/cpp:toolchain_type") in ctx.fragments.platform.enabled_toolchain_types:
+        return ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"]
+    else:
+        return ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]

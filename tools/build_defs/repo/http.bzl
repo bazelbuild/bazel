@@ -30,31 +30,36 @@ These rules are improved versions of the native http rules and will eventually
 replace the native rules.
 """
 
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "workspace_and_buildfile", "patch")
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_buildfile")
 
 def _http_archive_impl(ctx):
-  """Implementation of the http_archive rule."""
-  if not ctx.attr.url and not ctx.attr.urls:
-    ctx.fail("At least of of url and urls must be provided")
-  if ctx.attr.build_file and ctx.attr.build_file_content:
-    ctx.fail("Only one of build_file and build_file_content can be provided.")
+    """Implementation of the http_archive rule."""
+    if not ctx.attr.url and not ctx.attr.urls:
+        ctx.fail("At least of of url and urls must be provided")
+    if ctx.attr.build_file and ctx.attr.build_file_content:
+        ctx.fail("Only one of build_file and build_file_content can be provided.")
 
-  if ctx.attr.build_file:
-    print("ctx.attr.build_file %s, path %s" %
-          (str(ctx.attr.build_file), ctx.path(ctx.attr.build_file)))
-  for patchfile in ctx.attr.patches:
-    print("patch file %s, path %s" % (patchfile, ctx.path(patchfile)))
+    if ctx.attr.build_file:
+        print("ctx.attr.build_file %s, path %s" %
+              (str(ctx.attr.build_file), ctx.path(ctx.attr.build_file)))
+    for patchfile in ctx.attr.patches:
+        print("patch file %s, path %s" % (patchfile, ctx.path(patchfile)))
 
-  all_urls = []
-  if ctx.attr.urls:
-    all_urls = ctx.attr.urls
-  if ctx.attr.url:
-    all_urls = [ctx.attr.url] + all_urls
+    all_urls = []
+    if ctx.attr.urls:
+        all_urls = ctx.attr.urls
+    if ctx.attr.url:
+        all_urls = [ctx.attr.url] + all_urls
 
-  ctx.download_and_extract(all_urls, "", ctx.attr.sha256, ctx.attr.type,
-                           ctx.attr.strip_prefix)
-  patch(ctx)
-  workspace_and_buildfile(ctx)
+    ctx.download_and_extract(
+        all_urls,
+        "",
+        ctx.attr.sha256,
+        ctx.attr.type,
+        ctx.attr.strip_prefix,
+    )
+    patch(ctx)
+    workspace_and_buildfile(ctx)
 
 _HTTP_FILE_BUILD = """
 package(default_visibility = ["//visibility:public"])
@@ -66,11 +71,15 @@ filegroup(
 """
 
 def _http_file_impl(ctx):
-  """Implementation of the http_file rule."""
-  ctx.download(ctx.attr.urls, "file/downloaded", ctx.attr.sha256,
-               ctx.attr.executable)
-  ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name=ctx.name))
-  ctx.file("file/BUILD", _HTTP_FILE_BUILD)
+    """Implementation of the http_file rule."""
+    ctx.download(
+        ctx.attr.urls,
+        "file/downloaded",
+        ctx.attr.sha256,
+        ctx.attr.executable,
+    )
+    ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
+    ctx.file("file/BUILD", _HTTP_FILE_BUILD)
 
 _HTTP_JAR_BUILD = """
 package(default_visibility = ["//visibility:public"])
@@ -90,16 +99,15 @@ filegroup(
 """
 
 def _http_jar_impl(ctx):
-  """Implementation of the http_jar rule."""
-  all_urls = []
-  if ctx.attr.urls:
-    all_urls = ctx.attr.urls
-  if ctx.attr.url:
-    all_urls = [ctx.attr.url] + all_urls
-  ctx.download(all_urls, "jar/downloaded.jar", ctx.attr.sha256)
-  ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name=ctx.name))
-  ctx.file("jar/BUILD", _HTTP_JAR_BUILD)
-
+    """Implementation of the http_jar rule."""
+    all_urls = []
+    if ctx.attr.urls:
+        all_urls = ctx.attr.urls
+    if ctx.attr.url:
+        all_urls = [ctx.attr.url] + all_urls
+    ctx.download(all_urls, "jar/downloaded.jar", ctx.attr.sha256)
+    ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
+    ctx.file("jar/BUILD", _HTTP_JAR_BUILD)
 
 _http_archive_attrs = {
     "url": attr.string(),
@@ -109,13 +117,12 @@ _http_archive_attrs = {
     "type": attr.string(),
     "build_file": attr.label(),
     "build_file_content": attr.string(),
-    "patches": attr.label_list(default=[]),
-    "patch_tool": attr.string(default="patch"),
-    "patch_cmds": attr.string_list(default=[]),
+    "patches": attr.label_list(default = []),
+    "patch_tool": attr.string(default = "patch"),
+    "patch_cmds": attr.string_list(default = []),
     "workspace_file": attr.label(),
     "workspace_file_content": attr.string(),
 }
-
 
 http_archive = repository_rule(
     implementation = _http_archive_impl,
@@ -235,13 +242,12 @@ Args:
   patch_cmds: sequence of commands to be applied after patches are applied.
 """
 
-
 http_file = repository_rule(
     implementation = _http_file_impl,
     attrs = {
         "executable": attr.bool(),
         "sha256": attr.string(),
-        "urls": attr.string_list(mandatory=True),
+        "urls": attr.string_list(mandatory = True),
     },
 )
 """Downloads a file from a URL and makes it available to be used as a file
