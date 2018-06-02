@@ -65,7 +65,9 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -85,8 +87,7 @@ public class ByteStreamUploaderTest {
   private static final String INSTANCE_NAME = "foo";
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
-  private final ListeningScheduledExecutorService retryService =
-      MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+  private static ListeningScheduledExecutorService retryService;
 
   private Server server;
   private Channel channel;
@@ -94,6 +95,11 @@ public class ByteStreamUploaderTest {
   private Context prevContext;
 
   @Mock private Retrier.Backoff mockBackoff;
+
+  @BeforeClass
+  public static void beforeEverything() {
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+  }
 
   @Before
   public final void setUp() throws Exception {
@@ -118,17 +124,20 @@ public class ByteStreamUploaderTest {
     withEmptyMetadata.detach(prevContext);
 
     server.shutdownNow();
-    retryService.shutdownNow();
     server.awaitTermination();
+  }
+
+  @AfterClass
+  public static void afterEverything() {
+    retryService.shutdownNow();
   }
 
   @Test(timeout = 10000)
   public void singleBlobUploadShouldWork() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
     RemoteRetrier retrier =
-        new RemoteRetrier(() -> mockBackoff, (e) -> true, Retrier.ALLOW_ALL_CALLS);
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
+        new RemoteRetrier(() -> mockBackoff, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
+    ByteStreamUploader uploader = new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -198,9 +207,9 @@ public class ByteStreamUploaderTest {
   public void multipleBlobsUploadShouldWork() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
     RemoteRetrier retrier =
-        new RemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, Retrier.ALLOW_ALL_CALLS);
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
+        new RemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
+    ByteStreamUploader uploader = new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier);
 
     int numUploads = 100;
     Map<String, byte[]> blobsByHash = new HashMap<>();
@@ -285,15 +294,15 @@ public class ByteStreamUploaderTest {
     withEmptyMetadata.detach(prevContext);
   }
 
-  @Test(timeout = 20000)
+  @Test
   public void contextShouldBePreservedUponRetries() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
     // We upload blobs with different context, and retry 3 times for each upload.
     // We verify that the correct metadata is passed to the server with every blob.
     RemoteRetrier retrier =
-        new RemoteRetrier(() -> new FixedBackoff(3, 0), (e) -> true, Retrier.ALLOW_ALL_CALLS);
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
+        new RemoteRetrier(
+            () -> new FixedBackoff(5, 0), (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
+    ByteStreamUploader uploader = new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier);
 
     List<String> toUpload = ImmutableList.of("aaaaaaaaaa", "bbbbbbbbbb", "cccccccccc");
     List<Chunker> builders = new ArrayList<>(toUpload.size());
@@ -383,9 +392,8 @@ public class ByteStreamUploaderTest {
 
     Context prevContext = withEmptyMetadata.attach();
     RemoteRetrier retrier =
-        new RemoteRetrier(() -> mockBackoff, (e) -> true, Retrier.ALLOW_ALL_CALLS);
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
+        new RemoteRetrier(() -> mockBackoff, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
+    ByteStreamUploader uploader = new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 10];
     Chunker chunker = new Chunker(blob, CHUNK_SIZE, DIGEST_UTIL);
@@ -445,9 +453,9 @@ public class ByteStreamUploaderTest {
   public void errorsShouldBeReported() throws IOException, InterruptedException {
     Context prevContext = withEmptyMetadata.attach();
     RemoteRetrier retrier =
-        new RemoteRetrier(() -> new FixedBackoff(1, 10), (e) -> true, Retrier.ALLOW_ALL_CALLS);
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
+        new RemoteRetrier(
+            () -> new FixedBackoff(1, 10), (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
+    ByteStreamUploader uploader = new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier);
 
     byte[] blob = new byte[CHUNK_SIZE];
     Chunker chunker = new Chunker(blob, CHUNK_SIZE, DIGEST_UTIL);
@@ -475,9 +483,9 @@ public class ByteStreamUploaderTest {
   public void shutdownShouldCancelOngoingUploads() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
     RemoteRetrier retrier =
-        new RemoteRetrier(() -> new FixedBackoff(1, 10), (e) -> true, Retrier.ALLOW_ALL_CALLS);
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
+        new RemoteRetrier(
+            () -> new FixedBackoff(1, 10), (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
+    ByteStreamUploader uploader = new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier);
 
     CountDownLatch cancellations = new CountDownLatch(2);
 
@@ -532,10 +540,12 @@ public class ByteStreamUploaderTest {
   @Test(timeout = 10000)
   public void failureInRetryExecutorShouldBeHandled() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
+    ListeningScheduledExecutorService retryService =
+        MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
     RemoteRetrier retrier =
-        new RemoteRetrier(() -> new FixedBackoff(1, 10), (e) -> true, Retrier.ALLOW_ALL_CALLS);
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
+        new RemoteRetrier(
+            () -> new FixedBackoff(1, 10), (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
+    ByteStreamUploader uploader = new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier);
 
     serviceRegistry.addService(new ByteStreamImplBase() {
       @Override
@@ -567,9 +577,9 @@ public class ByteStreamUploaderTest {
   public void resourceNameWithoutInstanceName() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
     RemoteRetrier retrier =
-        new RemoteRetrier(() -> mockBackoff, (e) -> true, Retrier.ALLOW_ALL_CALLS);
+        new RemoteRetrier(() -> mockBackoff, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
     ByteStreamUploader uploader =
-        new ByteStreamUploader(/* instanceName */ null, channel, null, 3, retrier, retryService);
+        new ByteStreamUploader(/* instanceName */ null, channel, null, 3, retrier);
 
     serviceRegistry.addService(new ByteStreamImplBase() {
       @Override
@@ -610,9 +620,10 @@ public class ByteStreamUploaderTest {
         new RemoteRetrier(
             () -> new FixedBackoff(1, 0),
             /* No Status is retriable. */ (e) -> false,
+            retryService,
             Retrier.ALLOW_ALL_CALLS);
     ByteStreamUploader uploader =
-        new ByteStreamUploader(/* instanceName */ null, channel, null, 3, retrier, retryService);
+        new ByteStreamUploader(/* instanceName */ null, channel, null, 3, retrier);
 
     AtomicInteger numCalls = new AtomicInteger();
 

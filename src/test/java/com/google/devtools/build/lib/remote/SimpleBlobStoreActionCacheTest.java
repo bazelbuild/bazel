@@ -14,12 +14,16 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -38,8 +42,11 @@ import com.google.devtools.remoteexecution.v1test.Tree;
 import io.grpc.Context;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -54,6 +61,14 @@ public class SimpleBlobStoreActionCacheTest {
   private FakeActionInputFileCache fakeFileCache;
   private Context withEmptyMetadata;
   private Context prevContext;
+  private Retrier retrier;
+
+  private static ListeningScheduledExecutorService retryService;
+
+  @BeforeClass
+  public static void beforeEverything() {
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+  }
 
   @Before
   public final void setUp() throws Exception {
@@ -62,7 +77,23 @@ public class SimpleBlobStoreActionCacheTest {
     execRoot = fs.getPath("/exec/root");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
+    retrier =
+        new Retrier(
+            () ->
+                new Backoff() {
+                  @Override
+                  public long nextDelayMillis() {
+                    return -1;
+                  }
 
+                  @Override
+                  public int getRetryAttempts() {
+                    return 0;
+                  }
+                },
+            (e) -> false,
+            retryService,
+            RemoteRetrier.ALLOW_ALL_CALLS);
     Path stdout = fs.getPath("/tmp/stdout");
     Path stderr = fs.getPath("/tmp/stderr");
     FileSystemUtils.createDirectoryAndParents(stdout.getParentDirectory());
@@ -78,13 +109,21 @@ public class SimpleBlobStoreActionCacheTest {
     withEmptyMetadata.detach(prevContext);
   }
 
+  @AfterClass
+  public static void afterEverything() {
+    retryService.shutdownNow();
+  }
+
   private SimpleBlobStoreActionCache newClient() {
     return newClient(new ConcurrentHashMap<>());
   }
 
   private SimpleBlobStoreActionCache newClient(ConcurrentMap<String, byte[]> map) {
     return new SimpleBlobStoreActionCache(
-        Options.getDefaults(RemoteOptions.class), new ConcurrentMapBlobStore(map), DIGEST_UTIL);
+        Options.getDefaults(RemoteOptions.class),
+        new ConcurrentMapBlobStore(map),
+        retrier,
+        DIGEST_UTIL);
   }
 
   @Test
@@ -92,7 +131,7 @@ public class SimpleBlobStoreActionCacheTest {
     SimpleBlobStoreActionCache client = newClient();
     Digest emptyDigest = DIGEST_UTIL.compute(new byte[0]);
     // Will not call the mock Bytestream interface at all.
-    assertThat(client.downloadBlob(emptyDigest)).isEmpty();
+    assertThat(getFromFuture(client.downloadBlob(emptyDigest))).isEmpty();
   }
 
   @Test
@@ -101,7 +140,7 @@ public class SimpleBlobStoreActionCacheTest {
     Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     map.put(digest.getHash(), "abcdefg".getBytes(Charsets.UTF_8));
     final SimpleBlobStoreActionCache client = newClient(map);
-    assertThat(new String(client.downloadBlob(digest), UTF_8)).isEqualTo("abcdefg");
+    assertThat(new String(getFromFuture(client.downloadBlob(digest)), UTF_8)).isEqualTo("abcdefg");
   }
 
   @Test
