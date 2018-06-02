@@ -45,6 +45,7 @@ guarded behind flags in the current release:
 *   [Remove native git repository](#remove-native-git-repository)
 *   [Remove native http archive](#remove-native-http-archive)
 *   [New-style JavaInfo constructor](#new-style-java_info)
+*   [Disallow tools in action inputs](#disallow-tools-in-action-inputs)
 
 
 ### Dictionary concatenation
@@ -348,5 +349,43 @@ provider = JavaInfo(
   runtime_deps = my_runtime_deps,
 )
 ```
+
+### Disallow tools in action inputs
+
+A tool is an input coming from an attribute of type `label`
+where the attribute has been marked `executable = True`. In order for an action
+to run a tool, it needs access to its runfiles.
+
+Under the old API, tools are passed to `ctx.actions.run()` and
+`ctx.actions.run_shell()` via their `inputs` parameter. Bazel scans this
+argument (which may be a large depset) to find all the inputs that are tools,
+and adds their runfiles automatically.
+
+In the new API, tools are instead passed to a dedicated `tools` parameter. The
+`inputs` are not scanned. If a tool is accidentally put in `inputs` instead of
+`tools`, the action will fail during the execution phase with an error due to
+missing runfiles. This may be somewhat cryptic.
+
+To support a gradual transition, all actions with a `tools` argument are opted
+into the new API, while all actions without a `tools` argument still follow the
+old one. In the future (when this flag is removed), all actions will use the new
+API unconditionally.
+
+This flag turns on a safety check that is useful for migrating existing code.
+The safety check applies to all actions that do not have a `tools` argument. It
+scans the `inputs` looking for tools, and if it finds any, it raises an error
+during the analysis phase that clearly identifies the offending tools.
+
+In the rare case that your action requires a tool as input, but does not
+actually run the tool and therefore does not need its runfiles, the safety check
+will fail even though the action would have succeeded. In this case, you can
+bypass the check by adding a (possibly empty) `tools` argument to your action.
+Note that once an action has been modified to take a `tools` argument, you will
+no longer get helpful analysis-time errors for any remaining tools that should
+have been migrated from `inputs`.
+
+
+*   Flag: `--incompatible_no_support_tools_in_action_inputs`
+*   Default: `false`
 
 <!-- Add new options here -->

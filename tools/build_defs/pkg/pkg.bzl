@@ -81,7 +81,8 @@ def _pkg_tar_impl(ctx):
 
     ctx.actions.run_shell(
         command = "%s --flagfile=%s" % (build_tar.path, arg_file.path),
-        inputs = file_inputs + ctx.files.deps + [arg_file, build_tar],
+        inputs = file_inputs + ctx.files.deps + [arg_file],
+        tools = [build_tar],
         outputs = [ctx.outputs.out],
         mnemonic = "PackageTar",
         use_default_shell_env = True,

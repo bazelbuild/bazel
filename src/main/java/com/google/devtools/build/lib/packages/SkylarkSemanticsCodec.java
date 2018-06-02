@@ -53,6 +53,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowOldStyleArgsAdd());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowSlashOperator());
     codedOut.writeBoolNoTag(semantics.incompatibleNewActionsApi());
+    codedOut.writeBoolNoTag(semantics.incompatibleNoSupportToolsInActionInputs());
     codedOut.writeBoolNoTag(semantics.incompatiblePackageNameIsAFunction());
     codedOut.writeBoolNoTag(semantics.incompatibleRemoveNativeGitRepository());
     codedOut.writeBoolNoTag(semantics.incompatibleRemoveNativeHttpArchive());
@@ -76,6 +77,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     builder.incompatibleDisallowOldStyleArgsAdd(codedIn.readBool());
     builder.incompatibleDisallowSlashOperator(codedIn.readBool());
     builder.incompatibleNewActionsApi(codedIn.readBool());
+    builder.incompatibleNoSupportToolsInActionInputs(codedIn.readBool());
     builder.incompatiblePackageNameIsAFunction(codedIn.readBool());
     builder.incompatibleRemoveNativeGitRepository(codedIn.readBool());
     builder.incompatibleRemoveNativeHttpArchive(codedIn.readBool());
