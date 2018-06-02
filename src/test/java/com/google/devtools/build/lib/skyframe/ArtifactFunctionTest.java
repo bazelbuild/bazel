@@ -139,18 +139,25 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     Artifact output = createMiddlemanArtifact("output");
     Artifact input1 = createSourceArtifact("input1");
     Artifact input2 = createDerivedArtifact("input2");
+    SpecialArtifact tree = createDerivedTreeArtifactWithAction("treeArtifact");
+    file(createFakeTreeFileArtifact(tree, "child1", "hello1").getPath(), "src1");
+    file(createFakeTreeFileArtifact(tree, "child2", "hello2").getPath(), "src2");
     Action action =
         new DummyAction(
-            ImmutableList.of(input1, input2), output, MiddlemanType.AGGREGATING_MIDDLEMAN);
+            ImmutableList.of(input1, input2, tree), output, MiddlemanType.AGGREGATING_MIDDLEMAN);
     actions.add(action);
     file(input2.getPath(), "contents");
     file(input1.getPath(), "source contents");
     evaluate(
         Iterables.toArray(
-            ArtifactSkyKey.mandatoryKeys(ImmutableSet.of(input2, input1, input2)), SkyKey.class));
+            ArtifactSkyKey.mandatoryKeys(
+                ImmutableSet.of(input2, input1, input2, tree)), SkyKey.class));
     SkyValue value = evaluateArtifactValue(output);
     assertThat(((AggregatingArtifactValue) value).getInputs())
-        .containsExactly(Pair.of(input1, create(input1)), Pair.of(input2, create(input2)));
+        .containsExactly(
+            Pair.of(input1, create(input1)),
+            Pair.of(input2, create(input2)),
+            Pair.of(tree, ((TreeArtifactValue) evaluateArtifactValue(tree)).getSelfData()));
   }
 
   /**
