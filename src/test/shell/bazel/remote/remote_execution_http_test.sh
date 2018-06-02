@@ -249,7 +249,10 @@ def _gen_output_dir_impl(ctx):
       arguments = [output_dir.path],
   )
   return [
-      DefaultInfo(files=depset(direct=[output_dir])),
+      DefaultInfo(
+          files=depset(direct=[output_dir]),
+          data_runfiles=ctx.runfiles(files=[output_dir]),
+      ),
   ]
 
 gen_output_dir = rule(
@@ -274,7 +277,26 @@ genrule(
     outs = ["qux"],
     cmd = "mkdir $@ && paste -d\"\n\" $(location :output_dir)/foo.txt $(location :output_dir)/sub1/bar.txt > $@/out.txt",
 )
+
+sh_binary(
+    name = "a-tool",
+    srcs = ["a-tool.sh"],
+    data = [":output_dir"],
+)
+
+genrule(
+    name = "test2",
+    outs = ["test2-out.txt"],
+    cmd = "$(location :a-tool) > $@",
+    tools = [":a-tool"],
+)
 EOF
+
+  cat > a/a-tool.sh <<'EOF'
+#!/bin/sh -eu
+cat "$0".runfiles/main/a/dir/foo.txt "$0".runfiles/main/a/dir/sub1/bar.txt
+EOF
+  chmod u+x a/a-tool.sh
 
   cat > a/test_expected <<EOF
 Hello, world!
@@ -322,6 +344,17 @@ function test_directory_artifact_skylark_rest_cache() {
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
+      || fail "Remote cache generated different result"
+}
+
+function test_directory_artifact_in_runfiles_skylark_rest_cache() {
+  set_directory_artifact_skylark_testfixtures
+
+  bazel build \
+      --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
+      //a:test2 >& $TEST_log \
+      || fail "Failed to build //a:test2 with remote REST cache"
+  diff bazel-genfiles/a/test2-out.txt a/test_expected \
       || fail "Remote cache generated different result"
 }
 
