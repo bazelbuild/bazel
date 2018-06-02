@@ -131,11 +131,25 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
   }
 
   private HttpRequest buildRequest(DownloadCommand request) {
+    String path;
+    if(request.assumeCacheURI()){
+      path = constructPath(request.uri(), request.hash(), request.casDownload());
+    } else {
+      StringBuilder builder = new StringBuilder();
+      builder.append(request.uri().getPath());
+      String qry = request.uri().getQuery();
+      if (qry != null){
+        builder.append("?");
+        builder.append(qry);
+      }
+      path = builder.toString();
+    }
+
     HttpRequest httpRequest =
         new DefaultFullHttpRequest(
             HttpVersion.HTTP_1_1,
             HttpMethod.GET,
-            constructPath(request.uri(), request.hash(), request.casDownload()));
+            path);
     httpRequest.headers().set(HttpHeaderNames.HOST, constructHost(request.uri()));
     httpRequest.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
     httpRequest.headers().set(HttpHeaderNames.ACCEPT, "*/*");

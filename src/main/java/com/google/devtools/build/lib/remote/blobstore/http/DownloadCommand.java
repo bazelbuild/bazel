@@ -24,12 +24,18 @@ final class DownloadCommand {
   private final boolean casDownload;
   private final String hash;
   private final OutputStream out;
+  private final boolean assumeCacheURI;
 
-  protected DownloadCommand(URI uri, boolean casDownload, String hash, OutputStream out) {
+  protected DownloadCommand(URI uri, boolean casDownload, String hash, OutputStream out, boolean assumeCacheURI) {
     this.uri = Preconditions.checkNotNull(uri);
     this.casDownload = casDownload;
     this.hash = Preconditions.checkNotNull(hash);
     this.out = Preconditions.checkNotNull(out);
+    this.assumeCacheURI = assumeCacheURI;
+  }
+
+  protected DownloadCommand(URI uri, boolean casDownload, String hash, OutputStream out) {
+    this(uri, casDownload, hash, out, true);
   }
 
   public URI uri() {
@@ -46,5 +52,9 @@ final class DownloadCommand {
 
   public OutputStream out() {
     return out;
+  }
+
+  public boolean assumeCacheURI(){
+    return assumeCacheURI;
   }
 }

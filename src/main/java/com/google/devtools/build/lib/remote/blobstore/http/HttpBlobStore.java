@@ -225,6 +225,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
             out.flush();
           }
         };
+
     DownloadCommand download = new DownloadCommand(uri, casDownload, key, wrappedOut);
 
     Channel ch = null;
@@ -243,6 +244,26 @@ public final class HttpBlobStore implements SimpleBlobStore {
           refreshCredentials();
           return getAfterCredentialRefresh(download);
         }
+
+        // if we got a redirect, we should straight up follow it
+        // and thus try again.
+        if (isRedirect(response.status())) {
+          String location = response.headers().getAsString(HttpHeaderNames.LOCATION);
+
+          if (location != null){
+            // create a new download command that targets the redirected location
+            URI redirected = URI.create(location);
+            // clear our output stream here so we can reuse this (believe this should be safe?).
+            wrappedOut.flush();
+            DownloadCommand rdc = new DownloadCommand(redirected, casDownload, key, wrappedOut, false);
+            return getAfterCredentialRefresh(rdc);
+          } else {
+            // we got a redirect response, but we didnt get a Location header
+            // detailing where we should redirect too, so bail out.
+            return false;
+          }
+        }
+
         if (cacheMiss(response.status())) {
           return false;
         }
@@ -266,6 +287,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
     } catch (Exception e) {
       if (e instanceof HttpException) {
         HttpResponse response = ((HttpException) e).response();
+        String location = response.headers().getAsString(HttpHeaderNames.LOCATION);
         if (cacheMiss(response.status())) {
           return false;
         }
@@ -379,6 +401,17 @@ public final class HttpBlobStore implements SimpleBlobStore {
     downloadChannels.close();
     uploadChannels.close();
     eventLoop.shutdownGracefully();
+  }
+
+  // private DownloadCommand commandFromURI(u: URI)
+
+  private boolean isRedirect(HttpResponseStatus status) {
+    // supporting redirects here thus allowing users to leverage
+    // pre-signed URLs (and similar such approaches) so they can
+    // have a cache that doesn't stream artifacts but instead acts
+    // as a metadata system.
+    return status.equals(HttpResponseStatus.MOVED_PERMANENTLY)
+        || status.equals(HttpResponseStatus.TEMPORARY_REDIRECT);
   }
 
   private boolean cacheMiss(HttpResponseStatus status) {
