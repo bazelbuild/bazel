@@ -483,7 +483,13 @@ final class JavaInfoBuildHelper {
 
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
 
-    Artifact outputSourceJar = getSourceJar(skylarkRuleContext.getRuleContext(), outputJar);
+    boolean generateMergedSourceJar =
+        (sourceJars.size() > 1 || !sourceFiles.isEmpty())
+            || (sourceJars.isEmpty() && sourceFiles.isEmpty() && !exports.isEmpty());
+    Artifact outputSourceJar =
+        generateMergedSourceJar
+            ? getSourceJar(skylarkRuleContext.getRuleContext(), outputJar)
+            : sourceJars.get(0);
 
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
     JavaCompilationArtifacts artifacts =
@@ -493,7 +499,7 @@ final class JavaInfoBuildHelper {
             javaRuntimeInfo,
             SkylarkList.createImmutable(ImmutableList.of()),
             outputJarsBuilder,
-            /*createOutputSourceJar=*/ true,
+            /*createOutputSourceJar*/ generateMergedSourceJar,
             outputSourceJar,
             javaInfoBuilder);
 

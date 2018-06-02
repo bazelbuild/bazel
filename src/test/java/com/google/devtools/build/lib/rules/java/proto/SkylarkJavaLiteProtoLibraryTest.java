@@ -308,7 +308,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     JavaSourceJarsProvider sourceJarsProvider = getProvider(JavaSourceJarsProvider.class, rule);
     assertThat(sourceJarsProvider).isNotNull();
     assertThat(prettyArtifactNames(sourceJarsProvider.getSourceJars()))
-        .containsExactly("x/libproto_lib-lite-src.jar");
+        .containsExactly("x/proto_lib-lite-src.jar");
 
     ImmutableListMultimap<String, Artifact> runtimeJars =
         Multimaps.index(compilationArgs.getRuntimeJars(), ROOT_RELATIVE_PATH_STRING);
@@ -458,7 +458,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
           getProvider(JavaSourceJarsProvider.class, getConfiguredTarget("//x:foo_lite_pb2"));
       assertThat(sourceJarsProvider).isNotNull();
       assertThat(prettyArtifactNames(sourceJarsProvider.getSourceJars()))
-          .containsExactly("x/libfoo-lite-src.jar");
+          .containsExactly("x/foo-lite-src.jar");
     }
 
     {
@@ -474,7 +474,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
           getProvider(JavaSourceJarsProvider.class, getConfiguredTarget("//x:bar_lite_pb2"));
       assertThat(sourceJarsProvider).isNotNull();
       assertThat(prettyArtifactNames(sourceJarsProvider.getSourceJars()))
-          .containsExactly("x/libbar-lite-src.jar");
+          .containsExactly("x/bar-lite-src.jar");
     }
   }
 
