@@ -51,17 +51,18 @@ def _jvm_import_external(repository_ctx):
     name = repository_ctx.attr.generated_rule_name or repository_ctx.name
     urls = repository_ctx.attr.jar_urls
     sha = repository_ctx.attr.jar_sha256
-    path = repository_ctx.name + ".jar"
+    extension = "." + repository_ctx.attr.packaging
+    path = repository_ctx.name + extension
     for url in urls:
-        if url.endswith(".jar"):
+        if url.endswith(extension):
             path = url[url.rindex("/") + 1:]
             break
     srcurls = repository_ctx.attr.srcjar_urls
     srcsha = repository_ctx.attr.srcjar_sha256
-    srcpath = repository_ctx.name + "-src.jar" if srcurls else ""
+    srcpath = repository_ctx.name + "-src" + extension if srcurls else ""
     for url in srcurls:
-        if url.endswith(".jar"):
-            srcpath = url[url.rindex("/") + 1:].replace("-sources.jar", "-src.jar")
+        if url.endswith(extension):
+            srcpath = url[url.rindex("/") + 1:].replace("-sources" + extension, "-src" + extension)
             break
     lines = [_HEADER, ""]
     if repository_ctx.attr.rule_load:
@@ -103,7 +104,7 @@ def _jvm_import_external(repository_ctx):
     if srcurls:
         repository_ctx.download(srcurls, srcpath, srcsha)
     repository_ctx.file("BUILD", "\n".join(lines))
-    repository_ctx.file("jar/BUILD", "\n".join([
+    repository_ctx.file("%s/BUILD" % repository_ctx.attr.packaging, "\n".join([
         _HEADER,
         "",
         "package(default_visibility = %r)" % (
@@ -112,7 +113,7 @@ def _jvm_import_external(repository_ctx):
         ),
         "",
         "alias(",
-        "    name = \"jar\",",
+        "    name = \"%s\"," % repository_ctx.attr.packaging,
         "    actual = \"@%s\"," % repository_ctx.name,
         ")",
         "",
@@ -150,8 +151,13 @@ def _serialize_given_rule_import(rule_name, name, path, srcpath, attrs, props, a
     lines = [
         "%s(" % rule_name,
         "    name = %s," % repr(name),
-        "    jars = [%s]," % repr(path),
     ]
+
+    if rule_name == "aar_import":
+        lines.append("    aar = %s," % repr(path))
+    else:
+        lines.append("    jars = [%s]," % repr(path))
+
     if srcpath:
         lines.append("    srcjar = %s," % repr(srcpath))
     for prop in props:
@@ -173,6 +179,7 @@ jvm_import_external = repository_rule(
         "licenses": attr.string_list(mandatory = True, allow_empty = False),
         "jar_urls": attr.string_list(mandatory = True, allow_empty = False),
         "jar_sha256": attr.string(),
+        "packaging": attr.string(default = "jar", values = ["jar", "aar"]),
         "rule_load": attr.string(),
         "additional_rule_attrs": attr.string_dict(),
         "srcjar_urls": attr.string_list(),
