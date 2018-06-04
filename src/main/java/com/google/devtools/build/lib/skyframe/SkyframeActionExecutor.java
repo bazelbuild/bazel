@@ -633,7 +633,6 @@ public final class SkyframeActionExecutor {
       Environment env,
       @Nullable ActionFileSystem actionFileSystem)
       throws ActionExecutionException, InterruptedException {
-    ActionInputFileCache cache;
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
