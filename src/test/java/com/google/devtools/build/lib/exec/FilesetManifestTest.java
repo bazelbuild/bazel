@@ -279,8 +279,31 @@ public class FilesetManifestTest {
     } catch (IOException e) {
       assertThat(e).hasMessageThat()
           .isEqualTo(
-              "runfiles target 'foo' is not absolute, and could not be resolved in the same "
-                  + "Fileset");
+              "runfiles target 'foo' is a relative symlink, and could not be resolved within the "
+              +  "same Fileset");
+    }
+  }
+
+  @Test
+  public void testManifestWithUnresolvableRelativeSymlinkToRelativeSymlink() throws Exception {
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar foo",
+        "<some digest>",
+        "workspace/foo baz",
+        "<some digest>");
+
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
+    try {
+      FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
+      fail();
+    } catch (IOException e) {
+      assertThat(e).hasMessageThat()
+          .isEqualTo(
+              "runfiles target 'foo' is a relative symlink, and points to another symlink");
     }
   }
 
