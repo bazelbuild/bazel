@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
@@ -49,7 +50,7 @@ public final class ExecutionProgressReceiver
   private static final NumberFormat PROGRESS_MESSAGE_NUMBER_FORMATTER;
 
   // Must be thread-safe!
-  private final Set<ConfiguredTarget> builtTargets;
+  private final Set<ConfiguredTargetKey> builtTargets;
   private final Set<AspectKey> builtAspects;
   private final Set<ActionLookupData> enqueuedActions = Sets.newConcurrentHashSet();
   private final Set<ActionLookupData> completedActions = Sets.newConcurrentHashSet();
@@ -69,7 +70,7 @@ public final class ExecutionProgressReceiver
    * permitted while this receiver is active.
    */
   ExecutionProgressReceiver(
-      Set<ConfiguredTarget> builtTargets, Set<AspectKey> builtAspects, int exclusiveTestsCount) {
+      Set<ConfiguredTargetKey> builtTargets, Set<AspectKey> builtAspects, int exclusiveTestsCount) {
     this.builtTargets = Collections.synchronizedSet(builtTargets);
     this.builtAspects = Collections.synchronizedSet(builtAspects);
     this.exclusiveTestsCount = exclusiveTestsCount;
@@ -108,7 +109,7 @@ public final class ExecutionProgressReceiver
         return;
       }
       ConfiguredTarget target = value.getConfiguredTarget();
-      builtTargets.add(target);
+      builtTargets.add(ConfiguredTargetKey.inTargetConfig(target));
     } else if (type.equals(SkyFunctions.ASPECT_COMPLETION)) {
       AspectCompletionValue value = (AspectCompletionValue) skyValueSupplier.get();
       if (value == null) {

@@ -264,7 +264,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           Set<ConfiguredTarget> targetsToSkip,
           Collection<AspectValue> aspects,
           Executor executor,
-          Set<ConfiguredTarget> builtTargets,
+          Set<ConfiguredTargetKey> builtTargets,
           Set<AspectKey> builtAspects,
           boolean explain,
           Range<Long> lastExecutionTimeRange,
@@ -407,7 +407,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
     tsgm.setCommandStartTime();
     Set<Artifact> artifactsToBuild = Sets.newHashSet(artifacts);
-    Set<ConfiguredTarget> builtTargets = new HashSet<>();
+    Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
     Set<AspectKey> builtAspects = new HashSet<>();
     try {
       builder.buildArtifacts(
