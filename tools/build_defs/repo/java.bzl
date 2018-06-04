@@ -176,15 +176,17 @@ def java_import_external(jar_sha256, jar_urls, **kwargs):
         rule_name = "java_import",
         artifact_sha256 = jar_sha256,
         artifact_urls = jar_urls,
-        packaging = "jar",
         **kwargs
     )
 
-def aar_import_external(aar_urls, aar_sha256, **kwargs):
+def aar_import_external(aar_sha256, aar_urls, **kwargs):
     jvm_import_external(
         rule_name = "aar_import",
+        rule_metadata = {
+            "extension": "aar",
+            "import_attr": "aar = %s"
+        },
         artifact_sha256 = aar_sha256,
         artifact_urls = aar_urls,
-        packaging = "aar",
         **kwargs
     )
