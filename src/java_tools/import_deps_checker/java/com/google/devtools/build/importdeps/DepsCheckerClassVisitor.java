@@ -107,7 +107,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       }
       MemberInfo member = MemberInfo.create(name, desc);
       if (!classInfo.get().containsMember(member)) {
-        resultCollector.addMissingMember(owner, member);
+        resultCollector.addMissingMember(classInfo.get(), member);
       }
     } catch (RuntimeException e) {
       System.err.printf(

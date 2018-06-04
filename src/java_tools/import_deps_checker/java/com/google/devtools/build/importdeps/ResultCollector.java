@@ -65,7 +65,7 @@ public class ResultCollector {
         && indirectDeps.isEmpty();
   }
 
-  public void addMissingMember(String owner, MemberInfo member) {
+  public void addMissingMember(ClassInfo owner, MemberInfo member) {
     missingMembers.add(MissingMember.create(owner, member));
   }
 
@@ -97,15 +97,15 @@ public class ResultCollector {
   @AutoValue
   public abstract static class MissingMember implements Comparable<MissingMember> {
 
-    public static MissingMember create(String owner, String memberName, String descriptor) {
+    public static MissingMember create(ClassInfo owner, String memberName, String descriptor) {
       return create(owner, MemberInfo.create(memberName, descriptor));
     }
 
-    public static MissingMember create(String owner, MemberInfo member) {
+    public static MissingMember create(ClassInfo owner, MemberInfo member) {
       return new AutoValue_ResultCollector_MissingMember(owner, member);
     }
 
-    public abstract String owner();
+    public abstract ClassInfo owner();
 
     public abstract MemberInfo member();
 

@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.importdeps;
 
-
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.ResultCollector.MissingMember;
 import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
@@ -28,9 +28,14 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.jar.Attributes;
 import java.util.jar.JarFile;
+import java.util.jar.Manifest;
+import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassReader;
@@ -44,6 +49,8 @@ public final class ImportDepsChecker implements Closeable {
   private final ClassCache classCache;
   private final ResultCollector resultCollector;
   private final ImmutableList<Path> inputJars;
+  private final ImmutableMap<Path, String> pathToTargetMap;
+  private final Function<ClassInfo, String> classInfoLabelFunc;
 
   public ImportDepsChecker(
       ImmutableList<Path> bootclasspath,
@@ -54,6 +61,23 @@ public final class ImportDepsChecker implements Closeable {
     this.classCache = new ClassCache(bootclasspath, directClasspath, classpath, inputJars);
     this.resultCollector = new ResultCollector();
     this.inputJars = inputJars;
+    this.pathToTargetMap = buildPathToTargetMap(bootclasspath, classpath, inputJars);
+    this.classInfoLabelFunc =
+        klass -> {
+          String klassName = klass.internalName().replace('/', '.');
+          String targetName = pathToTargetMap.get(klass.jarPath());
+          if (targetName != null) {
+            int index = targetName.lastIndexOf('/');
+            if (index >= 0) {
+              // Just print the target name without the full path, as the Bazel tests have
+              // different full paths of targets.
+              targetName = targetName.substring(index + 1);
+            }
+            return klassName + " (in " + targetName + ")";
+          } else {
+            return klassName;
+          }
+        };
   }
 
   /**
@@ -171,17 +195,37 @@ public final class ImportDepsChecker implements Closeable {
 
   private void outputMissingMembers(
       StringBuilder builder, ImmutableList<MissingMember> missingMembers) {
+    LinkedHashSet<ClassInfo> classesWithMissingMembers = new LinkedHashSet<>();
     for (MissingMember missing : missingMembers) {
       builder
           .append("Missing member '")
           .append(missing.memberName())
           .append("' in class ")
-          .append(missing.owner().replace('/', '.'))
+          .append(missing.owner().internalName().replace('/', '.'))
           .append(" : name=")
           .append(missing.memberName())
           .append(", descriptor=")
           .append(missing.descriptor())
           .append('\n');
+      classesWithMissingMembers.add(missing.owner());
+    }
+    if (!classesWithMissingMembers.isEmpty()) {
+      builder.append("The class hierarchies of the classes with missing members:").append("\n");
+      classesWithMissingMembers.forEach(
+          missingClass -> printClassHierarchy(missingClass, builder, classInfoLabelFunc, "    "));
+    }
+  }
+
+  private static void printClassHierarchy(
+      ClassInfo klass,
+      StringBuilder builder,
+      Function<ClassInfo, String> labelFunction,
+      String indent) {
+    builder.append(indent).append(labelFunction.apply(klass)).append('\n');
+    String superIndent = indent + "    ";
+
+    for (ClassInfo superClass : klass.superClasses()) {
+      printClassHierarchy(superClass, builder, labelFunction, superIndent);
     }
   }
 
@@ -213,7 +257,7 @@ public final class ImportDepsChecker implements Closeable {
                       reference -> {
                         builder
                             .append(INDENT)
-                            .append(reference.internalName().replace('/', '.'))
+                            .append(classInfoLabelFunc.apply(reference))
                             .append('\n');
                       });
             });
@@ -225,9 +269,24 @@ public final class ImportDepsChecker implements Closeable {
     }
   }
 
-  private static ImmutableList<String> extractLabels(ImmutableList<Path> jars) {
+  private static ImmutableMap<Path, String> buildPathToTargetMap(ImmutableList<Path>... pathList) {
+    ImmutableMap.Builder<Path, String> labels = ImmutableMap.builder();
+    Stream.of(pathList)
+        .flatMap(ImmutableList::stream)
+        .distinct()
+        .forEach(
+            path -> {
+              String label = extractLabel(path);
+              if (label != null) {
+                labels.put(path, label);
+              }
+            });
+    return labels.build();
+  }
+
+  private ImmutableList<String> extractLabels(ImmutableList<Path> jars) {
     return jars.parallelStream()
-        .map(ImportDepsChecker::extractLabel)
+        .map(pathToTargetMap::get)
         .filter(Objects::nonNull)
         .distinct()
         .sorted()
@@ -237,7 +296,15 @@ public final class ImportDepsChecker implements Closeable {
   @Nullable
   private static String extractLabel(Path jarPath) {
     try (JarFile jar = new JarFile(jarPath.toFile())) {
-      return jar.getManifest().getMainAttributes().getValue("Target-Label");
+      Manifest manifest = jar.getManifest();
+      if (manifest == null) {
+        return null;
+      }
+      Attributes attributes = manifest.getMainAttributes();
+      if (attributes == null) {
+        return null;
+      }
+      return attributes.getValue("Target-Label");
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }

@@ -4,9 +4,9 @@ The details are listed below:
 Missing java.lang.Object
 Missing java.lang.annotation.Annotation
 Indirectly missing class java.lang.Object. Referenced by:
-    com.google.devtools.build.importdeps.testdata.StringAnnotation
+    com.google.devtools.build.importdeps.testdata.StringAnnotation (in testdata:StringAnnotation)
 Indirectly missing class java.lang.annotation.Annotation. Referenced by:
-    com.google.devtools.build.importdeps.testdata.StringAnnotation
+    com.google.devtools.build.importdeps.testdata.StringAnnotation (in testdata:StringAnnotation)
 ===Total===
 missing=2
 incomplete=1

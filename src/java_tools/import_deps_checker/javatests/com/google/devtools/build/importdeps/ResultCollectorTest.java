@@ -63,9 +63,9 @@ public class ResultCollectorTest {
     assertThat(collector.getSortedMissingClassInternalNames()).containsExactly("java.lang.String");
     assertThat(collector.getSortedMissingMembers()).isEmpty();
 
-    collector.addMissingMember("java/lang/Object", MemberInfo.create("field", "I"));
+    collector.addMissingMember(objectClass, MemberInfo.create("field", "I"));
     assertThat(collector.getSortedMissingMembers())
-        .containsExactly(MissingMember.create("java/lang/Object", "field", "I"));
+        .containsExactly(MissingMember.create(objectClass, "field", "I"));
     assertThat(collector.getSortedMissingClassInternalNames()).containsExactly("java.lang.String");
     assertThat(collector.isEmpty()).isFalse();
   }
@@ -115,27 +115,40 @@ public class ResultCollectorTest {
     String owner = "owner";
     String name = "name";
     String desc = "desc";
-    MissingMember member = MissingMember.create(owner, name, desc);
-    assertThat(member.owner()).isEqualTo(owner);
+    MissingMember member =
+        MissingMember.create(
+            ClassInfo.create(owner, Paths.get("."), false, ImmutableList.of(), ImmutableSet.of()),
+            name,
+            desc);
+    assertThat(member.owner())
+        .isEqualTo(
+            ClassInfo.create(owner, Paths.get("."), false, ImmutableList.of(), ImmutableSet.of()));
     assertThat(member.memberName()).isEqualTo(name);
     assertThat(member.descriptor()).isEqualTo(desc);
     assertThat(member.member()).isEqualTo(MemberInfo.create(name, desc));
 
-    MissingMember member2 = MissingMember.create(owner, MemberInfo.create(name, desc));
+    MissingMember member2 =
+        MissingMember.create(
+            ClassInfo.create(owner, Paths.get("."), false, ImmutableList.of(), ImmutableSet.of()),
+            MemberInfo.create(name, desc));
     assertThat(member2).isEqualTo(member);
   }
 
   @Test
   public void testMemberComparison() {
-    MissingMember member1 = MissingMember.create("A", MemberInfo.create("B", "C"));
-    MissingMember member2 = MissingMember.create("A", MemberInfo.create("B", "C"));
+    ClassInfo classA =
+        ClassInfo.create("A", Paths.get(""), false, ImmutableList.of(), ImmutableSet.of());
+    MissingMember member1 = MissingMember.create(classA, MemberInfo.create("B", "C"));
+    MissingMember member2 = MissingMember.create(classA, MemberInfo.create("B", "C"));
     assertThat(member1.compareTo(member2)).isEqualTo(0);
 
-    MissingMember member3 = MissingMember.create("B", MemberInfo.create("B", "C"));
+    ClassInfo classB =
+        ClassInfo.create("B", Paths.get(""), false, ImmutableList.of(), ImmutableSet.of());
+    MissingMember member3 = MissingMember.create(classB, MemberInfo.create("B", "C"));
     assertThat(member1.compareTo(member3)).isEqualTo(-1);
     assertThat(member3.compareTo(member1)).isEqualTo(1);
 
-    MissingMember member4 = MissingMember.create("A", MemberInfo.create("C", "C"));
+    MissingMember member4 = MissingMember.create(classA, MemberInfo.create("C", "C"));
     assertThat(member1.compareTo(member4)).isEqualTo(-1);
 
     assertThat(member3.compareTo(member4)).isEqualTo(1);

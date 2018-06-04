@@ -11,7 +11,7 @@ Missing com.google.devtools.build.importdeps.testdata.Library$Class7
 Missing com.google.devtools.build.importdeps.testdata.Library$Class8
 Missing com.google.devtools.build.importdeps.testdata.Library$Class9
 Indirectly missing class com.google.devtools.build.importdeps.testdata.Library. Referenced by:
-    com.google.devtools.build.importdeps.testdata.Client
+    com.google.devtools.build.importdeps.testdata.Client (in testdata:testdata_client)
 ===Total===
 missing=12
 incomplete=1
