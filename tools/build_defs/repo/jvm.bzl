@@ -51,17 +51,18 @@ def _jvm_import_external(repository_ctx):
     name = repository_ctx.attr.generated_rule_name or repository_ctx.name
     urls = repository_ctx.attr.artifact_urls
     sha = repository_ctx.attr.artifact_sha256
-    extension = "." + repository_ctx.attr.rule_metadata["extension"]
-    path = repository_ctx.name + extension
+    extension = repository_ctx.attr.rule_metadata["extension"]
+    file_extension = "." + extension
+    path = repository_ctx.name + file_extension
     for url in urls:
-        if url.endswith(extension):
+        if url.endswith(file_extension):
             path = url[url.rindex("/") + 1:]
             break
     srcurls = repository_ctx.attr.srcjar_urls
     srcsha = repository_ctx.attr.srcjar_sha256
     srcpath = repository_ctx.name + "-src.jar" if srcurls else ""
     for url in srcurls:
-        if url.endswith(extension):
+        if url.endswith(file_extension):
             srcpath = url[url.rindex("/") + 1:].replace("-sources.jar", "-src.jar")
             break
     lines = [_HEADER, ""]
@@ -106,7 +107,7 @@ def _jvm_import_external(repository_ctx):
     if srcurls:
         repository_ctx.download(srcurls, srcpath, srcsha)
     repository_ctx.file("BUILD", "\n".join(lines))
-    repository_ctx.file("%s/BUILD" % repository_ctx.attr.rule_metadata["extension"], "\n".join([
+    repository_ctx.file("%s/BUILD" % extension, "\n".join([
         _HEADER,
         "",
         "package(default_visibility = %r)" % (
@@ -115,7 +116,7 @@ def _jvm_import_external(repository_ctx):
         ),
         "",
         "alias(",
-        "    name = \"%s\"," % repository_ctx.attr.rule_metadata["extension"],
+        "    name = \"%s\"," % extension,
         "    actual = \"@%s\"," % repository_ctx.name,
         ")",
         "",
@@ -181,7 +182,8 @@ jvm_import_external = repository_rule(
             default = {
                 "extension": "jar",
                 "import_attr": "jars = [%s]",
-            }),
+            }
+        ),
         "rule_load": attr.string(),
         "additional_rule_attrs": attr.string_dict(),
         "srcjar_urls": attr.string_list(),
@@ -199,18 +201,18 @@ jvm_import_external = repository_rule(
 )
 
 def jvm_maven_import_external(artifact, server_urls, **kwargs):
-  jvm_import_external(
-      artifact_urls = _convert_to_url(artifact, server_urls, "jar"),
-      **kwargs
-  )
+    jvm_import_external(
+        artifact_urls = _convert_to_url(artifact, server_urls, "jar"),
+        **kwargs
+    )
 
 def aar_maven_import_external(artifact, server_urls, **kwargs):
-  jvm_import_external(
-      artifact_urls = _convert_to_url(artifact, server_urls, "aar"),
-      rule_name = "aar_import"
-      rule_metadata = {
-          "extension": "aar",
-          "import_attr": "aar = %s",
-      },
-      **kwargs
-  )
+    jvm_import_external(
+        artifact_urls = _convert_to_url(artifact, server_urls, "aar"),
+        rule_name = "aar_import",
+        rule_metadata = {
+            "extension": "aar",
+            "import_attr": "aar = %s",
+        },
+        **kwargs
+    )
