@@ -127,7 +127,6 @@ def _convert_to_url(artifact, server_urls, packaging):
     group_id_part = parts[0].replace(".", "/")
     artifact_id = parts[1]
     version = parts[2]
-    packaging = packaging
     classifier_part = ""
     if len(parts) == 4:
         packaging = parts[2]
