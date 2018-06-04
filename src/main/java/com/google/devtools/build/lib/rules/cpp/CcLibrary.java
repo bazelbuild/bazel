@@ -95,11 +95,13 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext context)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(context);
-    LinkTargetType staticLinkType = getStaticLinkType(context);
     boolean linkStatic = context.attributes().get("linkstatic", Type.BOOLEAN);
-    init(semantics, context, builder,
-        /* additionalCopts= */ImmutableList.of(),
-        staticLinkType,
+    init(
+        semantics,
+        context,
+        builder,
+        /* additionalCopts= */ ImmutableList.of(),
+        context.attributes().get("alwayslink", Type.BOOLEAN),
         /* neverLink= */ false,
         linkStatic,
         /* addDynamicRuntimeInputArtifactsToRunfiles= */ false);
@@ -111,7 +113,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       RuleConfiguredTargetBuilder targetBuilder,
       ImmutableList<String> additionalCopts,
-      LinkTargetType staticLinkType,
+      boolean alwaysLink,
       boolean neverLink,
       boolean linkStatic,
       boolean addDynamicRuntimeInputArtifactsToRunfiles)
@@ -167,7 +169,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             // between Bazel and Blaze.
             .setGenerateLinkActionsIfEmpty(
                 ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE)
-            .setStaticLinkType(staticLinkType)
+            .setAlwayslink(alwaysLink)
             .setNeverLink(neverLink)
             .addLinkstamps(ruleContext.getPrerequisites("linkstamp", Mode.TARGET));
 
@@ -416,15 +418,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
           dep.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
     }
     return artifactsToForceBuilder.build();
-  }
-
-  /**
-   * Returns the type of the generated static library.
-   */
-  private static LinkTargetType getStaticLinkType(RuleContext context) {
-    return context.attributes().get("alwayslink", Type.BOOLEAN)
-        ? LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY
-        : LinkTargetType.STATIC_LIBRARY;
   }
 
   private static void warnAboutEmptyLibraries(RuleContext ruleContext,
