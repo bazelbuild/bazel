@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -1250,6 +1251,7 @@ public final class PackageFactory {
         new AstParseResult(buildFileAST, localReporterForParsing);
     return createPackageFromAst(
         workspaceName,
+        /*repositoryMapping=*/ ImmutableMap.of(),
         packageId,
         buildFile,
         astParseResult,
@@ -1274,6 +1276,7 @@ public final class PackageFactory {
 
   public Package.Builder createPackageFromAst(
       String workspaceName,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       PackageIdentifier packageId,
       Path buildFile,
       AstParseResult astParseResult,
@@ -1297,7 +1300,8 @@ public final class PackageFactory {
           defaultVisibility,
           skylarkSemantics,
           imports,
-          skylarkFileDependencies);
+          skylarkFileDependencies,
+          repositoryMapping);
     } catch (InterruptedException e) {
       globber.onInterrupt();
       throw e;
@@ -1599,7 +1603,8 @@ public final class PackageFactory {
       RuleVisibility defaultVisibility,
       SkylarkSemantics skylarkSemantics,
       Map<String, Extension> imports,
-      ImmutableList<Label> skylarkFileDependencies)
+      ImmutableList<Label> skylarkFileDependencies,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws InterruptedException {
     Package.Builder pkgBuilder = new Package.Builder(packageBuilderHelper.createFreshPackage(
         packageId, ruleClassProvider.getRunfilesPrefix()));
@@ -1622,7 +1627,8 @@ public final class PackageFactory {
           // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
           .setDefaultVisibilitySet(false)
           .setSkylarkFileDependencies(skylarkFileDependencies)
-          .setWorkspaceName(workspaceName);
+          .setWorkspaceName(workspaceName)
+          .setRepositoryMapping(repositoryMapping);
 
       Event.replayEventsOn(eventHandler, pastEvents);
       for (Postable post : pastPosts) {

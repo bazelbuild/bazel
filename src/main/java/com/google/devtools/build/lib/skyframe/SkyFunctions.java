@@ -114,6 +114,8 @@ public final class SkyFunctions {
       SkyFunctionName.create("REGISTERED_TOOLCHAINS");
   public static final SkyFunctionName TOOLCHAIN_RESOLUTION =
       SkyFunctionName.create("TOOLCHAIN_RESOLUTION");
+  public static final SkyFunctionName REPOSITORY_MAPPING =
+      SkyFunctionName.create("REPOSITORY_MAPPING");
 
   public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
     return new Predicate<SkyKey>() {

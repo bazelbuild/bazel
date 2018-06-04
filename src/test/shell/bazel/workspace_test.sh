@@ -317,4 +317,68 @@ EOF
   assert_contains "This is repo_two" bazel-genfiles/external/new_repo/gen.out
 }
 
+function test_package_loading_with_remapping_changes() {
+  # structure is
+  # workspace/
+  #   WORKSPACE (name=main)
+  #   flower/
+  #     WORKSPACE (name=flower)
+  #     daisy/
+  #       BUILD (:daisy)
+  #   tree/
+  #     WORKSPACE (name=tree, local_repository(flower))
+  #     oak/
+  #       BUILD (:oak)
+
+  mkdir -p flower/daisy
+  echo 'workspace(name="flower")' > flower/WORKSPACE
+  echo 'sh_library(name="daisy")' > flower/daisy/BUILD
+
+  mkdir -p tree/oak
+  cat > tree/WORKSPACE <<EOF
+workspace(name="tree")
+local_repository(
+    name = "flower",
+    path="../flower",
+    repo_mapping = {"@tulip" : "@rose"}
+)
+EOF
+  echo 'sh_library(name="oak")' > tree/oak/BUILD
+
+  cd tree
+
+  # Do initial load of the packages
+  bazel query --noexperimental_ui //oak:all >& "$TEST_log" \
+        || fail "Expected success"
+  expect_log "Loading package: oak"
+  expect_log "//oak:oak"
+
+  bazel query --noexperimental_ui @flower//daisy:all >& "$TEST_log" \
+        || fail "Expected success"
+  expect_log "Loading package: @flower//daisy"
+  expect_log "@flower//daisy:daisy"
+
+  # Change mapping in tree/WORKSPACE
+  cat > WORKSPACE <<EOF
+workspace(name="tree")
+local_repository(
+    name = "flower",
+    path="../flower",
+    repo_mapping = {"@tulip" : "@daffodil"}
+)
+EOF
+
+  # Test that packages in the tree workspace are not affected
+  bazel query --noexperimental_ui //oak:all >& "$TEST_log" \
+        || fail "Expected success"
+  expect_not_log "Loading package: oak"
+  expect_log "//oak:oak"
+
+  # Test that packages in the flower workspace are reloaded
+  bazel query --noexperimental_ui @flower//daisy:all >& "$TEST_log" \
+        || fail "Expected success"
+  expect_log "Loading package: @flower//daisy"
+  expect_log "@flower//daisy:daisy"
+}
+
 run_suite "workspace tests"

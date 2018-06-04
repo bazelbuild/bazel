@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -118,6 +119,94 @@ public class WorkspaceFactoryTest {
             "register_toolchains('//toolchain/...')");
     assertThat(helper.getPackage().getRegisteredToolchains())
         .containsExactly("//toolchain:tc1", "//toolchain:tc2", "//toolchain/...");
+  }
+
+  @Test
+  public void testWorkspaceMappings() throws Exception {
+    WorkspaceFactoryTestHelper helper =
+        parse(
+            "local_repository(",
+            "    name = 'foo',",
+            "    path = '/foo',",
+            "    repo_mapping = {'@x' : '@y'},",
+            ")");
+    assertMapping(helper, "@foo", "@x", "@y");
+  }
+
+  @Test
+  public void testMultipleRepositoriesWithMappings() throws Exception {
+    WorkspaceFactoryTestHelper helper =
+        parse(
+            "local_repository(",
+            "    name = 'foo',",
+            "    path = '/foo',",
+            "    repo_mapping = {'@x' : '@y'},",
+            ")",
+            "local_repository(",
+            "    name = 'bar',",
+            "    path = '/bar',",
+            "    repo_mapping = {'@a' : '@b'},",
+            ")");
+    assertMapping(helper, "@foo", "@x", "@y");
+    assertMapping(helper, "@bar", "@a", "@b");
+  }
+
+  @Test
+  public void testMultipleMappings() throws Exception {
+    WorkspaceFactoryTestHelper helper =
+        parse(
+            "local_repository(",
+            "    name = 'foo',",
+            "    path = '/foo',",
+            "    repo_mapping = {'@a' : '@b', '@c' : '@d', '@e' : '@f'},",
+            ")");
+    assertMapping(helper, "@foo", "@a", "@b");
+    assertMapping(helper, "@foo", "@c", "@d");
+    assertMapping(helper, "@foo", "@e", "@f");
+  }
+
+  @Test
+  public void testEmptyMappings() throws Exception {
+    WorkspaceFactoryTestHelper helper =
+        parse(
+            "local_repository(",
+            "    name = 'foo',",
+            "    path = '/foo',",
+            "    repo_mapping = {},",
+            ")");
+    assertThat(helper.getPackage().getRepositoryMapping("@foo")).isEmpty();
+  }
+
+  @Test
+  public void testMappingsNotAMap() throws Exception {
+    WorkspaceFactoryTestHelper helper =
+        parse(
+            "local_repository(",
+            "    name = 'foo',",
+            "    path = '/foo',",
+            "    repo_mapping = 1",
+            ")");
+    assertThat(helper.getParserError())
+        .contains("Invalid value for 'repo_mapping': '1'. Value must be a map.");
+
+    helper =
+        parse(
+            "local_repository(",
+            "    name = 'foo',",
+            "    path = '/foo',",
+            "    repo_mapping = 'hello'",
+            ")");
+    assertThat(helper.getParserError())
+        .contains("Invalid value for 'repo_mapping': 'hello'. Value must be a map.");
+  }
+
+  private void assertMapping(
+      WorkspaceFactoryTestHelper helper, String repo, String local, String global)
+      throws Exception {
+    RepositoryName localRepoName = RepositoryName.create(local);
+    RepositoryName globalRepoName = RepositoryName.create(global);
+    assertThat(helper.getPackage().getRepositoryMapping(repo))
+        .containsEntry(localRepoName, globalRepoName);
   }
 
   private WorkspaceFactoryTestHelper parse(String... args) {
