@@ -258,6 +258,42 @@ public class ToolchainUtilTest extends ToolchainTestCase {
         .contains("//invalid:not_a_platform");
   }
 
+  @Test
+  public void createToolchainContext_executionPlatformFallback_host() throws Exception {
+    useConfiguration("--host_platform=//platforms:mac");
+    CreateToolchainContextKey key =
+        CreateToolchainContextKey.create("test", ImmutableSet.of(), targetConfigKey);
+
+    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    ToolchainContext toolchainContext = result.get(key).toolchainContext();
+    assertThat(toolchainContext).isNotNull();
+
+    assertThat(toolchainContext.getExecutionPlatform()).isNotNull();
+    assertThat(toolchainContext.getExecutionPlatform().label())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:mac"));
+  }
+
+  @Test
+  public void createToolchainContext_executionPlatformFallback_flag() throws Exception {
+    useConfiguration(
+        "--host_platform=//platforms:mac",
+        "--legacy_fallback_execution_platform=//platforms:linux");
+    CreateToolchainContextKey key =
+        CreateToolchainContextKey.create("test", ImmutableSet.of(), targetConfigKey);
+
+    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    ToolchainContext toolchainContext = result.get(key).toolchainContext();
+    assertThat(toolchainContext).isNotNull();
+
+    assertThat(toolchainContext.getExecutionPlatform()).isNotNull();
+    assertThat(toolchainContext.getExecutionPlatform().label())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
+  }
+
   // Calls ToolchainUtil.createToolchainContext.
   private static final SkyFunctionName CREATE_TOOLCHAIN_CONTEXT_FUNCTION =
       SkyFunctionName.create("CREATE_TOOLCHAIN_CONTEXT_FUNCTION");

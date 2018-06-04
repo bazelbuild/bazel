@@ -129,11 +129,19 @@ public class ToolchainUtil {
           requiredToolchains,
           resolvedToolchains.get().toolchains());
     } else {
-      // No toolchain could be resolved, but no error happened, so fall back to host platform.
+      // No toolchain could be resolved, but no error happened, so fall back to a default platform.
+      ConfiguredTargetKey fallbackExecutionPlatformKey;
+      if (platformConfiguration.getLegacyFallbackExecutionPlatform() != null) {
+        fallbackExecutionPlatformKey =
+            ConfiguredTargetKey.of(
+                platformConfiguration.getLegacyFallbackExecutionPlatform(), configuration);
+      } else {
+        fallbackExecutionPlatformKey = hostPlatformKey;
+      }
       return createContext(
           env,
           targetDescription,
-          hostPlatformKey,
+          fallbackExecutionPlatformKey,
           targetPlatformKey,
           requiredToolchains,
           ImmutableBiMap.of());

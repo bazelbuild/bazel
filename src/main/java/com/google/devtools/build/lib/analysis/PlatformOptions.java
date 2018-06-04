@@ -57,6 +57,21 @@ public class PlatformOptions extends FragmentOptions {
   public String hostPlatformRemotePropertiesOverride;
 
   @Option(
+      name = "legacy_fallback_execution_platform",
+      converter = BuildConfiguration.EmptyToNullLabelConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help =
+          "The label of a platform rule to use as the execution platform for rules that do not"
+              + " participate in toolchain resolution.")
+  public Label legacyFallbackExecutionPlatform;
+
+  @Option(
     name = "extra_execution_platforms",
     converter = CommaSeparatedOptionListConverter.class,
     defaultValue = "",
@@ -151,6 +166,7 @@ public class PlatformOptions extends FragmentOptions {
     host.platforms =
         this.hostPlatform == null ? ImmutableList.of() : ImmutableList.of(this.hostPlatform);
     host.hostPlatform = this.hostPlatform;
+    host.legacyFallbackExecutionPlatform = this.legacyFallbackExecutionPlatform;
     host.extraExecutionPlatforms = this.extraExecutionPlatforms;
     host.extraToolchains = this.extraToolchains;
     host.enabledToolchainTypes = this.enabledToolchainTypes;

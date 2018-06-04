@@ -46,6 +46,7 @@ public class PlatformConfigurationLoader implements ConfigurationFragmentFactory
       throws InvalidConfigurationException {
     return new PlatformConfiguration(
         options.hostPlatform,
+        options.legacyFallbackExecutionPlatform,
         ImmutableList.copyOf(options.extraExecutionPlatforms),
         ImmutableList.copyOf(options.platforms),
         ImmutableList.copyOf(options.extraToolchains),
