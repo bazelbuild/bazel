@@ -198,30 +198,16 @@ jvm_import_external = repository_rule(
     },
 )
 
-def jvm_maven_import_external(
-    artifact,
-    server_urls,
-    **kwargs):
+def jvm_maven_import_external(artifact, server_urls, **kwargs):
   jvm_import_external(
-      artifact_urls = _convert_to_url(
-          artifact,
-          server_urls,
-          "jar",
-      ),
+      artifact_urls = _convert_to_url(artifact, server_urls, "jar"),
       **kwargs
   )
 
-def aar_maven_import_external(
-    artifact,
-    server_urls,
-    **kwargs):
+def aar_maven_import_external(artifact, server_urls, **kwargs):
   jvm_import_external(
-      artifact_urls = _convert_to_url(
-          artifact,
-          server_urls,
-          "aar",
-      ),
-      rule_name = "aar_import",
+      artifact_urls = _convert_to_url(artifact, server_urls, "aar"),
+      rule_name = "aar_import"
       rule_metadata = {
           "extension": "aar",
           "import_attr": "aar = %s",
