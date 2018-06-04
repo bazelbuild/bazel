@@ -14,22 +14,25 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Supplier;
+import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationSuccessState;
 
 /**
- * Supplier of {@link SkyValue} that crashes if its contained {@link NodeEntry} throws an {@link
- * InterruptedException} on value retrieval.
+ * Supplier of {@link EvaluationSuccessState} that crashes if its contained {@link NodeEntry} throws
+ * an {@link InterruptedException} on value retrieval.
  */
-class SkyValueSupplier implements Supplier<SkyValue> {
+class EvaluationSuccessStateSupplier implements Supplier<EvaluationSuccessState> {
   private final NodeEntry state;
 
-  SkyValueSupplier(NodeEntry state) {
+  EvaluationSuccessStateSupplier(NodeEntry state) {
     this.state = state;
   }
 
   @Override
-  public SkyValue get() {
+  public EvaluationSuccessState get() {
     try {
-      return state.getValue();
+      return state.getValue() != null
+          ? EvaluationSuccessState.SUCCESS
+          : EvaluationSuccessState.FAILURE;
     } catch (InterruptedException e) {
       throw new IllegalStateException(
           "Graph implementations in which value retrieval can block should not be used in "

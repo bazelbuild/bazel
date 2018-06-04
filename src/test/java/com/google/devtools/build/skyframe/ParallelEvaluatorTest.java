@@ -21,7 +21,6 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,6 +54,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -256,14 +256,17 @@ public class ParallelEvaluatorTest {
       eval(/*keepGoing=*/false, fastKey);
     }
     final Set<SkyKey> receivedValues = Sets.newConcurrentHashSet();
-    revalidationReceiver = new DirtyTrackingProgressReceiver(
-        new EvaluationProgressReceiver.NullEvaluationProgressReceiver() {
-      @Override
-      public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
-          EvaluationState state) {
-        receivedValues.add(skyKey);
-      }
-    });
+    revalidationReceiver =
+        new DirtyTrackingProgressReceiver(
+            new EvaluationProgressReceiver.NullEvaluationProgressReceiver() {
+              @Override
+              public void evaluated(
+                  SkyKey skyKey,
+                  Supplier<EvaluationSuccessState> evaluationSuccessState,
+                  EvaluationState state) {
+                receivedValues.add(skyKey);
+              }
+            });
     TestThread evalThread = new TestThread() {
       @Override
       public void runTest() throws Exception {
@@ -1910,17 +1913,19 @@ public class ParallelEvaluatorTest {
     final Set<SkyKey> evaluatedValues = Sets.newConcurrentHashSet();
     EvaluationProgressReceiver progressReceiver =
         new EvaluationProgressReceiver.NullEvaluationProgressReceiver() {
-      @Override
-      public void enqueueing(SkyKey skyKey) {
-        enqueuedValues.add(skyKey);
-      }
+          @Override
+          public void enqueueing(SkyKey skyKey) {
+            enqueuedValues.add(skyKey);
+          }
 
-      @Override
-      public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
-          EvaluationState state) {
-        evaluatedValues.add(skyKey);
-      }
-    };
+          @Override
+          public void evaluated(
+              SkyKey skyKey,
+              Supplier<EvaluationSuccessState> evaluationSuccessState,
+              EvaluationState state) {
+            evaluatedValues.add(skyKey);
+          }
+        };
 
     ExtendedEventHandler reporter =
         new Reporter(

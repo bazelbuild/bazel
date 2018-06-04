@@ -26,7 +26,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -62,6 +61,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -4336,7 +4336,9 @@ public class MemoizingEvaluatorTest {
         new TrackingProgressReceiver() {
           @Override
           public void evaluated(
-              SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {
+              SkyKey skyKey,
+              Supplier<EvaluationSuccessState> evaluationSuccessState,
+              EvaluationState state) {
             evaluated.add(skyKey);
           }
         });
@@ -4472,7 +4474,9 @@ public class MemoizingEvaluatorTest {
         new TrackingProgressReceiver() {
           @Override
           public void evaluated(
-              SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {
+              SkyKey skyKey,
+              Supplier<EvaluationSuccessState> evaluationSuccessState,
+              EvaluationState state) {
             evaluated.add(skyKey);
           }
         });

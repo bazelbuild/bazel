@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
+import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationSuccessState;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -156,7 +156,9 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
           .getProgressReceiver()
           .evaluated(
               key,
-              Suppliers.ofInstance(value),
+              value != null
+                  ? EvaluationSuccessState.SUCCESS.supplier()
+                  : EvaluationSuccessState.FAILURE.supplier(),
               valueVersion.equals(evaluatorContext.getGraphVersion())
                   ? EvaluationState.BUILT
                   : EvaluationState.CLEAN);

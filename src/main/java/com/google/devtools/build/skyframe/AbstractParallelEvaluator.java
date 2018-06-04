@@ -286,7 +286,7 @@ public abstract class AbstractParallelEvaluator {
           // Tell the receiver that the value was not actually changed this run.
           evaluatorContext
               .getProgressReceiver()
-              .evaluated(skyKey, new SkyValueSupplier(state), EvaluationState.CLEAN);
+              .evaluated(skyKey, new EvaluationSuccessStateSupplier(state), EvaluationState.CLEAN);
           if (!evaluatorContext.keepGoing() && state.getErrorInfo() != null) {
             if (!evaluatorContext.getVisitor().preventNewEvaluations()) {
               return DirtyOutcome.ALREADY_PROCESSED;

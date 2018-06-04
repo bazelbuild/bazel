@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -75,12 +74,12 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -675,12 +674,14 @@ public final class SkyframeBuildView {
     }
 
     @Override
-    public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
+    public void evaluated(
+        SkyKey skyKey,
+        Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
       if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
         switch (state) {
           case BUILT:
-            if (skyValueSupplier.get() != null) {
+            if (evaluationSuccessState.get().succeeded()) {
               evaluatedConfiguredTargets.add(skyKey);
               // During multithreaded operation, this is only set to true, so no concurrency issues.
               someConfiguredTargetEvaluated = true;
