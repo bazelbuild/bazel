@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -88,6 +89,7 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -120,6 +122,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
               BaseRuleClasses.nameAttribute(
                       new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true))
                   .add(attr("expect_failure", STRING)))
+          // TODO(skylark-team): Allow Skylark rules to extend native rules and remove duplication.
+          .add(
+              attr("toolchains", LABEL_LIST)
+                  .allowedFileTypes(FileTypeSet.NO_FILE)
+                  .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id())))
           .build();
 
   /** Parent rule class for executable non-test Skylark rules. */
