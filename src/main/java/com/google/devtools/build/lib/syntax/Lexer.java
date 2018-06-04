@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -82,12 +81,8 @@ public final class Lexer {
   // bottom.
   private final Stack<Integer> indentStack = new Stack<>();
 
-  /** Tokens scanned by the lexer, but not yet consumed by the parser. */
-  // TODO(laurentlb): we could do without this queue.
-  private final ArrayDeque<Token> tokens;
-
-  /** Last Token that was scanned. */
-  private Token lastToken;
+  /** Token to return */
+  private Token token;
 
   private final List<Comment> comments;
 
@@ -102,6 +97,8 @@ public final class Lexer {
    */
   private boolean checkIndentation;
 
+  private int dents; // number of saved INDENT (>0) or OUTDENT (<0) tokens to return
+
   /**
    * Constructs a lexer which tokenizes the contents of the specified InputBuffer. Any errors during
    * lexing are reported on "handler".
@@ -109,12 +106,12 @@ public final class Lexer {
   public Lexer(
       ParserInputSource input, EventHandler eventHandler, LineNumberTable lineNumberTable) {
     this.buffer = input.getContent();
-    this.tokens = new ArrayDeque<>(10);
     this.pos = 0;
     this.eventHandler = eventHandler;
     this.locationInfo = new LocationInfo(input.getPath(), lineNumberTable);
     this.checkIndentation = true;
     this.comments = new ArrayList<>();
+    this.dents = 0;
 
     indentStack.push(0);
   }
@@ -149,11 +146,15 @@ public final class Lexer {
    * after EOF has been returned.
    */
   public Token nextToken() {
-    if (tokens.isEmpty()) {
-      Preconditions.checkState(lastToken == null || lastToken.kind != TokenKind.EOF);
-      tokenize();
+    boolean afterNewline = token != null && token.kind == TokenKind.NEWLINE;
+    token = null;
+    tokenize();
+
+    // Like Python, always end with a NEWLINE token, even if no '\n' in input:
+    if (token.kind == TokenKind.EOF && !afterNewline) {
+      token.kind = TokenKind.NEWLINE;
     }
-    return tokens.poll();
+    return token;
   }
 
   private void popParen() {
@@ -225,13 +226,13 @@ public final class Lexer {
   }
 
   /** invariant: symbol positions are half-open intervals. */
-  private void addToken(Token s) {
-    lastToken = s;
-    tokens.add(s);
+  private void setToken(Token s) {
+    Preconditions.checkState(token == null);
+    token = s;
   }
 
   /**
-   * Parses an end-of-line sequence.
+   * Parses an end-of-line sequence, handling statement indentation correctly.
    *
    * <p>UNIX newlines are assumed (LF). Carriage returns are always ignored.
    */
@@ -240,7 +241,7 @@ public final class Lexer {
       newlineInsideExpression(); // in an expression: ignore space
     } else {
       checkIndentation = true;
-      addToken(new Token(TokenKind.NEWLINE, pos - 1, pos));
+      setToken(new Token(TokenKind.NEWLINE, pos - 1, pos));
     }
   }
 
@@ -256,7 +257,8 @@ public final class Lexer {
     }
   }
 
-  private void newlineOutsideExpression() {
+  /** Computes indentation (updates dent) and advances pos. */
+  private void computeIndentation() {
     // we're in a stmt: suck up space at beginning of next line
     int indentLen = 0;
     while (pos < buffer.length) {
@@ -292,12 +294,12 @@ public final class Lexer {
     int peekedIndent = indentStack.peek();
     if (peekedIndent < indentLen) { // push a level
       indentStack.push(indentLen);
-      addToken(new Token(TokenKind.INDENT, pos - 1, pos));
+      dents++;
 
     } else if (peekedIndent > indentLen) { // pop one or more levels
       while (peekedIndent > indentLen) {
         indentStack.pop();
-        addToken(new Token(TokenKind.OUTDENT, pos - 1, pos));
+        dents--;
         peekedIndent = indentStack.peek();
       }
 
@@ -343,7 +345,6 @@ public final class Lexer {
             break;
           } else {
             error("unterminated string literal at eol", literalStartPos, pos);
-            newline();
             return new Token(TokenKind.STRING, literalStartPos, pos, literal.toString());
           }
         case '\\':
@@ -495,7 +496,6 @@ public final class Lexer {
           Token t =
               new Token(
                   TokenKind.STRING, literalStartPos, pos, bufferSlice(contentStartPos, pos - 1));
-          newline();
           return t;
         case '\\':
           if (isRaw) {
@@ -701,7 +701,7 @@ public final class Lexer {
     if (tok == null) {
       return false;
     } else {
-      addToken(new Token(tok, pos, pos + 2));
+      setToken(new Token(tok, pos, pos + 2));
       return true;
     }
   }
@@ -712,16 +712,25 @@ public final class Lexer {
   }
 
   /**
-   * Performs tokenization of the character buffer of file contents provided to the constructor. At
-   * least one token will be added to the tokens queue.
+   * Performs tokenization of the character buffer of file contents provided to the constructor.
+   * Advances pos and sets the token variable.
    */
   private void tokenize() {
     if (checkIndentation) {
       checkIndentation = false;
-      newlineOutsideExpression(); // generate INDENT/OUTDENT tokens
-      if (!tokens.isEmpty()) {
-        return;
+      computeIndentation();
+    }
+
+    // Return saved indentation tokens.
+    if (dents != 0) {
+      if (dents < 0) {
+        dents++;
+        setToken(new Token(TokenKind.OUTDENT, pos - 1, pos));
+      } else {
+        dents--;
+        setToken(new Token(TokenKind.INDENT, pos - 1, pos));
       }
+      return;
     }
 
     while (pos < buffer.length) {
@@ -733,94 +742,94 @@ public final class Lexer {
       pos++;
       switch (c) {
       case '{': {
-        addToken(new Token(TokenKind.LBRACE, pos - 1, pos));
+        setToken(new Token(TokenKind.LBRACE, pos - 1, pos));
         openParenStackDepth++;
         break;
       }
       case '}': {
-        addToken(new Token(TokenKind.RBRACE, pos - 1, pos));
+        setToken(new Token(TokenKind.RBRACE, pos - 1, pos));
         popParen();
         break;
       }
       case '(': {
-        addToken(new Token(TokenKind.LPAREN, pos - 1, pos));
+        setToken(new Token(TokenKind.LPAREN, pos - 1, pos));
         openParenStackDepth++;
         break;
       }
       case ')': {
-        addToken(new Token(TokenKind.RPAREN, pos - 1, pos));
+        setToken(new Token(TokenKind.RPAREN, pos - 1, pos));
         popParen();
         break;
       }
       case '[': {
-        addToken(new Token(TokenKind.LBRACKET, pos - 1, pos));
+        setToken(new Token(TokenKind.LBRACKET, pos - 1, pos));
         openParenStackDepth++;
         break;
       }
       case ']': {
-        addToken(new Token(TokenKind.RBRACKET, pos - 1, pos));
+        setToken(new Token(TokenKind.RBRACKET, pos - 1, pos));
         popParen();
         break;
       }
       case '>': {
-        addToken(new Token(TokenKind.GREATER, pos - 1, pos));
+        setToken(new Token(TokenKind.GREATER, pos - 1, pos));
         break;
       }
       case '<': {
-        addToken(new Token(TokenKind.LESS, pos - 1, pos));
+        setToken(new Token(TokenKind.LESS, pos - 1, pos));
         break;
       }
       case ':': {
-        addToken(new Token(TokenKind.COLON, pos - 1, pos));
+        setToken(new Token(TokenKind.COLON, pos - 1, pos));
         break;
       }
       case ',': {
-        addToken(new Token(TokenKind.COMMA, pos - 1, pos));
+        setToken(new Token(TokenKind.COMMA, pos - 1, pos));
         break;
       }
       case '+': {
-        addToken(new Token(TokenKind.PLUS, pos - 1, pos));
+        setToken(new Token(TokenKind.PLUS, pos - 1, pos));
         break;
       }
       case '-': {
-        addToken(new Token(TokenKind.MINUS, pos - 1, pos));
+        setToken(new Token(TokenKind.MINUS, pos - 1, pos));
         break;
       }
       case '|': {
-        addToken(new Token(TokenKind.PIPE, pos - 1, pos));
+        setToken(new Token(TokenKind.PIPE, pos - 1, pos));
         break;
       }
       case '=': {
-        addToken(new Token(TokenKind.EQUALS, pos - 1, pos));
+        setToken(new Token(TokenKind.EQUALS, pos - 1, pos));
         break;
       }
       case '%': {
-        addToken(new Token(TokenKind.PERCENT, pos - 1, pos));
+        setToken(new Token(TokenKind.PERCENT, pos - 1, pos));
         break;
       }
       case '/': {
         if (lookaheadIs(0, '/') && lookaheadIs(1, '=')) {
-          addToken(new Token(TokenKind.SLASH_SLASH_EQUALS, pos - 1, pos + 2));
+          setToken(new Token(TokenKind.SLASH_SLASH_EQUALS, pos - 1, pos + 2));
           pos += 2;
         } else if (lookaheadIs(0, '/')) {
-          addToken(new Token(TokenKind.SLASH_SLASH, pos - 1, pos + 1));
+          setToken(new Token(TokenKind.SLASH_SLASH, pos - 1, pos + 1));
           pos += 1;
         } else {
           // /= is handled by tokenizeTwoChars.
-          addToken(new Token(TokenKind.SLASH, pos - 1, pos));
+          setToken(new Token(TokenKind.SLASH, pos - 1, pos));
         }
         break;
       }
       case ';': {
-        addToken(new Token(TokenKind.SEMI, pos - 1, pos));
+        setToken(new Token(TokenKind.SEMI, pos - 1, pos));
         break;
       }
       case '.': {
-        addToken(new Token(TokenKind.DOT, pos - 1, pos));
+        setToken(new Token(TokenKind.DOT, pos - 1, pos));
         break;
       }
       case '*': {
-        addToken(new Token(TokenKind.STAR, pos - 1, pos));
+        setToken(new Token(TokenKind.STAR, pos - 1, pos));
         break;
       }
       case ' ':
@@ -836,7 +845,7 @@ public final class Lexer {
         } else if (lookaheadIs(0, '\r') && lookaheadIs(1, '\n')) {
           pos += 2;  // skip the CRLF at the end of line
         } else {
-          addToken(new Token(TokenKind.ILLEGAL, pos - 1, pos, Character.toString(c)));
+          setToken(new Token(TokenKind.ILLEGAL, pos - 1, pos, Character.toString(c)));
         }
         break;
       }
@@ -859,7 +868,7 @@ public final class Lexer {
       }
       case '\'':
       case '\"': {
-        addToken(stringLiteral(c, false));
+        setToken(stringLiteral(c, false));
         break;
       }
       default: {
@@ -868,39 +877,35 @@ public final class Lexer {
             && (buffer[pos] == '\'' || buffer[pos] == '\"')) {
           c = buffer[pos];
           pos++;
-          addToken(stringLiteral(c, true));
+          setToken(stringLiteral(c, true));
           break;
         }
 
         if (c >= '0' && c <= '9') {
-          addToken(integer());
+          setToken(integer());
         } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
-          addToken(identifierOrKeyword());
+          setToken(identifierOrKeyword());
         } else {
           error("invalid character: '" + c + "'");
         }
         break;
       } // default
       } // switch
-      if (!tokens.isEmpty()) { // stop here if we scanned at least one token
+      if (token != null) { // stop here if we scanned a token
         return;
       }
     } // while
 
     if (indentStack.size() > 1) { // top of stack is always zero
-      addToken(new Token(TokenKind.NEWLINE, pos - 1, pos));
+      setToken(new Token(TokenKind.NEWLINE, pos - 1, pos));
       while (indentStack.size() > 1) {
         indentStack.pop();
-        addToken(new Token(TokenKind.OUTDENT, pos - 1, pos));
+        dents--;
       }
+      return;
     }
 
-    // Like Python, always end with a NEWLINE token, even if no '\n' in input:
-    if (lastToken == null || lastToken.kind != TokenKind.NEWLINE) {
-      addToken(new Token(TokenKind.NEWLINE, pos - 1, pos));
-    }
-
-    addToken(new Token(TokenKind.EOF, pos, pos));
+    setToken(new Token(TokenKind.EOF, pos, pos));
   }
 
   /**
