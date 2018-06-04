@@ -252,7 +252,6 @@ public final class AndroidRuleClasses {
           splitOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
           splitOptions.get(BuildConfiguration.Options.class).cpu = androidOptions.cpu;
           splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
-          splitOptions.get(CppOptions.class).glibc = null;
           setCrosstoolToAndroid(splitOptions, buildOptions);
           return ImmutableList.of(splitOptions);
         }
@@ -272,7 +271,6 @@ public final class AndroidRuleClasses {
           splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
           splitOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
           splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
-          splitOptions.get(CppOptions.class).glibc = null;
           setCrosstoolToAndroid(splitOptions, buildOptions);
           result.add(splitOptions);
         }

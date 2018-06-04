@@ -317,7 +317,7 @@ public class CrosstoolConfigurationLoader {
       boolean convertLipoToThinLto,
       Function<String, String> cpuTransformer)
       throws InvalidConfigurationException {
-    if ((config.getCompiler() != null) || (config.getLibc() != null)) {
+    if (config.getCompiler() != null) {
       ArrayList<CrosstoolConfig.CToolchain> candidateToolchains = new ArrayList<>();
       for (CrosstoolConfig.CToolchain toolchain : release.getToolchainList()) {
         if (config.isCandidateToolchain(toolchain)) {
@@ -396,6 +396,8 @@ public class CrosstoolConfigurationLoader {
     message.append("[\n");
     for (CrosstoolConfig.CToolchain toolchain : toolchains) {
       message.append("  ");
+      message.append(toolchain.getToolchainIdentifier());
+      message.append(": ");
       message.append(
           CrosstoolConfigurationIdentifier.fromToolchain(toolchain).describeFlags().trim());
       message.append(",\n");

@@ -1581,8 +1581,8 @@ the compilation of binaries during the build.
 <h3 id='strategy-options'>Build strategy options</h3>
 <p>
   Note that a particular combination of crosstool version, compiler version,
-  libc version, and target CPU is allowed only if it has been specified
-  in the currently used CROSSTOOL file.
+  and target CPU is allowed only if it has been specified in the currently
+  used CROSSTOOL file.
 </p>
 
 <h4 id='flag--host_cpu'><code class='flag'>--host_cpu <var>cpu</var></code></h4>
@@ -1790,23 +1790,7 @@ The default is <code>armeabi-v7a</code>.
 </p>
 <p>
   Note that only certain combinations of crosstool version, compiler version,
-  libc version, and target CPU are allowed.
-</p>
-
-<h4 id='flag--glibc'><code class='flag'>--glibc <var>version</var></code></h4>
-<p>
-  This option specifies the version of glibc that the target should be linked
-  against. If you want to build with a custom crosstool, you should use a
-  CROSSTOOL file instead of specifying this flag. In that case, Bazel will use
-  the CROSSTOOL file and the following options where appropriate:
-  <ul>
-    <li><a href="#flag--cpu"><code class='flag'>--cpu</code></a></li>
-
-  </ul>
-</p>
-<p>
-  Note that only certain combinations of crosstool version, compiler version,
-  glibc version, and target CPU are allowed.
+  and target CPU are allowed.
 </p>
 
 <h4 id='flag--android_sdk'><code class='flag'>--android_sdk <var>label</var></code></h4>

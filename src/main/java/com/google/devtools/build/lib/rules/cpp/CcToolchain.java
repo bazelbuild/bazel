@@ -753,12 +753,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     if (compiler.isEmpty()) {
       compiler = null;
     }
-    String libc = ruleContext.attributes().get("libc", Type.STRING);
-    if (libc.isEmpty()) {
-      libc = null;
-    }
-    CrosstoolConfigurationIdentifier config =
-        new CrosstoolConfigurationIdentifier(cpu, compiler, libc);
+    CrosstoolConfigurationIdentifier config = new CrosstoolConfigurationIdentifier(cpu, compiler);
 
     try {
       return CrosstoolConfigurationLoader.selectToolchain(

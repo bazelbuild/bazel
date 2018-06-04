@@ -26,8 +26,4 @@ public interface CrosstoolConfigurationOptions {
   /** Returns the compiler associated with this crosstool configuration. */
   @Nullable
   String getCompiler();
-
-  /** Returns the libc version associated with this crosstool configuration. */
-  @Nullable
-  String getLibc();
 }
