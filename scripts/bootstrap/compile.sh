@@ -30,7 +30,7 @@ LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
 #
 # Please read the comment in third_party/BUILD for more details.
 LIBRARY_JARS_ARRAY=($LIBRARY_JARS)
-for i in $(seq 0 $((${#LIBRARY_JARS_ARRAY[@]} - 1)))
+for i in $(eval echo {0..$((${#LIBRARY_JARS_ARRAY[@]} - 1))})
 do
   [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/error_prone/error_prone_core-".*\.jar$ ]] && ERROR_PRONE_INDEX=$i
   [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/guava/guava-".*\.jar$ ]] && GUAVA_INDEX=$i
