@@ -34,6 +34,7 @@ import java.util.List;
 )
 public class PlatformConfiguration extends BuildConfiguration.Fragment {
   private final Label hostPlatform;
+  private final Label legacyFallbackExecutionPlatform;
   private final ImmutableList<String> extraExecutionPlatforms;
   private final ImmutableList<Label> targetPlatforms;
   private final ImmutableList<String> extraToolchains;
@@ -42,11 +43,13 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   @AutoCodec.Instantiator
   PlatformConfiguration(
       Label hostPlatform,
+      Label legacyFallbackExecutionPlatform,
       ImmutableList<String> extraExecutionPlatforms,
       ImmutableList<Label> targetPlatforms,
       ImmutableList<String> extraToolchains,
       ImmutableList<Label> enabledToolchainTypes) {
     this.hostPlatform = hostPlatform;
+    this.legacyFallbackExecutionPlatform = legacyFallbackExecutionPlatform;
     this.extraExecutionPlatforms = extraExecutionPlatforms;
     this.targetPlatforms = targetPlatforms;
     this.extraToolchains = extraToolchains;
@@ -56,6 +59,10 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   @SkylarkCallable(name = "host_platform", structField = true, doc = "The current host platform")
   public Label getHostPlatform() {
     return hostPlatform;
+  }
+
+  public Label getLegacyFallbackExecutionPlatform() {
+    return legacyFallbackExecutionPlatform;
   }
 
   /**
