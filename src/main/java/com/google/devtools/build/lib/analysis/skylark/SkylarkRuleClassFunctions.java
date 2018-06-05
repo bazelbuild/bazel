@@ -183,9 +183,12 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                 .value(labelCache.getUnchecked(toolsRepository + "//tools/test:collect_coverage")))
         // Input files for test actions collecting code coverage
         .add(
-            attr("$coverage_support", LABEL)
+            attr(":coverage_support", LABEL)
                 .cfg(HostTransition.INSTANCE)
-                .value(labelCache.getUnchecked("//tools/defaults:coverage_support")))
+                .value(
+                    BaseRuleClasses.coverageSupportAttribute(
+                        labelCache.getUnchecked(
+                            toolsRepository + BaseRuleClasses.DEFAULT_COVERAGE_SUPPORT_VALUE))))
         // Used in the one-per-build coverage report generation action.
         .add(
             attr("$coverage_report_generator", LABEL)
