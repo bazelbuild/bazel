@@ -15,7 +15,7 @@
 # Usage:
 #
 #     # In WORKSPACE
-#     load("@bazel_tools//tools/build_defs/repo:android.bzl", "aar_import_external)
+#     load("@bazel_tools//tools/build_defs/repo:android.bzl", "aar_import_external", "aar_maven_import_external")
 #
 #     # Specify the URL directly:
 #     aar_import_external(
