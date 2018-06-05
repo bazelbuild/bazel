@@ -22,14 +22,14 @@ import javax.annotation.Nullable;
 class Token {
 
   TokenKind kind;
-  final int left;
-  final int right;
+  int left;
+  int right;
   /**
    * value is an Integer if the kind is INT.
    * It is a String if the kind is STRING, IDENTIFIER, or COMMENT.
    * It is null otherwise.
    */
-  @Nullable final Object value;
+  @Nullable Object value;
 
   Token(TokenKind kind, int left, int right) {
     this(kind, left, right, null);
@@ -40,6 +40,10 @@ class Token {
     this.left = left;
     this.right = right;
     this.value = value;
+  }
+
+  Token copy() {
+    return new Token(kind, left, right, value);
   }
 
   /**
