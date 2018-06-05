@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
@@ -81,16 +80,6 @@ public class BaseRuleClasses {
       LabelListLateBoundDefault.fromTargetConfiguration(
           BuildConfiguration.class,
           (rule, attributes, configuration) -> configuration.getActionListeners());
-
-  public static final String DEFAULT_COVERAGE_SUPPORT_VALUE = "//tools/test:coverage_support";
-
-  public static LabelLateBoundDefault<TestConfiguration> coverageSupportAttribute(
-      Label defaultValue) {
-    return LabelLateBoundDefault.fromTargetConfiguration(
-        TestConfiguration.class,
-        defaultValue,
-        (rule, attributes, configuration) -> configuration.getCoverageSupport());
-  }
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /** Implementation for the :run_under attribute. */
@@ -162,9 +151,8 @@ public class BaseRuleClasses {
               .value(env.getToolsLabel("//tools/test:collect_coverage")))
           // Input files for test actions collecting code coverage
           .add(
-              attr(":coverage_support", LABEL)
-                  .value(
-                      coverageSupportAttribute(env.getToolsLabel(DEFAULT_COVERAGE_SUPPORT_VALUE))))
+              attr("$coverage_support", LABEL)
+                  .value(env.getLabel("//tools/defaults:coverage_support")))
           // Used in the one-per-build coverage report generation action.
           .add(
               attr("$coverage_report_generator", LABEL)

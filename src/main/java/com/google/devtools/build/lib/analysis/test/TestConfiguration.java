@@ -176,13 +176,6 @@ public class TestConfiguration extends Fragment {
           "coverage_support", ImmutableSet.of(coverageSupport),
           "coverage_report_generator", ImmutableSet.of(coverageReportGenerator));
     }
-
-    @Override
-    public FragmentOptions getHost() {
-      TestOptions hostOptions = (TestOptions) getDefault();
-      hostOptions.coverageSupport = this.coverageSupport;
-      return hostOptions;
-    }
   }
 
   /** Configuration loader for test options */
