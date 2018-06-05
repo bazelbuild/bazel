@@ -329,7 +329,7 @@ public final class TestActionBuilder {
       // contain rules with baseline coverage but no test rules that have coverage enabled, and in
       // that case, we still need the report generator.
       reportGenerator = ruleContext.getPrerequisiteArtifact(
-          "$coverage_report_generator", Mode.HOST);
+          ":coverage_report_generator", Mode.HOST);
     }
 
     return new TestParams(runsPerTest, shards, TestTimeout.getTestTimeout(ruleContext.getRule()),
