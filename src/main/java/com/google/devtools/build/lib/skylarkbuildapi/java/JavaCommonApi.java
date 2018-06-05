@@ -389,7 +389,7 @@ public interface JavaCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfo
             positional = false,
             named = true,
             type = FileApi.class,
-            doc = "The jar to run ijar on."),
+            doc = "The jar to run stamp_jar on."),
         @Param(
             name = "target_label",
             positional = false,
@@ -404,7 +404,7 @@ public interface JavaCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfo
             positional = false,
             named = true,
             type = TransitiveInfoCollectionApi.class,
-            doc = "A label pointing to a java_toolchain rule to used to find the ijar tool."),
+            doc = "A label pointing to a java_toolchain rule to used to find the stamp_jar tool."),
       })
   public FileApi stampJar(
       SkylarkActionFactoryT actions, FileT jar, Label targetLabel,
