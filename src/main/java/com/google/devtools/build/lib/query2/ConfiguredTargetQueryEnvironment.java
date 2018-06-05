@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
+import com.google.devtools.build.lib.skyframe.RecursivePkgValueRootPackageExtractor;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
@@ -90,15 +91,14 @@ import javax.annotation.Nullable;
  *
  * <p>This environment can theoretically be used for multiple queries, but currently is only ever
  * used for one over the course of its lifetime. If this ever changed to be used for multiple, the
- * {@link accessor} field should be initialized on a per-query basis not a per-environment basis.
+ * {@link ConfiguredTargetAccessor} field should be initialized on a per-query basis not a
+ * per-environment basis.
  *
- * <p>There is currently a limited way to specify a configuration in the query syntax via
- * {@link ConfigFunction}. This currently still limits the user to choosing the 'target', 'host', or
- * null configurations. It shouldn't be terribly difficult to expand this with
- * {@link OptionsDiffForReconstruction} to handle fully customizable configurations if the need
- * arises in the future.
- *
- * <p>On the other end, recursive target patterns are not supported.
+ * <p>There is currently a limited way to specify a configuration in the query syntax via {@link
+ * ConfigFunction}. This currently still limits the user to choosing the 'target', 'host', or null
+ * configurations. It shouldn't be terribly difficult to expand this with {@link
+ * OptionsDiffForReconstruction} to handle fully customizable configurations if the need arises in
+ * the future.
  *
  * <p>Aspects are also not supported, but probably should be in some fashion.
  */
@@ -219,7 +219,8 @@ public class ConfiguredTargetQueryEnvironment
   private void beforeEvaluateQuery() throws InterruptedException, QueryException {
     graph = walkableGraphSupplier.get();
     GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider =
-        new GraphBackedRecursivePackageProvider(graph, ALL_PATTERNS, pkgPath);
+        new GraphBackedRecursivePackageProvider(
+            graph, ALL_PATTERNS, pkgPath, new RecursivePkgValueRootPackageExtractor());
     resolver =
         new RecursivePackageProviderBackedTargetPatternResolver(
             graphBackedRecursivePackageProvider,
@@ -627,23 +628,9 @@ public class ConfiguredTargetQueryEnvironment
         configuredTargetKeyExtractor, SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
   }
 
+  /** Target patterns are resolved on the fly so no pre-work to be done here. */
   @Override
-  protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
-      throws QueryException, TargetParsingException, InterruptedException {
-    for (String pattern : patterns) {
-      if (TargetPattern.defaultParser()
-          .parse(pattern)
-          .getType()
-          .equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY)) {
-        // TODO(bazel-team): allow recursive patterns if the pattern is present in the graph? We
-        // could do a mini-eval here to update the graph to contain the necessary nodes for
-        // GraphBackedRecursivePackageProvider, since all the package loading and directory
-        // traversal should already be done.
-        throw new QueryException(
-            "Recursive pattern '" + pattern + "' is not supported in configured target query");
-      }
-    }
-  }
+  protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns) {}
 
   public static QueryOptions parseOptions(String rawOptions) throws QueryException {
     List<String> options = new ArrayList<>(Arrays.asList(rawOptions.split(" ")));

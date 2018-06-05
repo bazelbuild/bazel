@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.config.transitions.ComposingSplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
@@ -95,7 +95,7 @@ public final class TransitionResolver {
     }
 
     // The current transition to apply. When multiple transitions are requested, this is a
-    // ComposingSplitTransition, which encapsulates them into a single object so calling code
+    // ComposingTransition, which encapsulates them into a single object so calling code
     // doesn't need special logic for combinations.
     ConfigurationTransition currentTransition = NoTransition.INSTANCE;
 
@@ -166,32 +166,10 @@ public final class TransitionResolver {
       // When the second transition is a HOST transition, there's no need to compose. But this also
       // improves performance: host transitions are common, and ConfiguredTargetFunction has special
       // optimized logic to handle them. If they were buried in the last segment of a
-      // ComposingSplitTransition, those optimizations wouldn't trigger.
+      // ComposingTransition, those optimizations wouldn't trigger.
       return transition2;
     } else {
-      return new ComposingSplitTransition(transition1, transition2);
-    }
-  }
-
-  /** Composes two patch transitions together efficiently. */
-  public static PatchTransition composePatchTransitions(
-      PatchTransition transition1, PatchTransition transition2) {
-    // composeTransitions knows all the tricks for composing transitions, so call into that rather
-    // than reimplementing it here. It will return one of the following:
-    // * one of the two input transitions (which is a PatchTransition by this method's signature,
-    //   and needs only be cast)
-    // -or-
-    // * a new ComposingSplitTransition of (transition1, transition2) - which consists only of
-    //   PatchTransitions and can thus be converted to a ComposingPatchTransition with asPatch.
-    ConfigurationTransition composed = composeTransitions(transition1, transition2);
-    if (composed instanceof ComposingSplitTransition) {
-      return ((ComposingSplitTransition) composed).asPatch();
-    } else if (composed instanceof PatchTransition) {
-      return (PatchTransition) composed;
-    } else {
-      throw new AssertionError(
-          "composeTransitions returned something other than a ComposingSplitTransition or "
-              + "one of the input PatchTransitions");
+      return new ComposingTransition(transition1, transition2);
     }
   }
 

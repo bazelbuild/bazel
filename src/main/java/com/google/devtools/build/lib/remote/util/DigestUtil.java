@@ -17,6 +17,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.hash.HashCode;
+import com.google.common.hash.HashingOutputStream;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
@@ -29,6 +31,7 @@ import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.protobuf.Message;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 
 /** Utility methods to work with {@link Digest}. */
 public class DigestUtil {
@@ -104,6 +107,14 @@ public class DigestUtil {
 
   public static Digest buildDigest(String hexHash, long size) {
     return Digest.newBuilder().setHash(hexHash).setSizeBytes(size).build();
+  }
+
+  public static String hashCodeToString(HashCode hash) {
+    return BaseEncoding.base16().lowerCase().encode(hash.asBytes());
+  }
+
+  public HashingOutputStream newHashingOutputStream(OutputStream out) {
+    return new HashingOutputStream(hashFn.getHash(), out);
   }
 
   public String toString(Digest digest) {

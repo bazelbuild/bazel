@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDex2OatInfoApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -27,9 +27,8 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
  * Supplies the pregenerate_oat_files_for_tests attribute of type boolean provided by android_device
  * rule.
  */
-@SkylarkModule(name = "AndroidDex2OatInfo", doc = "", documented = false)
 @Immutable
-public final class AndroidDex2OatInfo extends NativeInfo {
+public final class AndroidDex2OatInfo extends NativeInfo implements AndroidDex2OatInfoApi {
 
   private static final String SKYLARK_NAME = "AndroidDex2OatInfo";
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =

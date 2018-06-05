@@ -1142,6 +1142,32 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Gets a tree artifact, creating it if necessary. {@code ArtifactOwner} should be a genuine
+   * {@link ConfiguredTargetKey} corresponding to a {@link ConfiguredTarget}. If called from a test
+   * that does not exercise the analysis phase, the convenience methods {@link
+   * #getBinArtifactWithNoOwner} or {@link #getGenfilesArtifactWithNoOwner} should be used instead.
+   */
+  protected Artifact getTreeArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
+    return view.getArtifactFactory().getTreeArtifact(rootRelativePath, root, owner);
+  }
+
+  /**
+   * Gets a Tree Artifact for testing in the subdirectory of the {@link
+   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So to
+   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
+   * "foo.o".
+   */
+  protected final Artifact getTreeArtifact(String packageRelativePath, ConfiguredTarget owner) {
+    return getPackageRelativeTreeArtifact(
+        packageRelativePath,
+        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
+        ConfiguredTargetKey.of(
+            owner, skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey())));
+  }
+
+
+  /**
    * Gets a derived Artifact for testing with path of the form
    * root/owner.getPackageFragment()/packageRelativePath.
    *
@@ -1153,6 +1179,20 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
         root, owner);
   }
+
+  /**
+   * Gets a tree Artifact for testing with path of the form
+   * root/owner.getPackageFragment()/packageRelativePath.
+   *
+   * @see #getDerivedArtifact(PathFragment, ArtifactRoot, ArtifactOwner)
+   */
+  private Artifact getPackageRelativeTreeArtifact(
+      String packageRelativePath, ArtifactRoot root, ArtifactOwner owner) {
+    return getTreeArtifact(
+        owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
+        root, owner);
+  }
+
 
   /**
    * Gets a derived Artifact for testing in the {@link BuildConfiguration#getBinDirectory}. This
@@ -1918,6 +1958,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     @Override
     public ImmutableSet<Artifact> getOrphanArtifacts() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ImmutableSet<Artifact> getTreeArtifactsConflictingWithFiles() {
       throw new UnsupportedOperationException();
     }
 

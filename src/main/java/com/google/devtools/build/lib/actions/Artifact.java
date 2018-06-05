@@ -228,7 +228,7 @@ public class Artifact
       throw new IllegalArgumentException(
           "it is illegal to create an artifact with an empty execPath");
     }
-    this.hashCode = execPath.hashCode();
+    this.hashCode = execPath.hashCode() + this.getClass().hashCode() * 13;
     this.root = root;
     this.execPath = execPath;
     this.rootRelativePath = rootRelativePath;
@@ -639,6 +639,9 @@ public class Artifact
   @Override
   public final boolean equals(Object other) {
     if (!(other instanceof Artifact)) {
+      return false;
+    }
+    if (!getClass().equals(other.getClass())) {
       return false;
     }
     // We don't bother to check root in the equivalence relation, because we

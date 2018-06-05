@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
@@ -34,7 +35,6 @@ public class AndroidManifest {
   private final Artifact manifest;
   /** The Android package. Will be null if and only if this is an aar_import target. */
   @Nullable private final String pkg;
-
   private final boolean exported;
 
   public static StampedAndroidManifest forAarImport(Artifact manifest) {
@@ -121,7 +121,9 @@ public class AndroidManifest {
       boolean exportsManifest)
       throws InterruptedException {
     if (pkg == null) {
-      pkg = getDefaultPackage(dataContext.getActionConstructionContext(), errorConsumer);
+      pkg =
+          getDefaultPackage(
+              dataContext.getLabel(), dataContext.getActionConstructionContext(), errorConsumer);
     }
 
     if (rawManifest == null) {
@@ -224,13 +226,28 @@ public class AndroidManifest {
       return ruleContext.attributes().get(CUSTOM_PACKAGE_ATTR, Type.STRING);
     }
 
-    return getDefaultPackage(ruleContext, ruleContext);
+    return getDefaultPackage(ruleContext.getLabel(), ruleContext, ruleContext);
   }
 
-  /** Gets the default Java package */
+  /**
+   * Gets the default Java package for this target, based on the path to it.
+   *
+   * <p>For example, target "//some/path/java/com/foo/bar:baz" will have the default Java package of
+   * "com.foo.bar".
+   *
+   * <p>A rule error will be registered if this path does not contain a "java" or "javatests"
+   * segment indicating where the package begins.
+   *
+   * <p>This method should not be called if the target specifies a custom package; in that case,
+   * that package should be used instead.
+   */
   public static String getDefaultPackage(
-      ActionConstructionContext context, RuleErrorConsumer errorConsumer) {
-    PathFragment dummyJar = context.getPackageDirectory().getChild("Dummy.jar");
+      Label label, ActionConstructionContext context, RuleErrorConsumer errorConsumer) {
+    PathFragment dummyJar =
+        // For backwards compatibility, also include the target's name in case it contains multiple
+        // directories - for example, target "//foo/bar:java/baz/quux" is a legal one and results in
+        // Java path of "baz/quux"
+        context.getPackageDirectory().getRelative(label.getName() + "Dummy.jar");
     return getJavaPackageFromPath(context, errorConsumer, dummyJar);
   }
 

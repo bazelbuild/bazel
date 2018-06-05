@@ -170,17 +170,6 @@ public class CppOptions extends FragmentOptions {
   )
   public String outputDirectoryTag;
 
-  @Option(
-    name = "glibc",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "The version of glibc the target should be linked against. "
-            + "By default, a suitable version is chosen based on --cpu."
-  )
-  public String glibc;
-
   // O intrepid reaper of unused options: Be warned that the [no]start_end_lib
   // option, however tempting to remove, has a use case. Look in our telemetry data.
   @Option(
@@ -954,7 +943,6 @@ public class CppOptions extends FragmentOptions {
     if (hostCrosstoolTop == null) {
       host.cppCompiler = cppCompiler;
       host.crosstoolTop = crosstoolTop;
-      host.glibc = glibc;
     } else {
       host.crosstoolTop = hostCrosstoolTop;
     }
@@ -988,6 +976,7 @@ public class CppOptions extends FragmentOptions {
     host.fdoProfileLabel = null;
     host.lipoModeForBuild = LipoMode.OFF;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
+    host.pruneCppInputDiscovery = pruneCppInputDiscovery;
 
     return host;
   }

@@ -1,11 +1,25 @@
 Missing com.google.devtools.build.importdeps.testdata.LibraryInterface
 Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$Func
+Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$InterfaceBar
+Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$InterfaceFoo
 Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$One
 Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$Two
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Client
-    missing ancestor: com.google.devtools.build.importdeps.testdata.LibraryInterface
-    resolution failure path: com.google.devtools.build.importdeps.testdata.LibraryInterface
+Indirectly missing class com.google.devtools.build.importdeps.testdata.LibraryInterface. Referenced by:
+    com.google.devtools.build.importdeps.testdata.Client (in testdata:testdata_client)
+Indirectly missing class com.google.devtools.build.importdeps.testdata.LibraryInterface$InterfaceBar. Referenced by:
+    com.google.devtools.build.importdeps.testdata.Library$Class11 (in testdata:testdata_lib_Library)
+Indirectly missing class com.google.devtools.build.importdeps.testdata.LibraryInterface$InterfaceFoo. Referenced by:
+    com.google.devtools.build.importdeps.testdata.Library$Class11 (in testdata:testdata_lib_Library)
+Indirectly missing class com.google.devtools.build.importdeps.testdata.LibraryInterface$One. Referenced by:
+    com.google.devtools.build.importdeps.testdata.Client (in testdata:testdata_client)
+Indirectly missing class com.google.devtools.build.importdeps.testdata.LibraryInterface$Two. Referenced by:
+    com.google.devtools.build.importdeps.testdata.Client (in testdata:testdata_client)
+Missing member 'bar' in class com.google.devtools.build.importdeps.testdata.Library$Class11 : name=bar, descriptor=()V
+Missing member 'foo' in class com.google.devtools.build.importdeps.testdata.Library$Class11 : name=foo, descriptor=()V
+The class hierarchies of the classes with missing members:
+    com.google.devtools.build.importdeps.testdata.Library$Class11 (in testdata:testdata_lib_Library)
+        java.lang.Object
 ===Total===
-missing=4
-incomplete=1
-missing_members=0
+missing=6
+incomplete=2
+missing_members=2

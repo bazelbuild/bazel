@@ -93,7 +93,10 @@ public final class FilesetManifest {
 
     private int lineNum;
     private final LinkedHashMap<PathFragment, String> entries = new LinkedHashMap<>();
-    private final Map<PathFragment, String> relativeLinks = new HashMap<>();
+    // Resolution order of relative links can affect the outcome of the resolution. In particular,
+    // if there's a symlink to a symlink, then resolution fails if the first symlink is resolved
+    // first, but works if the second symlink is resolved first.
+    private final LinkedHashMap<PathFragment, String> relativeLinks = new LinkedHashMap<>();
 
     ManifestLineProcessor(
         String workspaceName,
@@ -178,12 +181,17 @@ public final class FilesetManifest {
       String value = e.getValue();
       PathFragment actualLocation = location.getParentDirectory().getRelative(value);
       String actual = entries.get(actualLocation);
-      boolean isActualAcceptable = actual == null || actual.startsWith("/");
-      if (!entries.containsKey(actualLocation) || !isActualAcceptable) {
+      if (actual == null) {
         throw new IllegalStateException(
             String.format(
-                "runfiles target '%s' is not absolute, and could not be resolved in the same "
-                    + "Fileset",
+                "runfiles target '%s' is a relative symlink, and could not be resolved within the "
+                    + "same Fileset",
+                value));
+      }
+      if (!actual.startsWith("/")) {
+        throw new IllegalStateException(
+            String.format(
+                "runfiles target '%s' is a relative symlink, and points to another symlink",
                 value));
       }
       entries.put(location, actual);

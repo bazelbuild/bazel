@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -238,6 +240,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         new ArrayList<>();
     @Nullable private RuleTransitionFactory trimmingTransitionFactory;
     private PrerequisiteValidator prerequisiteValidator;
+    private ImmutableList.Builder<Bootstrap> skylarkBootstraps =
+        ImmutableList.<Bootstrap>builder();
     private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
         ImmutableMap.builder();
      private ImmutableList.Builder<Class<?>> skylarkModules =
@@ -358,6 +362,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
+    public Builder addSkylarkBootstrap(Bootstrap bootstrap) {
+      this.skylarkBootstraps.add(bootstrap);
+      return this;
+    }
+
     public Builder addSkylarkAccessibleTopLevels(String name, Object object) {
       this.skylarkAccessibleTopLevels.put(name, object);
       return this;
@@ -405,17 +414,22 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
 
     /**
-     * Sets the transition factory that produces a trimming transition to be run over all targets
+     * Adds a transition factory that produces a trimming transition to be run over all targets
      * after other transitions.
      *
-     * <p>This is a temporary measure for supporting manual trimming of feature flags, and support
-     * for this transition factory will likely be removed at some point in the future (whenever
-     * automatic trimming is sufficiently workable).
+     * <p>Transitions are run in the order they're added.
+     *
+     * <p>This is a temporary measure for supporting trimming of test rules and manual trimming of
+     * feature flags, and support for this transition factory will likely be removed at some point
+     * in the future (whenever automatic trimming is sufficiently workable).
      */
-    public Builder setTrimmingTransitionFactory(RuleTransitionFactory factory) {
-      Preconditions.checkState(
-          trimmingTransitionFactory == null, "Trimming transition factory already set");
-      trimmingTransitionFactory = Preconditions.checkNotNull(factory);
+    public Builder addTrimmingTransitionFactory(RuleTransitionFactory factory) {
+      if (trimmingTransitionFactory == null) {
+        trimmingTransitionFactory = Preconditions.checkNotNull(factory);
+      } else {
+        trimmingTransitionFactory = new ComposingRuleTransitionFactory(
+            trimmingTransitionFactory, Preconditions.checkNotNull(factory));
+      }
       return this;
     }
 
@@ -427,7 +441,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     @VisibleForTesting(/* for testing trimming transition factories without relying on prod use */)
     public Builder overrideTrimmingTransitionFactoryForTesting(RuleTransitionFactory factory) {
       trimmingTransitionFactory = null;
-      return this.setTrimmingTransitionFactory(factory);
+      return this.addTrimmingTransitionFactory(factory);
     }
 
     @Override
@@ -514,6 +528,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           trimmingTransitionFactory,
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
+          skylarkBootstraps.build(),
           skylarkModules.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
@@ -651,6 +666,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       @Nullable RuleTransitionFactory trimmingTransitionFactory,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
+      ImmutableList<Bootstrap> skylarkBootstraps,
       ImmutableList<Class<?>> skylarkModules,
       ImmutableSet<String> reservedActionMnemonics,
       BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
@@ -670,7 +686,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.universalFragments = universalFragments;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
+    this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkBootstraps, skylarkModules);
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
     this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
@@ -795,6 +811,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private Environment.GlobalFrame createGlobals(
       ImmutableMap<String, Object> skylarkAccessibleTopLevels,
+      ImmutableList<Bootstrap> bootstraps,
       ImmutableList<Class<?>> modules) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
@@ -803,6 +820,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       Runtime.setupModuleGlobals(envBuilder, module);
     }
     envBuilder.putAll(skylarkAccessibleTopLevels.entrySet());
+    for (Bootstrap bootstrap : bootstraps) {
+      bootstrap.addBindingsToBuilder(envBuilder);
+    }
 
     return GlobalFrame.createForBuiltins(envBuilder.build());
   }

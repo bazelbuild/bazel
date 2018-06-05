@@ -13,30 +13,38 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.syntax.EvalException;
 
-
 /**
  * Utility class to validate results of executing Skylark rules and aspects.
  */
 public class SkylarkProviderValidationUtil {
-  public static void checkOrphanArtifacts(RuleContext ruleContext) throws EvalException {
+  public static void validateArtifacts(RuleContext ruleContext) throws EvalException {
+    ImmutableSet<Artifact> treeArtifactsConflictingWithFiles =
+        ruleContext.getAnalysisEnvironment().getTreeArtifactsConflictingWithFiles();
+    if (!treeArtifactsConflictingWithFiles.isEmpty()) {
+      throw new EvalException(
+          null,
+          "The following directories were also declared as files:\n"
+              + artifactsDescription(treeArtifactsConflictingWithFiles));
+    }
+
     ImmutableSet<Artifact> orphanArtifacts =
         ruleContext.getAnalysisEnvironment().getOrphanArtifacts();
     if (!orphanArtifacts.isEmpty()) {
-      throw new EvalException(null, "The following files have no generating action:\n"
-          + Joiner.on("\n").join(Iterables.transform(orphanArtifacts,
-          new Function<Artifact, String>() {
-            @Override
-            public String apply(Artifact artifact) {
-              return artifact.getRootRelativePathString();
-            }
-          })));
+      throw new EvalException(
+          null,
+          "The following files have no generating action:\n"
+              + artifactsDescription(orphanArtifacts));
     }
+  }
+
+  private static String artifactsDescription(ImmutableSet<Artifact> artifacts) {
+    return Joiner.on("\n")
+        .join(Iterables.transform(artifacts, Artifact::getRootRelativePathString));
   }
 }

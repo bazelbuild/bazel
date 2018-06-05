@@ -537,35 +537,36 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return NO_CONFIG_CONDITIONS;
     }
 
-    // Collect the corresponding Skyframe configured target values. Abort early if they haven't
-    // been computed yet.
-    Collection<Dependency> configValueNames;
+    // Collect the actual deps, hard-coded to the current configuration (since by definition config
+    // conditions evaluate over the current target's configuration).
+    ImmutableList.Builder<Dependency> depsBuilder = ImmutableList.builder();
     try {
-      configValueNames = resolver.resolveRuleLabels(
-          ctgValue, configLabelMap, transitiveRootCauses, trimmingTransitionFactory);
+      for (Dependency dep : resolver.resolveRuleLabels(
+          ctgValue, configLabelMap, transitiveRootCauses, trimmingTransitionFactory)) {
+        if (dep.hasExplicitConfiguration() && dep.getConfiguration() == null) {
+          // Bazel assumes non-existent labels are source files, which have a null configuration.
+          // Keep those as is. Otherwise ConfiguredTargetAndData throws an exception about a
+          // source file having a non-null configuration. The error checking later in this method
+          // reports a proper "bad config condition" error to the user.
+          depsBuilder.add(dep);
+        } else {
+          depsBuilder.add(Dependency.withConfigurationAndAspects(dep.getLabel(),
+              ctgValue.getConfiguration(), dep.getAspects()));
+        }
+      }
     } catch (InconsistentAspectOrderException e) {
       throw new DependencyEvaluationException(e);
     }
     if (env.valuesMissing()) {
       return null;
     }
-
-    // No need to get new configs from Skyframe - config_setting rules always use the current
-    // target's config.
-    // TODO(bazel-team): remove the need for this special transformation. We can probably do this by
-    // simply passing this through trimConfigurations.
-    ImmutableList.Builder<Dependency> staticConfigs = ImmutableList.builder();
-    for (Dependency dep : configValueNames) {
-      staticConfigs.add(Dependency.withConfigurationAndAspects(dep.getLabel(),
-          ctgValue.getConfiguration(), dep.getAspects()));
-    }
-    configValueNames = staticConfigs.build();
+    ImmutableList<Dependency> configConditionDeps = depsBuilder.build();
 
     Map<SkyKey, ConfiguredTargetAndData> configValues =
         resolveConfiguredTargetDependencies(
             env,
             ctgValue,
-            configValueNames,
+            configConditionDeps,
             transitivePackagesForPackageRootResolution,
             transitiveRootCauses);
     if (configValues == null) {
@@ -573,7 +574,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     // Get the configured targets as ConfigMatchingProvider interfaces.
-    for (Dependency entry : configValueNames) {
+    for (Dependency entry : configConditionDeps) {
       SkyKey baseKey = ConfiguredTargetValue.key(entry.getLabel(), entry.getConfiguration());
       ConfiguredTarget value = configValues.get(baseKey).getConfiguredTarget();
       // The code above guarantees that value is non-null here.

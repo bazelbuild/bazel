@@ -19,8 +19,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeClasspathProviderApi;
 
 /**
  * Provider for the runtime classpath contributions of a Java binary.
@@ -28,9 +27,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
  * <p>Used to exclude already-available artifacts from related binaries (e.g. plugins).
  */
 @Immutable
-@SkylarkModule(name = "JavaRuntimeClasspathProvider", doc = "")
 @AutoCodec
-public final class JavaRuntimeClasspathProvider implements TransitiveInfoProvider {
+public final class JavaRuntimeClasspathProvider
+    implements TransitiveInfoProvider, JavaRuntimeClasspathProviderApi<Artifact> {
 
   private final NestedSet<Artifact> runtimeClasspath;
 
@@ -41,7 +40,7 @@ public final class JavaRuntimeClasspathProvider implements TransitiveInfoProvide
   /**
    * Returns the artifacts included on the runtime classpath of this binary.
    */
-  @SkylarkCallable(name = "runtime_classpath", documented = false, structField = true)
+  @Override
   public NestedSet<Artifact> getRuntimeClasspath() {
     return runtimeClasspath;
   }

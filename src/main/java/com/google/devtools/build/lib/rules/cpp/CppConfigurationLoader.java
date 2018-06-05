@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
@@ -34,6 +36,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -175,13 +178,26 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     if (crosstoolTop instanceof Rule
         && ((Rule) crosstoolTop).getRuleClass().equals("cc_toolchain_suite")) {
       Rule ccToolchainSuite = (Rule) crosstoolTop;
-      ccToolchainLabel = NonconfigurableAttributeMapper.of(ccToolchainSuite)
-          .get("toolchains", BuildType.LABEL_DICT_UNARY)
-          .get(toolchain.getTargetCpu() + "|" + toolchain.getCompiler());
+
+      String desiredCpu = cpuTransformer.getTransformer().apply(options.get(Options.class).cpu);
+      String key =
+          desiredCpu + (cppOptions.cppCompiler == null ? "" : ("|" + cppOptions.cppCompiler));
+      Map<String, Label> toolchains =
+          NonconfigurableAttributeMapper.of(ccToolchainSuite)
+              .get("toolchains", BuildType.LABEL_DICT_UNARY);
+      ccToolchainLabel = toolchains.get(key);
       if (ccToolchainLabel == null) {
-        throw new InvalidConfigurationException(String.format(
-            "cc_toolchain_suite '%s' does not contain a toolchain for CPU '%s' and compiler '%s'",
-            crosstoolTopLabel, toolchain.getTargetCpu(), toolchain.getCompiler()));
+        ccToolchainLabel = toolchains.get(toolchain.getTargetCpu() + "|" + toolchain.getCompiler());
+      }
+      if (ccToolchainLabel == null) {
+        String errorMessage =
+            String.format(
+                "cc_toolchain_suite '%s' does not contain a toolchain for CPU '%s'",
+                crosstoolTopLabel, toolchain.getTargetCpu());
+        if (cppOptions.cppCompiler != null) {
+          errorMessage = errorMessage + " and compiler " + cppOptions.cppCompiler;
+        }
+        throw new InvalidConfigurationException(errorMessage);
       }
     } else {
       throw new InvalidConfigurationException(String.format(

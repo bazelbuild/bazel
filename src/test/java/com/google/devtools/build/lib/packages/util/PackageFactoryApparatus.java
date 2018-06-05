@@ -167,7 +167,8 @@ public class PackageFactoryApparatus {
             ConstantRuleVisibility.PUBLIC,
             SkylarkSemantics.DEFAULT_SEMANTICS,
             ImmutableMap.<String, Extension>of(),
-            ImmutableList.<Label>of());
+            ImmutableList.<Label>of(),
+            /*repositoryMapping=*/ ImmutableMap.of());
     Package result;
     try {
       result = resultBuilder.build();

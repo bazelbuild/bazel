@@ -20,8 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidNativeLibsInfoApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -31,9 +30,9 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
  * Provider of transitively available ZIPs of native libs that should be directly copied into the
  * APK.
  */
-@SkylarkModule(name = "AndroidNativeLibsInfo", doc = "", documented = false)
 @Immutable
-public final class AndroidNativeLibsInfo extends NativeInfo {
+public final class AndroidNativeLibsInfo extends NativeInfo
+    implements AndroidNativeLibsInfoApi<Artifact> {
 
   private static final String SKYLARK_NAME = "AndroidNativeLibsInfo";
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
@@ -65,11 +64,7 @@ public final class AndroidNativeLibsInfo extends NativeInfo {
     this.nativeLibs = nativeLibs;
   }
 
-  @SkylarkCallable(
-    name = "native_libs",
-    doc = "Returns the native libraries produced by the rule.",
-    structField = true
-  )
+  @Override
   public NestedSet<Artifact> getNativeLibs() {
     return nativeLibs;
   }

@@ -129,9 +129,9 @@ public class BazelBuildEventServiceModuleTest {
     assertThat(commandOptions).isNotEmpty();
     OptionsParser optionsParser = OptionsParser.newOptionsParser(commandOptions);
     optionsParser.parse(
-        "--experimental_build_event_text_file", "/tmp/foo.txt",
-        "--experimental_build_event_binary_file", "/tmp/foo.bin",
-        "--experimental_build_event_json_file", "/tmp/foo.json");
+        "--build_event_text_file", "/tmp/foo.txt",
+        "--build_event_binary_file", "/tmp/foo.bin",
+        "--build_event_json_file", "/tmp/foo.json");
     BuildEventStreamOptions options = optionsParser.getOptions(BuildEventStreamOptions.class);
     assertThat(options.getBuildEventTextFile()).isEqualTo("/tmp/foo.txt");
     assertThat(options.getBuildEventBinaryFile()).isEqualTo("/tmp/foo.bin");

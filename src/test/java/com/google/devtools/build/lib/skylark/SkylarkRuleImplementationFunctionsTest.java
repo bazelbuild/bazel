@@ -439,6 +439,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testCreateSpawnActionWithToolInInputsLegacy() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_no_support_tools_in_action_inputs=false");
     setupToolInInputsTest(
         "output = ctx.actions.declare_file('bar.out')",
         "ctx.actions.run_shell(",
@@ -453,6 +454,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testCreateSpawnActionWithToolAttribute() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_no_support_tools_in_action_inputs=true");
     setupToolInInputsTest(
         "output = ctx.actions.declare_file('bar.out')",
         "ctx.actions.run_shell(",
@@ -468,6 +470,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testCreateSpawnActionWithToolAttributeIgnoresToolsInInputs() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_no_support_tools_in_action_inputs=true");
     setupToolInInputsTest(
         "output = ctx.actions.declare_file('bar.out')",
         "ctx.actions.run_shell(",
@@ -479,6 +482,26 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
     SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
     assertThat(action.getTools()).isNotEmpty();
+  }
+
+  @Test
+  public void testCreateSpawnActionWithToolInInputsFailAtAnalysisTime() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_no_support_tools_in_action_inputs=true");
+    setupToolInInputsTest(
+        "output = ctx.actions.declare_file('bar.out')",
+        "ctx.actions.run_shell(",
+        "  inputs = ctx.attr.exe.files,",
+        "  outputs = [output],",
+        "  command = 'boo bar baz',",
+        ")");
+    try {
+      getConfiguredTarget("//bar:my_rule");
+    } catch (Throwable t) {
+      // Expected
+    }
+    assertThat(eventCollector).hasSize(1);
+    assertThat(eventCollector.iterator().next().getMessage())
+        .containsMatch("Found tool\\(s\\) '.*' in inputs");
   }
 
   @Test
@@ -985,6 +1008,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "        rule_default_runfiles = provider.default_runfiles,",
         "        rule_files = provider.files,",
         "        rule_files_to_run = provider.files_to_run,",
+        "        rule_file_executable = provider.files_to_run.executable",
         "    )",
         "bar_rule = rule(",
         "    implementation = _impl,",
@@ -1030,6 +1054,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     assertThat(configuredTarget.get("rule_files")).isInstanceOf(SkylarkNestedSet.class);
     assertThat(configuredTarget.get("rule_files_to_run")).isInstanceOf(FilesToRunProvider.class);
+    assertThat(configuredTarget.get("rule_file_executable")).isEqualTo(Runtime.NONE);
   }
 
   @Test

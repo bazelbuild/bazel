@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.FingerprintComputationResult;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -24,6 +26,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Codec for {@link NestedSet} that uses the {@link NestedSetStore}.
@@ -38,6 +41,21 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
   }
 
   private final NestedSetStore nestedSetStore;
+  /**
+   * Used to preserve the invariant that if NestedSets inside two different objects are
+   * reference-equal, they will continue to be reference-equal after deserialization.
+   *
+   * <p>Suppose NestedSet N is contained in objects A and B. If A is deserialized and then B is
+   * deserialized, then when we create N inside B, we will use the version already created inside A.
+   * This depends on the fact that NestedSets with the same underlying Object[] children and order
+   * are equal, and that we have a cache of children Object[] that will contain N's children field
+   * as long as it is in memory.
+   *
+   * <p>If A and B are created, then B is serialized and deserialized while A remains in memory, the
+   * first serialization will put N into this interner, and so the deserialization will reuse it.
+   */
+  private final Cache<EqualsWrapper<T>, NestedSet<T>> interner =
+      CacheBuilder.newBuilder().weakValues().build();
 
   /** Creates a NestedSetCodecWithStore that will use the given {@link NestedSetStore}. */
   public NestedSetCodecWithStore(NestedSetStore nestedSetStore) {
@@ -76,6 +94,7 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
       context.addFutureToBlockWritingOn(fingerprintComputationResult.writeStatus());
       codedOut.writeByteArrayNoTag(fingerprintComputationResult.fingerprint().toByteArray());
     }
+    interner.put(new EqualsWrapper<>(obj), obj);
   }
 
   @Override
@@ -93,12 +112,64 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
         return NestedSetBuilder.emptySet(order);
       case SINGLETON:
         T contents = context.deserialize(codedIn);
-        return new NestedSet<>(order, contents);
+        return intern(order, contents);
       case GROUP:
         ByteString fingerprint = ByteString.copyFrom(codedIn.readByteArray());
         Object members = nestedSetStore.getContentsAndDeserialize(fingerprint, context);
-        return new NestedSet<>(order, members);
+        return intern(order, members);
     }
     throw new IllegalStateException("NestedSet size " + nestedSetSize + " not known");
+  }
+
+  /**
+   * Morally, NestedSets are compared using reference equality, to avoid the cost of unrolling them.
+   * However, when deserializing NestedSet, we don't want to end up with two sets that "should" be
+   * reference-equal, but are not. Since our codec implementation caches the underlying {@link
+   * NestedSet#children} Object[], two nested sets that should be the same will have equal
+   * underlying {@link NestedSet#children}, so we can use that for an equality check.
+   *
+   * <p>Note that singleton NestedSets' underlying children are not cached, but we must still
+   * enforce equality for them. To do that, we use the #hashCode and #equals of the {@link
+   * NestedSet#children}. When that field is an Object[], this is just identity hash code and
+   * reference equality, but when it is something else (like an Artifact), we will do an actual
+   * equality comparison. This may make some singleton NestedSets reference-equal where they were
+   * not before. This should be ok, but isn't because Artifact does not properly implement equality
+   * (it ignores the ArtifactOwner).
+   *
+   * <p>TODO(janakr): Fix this bug.
+   */
+  private NestedSet<T> intern(Order order, Object contents) {
+    NestedSet<T> result = new NestedSet<>(order, contents);
+    try {
+      return interner.get(new EqualsWrapper<>(result), () -> result);
+    } catch (ExecutionException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private static final class EqualsWrapper<T> {
+    private final NestedSet<T> nestedSet;
+
+    private EqualsWrapper(NestedSet<T> nestedSet) {
+      this.nestedSet = nestedSet;
+    }
+
+    @Override
+    public int hashCode() {
+      return 37 * nestedSet.getOrder().hashCode() + nestedSet.rawChildren().hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof EqualsWrapper)) {
+        return false;
+      }
+      NestedSet<?> thatSet = ((EqualsWrapper<?>) obj).nestedSet;
+      return this.nestedSet.getOrder().equals(thatSet.getOrder())
+          && this.nestedSet.rawChildren().equals(thatSet.rawChildren());
+    }
   }
 }

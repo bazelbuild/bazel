@@ -18,8 +18,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.cache.Metadata;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.protobuf.ByteString;
 import javax.annotation.Nullable;
 
 /**
@@ -52,21 +50,5 @@ class PerActionFileCache implements ActionInputFileCache {
     Metadata result = inputArtifactData.get(input);
     Preconditions.checkState(missingArtifactsAllowed || result != null, "null for %s", input);
     return result;
-  }
-
-  @Override
-  public Path getInputPath(ActionInput input) {
-    return ((Artifact) input).getPath();
-  }
-
-  @Override
-  public boolean contentsAvailableLocally(ByteString digest) {
-    return inputArtifactData.contains(digest);
-  }
-
-  @Nullable
-  @Override
-  public Artifact getInputFromDigest(ByteString digest) {
-    return inputArtifactData.get(digest);
   }
 }

@@ -18,12 +18,12 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkbuildapi.test.TestEnvironmentInfoApi;
 import java.util.Map;
 
 /** Provider containing any additional environment variables for use in the test action. */
 @Immutable
-public final class TestEnvironmentInfo extends NativeInfo {
+public final class TestEnvironmentInfo extends NativeInfo implements TestEnvironmentInfoApi {
 
   /** Skylark constructor and identifier for TestEnvironmentInfo. */
   public static final NativeProvider<TestEnvironmentInfo> PROVIDER =
@@ -41,11 +41,7 @@ public final class TestEnvironmentInfo extends NativeInfo {
   /**
    * Returns environment variables which should be set on the test action.
    */
-  @SkylarkCallable(
-      name = "environment",
-      doc = "A dict containing environment variables which should be set on the test action.",
-      structField = true
-  )
+  @Override
   public Map<String, String> getEnvironment() {
     return environment;
   }

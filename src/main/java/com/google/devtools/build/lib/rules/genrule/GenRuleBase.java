@@ -196,7 +196,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     FilesToRunProvider genruleSetup =
         ruleContext.getPrerequisite("$genrule_setup", Mode.HOST, FilesToRunProvider.class);
     inputs.addTransitive(genruleSetup.getFilesToRun());
-    PathFragment shExecutable = ShToolchain.getToolchainPathOrError(ruleContext);
+    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
     if (ruleContext.hasErrors()) {
       return null;
     }

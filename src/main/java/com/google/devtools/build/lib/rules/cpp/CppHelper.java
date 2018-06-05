@@ -108,34 +108,6 @@ public class CppHelper {
   }
 
   /**
-   * Merges the STL and toolchain contexts into context builder. The STL is automatically determined
-   * using the ":stl" attribute.
-   */
-  public static void mergeToolchainDependentCcCompilationContext(
-      RuleContext ruleContext,
-      CcToolchainProvider toolchain,
-      CcCompilationContext.Builder ccCompilationContextBuilder) {
-    if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
-      TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
-      if (stl != null) {
-        CcCompilationInfo ccCompilationInfo = stl.get(CcCompilationInfo.PROVIDER);
-        CcCompilationContext ccCompilationContext =
-            ccCompilationInfo != null ? ccCompilationInfo.getCcCompilationContext() : null;
-        if (ccCompilationContext == null) {
-          ruleContext.ruleError(
-              "Unable to merge the STL '" + stl.getLabel() + "' and toolchain contexts");
-          return;
-        }
-        ccCompilationContextBuilder.mergeDependentCcCompilationContext(ccCompilationContext);
-      }
-    }
-    if (toolchain != null) {
-      ccCompilationContextBuilder.mergeDependentCcCompilationContext(
-          toolchain.getCcCompilationContext());
-    }
-  }
-
-  /**
    * Returns the malloc implementation for the given target.
    */
   public static TransitiveInfoCollection mallocForTarget(

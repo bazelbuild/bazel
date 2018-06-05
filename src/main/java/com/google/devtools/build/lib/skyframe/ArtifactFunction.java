@@ -282,13 +282,15 @@ class ArtifactFunction implements SkyFunction {
       Artifact input = ArtifactSkyKey.artifact(entry.getKey());
       SkyValue inputValue = entry.getValue();
       Preconditions.checkNotNull(inputValue, "%s has null dep %s", artifact, input);
-      if (!(inputValue instanceof FileArtifactValue)) {
+      if (inputValue instanceof FileArtifactValue) {
+        inputs.add(Pair.of(input, (FileArtifactValue) inputValue));
+      } else if (inputValue instanceof TreeArtifactValue) {
+        inputs.add(Pair.of(input, ((TreeArtifactValue) inputValue).getSelfData()));
+      } else {
         // We do not recurse in aggregating middleman artifacts.
         Preconditions.checkState(!(inputValue instanceof AggregatingArtifactValue),
             "%s %s %s", artifact, action, inputValue);
-        continue;
       }
-      inputs.add(Pair.of(input, (FileArtifactValue) inputValue));
     }
     return (action.getActionType() == MiddlemanType.AGGREGATING_MIDDLEMAN)
         ? new AggregatingArtifactValue(inputs.build(), value)

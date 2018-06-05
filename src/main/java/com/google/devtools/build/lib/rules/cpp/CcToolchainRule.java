@@ -111,7 +111,6 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("output_licenses", LICENSE))
         .add(attr("cpu", STRING).mandatory())
         .add(attr("compiler", STRING))
-        .add(attr("libc", STRING))
         .add(
             attr("all_files", LABEL)
                 .legacyAllowAnyFileType()

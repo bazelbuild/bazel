@@ -18,25 +18,27 @@
 proto_filetype = [".proto"]
 
 def cc_grpc_library(name, src):
-  basename = src[:-len(".proto")]
-  protoc_label = str(Label("//third_party/protobuf:protoc"))
-  cpp_plugin_label = str(Label("//third_party/grpc:cpp_plugin"))
-  native.genrule(
-      name = name + "_codegen",
-      srcs = [src],
-      tools = [protoc_label, cpp_plugin_label],
-      cmd = "\\\n".join([
-          "$(location " + protoc_label + ")",
-          "    --plugin=protoc-gen-grpc=$(location " + cpp_plugin_label + ")",
-          "    --cpp_out=$(GENDIR)",
-          "    --grpc_out=$(GENDIR)",
-          "    $(location " + src + ")"]),
-      outs = [basename + ".grpc.pb.h", basename + ".grpc.pb.cc", basename + ".pb.cc", basename + ".pb.h"])
+    basename = src[:-len(".proto")]
+    protoc_label = str(Label("//third_party/protobuf:protoc"))
+    cpp_plugin_label = str(Label("//third_party/grpc:cpp_plugin"))
+    native.genrule(
+        name = name + "_codegen",
+        srcs = [src],
+        tools = [protoc_label, cpp_plugin_label],
+        cmd = "\\\n".join([
+            "$(location " + protoc_label + ")",
+            "    --plugin=protoc-gen-grpc=$(location " + cpp_plugin_label + ")",
+            "    --cpp_out=$(GENDIR)",
+            "    --grpc_out=$(GENDIR)",
+            "    $(location " + src + ")",
+        ]),
+        outs = [basename + ".grpc.pb.h", basename + ".grpc.pb.cc", basename + ".pb.cc", basename + ".pb.h"],
+    )
 
-  native.cc_library(
-      name = name,
-      srcs = [basename + ".grpc.pb.cc", basename + ".pb.cc"],
-      hdrs = [basename + ".grpc.pb.h", basename + ".pb.h"],
-      deps = [str(Label("//third_party/grpc:grpc++_unsecure"))],
-      includes = ["."])
-
+    native.cc_library(
+        name = name,
+        srcs = [basename + ".grpc.pb.cc", basename + ".pb.cc"],
+        hdrs = [basename + ".grpc.pb.h", basename + ".pb.h"],
+        deps = [str(Label("//third_party/grpc:grpc++_unsecure"))],
+        includes = ["."],
+    )

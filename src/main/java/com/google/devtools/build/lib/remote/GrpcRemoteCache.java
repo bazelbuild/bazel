@@ -15,15 +15,16 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.bytestream.ByteStreamGrpc;
-import com.google.bytestream.ByteStreamGrpc.ByteStreamBlockingStub;
+import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListeningScheduledExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.hash.HashingOutputStream;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -51,16 +52,14 @@ import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
-import java.io.ByteArrayOutputStream;
+import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
@@ -70,8 +69,6 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   private final Channel channel;
   private final RemoteRetrier retrier;
   private final ByteStreamUploader uploader;
-  private final ListeningScheduledExecutorService retryScheduler =
-      MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
   @VisibleForTesting
   public GrpcRemoteCache(
@@ -80,13 +77,14 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       RemoteOptions options,
       RemoteRetrier retrier,
       DigestUtil digestUtil) {
-    super(options, digestUtil);
+    super(options, digestUtil, retrier);
     this.credentials = credentials;
     this.channel = channel;
     this.retrier = retrier;
 
-    uploader = new ByteStreamUploader(options.remoteInstanceName, channel, credentials,
-        options.remoteTimeout, retrier, retryScheduler);
+    uploader =
+        new ByteStreamUploader(
+            options.remoteInstanceName, channel, credentials, options.remoteTimeout, retrier);
   }
 
   private ContentAddressableStorageBlockingStub casBlockingStub() {
@@ -96,8 +94,8 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
         .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
   }
 
-  private ByteStreamBlockingStub bsBlockingStub() {
-    return ByteStreamGrpc.newBlockingStub(channel)
+  private ByteStreamStub bsAsyncStub() {
+    return ByteStreamGrpc.newStub(channel)
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
         .withCallCredentials(credentials)
         .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
@@ -112,7 +110,6 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
 
   @Override
   public void close() {
-    retryScheduler.shutdownNow();
     uploader.shutdown();
   }
 
@@ -174,67 +171,63 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     uploader.uploadBlobs(toUpload);
   }
 
-  /**
-   * This method can throw {@link StatusRuntimeException}, but the RemoteCache interface does not
-   * allow throwing such an exception. Any caller must make sure to catch the
-   * {@link StatusRuntimeException}. Note that the retrier implicitly catches it, so if this is used
-   * in the context of {@link RemoteRetrier#execute}, that's perfectly safe.
-   */
-  private void readBlob(Digest digest, OutputStream stream)
-      throws IOException, StatusRuntimeException {
+  @Override
+  protected ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
     String resourceName = "";
     if (!options.remoteInstanceName.isEmpty()) {
       resourceName += options.remoteInstanceName + "/";
     }
     resourceName += "blobs/" + digestUtil.toString(digest);
-    Iterator<ReadResponse> replies = bsBlockingStub()
-        .read(ReadRequest.newBuilder().setResourceName(resourceName).build());
-    while (replies.hasNext()) {
-      replies.next().getData().writeTo(stream);
-    }
-  }
 
-  @Override
-  protected void downloadBlob(Digest digest, Path dest) throws IOException, InterruptedException {
-    if (digest.getSizeBytes() == 0) {
-      try (OutputStream stream = dest.getOutputStream()) {
-        return;
-      }
-    }
-    try {
-      retrier.execute(
-          () -> {
-            try (OutputStream stream = dest.getOutputStream()) {
-              readBlob(digest, stream);
-            }
-            return null;
-          });
-    } catch (RetryException e) {
-      if (RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)) {
-        throw new CacheNotFoundException(digest, digestUtil);
-      }
-      throw e;
-    }
-  }
+    HashingOutputStream hashOut = digestUtil.newHashingOutputStream(out);
+    SettableFuture<Void> outerF = SettableFuture.create();
+    bsAsyncStub()
+        .read(
+            ReadRequest.newBuilder().setResourceName(resourceName).build(),
+            new StreamObserver<ReadResponse>() {
+              @Override
+              public void onNext(ReadResponse readResponse) {
+                try {
+                  readResponse.getData().writeTo(hashOut);
+                } catch (IOException e) {
+                  outerF.setException(e);
+                  // Cancel the call.
+                  throw new RuntimeException(e);
+                }
+              }
 
-  @Override
-  protected byte[] downloadBlob(Digest digest) throws IOException, InterruptedException {
-    if (digest.getSizeBytes() == 0) {
-      return new byte[0];
-    }
-    try {
-      return retrier.execute(
-          () -> {
-            ByteArrayOutputStream stream = new ByteArrayOutputStream((int) digest.getSizeBytes());
-            readBlob(digest, stream);
-            return stream.toByteArray();
-          });
-    } catch (RetryException e) {
-      if (RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)) {
-        throw new CacheNotFoundException(digest, digestUtil);
-      }
-      throw e;
-    }
+              @Override
+              public void onError(Throwable t) {
+                if (t instanceof StatusRuntimeException
+                    && ((StatusRuntimeException) t).getStatus().getCode()
+                        == Status.NOT_FOUND.getCode()) {
+                  outerF.setException(new CacheNotFoundException(digest, digestUtil));
+                } else {
+                  outerF.setException(t);
+                }
+              }
+
+              @Override
+              public void onCompleted() {
+                String expectedHash = digest.getHash();
+                String actualHash = DigestUtil.hashCodeToString(hashOut.hash());
+                if (!expectedHash.equals(actualHash)) {
+                  String msg =
+                      String.format(
+                          "Expected hash '%s' does not match received hash '%s'.",
+                          expectedHash, actualHash);
+                  outerF.setException(new IOException(msg));
+                } else {
+                  try {
+                    out.flush();
+                    outerF.set(null);
+                  } catch (IOException e) {
+                    outerF.setException(e);
+                  }
+                }
+              }
+            });
+    return outerF;
   }
 
   @Override

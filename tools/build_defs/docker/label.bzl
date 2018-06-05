@@ -14,10 +14,10 @@
 """Rules for dealing with labels and their string form."""
 
 def string_to_label(label_list, string_list):
-  """Form a mapping from label strings to the resolved label."""
-  label_string_dict = dict()
-  for i in range(len(label_list)):
-    string = string_list[i]
-    label = label_list[i]
-    label_string_dict[string] = label
-  return label_string_dict
+    """Form a mapping from label strings to the resolved label."""
+    label_string_dict = dict()
+    for i in range(len(label_list)):
+        string = string_list[i]
+        label = label_list[i]
+        label_string_dict[string] = label
+    return label_string_dict

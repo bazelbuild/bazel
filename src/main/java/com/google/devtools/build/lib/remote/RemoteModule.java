@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.remote;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -44,6 +46,7 @@ import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.util.function.Predicate;
+import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -91,7 +94,8 @@ public final class RemoteModule extends BlazeModule {
   }
 
   private final CasPathConverter converter = new CasPathConverter();
-
+  private final ListeningScheduledExecutorService retryScheduler =
+      MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   private RemoteActionContextProvider actionContextProvider;
 
   @Override
@@ -164,14 +168,16 @@ public final class RemoteModule extends BlazeModule {
         logger = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
       }
 
-      RemoteRetrier retrier =
-          new RemoteRetrier(
-              remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
-      RemoteRetrier executeRetrier =
-          new RemoteRetrier(
-              remoteOptions, RemoteModule.RETRIABLE_EXEC_ERRORS, Retrier.ALLOW_ALL_CALLS);
+      final Retrier executeRetrier;
       final AbstractRemoteActionCache cache;
       if (enableBlobStoreCache) {
+        Retrier retrier =
+            new Retrier(
+                () -> Retrier.RETRIES_DISABLED,
+                (e) -> false,
+                retryScheduler,
+                Retrier.ALLOW_ALL_CALLS);
+        executeRetrier = null;
         cache =
             new SimpleBlobStoreActionCache(
                 remoteOptions,
@@ -179,6 +185,7 @@ public final class RemoteModule extends BlazeModule {
                     remoteOptions,
                     GoogleAuthUtils.newCredentials(authAndTlsOptions),
                     env.getWorkingDirectory()),
+                retrier,
                 digestUtil);
       } else if (enableGrpcCache || remoteOptions.remoteExecutor != null) {
         // If a remote executor but no remote cache is specified, assume both at the same target.
@@ -187,6 +194,18 @@ public final class RemoteModule extends BlazeModule {
         if (logger != null) {
           ch = ClientInterceptors.intercept(ch, logger);
         }
+        RemoteRetrier retrier =
+            new RemoteRetrier(
+                remoteOptions,
+                RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+                retryScheduler,
+                Retrier.ALLOW_ALL_CALLS);
+        executeRetrier =
+            new RemoteRetrier(
+                remoteOptions,
+                RemoteModule.RETRIABLE_EXEC_ERRORS,
+                retryScheduler,
+                Retrier.ALLOW_ALL_CALLS);
         cache =
             new GrpcRemoteCache(
                 ch,
@@ -198,11 +217,15 @@ public final class RemoteModule extends BlazeModule {
         cache = null;
       }
 
-      // TODO(davido): The naming is wrong here. "Remote"-prefix in RemoteActionCache class has no
-      // meaning.
       final GrpcRemoteExecutor executor;
       if (remoteOptions.remoteExecutor != null) {
         Channel ch = GoogleAuthUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions);
+        RemoteRetrier retrier =
+            new RemoteRetrier(
+                remoteOptions,
+                RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+                retryScheduler,
+                Retrier.ALLOW_ALL_CALLS);
         if (logger != null) {
           ch = ClientInterceptors.intercept(ch, logger);
         }

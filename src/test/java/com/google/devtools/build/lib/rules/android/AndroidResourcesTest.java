@@ -447,7 +447,10 @@ public class AndroidResourcesTest extends ResourceTestBase {
         ProcessedAndroidData.of(
             makeParsedResources(ruleContext),
             AndroidAssets.from(ruleContext)
-                .process(AndroidDataContext.forNative(ruleContext), AssetDependencies.empty()),
+                .process(
+                    AndroidDataContext.forNative(ruleContext),
+                    AssetDependencies.empty(),
+                    AndroidAaptVersion.chooseTargetAaptVersion(ruleContext)),
             manifest,
             rTxt,
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR),

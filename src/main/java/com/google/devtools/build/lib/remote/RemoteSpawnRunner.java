@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -83,9 +85,9 @@ class RemoteSpawnRunner implements SpawnRunner {
   @Nullable private final Reporter cmdlineReporter;
   @Nullable private final AbstractRemoteActionCache remoteCache;
   @Nullable private final GrpcRemoteExecutor remoteExecutor;
+  @Nullable private final RemoteRetrier retrier;
   private final String buildRequestId;
   private final String commandId;
-  private final RemoteRetrier retrier;
   private final DigestUtil digestUtil;
   private final Path logDir;
 
@@ -102,7 +104,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       String commandId,
       @Nullable AbstractRemoteActionCache remoteCache,
       @Nullable GrpcRemoteExecutor remoteExecutor,
-      RemoteRetrier retrier,
+      @Nullable RemoteRetrier retrier,
       DigestUtil digestUtil,
       Path logDir) {
     this.execRoot = execRoot;
@@ -235,7 +237,7 @@ class RemoteSpawnRunner implements SpawnRunner {
           logPath = parent.getRelative(e.getKey());
           logCount++;
           try {
-            remoteCache.downloadFile(logPath, e.getValue().getDigest(), false, null);
+            getFromFuture(remoteCache.downloadFile(logPath, e.getValue().getDigest(), null));
           } catch (IOException ex) {
             reportOnce(Event.warn("Failed downloading server logs from the remote cache."));
           }

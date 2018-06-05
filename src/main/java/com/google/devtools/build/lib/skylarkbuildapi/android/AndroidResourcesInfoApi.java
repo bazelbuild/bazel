@@ -26,10 +26,13 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidResourcesInfoApi extends StructApi {
 
-  /** Returns the r.txt file for the target. */
+  /** Returns the compiletime r.txt file for the target. */
   @SkylarkCallable(
-      name = "r_txt",
-      doc = "Returns the R.txt file for the target.",
+      name = "compiletime_r_txt",
+      doc =
+          "A txt file containing compiled resource file information for this target. This is a"
+              + " stubbed out compiletime file and should not be built into APKs, inherited from"
+              + " dependencies, or used at runtime.",
       structField = true)
   FileApi getRTxt();
 }

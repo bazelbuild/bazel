@@ -650,8 +650,6 @@ java_binary(
         '--e=no_quotes',
         # no escaping expected
         '--f=stuff\$\$to"escape\\\\',
-        # test make variable expansion
-        '--g=\$(JAVABASE)',
     ],
 )
 EOF
@@ -673,7 +671,6 @@ EOF
       " --d=\"double_double\" " \
       ' --e=no_quotes ' \
       ' --f=stuff$to"escape\\ ' \
-      " --g=${runfiles_relative_javabase}" \
       ; do
     # NOTE: don't test the full path of the JDK, it's architecture-dependent.
     assert_contains $flag $STUBSCRIPT

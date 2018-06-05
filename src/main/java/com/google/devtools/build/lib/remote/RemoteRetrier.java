@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
@@ -28,8 +29,7 @@ import java.util.function.Supplier;
 /**
  * Specific retry logic for remote execution/caching.
  *
- * <p>A call can disable retries by throwing a {@link PassThroughException}.
- * <code>
+ * <p>A call can disable retries by throwing a {@link PassThroughException}. <code>
  *   RemoteRetrier r = ...;
  *   try {
  *    r.execute(() -> {
@@ -42,7 +42,7 @@ import java.util.function.Supplier;
  *   }
  * </code>
  */
-class RemoteRetrier extends Retrier {
+public class RemoteRetrier extends Retrier {
 
   /**
    * Wraps around an {@link Exception} to make it pass through a single layer of retries.
@@ -75,24 +75,36 @@ class RemoteRetrier extends Retrier {
         }
       };
 
-  public RemoteRetrier(RemoteOptions options, Predicate<? super Exception> shouldRetry,
+  public RemoteRetrier(
+      RemoteOptions options,
+      Predicate<? super Exception> shouldRetry,
+      ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
-    this(options.experimentalRemoteRetry
-        ? () -> new ExponentialBackoff(options)
-        : () -> RETRIES_DISABLED,
+    this(
+        options.experimentalRemoteRetry
+            ? () -> new ExponentialBackoff(options)
+            : () -> RETRIES_DISABLED,
         shouldRetry,
+        retryScheduler,
         circuitBreaker);
   }
 
-  public RemoteRetrier(Supplier<Backoff> backoff, Predicate<? super Exception> shouldRetry,
+  public RemoteRetrier(
+      Supplier<Backoff> backoff,
+      Predicate<? super Exception> shouldRetry,
+      ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
-    super(backoff, supportPassthrough(shouldRetry), circuitBreaker);
+    super(backoff, supportPassthrough(shouldRetry), retryScheduler, circuitBreaker);
   }
 
   @VisibleForTesting
-  RemoteRetrier(Supplier<Backoff> backoff, Predicate<? super Exception> shouldRetry,
-      CircuitBreaker circuitBreaker, Sleeper sleeper) {
-    super(backoff, supportPassthrough(shouldRetry), circuitBreaker, sleeper);
+  RemoteRetrier(
+      Supplier<Backoff> backoff,
+      Predicate<? super Exception> shouldRetry,
+      ListeningScheduledExecutorService retryScheduler,
+      CircuitBreaker circuitBreaker,
+      Sleeper sleeper) {
+    super(backoff, supportPassthrough(shouldRetry), retryScheduler, circuitBreaker, sleeper);
   }
 
   @Override

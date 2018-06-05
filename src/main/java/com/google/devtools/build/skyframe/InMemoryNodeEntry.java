@@ -275,6 +275,22 @@ public class InMemoryNodeEntry implements NodeEntry {
     return ReverseDepsUtility.returnNewElements(this, getOpToStoreBare());
   }
 
+  /**
+   * Highly dangerous method. Used only for testing/debugging. Can only be called on an in-progress
+   * entry that is not dirty and that will not keep edges. Returns all the entry's reverse deps,
+   * which must all be {@link SkyKey}s representing {@link Op#ADD} operations, since that is the
+   * operation that is stored bare. Used for speed, since it avoids making any copies, so should be
+   * much faster than {@link #getInProgressReverseDeps}.
+   */
+  @SuppressWarnings("unchecked")
+  public synchronized Iterable<SkyKey> unsafeGetUnconsolidatedRdeps() {
+    Preconditions.checkState(!isDone(), this);
+    Preconditions.checkState(!isDirty(), this);
+    Preconditions.checkState(keepEdges().equals(KeepEdgesPolicy.NONE), this);
+    Preconditions.checkState(getOpToStoreBare() == OpToStoreBare.ADD, this);
+    return (Iterable<SkyKey>) (List<?>) reverseDepsDataToConsolidate;
+  }
+
   @Override
   public synchronized Set<SkyKey> setValue(SkyValue value, Version version)
       throws InterruptedException {

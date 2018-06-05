@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -419,6 +420,16 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
     String workspaceName = workspaceNameValue.getName();
+
+    RepositoryMappingValue repositoryMappingValue =
+        (RepositoryMappingValue)
+            env.getValue(RepositoryMappingValue.key(packageId.getRepository()));
+    if (repositoryMappingValue == null) {
+      return null;
+    }
+    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping =
+        repositoryMappingValue.getRepositoryMapping();
+
     RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
     FileValue buildFileValue = null;
     Path buildFilePath = buildFileRootedPath.asPath();
@@ -474,6 +485,7 @@ public class PackageFunction implements SkyFunction {
     LoadedPackageCacheEntry packageCacheEntry =
         loadPackage(
             workspaceName,
+            repositoryMapping,
             replacementContents,
             packageId,
             buildFilePath,
@@ -1150,6 +1162,7 @@ public class PackageFunction implements SkyFunction {
   @Nullable
   private LoadedPackageCacheEntry loadPackage(
       String workspaceName,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       @Nullable String replacementContents,
       PackageIdentifier packageId,
       Path buildFilePath,
@@ -1230,16 +1243,18 @@ public class PackageFunction implements SkyFunction {
         GlobberWithSkyframeGlobDeps globberWithSkyframeGlobDeps =
             makeGlobber(buildFilePath, packageId, packageRoot, env);
         long startTimeNanos = BlazeClock.nanoTime();
-        Package.Builder pkgBuilder = packageFactory.createPackageFromAst(
-            workspaceName,
-            packageId,
-            buildFilePath,
-            astParseResult,
-            importResult.importMap,
-            importResult.fileDependencies,
-            defaultVisibility,
-            skylarkSemantics,
-            globberWithSkyframeGlobDeps);
+        Package.Builder pkgBuilder =
+            packageFactory.createPackageFromAst(
+                workspaceName,
+                repositoryMapping,
+                packageId,
+                buildFilePath,
+                astParseResult,
+                importResult.importMap,
+                importResult.fileDependencies,
+                defaultVisibility,
+                skylarkSemantics,
+                globberWithSkyframeGlobDeps);
         long loadTimeNanos = Math.max(BlazeClock.nanoTime() - startTimeNanos, 0L);
         packageCacheEntry = new LoadedPackageCacheEntry(
             pkgBuilder,

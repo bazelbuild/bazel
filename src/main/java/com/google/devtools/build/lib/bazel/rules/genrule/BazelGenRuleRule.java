@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
@@ -45,7 +44,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
     rules. If the rule generates source files, you should use the
     <code>srcs</code> attribute.
     <!-- #END_BLAZE_RULE.NAME --> */
-    return ShToolchain.addDependency(builder, env)
+    return builder
         .setOutputToGenfiles()
         .add(
             attr("$genrule_setup", LABEL)

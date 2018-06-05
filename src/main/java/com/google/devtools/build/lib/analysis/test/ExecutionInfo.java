@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkbuildapi.test.ExecutionInfoApi;
 import java.util.Map;
 
 /**
@@ -25,7 +25,7 @@ import java.util.Map;
  * tests).
  */
 @Immutable
-public final class ExecutionInfo extends NativeInfo {
+public final class ExecutionInfo extends NativeInfo implements ExecutionInfoApi {
 
   /** Skylark constructor and identifier for ExecutionInfo. */
   public static final NativeProvider<ExecutionInfo> PROVIDER =
@@ -43,11 +43,7 @@ public final class ExecutionInfo extends NativeInfo {
    * platforms, etc. Rule tags, such as "requires-XXX", may also be added
    * as keys to the map.
    */
-  @SkylarkCallable(
-      name = "requirements",
-      doc = "A dict indicating special execution requirements, such as hardware platforms.",
-      structField = true
-  )
+  @Override
   public ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
   }

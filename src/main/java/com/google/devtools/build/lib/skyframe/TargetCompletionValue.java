@@ -28,24 +28,18 @@ import java.util.Set;
  * The value of a TargetCompletion. Currently this just stores a ConfiguredTarget.
  */
 public class TargetCompletionValue implements SkyValue {
-  private final ConfiguredTarget ct;
+  @AutoCodec static final TargetCompletionValue INSTANCE = new TargetCompletionValue();
 
-  TargetCompletionValue(ConfiguredTarget ct) {
-    this.ct = ct;
-  }
+  private TargetCompletionValue() {}
 
-  public ConfiguredTarget getConfiguredTarget() {
-    return ct;
-  }
-
-  public static SkyKey key(
+  public static TargetCompletionKey key(
       ConfiguredTargetKey configuredTargetKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean willTest) {
     return TargetCompletionKey.create(configuredTargetKey, topLevelArtifactContext, willTest);
   }
 
-  public static Iterable<SkyKey> keys(
+  public static Iterable<TargetCompletionKey> keys(
       Collection<ConfiguredTarget> targets,
       final TopLevelArtifactContext ctx,
       final Set<ConfiguredTarget> targetsToTest) {
@@ -63,7 +57,7 @@ public class TargetCompletionValue implements SkyValue {
   /** {@link SkyKey} for {@link TargetCompletionValue}. */
   @AutoCodec
   @AutoValue
-  abstract static class TargetCompletionKey implements SkyKey {
+  public abstract static class TargetCompletionKey implements SkyKey {
     @AutoCodec.Instantiator
     static TargetCompletionKey create(
         ConfiguredTargetKey configuredTargetKey,
@@ -78,9 +72,10 @@ public class TargetCompletionValue implements SkyValue {
       return SkyFunctions.TARGET_COMPLETION;
     }
 
-    abstract ConfiguredTargetKey configuredTargetKey();
+    public abstract ConfiguredTargetKey configuredTargetKey();
 
-    public abstract TopLevelArtifactContext topLevelArtifactContext();
-    public abstract boolean willTest();
+    abstract TopLevelArtifactContext topLevelArtifactContext();
+
+    abstract boolean willTest();
   }
 }

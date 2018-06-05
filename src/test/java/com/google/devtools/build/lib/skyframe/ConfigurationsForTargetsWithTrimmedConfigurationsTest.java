@@ -310,6 +310,54 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   }
 
   @Test
+  public void trimmingTransitionsAreComposedInOrderOfAdding() throws Exception {
+    RuleTransitionFactory firstTrimmingTransitionFactory =
+        (rule) ->
+            new AddArgumentToTestArgsTransition(
+                "first trimming transition for " + rule.getLabel().toString());
+    RuleTransitionFactory secondTrimmingTransitionFactory =
+        (rule) ->
+            new AddArgumentToTestArgsTransition(
+                "second trimming transition for " + rule.getLabel().toString());
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addRuleDefinition(TestAspects.BASE_RULE);
+    builder.addRuleDefinition(TEST_BASE_RULE);
+    builder.overrideTrimmingTransitionFactoryForTesting(firstTrimmingTransitionFactory);
+    builder.addTrimmingTransitionFactory(secondTrimmingTransitionFactory);
+    useRuleClassProvider(builder.build());
+    scratch.file(
+        "a/skylark.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "skylark_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    '_base': attr.label(default = '//a:base'),",
+        "  }",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "load(':skylark.bzl', 'skylark_rule')",
+        // ensure that all Skylark rules get the TestConfiguration fragment
+        "test_base(name = 'base')",
+        // skylark rules get trimmed
+        "skylark_rule(name = 'skylark_solo', deps = [':base'])");
+
+    ConfiguredTarget configuredTarget;
+    BuildConfiguration config;
+
+    configuredTarget = Iterables.getOnlyElement(update("//a:skylark_solo").getTargetsToBuild());
+    config = getConfiguration(configuredTarget);
+    assertThat(config.getFragment(TestConfiguration.class).getTestArguments())
+        .containsExactly(
+            "first trimming transition for //a:skylark_solo",
+            "second trimming transition for //a:skylark_solo")
+        .inOrder();
+  }
+
+  @Test
   public void testRuleClassTransition() throws Exception {
     setRulesAvailableInTests(TestAspects.BASE_RULE, TEST_BASE_RULE, ATTRIBUTE_TRANSITION_RULE,
         RULE_CLASS_TRANSITION_RULE);

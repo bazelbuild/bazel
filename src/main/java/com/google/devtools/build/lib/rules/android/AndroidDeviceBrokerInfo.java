@@ -18,15 +18,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDeviceBrokerInfoApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /** Supplies the device broker type string, passed to the Android test runtime. */
-@SkylarkModule(name = "AndroidDeviceBrokerInfo", doc = "", documented = false)
 @Immutable
-public final class AndroidDeviceBrokerInfo extends NativeInfo {
+public final class AndroidDeviceBrokerInfo extends NativeInfo
+    implements AndroidDeviceBrokerInfoApi {
 
   private static final String SKYLARK_NAME = "AndroidDeviceBrokerInfo";
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =

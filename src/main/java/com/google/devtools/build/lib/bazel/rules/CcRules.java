@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.bazel.rules.CcToolchainType.CcToolchainTypeRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcImportRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcLibraryRule;
@@ -62,7 +61,6 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new CcHostToolchainAliasRule());
     builder.addRuleDefinition(new CcLibcTopAlias());
     builder.addRuleDefinition(new CcImportRule());
-    builder.addRuleDefinition(new CcToolchainTypeRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcLinkingRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcDeclRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcBaseRule());

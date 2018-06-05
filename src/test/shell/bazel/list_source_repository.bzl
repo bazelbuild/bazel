@@ -19,20 +19,21 @@
 """A repository definition to fetch all sources in Bazel."""
 
 def _impl(rctx):
-  workspace = rctx.path(Label("//:BUILD")).dirname
-  srcs_excludes = "XXXXXXXXXXXXXX1268778dfsdf4"
-  # Depending in ~/.git/logs/HEAD is a trick to depends on something that
-  # change everytime the workspace content change.
-  r = rctx.execute(["test", "-f", "%s/.git/logs/HEAD" % workspace])
-  if r.return_code == 0:
-    # We only add the dependency if it exists.
-    unused_var = rctx.path(Label("//:.git/logs/HEAD"))  # pylint: disable=unused-variable
+    workspace = rctx.path(Label("//:BUILD")).dirname
+    srcs_excludes = "XXXXXXXXXXXXXX1268778dfsdf4"
 
-  if "SRCS_EXCLUDES" in rctx.os.environ:
-    srcs_excludes = rctx.os.environ["SRCS_EXCLUDES"]
-  r = rctx.execute(["find", str(workspace), "-type", "f"])
-  rctx.file("find.result.raw", r.stdout.replace(str(workspace) + "/", ""))
-  rctx.file("BUILD", """
+    # Depending in ~/.git/logs/HEAD is a trick to depends on something that
+    # change everytime the workspace content change.
+    r = rctx.execute(["test", "-f", "%s/.git/logs/HEAD" % workspace])
+    if r.return_code == 0:
+        # We only add the dependency if it exists.
+        unused_var = rctx.path(Label("//:.git/logs/HEAD"))  # pylint: disable=unused-variable
+
+    if "SRCS_EXCLUDES" in rctx.os.environ:
+        srcs_excludes = rctx.os.environ["SRCS_EXCLUDES"]
+    r = rctx.execute(["find", str(workspace), "-type", "f"])
+    rctx.file("find.result.raw", r.stdout.replace(str(workspace) + "/", ""))
+    rctx.file("BUILD", """
 genrule(
   name = "sources",
   outs = ["sources.txt"],
@@ -49,7 +50,8 @@ genrule(
 
 list_source_repository = repository_rule(
     implementation = _impl,
-    environ = ["SRCS_EXCLUDES"])
+    environ = ["SRCS_EXCLUDES"],
+)
 """Create a //:sources target containing the list of sources of Bazel.
 
 SRCS_EXCLUDES give a regex of files to excludes in the list."""

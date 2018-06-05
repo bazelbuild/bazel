@@ -24,6 +24,22 @@ import java.util.List;
 /** Builder for creating resource processing action. */
 public class AndroidResourcesProcessorBuilder {
 
+  private static final AndroidDataConverter<ParsedAndroidAssets> AAPT2_ASSET_DEP_TO_ARG =
+      AndroidDataConverter.<ParsedAndroidAssets>builder(JoinerType.SEMICOLON_AMPERSAND)
+          .withRoots(ParsedAndroidAssets::getResourceRoots)
+          .withRoots(ParsedAndroidAssets::getAssetRoots)
+          .withLabel(ParsedAndroidAssets::getLabel)
+          .withArtifact(ParsedAndroidAssets::getSymbols)
+          .build();
+
+  private static final AndroidDataConverter<ParsedAndroidAssets> AAPT2_ASSET_DEP_TO_ARG_NO_PARSE =
+      AndroidDataConverter.<ParsedAndroidAssets>builder(JoinerType.SEMICOLON_AMPERSAND)
+          .withRoots(ParsedAndroidAssets::getResourceRoots)
+          .withRoots(ParsedAndroidAssets::getAssetRoots)
+          .withLabel(ParsedAndroidAssets::getLabel)
+          .withArtifact(ParsedAndroidAssets::getCompiledSymbols)
+          .build();
+
   private static final AndroidDataConverter<ValidatedAndroidData> AAPT2_RESOURCE_DEP_TO_ARG =
       AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
           .withRoots(ValidatedAndroidData::getResourceRoots)
@@ -276,7 +292,8 @@ public class AndroidResourcesProcessorBuilder {
 
     // Wrap the parsed and merged assets
     ParsedAndroidAssets parsedAssets =
-        ParsedAndroidAssets.of(primaryAssets, symbols, dataContext.getLabel());
+        ParsedAndroidAssets.of(
+            primaryAssets, symbols, /* compiledSymbols = */ null, dataContext.getLabel());
     MergedAndroidAssets mergedAssets =
         MergedAndroidAssets.of(parsedAssets, mergedResourcesOut, assetDependencies);
 
@@ -364,7 +381,28 @@ public class AndroidResourcesProcessorBuilder {
       }
     }
 
-    addAssetDeps(builder)
+    if (assetDependencies != null && !assetDependencies.getTransitiveAssets().isEmpty()) {
+      builder
+          .addTransitiveFlag(
+              "--directAssets",
+              assetDependencies.getDirectParsedAssets(),
+              useCompiledResourcesForMerge
+                  ? AAPT2_ASSET_DEP_TO_ARG_NO_PARSE
+                  : AAPT2_ASSET_DEP_TO_ARG)
+          .addTransitiveFlag(
+              "--assets",
+              assetDependencies.getTransitiveParsedAssets(),
+              useCompiledResourcesForMerge
+                  ? AAPT2_ASSET_DEP_TO_ARG_NO_PARSE
+                  : AAPT2_ASSET_DEP_TO_ARG)
+          .addTransitiveInputValues(assetDependencies.getTransitiveAssets())
+          .addTransitiveInputValues(
+              useCompiledResourcesForMerge
+                  ? assetDependencies.getTransitiveCompiledSymbols()
+                  : assetDependencies.getTransitiveSymbols());
+    }
+
+    builder
         .maybeAddFlag("--useCompiledResourcesForMerge", useCompiledResourcesForMerge)
         .maybeAddFlag("--conditionalKeepRules", conditionalKeepRules);
 
@@ -394,30 +432,26 @@ public class AndroidResourcesProcessorBuilder {
           .addTransitiveInputValues(resourceDependencies.getTransitiveSymbolsBin());
     }
 
-    addAssetDeps(builder).addAapt(AndroidAaptVersion.AAPT);
+    if (assetDependencies != null && !assetDependencies.getTransitiveAssets().isEmpty()) {
+      builder
+          .addTransitiveFlag(
+              "--directAssets",
+              assetDependencies.getDirectParsedAssets(),
+              AndroidDataConverter.MERGABLE_DATA_CONVERTER)
+          .addTransitiveFlag(
+              "--assets",
+              assetDependencies.getTransitiveParsedAssets(),
+              AndroidDataConverter.MERGABLE_DATA_CONVERTER)
+          .addTransitiveInputValues(assetDependencies.getTransitiveAssets())
+          .addTransitiveInputValues(assetDependencies.getTransitiveSymbols());
+    }
+
+    builder.addAapt(AndroidAaptVersion.AAPT);
 
     configureCommonFlags(dataContext, primaryResources, primaryAssets, primaryManifest, builder)
         .maybeAddVectoredFlag(
             "--prefilteredResources", resourceFilterFactory.getResourcesToIgnoreInExecution())
         .buildAndRegister("Processing Android resources", "AaptPackage");
-  }
-
-  private BusyBoxActionBuilder addAssetDeps(BusyBoxActionBuilder builder) {
-    if (assetDependencies == null || assetDependencies.getTransitiveAssets().isEmpty()) {
-      return builder;
-    }
-
-    return builder
-        .addTransitiveFlag(
-            "--directAssets",
-            assetDependencies.getDirectParsedAssets(),
-            AndroidDataConverter.MERGABLE_DATA_CONVERTER)
-        .addTransitiveFlag(
-            "--assets",
-            assetDependencies.getTransitiveParsedAssets(),
-            AndroidDataConverter.MERGABLE_DATA_CONVERTER)
-        .addTransitiveInputValues(assetDependencies.getTransitiveAssets())
-        .addTransitiveInputValues(assetDependencies.getTransitiveSymbols());
   }
 
   private BusyBoxActionBuilder configureCommonFlags(

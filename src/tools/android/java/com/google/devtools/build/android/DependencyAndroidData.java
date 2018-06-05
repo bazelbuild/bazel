@@ -35,7 +35,15 @@ import java.util.regex.Pattern;
  * assets.
  */
 class DependencyAndroidData extends SerializedAndroidData {
-  private static final Pattern VALID_REGEX = Pattern.compile(".*:.*:.+:.+(:.*){0,2}");
+
+  // From the start of the line,
+  // 1) match any number of characters that isn't ":" until a ":" (twice for resources and assets)
+  // 2) match at least one character that isn't ":" until a ":" (manifest)
+  // 3) match at least one character that isn't ":" until a ":" or end of line (r.txt)
+  // 4) if not end of line, optionally match anything that isn't ":" until a ":" (symbols.zip)
+  // 5) match anything that isn't ":" until end of line (symbols.bin)
+  private static final Pattern VALID_REGEX =
+      Pattern.compile("^([^:]*:){2}[^:]+:[^:]+(:|$)([^:]*:)?([^:]*)$");
 
   public static final String EXPECTED_FORMAT =
       "resources[#resources]:assets[#assets]:manifest:r.txt(:symbols.zip?):symbols.bin";

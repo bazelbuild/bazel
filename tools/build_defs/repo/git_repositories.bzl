@@ -20,13 +20,13 @@ load(
 )
 
 def git_repository(**kwargs):
-  print("The git_repository rule has been moved. Please load " +
-        "@bazel_tools//tools/build_defs/repo:git.bzl instead. This redirect " +
-        "will be removed in the future.")
-  original_git_repository(**kwargs)
+    print("The git_repository rule has been moved. Please load " +
+          "@bazel_tools//tools/build_defs/repo:git.bzl instead. This redirect " +
+          "will be removed in the future.")
+    original_git_repository(**kwargs)
 
 def new_git_repository(**kwargs):
-  print("The new_git_repository rule has been moved. Please load " +
-        "@bazel_tools//tools/build_defs/repo:git.bzl instead. This redirect " +
-        "will be removed in the future.")
-  original_new_git_repository(**kwargs)
+    print("The new_git_repository rule has been moved. Please load " +
+          "@bazel_tools//tools/build_defs/repo:git.bzl instead. This redirect " +
+          "will be removed in the future.")
+    original_new_git_repository(**kwargs)

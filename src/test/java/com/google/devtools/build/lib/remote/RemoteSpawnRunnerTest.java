@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -531,6 +532,7 @@ public class RemoteSpawnRunnerTest {
             logDir);
 
     Digest logDigest = digestUtil.computeAsUtf8("bla");
+    Path logPath = logDir.getRelative(simpleActionId).getRelative("logname");
     when(executor.executeRemotely(any(ExecuteRequest.class)))
         .thenReturn(
             ExecuteResponse.newBuilder()
@@ -539,6 +541,9 @@ public class RemoteSpawnRunnerTest {
                     LogFile.newBuilder().setHumanReadable(true).setDigest(logDigest).build())
                 .setResult(ActionResult.newBuilder().setExitCode(31).build())
                 .build());
+    SettableFuture<Void> completed = SettableFuture.create();
+    completed.set(null);
+    when(cache.downloadFile(eq(logPath), eq(logDigest), eq(null))).thenReturn(completed);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -547,8 +552,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    Path logPath = logDir.getRelative(simpleActionId).getRelative("logname");
-    verify(cache).downloadFile(eq(logPath), eq(logDigest), eq(false), eq(null));
+    verify(cache).downloadFile(eq(logPath), eq(logDigest), eq(null));
   }
 
   @Test
@@ -569,6 +573,7 @@ public class RemoteSpawnRunnerTest {
             logDir);
 
     Digest logDigest = digestUtil.computeAsUtf8("bla");
+    Path logPath = logDir.getRelative(simpleActionId).getRelative("logname");
     com.google.rpc.Status timeoutStatus =
         com.google.rpc.Status.newBuilder().setCode(Code.DEADLINE_EXCEEDED.getNumber()).build();
     ExecuteResponse resp =
@@ -580,6 +585,9 @@ public class RemoteSpawnRunnerTest {
     when(executor.executeRemotely(any(ExecuteRequest.class)))
         .thenThrow(new Retrier.RetryException(
                 "", 1, new ExecutionStatusException(resp.getStatus(), resp)));
+    SettableFuture<Void> completed = SettableFuture.create();
+    completed.set(null);
+    when(cache.downloadFile(eq(logPath), eq(logDigest), eq(null))).thenReturn(completed);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -588,8 +596,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    Path logPath = logDir.getRelative(simpleActionId).getRelative("logname");
-    verify(cache).downloadFile(eq(logPath), eq(logDigest), eq(false), eq(null));
+    verify(cache).downloadFile(eq(logPath), eq(logDigest), eq(null));
   }
 
   @Test
@@ -628,9 +635,7 @@ public class RemoteSpawnRunnerTest {
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
     verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class));
-    verify(cache, never())
-        .downloadFile(
-            any(Path.class), any(Digest.class), any(Boolean.class), any(ByteString.class));
+    verify(cache, never()).downloadFile(any(Path.class), any(Digest.class), any(ByteString.class));
   }
 
   @Test
@@ -669,9 +674,7 @@ public class RemoteSpawnRunnerTest {
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
     verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class));
-    verify(cache, never())
-        .downloadFile(
-            any(Path.class), any(Digest.class), any(Boolean.class), any(ByteString.class));
+    verify(cache, never()).downloadFile(any(Path.class), any(Digest.class), any(ByteString.class));
   }
 
   @Test

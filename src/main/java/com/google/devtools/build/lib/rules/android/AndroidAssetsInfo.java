@@ -46,11 +46,13 @@ public class AndroidAssetsInfo extends NativeInfo implements AndroidAssetsInfoAp
    * contains assets form the target's dependencies.
    */
   private final boolean hasLocalAssets;
+  private final NestedSet<Artifact> transitiveCompiledSymbols;
 
   static AndroidAssetsInfo empty(Label label) {
     return new AndroidAssetsInfo(
         label,
         null,
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
@@ -63,14 +65,16 @@ public class AndroidAssetsInfo extends NativeInfo implements AndroidAssetsInfoAp
       NestedSet<ParsedAndroidAssets> directParsedAssets,
       NestedSet<ParsedAndroidAssets> transitiveParsedAssets,
       NestedSet<Artifact> transitiveAssets,
-      NestedSet<Artifact> transitiveSymbols) {
+      NestedSet<Artifact> transitiveSymbols,
+      NestedSet<Artifact> transitiveCompiledSymbols) {
     return new AndroidAssetsInfo(
         label,
         validationResult,
         directParsedAssets,
         transitiveParsedAssets,
         transitiveAssets,
-        transitiveSymbols);
+        transitiveSymbols,
+        transitiveCompiledSymbols);
   }
 
   private AndroidAssetsInfo(
@@ -79,7 +83,8 @@ public class AndroidAssetsInfo extends NativeInfo implements AndroidAssetsInfoAp
       NestedSet<ParsedAndroidAssets> directParsedAssets,
       NestedSet<ParsedAndroidAssets> transitiveParsedAssets,
       NestedSet<Artifact> transitiveAssets,
-      NestedSet<Artifact> transitiveSymbols) {
+      NestedSet<Artifact> transitiveSymbols,
+      NestedSet<Artifact> transitiveCompiledSymbols) {
     super(PROVIDER);
     this.label = label;
     this.hasLocalAssets = validationResult != null;
@@ -88,6 +93,7 @@ public class AndroidAssetsInfo extends NativeInfo implements AndroidAssetsInfoAp
     this.transitiveParsedAssets = transitiveParsedAssets;
     this.transitiveAssets = transitiveAssets;
     this.transitiveSymbols = transitiveSymbols;
+    this.transitiveCompiledSymbols = transitiveCompiledSymbols;
   }
 
   public Label getLabel() {
@@ -131,5 +137,9 @@ public class AndroidAssetsInfo extends NativeInfo implements AndroidAssetsInfoAp
     return hasLocalAssets && getDirectParsedAssets().isSingleton()
         ? Optional.of(Iterables.getOnlyElement(getDirectParsedAssets()))
         : Optional.empty();
+  }
+
+  public NestedSet<Artifact> getCompiledSymbols() {
+    return transitiveCompiledSymbols;
   }
 }

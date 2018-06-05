@@ -1658,6 +1658,30 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
             + " rule 'r' should be created by the same rule.");
   }
 
+  @Test
+  public void testFileAndDirectory() throws Exception {
+    scratch.file(
+        "ext.bzl",
+        "def _extrule(ctx):",
+        "  dir = ctx.actions.declare_directory('foo/bar/baz')",
+        "  ctx.actions.run_shell(",
+        "      outputs = [dir],",
+        "      command = 'mkdir -p ' + dir.path + ' && echo wtf > ' + dir.path + '/wtf.txt')",
+        "",
+        "extrule = rule(",
+        "    _extrule,",
+        "    outputs = {",
+        "      'out': 'foo/bar/baz',",
+        "    },",
+        ")");
+    scratch.file("BUILD", "load(':ext.bzl', 'extrule')", "", "extrule(", "    name = 'test'", ")");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//:test");
+    assertContainsEvent("ERROR /workspace/BUILD:3:1: in extrule rule //:test:");
+    assertContainsEvent("he following directories were also declared as files:");
+    assertContainsEvent("foo/bar/baz");
+  }
+
   /**
    * Skylark integration test that forces inlining.
    */

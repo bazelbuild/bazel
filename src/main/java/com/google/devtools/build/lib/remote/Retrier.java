@@ -15,9 +15,19 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.AsyncCallable;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListenableScheduledFuture;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
 import java.io.IOException;
 import java.util.concurrent.Callable;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -30,13 +40,10 @@ import javax.annotation.concurrent.ThreadSafe;
  * delay between executions is specified by a {@link Backoff}. Additionally, the retrier supports
  * circuit breaking to stop execution in case of high failure rates.
  */
-// TODO(buchgr): Move to a different package and use it for BES code.
 @ThreadSafe
-class Retrier {
+public class Retrier {
 
-  /**
-   * A backoff strategy.
-   */
+  /** A backoff strategy. */
   public interface Backoff {
 
     /**
@@ -55,12 +62,12 @@ class Retrier {
   /**
    * The circuit breaker allows to reject execution when failure rates are high.
    *
-   * <p>The initial state of a circuit breaker is the {@link State#ACCEPT_CALLS}. Calls are
-   * executed and retried in this state. However, if error rates are high a circuit breaker can
-   * choose to transition into {@link State#REJECT_CALLS}. In this state any calls are rejected with
-   * a {@link RetryException} immediately. A circuit breaker in state {@link State#REJECT_CALLS}
-   * can periodically return a {@code TRIAL_CALL} state, in which case a call will be executed once
-   * and in case of success the circuit breaker may return to state {@code ACCEPT_CALLS}.
+   * <p>The initial state of a circuit breaker is the {@link State#ACCEPT_CALLS}. Calls are executed
+   * and retried in this state. However, if error rates are high a circuit breaker can choose to
+   * transition into {@link State#REJECT_CALLS}. In this state any calls are rejected with a {@link
+   * RetryException} immediately. A circuit breaker in state {@link State#REJECT_CALLS} can
+   * periodically return a {@code TRIAL_CALL} state, in which case a call will be executed once and
+   * in case of success the circuit breaker may return to state {@code ACCEPT_CALLS}.
    *
    * <p>A circuit breaker implementation must be thread-safe.
    *
@@ -68,6 +75,7 @@ class Retrier {
    */
   public interface CircuitBreaker {
 
+    /** The state of the circuit breaker. */
     enum State {
       /**
        * Calls are executed and retried in case of failure.
@@ -91,26 +99,28 @@ class Retrier {
       REJECT_CALLS
     }
 
-    /**
-     * Returns the current {@link State} of the circuit breaker.
-     */
+    /** Returns the current {@link State} of the circuit breaker. */
     State state();
 
-    /**
-     * Called after an execution failed.
-     */
+    /** Called after an execution failed. */
     void recordFailure();
 
-    /**
-     * Called after an execution succeeded.
-     */
+    /** Called after an execution succeeded. */
     void recordSuccess();
   }
 
+  /**
+   * {@link Sleeper#sleep(long)} is called to pause between synchronous retries ({@link
+   * #execute(Callable)}.
+   */
   public interface Sleeper {
     void sleep(long millis) throws InterruptedException;
   }
 
+  /**
+   * Wraps around the actual cause for the retry. Contains information about the number of retry
+   * attempts.
+   */
   public static class RetryException extends IOException {
 
     private final int attempts;
@@ -126,14 +136,15 @@ class Retrier {
     }
 
     /**
-     * Returns the number of times a {@link Callable} has been executed before this exception
-     * was thrown.
+     * Returns the number of times a {@link Callable} has been executed before this exception was
+     * thrown.
      */
     public int getAttempts() {
       return attempts;
     }
   }
 
+  /** Thrown if the call was stopped by a circuit breaker. */
   public static class CircuitBreakerException extends RetryException {
 
     private CircuitBreakerException(String message, int numRetries, Exception cause) {
@@ -145,48 +156,60 @@ class Retrier {
     }
   }
 
-  public static final CircuitBreaker ALLOW_ALL_CALLS = new CircuitBreaker() {
-    @Override
-    public State state() {
-      return State.ACCEPT_CALLS;
-    }
+  /** Disables circuit breaking. */
+  public static final CircuitBreaker ALLOW_ALL_CALLS =
+      new CircuitBreaker() {
+        @Override
+        public State state() {
+          return State.ACCEPT_CALLS;
+        }
 
-    @Override
-    public void recordFailure() {
-    }
+        @Override
+        public void recordFailure() {}
 
-    @Override
-    public void recordSuccess() {
-    }
-  };
+        @Override
+        public void recordSuccess() {}
+      };
 
-  public static final Backoff RETRIES_DISABLED = new Backoff() {
-    @Override
-    public long nextDelayMillis() {
-      return -1;
-    }
+  /** Disables retries. */
+  public static final Backoff RETRIES_DISABLED =
+      new Backoff() {
+        @Override
+        public long nextDelayMillis() {
+          return -1;
+        }
 
-    @Override
-    public int getRetryAttempts() {
-      return 0;
-    }
-  };
+        @Override
+        public int getRetryAttempts() {
+          return 0;
+        }
+      };
 
   private final Supplier<Backoff> backoffSupplier;
   private final Predicate<? super Exception> shouldRetry;
   private final CircuitBreaker circuitBreaker;
+  private final ListeningScheduledExecutorService retryService;
   private final Sleeper sleeper;
 
-  public Retrier(Supplier<Backoff> backoffSupplier, Predicate<? super Exception> shouldRetry,
+  public Retrier(
+      Supplier<Backoff> backoffSupplier,
+      Predicate<? super Exception> shouldRetry,
+      ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
-    this(backoffSupplier, shouldRetry, circuitBreaker, TimeUnit.MILLISECONDS::sleep);
+    this(
+        backoffSupplier, shouldRetry, retryScheduler, circuitBreaker, TimeUnit.MILLISECONDS::sleep);
   }
 
   @VisibleForTesting
-  Retrier(Supplier<Backoff> backoffSupplier, Predicate<? super Exception> shouldRetry,
-      CircuitBreaker circuitBreaker, Sleeper sleeper) {
+  Retrier(
+      Supplier<Backoff> backoffSupplier,
+      Predicate<? super Exception> shouldRetry,
+      ListeningScheduledExecutorService retryService,
+      CircuitBreaker circuitBreaker,
+      Sleeper sleeper) {
     this.backoffSupplier = backoffSupplier;
     this.shouldRetry = shouldRetry;
+    this.retryService = retryService;
     this.circuitBreaker = circuitBreaker;
     this.sleeper = sleeper;
   }
@@ -197,13 +220,13 @@ class Retrier {
    *
    * <p>{@link InterruptedException} is not retried.
    *
-   * @param call  the {@link Callable} to execute.
+   * @param call the {@link Callable} to execute.
    * @throws RetryException if the {@code call} didn't succeed within the framework specified by
-   *                        {@code backoffSupplier} and {@code shouldRetry}.
-   * @throws CircuitBreakerException  in case a call was rejected because the circuit breaker
-   *                                  tripped.
+   *     {@code backoffSupplier} and {@code shouldRetry}.
+   * @throws CircuitBreakerException in case a call was rejected because the circuit breaker
+   *     tripped.
    * @throws InterruptedException if the {@code call} throws an {@link InterruptedException} or the
-   *                              current thread's interrupted flag is set.
+   *     current thread's interrupted flag is set.
    */
   public <T> T execute(Callable<T> call) throws RetryException, InterruptedException {
     final Backoff backoff = newBackoff();
@@ -230,8 +253,8 @@ class Retrier {
           e = (Exception) e.getCause();
         }
         if (State.TRIAL_CALL.equals(circuitState)) {
-          throw new CircuitBreakerException("Call failed in circuit breaker half open state.", 0,
-              e);
+          throw new CircuitBreakerException(
+              "Call failed in circuit breaker half open state.", 0, e);
         }
         int attempts = backoff.getRetryAttempts();
         if (!shouldRetry.test(e)) {
@@ -247,8 +270,89 @@ class Retrier {
     }
   }
 
-  //TODO(buchgr): Add executeAsync to be used by ByteStreamUploader
-  // <T> ListenableFuture<T> executeAsync(AsyncCallable<T> call, ScheduledExecutorService executor)
+  /**
+   * Executes an {@link AsyncCallable}, retrying execution in case of failure and returning a {@link
+   * ListenableFuture} pointing to the result/error.
+   */
+  public <T> ListenableFuture<T> executeAsync(AsyncCallable<T> call) {
+    SettableFuture<T> f = SettableFuture.create();
+    executeAsync(call, f);
+    return f;
+  }
+
+  /**
+   * Executes an {@link AsyncCallable}, retrying execution in case of failure and uses the provided
+   * {@code promise} to point to the result/error.
+   */
+  public <T> void executeAsync(AsyncCallable<T> call, SettableFuture<T> promise) {
+    Preconditions.checkNotNull(call);
+    Preconditions.checkNotNull(promise);
+    Backoff backoff = newBackoff();
+    executeAsync(call, promise, backoff);
+  }
+
+  private <T> void executeAsync(AsyncCallable<T> call, SettableFuture<T> outerF, Backoff backoff) {
+    Preconditions.checkState(!outerF.isDone(), "outerF completed already.");
+    try {
+      Futures.addCallback(
+          call.call(),
+          new FutureCallback<T>() {
+            @Override
+            public void onSuccess(T t) {
+              outerF.set(t);
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+              onExecuteAsyncFailure(t, call, outerF, backoff);
+            }
+          },
+          MoreExecutors.directExecutor());
+    } catch (Exception e) {
+      onExecuteAsyncFailure(e, call, outerF, backoff);
+    }
+  }
+
+  private <T> void onExecuteAsyncFailure(
+      Throwable t, AsyncCallable<T> call, SettableFuture<T> outerF, Backoff backoff) {
+    long waitMillis = backoff.nextDelayMillis();
+    if (waitMillis >= 0 && t instanceof Exception && isRetriable((Exception) t)) {
+      try {
+        ListenableScheduledFuture<?> sf =
+            retryService.schedule(
+                () -> executeAsync(call, outerF, backoff), waitMillis, TimeUnit.MILLISECONDS);
+        Futures.addCallback(
+            sf,
+            new FutureCallback<Object>() {
+              @Override
+              public void onSuccess(Object o) {
+                // Submitted successfully. Intentionally left empty.
+              }
+
+              @Override
+              public void onFailure(Throwable t) {
+                Exception e = t instanceof Exception ? (Exception) t : new Exception(t);
+                outerF.setException(
+                    new RetryException(
+                        "Scheduled execution errored.", backoff.getRetryAttempts(), e));
+              }
+            },
+            MoreExecutors.directExecutor());
+      } catch (RejectedExecutionException e) {
+        // May be thrown by .schedule(...) if i.e. the executor is shutdown.
+        outerF.setException(
+            new RetryException("Rejected by executor.", backoff.getRetryAttempts(), e));
+      }
+    } else {
+      Exception e = t instanceof Exception ? (Exception) t : new Exception(t);
+      String message =
+          waitMillis >= 0
+              ? "Status not retriable."
+              : "Exhaused retry attempts (" + backoff.getRetryAttempts() + ")";
+      RetryException error = new RetryException(message, backoff.getRetryAttempts(), e);
+      outerF.setException(error);
+    }
+  }
 
   public Backoff newBackoff() {
     return backoffSupplier.get();

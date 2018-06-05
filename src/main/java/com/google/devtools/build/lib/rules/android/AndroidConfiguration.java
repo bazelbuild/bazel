@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -37,8 +36,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidConfigurationApi;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -50,13 +48,9 @@ import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
 @AutoCodec
-@SkylarkModule(
-  name = "android",
-  doc = "A configuration fragment for Android.",
-  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
 @Immutable
-public class AndroidConfiguration extends BuildConfiguration.Fragment {
+public class AndroidConfiguration extends BuildConfiguration.Fragment
+    implements AndroidConfigurationApi {
   /**
    * Converter for {@link
    * com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher}
@@ -283,15 +277,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   /** Android configuration options. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
-    @Option(
-        name = "experimental_enable_android_cpu_make_variable",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        defaultValue = "true",
-        help = "Flag to roll out the removal of the ANDROID_CPU Make variable.")
-    public boolean enableAndroidCpuMakeVariable;
-
     @Option(
       name = "Android configuration distinguisher",
       defaultValue = "MAIN",
@@ -903,7 +888,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
-  private final boolean enableAndroidCpuMakeVariable;
   private final Label sdk;
   private final String cpu;
   private final boolean useIncrementalNativeLibs;
@@ -941,7 +925,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
-    this.enableAndroidCpuMakeVariable = options.enableAndroidCpuMakeVariable;
     this.sdk = options.sdk;
     this.useIncrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
@@ -999,7 +982,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   @AutoCodec.Instantiator
   AndroidConfiguration(
-      boolean enableAndroidCpuMakeVariable,
       Label sdk,
       String cpu,
       boolean useIncrementalNativeLibs,
@@ -1035,7 +1017,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       boolean decoupleDataProcessing,
       boolean checkForMigrationTag,
       boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest) {
-    this.enableAndroidCpuMakeVariable = enableAndroidCpuMakeVariable;
     this.sdk = sdk;
     this.cpu = cpu;
     this.useIncrementalNativeLibs = useIncrementalNativeLibs;
@@ -1079,11 +1060,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   @SkylarkConfigurationField(
-    name = "android_sdk_label",
-    doc = "Returns the target denoted by the value of the --android_sdk flag",
-    defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
-    defaultInToolRepository = true
-  )
+      name = "android_sdk_label",
+      doc = "Returns the target denoted by the value of the --android_sdk flag",
+      defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
+      defaultInToolRepository = true)
   public Label getSdk() {
     return sdk;
   }
@@ -1229,15 +1209,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest() {
     return oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
-  }
-
-  @Override
-  public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    if (!enableAndroidCpuMakeVariable) {
-      return;
-    }
-
-    globalMakeEnvBuilder.put("ANDROID_CPU", cpu);
   }
 
   @Override

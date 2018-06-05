@@ -63,7 +63,7 @@ public class LexerTest {
     Token tok;
     do {
       tok = lexer.nextToken();
-      result.add(tok);
+      result.add(tok.copy());
     } while (tok.kind != TokenKind.EOF);
     return result;
   }
@@ -455,7 +455,7 @@ public class LexerTest {
             // foo (     bar   ,     {      1       :
             "[0,3) [3,4) [4,7) [7,8) [9,10) [10,11) [11,12)"
                 //  'quux'  }       ,       """b""" ,       r""     )       NEWLINE EOF
-                + " [13,19) [19,20) [20,21) [22,29) [29,30) [31,34) [34,35) [34,35) [35,35)");
+                + " [13,19) [19,20) [20,21) [22,29) [29,30) [31,34) [34,35) [35,35) [35,35)");
   }
 
   @Test

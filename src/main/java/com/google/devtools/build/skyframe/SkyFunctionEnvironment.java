@@ -562,7 +562,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         .getProgressReceiver()
         .evaluated(
             skyKey,
-            new SkyValueSupplier(primaryEntry),
+            new EvaluationSuccessStateSupplier(primaryEntry),
             valueVersion.equals(evaluatorContext.getGraphVersion())
                 ? EvaluationState.BUILT
                 : EvaluationState.CLEAN);

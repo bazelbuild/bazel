@@ -13,7 +13,7 @@
 # limitations under the License.
 """Defines a repository rule that generates an archive consisting of the specified files to fetch"""
 
-_BUILD="""
+_BUILD = """
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 pkg_tar(
@@ -26,19 +26,20 @@ pkg_tar(
 """
 
 def _distdir_tar_impl(ctx):
-  for name in ctx.attr.archives:
-      ctx.download(ctx.attr.urls[name], name, ctx.attr.sha256[name], False)
-  ctx.file("WORKSPACE", "")
-  ctx.file("BUILD",
-           _BUILD.format(srcs=ctx.attr.archives, dirname=ctx.attr.dirname))
+    for name in ctx.attr.archives:
+        ctx.download(ctx.attr.urls[name], name, ctx.attr.sha256[name], False)
+    ctx.file("WORKSPACE", "")
+    ctx.file(
+        "BUILD",
+        _BUILD.format(srcs = ctx.attr.archives, dirname = ctx.attr.dirname),
+    )
 
 _distdir_tar_attrs = {
-    "archives" : attr.string_list(),
-    "sha256" : attr.string_dict(),
-    "urls" : attr.string_list_dict(),
-    "dirname" : attr.string(default="distdir"),
+    "archives": attr.string_list(),
+    "sha256": attr.string_dict(),
+    "urls": attr.string_list_dict(),
+    "dirname": attr.string(default = "distdir"),
 }
-
 
 distdir_tar = repository_rule(
     implementation = _distdir_tar_impl,

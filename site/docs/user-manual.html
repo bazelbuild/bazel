@@ -1175,10 +1175,10 @@ $ bazel fetch //...
   These options control which options Bazel will pass to other tools.
 </p>
 
-<h4 id='flag--copt'><code class='flag'>--copt <var>gcc-option</var></code></h4>
+<h4 id='flag--copt'><code class='flag'>--copt <var>cc-option</var></code></h4>
 <p>
-  This option takes an argument which is to be passed to gcc.
-  The argument will be passed to gcc whenever gcc is invoked
+  This option takes an argument which is to be passed to the compiler.
+  The argument will be passed to the compiler whenever it is invoked
   for preprocessing, compiling, and/or assembling C, C++, or
   assembler code.  It will not be passed when linking.
 </p>
@@ -1196,7 +1196,7 @@ $ bazel fetch //...
 <p>
   Note that changing <code class='flag'>--copt</code> settings will force a recompilation
   of all affected object files. Also note that copts values listed in specific
-  cc_library or cc_binary build rules will be placed on the gcc command line
+  cc_library or cc_binary build rules will be placed on the compiler command line
   <em>after</em> these options.
 </p>
 <p>
@@ -1204,30 +1204,30 @@ $ bazel fetch //...
   should be specified in <code class='flag'>--cxxopt</code>, not in
   <code class='flag'>--copt</code>.  Likewise, C-specific options (such as -Wstrict-prototypes)
   should be specified in <code class='flag'>--conlyopt</code>, not in <code>copt</code>.
-  Similarly, gcc options that only have an
+  Similarly, compiler options that only have an
   effect at link time (such as <code>-l</code>) should be specified in
   <code class='flag'>--linkopt</code>, not in <code class='flag'>--copt</code>.
 </p>
 
-<h4 id='flag--host_copt'><code class='flag'>--host_copt <var>gcc-option</var></code></h4>
+<h4 id='flag--host_copt'><code class='flag'>--host_copt <var>cc-option</var></code></h4>
 <p>
-  This option takes an argument which is to be passed to gcc for source files
+  This option takes an argument which is to be passed to the compiler for source files
   that are compiled in the host configuration. This is analogous to
   the <a href='#flag--copt'><code class='flag'>--copt</code></a> option, but applies only to the
   host configuration.
 </p>
 
-<h4 id='flag--host_cxxopt'><code class='flag'>--host_cxxopt <var>gcc-option</var></code></h4>
+<h4 id='flag--host_cxxopt'><code class='flag'>--host_cxxopt <var>cc-option</var></code></h4>
 <p>
-  This option takes an argument which is to be passed to gcc for source files
+  This option takes an argument which is to be passed to the compiler for C++ source files
   that are compiled in the host configuration. This is analogous to
   the <a href='#flag--cxxopt'><code class='flag'>--cxxopt</code></a> option, but applies only to the
   host configuration.
 </p>
 
-<h4 id='flag--conlyopt'><code class='flag'>--conlyopt <var>gcc-option</var></code></h4>
+<h4 id='flag--conlyopt'><code class='flag'>--conlyopt <var>cc-option</var></code></h4>
 <p>
-  This option takes an argument which is to be passed to gcc when compiling C source files.
+  This option takes an argument which is to be passed to the compiler when compiling C source files.
 </p>
 <p>
   This is similar to <code class='flag'>--copt</code>, but only applies to C compilation,
@@ -1236,12 +1236,13 @@ $ bazel fetch //...
 </p>
 <p>
   Note that copts parameters listed in specific cc_library or cc_binary build rules
-  will be placed on the gcc command line <em>after</em> these options.
+  will be placed on the compiler command line <em>after</em> these options.
 </p>
 
-<h4 id='flag--cxxopt'><code class='flag'>--cxxopt <var>gcc-option</var></code></h4>
+<h4 id='flag--cxxopt'><code class='flag'>--cxxopt <var>cc-option</var></code></h4>
 <p>
-  This option takes an argument which is to be passed to gcc when compiling C++ source files.
+  This option takes an argument which is to be passed to the compiler when compiling C++ source
+  files.
 </p>
 <p>
   This is similar to <code class='flag'>--copt</code>, but only applies to C++ compilation,
@@ -1254,16 +1255,16 @@ $ bazel fetch //...
 </pre>
 <p>
   Note that copts parameters listed in specific cc_library or cc_binary build rules
-  will be placed on the gcc command line <em>after</em> these options.
+  will be placed on the compiler command line <em>after</em> these options.
 </p>
 
 <h4 id='flag--linkopt'><code class='flag'>--linkopt <var>linker-option</var></code></h4>
 <p>
-  This option takes an argument which is to be passed to gcc when linking.
+  This option takes an argument which is to be passed to the compiler when linking.
 </p>
 <p>
   This is similar to <code class='flag'>--copt</code>, but only applies to linking,
-  not to compilation.  So you can pass gcc options that only make sense
+  not to compilation.  So you can pass compiler options that only make sense
   at link time (such as <code>-lssp</code> or <code>-Wl,--wrap,abort</code>)
   using <code class='flag'>--linkopt</code>.  For example:
 </p>
@@ -1369,38 +1370,6 @@ $ bazel fetch //...
   --fdo_optimize</code> cannot be used at the same time.
 </p>
 
-<h4 id='flag--lipo'><code class='flag'>--lipo (off|binary)</code></h4>
-<p>
-  The <code class='flag'>--lipo=binary</code> option enables
-
-  LIPO
-  (Lightweight Inter-Procedural Optimization). LIPO is an extended C/C++ optimization technique
-  that optimizes code across different object files. It involves compiling each C/C++ source
-  file differently for every binary. This is in contrast to normal compilation where compilation
-  outputs are reused. This means that LIPO is more expensive than normal compilation.
-</p>
-<p>
-  This option only has an effect when FDO is also enabled (see the
-  <a href="#flag--fdo_instrument">--fdo_instrument</a> and
-  <a href="#flag--fdo_optimize">--fdo_optimize</a>).
-  Currently LIPO is only supported when building a single <code>cc_binary</code> rule.
-</p>
-<p>Setting <code>--lipo=binary</code> implicitly sets
-  <code><a href="#flag--dynamic_mode">--dynamic_mode</a>=off</code>.
-</p>
-
-<h4 id='flag--lipo_context'><code class='flag'>--lipo_context
-  <var>context-binary</var></code></h4>
-<p>
-  Specifies the label of a <code>cc_binary</code> rule that was used to generate
-  the profile information for LIPO that was given to
-  the <a href='#flag--fdo_optimize'><code class='flag'>--fdo_optimize</code></a> option.
-</p>
-<p>
-  Specifying the context is mandatory when <code>--lipo=binary</code> is set.
-  Using this option implicitly also sets
-  <code><a href="#flag--linkopt">--linkopt</a>=-Wl,--warn-unresolved-symbols</code>.
-</p>
 
 <h4 id='flag--output_symbol_counts'><code class='flag'>--[no]output_symbol_counts</code></h4>
 <p>
@@ -1581,8 +1550,8 @@ the compilation of binaries during the build.
 <h3 id='strategy-options'>Build strategy options</h3>
 <p>
   Note that a particular combination of crosstool version, compiler version,
-  libc version, and target CPU is allowed only if it has been specified
-  in the currently used CROSSTOOL file.
+  and target CPU is allowed only if it has been specified in the currently
+  used CROSSTOOL file.
 </p>
 
 <h4 id='flag--host_cpu'><code class='flag'>--host_cpu <var>cpu</var></code></h4>
@@ -1790,23 +1759,7 @@ The default is <code>armeabi-v7a</code>.
 </p>
 <p>
   Note that only certain combinations of crosstool version, compiler version,
-  libc version, and target CPU are allowed.
-</p>
-
-<h4 id='flag--glibc'><code class='flag'>--glibc <var>version</var></code></h4>
-<p>
-  This option specifies the version of glibc that the target should be linked
-  against. If you want to build with a custom crosstool, you should use a
-  CROSSTOOL file instead of specifying this flag. In that case, Bazel will use
-  the CROSSTOOL file and the following options where appropriate:
-  <ul>
-    <li><a href="#flag--cpu"><code class='flag'>--cpu</code></a></li>
-
-  </ul>
-</p>
-<p>
-  Note that only certain combinations of crosstool version, compiler version,
-  glibc version, and target CPU are allowed.
+  and target CPU are allowed.
 </p>
 
 <h4 id='flag--android_sdk'><code class='flag'>--android_sdk <var>label</var></code></h4>
@@ -2125,13 +2078,13 @@ cores directly from system configuration and will assume 1.0 I/O resource.
 
 <h4 id='flag--save_temps'><code class='flag'>--save_temps</code></h4>
 <p>
-  The <code class='flag'>--save_temps</code> option causes temporary outputs from gcc to be saved.
-  These include .s files (assembler code), .i (preprocessed C) and .ii
+  The <code class='flag'>--save_temps</code> option causes temporary outputs from the compiler to be
+  saved. These include .s files (assembler code), .i (preprocessed C) and .ii
   (preprocessed C++) files.  These outputs are often useful for debugging. Temps will only be
   generated for the set of targets specified on the command line.
 </p>
 <p>
-  Note that our implementation of <code class='flag'>--save_temps</code> does not use gcc's
+  Note that our implementation of <code class='flag'>--save_temps</code> does not use the compiler's
   <code>-save-temps</code> flag.  Instead, we do two passes, one with <code>-S</code>
   and one with <code>-E</code>.  A consequence of this is that if your build fails,
   Bazel may not yet have produced the ".i" or ".ii" and ".s" files.

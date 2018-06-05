@@ -43,7 +43,7 @@ public final class CcCompilationInfo extends NativeInfo implements CcCompilation
               /* numMandatoryNamedOnly= */ 1,
               /* starArg= */ false,
               /* kwArg= */ false,
-              "cc_compilation_context"),
+              "cc_compilation_info"),
           /* defaultValues= */ ImmutableList.of(),
           /* types= */ ImmutableList.of(SkylarkType.of(CcCompilationContext.class)));
 
@@ -56,7 +56,8 @@ public final class CcCompilationInfo extends NativeInfo implements CcCompilation
             Object[] args, Environment env, Location loc) throws EvalException {
           CcCommon.checkLocationWhitelisted(loc);
           CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
-          ccCompilationInfoBuilder.setCcCompilationContext((CcCompilationContext) args[0]);
+          ccCompilationInfoBuilder.setCcCompilationContext(
+              ((CcCompilationInfo) args[0]).getCcCompilationContext());
           return ccCompilationInfoBuilder.build();
         }
       };
@@ -70,7 +71,6 @@ public final class CcCompilationInfo extends NativeInfo implements CcCompilation
     this.ccCompilationContext = ccCompilationContext;
   }
 
-  @Override
   public CcCompilationContext getCcCompilationContext() {
     return ccCompilationContext;
   }

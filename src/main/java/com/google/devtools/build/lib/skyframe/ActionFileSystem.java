@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
+import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
@@ -26,12 +27,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.skyframe.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.protobuf.ByteString;
+import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -54,7 +57,7 @@ import javax.annotation.Nullable;
  *       access {@link env}, they must also used synchronized access.
  * </ul>
  */
-final class ActionFileSystem extends FileSystem implements ActionInputFileCache {
+final class ActionFileSystem extends FileSystem implements ActionInputFileCache, InjectionListener {
   private static final Logger LOGGER = Logger.getLogger(ActionFileSystem.class.getName());
 
   /** Actual underlying filesystem. */
@@ -154,24 +157,16 @@ final class ActionFileSystem extends FileSystem implements ActionInputFileCache 
     return getMetadataChecked(actionInput.getExecPath());
   }
 
-  @Override
-  public boolean contentsAvailableLocally(ByteString digest) {
-    return optionalInputsByDigest.containsKey(digest) || inputArtifactData.contains(digest);
-  }
+  // -------------------- InjectionListener Implementation --------------------
 
   @Override
-  @Nullable
-  public ActionInput getInputFromDigest(ByteString digest) {
-    Artifact artifact = optionalInputsByDigest.get(digest);
-    return artifact != null ? artifact : inputArtifactData.get(digest);
-  }
-
-  @Override
-  public Path getInputPath(ActionInput actionInput) {
-    if (actionInput instanceof Artifact) {
-      return getPath(((Artifact) actionInput).getPath().asFragment());
+  public void onInsert(ActionInput dest, byte[] digest, long size, int backendIndex)
+      throws IOException {
+    OutputMetadata output = outputs.get(dest.getExecPath());
+    if (output != null) {
+      output.set(new RemoteFileArtifactValue(digest, size, backendIndex),
+          /*notifyConsumer=*/ false);
     }
-    return execRootPath.getRelative(actionInput.getExecPath());
   }
 
   // -------------------- FileSystem implementation --------------------
@@ -292,7 +287,7 @@ final class ActionFileSystem extends FileSystem implements ActionInputFileCache 
           createSymbolicLinkErrorMessage(
               linkPath, targetFragment, linkPath + " is not an output."));
     }
-    outputHolder.set(inputMetadata);
+    outputHolder.set(inputMetadata, /*notifyConsumer=*/ true);
   }
 
   @Override
@@ -338,18 +333,23 @@ final class ActionFileSystem extends FileSystem implements ActionInputFileCache 
 
   @Override
   protected InputStream getInputStream(Path path) throws IOException {
-    // TODO(shahan): cleanup callers of this method and disable or maybe figure out a reasonable
-    // implementation.
-    LOGGER.severe("Raw read of path: " + path);
+    FileArtifactValue metadata = getMetadataChecked(asExecPath(path));
+    if (metadata instanceof FileArtifactValue.InlineFileArtifactValue) {
+      return ((FileArtifactValue.InlineFileArtifactValue) metadata).getInputStream();
+    }
+    Preconditions.checkArgument(
+        !(metadata instanceof FileArtifactValue.RemoteFileArtifactValue),
+        "getInputStream called for remote file: %s",
+        path);
     return delegate.getPath(path.asFragment()).getInputStream();
   }
 
   @Override
   protected OutputStream getOutputStream(Path path, boolean append) throws IOException {
-    // TODO(shahan): cleanup callers of this method and disable or maybe figure out a reasonable
-    // implementation.
-    LOGGER.severe("Raw write of path: " + path);
-    return delegate.getPath(path.asFragment()).getOutputStream(append);
+    Preconditions.checkArgument(!append, "ActionFileSystem doesn't support append.");
+    return Preconditions.checkNotNull(
+            outputs.get(asExecPath(path)), "getOutputStream called for non-output: %s", path)
+        .getOutputStream();
   }
 
   @Override
@@ -460,7 +460,7 @@ final class ActionFileSystem extends FileSystem implements ActionInputFileCache 
   }
 
   @FunctionalInterface
-  public static interface MetadataConsumer {
+  public interface MetadataConsumer {
     void accept(Artifact artifact, FileArtifactValue value) throws IOException;
   }
 
@@ -516,9 +516,33 @@ final class ActionFileSystem extends FileSystem implements ActionInputFileCache 
       return metadata;
     }
 
-    public void set(FileArtifactValue metadata) throws IOException {
-      metadataConsumer.accept(artifact, metadata);
+    /**
+     * Sets the output metadata, and maybe notify the metadataConsumer.
+     *
+     * @param metadata the metadata to write
+     * @param notifyConsumer whether to notify metadataConsumer. Callers should not notify the
+     * metadataConsumer if it will be notified separately at the Spawn level.
+     */
+    public void set(FileArtifactValue metadata, boolean notifyConsumer) throws IOException {
+      if (notifyConsumer) {
+        metadataConsumer.accept(artifact, metadata);
+      }
       this.metadata = metadata;
+    }
+
+    /** Callers are expected to close the returned stream. */
+    public ByteArrayOutputStream getOutputStream() {
+      Preconditions.checkState(metadata == null, "getOutputStream called twice for: %s", artifact);
+      return new ByteArrayOutputStream() {
+        @Override
+        public void close() throws IOException {
+          super.close();
+          byte[] data = toByteArray();
+          set(
+              new FileArtifactValue.InlineFileArtifactValue(
+                  data, Hashing.md5().hashBytes(data).asBytes()), /*notifyConsumer=*/ true);
+        }
+      };
     }
   }
 }

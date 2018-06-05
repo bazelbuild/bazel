@@ -384,31 +384,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testNonPropagatedDepsProvider() throws Exception {
-    ConfiguredTarget target =
-        createLibraryTargetWriter("//objc:lib")
-            .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-            .setAndCreateFiles("hdrs", "a.h", "b.h")
-            .write();
-    createLibraryTargetWriter("//objc2:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h", "d.h")
-        .setList("non_propagated_deps", "//objc:lib")
-        .write();
-    ConfiguredTarget transitiveDepender =
-        createLibraryTargetWriter("//objc3:lib")
-            .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-            .setAndCreateFiles("hdrs", "e.h", "f.h")
-            .setList("non_propagated_deps", "//objc2:lib")
-            .write();
-
-    assertThat(getArifactPaths(target, HEADER))
-        .containsExactly("objc/a.h", "objc/b.h");
-    assertThat(getArifactPaths(transitiveDepender, HEADER))
-        .containsExactly("objc2/c.h", "objc2/d.h", "objc3/e.h", "objc3/f.h");
-  }
-
-  @Test
   public void testMultiPlatformLibrary() throws Exception {
     useConfiguration("--ios_multi_cpus=i386,x86_64,armv7,arm64", "--ios_cpu=armv7");
 
@@ -418,36 +393,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
 
     assertThat(view.hasErrors(getConfiguredTarget("//objc:lib"))).isFalse();
-  }
-
-  @Test
-  public void testNonPropagatedDepsDiamond() throws Exception {
-    // Non-propagated.
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "a.h")
-        .write();
-    // Conflicts with non-propagated.
-    createLibraryTargetWriter("//objc2:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "a.h")
-        .write();
-
-    createLibraryTargetWriter("//objc3:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "b.h")
-        .setList("non_propagated_deps", "//objc:lib")
-        .write();
-
-    createLibraryTargetWriter("//objc4:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .setList("deps", "//objc2:lib", "//objc3:lib")
-        .write();
-
-    CommandAction action = compileAction("//objc4:lib", "a.o");
-    assertThat(Artifact.toRootRelativePaths(action.getPossibleInputsForTesting()))
-        .containsAllOf("objc2/a.h", "objc3/b.h", "objc4/c.h", "objc4/a.m", "objc4/private.h");
   }
 
   static Iterable<String> iquoteArgs(ObjcProvider provider, BuildConfiguration configuration) {

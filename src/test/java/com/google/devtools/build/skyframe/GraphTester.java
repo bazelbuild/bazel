@@ -50,11 +50,14 @@ import javax.annotation.Nullable;
 public class GraphTester {
 
   public static final SkyFunctionName NODE_TYPE = SkyFunctionName.FOR_TESTING;
-  private final ImmutableMap<SkyFunctionName, ? extends SkyFunction> functionMap =
-      ImmutableMap.of(GraphTester.NODE_TYPE, new DelegatingFunction());
+  private final Map<SkyFunctionName, SkyFunction> functionMap = new HashMap<>();
 
   private final Map<SkyKey, TestFunction> values = new HashMap<>();
   private final Set<SkyKey> modifiedValues = new LinkedHashSet<>();
+
+  public GraphTester() {
+    functionMap.put(NODE_TYPE, new DelegatingFunction());
+  }
 
   public TestFunction getOrCreate(String name) {
     return getOrCreate(skyKey(name));
@@ -309,7 +312,11 @@ public class GraphTester {
   }
 
   public ImmutableMap<SkyFunctionName, ? extends SkyFunction> getSkyFunctionMap() {
-    return functionMap;
+    return ImmutableMap.copyOf(functionMap);
+  }
+
+  public void putSkyFunction(SkyFunctionName functionName, SkyFunction function) {
+    functionMap.put(functionName, function);
   }
 
   /**

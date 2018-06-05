@@ -35,14 +35,10 @@ public final class CrosstoolConfigurationIdentifier implements CrosstoolConfigur
   /** The compiler (e.g. gcc) associated with this crosstool configuration. */
   private final String compiler;
 
-  /** The version of libc (e.g. glibc-2.11) associated with this crosstool configuration. */
-  private final String libc;
-
   /** Creates a new {@link CrosstoolConfigurationIdentifier} with the given parameters. */
-  CrosstoolConfigurationIdentifier(String cpu, String compiler, String libc) {
+  CrosstoolConfigurationIdentifier(String cpu, String compiler) {
     this.cpu = Preconditions.checkNotNull(cpu);
     this.compiler = compiler;
-    this.libc = libc;
   }
 
   /**
@@ -52,13 +48,11 @@ public final class CrosstoolConfigurationIdentifier implements CrosstoolConfigur
   public static CrosstoolConfigurationIdentifier fromOptions(BuildOptions buildOptions) {
     Options options = buildOptions.get(BuildConfiguration.Options.class);
     CppOptions cppOptions = buildOptions.get(CppOptions.class);
-    return new CrosstoolConfigurationIdentifier(
-        options.cpu, cppOptions.cppCompiler, cppOptions.glibc);
+    return new CrosstoolConfigurationIdentifier(options.cpu, cppOptions.cppCompiler);
   }
 
   public static CrosstoolConfigurationIdentifier fromToolchain(CToolchain toolchain) {
-    return new CrosstoolConfigurationIdentifier(
-        toolchain.getTargetCpu(), toolchain.getCompiler(), toolchain.getTargetLibc());
+    return new CrosstoolConfigurationIdentifier(toolchain.getTargetCpu(), toolchain.getCompiler());
   }
 
   @Override
@@ -68,22 +62,19 @@ public final class CrosstoolConfigurationIdentifier implements CrosstoolConfigur
     }
     CrosstoolConfigurationIdentifier otherCrosstool = (CrosstoolConfigurationIdentifier) other;
     return Objects.equals(cpu, otherCrosstool.cpu)
-        && Objects.equals(compiler, otherCrosstool.compiler)
-        && Objects.equals(libc, otherCrosstool.libc);
+        && Objects.equals(compiler, otherCrosstool.compiler);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(cpu, compiler, libc);
+    return Objects.hash(cpu, compiler);
   }
 
-
   /**
-   * Returns a series of command line flags which specify the configuration options.
-   * Any of these options may be null, in which case its flag is omitted.
+   * Returns a series of command line flags which specify the configuration options. Any of these
+   * options may be null, in which case its flag is omitted.
    *
-   * <p>The appended string will be along the lines of
-   * " --cpu='cpu' --compiler='compiler' --glibc='libc'".
+   * <p>The appended string will be along the lines of " --cpu='cpu' --compiler='compiler'".
    */
   public String describeFlags() {
     StringBuilder message = new StringBuilder();
@@ -93,16 +84,12 @@ public final class CrosstoolConfigurationIdentifier implements CrosstoolConfigur
     if (getCompiler() != null) {
       message.append(" --compiler='").append(getCompiler()).append("'");
     }
-    if (getLibc() != null) {
-      message.append(" --glibc='").append(getLibc()).append("'");
-    }
     return message.toString();
   }
 
   /** Returns true if the specified toolchain is a candidate for use with this crosstool. */
   public boolean isCandidateToolchain(CToolchain toolchain) {
     return (toolchain.getTargetCpu().equals(getCpu())
-        && (getLibc() == null || toolchain.getTargetLibc().equals(getLibc()))
         && (getCompiler() == null || toolchain.getCompiler().equals(
             getCompiler())));
   }
@@ -120,10 +107,5 @@ public final class CrosstoolConfigurationIdentifier implements CrosstoolConfigur
   @Override
   public String getCompiler() {
     return compiler;
-  }
-
-  @Override
-  public String getLibc() {
-    return libc;
   }
 }

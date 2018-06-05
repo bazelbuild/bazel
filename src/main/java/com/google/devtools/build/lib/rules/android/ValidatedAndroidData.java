@@ -62,4 +62,3 @@ public interface ValidatedAndroidData extends CompiledMergableAndroidData {
 
   ProcessedAndroidManifest getProcessedManifest();
 }
-

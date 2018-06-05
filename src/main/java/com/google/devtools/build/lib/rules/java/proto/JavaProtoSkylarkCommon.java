@@ -28,45 +28,16 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
 import com.google.devtools.build.lib.rules.proto.SupportData;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaProtoCommonApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
  * A class that exposes Java common methods for proto compilation.
  */
-@SkylarkModule(name = "java_proto_common", doc = "Helper class for Java proto compilation.")
-public class JavaProtoSkylarkCommon {
-  @SkylarkCallable(
-      name = "create_java_lite_proto_compile_action",
-      // This function is experimental for now.
-      documented = false,
-      // There's 2 mandatory positional arguments, the Skylark context and the ConfiguredTarget.
-      mandatoryPositionals = 2,
-      parameters = {
-          @Param(
-              name = "src_jar",
-              positional = false,
-              named = true,
-              type = Artifact.class
-          ),
-          @Param(
-              name = "proto_toolchain_attr",
-              positional = false,
-              named = true,
-              type = String.class
-          ),
-          @Param(
-              name = "flavour",
-              positional = false,
-              named = true,
-              type = String.class,
-              defaultValue = "java"
-          )
-      }
-  )
-  public static void createProtoCompileAction(
+public class JavaProtoSkylarkCommon
+    implements JavaProtoCommonApi<Artifact, SkylarkRuleContext, ConfiguredTarget> {
+  @Override
+  public void createProtoCompileAction(
       SkylarkRuleContext skylarkRuleContext,
       ConfiguredTarget target,
       Artifact sourceJar,
@@ -91,29 +62,15 @@ public class JavaProtoSkylarkCommon {
         /* allowServices= */ true);
   }
 
-  @SkylarkCallable(
-      name = "has_proto_sources",
-      doc = "Returns whether the given proto_library target contains proto sources. If there are no"
-          + " sources it means that the proto_library is an alias library, which exports its"
-          + " dependencies."
-  )
-  public static boolean hasProtoSources(ConfiguredTarget target) {
+  @Override
+  public boolean hasProtoSources(ConfiguredTarget target) {
     SupportData supportData =
         checkNotNull(target.getProvider(ProtoSupportDataProvider.class).getSupportData());
     return supportData.hasProtoSources();
   }
 
-  @SkylarkCallable(
-    name = "toolchain_deps",
-    // This function is experimental for now.
-    documented = false,
-    // There's only one mandatory positional,the Skylark context
-    mandatoryPositionals = 1,
-    parameters = {
-      @Param(name = "proto_toolchain_attr", positional = false, named = true, type = String.class)
-    }
-  )
-  public static JavaInfo getRuntimeToolchainProvider(
+  @Override
+  public JavaInfo getRuntimeToolchainProvider(
       SkylarkRuleContext skylarkRuleContext, String protoToolchainAttr) throws EvalException {
     TransitiveInfoCollection runtime =
         getProtoToolchainProvider(skylarkRuleContext, protoToolchainAttr).runtime();
@@ -125,19 +82,10 @@ public class JavaProtoSkylarkCommon {
             .build();
   }
 
-  @SkylarkCallable(
-    name = "javac_opts",
-    // This function is experimental for now.
-    documented = false,
-    // There's only one mandatory positional,the Skylark context
-    mandatoryPositionals = 1,
-    parameters = {
-      @Param(name = "java_toolchain_attr", positional = false, named = true, type = String.class)
-    }
-  )
+  @Override
   // TODO(b/78512644): migrate callers to passing explicit proto javacopts or using custom
   // toolchains, and delete
-  public static ImmutableList<String> getJavacOpts(
+  public ImmutableList<String> getJavacOpts(
       SkylarkRuleContext skylarkRuleContext, String javaToolchainAttr) throws EvalException {
     ConfiguredTarget javaToolchainConfigTarget =
         (ConfiguredTarget) checkNotNull(skylarkRuleContext.getAttr().getValue(javaToolchainAttr));

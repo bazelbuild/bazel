@@ -107,7 +107,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
   @Nullable private final Artifact dynamicRuntimeLinkMiddleman;
   private final PathFragment dynamicRuntimeSolibDir;
-  private final CcCompilationContext ccCompilationContext;
+  private final CcCompilationInfo ccCompilationInfo;
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
   private final CcToolchainVariables buildVariables;
@@ -179,7 +179,8 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.dynamicRuntimeLinkInputs = Preconditions.checkNotNull(dynamicRuntimeLinkInputs);
     this.dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddleman;
     this.dynamicRuntimeSolibDir = Preconditions.checkNotNull(dynamicRuntimeSolibDir);
-    this.ccCompilationContext = Preconditions.checkNotNull(ccCompilationContext);
+    this.ccCompilationInfo =
+        new CcCompilationInfo(Preconditions.checkNotNull(ccCompilationContext));
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
     this.buildVariables = buildVariables;
@@ -240,7 +241,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     }
 
     result.put("C_COMPILER", compiler);
-    result.put("TARGET_CPU", targetCpu);
 
     // Deprecated variables
 
@@ -430,7 +430,12 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   /** Returns the {@code CcCompilationContext} for the toolchain. */
   public CcCompilationContext getCcCompilationContext() {
-    return ccCompilationContext;
+    return ccCompilationInfo.getCcCompilationContext();
+  }
+
+  /** Returns the {@code CcCompilationContext} for the toolchain. */
+  public CcCompilationInfo getCcCompilationInfo() {
+    return ccCompilationInfo;
   }
 
   /**

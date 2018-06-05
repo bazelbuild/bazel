@@ -17,12 +17,9 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.cache.Metadata;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /** A fake implementation of the {@link ActionInputFileCache} interface. */
 public final class FakeActionInputFileCache implements ActionInputFileCache {
@@ -38,21 +35,5 @@ public final class FakeActionInputFileCache implements ActionInputFileCache {
   @Override
   public Metadata getMetadata(ActionInput input) throws IOException {
     return Preconditions.checkNotNull(inputs.get(input));
-  }
-
-  @Override
-  public boolean contentsAvailableLocally(ByteString digest) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  @Nullable
-  public ActionInput getInputFromDigest(ByteString hexDigest) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public Path getInputPath(ActionInput input) {
-    throw new UnsupportedOperationException();
   }
 }

@@ -15,31 +15,45 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /** Parsed Android assets which can be merged together with assets from dependencies. */
 public class ParsedAndroidAssets extends AndroidAssets implements MergableAndroidData {
   private final Artifact symbols;
+  @Nullable private final Artifact compiledSymbols;
   private final Label label;
 
-  public static ParsedAndroidAssets parseFrom(AndroidDataContext dataContext, AndroidAssets assets)
+  public static ParsedAndroidAssets parseFrom(
+      AndroidDataContext dataContext, AndroidAaptVersion aaptVersion, AndroidAssets assets)
       throws InterruptedException {
-    return new AndroidResourceParsingActionBuilder()
-        .setOutput(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_ASSET_SYMBOLS))
-        .build(dataContext, assets);
+    AndroidResourceParsingActionBuilder builder =
+        new AndroidResourceParsingActionBuilder()
+            .setOutput(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_ASSET_SYMBOLS));
+
+    if (aaptVersion == AndroidAaptVersion.AAPT2) {
+      builder.setCompiledSymbolsOutput(
+          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_ASSET_COMPILED_SYMBOLS));
+    }
+
+    return builder.build(dataContext, assets);
   }
 
-  public static ParsedAndroidAssets of(AndroidAssets assets, Artifact symbols, Label label) {
-    return new ParsedAndroidAssets(assets, symbols, label);
+  public static ParsedAndroidAssets of(
+      AndroidAssets assets, Artifact symbols, @Nullable Artifact compiledSymbols, Label label) {
+    return new ParsedAndroidAssets(assets, symbols, compiledSymbols, label);
   }
 
   ParsedAndroidAssets(ParsedAndroidAssets other) {
-    this(other, other.symbols, other.label);
+    this(other, other.symbols, other.compiledSymbols, other.label);
   }
 
-  private ParsedAndroidAssets(AndroidAssets other, Artifact symbols, Label label) {
+  private ParsedAndroidAssets(
+      AndroidAssets other, Artifact symbols, @Nullable Artifact compiledSymbols, Label label) {
     super(other);
     this.symbols = symbols;
+    this.compiledSymbols = compiledSymbols;
     this.label = label;
   }
 
@@ -59,6 +73,12 @@ public class ParsedAndroidAssets extends AndroidAssets implements MergableAndroi
   }
 
   @Override
+  @Nullable
+  public Artifact getCompiledSymbols() {
+    return compiledSymbols;
+  }
+
+  @Override
   public boolean equals(Object object) {
     if (!super.equals(object)) {
       return false;
@@ -72,4 +92,5 @@ public class ParsedAndroidAssets extends AndroidAssets implements MergableAndroi
   public int hashCode() {
     return Objects.hash(super.hashCode(), symbols, label);
   }
+
 }

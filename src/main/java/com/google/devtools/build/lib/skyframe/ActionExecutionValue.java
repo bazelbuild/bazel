@@ -19,12 +19,14 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
@@ -118,8 +120,8 @@ public class ActionExecutionValue implements SkyValue {
    *     returned by {@link #getData}. Primarily needed by {@link FilesystemValueChecker}, also
    *     called by {@link ArtifactFunction} when aggregating a {@link TreeArtifactValue}.
    */
-  ImmutableMap<Artifact, FileValue> getAllFileValues() {
-    return artifactData;
+  Map<Artifact, FileValue> getAllFileValues() {
+    return Maps.transformEntries(artifactData, this::transformIfPlaceholder);
   }
 
   /**
@@ -174,5 +176,21 @@ public class ActionExecutionValue implements SkyValue {
   @Override
   public int hashCode() {
     return Objects.hashCode(artifactData, treeArtifactData, additionalOutputData);
+  }
+
+  /** Transforms PLACEHOLDER values into RegularFileValue instances. */
+  private FileValue transformIfPlaceholder(Artifact artifact, FileValue value) {
+    if (value == FileValue.PLACEHOLDER) {
+      FileArtifactValue metadata =
+          Preconditions.checkNotNull(
+              additionalOutputData.get(artifact),
+              "Placeholder without corresponding FileArtifactValue for: %s",
+              artifact);
+      return new FileValue.RegularFileValue(
+          RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getRootRelativePath()),
+          new FileStateValue.RegularFileStateValue(
+              metadata.getSize(), metadata.getDigest(), /*contentsProxy=*/ null));
+    }
+    return value;
   }
 }

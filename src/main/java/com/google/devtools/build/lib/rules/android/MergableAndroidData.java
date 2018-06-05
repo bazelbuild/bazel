@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /**
  * Interface used to indicate a container for resources, assets, or both can be merged.
@@ -47,4 +48,7 @@ public interface MergableAndroidData {
   Label getLabel();
 
   Artifact getSymbols();
+
+  @Nullable
+  Artifact getCompiledSymbols();
 }

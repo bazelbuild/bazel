@@ -597,7 +597,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         create(
             loader,
             "--compiler=compiler-C",
-            "--glibc=target-libc-C",
             "--cpu=piii",
             "--host_cpu=piii",
             "--android_cpu=",
@@ -676,12 +675,11 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   }
 
   /**
-   * Tests that we can select a toolchain using a subset of the --compiler and
-   * --glibc flags, as long as they select a unique result. Also tests the error
-   * messages we get when they don't.
+   * Tests that we can select a toolchain using the --compiler flag, as long as it selects a unique
+   * result. Also tests the error messages we get when it doesn't.
    */
   @Test
-  public void testCompilerLibcSearch() throws Exception {
+  public void testToolchainSelection() throws Exception {
     CppConfigurationLoader loader =
         loader(
             // Needs to include \n's; as a single line it hits a parser limitation.
@@ -690,27 +688,46 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "default_target_cpu: \"k8\"\n"
                 + "default_toolchain {\n"
                 + "  cpu: \"piii\"\n"
-                + "  toolchain_identifier: \"toolchain-identifier-AA-piii\"\n"
+                + "  toolchain_identifier: \"toolchain-identifier-A-piii\"\n"
                 + "}\n"
                 + "default_toolchain {\n"
                 + "  cpu: \"k8\"\n"
-                + "  toolchain_identifier: \"toolchain-identifier-BB\"\n"
+                + "  toolchain_identifier: \"toolchain-identifier-B\"\n"
                 + "}\n"
                 + "toolchain {\n"
-                + "  toolchain_identifier: \"toolchain-identifier-AA\"\n"
-                + "  host_system_name: \"host-system-name-AA\"\n"
-                + "  target_system_name: \"target-system-name-AA\"\n"
+                + "  toolchain_identifier: \"toolchain-identifier-A\"\n"
+                + "  host_system_name: \"host-system-name-A\"\n"
+                + "  target_system_name: \"target-system-name-A\"\n"
                 + "  target_cpu: \"k8\"\n"
                 + "  target_libc: \"target-libc-A\"\n"
                 + "  compiler: \"compiler-A\"\n"
                 + "  abi_version: \"abi-version-A\"\n"
                 + "  abi_libc_version: \"abi-libc-version-A\"\n"
                 + "}\n"
-                // AA-piii is uniquely determined by libc and compiler.
                 + "toolchain {\n"
-                + "  toolchain_identifier: \"toolchain-identifier-AA-piii\"\n"
-                + "  host_system_name: \"host-system-name-AA\"\n"
-                + "  target_system_name: \"target-system-name-AA\"\n"
+                + "  toolchain_identifier: \"toolchain-identifier-A-duplicate\"\n"
+                + "  host_system_name: \"host-system-name-A\"\n"
+                + "  target_system_name: \"target-system-name-A\"\n"
+                + "  target_cpu: \"k8\"\n"
+                + "  target_libc: \"target-libc-A\"\n"
+                + "  compiler: \"compiler-A\"\n"
+                + "  abi_version: \"abi-version-A\"\n"
+                + "  abi_libc_version: \"abi-libc-version-A\"\n"
+                + "}\n"
+                + "toolchain {\n"
+                + "  toolchain_identifier: \"toolchain-identifier-C\"\n"
+                + "  host_system_name: \"host-system-name-C\"\n"
+                + "  target_system_name: \"target-system-name-C\"\n"
+                + "  target_cpu: \"k8\"\n"
+                + "  target_libc: \"target-libc-C\"\n"
+                + "  compiler: \"compiler-C\"\n"
+                + "  abi_version: \"abi-version-C\"\n"
+                + "  abi_libc_version: \"abi-libc-version-C\"\n"
+                + "}\n"
+                + "toolchain {\n"
+                + "  toolchain_identifier: \"toolchain-identifier-A-piii\"\n"
+                + "  host_system_name: \"host-system-name-A\"\n"
+                + "  target_system_name: \"target-system-name-A\"\n"
                 + "  target_cpu: \"piii\"\n"
                 + "  target_libc: \"target-libc-A\"\n"
                 + "  compiler: \"compiler-A\"\n"
@@ -718,67 +735,39 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  abi_libc_version: \"abi-libc-version-A\"\n"
                 + "}\n"
                 + "toolchain {\n"
-                + "  toolchain_identifier: \"toolchain-identifier-AB\"\n"
-                + "  host_system_name: \"host-system-name-AB\"\n"
-                + "  target_system_name: \"target-system-name-AB\"\n"
+                + "  toolchain_identifier: \"toolchain-identifier-B-piii\"\n"
+                + "  host_system_name: \"host-system-name-A\"\n"
+                + "  target_system_name: \"target-system-name-A\"\n"
+                + "  target_cpu: \"piii\"\n"
+                + "  target_libc: \"target-libc-A\"\n"
+                + "  compiler: \"compiler-B\"\n"
+                + "  abi_version: \"abi-version-A\"\n"
+                + "  abi_libc_version: \"abi-libc-version-A\"\n"
+                + "}\n"
+                + "toolchain {\n"
+                + "  toolchain_identifier: \"toolchain-identifier-B\"\n"
+                + "  host_system_name: \"host-system-name-B\"\n"
+                + "  target_system_name: \"target-system-name-B\"\n"
                 + "  target_cpu: \"k8\"\n"
                 + "  target_libc: \"target-libc-A\"\n"
                 + "  compiler: \"compiler-B\"\n"
                 + "  abi_version: \"abi-version-B\"\n"
                 + "  abi_libc_version: \"abi-libc-version-A\"\n"
-                + "}\n"
-                + "toolchain {\n"
-                + "  toolchain_identifier: \"toolchain-identifier-BA\"\n"
-                + "  host_system_name: \"host-system-name-BA\"\n"
-                + "  target_system_name: \"target-system-name-BA\"\n"
-                + "  target_cpu: \"k8\"\n"
-                + "  target_libc: \"target-libc-B\"\n"
-                + "  compiler: \"compiler-A\"\n"
-                + "  abi_version: \"abi-version-A\"\n"
-                + "  abi_libc_version: \"abi-libc-version-B\"\n"
-                + "}\n"
-                + "toolchain {\n"
-                + "  toolchain_identifier: \"toolchain-identifier-BB\"\n"
-                + "  host_system_name: \"host-system-name-BB\"\n"
-                + "  target_system_name: \"target-system-name-BB\"\n"
-                + "  target_cpu: \"k8\"\n"
-                + "  target_libc: \"target-libc-B\"\n"
-                + "  compiler: \"compiler-B\"\n"
-                + "  abi_version: \"abi-version-B\"\n"
-                + "  abi_libc_version: \"abi-libc-version-B\"\n"
-                + "}\n"
-                + "toolchain {\n"
-                + "  toolchain_identifier: \"toolchain-identifier-BC\"\n"
-                + "  host_system_name: \"host-system-name-BC\"\n"
-                + "  target_system_name: \"target-system-name-BC\"\n"
-                + "  target_cpu: \"k8\"\n"
-                + "  target_libc: \"target-libc-B\"\n"
-                + "  compiler: \"compiler-C\"\n"
-                + "  abi_version: \"abi-version-C\"\n"
-                + "  abi_libc_version: \"abi-libc-version-B\"\n"
                 + "}");
 
     // Uses the default toolchain for k8.
     assertThat(create(loader, "--cpu=k8").getToolchainIdentifier())
-        .isEqualTo("toolchain-identifier-BB");
+        .isEqualTo("toolchain-identifier-B");
     // Does not default to --cpu=k8; if no --cpu flag is present, Bazel defaults to the host cpu!
-    assertThat(
-            create(loader, "--cpu=k8", "--compiler=compiler-A", "--glibc=target-libc-B")
-                .getToolchainIdentifier())
-        .isEqualTo("toolchain-identifier-BA");
+    assertThat(create(loader, "--cpu=k8", "--compiler=compiler-C").getToolchainIdentifier())
+        .isEqualTo("toolchain-identifier-C");
     // Uses the default toolchain for piii.
     assertThat(create(loader, "--cpu=piii").getToolchainIdentifier())
-        .isEqualTo("toolchain-identifier-AA-piii");
+        .isEqualTo("toolchain-identifier-A-piii");
 
-    // We can select the unique piii toolchain with either its compiler or glibc.
-    assertThat(create(loader, "--cpu=piii", "--compiler=compiler-A").getToolchainIdentifier())
-        .isEqualTo("toolchain-identifier-AA-piii");
-    assertThat(create(loader, "--cpu=piii", "--glibc=target-libc-A").getToolchainIdentifier())
-        .isEqualTo("toolchain-identifier-AA-piii");
-
-    // compiler-C uniquely identifies a toolchain, so we can use it.
-    assertThat(create(loader, "--cpu=k8", "--compiler=compiler-C").getToolchainIdentifier())
-        .isEqualTo("toolchain-identifier-BC");
+    // We can select the unique piii toolchain with its compiler.
+    assertThat(create(loader, "--cpu=piii", "--compiler=compiler-B").getToolchainIdentifier())
+        .isEqualTo("toolchain-identifier-B-piii");
 
     try {
       create(loader, "--cpu=k8", "--compiler=nonexistent-compiler");
@@ -788,24 +777,24 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
           .hasMessage(
               "No toolchain found for --cpu='k8' --compiler='nonexistent-compiler'. "
                   + "Valid toolchains are: [\n"
-                  + "  --cpu='k8' --compiler='compiler-A' --glibc='target-libc-A',\n"
-                  + "  --cpu='piii' --compiler='compiler-A' --glibc='target-libc-A',\n"
-                  + "  --cpu='k8' --compiler='compiler-B' --glibc='target-libc-A',\n"
-                  + "  --cpu='k8' --compiler='compiler-A' --glibc='target-libc-B',\n"
-                  + "  --cpu='k8' --compiler='compiler-B' --glibc='target-libc-B',\n"
-                  + "  --cpu='k8' --compiler='compiler-C' --glibc='target-libc-B',\n"
+                  + "  toolchain-identifier-A: --cpu='k8' --compiler='compiler-A',\n"
+                  + "  toolchain-identifier-A-duplicate: --cpu='k8' --compiler='compiler-A',\n"
+                  + "  toolchain-identifier-C: --cpu='k8' --compiler='compiler-C',\n"
+                  + "  toolchain-identifier-A-piii: --cpu='piii' --compiler='compiler-A',\n"
+                  + "  toolchain-identifier-B-piii: --cpu='piii' --compiler='compiler-B',\n"
+                  + "  toolchain-identifier-B: --cpu='k8' --compiler='compiler-B',\n"
                   + "]");
     }
 
     try {
-      create(loader, "--cpu=k8", "--glibc=target-libc-A");
+      create(loader, "--cpu=k8", "--compiler=compiler-A");
       fail("Expected an error that multiple toolchains matched.");
     } catch (InvalidConfigurationException e) {
       assertThat(e)
           .hasMessage(
-              "Multiple toolchains found for --cpu='k8' --glibc='target-libc-A': [\n"
-                  + "  --cpu='k8' --compiler='compiler-A' --glibc='target-libc-A',\n"
-                  + "  --cpu='k8' --compiler='compiler-B' --glibc='target-libc-A',\n"
+              "Multiple toolchains found for --cpu='k8' --compiler='compiler-A': [\n"
+                  + "  toolchain-identifier-A: --cpu='k8' --compiler='compiler-A',\n"
+                  + "  toolchain-identifier-A-duplicate: --cpu='k8' --compiler='compiler-A',\n"
                   + "]");
     }
   }

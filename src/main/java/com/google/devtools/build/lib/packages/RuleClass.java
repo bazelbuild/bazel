@@ -32,6 +32,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -614,6 +615,7 @@ public class RuleClass {
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<Label> requiredToolchains = new HashSet<>();
     private boolean supportsPlatforms = true;
+    private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
 
     /**
      * Constructs a new {@code RuleClassBuilder} using all attributes from all
@@ -733,6 +735,7 @@ public class RuleClass {
           supportsConstraintChecking,
           requiredToolchains,
           supportsPlatforms,
+          outputFileKind,
           attributes.values());
     }
 
@@ -895,23 +898,21 @@ public class RuleClass {
     /**
      * Applies the given transition to all incoming edges for this rule class.
      *
+     * <p>This cannot be a {@link SplitTransition} because that requires coordination with the
+     * rule's parent: use {@link Attribute.Builder#cfg(ConfigurationTransition)} on the parent to
+     * declare splits.
+     *
      * <p>If you need the transition to depend on the rule it's being applied to, use
      * {@link #cfg(RuleTransitionFactory)}.
      */
     public Builder cfg(PatchTransition transition) {
-      Preconditions.checkState(type != RuleClassType.ABSTRACT,
-          "Setting not inherited property (cfg) of abstract rule class '%s'", name);
-      Preconditions.checkState(this.transitionFactory == null,
-          "Property cfg has already been set");
-      Preconditions.checkNotNull(transition);
-      this.transitionFactory = new FixedTransitionFactory(transition);
-      return this;
+      return cfg(new FixedTransitionFactory(transition));
     }
 
     /**
      * Applies the given transition factory to all incoming edges for this rule class.
      *
-     * <p>Unlike{@link #cfg(ConfigurationTransition)}, the factory can examine the rule when
+     * <p>Unlike{@link #cfg(PatchTransition)}, the factory can examine the rule when
      * deciding what transition to use.
      */
     public Builder cfg(RuleTransitionFactory transitionFactory) {
@@ -1079,6 +1080,18 @@ public class RuleClass {
       this.isExecutableSkylark = true;
       return this;
     }
+
+    /**
+     * Sets the kind of output files this rule creates.
+     * DO NOT USE! This only exists to support the non-open-sourced {@code fileset} rule.
+     * {@see OutputFile.Kind}.
+     */
+    public Builder setOutputFileKind(OutputFile.Kind outputFileKind) {
+      this.outputFileKind = outputFileKind;
+      return this;
+    }
+
+
 
     /**
      * Declares that instances of this rule are compatible with the specified environments,
@@ -1265,6 +1278,7 @@ public class RuleClass {
   @Nullable private final Label ruleDefinitionEnvironmentLabel;
 
   @Nullable private final String ruleDefinitionEnvironmentHashCode;
+  private final OutputFile.Kind outputFileKind;
 
   /**
    * The set of configuration fragments which are legal for this rule's implementation to access.
@@ -1329,6 +1343,7 @@ public class RuleClass {
       boolean supportsConstraintChecking,
       Set<Label> requiredToolchains,
       boolean supportsPlatforms,
+      OutputFile.Kind  outputFileKind,
       Collection<Attribute> attributes) {
     this.name = name;
     this.key = key;
@@ -1351,6 +1366,7 @@ public class RuleClass {
     this.optionReferenceFunction = optionReferenceFunction;
     this.ruleDefinitionEnvironmentLabel = ruleDefinitionEnvironmentLabel;
     this.ruleDefinitionEnvironmentHashCode = ruleDefinitionEnvironmentHashCode;
+    this.outputFileKind = outputFileKind;
     validateNoClashInPublicNames(attributes);
     this.attributes = ImmutableList.copyOf(attributes);
     this.workspaceOnly = workspaceOnly;
@@ -2173,6 +2189,11 @@ public class RuleClass {
 
   public boolean supportsPlatforms() {
     return supportsPlatforms;
+  }
+
+  @Nullable
+  public OutputFile.Kind  getOutputFileKind() {
+    return outputFileKind;
   }
 
   public static boolean isThirdPartyPackage(PackageIdentifier packageIdentifier) {

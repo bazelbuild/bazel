@@ -1982,4 +1982,35 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "libal_bottom_for_deps-src.jar",
         "liblib_foo-src.jar");
   }
+
+  @Test
+  public void testLocalResourcesFirstInJavaCompilationClasspath() throws Exception {
+    scratch.file(
+        "java/foo/BUILD",
+        "android_library(",
+        "  name='dep',",
+        "  srcs=['dep.java'], ",
+        "  resource_files=['res/values/dep.xml'],",
+        "  manifest='AndroidManifest.xml')",
+        "android_library(",
+        "  name='lib',",
+        "  srcs=['lib.java'],",
+        "  resource_files=['res/values/lib.xml'],",
+        "  manifest='AndroidManifest.xml',",
+        "  deps=[':dep'])");
+
+    JavaCompileAction javacAction =
+        (JavaCompileAction)
+            getGeneratingAction(getFileConfiguredTarget("//java/foo:liblib.jar").getArtifact());
+
+    assertThat(ActionsTestUtil.prettyArtifactNames(javacAction.getDirectJars()))
+        .containsExactly(
+            "java/foo/lib_resources.jar", "java/foo/dep_resources.jar", "java/foo/libdep-hjar.jar")
+        .inOrder();
+
+    assertThat(ActionsTestUtil.prettyArtifactNames(javacAction.getClasspath()))
+        .containsExactly(
+            "java/foo/lib_resources.jar", "java/foo/dep_resources.jar", "java/foo/libdep-hjar.jar")
+        .inOrder();
+  }
 }

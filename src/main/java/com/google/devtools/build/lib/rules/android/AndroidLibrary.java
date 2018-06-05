@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -158,7 +159,11 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
                 .process(ruleContext, dataContext, manifest, isNeverLink);
 
         MergedAndroidAssets assets =
-            AndroidAssets.from(ruleContext).process(dataContext, assetDeps);
+            AndroidAssets.from(ruleContext)
+                .process(
+                    dataContext,
+                    assetDeps,
+                    AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
 
         resourceApk = ResourceApk.of(resources, assets, null, null);
       } else {

@@ -26,6 +26,8 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -95,8 +97,11 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.concurrent.Executors;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -128,6 +133,7 @@ public class GrpcRemoteExecutionClientTest {
   private RemoteSpawnRunner client;
   private FileOutErr outErr;
   private Server fakeServer;
+  private static ListeningScheduledExecutorService retryService;
   private RemoteRetrier retrier;
 
   private final SpawnExecutionContext simplePolicy =
@@ -183,6 +189,11 @@ public class GrpcRemoteExecutionClientTest {
           // TODO(ulfjack): Test that the right calls are made.
         }
       };
+
+  @BeforeClass
+  public static void beforeEverything() {
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+  }
 
   @Before
   public final void setUp() throws Exception {
@@ -240,7 +251,8 @@ public class GrpcRemoteExecutionClientTest {
     outErr = new FileOutErr(stdout, stderr);
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     retrier =
-        new RemoteRetrier(options, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
+        new RemoteRetrier(
+            options, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService, Retrier.ALLOW_ALL_CALLS);
     Channel channel = InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel, null, options.remoteTimeout, retrier);
@@ -269,6 +281,11 @@ public class GrpcRemoteExecutionClientTest {
   public void tearDown() throws Exception {
     fakeServer.shutdownNow();
     fakeServer.awaitTermination();
+  }
+
+  @AfterClass
+  public static void afterEverything() {
+    retryService.shutdownNow();
   }
 
   @Test
@@ -912,10 +929,10 @@ public class GrpcRemoteExecutionClientTest {
 
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
-            // First read is a cache miss, next read succeeds.
+            // First read is a retriable error, next read succeeds.
             if (first) {
               first = false;
-              responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
+              responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
             } else {
               responseObserver.onNext(
                   ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("stdout")).build());
@@ -971,7 +988,7 @@ public class GrpcRemoteExecutionClientTest {
     SpawnResult result = client.exec(simpleSpawn, simplePolicy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
-    assertThat(result.isCacheHit()).isFalse();
+    assertThat(result.isCacheHit()).isTrue();
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
   }
 }

@@ -15,33 +15,36 @@
 # This is a quick and dirty rule to make Bazel compile itself.  It
 # only supports Java.
 
-def cc_library(srcs=[], hdrs=[], **kwargs):
-  """Replace srcs and hdrs with a dummy.cc on non-Windows platforms."""
-  native.cc_library(
-      srcs = select({
+def cc_library(srcs = [], hdrs = [], **kwargs):
+    """Replace srcs and hdrs with a dummy.cc on non-Windows platforms."""
+    native.cc_library(
+        srcs = select({
             "//conditions:default": ["dummy.cc"],
             "//src/conditions:windows": srcs,
-          }),
-      hdrs = select({
+        }),
+        hdrs = select({
             "//conditions:default": [],
             "//src/conditions:windows": hdrs,
-          }),
-      **kwargs)
+        }),
+        **kwargs
+    )
 
-def cc_binary(srcs=[], **kwargs):
-  """Replace srcs with a dummy.cc on non-Windows platforms."""
-  native.cc_binary(
-      srcs = select({
+def cc_binary(srcs = [], **kwargs):
+    """Replace srcs with a dummy.cc on non-Windows platforms."""
+    native.cc_binary(
+        srcs = select({
             "//conditions:default": ["dummy.cc"],
             "//src/conditions:windows": srcs,
-          }),
-      **kwargs)
+        }),
+        **kwargs
+    )
 
-def cc_test(srcs=[], **kwargs):
-  """Replace srcs with a dummy.cc on non-Windows platforms."""
-  native.cc_test(
-      srcs = select({
+def cc_test(srcs = [], **kwargs):
+    """Replace srcs with a dummy.cc on non-Windows platforms."""
+    native.cc_test(
+        srcs = select({
             "//conditions:default": ["dummy.cc"],
             "//src/conditions:windows": srcs,
-          }),
-      **kwargs)
+        }),
+        **kwargs
+    )

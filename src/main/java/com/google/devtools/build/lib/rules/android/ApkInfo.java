@@ -17,19 +17,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.android.ApkInfoApi;
 import javax.annotation.Nullable;
 
 /** A provider for targets that produce an apk file. */
-@SkylarkModule(
-    name = "ApkInfo",
-    doc = "APKs provided by a rule",
-    category = SkylarkModuleCategory.PROVIDER
-)
 @Immutable
-public class ApkInfo extends NativeInfo {
+public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
 
   private static final String SKYLARK_NAME = "ApkInfo";
   public static final NativeProvider<ApkInfo> PROVIDER =
@@ -56,13 +49,7 @@ public class ApkInfo extends NativeInfo {
     this.keystore = keystore;
   }
 
-  /** Returns the APK file built in the transitive closure. */
-  @SkylarkCallable(
-      name = "signed_apk",
-      doc = "Returns a signed APK built from the target.",
-      structField = true
-
-  )
+  @Override
   public Artifact getApk() {
     return apk;
   }
