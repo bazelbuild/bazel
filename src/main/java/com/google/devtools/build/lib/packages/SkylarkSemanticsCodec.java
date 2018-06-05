@@ -43,6 +43,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
       SerializationContext context, SkylarkSemantics semantics, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     // <== Add new options here in alphabetic order ==>
+    codedOut.writeBoolNoTag(semantics.experimentalEnableRepoMapping());
     codedOut.writeBoolNoTag(semantics.incompatibleBzlDisallowLoadAfterStatement());
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetIsNotIterable());
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetUnion());
@@ -67,6 +68,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     SkylarkSemantics.Builder builder = SkylarkSemantics.builder();
 
     // <== Add new options here in alphabetic order ==>
+    builder.experimentalEnableRepoMapping(codedIn.readBool());
     builder.incompatibleBzlDisallowLoadAfterStatement(codedIn.readBool());
     builder.incompatibleDepsetIsNotIterable(codedIn.readBool());
     builder.incompatibleDepsetUnion(codedIn.readBool());
