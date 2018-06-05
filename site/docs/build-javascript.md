@@ -12,9 +12,22 @@ JavaScript outputs from JavaScript, TypeScript, and Angular sources.
 but the Bazel team has not fully verified and does not officially support
 these features and workflows.
 
-[TOC]
+## Contents
 
-## Overview {#overview}
+*  [Overview](#overview)
+*  [Setting up your environment](#setting-up-your-environment)
+   *  [Step 1: Installing Bazel](#step-1-installing-bazel)
+   *  [Step 2: Installing iBazel](#step-2-installing-ibazel)
+   *  [Step 3: Configuring the `bazel.rc` file](#step-3-configuring-the-bazel-rc-file)
+   *  [Step 4: (Optional) Setting up Continuous Integration (CI)](#step-4-optional-setting-up-continuous-integration-ci)
+*  [Building JavaScript inputs](#building-javascript)
+*  [Building TypeScript inputs](#building-typescript)
+   *  [Compiling TypeScript inputs (`ts_library`)](#compiling-typescript-inputs-ts_library)
+   *  [Running a development server (`ts_devserver`)](#running-a-development-server-ts_devserver)
+   *  [Testing TypeScript code (`ts_web_test`)](#testing-typescript-code-ts_web_test)
+*  [Building Angular inputs](#building-angular-inputs)
+
+## Overview
 
 Bazel rules for building JavaScript outputs are split into three layers, since
 you can use JavaScript without TypeScript, and TypeScript without Angular.
@@ -22,25 +35,20 @@ This document assumes you are already familiar with Bazel and uses the
 [Angular for Bazel sample project](https://github.com/alexeagle/angular-bazel-example)
 to illustrate the recommended configuration. You can use the sample project as a
 starting point and add your own code to it to start building with Bazel.
-This document covers the following:
-
-*   [Setting up your environment](#setting-up-your-environment)
-*   [Building JavaScript inputs](#building-javascript)
-*   [Building TypeScript inputs](#building-typescript)
 
 If you're new to Bazel, take a look at the ["Getting Started"](https://docs.bazel.build/versions/master/getting-started.html)
 material before proceeding.
 
-## Setting up your environment {#setting-up-your-environment}
+## Setting up your environment
 
 To set up your environment for building JavaScript outputs with Bazel, do the
 following:
 
-### Step 1: Installing Bazel {#step-1-installing-bazel}
+### Step 1: Installing Bazel
 
 If you have not already done so, [Install Bazel](https://docs.bazel.build/versions/master/install.html).
 
-### Step 2: Installing iBazel {#step-2-installing-ibazel}
+### Step 2: Installing iBazel
 
 iBazel, or iterative Bazel, is a "watchdog" version of Bazel that automatically
 runs whenever your source files change. Use it to auto-run your tests and
@@ -64,7 +72,7 @@ yarn global add @bazel/ibazel
 
 To use `ibazel`, simply replace `bazel` with `ibazel` in your Bazel commands.
 
-### Step 3: Configuring the `bazel.rc` file {#step-3-configuring-the-bazel-rc-file}
+### Step 3: Configuring the `bazel.rc` file
 
 Any Bazel build flag or option that can be placed on the command line can also
 be set in the project's `[bazel.rc file](https://docs.bazel.build/versions/master/user-manual.html#bazelrc)`
@@ -140,7 +148,7 @@ build --strategy=TypeScriptCompile=worker --strategy=AngularTemplateCompile=work
 test:debug --test_arg=--node_options=--inspect-brk --test_output=streamed --test_strategy=exclusive --test_timeout=9999 --nocache_test_results
 ```
 
-### Step 4: (Optional) Setting up Continuous Integration (CI) {#step-4-optional-setting-up-continuous-integration-ci}
+### Step 4: (Optional) Setting up Continuous Integration (CI)
 
 For building JavaScript outputs with Bazel in a CI setting, it's useful to use a
 container as the environment. The [ngcontainer Docker image](https://hub.docker.com/r/angular/ngcontainer/)
@@ -155,7 +163,7 @@ that are specific to CI using the `build:ci` and or `test:ci` prefixes. With
 this configuration, you can enable those CI-specific options by simply adding
 the `--config=ci` argument to your Bazel/iBazel commands.
 
-## Building JavaScript {#building-javascript}
+## Building JavaScript
 
 Use the <code>[rules_nodejs](https://github.com/bazelbuild/rules_nodejs)</code>
 rules to build NodeJS applications and execute JavaScript code within Bazel. You
@@ -172,7 +180,7 @@ Most notable NodeJS rules include:
     framework. See the [node_js API documentation](https://bazelbuild.github.io/rules_nodejs/)
     for more information.
 
-## Building TypeScript {#building-typescript}
+## Building TypeScript
 
 Use the <code>[rules_typescript](https://github.com/bazelbuild/rules_typescript)</code>
 rules to build JavaScript outputs from TypeScript inputs.
@@ -199,7 +207,7 @@ To set up your Bazel project for building TypeScript inputs, do the following:
     example `.bazel.rc` file in ["Configuring the bazel.rc file"](#step-3-configuring-the-bazel-rc-file).
 
 
-### Compiling TypeScript inputs (`ts_library`) {#compiling-typescript-inputs-ts_library}
+### Compiling TypeScript inputs (`ts_library`)
 
 The `ts_library` rule compiles one package of TypeScript code at a time. Each
 library compiles independently using the `.d.ts` declaration files from its
@@ -233,7 +241,7 @@ Note the following:
     target(s) into smaller sub-targets and declaring dependencies between them
     appropriately.
 
-### Running a development server (`ts_devserver`) {#running-a-development-server-ts_devserver}
+### Running a development server (`ts_devserver`)
 
 The `ts_devserver` rule brings up a development server from your application
 sources. It's intended for use with the `ibazel run` command so that the server
@@ -245,7 +253,7 @@ at the completion of each build.
 `ibazel run src: devserver` on the [sample project](https://github.com/alexeagle/angular-bazel-example/wiki).
 
 
-### Testing TypeScript code (`ts_web_test`) {#testing-typescript-code-ts_web_test}
+### Testing TypeScript code (`ts_web_test`)
 
 Use the `ts_web_test` rule to execute the Karma test runner. This rule works
 best with ibazel so that both the test runner and the browser pick up your
@@ -262,7 +270,7 @@ single run.
 `bazel run` on the `src/hello-world:test` target in the [sample project](https://github.com/alexeagle/angular-bazel-example/wiki).
 
 
-## Building Angular inputs {#building-angular-inputs}
+## Building Angular inputs
 
-Bazel can build JavaScript outputs from Angular. For instructions, see [Building Angular with Bazel](https://github.com/alexeagle/angular-bazel-example/wiki/Angular-rules)..
+Bazel can build JavaScript outputs from Angular. For instructions, see [Building Angular with Bazel](https://github.com/alexeagle/angular-bazel-example/wiki/Angular-rules).
 
