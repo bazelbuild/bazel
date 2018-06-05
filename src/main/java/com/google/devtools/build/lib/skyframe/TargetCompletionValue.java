@@ -24,9 +24,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 import java.util.Set;
 
-/**
- * The value of a TargetCompletion. Currently this just stores a ConfiguredTarget.
- */
+/** The value of a TargetCompletion. Just a sentinel. */
 public class TargetCompletionValue implements SkyValue {
   @AutoCodec static final TargetCompletionValue INSTANCE = new TargetCompletionValue();
 

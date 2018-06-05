@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
 /** A configured target in the context of a Skyframe graph. */
 @Immutable
 @ThreadSafe
-@AutoCodec
+@AutoCodec(explicitlyAllowClass = RuleConfiguredTarget.class)
 @VisibleForTesting
 public final class RuleConfiguredTargetValue extends ActionLookupValue
     implements ConfiguredTargetValue {

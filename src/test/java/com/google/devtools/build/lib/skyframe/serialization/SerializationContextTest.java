@@ -140,6 +140,28 @@ public class SerializationContextTest {
     assertThat(TestUtils.roundTrip(obj, registry)).isEqualTo(obj);
   }
 
+  @Test
+  public void explicitlyAllowedClassCheck() {
+    SerializationContext underTest =
+        new SerializationContext(ObjectCodecRegistry.newBuilder().build(), ImmutableMap.of())
+            .getMemoizingContext();
+    underTest.addExplicitlyAllowedClass(String.class);
+    underTest.checkClassExplicitlyAllowed(String.class);
+    assertThrows(
+        RuntimeException.class, () -> underTest.checkClassExplicitlyAllowed(Integer.class));
+    // Explicitly registered classes do not carry over to a new context.
+    assertThrows(
+        RuntimeException.class,
+        () -> underTest.getNewMemoizingContext().checkClassExplicitlyAllowed(String.class));
+  }
+
+  @Test
+  public void explicitlyAllowedClassCheckFailsIfNotMemoizing() {
+    SerializationContext underTest =
+        new SerializationContext(ObjectCodecRegistry.newBuilder().build(), ImmutableMap.of());
+    assertThrows(RuntimeException.class, () -> underTest.addExplicitlyAllowedClass(String.class));
+  }
+
   private static class CodecMemoizing implements ObjectCodec<ImmutableList<Object>> {
     @SuppressWarnings("unchecked")
     @Override

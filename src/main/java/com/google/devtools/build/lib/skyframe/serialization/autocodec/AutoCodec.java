@@ -90,6 +90,18 @@ public @interface AutoCodec {
   Strategy strategy() default Strategy.INSTANTIATOR;
 
   /**
+   * Checks whether or not this class is allowed to be serialized. See {@link
+   * com.google.devtools.build.lib.skyframe.serialization.SerializationContext#checkClassExplicitlyAllowed}.
+   */
+  boolean checkClassExplicitlyAllowed() default false;
+
+  /**
+   * Adds an explicitly allowed class for this serialization session. See {@link
+   * com.google.devtools.build.lib.skyframe.serialization.SerializationContext#addExplicitlyAllowedClass}.
+   */
+  Class<?>[] explicitlyAllowClass() default {};
+
+  /**
    * Signals that the annotated element is only visible for use by serialization. It should not be
    * used by other callers.
    *
