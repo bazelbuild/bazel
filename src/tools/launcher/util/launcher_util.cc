@@ -23,7 +23,7 @@
 #include <sstream>
 #include <string>
 
-#include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
 namespace bazel {

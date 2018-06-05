@@ -25,6 +25,8 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/numbers.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 
@@ -93,7 +95,7 @@ StartupOptions::StartupOptions(const string &product_name,
       original_startup_options_(std::vector<RcStartupFlag>()) {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
-    output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
+    output_root = blaze_util::MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
     BAZEL_LOG(USER) << "$TEST_TMPDIR defined: output root default is '"
                     << output_root << "' and max_idle_secs default is '"
@@ -187,19 +189,19 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   const char* value = NULL;
 
   if ((value = GetUnaryOption(arg, next_arg, "--output_base")) != NULL) {
-    output_base = MakeAbsolute(value);
+    output_base = blaze_util::MakeAbsolute(value);
     option_sources["output_base"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--install_base")) != NULL) {
-    install_base = MakeAbsolute(value);
+    install_base = blaze_util::MakeAbsolute(value);
     option_sources["install_base"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--output_user_root")) != NULL) {
-    output_user_root = MakeAbsolute(value);
+    output_user_root = blaze_util::MakeAbsolute(value);
     option_sources["output_user_root"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--server_jvm_out")) != NULL) {
-    server_jvm_out = MakeAbsolute(value);
+    server_jvm_out = blaze_util::MakeAbsolute(value);
     option_sources["server_jvm_out"] = rcfile;
   } else if (GetNullaryOption(arg, "--deep_execroot")) {
     deep_execroot = true;
@@ -221,7 +223,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
                                      "--host_javabase")) != NULL) {
     // TODO(bazel-team): Consider examining the javabase and re-execing in case
     // of architecture mismatch.
-    host_javabase = MakeAbsolute(value);
+    host_javabase = blaze_util::MakeAbsolute(value);
     option_sources["host_javabase"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_args")) !=
              NULL) {
@@ -486,8 +488,8 @@ void StartupOptions::AddJVMArgumentSuffix(const string &real_install_dir,
                                           const string &jar_path,
     std::vector<string> *result) const {
   result->push_back("-jar");
-  result->push_back(
-      blaze::PathAsJvmFlag(blaze_util::JoinPath(real_install_dir, jar_path)));
+  result->push_back(blaze_util::PathAsJvmFlag(
+      blaze_util::JoinPath(real_install_dir, jar_path)));
 }
 
 blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
@@ -502,7 +504,7 @@ void StartupOptions::AddJVMLoggingArguments(std::vector<string> *result) const {
   const string propFile =
       blaze_util::JoinPath(output_base, "javalog.properties");
   string java_log(
-      blaze::PathAsJvmFlag(blaze_util::JoinPath(output_base, "java.log")));
+      blaze_util::PathAsJvmFlag(blaze_util::JoinPath(output_base, "java.log")));
   if (!blaze_util::WriteFile("handlers=java.util.logging.FileHandler\n"
                              ".level=INFO\n"
                              "java.util.logging.FileHandler.level=INFO\n"

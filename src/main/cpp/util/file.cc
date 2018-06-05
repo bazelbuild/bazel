@@ -11,6 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+#include "src/main/cpp/util/file.h"
+
 #include <limits.h>  // PATH_MAX
 
 #include <algorithm>
@@ -19,7 +22,7 @@
 
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
-#include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
@@ -83,39 +86,6 @@ bool ReadFrom(file_handle_type handle, void *data, size_t size) {
 bool WriteFile(const std::string &content, const std::string &filename,
                unsigned int perm) {
   return WriteFile(content.c_str(), content.size(), filename, perm);
-}
-
-string Dirname(const string &path) {
-  return SplitPath(path).first;
-}
-
-string Basename(const string &path) {
-  return SplitPath(path).second;
-}
-
-string JoinPath(const string &path1, const string &path2) {
-  if (path1.empty()) {
-    // "" + "/bar"
-    return path2;
-  }
-
-  if (path1[path1.size() - 1] == '/') {
-    if (path2.find('/') == 0) {
-      // foo/ + /bar
-      return path1 + path2.substr(1);
-    } else {
-      // foo/ + bar
-      return path1 + path2;
-    }
-  } else {
-    if (path2.find('/') == 0) {
-      // foo + /bar
-      return path1 + path2;
-    } else {
-      // foo + bar
-      return path1 + "/" + path2;
-    }
-  }
 }
 
 class DirectoryTreeWalker : public DirectoryEntryConsumer {

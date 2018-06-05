@@ -50,9 +50,6 @@ class IFileMtime {
 // Creates a platform-specific implementation of `IFileMtime`.
 IFileMtime *CreateFileMtime();
 
-// Split a path to dirname and basename parts.
-std::pair<std::string, std::string> SplitPath(const std::string &path);
-
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
 // We cannot include <windows.h> because it #defines many symbols that conflict
 // with our function names, e.g. GetUserName, SendMessage.
@@ -162,16 +159,8 @@ bool CanExecuteFile(const std::string &path);
 // Follows symlinks/junctions.
 bool CanAccessDirectory(const std::string &path);
 
-bool IsDevNull(const char *path);
-
 // Returns true if `path` refers to a directory or a symlink/junction to one.
 bool IsDirectory(const std::string& path);
-
-// Returns true if `path` is the root directory or a Windows drive root.
-bool IsRootDirectory(const std::string &path);
-
-// Returns true if `path` is absolute.
-bool IsAbsolute(const std::string &path);
 
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie() if syncing fails.
@@ -211,20 +200,7 @@ void ForEachDirectoryEntry(const std::string &path,
                            DirectoryEntryConsumer *consume);
 
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
-const wchar_t *RemoveUncPrefixMaybe(const wchar_t *ptr);
-
-bool AsWindowsPath(const std::string &path, std::string *result,
-                   std::string *error);
-
-bool AsAbsoluteWindowsPath(const std::string &path, std::wstring *wpath,
-                           std::string *error);
-
-// Same as `AsWindowsPath`, but returns a lowercase 8dot3 style shortened path.
-// Result will never have a UNC prefix, nor a trailing "/" or "\".
-// Works also for non-existent paths; shortens as much of them as it can.
-// Also works for non-existent drives.
-bool AsShortWindowsPath(const std::string &path, std::string *result,
-                        std::string *error);
+std::wstring GetCwdW();
 #endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 
 }  // namespace blaze_util

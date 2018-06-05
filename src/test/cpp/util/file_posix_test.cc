@@ -19,6 +19,8 @@
 
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/test/cpp/util/test_util.h"
 #include "googletest/include/gtest/gtest.h"
 
@@ -44,73 +46,6 @@ static bool CreateEmptyFile(const string& path) {
     return false;
   }
   return close(fd) == 0;
-}
-
-TEST(FilePosixTest, TestDirname) {
-  // The Posix version of SplitPath (thus Dirname too, which is implemented on
-  // top of it) is not aware of Windows paths.
-  ASSERT_EQ("", Dirname(""));
-  ASSERT_EQ("/", Dirname("/"));
-  ASSERT_EQ("", Dirname("foo"));
-  ASSERT_EQ("/", Dirname("/foo"));
-  ASSERT_EQ("/foo", Dirname("/foo/"));
-  ASSERT_EQ("foo", Dirname("foo/bar"));
-  ASSERT_EQ("foo/bar", Dirname("foo/bar/baz"));
-  ASSERT_EQ("", Dirname("\\foo"));
-  ASSERT_EQ("", Dirname("\\foo\\"));
-  ASSERT_EQ("", Dirname("foo\\bar"));
-  ASSERT_EQ("", Dirname("foo\\bar\\baz"));
-  ASSERT_EQ("foo\\bar", Dirname("foo\\bar/baz\\qux"));
-  ASSERT_EQ("c:", Dirname("c:/"));
-  ASSERT_EQ("", Dirname("c:\\"));
-  ASSERT_EQ("c:", Dirname("c:/foo"));
-  ASSERT_EQ("", Dirname("c:\\foo"));
-  ASSERT_EQ("", Dirname("\\\\?\\c:\\"));
-  ASSERT_EQ("", Dirname("\\\\?\\c:\\foo"));
-}
-
-TEST(FilePosixTest, TestBasename) {
-  // The Posix version of SplitPath (thus Basename too, which is implemented on
-  // top of it) is not aware of Windows paths.
-  ASSERT_EQ("", Basename(""));
-  ASSERT_EQ("", Basename("/"));
-  ASSERT_EQ("foo", Basename("foo"));
-  ASSERT_EQ("foo", Basename("/foo"));
-  ASSERT_EQ("", Basename("/foo/"));
-  ASSERT_EQ("bar", Basename("foo/bar"));
-  ASSERT_EQ("baz", Basename("foo/bar/baz"));
-  ASSERT_EQ("\\foo", Basename("\\foo"));
-  ASSERT_EQ("\\foo\\", Basename("\\foo\\"));
-  ASSERT_EQ("foo\\bar", Basename("foo\\bar"));
-  ASSERT_EQ("foo\\bar\\baz", Basename("foo\\bar\\baz"));
-  ASSERT_EQ("baz\\qux", Basename("foo\\bar/baz\\qux"));
-  ASSERT_EQ("qux", Basename("qux"));
-  ASSERT_EQ("", Basename("c:/"));
-  ASSERT_EQ("c:\\", Basename("c:\\"));
-  ASSERT_EQ("foo", Basename("c:/foo"));
-  ASSERT_EQ("c:\\foo", Basename("c:\\foo"));
-  ASSERT_EQ("\\\\?\\c:\\", Basename("\\\\?\\c:\\"));
-  ASSERT_EQ("\\\\?\\c:\\foo", Basename("\\\\?\\c:\\foo"));
-}
-
-TEST(FilePosixTest, JoinPath) {
-  std::string path = JoinPath("", "");
-  ASSERT_EQ("", path);
-
-  path = JoinPath("a", "b");
-  ASSERT_EQ("a/b", path);
-
-  path = JoinPath("a/", "b");
-  ASSERT_EQ("a/b", path);
-
-  path = JoinPath("a", "/b");
-  ASSERT_EQ("a/b", path);
-
-  path = JoinPath("a/", "/b");
-  ASSERT_EQ("a/b", path);
-
-  path = JoinPath("/", "/");
-  ASSERT_EQ("/", path);
 }
 
 void MockDirectoryListingFunction(const string& path,
@@ -272,24 +207,6 @@ TEST(FilePosixTest, CanAccess) {
   ASSERT_EQ(0, rmdir(dir.c_str()));
 }
 
-TEST(FilePosixTest, GetCwd) {
-  char cwdbuf[PATH_MAX];
-  ASSERT_EQ(cwdbuf, getcwd(cwdbuf, PATH_MAX));
-
-  // Assert that GetCwd() and getcwd() return the same value.
-  string cwd(cwdbuf);
-  ASSERT_EQ(cwd, blaze_util::GetCwd());
-
-  // Change to a different directory.
-  ASSERT_EQ(0, chdir("/usr"));
-
-  // Assert that GetCwd() returns the new CWD.
-  ASSERT_EQ(string("/usr"), blaze_util::GetCwd());
-
-  ASSERT_EQ(0, chdir(cwd.c_str()));
-  ASSERT_EQ(cwd, blaze_util::GetCwd());
-}
-
 TEST(FilePosixTest, ChangeDirectory) {
   // Retrieve the current working directory.
   char old_wd[PATH_MAX];
@@ -403,34 +320,6 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
   unlink(file.c_str());
   unlink(file_sym.c_str());
   rmdir(root.c_str());
-}
-
-TEST(FilePosixTest, IsAbsolute) {
-  ASSERT_FALSE(IsAbsolute(""));
-  ASSERT_TRUE(IsAbsolute("/"));
-  ASSERT_TRUE(IsAbsolute("/foo"));
-  ASSERT_FALSE(IsAbsolute("\\"));
-  ASSERT_FALSE(IsAbsolute("\\foo"));
-  ASSERT_FALSE(IsAbsolute("c:"));
-  ASSERT_FALSE(IsAbsolute("c:/"));
-  ASSERT_FALSE(IsAbsolute("c:\\"));
-  ASSERT_FALSE(IsAbsolute("c:\\foo"));
-  ASSERT_FALSE(IsAbsolute("\\\\?\\c:\\"));
-  ASSERT_FALSE(IsAbsolute("\\\\?\\c:\\foo"));
-}
-
-TEST(FilePosixTest, IsRootDirectory) {
-  ASSERT_FALSE(IsRootDirectory(""));
-  ASSERT_TRUE(IsRootDirectory("/"));
-  ASSERT_FALSE(IsRootDirectory("/foo"));
-  ASSERT_FALSE(IsRootDirectory("\\"));
-  ASSERT_FALSE(IsRootDirectory("\\foo"));
-  ASSERT_FALSE(IsRootDirectory("c:"));
-  ASSERT_FALSE(IsRootDirectory("c:/"));
-  ASSERT_FALSE(IsRootDirectory("c:\\"));
-  ASSERT_FALSE(IsRootDirectory("c:\\foo"));
-  ASSERT_FALSE(IsRootDirectory("\\\\?\\c:\\"));
-  ASSERT_FALSE(IsRootDirectory("\\\\?\\c:\\foo"));
 }
 
 }  // namespace blaze_util

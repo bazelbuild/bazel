@@ -27,6 +27,8 @@
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 
@@ -136,7 +138,7 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
       "." + parsed_startup_options_->GetLowercaseProductName() + "rc";
 
   if (cmd_line_rc_file != nullptr) {
-    string rcFile = MakeAbsolute(cmd_line_rc_file);
+    string rcFile = blaze_util::MakeAbsolute(cmd_line_rc_file);
     if (!blaze_util::CanReadFile(rcFile)) {
       blaze_util::StringPrintf(error,
           "Error: Unable to read %s file '%s'.", rc_basename.c_str(),
@@ -424,7 +426,7 @@ static void PreprocessEnvString(string* env_str) {
   } else if (name == "TMP") {
     // A valid Windows path "c:/foo" is also a valid Unix path list of
     // ["c", "/foo"] so must use ConvertPath here. See GitHub issue #1684.
-    env_str->assign("TMP=" + ConvertPath(env_str->substr(pos + 1)));
+    env_str->assign("TMP=" + blaze_util::ConvertPath(env_str->substr(pos + 1)));
   }
 }
 
@@ -477,7 +479,7 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
       // from multiple places.
       if (rcfile_indexes.find(source_path) != rcfile_indexes.end()) continue;
 
-      result.push_back("--rc_source=" + blaze::ConvertPath(source_path));
+      result.push_back("--rc_source=" + blaze_util::ConvertPath(source_path));
       rcfile_indexes[source_path] = cur_index;
       cur_index++;
     }
@@ -503,7 +505,7 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
   for (const string& env_var : env) {
     result.push_back("--client_env=" + env_var);
   }
-  result.push_back("--client_cwd=" + blaze::ConvertPath(cwd));
+  result.push_back("--client_cwd=" + blaze_util::ConvertPath(cwd));
   return result;
 }
 

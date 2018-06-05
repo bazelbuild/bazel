@@ -43,18 +43,6 @@ const unsigned int kPostShutdownGracePeriodSeconds = 60;
 
 const unsigned int kPostKillGracePeriodSeconds = 10;
 
-string MakeAbsolute(const string &p) {
-  string path = ConvertPath(p);
-  if (path.empty()) {
-    return blaze_util::GetCwd();
-  }
-  if (blaze_util::IsDevNull(path.c_str()) || blaze_util::IsAbsolute(path)) {
-    return path;
-  }
-
-  return blaze_util::JoinPath(blaze_util::GetCwd(), path);
-}
-
 const char* GetUnaryOption(const char *arg,
                            const char *next_arg,
                            const char *key) {

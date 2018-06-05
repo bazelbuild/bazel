@@ -119,16 +119,6 @@ int ExecuteDaemon(const std::string& exe,
                   const std::string& server_dir,
                   BlazeServerStartup** server_startup);
 
-// Convert a path from Bazel internal form to underlying OS form.
-// On Unixes this is an identity operation.
-// On Windows, Bazel internal form is cygwin path, and underlying OS form
-// is Windows path.
-std::string ConvertPath(const std::string& path);
-
-// Converts `path` to a string that's safe to pass as path in a JVM flag.
-// See https://github.com/bazelbuild/bazel/issues/2576
-std::string PathAsJvmFlag(const std::string& path);
-
 // A character used to separate paths in a list.
 extern const char kListSeparator;
 
@@ -136,12 +126,6 @@ extern const char kListSeparator;
 // Returns true on success, false on failure. The target must be absolute.
 // Implemented via junctions on Windows.
 bool SymlinkDirectories(const std::string& target, const std::string& link);
-
-// Compares two absolute paths. Necessary because the same path can have
-// multiple different names under msys2: "C:\foo\bar" or "C:/foo/bar"
-// (Windows-style) and "/c/foo/bar" (msys2 style). Returns if the paths are
-// equal.
-bool CompareAbsolutePaths(const std::string& a, const std::string& b);
 
 struct BlazeLock {
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
