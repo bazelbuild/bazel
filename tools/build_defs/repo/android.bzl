@@ -19,17 +19,17 @@
 #
 #     # Specify the URL directly:
 #     aar_import_external(
-#         name = 'com_android_support_preference_v14_25_1_0',                              # required
-#         licenses = ['notice'],                                                           # required
+#         name = "com_android_support_preference_v14_25_1_0",                              # required
+#         licenses = ["notice"],                                                           # required
 #         aar_urls = [                                                                     # required
-#             'https://dl.google.com/dl/android/maven2/com/android/support/preference-v14/25.1.0/preference-v14-25.1.0.aar'
+#             "https://dl.google.com/dl/android/maven2/com/android/support/preference-v14/25.1.0/preference-v14-25.1.0.aar"
 #         ],
-#         aar_sha256 = '442473fe5c395ebef26c14eb01d17ceda33ad207a4cc23a32a2ad95b87edfabb', # optional or empty string
+#         aar_sha256 = "442473fe5c395ebef26c14eb01d17ceda33ad207a4cc23a32a2ad95b87edfabb", # optional or empty string
 #         deps = [                                                                         # optional or empty list
-#             '@com_android_support_recyclerview_v7_25_1_0//aar',
-#             '@com_android_support_appcompat_v7_25_1_0//aar',
-#             '@com_android_support_preference_v7_25_1_0//aar',
-#             '@com_android_support_support_v4_25_1_0//aar',
+#             "@com_android_support_recyclerview_v7_25_1_0//aar",
+#             "@com_android_support_appcompat_v7_25_1_0//aar",
+#             "@com_android_support_preference_v7_25_1_0//aar",
+#             "@com_android_support_support_v4_25_1_0//aar",
 #         ],
 #     )
 #
@@ -41,10 +41,10 @@
 #         licenses = ["notice"],                                                      # required
 #         server_urls = ["https://maven.google.com"],                                 # required
 #         deps = [                                                                    # optional or empty list
-#             '@com_android_support_recyclerview_v7_25_1_0//aar',
-#             '@com_android_support_appcompat_v7_25_1_0//aar',
-#             '@com_android_support_preference_v7_25_1_0//aar',
-#             '@com_android_support_support_v4_25_1_0//aar',
+#             "@com_android_support_recyclerview_v7_25_1_0//aar",
+#             "@com_android_support_appcompat_v7_25_1_0//aar",
+#             "@com_android_support_preference_v7_25_1_0//aar",
+#             "@com_android_support_support_v4_25_1_0//aar",
 #         ],
 #     )
 #
@@ -72,7 +72,7 @@ def aar_import_external(aar_sha256, aar_urls, **kwargs):
         **kwargs
     )
 
-def aar_maven_import_external(artifact, server_urls, aar_sha256 = '', **kwargs):
+def aar_maven_import_external(artifact, server_urls, aar_sha256 = "", **kwargs):
     aar_import_external(
         aar_sha256 = aar_sha256,
         aar_urls = convert_artifact_coordinate_to_urls(
