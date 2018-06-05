@@ -191,13 +191,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                             toolsRepository + BaseRuleClasses.DEFAULT_COVERAGE_SUPPORT_VALUE))))
         // Used in the one-per-build coverage report generation action.
         .add(
-            attr(":coverage_report_generator", LABEL)
+            attr("$coverage_report_generator", LABEL)
                 .cfg(HostTransition.INSTANCE)
-                .value(
-                    BaseRuleClasses.coverageReportGeneratorAttribute(
-                        labelCache.getUnchecked(
-                            toolsRepository
-                                + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE)))
+                .value(labelCache.getUnchecked("//tools/defaults:coverage_report_generator"))
                 .singleArtifact())
         .add(attr(":run_under", LABEL).cfg(lipoDataTransition).value(RUN_UNDER))
         .build();

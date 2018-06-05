@@ -180,9 +180,7 @@ public class TestConfiguration extends Fragment {
     @Override
     public FragmentOptions getHost() {
       TestOptions hostOptions = (TestOptions) getDefault();
-      //Need co copy LateBound attribute to make sut its are not null in HostConfiguration.
       hostOptions.coverageSupport = this.coverageSupport;
-      hostOptions.coverageReportGenerator = this.coverageReportGenerator;
       return hostOptions;
     }
   }
