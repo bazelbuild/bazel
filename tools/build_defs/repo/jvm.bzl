@@ -122,7 +122,8 @@ def _jvm_import_external(repository_ctx):
         "",
     ]))
 
-def _convert_to_url(artifact, server_urls, packaging):
+# This method is public for usage in android.bzl macros
+def convert_artifact_coordinate_to_urls(artifact, server_urls, packaging):
     parts = artifact.split(":")
     group_id_part = parts[0].replace(".", "/")
     artifact_id = parts[1]
@@ -199,19 +200,13 @@ jvm_import_external = repository_rule(
     },
 )
 
+
 def jvm_maven_import_external(artifact, server_urls, **kwargs):
     jvm_import_external(
-        artifact_urls = _convert_to_url(artifact, server_urls, "jar"),
-        **kwargs
-    )
-
-def aar_maven_import_external(artifact, server_urls, **kwargs):
-    jvm_import_external(
-        artifact_urls = _convert_to_url(artifact, server_urls, "aar"),
-        rule_name = "aar_import",
-        rule_metadata = {
-            "extension": "aar",
-            "import_attr": "aar = %s",
-        },
+        artifact_urls = convert_artifact_coordinate_to_urls(
+            artifact,
+            server_urls,
+            "jar"
+        ),
         **kwargs
     )
