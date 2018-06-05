@@ -168,7 +168,7 @@ public final class RemoteModule extends BlazeModule {
         logger = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
       }
 
-      final Retrier executeRetrier;
+      final RemoteRetrier executeRetrier;
       final AbstractRemoteActionCache cache;
       if (enableBlobStoreCache) {
         Retrier retrier =
@@ -214,6 +214,7 @@ public final class RemoteModule extends BlazeModule {
                 retrier,
                 digestUtil);
       } else {
+        executeRetrier = null;
         cache = null;
       }
 
