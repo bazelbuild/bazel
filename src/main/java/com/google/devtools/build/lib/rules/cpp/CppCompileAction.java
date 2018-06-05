@@ -170,7 +170,7 @@ public class CppCompileAction extends AbstractAction
    * {@link #mandatoryInputs}. Thus, even with include scanning turned off, we pretend that we
    * "discover" these headers.
    */
-  private final NestedSet<Artifact> prunableInputs;
+  private final NestedSet<Artifact> prunableHeaders;
 
   @Nullable private final Artifact grepIncludes;
   private final boolean shouldScanIncludes;
@@ -271,7 +271,7 @@ public class CppCompileAction extends AbstractAction
       NestedSet<Artifact> mandatoryInputs,
       Iterable<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> builtinIncludeFiles,
-      NestedSet<Artifact> prunableInputs,
+      NestedSet<Artifact> prunableHeaders,
       Artifact outputFile,
       DotdFile dotdFile,
       @Nullable Artifact gcnoFile,
@@ -304,7 +304,7 @@ public class CppCompileAction extends AbstractAction
         // artifact and will definitely exist prior to this action execution.
         mandatoryInputs,
         inputsForInvalidation,
-        prunableInputs,
+        prunableHeaders,
         // inputsKnown begins as the logical negation of shouldScanIncludes.
         // When scanning includes, the inputs begin as not known, and become
         // known after inclusion scanning. When *not* scanning includes,
@@ -350,7 +350,7 @@ public class CppCompileAction extends AbstractAction
       Artifact sourceFile,
       NestedSet<Artifact> mandatoryInputs,
       Iterable<Artifact> inputsForInvalidation,
-      NestedSet<Artifact> prunableInputs,
+      NestedSet<Artifact> prunableHeaders,
       boolean shouldScanIncludes,
       boolean shouldPruneModules,
       boolean pruneCppInputDiscovery,
@@ -381,7 +381,7 @@ public class CppCompileAction extends AbstractAction
     this.sourceFile = sourceFile;
     this.mandatoryInputs = mandatoryInputs;
     this.inputsForInvalidation = inputsForInvalidation;
-    this.prunableInputs = prunableInputs;
+    this.prunableHeaders = prunableHeaders;
     this.shouldScanIncludes = shouldScanIncludes;
     this.shouldPruneModules = shouldPruneModules;
     this.pruneCppInputDiscovery = pruneCppInputDiscovery;
@@ -455,8 +455,8 @@ public class CppCompileAction extends AbstractAction
 
   /**
    * Returns the list of additional inputs found by dependency discovery, during action preparation,
-   * and clears the stored list. {@link Action#prepare} must be called before this method is called,
-   * on each action execution.
+   * and clears the stored list. {@link #discoverInputs(ActionExecutionContext)} must be called
+   * before this method is called on each action execution.
    */
   public Iterable<Artifact> getAdditionalInputs() {
     Iterable<Artifact> result = Preconditions.checkNotNull(additionalInputs);
@@ -472,18 +472,17 @@ public class CppCompileAction extends AbstractAction
   @Override
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   public Iterable<Artifact> getPossibleInputsForTesting() {
-    return Iterables.concat(getInputs(), prunableInputs);
+    return Iterables.concat(getInputs(), prunableHeaders);
   }
 
   /**
-   * Returns the results of include scanning or, when that is null, all prunable inputs and header
-   * modules.
+   * Returns the results of include scanning or, when that is null, all prunable headers.
    */
-  private Iterable<Artifact> findAdditionalInputs(ActionExecutionContext actionExecutionContext)
+  private Iterable<Artifact> findUsedHeaders(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Iterable<Artifact> initialResult;
+    Iterable<Artifact> includeScanningResult;
     try {
-      initialResult =
+      includeScanningResult =
           actionExecutionContext
               .getContext(CppIncludeScanningContext.class)
               .findAdditionalInputs(this, actionExecutionContext, includeProcessing);
@@ -494,52 +493,43 @@ public class CppCompileAction extends AbstractAction
           this);
     }
 
-    if (initialResult == null) {
-      NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-      if (useHeaderModules) {
-        // Here, we cannot really know what the top-level modules are, so we just mark all
-        // transitive modules as "top level".
-        topLevelModules =
-            Sets.newLinkedHashSet(ccCompilationContext.getTransitiveModules(usePic).toCollection());
-        result.addTransitive(ccCompilationContext.getTransitiveModules(usePic));
-      }
-      result.addTransitive(prunableInputs);
-      return result.build();
-    } else {
-      return initialResult;
-    }
+    return includeScanningResult == null ? prunableHeaders : includeScanningResult;
   }
 
   @Nullable
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Iterable<Artifact> initialResult = findAdditionalInputs(actionExecutionContext);
-
-    if (shouldPruneModules) {
-      Set<Artifact> initialResultSet = Sets.newLinkedHashSet(initialResult);
-      if (sourceFile.isFileType(CppFileTypes.CPP_MODULE)) {
-        usedModules = ImmutableSet.of(sourceFile);
-        initialResultSet.add(sourceFile);
-      } else {
-        usedModules = Sets.newLinkedHashSet();
-        topLevelModules = null;
-        for (CcCompilationContext.TransitiveModuleHeaders usedModule :
-            ccCompilationContext.getUsedModules(usePic, initialResultSet)) {
-          usedModules.add(usedModule.getModule());
-        }
-        initialResultSet.addAll(usedModules);
-      }
-      initialResult = initialResultSet;
+    Iterable<Artifact> foundHeaders = findUsedHeaders(actionExecutionContext);
+    if (!shouldPruneModules) {
+      additionalInputs = foundHeaders;
+      return additionalInputs;
     }
 
-    additionalInputs = initialResult;
+    Set<Artifact> usedHeadersAndModules = Sets.newLinkedHashSet(foundHeaders);
+    if (sourceFile.isFileType(CppFileTypes.CPP_MODULE)) {
+      // If we are generating code from a module, the module is all we need.
+      // TODO(djasper): Do we really need the source files?
+      usedModules = ImmutableSet.of(sourceFile);
+      usedHeadersAndModules.add(sourceFile);
+    } else {
+      usedModules = Sets.newLinkedHashSet();
+      // usedHeadersAndModules only contains headers now, so we can pass it to getUsedModules()
+      // (and even if it contained other things, it's only used to check for the presence of headers
+      // so it would not matter)
+      for (CcCompilationContext.TransitiveModuleHeaders usedModule :
+          ccCompilationContext.getUsedModules(usePic, usedHeadersAndModules)) {
+        usedModules.add(usedModule.getModule());
+      }
+      usedHeadersAndModules.addAll(usedModules);
+    }
+    additionalInputs = usedHeadersAndModules;
     return additionalInputs;
   }
 
   @Override
   public Iterable<Artifact> discoverInputsStage2(SkyFunction.Environment env)
-      throws ActionExecutionException, InterruptedException {
+      throws InterruptedException {
     if (this.usedModules == null) {
       return null;
     }
@@ -607,10 +597,6 @@ public class CppCompileAction extends AbstractAction
    */
   public Artifact getOutputFile() {
     return outputFile;
-  }
-
-  protected PathFragment getInternalOutputFile() {
-    return outputFile.getExecPath();
   }
 
   @Override
@@ -854,7 +840,7 @@ public class CppCompileAction extends AbstractAction
     IncludeProblems errors = new IncludeProblems();
     IncludeProblems warnings = new IncludeProblems();
     Set<Artifact> allowedIncludes = new HashSet<>();
-    for (Artifact input : Iterables.concat(mandatoryInputs, prunableInputs)) {
+    for (Artifact input : Iterables.concat(mandatoryInputs, prunableHeaders)) {
       if (input.isMiddlemanArtifact() || input.isTreeArtifact()) {
         actionExecutionContext.getArtifactExpander().expand(input, allowedIncludes);
       }
@@ -1045,7 +1031,7 @@ public class CppCompileAction extends AbstractAction
   public Iterable<Artifact> getAllowedDerivedInputs() {
     HashSet<Artifact> result = new HashSet<>();
     addNonSources(result, mandatoryInputs);
-    addNonSources(result, prunableInputs);
+    addNonSources(result, prunableHeaders);
     addNonSources(result, getDeclaredIncludeSrcs());
     addNonSources(result, ccCompilationContext.getTransitiveCompilationPrerequisites());
     addNonSources(result, ccCompilationContext.getTransitiveModules(usePic));
@@ -1139,7 +1125,7 @@ public class CppCompileAction extends AbstractAction
     fp.addInt(0); // mark the boundary between input types
     actionKeyContext.addNestedSetToFingerprint(fp, getMandatoryInputs());
     fp.addInt(0);
-    actionKeyContext.addNestedSetToFingerprint(fp, prunableInputs);
+    actionKeyContext.addNestedSetToFingerprint(fp, prunableHeaders);
   }
 
   @Override
@@ -1332,7 +1318,7 @@ public class CppCompileAction extends AbstractAction
   public Iterable<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Iterable<Artifact> discoveredInputs = findAdditionalInputs(actionExecutionContext);
+    Iterable<Artifact> discoveredInputs = findUsedHeaders(actionExecutionContext);
     return Sets.<Artifact>difference(
         ImmutableSet.<Artifact>copyOf(discoveredInputs),
         ImmutableSet.<Artifact>copyOf(getInputs()));
