@@ -45,8 +45,8 @@ import java.io.Serializable;
  *       {@link SkylarkSemanticsCodec#deserialize}.
  *
  *   <li>Add a line to set the new field in both {@link
- *       SkylarkSemanticsOptionsTest#buildRandomOptions} and {@link
- *       SkylarkSemanticsOptions#buildRandomSemantics}.
+ *       SkylarkSemanticsConsistencyTest#buildRandomOptions} and {@link
+ *       SkylarkSemanticsConsistencyTest#buildRandomSemantics}.
  *
  *   <li>Update manual documentation in site/docs/skylark/backward-compatibility.md. Also remember
  *       to update this when flipping a flag's default value.
