@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
+import com.google.devtools.build.lib.skyframe.ToolchainUtil.InvalidConstraintValueException;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.UnresolvedToolchainsException;
@@ -258,6 +259,82 @@ public class ToolchainUtilTest extends ToolchainTestCase {
         .contains("//invalid:not_a_platform");
   }
 
+  @Test
+  public void createToolchainContext_execConstraints() throws Exception {
+    // This should select platform linux, toolchain extra_toolchain_linux, due to extra constraints,
+    // even though platform mac is registered first.
+    addToolchain(
+        /* packageName= */ "extra",
+        /* toolchainName= */ "extra_toolchain_linux",
+        /* execConstraints= */ ImmutableList.of("//constraints:linux"),
+        /* targetConstraints= */ ImmutableList.of("//constraints:linux"),
+        /* data= */ "baz");
+    addToolchain(
+        /* packageName= */ "extra",
+        /* toolchainName= */ "extra_toolchain_mac",
+        /* execConstraints= */ ImmutableList.of("//constraints:mac"),
+        /* targetConstraints= */ ImmutableList.of("//constraints:linux"),
+        /* data= */ "baz");
+    rewriteWorkspace(
+        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')",
+        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    CreateToolchainContextKey key =
+        CreateToolchainContextKey.create(
+            "test",
+            ImmutableSet.of(testToolchainType),
+            ImmutableSet.of(Label.parseAbsoluteUnchecked("//constraints:linux")),
+            targetConfigKey);
+
+    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    ToolchainContext toolchainContext = result.get(key).toolchainContext();
+    assertThat(toolchainContext).isNotNull();
+
+    assertThat(toolchainContext.getRequiredToolchains()).containsExactly(testToolchainType);
+    assertThat(toolchainContext.getResolvedToolchainLabels())
+        .containsExactly(Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"));
+
+    assertThat(toolchainContext.getExecutionPlatform()).isNotNull();
+    assertThat(toolchainContext.getExecutionPlatform().label())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
+
+    assertThat(toolchainContext.getTargetPlatform()).isNotNull();
+    assertThat(toolchainContext.getTargetPlatform().label())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
+  }
+
+  @Test
+  public void createToolchainContext_execConstraints_invalid() throws Exception {
+    CreateToolchainContextKey key =
+        CreateToolchainContextKey.create(
+            "test",
+            ImmutableSet.of(testToolchainType),
+            ImmutableSet.of(Label.parseAbsoluteUnchecked("//platforms:linux")),
+            targetConfigKey);
+
+    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .isInstanceOf(ToolchainContextException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasCauseThat()
+        .isInstanceOf(InvalidConstraintValueException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasCauseThat()
+        .hasMessageThat()
+        .contains("//platforms:linux");
+  }
+
   // Calls ToolchainUtil.createToolchainContext.
   private static final SkyFunctionName CREATE_TOOLCHAIN_CONTEXT_FUNCTION =
       SkyFunctionName.create("CREATE_TOOLCHAIN_CONTEXT_FUNCTION");
@@ -271,7 +348,9 @@ public class ToolchainUtilTest extends ToolchainTestCase {
 
     abstract String targetDescription();
 
-    abstract Set<Label> requiredToolchains();
+    abstract ImmutableSet<Label> requiredToolchains();
+
+    abstract ImmutableSet<Label> execConstraintLabels();
 
     abstract BuildConfigurationValue.Key configurationKey();
 
@@ -279,8 +358,23 @@ public class ToolchainUtilTest extends ToolchainTestCase {
         String targetDescription,
         Set<Label> requiredToolchains,
         BuildConfigurationValue.Key configurationKey) {
+      return create(
+          targetDescription,
+          requiredToolchains,
+          /* execConstraintLabels= */ ImmutableSet.of(),
+          configurationKey);
+    }
+
+    public static CreateToolchainContextKey create(
+        String targetDescription,
+        Set<Label> requiredToolchains,
+        Set<Label> execConstraintLabels,
+        BuildConfigurationValue.Key configurationKey) {
       return new AutoValue_ToolchainUtilTest_CreateToolchainContextKey(
-          targetDescription, requiredToolchains, configurationKey);
+          targetDescription,
+          ImmutableSet.copyOf(requiredToolchains),
+          ImmutableSet.copyOf(execConstraintLabels),
+          configurationKey);
     }
   }
 
@@ -325,7 +419,11 @@ public class ToolchainUtilTest extends ToolchainTestCase {
       try {
         toolchainContext =
             ToolchainUtil.createToolchainContext(
-                env, key.targetDescription(), key.requiredToolchains(), key.configurationKey());
+                env,
+                key.targetDescription(),
+                key.requiredToolchains(),
+                key.execConstraintLabels(),
+                key.configurationKey());
         if (toolchainContext == null) {
           return null;
         }

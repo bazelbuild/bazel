@@ -202,6 +202,23 @@ public class RuleClass {
   }
 
   /**
+   * Describes in which way a rule implementation allows additional execution platform constraints.
+   */
+  public enum ExecutionPlatformConstraintsAllowed {
+    /**
+     * Allows additional execution platform constraints to be added in the rule definition, which
+     * apply to all targets of that rule.
+     */
+    PER_RULE,
+    /**
+     * Users are allowed to specify additional execution platform constraints for each target, using
+     * the 'exec_compatible_with' attribute. This also allows setting constraints in the rule
+     * definition, like PER_RULE.
+     */
+    PER_TARGET;
+  }
+
+  /**
    * For Bazel's constraint system: the attribute that declares the set of environments a rule
    * supports, overriding the defaults for their respective groups.
    */
@@ -615,6 +632,9 @@ public class RuleClass {
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<Label> requiredToolchains = new HashSet<>();
     private boolean supportsPlatforms = true;
+    private ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed =
+        ExecutionPlatformConstraintsAllowed.PER_RULE;
+    private Set<Label> executionPlatformConstraints = new HashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
 
     /**
@@ -648,6 +668,8 @@ public class RuleClass {
 
         addRequiredToolchains(parent.getRequiredToolchains());
         supportsPlatforms = parent.supportsPlatforms;
+        // executionPlatformConstraintsAllowed is not inherited and takes the default.
+        addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
 
         for (Attribute attribute : parent.getAttributes()) {
           String attrName = attribute.getName();
@@ -656,6 +678,13 @@ public class RuleClass {
               "Attribute %s is inherited multiple times in %s ruleclass",
               attrName,
               name);
+          if (attrName.equals("exec_compatible_with")
+              && parent.executionPlatformConstraintsAllowed
+                  == ExecutionPlatformConstraintsAllowed.PER_TARGET) {
+            // This attribute should not be inherited because executionPlatformConstraintsAllowed is
+            // not inherited.
+            continue;
+          }
           attributes.put(attrName, attribute);
         }
 
@@ -708,6 +737,19 @@ public class RuleClass {
       if (type == RuleClassType.PLACEHOLDER) {
         Preconditions.checkNotNull(ruleDefinitionEnvironmentHashCode, this.name);
       }
+      if (executionPlatformConstraintsAllowed == ExecutionPlatformConstraintsAllowed.PER_TARGET) {
+        // Only rules that allow per target execution constraints need this attribute.
+        Preconditions.checkState(
+            !this.attributes.containsKey("exec_compatible_with"),
+            "Rule should not already define the attribute \"exec_compatible_with\""
+                + " if executionPlatformConstraintsAllowed is set to PER_TARGET");
+        this.add(
+            attr("exec_compatible_with", BuildType.LABEL_LIST)
+                .allowedFileTypes()
+                .nonconfigurable("Used in toolchain resolution")
+                .value(ImmutableList.of()));
+      }
+
       return new RuleClass(
           name,
           key,
@@ -735,6 +777,8 @@ public class RuleClass {
           supportsConstraintChecking,
           requiredToolchains,
           supportsPlatforms,
+          executionPlatformConstraintsAllowed,
+          executionPlatformConstraints,
           outputFileKind,
           attributes.values());
     }
@@ -912,8 +956,8 @@ public class RuleClass {
     /**
      * Applies the given transition factory to all incoming edges for this rule class.
      *
-     * <p>Unlike{@link #cfg(PatchTransition)}, the factory can examine the rule when
-     * deciding what transition to use.
+     * <p>Unlike {@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
+     * transition to use.
      */
     public Builder cfg(RuleTransitionFactory transitionFactory) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
@@ -1161,18 +1205,62 @@ public class RuleClass {
       return this;
     }
 
+    /**
+     * Causes rules of this type to require the specified toolchains be available via toolchain
+     * resolution when a target is configured.
+     */
     public Builder addRequiredToolchains(Iterable<Label> toolchainLabels) {
       Iterables.addAll(this.requiredToolchains, toolchainLabels);
       return this;
     }
 
+    /**
+     * Causes rules of this type to require the specified toolchains be available via toolchain
+     * resolution when a target is configured.
+     */
     public Builder addRequiredToolchains(Label... toolchainLabels) {
-      Iterables.addAll(this.requiredToolchains, Lists.newArrayList(toolchainLabels));
+      return this.addRequiredToolchains(Lists.newArrayList(toolchainLabels));
+    }
+
+    /**
+     * Rules that support platforms can use toolchains and execution platforms. Rules that are part
+     * of configuring toolchains and platforms should set this to {@code false}.
+     */
+    public Builder supportsPlatforms(boolean flag) {
+      this.supportsPlatforms = flag;
       return this;
     }
 
-    public Builder supportsPlatforms(boolean flag) {
-      this.supportsPlatforms = flag;
+    /**
+     * Specifies whether targets of this rule can add additional constraints on the execution
+     * platform selected. If this is {@link ExecutionPlatformConstraintsAllowed#PER_TARGET}, there
+     * will be an attribute named {@code exec_compatible_with} that can be used to add these
+     * constraints.
+     *
+     * <p>Please note that this value is not inherited by child rules, and must be re-set on them if
+     * the same behavior is required.
+     */
+    public Builder executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed value) {
+      this.executionPlatformConstraintsAllowed = value;
+      return this;
+    }
+
+    /**
+     * Adds additional execution platform constraints that apply for all targets from this rule.
+     *
+     * <p>Please note that this value is inherited by child rules.
+     */
+    public Builder addExecutionPlatformConstraints(Label... constraints) {
+      return this.addExecutionPlatformConstraints(Lists.newArrayList(constraints));
+    }
+
+    /**
+     * Adds additional execution platform constraints that apply for all targets from this rule.
+     *
+     * <p>Please note that this value is inherited by child rules.
+     */
+    public Builder addExecutionPlatformConstraints(Iterable<Label> constraints) {
+      Iterables.addAll(this.executionPlatformConstraints, constraints);
       return this;
     }
 
@@ -1294,6 +1382,8 @@ public class RuleClass {
 
   private final ImmutableSet<Label> requiredToolchains;
   private final boolean supportsPlatforms;
+  private final ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed;
+  private final ImmutableSet<Label> executionPlatformConstraints;
 
   /**
    * Constructs an instance of RuleClass whose name is 'name', attributes are 'attributes'. The
@@ -1343,6 +1433,8 @@ public class RuleClass {
       boolean supportsConstraintChecking,
       Set<Label> requiredToolchains,
       boolean supportsPlatforms,
+      ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed,
+      Set<Label> executionPlatformConstraints,
       OutputFile.Kind  outputFileKind,
       Collection<Attribute> attributes) {
     this.name = name;
@@ -1375,6 +1467,8 @@ public class RuleClass {
     this.supportsConstraintChecking = supportsConstraintChecking;
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
     this.supportsPlatforms = supportsPlatforms;
+    this.executionPlatformConstraintsAllowed = executionPlatformConstraintsAllowed;
+    this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
 
     // Create the index and collect non-configurable attributes.
     int index = 0;
@@ -2189,6 +2283,14 @@ public class RuleClass {
 
   public boolean supportsPlatforms() {
     return supportsPlatforms;
+  }
+
+  public ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed() {
+    return executionPlatformConstraintsAllowed;
+  }
+
+  public ImmutableSet<Label> getExecutionPlatformConstraints() {
+    return executionPlatformConstraints;
   }
 
   @Nullable
