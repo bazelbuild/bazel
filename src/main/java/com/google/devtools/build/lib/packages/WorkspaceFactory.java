@@ -490,22 +490,23 @@ public class WorkspaceFactory {
                     + kwargs.get("name")
                     + "')");
           }
-          if (kwargs.containsKey("repo_mapping")) {
-            if (!(kwargs.get("repo_mapping") instanceof Map)) {
-              throw new EvalException(
-                  ast.getLocation(),
-                  "Invalid value for 'repo_mapping': '" + kwargs.get("repo_mapping")
-                      + "'. Value must be a map."
-              );
-            }
-            @SuppressWarnings("unchecked")
-            Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
-            String externalRepoName = (String) kwargs.get("name");
-            for (Map.Entry<String, String> e : map.entrySet()) {
-              builder.addRepositoryMappingEntry(
-                  RepositoryName.createFromValidStrippedName(externalRepoName),
-                  RepositoryName.create((String) e.getKey()),
-                  RepositoryName.create((String) e.getValue()));
+          if (env.getSemantics().experimentalEnableRepoMapping()) {
+            if (kwargs.containsKey("repo_mapping")) {
+              if (!(kwargs.get("repo_mapping") instanceof Map)) {
+                throw new EvalException(
+                    ast.getLocation(),
+                    "Invalid value for 'repo_mapping': '" + kwargs.get("repo_mapping")
+                        + "'. Value must be a map.");
+              }
+              @SuppressWarnings("unchecked")
+              Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
+              String externalRepoName = (String) kwargs.get("name");
+              for (Map.Entry<String, String> e : map.entrySet()) {
+                builder.addRepositoryMappingEntry(
+                    RepositoryName.createFromValidStrippedName(externalRepoName),
+                    RepositoryName.create((String) e.getKey()),
+                    RepositoryName.create((String) e.getValue()));
+              }
             }
           }
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
