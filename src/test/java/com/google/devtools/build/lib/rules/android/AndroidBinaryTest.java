@@ -180,6 +180,34 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testMainDexListObfuscation() throws Exception {
+    useConfiguration("--noincremental_dexing");
+    scratch.file("/java/a/list.txt");
+    ConfiguredTarget ct =
+        scratchConfiguredTarget(
+            "java/a",
+            "a",
+            "android_binary(",
+            "    name = 'a',",
+            "    srcs = ['A.java'],",
+            "    manifest = 'AndroidManifest.xml',",
+            "    multidex = 'manual_main_dex',",
+            "    proguard_generate_mapping = 1,",
+            "    main_dex_list = 'list.txt')");
+
+    Artifact obfuscatedDexList =
+        artifactByPath(
+            ImmutableList.of(getCompressedUnsignedApk(ct)),
+            ".apk",
+            ".dex.zip",
+            ".dex.zip",
+            "main_dex_list.txt");
+    List<String> args = getGeneratingSpawnActionArgs(obfuscatedDexList);
+    assertThat(args.get(0)).contains("dex_list_obfuscator");
+    MoreAsserts.assertContainsSublist(args, "--input", "java/a/list.txt");
+  }
+
+  @Test
   public void testNonLegacyNativeDepsDoesNotPolluteDexSharding() throws Exception {
     scratch.file("java/a/BUILD",
         "android_binary(name = 'a',",
