@@ -55,6 +55,7 @@ import java.util.logging.Logger;
 public final class GraphBackedRecursivePackageProvider extends AbstractRecursivePackageProvider {
 
   private final WalkableGraph graph;
+  private final ImmutableList<Root> pkgRoots;
   private final RootPackageExtractor rootPackageExtractor;
   private final ImmutableList<TargetPatternKey> universeTargetPatternKeys;
 
@@ -66,8 +67,8 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
       ImmutableList<TargetPatternKey> universeTargetPatternKeys,
       PathPackageLocator pkgPath,
       RootPackageExtractor rootPackageExtractor) {
-    super(pkgPath);
     this.graph = Preconditions.checkNotNull(graph);
+    this.pkgRoots = pkgPath.getPathEntries();
     this.universeTargetPatternKeys = Preconditions.checkNotNull(universeTargetPatternKeys);
     this.rootPackageExtractor = rootPackageExtractor;
   }
@@ -193,7 +194,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
 
     List<Root> roots = new ArrayList<>();
     if (repository.isMain()) {
-      roots.addAll(getPkgPath().getPathEntries());
+      roots.addAll(pkgRoots);
     } else {
       RepositoryDirectoryValue repositoryValue =
           (RepositoryDirectoryValue) graph.getValue(RepositoryDirectoryValue.key(repository));

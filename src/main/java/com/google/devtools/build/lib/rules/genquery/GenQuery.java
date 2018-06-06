@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -276,7 +277,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
     ImmutableMap<PackageIdentifier, Package> packageMap = closureInfo.first;
     ImmutableMap<Label, Target> validTargetsMap = closureInfo.second;
-    PackageProvider packageProvider = new PreloadedMapPackageProvider(packageMap, validTargetsMap);
+    PreloadedMapPackageProvider packageProvider =
+        new PreloadedMapPackageProvider(packageMap, validTargetsMap);
     TargetPatternEvaluator evaluator = new SkyframeEnvTargetPatternEvaluator(env);
     Predicate<Label> labelFilter = Predicates.in(validTargetsMap.keySet());
 
@@ -287,7 +289,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
   @Nullable
   private ByteString doQuery(
       QueryOptions queryOptions,
-      PackageProvider packageProvider,
+      PreloadedMapPackageProvider packageProvider,
       Predicate<Label> labelFilter,
       TargetPatternEvaluator evaluator,
       String query,
@@ -528,7 +530,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
   /**
    * Provide packages and targets to the query operations using precomputed transitive closure.
    */
-  private static final class PreloadedMapPackageProvider implements PackageProvider {
+  private static final class PreloadedMapPackageProvider
+      implements PackageProvider, CachingPackageLocator {
 
     private final ImmutableMap<PackageIdentifier, Package> pkgMap;
     private final ImmutableMap<Label, Target> labelToTarget;
