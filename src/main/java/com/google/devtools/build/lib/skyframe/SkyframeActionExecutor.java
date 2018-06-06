@@ -1272,5 +1272,11 @@ public final class SkyframeActionExecutor {
           ? metadata
           : perBuildFileCache.getMetadata(input);
     }
+
+    @Override
+    public ActionInput getInput(String execPath) {
+      ActionInput input = perActionCache.getInput(execPath);
+      return input != null ? input : perBuildFileCache.getInput(execPath);
+    }
   }
 }

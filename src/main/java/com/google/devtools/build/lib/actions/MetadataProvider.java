@@ -45,4 +45,11 @@ public interface MetadataProvider {
    */
   @Nullable
   Metadata getMetadata(ActionInput input) throws IOException;
+
+  /** Looks up an input from its exec path. */
+  @Nullable
+  default ActionInput getInput(String execPath) {
+    // TODO(shahan): make sure all instances have an implementation and delete the default here.
+    return null;
+  }
 }

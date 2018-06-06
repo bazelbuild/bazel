@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -26,6 +24,8 @@ import com.google.devtools.build.lib.skyframe.FileArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
@@ -44,7 +44,7 @@ public class SingleBuildFileCache implements ActionInputFileCache {
   // If we can't get the digest, we store the exception. This avoids extra file IO for files
   // that are allowed to be missing, as we first check a likely non-existent content file
   // first.  Further we won't need to unwrap the exception in getDigest().
-  private final LoadingCache<ActionInput, ActionInputMetadata> pathToMetadata =
+  private final Cache<String, ActionInputMetadata> pathToMetadata =
       CacheBuilder.newBuilder()
           // We default to 10 disk read threads, but we don't expect them all to edit the map
           // simultaneously.
@@ -52,45 +52,62 @@ public class SingleBuildFileCache implements ActionInputFileCache {
           // Even small-ish builds, as of 11/21/2011 typically have over 10k artifacts, so it's
           // unlikely that this default will adversely affect memory in most cases.
           .initialCapacity(10000)
-          .build(
-              new CacheLoader<ActionInput, ActionInputMetadata>() {
-                @Override
-                public ActionInputMetadata load(ActionInput input) {
-                  Path path =
-                      (input instanceof Artifact)
-                          ? ((Artifact) input).getPath()
-                          : execRoot.getRelative(input.getExecPath());
-                  try {
-                    FileArtifactValue metadata = FileArtifactValue.create(path);
-                    if (metadata.getType().isDirectory()) {
-                      throw new DigestOfDirectoryException(
-                          "Input is a directory: " + input.getExecPathString());
-                    }
-                    return new ActionInputMetadata(metadata);
-                  } catch (IOException e) {
-                    return new ActionInputMetadata(e);
-                  }
-                }
-              });
+          .build();
 
   @Override
   public Metadata getMetadata(ActionInput input) throws IOException {
-    return pathToMetadata.getUnchecked(input).getMetadata();
+    try {
+      return pathToMetadata
+          .get(
+              input.getExecPathString(),
+              () -> {
+                Path path =
+                    (input instanceof Artifact)
+                        ? ((Artifact) input).getPath()
+                        : execRoot.getRelative(input.getExecPath());
+                try {
+                  FileArtifactValue metadata = FileArtifactValue.create(path);
+                  if (metadata.getType().isDirectory()) {
+                    throw new DigestOfDirectoryException(
+                        "Input is a directory: " + input.getExecPathString());
+                  }
+                  return new ActionInputMetadata(input, metadata);
+                } catch (IOException e) {
+                  return new ActionInputMetadata(input, e);
+                }
+              })
+          .getMetadata();
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("Unexpected cache loading error", e); // Should never happen.
+    }
+  }
+
+  @Override
+  @Nullable
+  public ActionInput getInput(String execPath) {
+    ActionInputMetadata metadata = pathToMetadata.getIfPresent(execPath);
+    if (metadata == null) {
+      return null;
+    }
+    return metadata.getInput();
   }
 
   /** Container class for caching I/O around ActionInputs. */
   private static class ActionInputMetadata {
+    private final ActionInput input;
     private final Metadata metadata;
     private final IOException exceptionOnAccess;
 
     /** Constructor for a successful lookup. */
-    ActionInputMetadata(Metadata metadata) {
+    ActionInputMetadata(ActionInput input, Metadata metadata) {
+      this.input = input;
       this.metadata = metadata;
       this.exceptionOnAccess = null;
     }
 
     /** Constructor for a failed lookup, size will be 0. */
-    ActionInputMetadata(IOException exceptionOnAccess) {
+    ActionInputMetadata(ActionInput input, IOException exceptionOnAccess) {
+      this.input = input;
       this.exceptionOnAccess = exceptionOnAccess;
       this.metadata = null;
     }
@@ -98,6 +115,10 @@ public class SingleBuildFileCache implements ActionInputFileCache {
     Metadata getMetadata() throws IOException {
       maybeRaiseException();
       return metadata;
+    }
+
+    ActionInput getInput() {
+      return input;
     }
 
     private void maybeRaiseException() throws IOException {
