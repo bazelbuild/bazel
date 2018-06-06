@@ -386,6 +386,9 @@ public class CppRuleClasses {
    */
   public static final String AUTOFDO = "autofdo";
 
+  /** A string constant for the xbinaryfdo feature. */
+  public static final String XBINARYFDO = "xbinaryfdo";
+
   /**
    * A string constant for the lipo feature.
    */

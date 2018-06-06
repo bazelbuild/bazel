@@ -37,6 +37,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -451,14 +452,19 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
     name = "fdo_optimize",
+    allowMultiple = true,
     defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
         "Use FDO profile information to optimize compilation. Specify the name "
-            + "of the zip file containing the .gcda file tree or an afdo file containing "
-            + "an auto profile. This flag also accepts files specified as labels, for "
-            + "example //foo/bar:file.afdo. Such labels must refer to input files; you may "
+            + "of the zip file containing the .gcda file tree, an afdo file containing "
+            + "an auto profile or an xfdo file containing a default cross binary profile. "
+            + "If the multiple profiles passed through the option include xfdo file and "
+            + "other types of profiles, the last profile other than xfdo file will prevail. "
+            + "If the multiple profiles include only xfdo files or don't include any xfdo file, "
+            + "the last profile will prevail. This flag also accepts files specified as labels, "
+            + "for example //foo/bar:file.afdo. Such labels must refer to input files; you may "
             + "need to add an exports_files directive to the corresponding package to make "
             + "the file visible to Bazel. It also accepts a raw or an indexed LLVM profile file. "
             + "This flag will be superseded by fdo_profile rule."
@@ -468,14 +474,38 @@ public class CppOptions extends FragmentOptions {
    * determines whether these options are actually "active" for this configuration. Instead, use the
    * equivalent getter method, which takes that into account.
    */
-  public String fdoOptimizeForBuild;
+  public List<String> fdoProfiles;
 
   /**
-   * Returns the --fdo_optimize value if FDO is specified and active for this configuration,
-   * the default value otherwise.
+   * Select profile from the list of profiles passed through multiple -fdo_optimize options.
+   */
+  private String selectProfile() {
+    if (fdoProfiles == null) {
+      return null;
+    }
+
+    // Return the last profile in the list that is not a crossbinary profile.
+    String lastXBinaryProfile = null;
+    ListIterator<String> iter = fdoProfiles.listIterator(fdoProfiles.size());
+    while (iter.hasPrevious()) {
+      String profile = iter.previous();
+      if (CppFileTypes.XBINARY_PROFILE.matches(profile)) {
+        lastXBinaryProfile = profile;
+        continue;
+      }
+      return profile;
+    }
+
+    // If crossbinary profile is the only kind of profile in the list, return the last one.
+    return lastXBinaryProfile;
+  }
+
+  /**
+   * Returns the --fdo_optimize value if FDO is specified and active for this
+   * configuration, the default value otherwise.
    */
   public String getFdoOptimize() {
-    return enableLipoSettings() ? fdoOptimizeForBuild : null;
+    return enableLipoSettings() ? selectProfile() : null;
   }
 
   @Option(
@@ -505,9 +535,10 @@ public class CppOptions extends FragmentOptions {
       return false;
     }
 
+    String fdoProfile = selectProfile();
     return lipoModeForBuild != LipoMode.OFF
-        && fdoOptimizeForBuild != null
-        && FdoSupport.isAutoFdo(fdoOptimizeForBuild);
+        && fdoProfile != null
+        && FdoSupport.isAutoFdo(fdoProfile);
   }
 
   @Option(
@@ -972,7 +1003,7 @@ public class CppOptions extends FragmentOptions {
 
     host.useStartEndLib = useStartEndLib;
     host.stripBinaries = StripMode.ALWAYS;
-    host.fdoOptimizeForBuild = null;
+    host.fdoProfiles = null;
     host.fdoProfileLabel = null;
     host.lipoModeForBuild = LipoMode.OFF;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
@@ -1011,7 +1042,7 @@ public class CppOptions extends FragmentOptions {
    * not necessarily active).
    */
   private boolean hasLipoOptimizationState() {
-    return lipoModeForBuild == LipoMode.BINARY && fdoOptimizeForBuild != null
+    return lipoModeForBuild == LipoMode.BINARY && selectProfile() != null
         && lipoContextForBuild != null;
   }
 

@@ -407,6 +407,23 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
+  public static final String XBINARY_FDO_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'xbinaryfdo'"
+          + "  provides: 'profile'"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'lto-backend'"
+          + "    expand_if_all_available: 'fdo_profile_path'"
+          + "    flag_group {"
+          + "      flag: '-fauto-profile=%{fdo_profile_path}'"
+          + "      flag: '-fprofile-correction'"
+          + "    }"
+          + "  }"
+          + "}";
+
   public static final String FDO_OPTIMIZE_CONFIGURATION =
       ""
           + "feature {"

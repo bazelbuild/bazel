@@ -33,7 +33,8 @@ public final class FdoProfileRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(fdo_profile).ATTRIBUTE(profile) -->
         Label of the FDO profile. The FDO file can have one of the following extensions:
         .profraw for unindexed LLVM profile, .profdata for indexed LLVM profile, .zip
-        that holds GCC gcda profile or LLVM profraw profile, or .afdo for AutoFDO profile.
+        that holds GCC gcda profile or LLVM profraw profile, .afdo for AutoFDO profile,
+        or .xfdo for XBinary profile.
         The label can also point to an fdo_absolute_path_profile rule.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
@@ -43,6 +44,7 @@ public final class FdoProfileRule implements RuleDefinition {
                         CppFileTypes.LLVM_PROFILE_RAW,
                         CppFileTypes.LLVM_PROFILE,
                         CppFileTypes.GCC_AUTO_PROFILE,
+                        CppFileTypes.XBINARY_PROFILE,
                         FileType.of(".zip")))
                 .singleArtifact())
         /* <!-- #BLAZE_RULE(fdo_profile).ATTRIBUTE(absolute_path_profile) -->

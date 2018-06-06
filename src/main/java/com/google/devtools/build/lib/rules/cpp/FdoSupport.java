@@ -152,6 +152,9 @@ public class FdoSupport {
     /** FDO based on automatically collected data. */
     AUTO_FDO,
 
+    /** FDO based on cross binary collected data. */
+    XBINARY_FDO,
+
     /** Instrumentation-based FDO implemented on LLVM. */
     LLVM_FDO,
   }
@@ -371,7 +374,7 @@ public class FdoSupport {
       FileSystemUtils.deleteTreesBelow(fdoDirPath);
       FileSystemUtils.createDirectoryAndParents(fdoDirPath);
 
-      if (fdoMode == FdoMode.AUTO_FDO) {
+      if (fdoMode == FdoMode.AUTO_FDO || fdoMode == FdoMode.XBINARY_FDO) {
         if (lipoMode != LipoMode.OFF) {
           imports = readAutoFdoImports(getAutoFdoImportsPath(fdoProfile));
         }
@@ -636,7 +639,8 @@ public class FdoSupport {
               ruleContext, sourceName, sourceExecPath, outputName, usePic, fdoSupportProvider);
       builder.addMandatoryInputs(auxiliaryInputs);
       if (!Iterables.isEmpty(auxiliaryInputs)) {
-        if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)) {
+        if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
+            || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
           variablesBuilder.put(
               CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
               getAutoProfilePath(fdoProfile, fdoRootExecPath).getPathString());
@@ -678,7 +682,9 @@ public class FdoSupport {
     // If --fdo_optimize was not specified, we don't have any additional inputs.
     if (fdoProfile == null) {
       return auxiliaryInputs.build();
-    } else if (fdoMode == FdoMode.LLVM_FDO || fdoMode == FdoMode.AUTO_FDO) {
+    } else if (fdoMode == FdoMode.LLVM_FDO
+        || fdoMode == FdoMode.AUTO_FDO
+        || fdoMode == FdoMode.XBINARY_FDO) {
       auxiliaryInputs.add(fdoSupportProvider.getProfileArtifact());
       if (lipoContextProvider != null) {
         auxiliaryInputs.addAll(getAutoFdoImports(ruleContext, sourceExecPath, lipoContextProvider));
@@ -795,6 +801,12 @@ public class FdoSupport {
     return fdoMode == FdoMode.AUTO_FDO;
   }
 
+  /** Returns whether crossbinary FDO is enabled. */
+  @ThreadSafe
+  public boolean isXBinaryFdoEnabled() {
+    return fdoMode == FdoMode.XBINARY_FDO;
+  }
+
   /**
    * Adds the FDO profile output path to the variable builder. If FDO is disabled, no build variable
    * is added.
@@ -821,7 +833,8 @@ public class FdoSupport {
     if (prefetch != null) {
       buildVariables.addStringVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());
     }
-    if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)) {
+    if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
+        && !featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
       return new ProfileArtifacts(null, prefetch);
     }
 
