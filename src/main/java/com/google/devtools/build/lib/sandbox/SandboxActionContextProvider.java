@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
@@ -71,28 +72,35 @@ final class SandboxActionContextProvider extends ActionContextProvider {
       contexts.add(new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
-    // This strategy uses Docker to execute spawns. It should work on all platforms that support
-    // Docker.
-    getPathToDockerClient(cmdEnv)
-        .ifPresent(
-            dockerClient -> {
-              if (DockerSandboxedSpawnRunner.isSupported(cmdEnv, dockerClient)) {
-                String defaultImage = options.getOptions(SandboxOptions.class).dockerImage;
-                boolean useCustomizedImages =
-                    options.getOptions(SandboxOptions.class).dockerUseCustomizedImages;
-                SpawnRunner spawnRunner =
-                    withFallback(
-                        cmdEnv,
-                        new DockerSandboxedSpawnRunner(
-                            cmdEnv,
-                            dockerClient,
-                            sandboxBase,
-                            defaultImage,
-                            timeoutKillDelay,
-                            useCustomizedImages));
-                contexts.add(new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
-              }
-            });
+    SandboxOptions sandboxOptions = options.getOptions(SandboxOptions.class);
+
+    if (sandboxOptions.enableDockerSandbox) {
+      // This strategy uses Docker to execute spawns. It should work on all platforms that support
+      // Docker.
+      getPathToDockerClient(cmdEnv)
+          .ifPresent(
+              dockerClient -> {
+                if (DockerSandboxedSpawnRunner.isSupported(cmdEnv, dockerClient)) {
+                  String defaultImage = sandboxOptions.dockerImage;
+                  boolean useCustomizedImages = sandboxOptions.dockerUseCustomizedImages;
+                  SpawnRunner spawnRunner =
+                      withFallback(
+                          cmdEnv,
+                          new DockerSandboxedSpawnRunner(
+                              cmdEnv,
+                              dockerClient,
+                              sandboxBase,
+                              defaultImage,
+                              timeoutKillDelay,
+                              useCustomizedImages));
+                  contexts.add(new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+                }
+              });
+    } else if (sandboxOptions.dockerVerbose) {
+      cmdEnv.getReporter().handle(Event.info(
+          "Docker sandboxing disabled. Use the '--experimental_enable_docker_sandbox' command "
+          + "line option to enable it"));
+    }
 
     // This is the preferred sandboxing strategy on Linux.
     if (LinuxSandboxedSpawnRunner.isSupported(cmdEnv)) {
