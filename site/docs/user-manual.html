@@ -83,7 +83,7 @@ title: User Manual
   workspace because their output bases will differ (different userids).
   If the client cannot find a running server instance, it starts a new
   one. The server process will stop after a period of inactivity (3 hours,
-  by default).
+  by default, which can be modified using the startup option <code>--max_idle_secs</code>).
 </p>
 <p>
   For the most part, the fact that there is a server running is
@@ -112,12 +112,6 @@ title: User Manual
   <code>java</code>.)  Bazel servers can be stopped using
   the <a href='#shutdown'>shutdown</a> command.
 </p>
-<p>
-  You can also run Bazel in batch mode using the <code>--batch</code>
-  startup flag. This will immediately shut down the process after the
-  command (build, test, etc.) has finished and not keep a server process
-  around.
-</p>
 
 <p>
   When running <code>bazel</code>, the client first checks that the
@@ -134,7 +128,7 @@ title: User Manual
 
 <p>
   Bazel accepts many options.  Typically, some of these are varied
-  frequently (e.g. <code class='flag'>--subcommands</code>) while others stay the
+  frequently (for example, <code class='flag'>--subcommands</code>) while others stay the
   same across several builds (e.g. <code class='flag'>--package_path</code>).
   To avoid having to specify these unchanged options for every build (and other commands)
   Bazel allows you to specify options in a configuration file.
@@ -287,7 +281,7 @@ title: User Manual
 <pre>
   # Bob's Bazel option defaults
 
-  startup --batch --host_jvm_args=-XX:-UseParallelGC
+  startup --host_jvm_args=-XX:-UseParallelGC
   import /home/bobs_project/bazelrc
   build --show_timestamps --keep_going --jobs 600
   build --color=yes
@@ -2574,7 +2568,7 @@ echo "STABLE_USER_NAME $USER"
 </p>
 <ul>
   <li><a href='#bazelrc'><code class='flag'>--bazelrc=/dev/null</code></a></li>
-  <li><a href='#flag--batch'><code class='flag'>--batch</code></a></li>
+  <li><a href='#flag--keep_state_after_build'><code class='flag'>--nokeep_state_after_build</code></a></li>
 </ul>
 
 <p>
@@ -3576,7 +3570,7 @@ adb -s deadbeef install ...
 </p>
 <p>
   That this does <i>not</i> affect any JVMs used by
-  subprocesses of Bazel: applications, tests, tools, etc.  To pass
+  subprocesses of Bazel: applications, tests, tools, and so on.  To pass
   JVM options to executable Java programs, whether run by <code>bazel
   run</code> or on the command-line, you should use
   the <code>--jvm_flags</code> argument which
@@ -3598,24 +3592,32 @@ adb -s deadbeef install ...
 </p>
 
 <h4 id='flag--batch'><code class='flag'>--batch</code></h4>
+
 <p>
-  This switch will cause bazel to be run in batch mode, instead of the
-  standard client/server mode described <a href='#client/server'>above</a>.
-  Doing so provides more predictable semantics with respect to signal handling,
-  job control, and environment variable inheritance, and is necessary for running
-  bazel in a chroot jail.
+  WARNING: <code class='flag'>--batch</code> is deprecated. For build isolation, we recommend
+  using the command option  <code class='flag'>--nokeep_state_after_build</code>, which guarantees
+  that no incremental in-memory state is kept between builds. In order to restart the
+  Bazel server and JVM after a build, please explicitly do so using the “shutdown” command.
+</p>
+
+<p>
+  Batch mode causes Bazel to not use the standard client/server mode described
+  <a href='#client/server'>above</a>, instead running a bazel java process for a
+  single command, which has been used for more predictable semantics with respect
+  to signal handling, job control, and environment variable inheritance, and is
+  necessary for running bazel in a chroot jail.
 </p>
 
 <p>
   Batch mode retains proper queueing semantics within the same output_base.
   That is, simultaneous invocations will be processed in order, without overlap.
-  If a batch mode bazel is run on a client with a running server, it first
+  If a batch mode Bazel is run on a client with a running server, it first
   kills the server before processing the command.
 </p>
 
 <p>
-  Bazel will run slower in batch mode, compared to client/server mode.
-  Among other things, the build file cache is memory-resident, so it is not
+  Bazel will run slower in batch mode, or with the alternatives described above.
+  This is because, among other things, the build file cache is memory-resident, so it is not
   preserved between sequential batch invocations.
   Therefore, using batch mode often makes more sense in cases where performance
   is less critical, such as continuous builds.
@@ -3757,25 +3759,14 @@ adb -s deadbeef install ...
   have to wait for those commands to complete before it can continue.
 </p>
 
-<h3>Server or no server?</h3>
+<h3>Notes about Server Mode</h3>
 
 <p>
   By default, Bazel uses a long-running <a
-  href='#client/server'>server process</a> as an optimization; this
-  behavior can be disabled using the <a
-  href='#flag--batch'><code class='flag'>--batch</code></a> option.  There's no hard and
-  fast rule about whether or not your script should use a server, but
-  in general, the trade-off is between performance and reliability.
-  The server mode makes a sequence of builds, especially incremental
-  builds, faster, but its behavior is more complex and more likely to
-  fail.  We recommend in most cases that you use batch mode unless
-  the performance advantage is critical.
-</p>
-<p>
-  If you do use the server, don't forget to call <code>shutdown</code>
-  when you're finished with it, or, specify
-  <code class='flag'>--max_idle_secs=5</code> so that idle servers shut themselves
-  down promptly.
+  href='#client/server'>server process</a> as an optimization. When running Bazel
+  in a script, don't forget to call <code>shutdown</code> when you're finished
+  with the server, or, specify <code class='flag'>--max_idle_secs=5</code> so
+  that idle servers shut themselves down promptly.
 </p>
 
 <h3>What exit code will I get?</h3>

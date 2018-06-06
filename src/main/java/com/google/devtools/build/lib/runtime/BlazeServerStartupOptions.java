@@ -210,9 +210,11 @@ public class BlazeServerStartupOptions extends OptionsBase {
       OptionEffectTag.LOSES_INCREMENTAL_STATE,
       OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
     },
+    metadataTags = {OptionMetadataTag.DEPRECATED},
     help =
         "If set, Blaze will be run as just a client process without a server, instead of in "
-            + "the standard client/server mode."
+            + "the standard client/server mode. This is deprecated and will be removed, please "
+            + "prefer shutting down the server explicitly if you wish to avoid lingering servers."
   )
   public boolean batch;
 
