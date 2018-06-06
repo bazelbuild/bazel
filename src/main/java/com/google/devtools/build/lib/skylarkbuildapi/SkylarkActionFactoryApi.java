@@ -41,8 +41,8 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
     name = "declare_file",
     doc =
         "Declares that the rule or aspect creates a file with the given filename. "
-            + "If <code>sibling</code> is not specified, the file name is relative to the package"
-            + "directory, otherwise the file is in the same directory as <code>sibling</code>."
+            + "If <code>sibling</code> is not specified, the file name is relative to the package "
+            + "directory, otherwise the file is in the same directory as <code>sibling</code>. "
             + "Files cannot be created outside of the current package."
             + "<p>Remember that in addition to declaring a file, you must separately create an "
             + "action that emits the file. Creating that action will require passing the returned "
@@ -52,7 +52,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             + "<code>File</code> objects from <a href=\"ctx.html#outputs\"><code>ctx.outputs</code>"
             + "</a> instead. "
             + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
-            + "computed_dependencies/hash.bzl\">See example of use</a>",
+            + "computed_dependencies/hash.bzl\">See example of use</a>.",
     parameters = {
       @Param(
         name = "filename",
@@ -165,7 +165,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
     doc =
         "Creates an action that runs an executable. "
             + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
-            + "actions_run/execute.bzl\">See example of use</a>",
+            + "actions_run/execute.bzl\">See example of use</a>.",
     parameters = {
       @Param(
         name = "outputs",
@@ -312,7 +312,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
     doc =
         "Creates an action that runs a shell command. "
             + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
-            + "shell_command/size.bzl\">See example of use</a>",
+            + "shell_command/size.bzl\">See example of use</a>.",
     parameters = {
       @Param(
         name = "outputs",
@@ -474,7 +474,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             + "There is no special syntax for the keys. You may, for example, use curly braces "
             + "to avoid conflicts (for example, <code>{KEY}</code>). "
             + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/expand_template/hello.bzl\">"
-            + "See example of use</a>",
+            + "See example of use</a>.",
     parameters = {
       @Param(
         name = "template",

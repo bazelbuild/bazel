@@ -134,7 +134,7 @@ public final class Runtime {
             + "<code>@local</code>. In packages in the main repository, it will be set to "
             + "<code>@</code>. It can only be accessed in functions (transitively) called from "
             + "BUILD files, i.e. it follows the same restrictions as "
-            + "<a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>"
+            + "<a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>."
   )
   public static final String REPOSITORY_NAME = "REPOSITORY_NAME";
 
