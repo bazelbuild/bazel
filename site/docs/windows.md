@@ -39,8 +39,8 @@ Python and the Visual C++ compiler. If you need to auto-configure again, run
 
 You can also tell Bazel where to find the Python binary and the C++ compiler:
 - use the [`--python_path=c:\path\to\python.exe`](command-line-reference.html#flag--python_path) flag for Python
-- use the `BAZEL_VC` or `BAZEL_VS` environment variable. See the [Build
-  C++ section](#build_cpp) below.
+- use the `BAZEL_VC` or the `BAZEL_VS` environment variable (they are *not* the same!).
+  See the [Build C++ section](#build_cpp) below.
 
 ### <a name="build_cpp"></a>Build C++
 
@@ -65,7 +65,7 @@ To build C++ targets, you need:
         [known issue](https://github.com/bazelbuild/bazel/issues/3949),
         please upgrade your VS 2017 to the latest version.
 
-*   The `BAZEL_VS` or `BAZEL_VC` environment variable.
+*   The `BAZEL_VS` or `BAZEL_VC` environment variable. (They are *not* the same!)
 
     Bazel tries to locate the C++ compiler the first time you build any
     target. To tell Bazel where the compiler is, you can set one of the
@@ -86,6 +86,9 @@ To build C++ targets, you need:
     ```
     set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC
     ```
+
+    The first command sets the path to Visual Studio (BAZEL\_V<b>S</b>), the other
+    sets the path to Visual C++ (BAZEL\_V<b>C</b>).
 
 *   The [Windows
     SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk).
