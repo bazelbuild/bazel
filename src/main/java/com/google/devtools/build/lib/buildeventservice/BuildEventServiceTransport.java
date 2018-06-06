@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.buildeventservice;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.devtools.build.lib.events.EventKind.ERROR;
-import static com.google.devtools.build.lib.events.EventKind.INFO;
+import static com.google.devtools.build.lib.events.EventKind.PROGRESS;
 import static com.google.devtools.build.lib.events.EventKind.WARNING;
 import static com.google.devtools.build.v1.BuildEvent.EventCase.COMPONENT_STREAM_FINISHED;
 import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_FAILED;
@@ -233,25 +233,25 @@ public class BuildEventServiceTransport implements BuildEventTransport {
               // TODO(buchgr): The code structure currently doesn't allow to enforce a timeout for
               // best effort upload.
               if (!uploadComplete.isDone()) {
-                report(INFO, "Asynchronous Build Event Protocol upload.");
+                report(PROGRESS, "Asynchronous Build Event Protocol upload.");
               } else {
                 Throwable uploadError = fromFuture(uploadComplete);
 
                 if (uploadError != null) {
                   report(WARNING, UPLOAD_FAILED_MESSAGE, uploadError.getMessage());
                 } else {
-                  report(INFO, UPLOAD_SUCCEEDED_MESSAGE);
+                  report(PROGRESS, UPLOAD_SUCCEEDED_MESSAGE);
                 }
               }
             } else {
-              report(INFO, "Waiting for Build Event Protocol upload to finish.");
+              report(PROGRESS, "Waiting for Build Event Protocol upload to finish.");
               try {
                 if (Duration.ZERO.equals(uploadTimeout)) {
                   uploadComplete.get();
                 } else {
                   uploadComplete.get(uploadTimeout.toMillis(), MILLISECONDS);
                 }
-                report(INFO, UPLOAD_SUCCEEDED_MESSAGE);
+                report(PROGRESS, UPLOAD_SUCCEEDED_MESSAGE);
               } catch (Exception e) {
                 uploadComplete.cancel(true);
                 reportErrorAndFailBuild(e);
