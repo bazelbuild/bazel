@@ -232,15 +232,15 @@ public class CppCompileActionBuilder {
     }
     PathFragment sourcePath = sourceFile.getExecPath();
     if (CppFileTypes.CPP_MODULE_MAP.matches(sourcePath)) {
-      return CppCompileAction.CPP_MODULE_COMPILE;
+      return CppActionNames.CPP_MODULE_COMPILE;
     } else if (CppFileTypes.CPP_HEADER.matches(sourcePath)) {
       // TODO(bazel-team): Handle C headers that probably don't work in C++ mode.
       if (!cppConfiguration.getParseHeadersVerifiesModules()
           && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)) {
-        return CppCompileAction.CPP_HEADER_PARSING;
+        return CppActionNames.CPP_HEADER_PARSING;
       } else if (!cppConfiguration.getParseHeadersVerifiesModules()
           && featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)) {
-        return CppCompileAction.CPP_HEADER_PREPROCESSING;
+        return CppActionNames.CPP_HEADER_PREPROCESSING;
       } else {
         // CcCommon.collectCAndCppSources() ensures we do not add headers to
         // the compilation artifacts unless either 'parse_headers' or
@@ -248,21 +248,21 @@ public class CppCompileActionBuilder {
         throw new IllegalStateException();
       }
     } else if (CppFileTypes.C_SOURCE.matches(sourcePath)) {
-      return CppCompileAction.C_COMPILE;
+      return CppActionNames.C_COMPILE;
     } else if (CppFileTypes.CPP_SOURCE.matches(sourcePath)) {
-      return CppCompileAction.CPP_COMPILE;
+      return CppActionNames.CPP_COMPILE;
     } else if (CppFileTypes.OBJC_SOURCE.matches(sourcePath)) {
-      return CppCompileAction.OBJC_COMPILE;
+      return CppActionNames.OBJC_COMPILE;
     } else if (CppFileTypes.OBJCPP_SOURCE.matches(sourcePath)) {
-      return CppCompileAction.OBJCPP_COMPILE;
+      return CppActionNames.OBJCPP_COMPILE;
     } else if (CppFileTypes.ASSEMBLER.matches(sourcePath)) {
-      return CppCompileAction.ASSEMBLE;
+      return CppActionNames.ASSEMBLE;
     } else if (CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR.matches(sourcePath)) {
-      return CppCompileAction.PREPROCESS_ASSEMBLE;
+      return CppActionNames.PREPROCESS_ASSEMBLE;
     } else if (CppFileTypes.CLIF_INPUT_PROTO.matches(sourcePath)) {
-      return CppCompileAction.CLIF_MATCH;
+      return CppActionNames.CLIF_MATCH;
     } else if (CppFileTypes.CPP_MODULE.matches(sourcePath)) {
-      return CppCompileAction.CPP_MODULE_CODEGEN;
+      return CppActionNames.CPP_MODULE_CODEGEN;
     }
     // CcCompilationHelper ensures CppCompileAction only gets instantiated for supported file types.
     throw new IllegalStateException();

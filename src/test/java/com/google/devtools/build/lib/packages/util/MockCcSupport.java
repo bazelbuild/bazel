@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
+import com.google.devtools.build.lib.rules.cpp.CppActionNames;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -507,13 +507,13 @@ public abstract class MockCcSupport {
           + "}";
 
   public static final String EMPTY_COMPILE_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.CPP_COMPILE);
+      emptyActionConfigFor(CppActionNames.CPP_COMPILE);
 
   public static final String EMPTY_MODULE_CODEGEN_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.CPP_MODULE_CODEGEN);
+      emptyActionConfigFor(CppActionNames.CPP_MODULE_CODEGEN);
 
   public static final String EMPTY_MODULE_COMPILE_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.CPP_MODULE_COMPILE);
+      emptyActionConfigFor(CppActionNames.CPP_MODULE_COMPILE);
 
   public static final String EMPTY_EXECUTABLE_ACTION_CONFIG =
       emptyActionConfigFor(LinkTargetType.EXECUTABLE.getActionName());
@@ -528,10 +528,9 @@ public abstract class MockCcSupport {
       emptyActionConfigFor(LinkTargetType.STATIC_LIBRARY.getActionName());
 
   public static final String EMPTY_CLIF_MATCH_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.CLIF_MATCH);
+      emptyActionConfigFor(CppActionNames.CLIF_MATCH);
 
-  public static final String EMPTY_STRIP_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.STRIP_ACTION_NAME);
+  public static final String EMPTY_STRIP_ACTION_CONFIG = emptyActionConfigFor(CppActionNames.STRIP);
 
   /**
    * Creates action_config for {@code actionName} action using DUMMY_TOOL that doesn't imply any
@@ -727,10 +726,12 @@ public abstract class MockCcSupport {
       config.linkTool("tools/cpp/link_dynamic_library.sh");
       config.linkTool("tools/cpp/build_interface_so");
       config.linkTool("tools/cpp/grep-includes");
+      config.linkTool("tools/build_defs/cc/action_names.bzl");
     } else {
       config.create("tools/cpp/link_dynamic_library.sh", "");
       config.create("tools/cpp/build_interface_so", "");
       config.create("tools/cpp/grep-includes", "");
+      config.linkTool("tools/build_defs/cc/action_names.bzl", "");
     }
   }
 

@@ -110,17 +110,17 @@ public final class CcCommon {
 
   public static final ImmutableSet<String> ALL_COMPILE_ACTIONS =
       ImmutableSet.of(
-          CppCompileAction.C_COMPILE,
-          CppCompileAction.CPP_COMPILE,
-          CppCompileAction.CPP_HEADER_PARSING,
-          CppCompileAction.CPP_HEADER_PREPROCESSING,
-          CppCompileAction.CPP_MODULE_COMPILE,
-          CppCompileAction.CPP_MODULE_CODEGEN,
-          CppCompileAction.ASSEMBLE,
-          CppCompileAction.PREPROCESS_ASSEMBLE,
-          CppCompileAction.CLIF_MATCH,
-          CppCompileAction.LINKSTAMP_COMPILE,
-          CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME);
+          CppActionNames.C_COMPILE,
+          CppActionNames.CPP_COMPILE,
+          CppActionNames.CPP_HEADER_PARSING,
+          CppActionNames.CPP_HEADER_PREPROCESSING,
+          CppActionNames.CPP_MODULE_COMPILE,
+          CppActionNames.CPP_MODULE_CODEGEN,
+          CppActionNames.ASSEMBLE,
+          CppActionNames.PREPROCESS_ASSEMBLE,
+          CppActionNames.CLIF_MATCH,
+          CppActionNames.LINKSTAMP_COMPILE,
+          CppActionNames.CC_FLAGS_MAKE_VARIABLE);
 
   public static final ImmutableSet<String> ALL_LINK_ACTIONS =
       ImmutableSet.of(
@@ -132,7 +132,7 @@ public final class CcCommon {
       ImmutableSet.of(Link.LinkTargetType.STATIC_LIBRARY.getActionName());
 
   public static final ImmutableSet<String> ALL_OTHER_ACTIONS =
-      ImmutableSet.of(CppCompileAction.STRIP_ACTION_NAME);
+      ImmutableSet.of(CppActionNames.STRIP);
 
   /** Action configs we request to enable. */
   public static final ImmutableSet<String> DEFAULT_ACTION_CONFIGS =
@@ -971,8 +971,7 @@ public final class CcCommon {
         (CcToolchainProvider) toolchain.get(ToolchainInfo.PROVIDER);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, toolchainProvider);
-    if (!featureConfiguration.actionIsConfigured(
-        CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME)) {
+    if (!featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
       return null;
     }
 
@@ -981,7 +980,7 @@ public final class CcCommon {
         Joiner.on(" ")
             .join(
                 featureConfiguration.getCommandLine(
-                    CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME, buildVariables));
+                    CppActionNames.CC_FLAGS_MAKE_VARIABLE, buildVariables));
     String oldCcFlags = "";
     TemplateVariableInfo templateVariableInfo =
         toolchain.get(TemplateVariableInfo.PROVIDER);

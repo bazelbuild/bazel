@@ -118,7 +118,7 @@ public class FakeCppCompileAction extends CppCompileAction {
         /* additionalIncludeScanningRoots=*/ ImmutableList.of(),
         GUID,
         executionInfo,
-        CppCompileAction.CPP_COMPILE,
+        CppActionNames.CPP_COMPILE,
         cppSemantics,
         cppProvider,
         grepIncludes);

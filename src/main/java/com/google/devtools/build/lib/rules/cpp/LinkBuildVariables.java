@@ -252,7 +252,7 @@ public enum LinkBuildVariables {
       List<String> opts = new ArrayList<>(userLinkFlags);
       opts.addAll(
           featureConfiguration.getCommandLine(
-              "lto-indexing", buildVariables.build(), /* expander= */ null));
+              CppActionNames.LTO_INDEXING, buildVariables.build(), /* expander= */ null));
       opts.addAll(ccToolchainProvider.getCppConfiguration().getLtoIndexOptions());
       userLinkFlagsWithLtoIndexingIfNeeded = ImmutableList.copyOf(opts);
     }

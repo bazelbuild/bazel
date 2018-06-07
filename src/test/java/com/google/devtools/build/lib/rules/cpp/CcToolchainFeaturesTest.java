@@ -225,8 +225,8 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
                 "  }",
                 "}")
             .getFeatureConfiguration(ImmutableSet.of("a", "b"));
-    List<String> commandLine = configuration.getCommandLine(
-        CppCompileAction.CPP_COMPILE, createVariables());
+    List<String> commandLine =
+        configuration.getCommandLine(CppActionNames.CPP_COMPILE, createVariables());
     assertThat(commandLine).containsExactly("-a-c++-compile", "-b-c++-compile").inOrder();
   }
 
@@ -285,8 +285,8 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
                 "feature { name: 'f' }",
                 "feature { name: 'g' }")
             .getFeatureConfiguration(ImmutableSet.of("a", "b", "d", "f"));
-    Map<String, String> env = configuration.getEnvironmentVariables(
-        CppCompileAction.CPP_COMPILE, createVariables());
+    Map<String, String> env =
+        configuration.getEnvironmentVariables(CppActionNames.CPP_COMPILE, createVariables());
     assertThat(env)
         .containsExactly(
             "foo", "bar", "cat", "meow", "dog", "woof",
@@ -317,7 +317,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
                 "  }",
                 "}")
             .getFeatureConfiguration(ImmutableSet.of("a"));
-    return configuration.getCommandLine(CppCompileAction.CPP_COMPILE, variables);
+    return configuration.getCommandLine(CppActionNames.CPP_COMPILE, variables);
   }
 
   private List<String> getCommandLineForFlag(String value, CcToolchainVariables variables)
@@ -1081,7 +1081,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
                 "}")
             .getFeatureConfiguration(ImmutableSet.of("a"));
 
-    assertThat(configuration.getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+    assertThat(configuration.getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .containsExactly("unconditional");
   }
 
@@ -1109,8 +1109,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
                 "}")
             .getFeatureConfiguration(ImmutableSet.of("a"));
 
-    assertThat(
-            configuration.getCommandLine(CppCompileAction.CPP_COMPILE, createVariables("v", "1")))
+    assertThat(configuration.getCommandLine(CppActionNames.CPP_COMPILE, createVariables("v", "1")))
         .containsExactly("1", "unconditional");
   }
 
@@ -1140,7 +1139,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
 
     assertThat(
             configuration.getCommandLine(
-                CppCompileAction.CPP_COMPILE, createVariables("v", "1", "v", "2")))
+                CppActionNames.CPP_COMPILE, createVariables("v", "1", "v", "2")))
         .containsExactly("1", "2", "unconditional")
         .inOrder();
   }
@@ -1171,7 +1170,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
 
     assertThat(
             configuration.getCommandLine(
-                CppCompileAction.CPP_COMPILE, createVariables("v", "1", "v", "2", "w", "3")))
+                CppActionNames.CPP_COMPILE, createVariables("v", "1", "v", "2", "w", "3")))
         .containsExactly("1", "2", "13", "23", "unconditional")
         .inOrder();
   }
@@ -1194,7 +1193,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("b"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables("v", "1")))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables("v", "1")))
         .containsExactly("-f", "1");
     byte[] serialized = TestUtils.serializeObject(features);
     CcToolchainFeatures deserialized =
@@ -1203,7 +1202,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("b"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables("v", "1")))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables("v", "1")))
         .containsExactly("-f", "1");
   }
 
@@ -1240,12 +1239,12 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a", "b"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .containsExactly("dummy_flag");
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .doesNotContain("dummy_flag");
   }
 
@@ -1268,17 +1267,17 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a", "b", "c"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .containsExactly("dummy_flag");
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a", "b"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .doesNotContain("dummy_flag");
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .doesNotContain("dummy_flag");
   }
 
@@ -1304,17 +1303,17 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a", "b1", "c1", "b2", "c2"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .containsExactly("dummy_flag");
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a", "b1", "c1"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .containsExactly("dummy_flag");
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a", "b1", "b2"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .doesNotContain("dummy_flag");
   }
 
@@ -1340,27 +1339,27 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .containsExactly("dummy_flag");
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a", "q"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .doesNotContain("dummy_flag");
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a", "q", "z"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .containsExactly("dummy_flag");
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a", "q", "x", "z"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .doesNotContain("dummy_flag");
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a", "q", "x", "y", "z"))
-                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+                .getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
         .doesNotContain("dummy_flag");
   }
 
