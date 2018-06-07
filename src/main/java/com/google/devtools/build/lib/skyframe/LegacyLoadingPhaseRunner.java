@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -220,7 +221,8 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
             filteredTargets,
             testFilteredTargets,
             targetPatterns,
-            expandedTargetsToLoad));
+            expandedTargetsToLoad,
+            ImmutableList.of()));
     eventHandler.post(new TargetParsingPhaseTimeEvent(targetPatternEvalTime));
     if (callback != null) {
       callback.notifyTargets(expandedTargetsToLoad);

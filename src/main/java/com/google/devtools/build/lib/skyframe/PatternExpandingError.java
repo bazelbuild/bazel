@@ -47,6 +47,12 @@ public final class PatternExpandingError implements BuildEvent {
     return new PatternExpandingError(pattern, message, false);
   }
 
+  public static PatternExpandingError failed(String term, String message) {
+    return new PatternExpandingError(ImmutableList.of(term), message, false);
+  }
+
+  // This is unused right now - when we generate the error, we don't know if we're in keep_going
+  // mode or not.
   public static PatternExpandingError skipped(String term, String message) {
     return new PatternExpandingError(ImmutableList.of(term), message, true);
   }

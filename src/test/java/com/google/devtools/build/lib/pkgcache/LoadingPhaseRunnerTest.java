@@ -105,6 +105,23 @@ public class LoadingPhaseRunnerTest {
     return false;
   }
 
+  private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
+    try {
+      tester.load(targetPattern);
+      fail();
+    } catch (TargetParsingException e) {
+      // Expected.
+      tester.assertContainsError("circular symlinks detected");
+    }
+  }
+
+  private LoadingResult assertNoErrors(LoadingResult loadingResult) {
+    assertThat(loadingResult.hasTargetPatternError()).isFalse();
+    assertThat(loadingResult.hasLoadingError()).isFalse();
+    tester.assertNoEvents();
+    return loadingResult;
+  }
+
   @Test
   public void testSmoke() throws Exception {
     tester.addFile("base/BUILD",
@@ -140,7 +157,32 @@ public class LoadingPhaseRunnerTest {
     tester.assertContainsWarning("Target pattern parsing failed.");
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//base:missing");
-    assertThat(err.getSkipped()).isTrue();
+  }
+
+  @Test
+  public void testNonExistentPackageWithKeepGoing() throws Exception {
+    tester.addFile("base/BUILD",
+        "filegroup(name = 'hello', srcs = ['foo.txt'])");
+    tester.loadKeepGoing("//base:hello", "//base:missing");
+    PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
+    assertThat(err.getPattern()).containsExactly("//base:missing");
+    TargetParsingCompleteEvent event = tester.findPostOnce(TargetParsingCompleteEvent.class);
+    assertThat(event.getOriginalTargetPattern()).containsExactly("//base:hello", "//base:missing");
+    if (useSkyframeTargetPatternEval()) {
+      // The legacy code path wasn't updated to provide this information, and will be deleted soon.
+      assertThat(event.getFailedTargetPatterns()).containsExactly("//base:missing");
+    }
+  }
+
+  @Test
+  public void testNonExistentPackageWithoutKeepGoing() throws Exception {
+    try {
+      tester.load("//does/not/exist");
+      fail();
+    } catch (TargetParsingException expected) {
+    }
+    PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
+    assertThat(err.getPattern()).containsExactly("//does/not/exist");
   }
 
   @Test
@@ -155,7 +197,6 @@ public class LoadingPhaseRunnerTest {
     tester.assertContainsWarning("Target pattern parsing failed.");
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//base:missing");
-    assertThat(err.getSkipped()).isTrue();
   }
 
   @Test
@@ -567,7 +608,6 @@ public class LoadingPhaseRunnerTest {
     tester.assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//bad");
-    assertThat(err.getSkipped()).isFalse();
   }
 
   @Test
@@ -678,24 +718,6 @@ public class LoadingPhaseRunnerTest {
     tester.assertContainsEventWithFrequency("cycle detected in extension", 1);
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//test:cycle1");
-    assertThat(err.getSkipped()).isFalse();
-  }
-
-  private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
-    try {
-      tester.load(targetPattern);
-      fail();
-    } catch (TargetParsingException e) {
-      // Expected.
-      tester.assertContainsError("circular symlinks detected");
-    }
-  }
-
-  private LoadingResult assertNoErrors(LoadingResult loadingResult) {
-    assertThat(loadingResult.hasTargetPatternError()).isFalse();
-    assertThat(loadingResult.hasLoadingError()).isFalse();
-    tester.assertNoEvents();
-    return loadingResult;
   }
 
   private static class LoadingPhaseTester {

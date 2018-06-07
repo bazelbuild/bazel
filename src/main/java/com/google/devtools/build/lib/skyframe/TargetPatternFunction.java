@@ -74,6 +74,8 @@ public class TargetPatternFunction implements SkyFunction {
           /*blacklistedSubdirectories=*/ ImmutableSet.of(),
           excludedSubdirectories,
           callback,
+          // The exception type here has to match the one on the BatchCallback. Since the callback
+          // defined above never throws, the exact type here is not really relevant.
           RuntimeException.class);
       resolvedTargets = ResolvedTargets.<Target>builder().addAll(results).build();
     } catch (TargetParsingException e) {

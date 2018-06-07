@@ -72,6 +72,7 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
   }
 
   private final ImmutableList<String> originalTargetPattern;
+  private final ImmutableList<String> failedTargetPatterns;
   private final ImmutableSet<ThinTarget> targets;
   private final ImmutableSet<ThinTarget> filteredTargets;
   private final ImmutableSet<ThinTarget> testFilteredTargets;
@@ -87,12 +88,14 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
       Collection<Target> filteredTargets,
       Collection<Target> testFilteredTargets,
       List<String> originalTargetPattern,
-      Collection<Target> expandedTargets) {
+      Collection<Target> expandedTargets,
+      List<String> failedTargetPatterns) {
     this.targets = asThinTargets(targets);
     this.filteredTargets = asThinTargets(filteredTargets);
     this.testFilteredTargets = asThinTargets(testFilteredTargets);
     this.originalTargetPattern = ImmutableList.copyOf(originalTargetPattern);
     this.expandedTargets = asThinTargets(expandedTargets);
+    this.failedTargetPatterns = ImmutableList.copyOf(failedTargetPatterns);
   }
 
   @VisibleForTesting
@@ -102,7 +105,16 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
         ImmutableSet.<Target>of(),
         ImmutableSet.<Target>of(),
         ImmutableList.<String>of(),
-        targets);
+        targets,
+        ImmutableList.<String>of());
+  }
+
+  public ImmutableList<String> getOriginalTargetPattern() {
+    return originalTargetPattern;
+  }
+
+  public ImmutableList<String> getFailedTargetPatterns() {
+    return failedTargetPatterns;
   }
 
   /** @return the parsed targets, which will subsequently be loaded */
@@ -137,6 +149,10 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
+    for (String failedTargetPattern : failedTargetPatterns) {
+      childrenBuilder.add(
+          BuildEventId.targetPatternExpanded(ImmutableList.of(failedTargetPattern)));
+    }
     for (ThinTarget target : expandedTargets) {
       // Test suits won't produce target configuration and  target-complete events, so do not
       // announce here completion as children.

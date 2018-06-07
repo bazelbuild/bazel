@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -589,6 +590,15 @@ public class BuildEventStreamer implements EventHandler {
       // In case of "bazel test" ignore the BuildCompleteEvent, as it will be followed by a
       // TestingCompleteEvent that contains the correct exit code.
       return true;
+    }
+
+    if (event instanceof TargetParsingCompleteEvent) {
+      // If there is only one pattern and we have one failed pattern, then we already posted a
+      // pattern expanded error, so we don't post the completion event.
+      // TODO(ulfjack): This is brittle. It would be better to always post one PatternExpanded event
+      // for each pattern given on the command line instead of one event for all of them combined.
+      return ((TargetParsingCompleteEvent) event).getOriginalTargetPattern().size() == 1
+          && !((TargetParsingCompleteEvent) event).getFailedTargetPatterns().isEmpty();
     }
 
     return false;

@@ -77,7 +77,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     // Determine targets to build:
-    ResolvedTargets<Target> targets = getTargetsToBuild(env, options);
+    List<String> failedPatterns = new ArrayList<String>();
+    ResolvedTargets<Target> targets = getTargetsToBuild(env, options, failedPatterns);
 
     // If the --build_tests_only option was specified or we want to run tests, we need to determine
     // the list of targets to test. For that, we remove manual tests and apply the command-line
@@ -164,7 +165,6 @@ final class TargetPatternPhaseFunction implements SkyFunction {
 
     LoadingPhaseRunner.maybeReportDeprecation(env.getListener(), targets.getTargets());
 
-    boolean preExpansionError = targets.hasError();
     ResolvedTargets.Builder<Label> expandedLabelsBuilder = ResolvedTargets.builder();
     for (Target target : targets.getTargets()) {
       if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
@@ -207,7 +207,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
                 filteredTargets,
                 testFilteredTargets,
                 options.getTargetPatterns(),
-                expandedTargets.getTargets()));
+                expandedTargets.getTargets(),
+                failedPatterns));
     return result;
   }
 
@@ -217,7 +218,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * @param options the command-line arguments in structured form
    */
   private static ResolvedTargets<Target> getTargetsToBuild(
-      Environment env, TargetPatternPhaseKey options)
+      Environment env, TargetPatternPhaseKey options, List<String> failedPatterns)
           throws InterruptedException {
     List<TargetPatternKey> patternSkyKeys = new ArrayList<>();
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
@@ -231,6 +232,11 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       try {
         patternSkyKeys.add(keyOrException.getSkyKey());
       } catch (TargetParsingException e) {
+        failedPatterns.add(keyOrException.getOriginalPattern());
+        // We post a PatternExpandingError here - the pattern could not be parsed, so we don't even
+        // get to run TargetPatternFunction.
+        env.getListener().post(
+            PatternExpandingError.failed(keyOrException.getOriginalPattern(), e.getMessage()));
         // We generally skip patterns that don't parse. We report a parsing failed exception to the
         // event bus here, but not in determineTests below, which goes through the same list. Note
         // that the TargetPatternFunction otherwise reports these events (but only if the target
@@ -249,12 +255,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         builder.setError();
       }
     }
+
     Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
         env.getValuesOrThrow(patternSkyKeys, TargetParsingException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
-
     for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
@@ -262,19 +265,31 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       } catch (TargetParsingException e) {
         String rawPattern = pattern.getPattern();
         String errorMessage = e.getMessage();
-        env.getListener().post(PatternExpandingError.skipped(rawPattern, errorMessage));
+        failedPatterns.add(rawPattern);
+        env.getListener().post(PatternExpandingError.failed(rawPattern, errorMessage));
         env.getListener().handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
         builder.setError();
+        continue;
+      }
+      if (value == null) {
         continue;
       }
       // TODO(ulfjack): This is terribly inefficient.
       ResolvedTargets<Target> asTargets = TestSuiteExpansionFunction.labelsToTargets(
           env, value.getTargets().getTargets(), value.getTargets().hasError());
+      if (asTargets == null) {
+        continue;
+      }
       if (pattern.isNegative()) {
         builder.filter(Predicates.not(Predicates.in(asTargets.getTargets())));
       } else {
         builder.merge(asTargets);
       }
+    }
+    // Only check for missing values after reporting errors. Otherwise we will miss errors in the
+    // nokeep_going case.
+    if (env.valuesMissing()) {
+      return null;
     }
 
     ResolvedTargets<Target> result = builder

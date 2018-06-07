@@ -2258,6 +2258,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
           exc = new TargetParsingException("cycles detected during target parsing");
           getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
+          // Fallback: we don't know which patterns failed, specifically, so we report the entire
+          // set as being in error.
+          eventHandler.post(PatternExpandingError.failed(targetPatterns, exc.getMessage()));
         } else {
           // TargetPatternPhaseFunction never directly throws. Thus, the only way
           // evalResult.hasError() && keepGoing can hold is if there are cycles, which is handled
@@ -2270,8 +2273,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               (e instanceof TargetParsingException)
                   ? (TargetParsingException) e
                   : new TargetParsingException(e.getMessage(), e);
+          if (!(e instanceof TargetParsingException)) {
+            // If it's a TargetParsingException, then the TargetPatternPhaseFunction has already
+            // reported the error, so we don't need to report it again.
+            eventHandler.post(PatternExpandingError.failed(targetPatterns, exc.getMessage()));
+          }
         }
-        eventHandler.post(PatternExpandingError.failed(targetPatterns, exc.getMessage()));
         throw exc;
       }
       long timeMillis = timer.stop().elapsed(TimeUnit.MILLISECONDS);

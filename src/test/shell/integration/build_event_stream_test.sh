@@ -673,7 +673,6 @@ function test_loading_failure() {
   # reason for the target expansion event not resulting in targets
   # being expanded.
   (bazel build --build_event_text_file=$TEST_log \
-         --noexperimental_skyframe_target_pattern_evaluator \
          //does/not/exist && fail "build failure expected") || true
   expect_log_once 'aborted'
   expect_log_once 'reason: LOADING_FAILURE'
