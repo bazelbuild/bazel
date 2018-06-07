@@ -89,8 +89,9 @@ message StartDebuggingRequest {
 message PauseThreadRequest {
   // The identifier of the thread to be paused.
   //
-  // If not set (i.e. zero), all current and future Skylark threads will be
-  // paused until resumed via a ContinueExecutionRequest.
+  // If not set (i.e. zero), all current Skylark threads will be paused, and
+  // until a ContinueExecutionRequest is sent, any future Skylark threads will
+  // also start off paused.
   int64 thread_id = 1;
 }
 
@@ -195,6 +196,7 @@ message ThreadContinuedEvent {
 message Breakpoint {
   oneof condition {
     // A breakpoint that is triggered when a particular line is reached.
+    // Column index will be ignored for breakpoints.
     Location location = 1;
   }
   // An optional condition for the breakpoint. When present, the breakpoint will
@@ -220,11 +222,12 @@ message Location {
   // The path of the Skylark source file.
   string path = 1;
 
-  // A 0-based line index in the file denoted by path.
-  uint32 line_index = 2;
+  // A 1-indexed line number in the file denoted by path.
+  uint32 line_number = 2;
 
-  // A 0-based column index in the file denoted by path.
-  uint32 column_index = 3;
+  // A 1-indexed column number in the file denoted by path. 0 (/unset) indicates
+  // column number is unknown or irrelevant.
+  uint32 column_number = 3;
 }
 
 // A scope that contains value bindings accessible in a frame.

@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import java.util.function.Function;
+
 /** A debug server interface, called from core skylark code. */
 public interface DebugServer {
 
   /**
-   * Tracks the execution of the given callable object in the debug server.
+   * Executes the given callable and returns its result, while making any skylark evaluation visible
+   * to the debugger. This method should be used to evaluate all debuggable Skylark code.
    *
    * @param env the Skylark execution environment
    * @param threadName the descriptive name of the thread
@@ -28,6 +31,15 @@ public interface DebugServer {
    */
   <T> T runWithDebugging(Environment env, String threadName, DebugCallable<T> callable)
       throws EvalException, InterruptedException;
+
+  /** Shuts down the debug server, closing any open sockets, etc. */
+  void close();
+
+  /**
+   * Returns a custom {@link Eval} supplier used to intercept statement execution to check for
+   * breakpoints.
+   */
+  Function<Environment, Eval> evalOverride();
 
   /** Represents an invocation that will be tracked as a thread by the Skylark debug server. */
   interface DebugCallable<T> {

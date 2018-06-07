@@ -14,9 +14,13 @@
 
 package com.google.devtools.build.lib.skylarkdebug.module;
 
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skylarkdebug.server.SkylarkDebugServer;
+import com.google.devtools.build.lib.syntax.DebugServerUtils;
+import java.io.IOException;
 
 /** Blaze module for setting up Skylark debugging. */
 public final class SkylarkDebuggerModule extends BlazeModule {
@@ -38,10 +42,16 @@ public final class SkylarkDebuggerModule extends BlazeModule {
   }
 
   private static void initializeDebugging(Reporter reporter, int debugPort) {
-    // TODO(brendandouglas): implement a debug server
+    try {
+      SkylarkDebugServer server =
+          SkylarkDebugServer.createAndWaitForConnection(reporter, debugPort);
+      DebugServerUtils.initializeDebugServer(server);
+    } catch (IOException e) {
+      reporter.handle(Event.error("Error while setting up the debug server: " + e.getMessage()));
+    }
   }
 
   private static void disableDebugging() {
-    // TODO(brendandouglas): implement a debug server
+    DebugServerUtils.disableDebugging();
   }
 }

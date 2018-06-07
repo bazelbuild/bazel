@@ -16,10 +16,14 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.syntax.DebugServer.DebugCallable;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
-/** A helper class for enabling/disabling skylark debugging. */
+/**
+ * A helper class for enabling/disabling skylark debugging.
+ *
+ * <p>{@code runWithDebuggingIfEnabled} must be called after {@code initializeDebugServer}, and
+ * before {@code disableDebugging}.
+ */
 public final class DebugServerUtils {
 
   private DebugServerUtils() {}
@@ -30,15 +34,20 @@ public final class DebugServerUtils {
    * Called at the start of a debuggable skylark session to enable debugging. The custom {@link
    * Eval} supplier provided should intercept statement execution to check for breakpoints.
    */
-  public static void initializeDebugServer(
-      DebugServer server, Function<Environment, Eval> evalOverride) {
+  public static void initializeDebugServer(DebugServer server) {
     instance.set(server);
-    Eval.setEvalSupplier(evalOverride);
+    Eval.setEvalSupplier(server.evalOverride());
   }
 
-  /** Called at the end of a debuggable skylark session to disable debugging. */
+  /**
+   * Called at the end of a debuggable skylark session to shut down the debug server and disable
+   * debugging.
+   */
   public static void disableDebugging() {
-    instance.set(null);
+    DebugServer server = instance.getAndSet(null);
+    if (server != null) {
+      server.close();
+    }
     Eval.removeCustomEval();
   }
 
