@@ -37,7 +37,7 @@ _BAZEL_ARGS="--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
       --nojava_header_compilation \
       --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
       --compilation_mode=opt \
-      --experimental_distdir=derived/distdir \
+      --distdir=derived/distdir \
       ${EXTRA_BAZEL_ARGS:-}"
 
 if [ -z "${BAZEL-}" ]; then
