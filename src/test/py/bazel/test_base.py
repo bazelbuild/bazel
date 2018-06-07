@@ -357,10 +357,6 @@ class TestBase(unittest.TestCase):
           'BAZEL_SH':
               TestBase.GetEnv('BAZEL_SH',
                               'c:\\tools\\msys64\\usr\\bin\\bash.exe'),
-          # TODO(pcloudy): Remove this after no longer need to debug
-          # https://github.com/bazelbuild/bazel/issues/3273
-          'CC_CONFIGURE_DEBUG':
-              '1'
       }
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
