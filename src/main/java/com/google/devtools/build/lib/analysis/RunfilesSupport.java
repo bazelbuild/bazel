@@ -165,13 +165,6 @@ public final class RunfilesSupport {
   }
 
   /**
-   * Returns the executable owning this RunfilesSupport. Only use from Skylark.
-   */
-  public Artifact getExecutable() {
-    return owningExecutable;
-  }
-
-  /**
    * Returns the exec path of the directory where the runfiles contained in this
    * RunfilesSupport are generated. When the owning rule has no executable,
    * returns null.
