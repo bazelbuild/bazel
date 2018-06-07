@@ -71,6 +71,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
               CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
             builder.addTransitiveTargets(
                 ruleContext.getPrerequisites("deps", Mode.TARGET),
+                PyCcLinkParamsProvider.TO_LINK_PARAMS,
                 CcLinkParamsStore.TO_LINK_PARAMS);
           }
         };
