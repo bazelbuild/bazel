@@ -29,6 +29,8 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -313,8 +315,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private static final ImmutableSet<SkyFunctionName> PACKAGE_LOCATOR_DEPENDENT_VALUES =
       ImmutableSet.of(
           SkyFunctions.AST_FILE_LOOKUP,
-          SkyFunctions.FILE_STATE,
-          SkyFunctions.FILE,
+          FileStateValue.FILE_STATE,
+          FileValue.FILE,
           SkyFunctions.DIRECTORY_LISTING_STATE,
           SkyFunctions.TARGET_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
@@ -561,8 +563,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
     // We are searching only for changed files, DirectoryListingValues don't depend on
     // child values, that's why they are invalidated separately
-    return Iterables.size(Iterables.filter(modifiedValues,
-        SkyFunctionName.functionIs(SkyFunctions.FILE_STATE)));
+    return Iterables.size(
+        Iterables.filter(modifiedValues, SkyFunctionName.functionIs(FileStateValue.FILE_STATE)));
   }
 
   /**

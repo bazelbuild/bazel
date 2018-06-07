@@ -11,9 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 import java.io.Serializable;
@@ -29,7 +28,6 @@ import java.util.Objects;
  * So if files 'a' and 'b' initially have the same timestamp, then we would think 'b' is unchanged
  * after the user executes `mv a b` between two builds.
  */
-@AutoCodec
 public final class FileContentsProxy implements Serializable {
   private final long ctime;
   private final long nodeId;
@@ -87,4 +85,3 @@ public final class FileContentsProxy implements Serializable {
     return String.format("ctime of %d and nodeId of %d", ctime, nodeId);
   }
 }
-

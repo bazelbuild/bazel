@@ -27,14 +27,12 @@ public final class SkyFunctions {
       SkyFunctionName.create("CLIENT_ENVIRONMENT_VARIABLE");
   public static final SkyFunctionName ACTION_ENVIRONMENT_VARIABLE =
       SkyFunctionName.create("ACTION_ENVIRONMENT_VARIABLE");
-  public static final SkyFunctionName FILE_STATE = SkyFunctionName.create("FILE_STATE");
   public static final SkyFunctionName DIRECTORY_LISTING_STATE =
       SkyFunctionName.create("DIRECTORY_LISTING_STATE");
   public static final SkyFunctionName FILE_SYMLINK_CYCLE_UNIQUENESS =
       SkyFunctionName.create("FILE_SYMLINK_CYCLE_UNIQUENESS");
   public static final SkyFunctionName FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS =
       SkyFunctionName.create("FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS");
-  public static final SkyFunctionName FILE = SkyFunctionName.create("FILE");
   public static final SkyFunctionName DIRECTORY_LISTING =
       SkyFunctionName.create("DIRECTORY_LISTING");
   public static final SkyFunctionName PACKAGE_LOOKUP = SkyFunctionName.create("PACKAGE_LOOKUP");

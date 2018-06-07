@@ -23,11 +23,13 @@ import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.skyframe.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -67,7 +69,7 @@ final class ActionFileSystem extends FileSystem implements ActionInputFileCache,
   private final Path execRootPath;
   private final ImmutableList<PathFragment> sourceRoots;
 
-  private final InputArtifactData inputArtifactData;
+  private final ActionInputMap inputArtifactData;
 
   /** exec path → artifact and metadata */
   private final HashMap<PathFragment, OptionalInputMetadata> optionalInputs;
@@ -93,7 +95,7 @@ final class ActionFileSystem extends FileSystem implements ActionInputFileCache,
       FileSystem delegate,
       Path execRoot,
       ImmutableList<Root> sourceRoots,
-      InputArtifactData inputArtifactData,
+      ActionInputMap inputArtifactData,
       Iterable<Artifact> allowedInputs,
       Iterable<Artifact> outputArtifacts) {
     try {
@@ -119,7 +121,7 @@ final class ActionFileSystem extends FileSystem implements ActionInputFileCache,
         //
         // TODO(shahan): there are no currently known cases where metadata is requested for an
         // optional source input. If there are any, we may want to stage those.
-        if (input.isSourceArtifact() || inputArtifactData.contains(input)) {
+        if (input.isSourceArtifact() || inputArtifactData.getMetadata(input) != null) {
           continue;
         }
         optionalInputs.computeIfAbsent(
@@ -155,6 +157,12 @@ final class ActionFileSystem extends FileSystem implements ActionInputFileCache,
   @Nullable
   public FileArtifactValue getMetadata(ActionInput actionInput) throws IOException {
     return getMetadataChecked(actionInput.getExecPath());
+  }
+
+  @Override
+  @Nullable
+  public ActionInput getInput(String execPath) {
+    return inputArtifactData.getInput(execPath);
   }
 
   // -------------------- InjectionListener Implementation --------------------
@@ -265,7 +273,7 @@ final class ActionFileSystem extends FileSystem implements ActionInputFileCache,
   @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
     PathFragment targetExecPath = asExecPath(targetFragment);
-    FileArtifactValue inputMetadata = inputArtifactData.get(targetExecPath);
+    FileArtifactValue inputMetadata = inputArtifactData.getMetadata(targetExecPath.getPathString());
     if (inputMetadata == null) {
       OptionalInputMetadata metadataHolder = optionalInputs.get(targetExecPath);
       if (metadataHolder != null) {
@@ -381,7 +389,7 @@ final class ActionFileSystem extends FileSystem implements ActionInputFileCache,
   @Nullable
   private FileArtifactValue getMetadataChecked(PathFragment execPath) throws IOException {
     {
-      FileArtifactValue metadata = inputArtifactData.get(execPath);
+      FileArtifactValue metadata = inputArtifactData.getMetadata(execPath.getPathString());
       if (metadata != null) {
         return metadata;
       }

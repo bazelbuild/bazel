@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions.cache;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -38,11 +39,11 @@ public interface VirtualActionInput extends ActionInput {
   ByteString getBytes() throws IOException;
 
   /**
-   * Returns the Metadata for this input if available. Null otherwise.
+   * Returns the metadata for this input if available. Null otherwise.
    *
    * @throws IOException
    */
-  default Metadata getMetadata() throws IOException {
+  default FileArtifactValue getMetadata() throws IOException {
     return null;
   }
 

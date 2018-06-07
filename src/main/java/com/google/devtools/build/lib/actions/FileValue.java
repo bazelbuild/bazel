@@ -11,12 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -50,6 +49,7 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 public abstract class FileValue implements SkyValue {
+  public static final SkyFunctionName FILE = SkyFunctionName.create("FILE");
 
   /**
    * Exists to accommodate the control flow of {@link ActionMetadataHandler#getMetadata}.
@@ -111,17 +111,17 @@ public abstract class FileValue implements SkyValue {
    * example could be a build rule that copies a set of input files to the output directory, but
    * upon encountering symbolic links it can decide between copying or following them.
    */
-  PathFragment getUnresolvedLinkTarget() {
+  public PathFragment getUnresolvedLinkTarget() {
     throw new IllegalStateException(this.toString());
   }
 
-  long getSize() {
+  public long getSize() {
     Preconditions.checkState(isFile(), this);
     return realFileStateValue().getSize();
   }
 
   @Nullable
-  byte[] getDigest() {
+  public byte[] getDigest() {
     Preconditions.checkState(isFile(), this);
     return realFileStateValue().getDigest();
   }
@@ -149,15 +149,16 @@ public abstract class FileValue implements SkyValue {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.FILE;
+      return FILE;
     }
   }
 
-  /**
-   * Only intended to be used by {@link FileFunction}. Should not be used for symlink cycles.
-   */
-  static FileValue value(RootedPath rootedPath, FileStateValue fileStateValue,
-                         RootedPath realRootedPath, FileStateValue realFileStateValue) {
+  /** Only intended to be used by {@link FileFunction}. Should not be used for symlink cycles. */
+  public static FileValue value(
+      RootedPath rootedPath,
+      FileStateValue fileStateValue,
+      RootedPath realRootedPath,
+      FileStateValue realFileStateValue) {
     if (rootedPath.equals(realRootedPath)) {
       Preconditions.checkState(fileStateValue.getType() != FileStateType.SYMLINK,
           "rootedPath: %s, fileStateValue: %s, realRootedPath: %s, realFileStateValue: %s",
@@ -231,13 +232,13 @@ public abstract class FileValue implements SkyValue {
    */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class DifferentRealPathFileValue extends FileValue {
+  public static class DifferentRealPathFileValue extends FileValue {
 
     protected final RootedPath realRootedPath;
     protected final FileStateValue realFileStateValue;
 
-    @AutoCodec.VisibleForSerialization
-    DifferentRealPathFileValue(RootedPath realRootedPath, FileStateValue realFileStateValue) {
+    public DifferentRealPathFileValue(
+        RootedPath realRootedPath, FileStateValue realFileStateValue) {
       this.realRootedPath = Preconditions.checkNotNull(realRootedPath);
       this.realFileStateValue = Preconditions.checkNotNull(realFileStateValue);
     }
@@ -279,11 +280,11 @@ public abstract class FileValue implements SkyValue {
   /** Implementation of {@link FileValue} for files that are symlinks. */
   @VisibleForTesting
   @AutoCodec
-  static final class SymlinkFileValue extends DifferentRealPathFileValue {
+  public static final class SymlinkFileValue extends DifferentRealPathFileValue {
     private final PathFragment linkTarget;
 
     @VisibleForTesting
-    SymlinkFileValue(
+    public SymlinkFileValue(
         RootedPath realRootedPath, FileStateValue realFileStateValue, PathFragment linkTarget) {
       super(realRootedPath, realFileStateValue);
       this.linkTarget = linkTarget;

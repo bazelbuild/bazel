@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
@@ -63,7 +64,6 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
-import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -1266,8 +1266,8 @@ public final class SkyframeActionExecutor {
     }
 
     @Override
-    public Metadata getMetadata(ActionInput input) throws IOException {
-      Metadata metadata = perActionCache.getMetadata(input);
+    public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+      FileArtifactValue metadata = perActionCache.getMetadata(input);
       return (metadata != null) && (metadata != FileArtifactValue.MISSING_FILE_MARKER)
           ? metadata
           : perBuildFileCache.getMetadata(input);

@@ -16,8 +16,9 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.cache.Metadata;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import javax.annotation.Nullable;
 
 /**
@@ -28,7 +29,7 @@ import javax.annotation.Nullable;
  * the source of truth.
  */
 class PerActionFileCache implements ActionInputFileCache {
-  private final InputArtifactData inputArtifactData;
+  private final ActionInputMap inputArtifactData;
   private final boolean missingArtifactsAllowed;
 
   /**
@@ -36,18 +37,19 @@ class PerActionFileCache implements ActionInputFileCache {
    * @param missingArtifactsAllowed whether to tolerate missing artifacts: can happen during input
    *     discovery.
    */
-  PerActionFileCache(InputArtifactData inputArtifactData, boolean missingArtifactsAllowed) {
+  PerActionFileCache(ActionInputMap inputArtifactData, boolean missingArtifactsAllowed) {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);
     this.missingArtifactsAllowed = missingArtifactsAllowed;
   }
 
   @Nullable
   @Override
-  public Metadata getMetadata(ActionInput input) {
+  public FileArtifactValue getMetadata(ActionInput input) {
+    // TODO(shahan): is this bypass needed?
     if (!(input instanceof Artifact)) {
       return null;
     }
-    Metadata result = inputArtifactData.get(input);
+    FileArtifactValue result = inputArtifactData.getMetadata(input);
     Preconditions.checkState(missingArtifactsAllowed || result != null, "null for %s", input);
     return result;
   }

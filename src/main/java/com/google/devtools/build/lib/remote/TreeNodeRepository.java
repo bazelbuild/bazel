@@ -28,8 +28,8 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
-import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -441,7 +441,7 @@ public final class TreeNodeRepository {
     if (input instanceof VirtualActionInput) {
       return Preconditions.checkNotNull(virtualInputDigestCache.get(input));
     }
-    Metadata metadata = getInputMetadata(input);
+    FileArtifactValue metadata = getInputMetadata(input);
     byte[] digest = metadata.getDigest();
     if (digest == null) {
       // If the artifact does not have a digest, it is because it is a directory.
@@ -492,8 +492,8 @@ public final class TreeNodeRepository {
     }
   }
 
-  private Metadata getInputMetadata(ActionInput input) throws IOException {
-    Metadata metadata =
+  private FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+    FileArtifactValue metadata =
         Preconditions.checkNotNull(
             inputFileCache.getMetadata(input), "Missing metadata for: %s", input);
     if (metadata.getDigest() != null) {

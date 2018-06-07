@@ -14,11 +14,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.skyframe.FileArtifactValue.create;
+import static com.google.devtools.build.lib.actions.FileArtifactValue.create;
 import static org.junit.Assert.fail;
 
 import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;

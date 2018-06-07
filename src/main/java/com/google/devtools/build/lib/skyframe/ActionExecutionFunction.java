@@ -25,11 +25,13 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
@@ -42,7 +44,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
-import com.google.devtools.build.lib.skyframe.InputArtifactData.MutableInputArtifactData;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
@@ -151,7 +152,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       env.getValues(state.allInputs.keysRequested);
       Preconditions.checkState(!env.valuesMissing(), "%s %s", action, state);
     }
-    Pair<MutableInputArtifactData, Map<Artifact, Collection<Artifact>>> checkedInputs = null;
+    Pair<ActionInputMap, Map<Artifact, Collection<Artifact>>> checkedInputs = null;
     try {
       // Declare deps on known inputs to action. We do this unconditionally to maintain our
       // invariant of asking for the same deps each build.
@@ -574,13 +575,13 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       };
 
   private static Iterable<SkyKey> newlyDiscoveredInputsToSkyKeys(
-      Iterable<Artifact> discoveredInputs, MutableInputArtifactData inputArtifactData) {
+      Iterable<Artifact> discoveredInputs, ActionInputMap inputArtifactData) {
     return Iterables.transform(
         filterKnownInputs(discoveredInputs, inputArtifactData), TO_NONMANDATORY_SKYKEY);
   }
 
   private static void addDiscoveredInputs(
-      MutableInputArtifactData inputData,
+      ActionInputMap inputData,
       Map<Artifact, Collection<Artifact>> expandedArtifacts,
       Iterable<Artifact> discoveredInputs,
       Environment env)
@@ -663,7 +664,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
    * Declare dependency on all known inputs of action. Throws exception if any are known to be
    * missing. Some inputs may not yet be in the graph, in which case the builder should abort.
    */
-  private Pair<MutableInputArtifactData, Map<Artifact, Collection<Artifact>>> checkInputs(
+  private Pair<ActionInputMap, Map<Artifact, Collection<Artifact>>> checkInputs(
       Environment env,
       Action action,
       Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps)
@@ -676,8 +677,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // some deps are still missing.
     boolean populateInputData = !env.valuesMissing();
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
-    MutableInputArtifactData inputArtifactData =
-        new MutableInputArtifactData(populateInputData ? inputDeps.size() : 0);
+    ActionInputMap inputArtifactData = new ActionInputMap(populateInputData ? inputDeps.size() : 0);
     Map<Artifact, Collection<Artifact>> expandedArtifacts =
         new HashMap<>(populateInputData ? 128 : 0);
 
@@ -768,8 +768,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   }
 
   private static Iterable<Artifact> filterKnownInputs(
-      Iterable<Artifact> newInputs, MutableInputArtifactData inputArtifactData) {
-    return Iterables.filter(newInputs, input -> !inputArtifactData.contains(input));
+      Iterable<Artifact> newInputs, ActionInputMap inputArtifactData) {
+    return Iterables.filter(newInputs, input -> inputArtifactData.getMetadata(input) == null);
   }
 
   /**
@@ -824,7 +824,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   private static class ContinuationState {
     AllInputs allInputs;
     /** Mutable map containing metadata for known artifacts. */
-    MutableInputArtifactData inputArtifactData = null;
+    ActionInputMap inputArtifactData = null;
 
     Map<Artifact, Collection<Artifact>> expandedArtifacts = null;
     Token token = null;

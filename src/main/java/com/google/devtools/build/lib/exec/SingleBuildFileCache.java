@@ -19,8 +19,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
-import com.google.devtools.build.lib.actions.cache.Metadata;
-import com.google.devtools.build.lib.skyframe.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -55,7 +54,7 @@ public class SingleBuildFileCache implements ActionInputFileCache {
           .build();
 
   @Override
-  public Metadata getMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getMetadata(ActionInput input) throws IOException {
     try {
       return pathToMetadata
           .get(
@@ -95,11 +94,11 @@ public class SingleBuildFileCache implements ActionInputFileCache {
   /** Container class for caching I/O around ActionInputs. */
   private static class ActionInputMetadata {
     private final ActionInput input;
-    private final Metadata metadata;
+    private final FileArtifactValue metadata;
     private final IOException exceptionOnAccess;
 
     /** Constructor for a successful lookup. */
-    ActionInputMetadata(ActionInput input, Metadata metadata) {
+    ActionInputMetadata(ActionInput input, FileArtifactValue metadata) {
       this.input = input;
       this.metadata = metadata;
       this.exceptionOnAccess = null;
@@ -112,7 +111,7 @@ public class SingleBuildFileCache implements ActionInputFileCache {
       this.metadata = null;
     }
 
-    Metadata getMetadata() throws IOException {
+    FileArtifactValue getMetadata() throws IOException {
       maybeRaiseException();
       return metadata;
     }

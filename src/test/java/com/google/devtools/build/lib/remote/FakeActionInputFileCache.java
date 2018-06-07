@@ -19,10 +19,9 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.cache.Metadata;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.skyframe.FileArtifactValue;
-import com.google.devtools.build.lib.skyframe.FileContentsProxy;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -43,7 +42,7 @@ final class FakeActionInputFileCache implements ActionInputFileCache {
   }
 
   @Override
-  public Metadata getMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getMetadata(ActionInput input) throws IOException {
     String hexDigest = Preconditions.checkNotNull(cas.get(input), input);
     Path path = execRoot.getRelative(input.getExecPath());
     FileStatus stat = path.stat(Symlinks.FOLLOW);

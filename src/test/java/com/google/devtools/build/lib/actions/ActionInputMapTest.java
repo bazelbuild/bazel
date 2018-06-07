@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
-import com.google.devtools.build.lib.actions.cache.Metadata;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -160,7 +160,7 @@ public final class ActionInputMapTest {
     }
   }
 
-  private static class TestMetadata implements Metadata {
+  private static class TestMetadata extends FileArtifactValue {
     private final int id;
 
     public TestMetadata(int id) {
@@ -184,6 +184,11 @@ public final class ActionInputMapTest {
 
     @Override
     public long getModifiedTime() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) {
       throw new UnsupportedOperationException();
     }
 

@@ -11,13 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -57,6 +56,7 @@ import javax.annotation.Nullable;
  */
 @VisibleForTesting
 public abstract class FileStateValue implements SkyValue {
+  public static final SkyFunctionName FILE_STATE = SkyFunctionName.create("FILE_STATE");
 
   @AutoCodec
   public static final DirectoryFileStateValue DIRECTORY_FILE_STATE_NODE =
@@ -82,9 +82,11 @@ public abstract class FileStateValue implements SkyValue {
     return createWithStatNoFollow(rootedPath, FileStatusWithDigestAdapter.adapt(stat), tsgm);
   }
 
-  static FileStateValue createWithStatNoFollow(RootedPath rootedPath,
-      FileStatusWithDigest statNoFollow, @Nullable TimestampGranularityMonitor tsgm)
-          throws InconsistentFilesystemException, IOException {
+  public static FileStateValue createWithStatNoFollow(
+      RootedPath rootedPath,
+      FileStatusWithDigest statNoFollow,
+      @Nullable TimestampGranularityMonitor tsgm)
+      throws InconsistentFilesystemException, IOException {
     Path path = rootedPath.asPath();
     if (statNoFollow.isFile()) {
       return statNoFollow.isSpecialFile()
@@ -122,14 +124,14 @@ public abstract class FileStateValue implements SkyValue {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.FILE_STATE;
+      return FILE_STATE;
     }
   }
 
   public abstract FileStateType getType();
 
   /** Returns the target of the symlink, or throws an exception if this is not a symlink. */
-  PathFragment getSymlinkTarget() {
+  public PathFragment getSymlinkTarget() {
     throw new IllegalStateException();
   }
 
@@ -335,8 +337,7 @@ public abstract class FileStateValue implements SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for directories that exist. */
-  @AutoCodec.VisibleForSerialization
-  static final class DirectoryFileStateValue extends FileStateValue {
+  public static final class DirectoryFileStateValue extends FileStateValue {
 
     private DirectoryFileStateValue() {
     }

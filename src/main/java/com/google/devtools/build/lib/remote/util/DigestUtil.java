@@ -20,9 +20,9 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
-import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.Path;
@@ -123,7 +123,7 @@ public class DigestUtil {
 
   public static Digest getFromInputCache(ActionInput input, MetadataProvider cache)
       throws IOException {
-    Metadata metadata = cache.getMetadata(input);
+    FileArtifactValue metadata = cache.getMetadata(input);
     Preconditions.checkNotNull(metadata, "Input cache %s returned no value for %s", cache, input);
     Preconditions.checkNotNull(
         metadata.getDigest(),

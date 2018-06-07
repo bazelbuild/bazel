@@ -18,11 +18,11 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.skyframe.FileArtifactValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.remoteexecution.v1test.Action;
@@ -205,7 +204,7 @@ final class RemoteSpawnCache implements SpawnCache {
             if (input instanceof VirtualActionInput) {
               continue;
             }
-            Metadata metadata = context.getActionInputFileCache().getMetadata(input);
+            FileArtifactValue metadata = context.getActionInputFileCache().getMetadata(input);
             if (metadata instanceof FileArtifactValue) {
               FileArtifactValue artifactValue = (FileArtifactValue) metadata;
               Path path = execRoot.getRelative(input.getExecPath());

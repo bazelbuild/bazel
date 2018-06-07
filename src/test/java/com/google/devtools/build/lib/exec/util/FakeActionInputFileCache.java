@@ -16,24 +16,24 @@ package com.google.devtools.build.lib.exec.util;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.cache.Metadata;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 /** A fake implementation of the {@link ActionInputFileCache} interface. */
 public final class FakeActionInputFileCache implements ActionInputFileCache {
-  private final Map<ActionInput, Metadata> inputs = new HashMap<>();
+  private final Map<ActionInput, FileArtifactValue> inputs = new HashMap<>();
 
   public FakeActionInputFileCache() {
   }
 
-  public void put(ActionInput artifact, Metadata metadata) {
+  public void put(ActionInput artifact, FileArtifactValue metadata) {
     inputs.put(artifact, metadata);
   }
 
   @Override
-  public Metadata getMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getMetadata(ActionInput input) throws IOException {
     return Preconditions.checkNotNull(inputs.get(input));
   }
 }
