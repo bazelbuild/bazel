@@ -114,7 +114,7 @@ vector<string> JavaBinaryLauncher::ProcessesCommandLine() {
     // launcher.
     if (GetFlagValue(arg, "--wrapper_script_flag=", &flag_value)) {
       if (!ProcessWrapperArgument(flag_value)) {
-        die("invalid wrapper argument '%s'", arg);
+        die("invalid wrapper argument '%s'", arg.c_str());
       }
     } else if (!args.empty() || !ProcessWrapperArgument(arg)) {
       args.push_back(arg);
