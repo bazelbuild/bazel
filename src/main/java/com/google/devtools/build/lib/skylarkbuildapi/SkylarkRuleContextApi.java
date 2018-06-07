@@ -371,10 +371,10 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       throws EvalException;
 
   @SkylarkCallable(
-    doc = "<b>Deprecated.</b> Use <code>ctx.var</code> to access the variables instead.<br>"
-        + "Returns a string after expanding all references to \"Make variables\". The variables "
-        + "must have the following format: <code>$(VAR_NAME)</code>. Also, <code>$$VAR_NAME"
-        + "</code> expands to <code>$VAR_NAME</code>. Parameters:"
+    doc = "<b>Deprecated.</b> Use <a href=\"ctx.html#var\">ctx.var</a> to access the variables "
+        + "instead.<br>Returns a string after expanding all references to \"Make variables\". The "
+        + "variables must have the following format: <code>$(VAR_NAME)</code>. Also, "
+        + "<code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>. Parameters:"
         + "<ul><li>The name of the attribute (<code>string</code>). It's only used for error "
         + "reporting.</li>\n"
         + "<li>The expression to expand (<code>string</code>). It can contain references to "
@@ -488,8 +488,8 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
         named = true,
         positional = false,
         doc =
-            "Command line arguments of the action."
-                + "Must be a list of strings or actions.args() objects."
+            "Command line arguments of the action. Must be a list of strings or actions.args() "
+                + "objects."
       ),
       @Param(
         name = "mnemonic",
@@ -760,7 +760,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
         named = true,
         doc =
             "The (transitive) set of files to be added to the runfiles. The depset should "
-                + "use the `default` order (which, as the name implies, is the default)."
+                + "use the <code>default</code> order (which, as the name implies, is the default)."
       ),
       @Param(
         name = "collect_data",
