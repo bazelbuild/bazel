@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
@@ -252,10 +253,10 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestAttempt failedAttempt = attempts.get(0);
     assertThat(failedAttempt.getExecutionInfo().getStrategy()).isEqualTo("test");
     assertThat(failedAttempt.getExecutionInfo().getHostname()).isEqualTo("");
-    assertThat(failedAttempt.getStatus()).isEqualTo(BlazeTestStatus.FAILED);
+    assertThat(failedAttempt.getStatus()).isEqualTo(TestStatus.FAILED);
     assertThat(failedAttempt.getExecutionInfo().getCachedRemotely()).isFalse();
     TestAttempt okAttempt = attempts.get(1);
-    assertThat(okAttempt.getStatus()).isEqualTo(BlazeTestStatus.PASSED);
+    assertThat(okAttempt.getStatus()).isEqualTo(TestStatus.PASSED);
     assertThat(okAttempt.getExecutionInfo().getStrategy()).isEqualTo("test");
     assertThat(okAttempt.getExecutionInfo().getHostname()).isEqualTo("");
   }
@@ -333,7 +334,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .filter(TestAttempt.class::isInstance)
             .map(TestAttempt.class::cast)
             .collect(MoreCollectors.onlyElement());
-    assertThat(attempt.getStatus()).isEqualTo(BlazeTestStatus.PASSED);
+    assertThat(attempt.getStatus()).isEqualTo(TestStatus.PASSED);
     assertThat(attempt.getExecutionInfo().getStrategy()).isEqualTo("remote");
     assertThat(attempt.getExecutionInfo().getHostname()).isEqualTo("a-remote-host");
   }

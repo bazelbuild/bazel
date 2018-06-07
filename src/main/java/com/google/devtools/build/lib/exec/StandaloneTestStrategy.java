@@ -167,13 +167,10 @@ public class StandaloneTestStrategy extends TestStrategy {
           .post(
               TestAttempt.forExecutedTestResult(
                   action,
-                  standaloneTestResult.executionInfo(),
+                  standaloneTestResult.testResultData(),
                   attempt,
-                  standaloneTestResult.testResultData().getStatus(),
-                  standaloneTestResult.testResultData().getStartTimeMillisEpoch(),
-                  standaloneTestResult.testResultData().getRunDurationMillis(),
                   testOutputs,
-                  standaloneTestResult.testResultData().getWarningList(),
+                  standaloneTestResult.executionInfo(),
                   true));
       finalizeTest(actionExecutionContext, action, dataBuilder.build());
 
@@ -251,13 +248,10 @@ public class StandaloneTestStrategy extends TestStrategy {
         .post(
             TestAttempt.forExecutedTestResult(
                 action,
-                result.executionInfo(),
+                data,
                 attempt,
-                data.getStatus(),
-                data.getStartTimeMillisEpoch(),
-                data.getRunDurationMillis(),
                 testOutputsBuilder.build(),
-                data.getWarningList(),
+                result.executionInfo(),
                 false));
     processTestOutput(actionExecutionContext, new TestResult(action, data, false), testLog);
   }

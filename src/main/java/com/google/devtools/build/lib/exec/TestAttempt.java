@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -40,7 +41,7 @@ import java.util.List;
 public class TestAttempt implements BuildEventWithOrderConstraint {
 
   private final TestRunnerAction testAction;
-  private final BlazeTestStatus status;
+  private final TestStatus status;
   private final boolean cachedLocally;
   private final int attempt;
   private final boolean lastAttempt;
@@ -71,7 +72,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     this.testAction = testAction;
     this.executionInfo = Preconditions.checkNotNull(executionInfo);
     this.attempt = attempt;
-    this.status = Preconditions.checkNotNull(status);
+    this.status = BuildEventStreamerUtils.bepStatus(Preconditions.checkNotNull(status));
     this.cachedLocally = cachedLocally;
     this.startTimeMillis = startTimeMillis;
     this.durationMillis = durationMillis;
@@ -86,24 +87,21 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
    */
   public static TestAttempt forExecutedTestResult(
       TestRunnerAction testAction,
-      BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo,
+      TestResultData attemptData,
       int attempt,
-      BlazeTestStatus status,
-      long startTimeMillis,
-      long durationMillis,
       Collection<Pair<String, Path>> files,
-      List<String> testWarnings,
+      BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo,
       boolean lastAttempt) {
     return new TestAttempt(
         false,
         testAction,
         executionInfo,
         attempt,
-        status,
-        startTimeMillis,
-        durationMillis,
+        attemptData.getStatus(),
+        attemptData.getStartTimeMillisEpoch(),
+        attemptData.getRunDurationMillis(),
         files,
-        testWarnings,
+        attemptData.getWarningList(),
         lastAttempt);
   }
 
@@ -143,7 +141,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
   }
 
   @VisibleForTesting
-  public BlazeTestStatus getStatus() {
+  public TestStatus getStatus() {
     return status;
   }
 
@@ -189,7 +187,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     PathConverter pathConverter = converters.pathConverter();
     BuildEventStreamProtos.TestResult.Builder builder =
         BuildEventStreamProtos.TestResult.newBuilder();
-    builder.setStatus(BuildEventStreamerUtils.bepStatus(status));
+    builder.setStatus(status);
     builder.setExecutionInfo(executionInfo);
     builder.setCachedLocally(cachedLocally);
     builder.setTestAttemptStartMillisEpoch(startTimeMillis);
