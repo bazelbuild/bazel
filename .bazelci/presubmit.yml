@@ -53,7 +53,6 @@ platforms:
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
     # The below tests have been disabled because they are too slow on macOS.
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4684
-    - "-//src/test/shell/bazel:bazel_determinism_test"
     - "-//src/test/shell/bazel:bazel_java_test"
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
     - "-//src/test/shell/bazel/remote:remote_execution_test"
