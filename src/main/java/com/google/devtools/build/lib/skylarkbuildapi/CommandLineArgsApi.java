@@ -502,19 +502,20 @@ public interface CommandLineArgsApi extends SkylarkValue {
   public void useParamsFile(String paramFileArg, Boolean useAlways) throws EvalException;
 
   @SkylarkCallable(
-    name = "set_param_file_format",
-    doc = "Sets the format of the param file when written to disk",
-    parameters = {
-      @Param(
-          name = "format",
-          type = String.class,
-          named = true,
-          doc =
-              "The format of the param file. Must be one of:<br>"
-                  + "\"shell\": All arguments are shell quoted and separated by whitespace<br>"
-                  + "\"multiline\": All arguments are unquoted and separated by newline characters"
-                  + "The format defaults to \"shell\" if not called.")
-    }
-  )
+      name = "set_param_file_format",
+      doc = "Sets the format of the param file when written to disk",
+      parameters = {
+        @Param(
+            name = "format",
+            type = String.class,
+            named = true,
+            doc =
+                "The format of the param file. Must be one of:<ul><li>"
+                    + "\"shell\": All arguments are shell quoted and separated by "
+                    + "whitespace</li><li>"
+                    + "\"multiline\": All arguments are unquoted and separated by newline "
+                    + "characters</li></ul>"
+                    + "The format defaults to \"shell\" if not called.")
+      })
   public void setParamFileFormat(String format) throws EvalException;
 }
