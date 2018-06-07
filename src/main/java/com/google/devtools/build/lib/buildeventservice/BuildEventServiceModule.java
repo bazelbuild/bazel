@@ -176,14 +176,10 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
                 commandLineReporter,
                 startupOptionsProvider);
       } catch (Exception e) {
-        if (besOptions.besBestEffort) {
-          commandLineReporter.handle(Event.warn(format(UPLOAD_FAILED_MESSAGE, e.getMessage())));
-        } else {
-          commandLineReporter.handle(Event.error(format(UPLOAD_FAILED_MESSAGE, e.getMessage())));
-          moduleEnvironment.exit(new AbruptExitException(
-              "Failed while creating BuildEventTransport", ExitCode.PUBLISH_ERROR));
-          return null;
-        }
+        commandLineReporter.handle(Event.error(format(UPLOAD_FAILED_MESSAGE, e.getMessage())));
+        moduleEnvironment.exit(new AbruptExitException(
+            "Failed while creating BuildEventTransport", ExitCode.PUBLISH_ERROR));
+        return null;
       }
 
       ImmutableSet<BuildEventTransport> bepTransports =
@@ -247,7 +243,6 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
           new BuildEventServiceTransport(
               createBesClient(besOptions, authTlsOptions),
               besOptions.besTimeout,
-              besOptions.besBestEffort,
               besOptions.besLifecycleEvents,
               buildRequestId,
               invocationId,
