@@ -95,6 +95,19 @@ public class BaseRuleClasses {
         TestConfiguration.class, defaultValue, COVERAGE_SUPPORT_CONFIGURATION_RESOLVER);
   }
 
+  public static final String DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE =
+      "//tools/test:coverage_report_generator";
+
+  @AutoCodec
+  static final Resolver<TestConfiguration, Label> COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =
+      (rule, attributes, configuration) -> configuration.getCoverageReportGenerator();
+
+  public static LabelLateBoundDefault<TestConfiguration> coverageReportGeneratorAttribute(
+      Label defaultValue) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        TestConfiguration.class, defaultValue, COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
+  }
+
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /** Implementation for the :run_under attribute. */
   @AutoCodec
@@ -170,9 +183,11 @@ public class BaseRuleClasses {
                       coverageSupportAttribute(env.getToolsLabel(DEFAULT_COVERAGE_SUPPORT_VALUE))))
           // Used in the one-per-build coverage report generation action.
           .add(
-              attr("$coverage_report_generator", LABEL)
+              attr(":coverage_report_generator", LABEL)
                   .cfg(HostTransition.INSTANCE)
-                  .value(env.getLabel("//tools/defaults:coverage_report_generator"))
+                  .value(
+                      coverageReportGeneratorAttribute(
+                          env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE)))
                   .singleArtifact())
 
           // The target itself and run_under both run on the same machine. We use the DATA config
