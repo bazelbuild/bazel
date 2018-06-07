@@ -24,10 +24,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -60,7 +57,6 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
   static RuleConfiguredTargetBuilder init(RuleContext ruleContext, PythonSemantics semantics,
       PyCommon common) throws InterruptedException {
     ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
-    AbstractCcLinkParamsStore ccLinkParamsStore = initializeCcLinkParamStore(ruleContext);
 
     List<Artifact> srcs = common.validateSrcs();
     List<Artifact> allOutputs =
@@ -80,9 +76,10 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    Artifact realExecutable =
-        semantics.createExecutable(ruleContext, common, ccLinkParamsStore, imports);
-    Runfiles commonRunfiles = collectCommonRunfiles(ruleContext, common, semantics);
+    CcLinkingInfo ccLinkingInfo =
+        semantics.buildCcLinkingInfoProvider(ruleContext.getPrerequisites("deps", Mode.TARGET));
+
+    Runfiles commonRunfiles = collectCommonRunfiles(ruleContext, common, semantics, ccLinkingInfo);
 
     Runfiles.Builder defaultRunfilesBuilder = new Runfiles.Builder(
         ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
@@ -124,19 +121,22 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
 
     semantics.postInitBinary(ruleContext, runfilesSupport, common);
 
-    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcLinkParamsStore(new CcLinkParamsStore(ccLinkParamsStore));
+    Artifact realExecutable =
+        semantics.createExecutable(ruleContext, common, ccLinkingInfo, imports);
 
     return builder
         .setFilesToBuild(common.getFilesToBuild())
         .add(RunfilesProvider.class, runfilesProvider)
         .setRunfilesSupport(runfilesSupport, realExecutable)
-        .addNativeDeclaredProvider(ccLinkingInfoBuilder.build())
         .add(PythonImportsProvider.class, new PythonImportsProvider(imports));
   }
 
-  private static Runfiles collectCommonRunfiles(RuleContext ruleContext, PyCommon common,
-      PythonSemantics semantics) {
+  private static Runfiles collectCommonRunfiles(
+      RuleContext ruleContext,
+      PyCommon common,
+      PythonSemantics semantics,
+      CcLinkingInfo ccLinkingInfo)
+      throws InterruptedException {
     Runfiles.Builder builder = new Runfiles.Builder(
         ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles());
     builder.addArtifact(common.getExecutable());
@@ -152,20 +152,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
         || ruleContext.attributes().get("legacy_create_init", Type.BOOLEAN)) {
       builder.setEmptyFilesSupplier(PythonUtils.GET_INIT_PY_FILES);
     }
-    semantics.collectRunfilesForBinary(ruleContext, builder, common);
+    semantics.collectRunfilesForBinary(ruleContext, builder, common, ccLinkingInfo);
     return builder.build();
-  }
-
-  private static AbstractCcLinkParamsStore initializeCcLinkParamStore(
-      final RuleContext ruleContext) {
-    return new AbstractCcLinkParamsStore() {
-      @Override
-      protected void collect(
-          CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-        builder.addTransitiveTargets(
-            ruleContext.getPrerequisites("deps", Mode.TARGET),
-            CcLinkParamsStore.TO_LINK_PARAMS);
-      }
-    };
   }
 }
