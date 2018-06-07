@@ -85,6 +85,8 @@ public class TestsFunction implements QueryFunction {
     });
   }
 
+  // TODO(ulfjack): This must match the code in TestTargetUtils. However, we don't currently want
+  // to depend on the packages library. Extract to a neutral place?
   /**
    * Decides whether to include a test in a test_suite or not.
    * @param testTags Collection of all tags exhibited by a given test.
@@ -254,6 +256,7 @@ public class TestsFunction implements QueryFunction {
       Iterator<T> it = tests.iterator();
       while (it.hasNext()) {
         T test = it.next();
+        // TODO(ulfjack): This does not match the code used for TestSuite.
         List<String> testTags = new ArrayList<>(env.getAccessor().getStringListAttr(test, "tags"));
         testTags.add(env.getAccessor().getStringAttr(test, "size"));
         if (!includeTest(testTags, requiredTags, excludedTags)) {

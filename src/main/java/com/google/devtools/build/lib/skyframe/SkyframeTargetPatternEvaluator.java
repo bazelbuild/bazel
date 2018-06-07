@@ -163,8 +163,8 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
   private TargetPatternsResultBuilder createTargetPatternEvaluatorUtil(
       FilteringPolicy policy, ExtendedEventHandler eventHandler, boolean keepGoing) {
     return policy == FilteringPolicies.FILTER_TESTS
-        ? new TestTargetPatternsResultBuilder(skyframeExecutor.getPackageManager(), eventHandler,
-          keepGoing)
+        ? new TestTargetPatternsResultBuilder(
+            skyframeExecutor.getPackageManager(), eventHandler, keepGoing)
         : new BuildTargetPatternsResultBuilder();
   }
 

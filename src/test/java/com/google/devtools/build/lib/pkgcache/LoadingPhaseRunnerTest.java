@@ -499,6 +499,21 @@ public class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getTargets("//cc:my_other_test"));
   }
 
+  @Test
+  public void testComplexTestSuite() throws Exception {
+    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
+    tester.addFile("cc/BUILD",
+        "cc_test(name = 'test1', srcs = ['test.cc'])",
+        "cc_test(name = 'test2', srcs = ['test.cc'])",
+        "test_suite(name = 'empty', tags = ['impossible'], tests = [])",
+        "test_suite(name = 'suite1', tests = ['empty', 'test1'])",
+        "test_suite(name = 'suite2', tests = ['test2'])",
+        "test_suite(name = 'all_tests', tests = ['suite1', 'suite2'])");
+    LoadingResult loadingResult = assertNoErrors(tester.loadTests("//cc:all_tests"));
+    assertThat(loadingResult.getTargets())
+        .containsExactlyElementsIn(getTargets("//cc:test1", "//cc:test2"));
+  }
+
   /**
    * Regression test for bug: "blaze is lying to me about what tests exist (have been specified)"
    */
