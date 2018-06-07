@@ -217,8 +217,8 @@ public final class TestActionBuilder {
       // exec paths of all source files that should be included into the code coverage output.
       NestedSet<Artifact> metadataFiles = instrumentedFiles.getInstrumentationMetadataFiles();
       inputsBuilder.addTransitive(metadataFiles);
-      inputsBuilder.addTransitive(PrerequisiteArtifacts.nestedSet(
-          ruleContext, "$coverage_support", Mode.DONT_CHECK));
+      inputsBuilder.addTransitive(
+          PrerequisiteArtifacts.nestedSet(ruleContext, ":coverage_support", Mode.DONT_CHECK));
       // We don't add this attribute to non-supported test target
       if (ruleContext.isAttrDefined("$lcov_merger", LABEL)) {
         TransitiveInfoCollection lcovMerger =
