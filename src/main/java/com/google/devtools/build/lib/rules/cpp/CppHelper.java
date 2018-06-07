@@ -200,7 +200,8 @@ public class CppHelper {
     List<String> result = new ArrayList<>();
     Expander expander = ruleContext.getExpander().withDataExecLocations();
     for (String value : values) {
-      if (isLinkoptLabel(value)) {
+      if (ruleContext.getFragment(CppConfiguration.class).getExpandLinkoptsLabels()
+          && isLinkoptLabel(value)) {
         if (!expandLabel(ruleContext, result, value)) {
           ruleContext.attributeError(attrName, "could not resolve label '" + value + "'");
         }
