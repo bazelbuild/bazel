@@ -138,7 +138,7 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
       "." + parsed_startup_options_->GetLowercaseProductName() + "rc";
 
   if (cmd_line_rc_file != nullptr) {
-    string rcFile = blaze_util::MakeAbsolute(cmd_line_rc_file);
+    string rcFile = blaze::AbsolutePathFromFlag(cmd_line_rc_file);
     if (!blaze_util::CanReadFile(rcFile)) {
       blaze_util::StringPrintf(error,
           "Error: Unable to read %s file '%s'.", rc_basename.c_str(),

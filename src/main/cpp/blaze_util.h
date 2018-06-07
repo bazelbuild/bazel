@@ -61,6 +61,12 @@ bool SearchNullaryOption(const std::vector<std::string>& args,
 // Returns true iff arg is a valid command line argument for bazel.
 bool IsArg(const std::string& arg);
 
+// Returns the flag value as an absolute path. For legacy reasons, it accepts
+// the empty string as cwd.
+// TODO(b/109874628): Assess if removing the empty string case would break
+// legitimate uses, and if not, remove it.
+std::string AbsolutePathFromFlag(const std::string& value);
+
 // Wait to see if the server process terminates. Checks the server's status
 // immediately, and repeats the check every 100ms until approximately
 // wait_seconds elapses or the server process terminates. Returns true if a

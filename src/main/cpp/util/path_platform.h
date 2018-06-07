@@ -45,6 +45,15 @@ bool IsRootDirectory(const std::string &path);
 // Returns true if `path` is absolute.
 bool IsAbsolute(const std::string &path);
 
+// Returns the given path in absolute form.  Does not change paths that are
+// already absolute.
+//
+// If called from working directory "/bar":
+//   MakeAbsolute("foo") --> "/bar/foo"
+//   MakeAbsolute("/foo") ---> "/foo"
+//   MakeAbsolute("C:/foo") ---> "C:/foo"
+std::string MakeAbsolute(const std::string &path);
+
 // TODO(bazel-team) consider changing the path(_platform) header split to be a
 // path.h and path_windows.h split, which would make it clearer what functions
 // are included by an import statement. The downside to this gain in clarity

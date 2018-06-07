@@ -189,19 +189,19 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   const char* value = NULL;
 
   if ((value = GetUnaryOption(arg, next_arg, "--output_base")) != NULL) {
-    output_base = blaze_util::MakeAbsolute(value);
+    output_base = blaze::AbsolutePathFromFlag(value);
     option_sources["output_base"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--install_base")) != NULL) {
-    install_base = blaze_util::MakeAbsolute(value);
+    install_base = blaze::AbsolutePathFromFlag(value);
     option_sources["install_base"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--output_user_root")) != NULL) {
-    output_user_root = blaze_util::MakeAbsolute(value);
+    output_user_root = blaze::AbsolutePathFromFlag(value);
     option_sources["output_user_root"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--server_jvm_out")) != NULL) {
-    server_jvm_out = blaze_util::MakeAbsolute(value);
+    server_jvm_out = blaze::AbsolutePathFromFlag(value);
     option_sources["server_jvm_out"] = rcfile;
   } else if (GetNullaryOption(arg, "--deep_execroot")) {
     deep_execroot = true;
@@ -223,7 +223,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
                                      "--host_javabase")) != NULL) {
     // TODO(bazel-team): Consider examining the javabase and re-execing in case
     // of architecture mismatch.
-    host_javabase = blaze_util::MakeAbsolute(value);
+    host_javabase = blaze::AbsolutePathFromFlag(value);
     option_sources["host_javabase"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_args")) !=
              NULL) {

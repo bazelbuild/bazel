@@ -20,7 +20,9 @@
 #include <unistd.h>  // access, open, close, fsync
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/path.h"
 
 namespace blaze_util {
 
@@ -57,4 +59,11 @@ bool IsAbsolute(const std::string &path) {
   return !path.empty() && path[0] == '/';
 }
 
+std::string MakeAbsolute(const std::string &path) {
+  if (blaze_util::IsAbsolute(path) || path.empty()) {
+    return path;
+  }
+
+  return JoinPath(blaze_util::GetCwd(), path);
+}
 }  // namespace blaze_util

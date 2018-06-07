@@ -29,15 +29,6 @@ std::string Basename(const std::string &path);
 
 std::string JoinPath(const std::string &path1, const std::string &path2);
 
-// Returns the given path in absolute form.  Does not change paths that are
-// already absolute.
-//
-// If called from working directory "/bar":
-//   MakeAbsolute("foo") --> "/bar/foo"
-//   MakeAbsolute("/foo") ---> "/foo"
-//   MakeAbsolute("C:/foo") ---> "C:/foo"
-std::string MakeAbsolute(const std::string &path);
-
 }  // namespace blaze_util
 
 #endif  // BAZEL_SRC_MAIN_CPP_UTIL_PATH_H_

@@ -62,11 +62,24 @@ static bool HasDriveSpecifierPrefix(const char_type* ch) {
 
 std::string ConvertPath(const std::string& path) {
   // The path may not be Windows-style and may not be normalized, so convert it.
+  std::string converted_path;
+  std::string error;
+  if (!blaze_util::AsWindowsPath(path, &converted_path, &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "ConvertPath(" << path << "): AsWindowsPath failed: " << error;
+  }
+  std::transform(converted_path.begin(), converted_path.end(),
+                 converted_path.begin(), ::towlower);
+  return converted_path;
+}
+
+std::string MakeAbsolute(const std::string& path) {
+  // The path may not be Windows-style and may not be normalized, so convert it.
   std::wstring wpath;
   std::string error;
   if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ConvertPath(" << path
+        << "MakeAbsolute(" << path
         << "): AsAbsoluteWindowsPath failed: " << error;
   }
   std::transform(wpath.begin(), wpath.end(), wpath.begin(), ::towlower);

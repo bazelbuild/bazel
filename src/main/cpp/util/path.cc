@@ -48,17 +48,4 @@ std::string JoinPath(const std::string &path1, const std::string &path2) {
   }
 }
 
-std::string MakeAbsolute(const std::string &path) {
-  std::string converted_path = ConvertPath(path);
-  if (converted_path.empty()) {
-    return GetCwd();
-  }
-  if (IsDevNull(converted_path.c_str()) ||
-      blaze_util::IsAbsolute(converted_path)) {
-    return converted_path;
-  }
-
-  return JoinPath(blaze_util::GetCwd(), converted_path);
-}
-
 }  // namespace blaze_util

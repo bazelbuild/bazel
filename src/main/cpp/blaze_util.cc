@@ -28,6 +28,7 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/numbers.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 
@@ -116,6 +117,14 @@ bool SearchNullaryOption(const vector<string>& args,
 bool IsArg(const string& arg) {
   return blaze_util::starts_with(arg, "-") && (arg != "--help")
       && (arg != "-help") && (arg != "-h");
+}
+
+std::string AbsolutePathFromFlag(const std::string& value) {
+  if (value.empty()) {
+    return blaze_util::GetCwd();
+  } else {
+    return blaze_util::MakeAbsolute(value);
+  }
 }
 
 void LogWait(unsigned int elapsed_seconds, unsigned int wait_seconds) {
