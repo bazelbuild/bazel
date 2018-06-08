@@ -22,12 +22,12 @@ import com.google.common.collect.Streams;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -59,7 +59,7 @@ import javax.annotation.Nullable;
  *       access {@link env}, they must also used synchronized access.
  * </ul>
  */
-final class ActionFileSystem extends FileSystem implements ActionInputFileCache, InjectionListener {
+final class ActionFileSystem extends FileSystem implements MetadataProvider, InjectionListener {
   private static final Logger LOGGER = Logger.getLogger(ActionFileSystem.class.getName());
 
   /** Actual underlying filesystem. */
@@ -151,7 +151,7 @@ final class ActionFileSystem extends FileSystem implements ActionInputFileCache,
     this.metadataConsumer = metadataConsumer;
   }
 
-  // -------------------- ActionInputFileCache implementation --------------------
+  // -------------------- MetadataProvider implementation --------------------
 
   @Override
   @Nullable

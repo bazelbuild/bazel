@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -33,7 +33,7 @@ import javax.annotation.concurrent.ThreadSafe;
  * <p>Simply maintains a cached mapping from filename to metadata that may be populated only once.
  */
 @ThreadSafe
-public class SingleBuildFileCache implements ActionInputFileCache {
+public class SingleBuildFileCache implements MetadataProvider {
   private final Path execRoot;
 
   public SingleBuildFileCache(String cwd, FileSystem fs) {

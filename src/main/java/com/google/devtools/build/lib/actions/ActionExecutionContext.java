@@ -44,7 +44,7 @@ import javax.annotation.Nullable;
 public class ActionExecutionContext implements Closeable {
 
   private final Executor executor;
-  private final ActionInputFileCache actionInputFileCache;
+  private final MetadataProvider actionInputFileCache;
   private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionKeyContext actionKeyContext;
   private final MetadataHandler metadataHandler;
@@ -61,7 +61,7 @@ public class ActionExecutionContext implements Closeable {
 
   private ActionExecutionContext(
       Executor executor,
-      ActionInputFileCache actionInputFileCache,
+      MetadataProvider actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
@@ -86,7 +86,7 @@ public class ActionExecutionContext implements Closeable {
 
   public ActionExecutionContext(
       Executor executor,
-      ActionInputFileCache actionInputFileCache,
+      MetadataProvider actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
@@ -111,7 +111,7 @@ public class ActionExecutionContext implements Closeable {
 
   public static ActionExecutionContext forInputDiscovery(
       Executor executor,
-      ActionInputFileCache actionInputFileCache,
+      MetadataProvider actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
@@ -137,7 +137,7 @@ public class ActionExecutionContext implements Closeable {
     return actionInputPrefetcher;
   }
 
-  public ActionInputFileCache getActionInputFileCache() {
+  public MetadataProvider getMetadataProvider() {
     return actionInputFileCache;
   }
 

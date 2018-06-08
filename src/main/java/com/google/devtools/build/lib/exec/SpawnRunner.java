@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -159,7 +159,7 @@ public interface SpawnRunner {
      * The input file metadata cache for this specific spawn, which can be used to efficiently
      * obtain file digests and sizes.
      */
-    ActionInputFileCache getActionInputFileCache();
+    MetadataProvider getMetadataProvider();
 
     /** An artifact expander. */
     // TODO(ulfjack): This is only used for the sandbox runners to compute a set of empty

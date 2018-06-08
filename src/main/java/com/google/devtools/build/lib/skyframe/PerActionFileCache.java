@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import javax.annotation.Nullable;
 
 /**
@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
  * <p>Data for the action's inputs is injected into this cache on construction, using the graph as
  * the source of truth.
  */
-class PerActionFileCache implements ActionInputFileCache {
+class PerActionFileCache implements MetadataProvider {
   private final ActionInputMap inputArtifactData;
   private final boolean missingArtifactsAllowed;
 

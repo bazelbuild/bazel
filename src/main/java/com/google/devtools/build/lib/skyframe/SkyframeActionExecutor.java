@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
@@ -58,6 +57,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
@@ -150,7 +150,7 @@ public final class SkyframeActionExecutor {
   private ImmutableMap<ActionAnalysisMetadata, ConflictException> badActionMap = ImmutableMap.of();
   private boolean keepGoing;
   private boolean hadExecutionError;
-  private ActionInputFileCache perBuildFileCache;
+  private MetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
   /** These variables are nulled out between executions. */
   private ProgressSupplier progressSupplier;
@@ -505,7 +505,7 @@ public final class SkyframeActionExecutor {
    * tasks related to that action.
    */
   public ActionExecutionContext getContext(
-      ActionInputFileCache graphFileCache,
+      MetadataProvider graphFileCache,
       MetadataHandler metadataHandler,
       Map<Artifact, Collection<Artifact>> expandedInputs,
       ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings,
@@ -657,8 +657,8 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  private ActionInputFileCache createFileCache(
-      ActionInputFileCache graphFileCache, @Nullable ActionFileSystem actionFileSystem) {
+  private MetadataProvider createFileCache(
+      MetadataProvider graphFileCache, @Nullable ActionFileSystem actionFileSystem) {
     if (actionFileSystem != null) {
       return actionFileSystem;
     }
@@ -688,7 +688,7 @@ public final class SkyframeActionExecutor {
     return hadExecutionError && !keepGoing;
   }
 
-  void configure(ActionInputFileCache fileCache, ActionInputPrefetcher actionInputPrefetcher) {
+  void configure(MetadataProvider fileCache, ActionInputPrefetcher actionInputPrefetcher) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
   }
@@ -1255,12 +1255,12 @@ public final class SkyframeActionExecutor {
     this.completionReceiver = completionReceiver;
   }
 
-  private static class DelegatingPairFileCache implements ActionInputFileCache {
-    private final ActionInputFileCache perActionCache;
-    private final ActionInputFileCache perBuildFileCache;
+  private static class DelegatingPairFileCache implements MetadataProvider {
+    private final MetadataProvider perActionCache;
+    private final MetadataProvider perBuildFileCache;
 
-    private DelegatingPairFileCache(ActionInputFileCache mainCache,
-        ActionInputFileCache perBuildFileCache) {
+    private DelegatingPairFileCache(
+        MetadataProvider mainCache, MetadataProvider perBuildFileCache) {
       this.perActionCache = mainCache;
       this.perBuildFileCache = perBuildFileCache;
     }

@@ -18,9 +18,9 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -30,8 +30,8 @@ import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.Tree;
 import java.io.IOException;
 
-/** A fake implementation of the {@link ActionInputFileCache} interface. */
-final class FakeActionInputFileCache implements ActionInputFileCache {
+/** A fake implementation of the {@link MetadataProvider} interface. */
+final class FakeActionInputFileCache implements MetadataProvider {
   private final Path execRoot;
   private final BiMap<ActionInput, String> cas = HashBiMap.create();
   private final DigestUtil digestUtil;

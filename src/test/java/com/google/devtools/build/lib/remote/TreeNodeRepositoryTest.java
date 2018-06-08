@@ -17,10 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
@@ -59,7 +59,7 @@ public class TreeNodeRepositoryTest {
   }
 
   private TreeNodeRepository createTestTreeNodeRepository() {
-    ActionInputFileCache inputFileCache =
+    MetadataProvider inputFileCache =
         new SingleBuildFileCache(execRoot.getPathString(), scratch.getFileSystem());
     return new TreeNodeRepository(execRoot, inputFileCache, digestUtil);
   }

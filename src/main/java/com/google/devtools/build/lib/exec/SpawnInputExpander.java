@@ -17,11 +17,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
@@ -103,7 +103,8 @@ public class SpawnInputExpander {
   void addRunfilesToInputs(
       Map<PathFragment, ActionInput> inputMap,
       RunfilesSupplier runfilesSupplier,
-      ActionInputFileCache actionFileCache) throws IOException {
+      MetadataProvider actionFileCache)
+      throws IOException {
     Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings = null;
     rootsAndMappings = runfilesSupplier.getMappings();
 
@@ -180,7 +181,7 @@ public class SpawnInputExpander {
    * com.google.devtools.build.lib.actions.cache.VirtualActionInput}.
    */
   public SortedMap<PathFragment, ActionInput> getInputMapping(
-      Spawn spawn, ArtifactExpander artifactExpander, ActionInputFileCache actionInputFileCache)
+      Spawn spawn, ArtifactExpander artifactExpander, MetadataProvider actionInputFileCache)
       throws IOException {
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
     addInputs(inputMap, spawn, artifactExpander);

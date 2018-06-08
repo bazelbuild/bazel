@@ -95,7 +95,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
     TreeNodeRepository repository =
-        new TreeNodeRepository(execRoot, context.getActionInputFileCache(), digestUtil);
+        new TreeNodeRepository(execRoot, context.getMetadataProvider(), digestUtil);
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
     TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
     repository.computeMerkleDigests(inputRoot);
@@ -204,7 +204,7 @@ final class RemoteSpawnCache implements SpawnCache {
             if (input instanceof VirtualActionInput) {
               continue;
             }
-            FileArtifactValue metadata = context.getActionInputFileCache().getMetadata(input);
+            FileArtifactValue metadata = context.getMetadataProvider().getMetadata(input);
             if (metadata instanceof FileArtifactValue) {
               FileArtifactValue artifactValue = (FileArtifactValue) metadata;
               Path path = execRoot.getRelative(input.getExecPath());

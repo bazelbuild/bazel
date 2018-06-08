@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
@@ -46,6 +45,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -198,8 +198,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     skyframeActionExecutor.setActionLogBufferPathGenerator(
         new ActionLogBufferPathGenerator(actionOutputBase));
 
-    ActionInputFileCache cache = new SingleBuildFileCache(
-        rootDirectory.getPathString(), scratch.getFileSystem());
+    MetadataProvider cache =
+        new SingleBuildFileCache(rootDirectory.getPathString(), scratch.getFileSystem());
     skyframeActionExecutor.configure(cache, ActionInputPrefetcher.NONE);
 
     final InMemoryMemoizingEvaluator evaluator =
