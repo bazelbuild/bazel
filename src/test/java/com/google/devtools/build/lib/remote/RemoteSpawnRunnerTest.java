@@ -28,6 +28,8 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
@@ -73,7 +75,10 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.SortedMap;
+import java.util.concurrent.Executors;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -88,6 +93,7 @@ public class RemoteSpawnRunnerTest {
 
   private static final ImmutableMap<String, String> NO_CACHE =
       ImmutableMap.of(ExecutionRequirements.NO_CACHE, "");
+  private static ListeningScheduledExecutorService retryService;
 
   private Path execRoot;
   private Path logDir;
@@ -110,6 +116,11 @@ public class RemoteSpawnRunnerTest {
   private final String simpleActionId =
       "eb45b20cc979d504f96b9efc9a08c48103c6f017afa09c0df5c70a5f92a98ea8";
 
+  @BeforeClass
+  public static void beforeEverything() {
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+  }
+
   @Before
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
@@ -127,8 +138,16 @@ public class RemoteSpawnRunnerTest {
     outErr = new FileOutErr(stdout, stderr);
 
     options = Options.getDefaults(RemoteOptions.class);
-    retrier =
-        new RemoteRetrier(options, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
+    retrier = new RemoteRetrier(
+        options,
+        RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+        retryService,
+        Retrier.ALLOW_ALL_CALLS);
+  }
+
+  @AfterClass
+  public static void afterEverything() {
+    retryService.shutdownNow();
   }
 
   @Test
