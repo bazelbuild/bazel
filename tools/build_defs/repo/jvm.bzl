@@ -49,18 +49,20 @@ def _jvm_import_external(repository_ctx):
         not repository_ctx.attr.neverlink):
         fail("Only use generated_linkable_rule_name if neverlink is set")
     name = repository_ctx.attr.generated_rule_name or repository_ctx.name
-    urls = repository_ctx.attr.jar_urls
-    sha = repository_ctx.attr.jar_sha256
-    path = repository_ctx.name + ".jar"
+    urls = repository_ctx.attr.artifact_urls
+    sha = repository_ctx.attr.artifact_sha256
+    extension = repository_ctx.attr.rule_metadata["extension"]
+    file_extension = "." + extension
+    path = repository_ctx.name + file_extension
     for url in urls:
-        if url.endswith(".jar"):
+        if url.endswith(file_extension):
             path = url[url.rindex("/") + 1:]
             break
     srcurls = repository_ctx.attr.srcjar_urls
     srcsha = repository_ctx.attr.srcjar_sha256
     srcpath = repository_ctx.name + "-src.jar" if srcurls else ""
     for url in srcurls:
-        if url.endswith(".jar"):
+        if url.endswith(file_extension):
             srcpath = url[url.rindex("/") + 1:].replace("-sources.jar", "-src.jar")
             break
     lines = [_HEADER, ""]
@@ -75,24 +77,26 @@ def _jvm_import_external(repository_ctx):
     lines.append("licenses(%s)" % repr(repository_ctx.attr.licenses))
     lines.append("")
     lines.extend(_serialize_given_rule_import(
-        repository_ctx.attr.rule_name,
-        name,
-        path,
-        srcpath,
-        repository_ctx.attr,
-        _PASS_PROPS,
-        repository_ctx.attr.additional_rule_attrs,
+        rule_name = repository_ctx.attr.rule_name,
+        import_attr = repository_ctx.attr.rule_metadata["import_attr"],
+        name = name,
+        path = path,
+        srcpath = srcpath,
+        attrs = repository_ctx.attr,
+        props = _PASS_PROPS,
+        additional_rule_attrs = repository_ctx.attr.additional_rule_attrs,
     ))
     if (repository_ctx.attr.neverlink and
         repository_ctx.attr.generated_linkable_rule_name):
         lines.extend(_serialize_given_rule_import(
-            repository_ctx.attr.rule_name,
-            repository_ctx.attr.generated_linkable_rule_name,
-            path,
-            srcpath,
-            repository_ctx.attr,
-            [p for p in _PASS_PROPS if p != "neverlink"],
-            repository_ctx.attr.additional_rule_attrs,
+            rule_name = repository_ctx.attr.rule_name,
+            import_attr = repository_ctx.attr.rule_metadata["import_attr"],
+            name = repository_ctx.attr.generated_linkable_rule_name,
+            path = path,
+            srcpath = srcpath,
+            attrs = repository_ctx.attr,
+            props = [p for p in _PASS_PROPS if p != "neverlink"],
+            additonal_rule_attrs = repository_ctx.attr.additional_rule_attrs,
         ))
     extra = repository_ctx.attr.extra_build_file_content
     if extra:
@@ -103,7 +107,7 @@ def _jvm_import_external(repository_ctx):
     if srcurls:
         repository_ctx.download(srcurls, srcpath, srcsha)
     repository_ctx.file("BUILD", "\n".join(lines))
-    repository_ctx.file("jar/BUILD", "\n".join([
+    repository_ctx.file("%s/BUILD" % extension, "\n".join([
         _HEADER,
         "",
         "package(default_visibility = %r)" % (
@@ -112,18 +116,18 @@ def _jvm_import_external(repository_ctx):
         ),
         "",
         "alias(",
-        "    name = \"jar\",",
+        "    name = \"%s\"," % extension,
         "    actual = \"@%s\"," % repository_ctx.name,
         ")",
         "",
     ]))
 
-def _convert_to_url(artifact, server_urls):
+# This method is public for usage in android.bzl macros
+def convert_artifact_coordinate_to_urls(artifact, server_urls, packaging):
     parts = artifact.split(":")
     group_id_part = parts[0].replace(".", "/")
     artifact_id = parts[1]
     version = parts[2]
-    packaging = "jar"
     classifier_part = ""
     if len(parts) == 4:
         packaging = parts[2]
@@ -146,12 +150,13 @@ def _concat_with_needed_slash(server_url, url_suffix):
     else:
         return server_url + "/" + url_suffix
 
-def _serialize_given_rule_import(rule_name, name, path, srcpath, attrs, props, additional_rule_attrs):
+def _serialize_given_rule_import(rule_name, import_attr, name, path, srcpath, attrs, props, additional_rule_attrs):
     lines = [
         "%s(" % rule_name,
         "    name = %s," % repr(name),
-        "    jars = [%s]," % repr(path),
+        "    " + import_attr % repr(path) + ","
     ]
+
     if srcpath:
         lines.append("    srcjar = %s," % repr(srcpath))
     for prop in props:
@@ -171,8 +176,14 @@ jvm_import_external = repository_rule(
     attrs = {
         "rule_name": attr.string(mandatory = True),
         "licenses": attr.string_list(mandatory = True, allow_empty = False),
-        "jar_urls": attr.string_list(mandatory = True, allow_empty = False),
-        "jar_sha256": attr.string(),
+        "artifact_urls": attr.string_list(mandatory = True, allow_empty = False),
+        "artifact_sha256": attr.string(),
+        "rule_metadata": attr.string_dict(
+            default = {
+                "extension": "jar",
+                "import_attr": "jars = [%s]",
+            }
+        ),
         "rule_load": attr.string(),
         "additional_rule_attrs": attr.string_dict(),
         "srcjar_urls": attr.string_list(),
@@ -189,8 +200,13 @@ jvm_import_external = repository_rule(
     },
 )
 
+
 def jvm_maven_import_external(artifact, server_urls, **kwargs):
     jvm_import_external(
-        jar_urls = _convert_to_url(artifact, server_urls),
+        artifact_urls = convert_artifact_coordinate_to_urls(
+            artifact,
+            server_urls,
+            "jar"
+        ),
         **kwargs
     )
