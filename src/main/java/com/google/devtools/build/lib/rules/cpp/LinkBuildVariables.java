@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
@@ -101,23 +99,23 @@ public enum LinkBuildVariables {
 
   public static CcToolchainVariables setupVariables(
       boolean isUsingLinkerNotArchiver,
-      BuildConfiguration configuration,
-      Artifact outputArtifact,
+      PathFragment binDirectoryPath,
+      String outputFile,
       boolean isCreatingSharedLibrary,
-      Artifact paramFile,
-      Artifact thinltoParamFile,
-      Artifact thinltoMergedObjectFile,
+      String paramFile,
+      String thinltoParamFile,
+      String thinltoMergedObjectFile,
       boolean mustKeepDebug,
       Artifact symbolCounts,
       CcToolchainProvider ccToolchainProvider,
       FeatureConfiguration featureConfiguration,
       boolean useTestOnlyFlags,
       boolean isLtoIndexing,
-      ImmutableList<String> userLinkFlags,
-      Artifact interfaceLibraryBuilder,
-      Artifact interfaceLibraryOutput,
+      Iterable<String> userLinkFlags,
+      String interfaceLibraryBuilder,
+      String interfaceLibraryOutput,
       PathFragment ltoOutputRootPrefix,
-      ActionInput defFile,
+      String defFile,
       FdoSupportProvider fdoSupport,
       Iterable<String> runtimeLibrarySearchDirectories,
       SequenceBuilder librariesToLink,
@@ -160,32 +158,31 @@ public enum LinkBuildVariables {
           RUNTIME_LIBRARY_SEARCH_DIRECTORIES.getVariableName(), runtimeLibrarySearchDirectories);
     }
 
-    buildVariables.addCustomBuiltVariable(LIBRARIES_TO_LINK.getVariableName(), librariesToLink);
-    // TODO(b/72803478): Remove once existing crosstools have been migrated
-    buildVariables.addStringVariable("libs_to_link_dont_emit_objects_for_archiver", "");
+    if (librariesToLink != null) {
+      buildVariables.addCustomBuiltVariable(LIBRARIES_TO_LINK.getVariableName(), librariesToLink);
+      // TODO(b/72803478): Remove once existing crosstools have been migrated
+      buildVariables.addStringVariable("libs_to_link_dont_emit_objects_for_archiver", "");
+    }
 
     buildVariables.addStringSequenceVariable(
         LIBRARY_SEARCH_DIRECTORIES.getVariableName(), librarySearchDirectories);
 
     if (paramFile != null) {
-      buildVariables.addStringVariable(
-          LINKER_PARAM_FILE.getVariableName(), paramFile.getExecPathString());
+      buildVariables.addStringVariable(LINKER_PARAM_FILE.getVariableName(), paramFile);
     }
 
     // output exec path
-    if (outputArtifact != null && !isLtoIndexing) {
-      buildVariables.addStringVariable(
-          OUTPUT_EXECPATH.getVariableName(), outputArtifact.getExecPathString());
+    if (outputFile != null && !isLtoIndexing) {
+      buildVariables.addStringVariable(OUTPUT_EXECPATH.getVariableName(), outputFile);
     }
 
     if (isLtoIndexing) {
       if (thinltoParamFile != null) {
         // This is a lto-indexing action and we want it to populate param file.
         buildVariables.addStringVariable(
-            THINLTO_INDEXING_PARAM_FILE.getVariableName(), thinltoParamFile.getExecPathString());
+            THINLTO_INDEXING_PARAM_FILE.getVariableName(), thinltoParamFile);
         // TODO(b/33846234): Remove once all the relevant crosstools don't depend on the variable.
-        buildVariables.addStringVariable(
-            "thinlto_optional_params_file", "=" + thinltoParamFile.getExecPathString());
+        buildVariables.addStringVariable("thinlto_optional_params_file", "=" + thinltoParamFile);
       } else {
         buildVariables.addStringVariable(THINLTO_INDEXING_PARAM_FILE.getVariableName(), "");
         // TODO(b/33846234): Remove once all the relevant crosstools don't depend on the variable.
@@ -193,9 +190,9 @@ public enum LinkBuildVariables {
       }
       buildVariables.addStringVariable(
           THINLTO_PREFIX_REPLACE.getVariableName(),
-          configuration.getBinDirectory().getExecPathString()
+          binDirectoryPath.getSafePathString()
               + ";"
-              + configuration.getBinDirectory().getExecPath().getRelative(ltoOutputRootPrefix));
+              + binDirectoryPath.getRelative(ltoOutputRootPrefix));
       String objectFileExtension;
       try {
         objectFileExtension = ccToolchainProvider.getFeatures()
@@ -209,18 +206,16 @@ public enum LinkBuildVariables {
               + ";" + objectFileExtension);
       if (thinltoMergedObjectFile != null) {
         buildVariables.addStringVariable(
-            THINLTO_MERGED_OBJECT_FILE.getVariableName(),
-            thinltoMergedObjectFile.getExecPathString());
+            THINLTO_MERGED_OBJECT_FILE.getVariableName(), thinltoMergedObjectFile);
       }
     } else {
       if (thinltoParamFile != null) {
         // This is a normal link action and we need to use param file created by lto-indexing.
-        buildVariables.addStringVariable(
-            THINLTO_PARAM_FILE.getVariableName(), thinltoParamFile.getExecPathString());
+        buildVariables.addStringVariable(THINLTO_PARAM_FILE.getVariableName(), thinltoParamFile);
       }
     }
     boolean shouldGenerateInterfaceLibrary =
-        outputArtifact != null
+        outputFile != null
             && interfaceLibraryBuilder != null
             && interfaceLibraryOutput != null
             && !isLtoIndexing;
@@ -229,32 +224,33 @@ public enum LinkBuildVariables {
         shouldGenerateInterfaceLibrary ? "yes" : "no");
     buildVariables.addStringVariable(
         INTERFACE_LIBRARY_BUILDER.getVariableName(),
-        shouldGenerateInterfaceLibrary ? interfaceLibraryBuilder.getExecPathString() : "ignored");
+        shouldGenerateInterfaceLibrary ? interfaceLibraryBuilder : "ignored");
     buildVariables.addStringVariable(
         INTERFACE_LIBRARY_INPUT.getVariableName(),
-        shouldGenerateInterfaceLibrary ? outputArtifact.getExecPathString() : "ignored");
+        shouldGenerateInterfaceLibrary ? outputFile : "ignored");
     buildVariables.addStringVariable(
         INTERFACE_LIBRARY_OUTPUT.getVariableName(),
-        shouldGenerateInterfaceLibrary ? interfaceLibraryOutput.getExecPathString() : "ignored");
+        shouldGenerateInterfaceLibrary ? interfaceLibraryOutput : "ignored");
 
     if (defFile != null) {
-      buildVariables.addStringVariable(
-          DEF_FILE_PATH.getVariableName(), defFile.getExecPathString());
+      buildVariables.addStringVariable(DEF_FILE_PATH.getVariableName(), defFile);
     }
 
-    fdoSupport.getFdoSupport().getLinkOptions(featureConfiguration, buildVariables);
+    if (fdoSupport != null) {
+      fdoSupport.getFdoSupport().getLinkOptions(featureConfiguration, buildVariables);
+    }
 
-    ImmutableList<String> userLinkFlagsWithLtoIndexingIfNeeded;
+    Iterable<String> userLinkFlagsWithLtoIndexingIfNeeded;
     if (!isLtoIndexing) {
-      userLinkFlagsWithLtoIndexingIfNeeded = ImmutableList.copyOf(userLinkFlags);
-
+      userLinkFlagsWithLtoIndexingIfNeeded = userLinkFlags;
     } else {
-      List<String> opts = new ArrayList<>(userLinkFlags);
+      ImmutableList.Builder<String> opts = ImmutableList.builder();
+      opts.addAll(userLinkFlags);
       opts.addAll(
           featureConfiguration.getCommandLine(
               CppActionNames.LTO_INDEXING, buildVariables.build(), /* expander= */ null));
       opts.addAll(ccToolchainProvider.getCppConfiguration().getLtoIndexOptions());
-      userLinkFlagsWithLtoIndexingIfNeeded = ImmutableList.copyOf(opts);
+      userLinkFlagsWithLtoIndexingIfNeeded = opts.build();
     }
 
     // For now, silently ignore linkopts if this is a static library
@@ -288,14 +284,14 @@ public enum LinkBuildVariables {
       CcToolchainProvider ccToolchainProvider,
       boolean useTestOnlyFlags,
       boolean isCreatingSharedLibrary,
-      List<String> userLinkFlags) {
+      Iterable<String> userLinkFlags) {
     if (!isUsingLinkerNotArchiver) {
       return ImmutableList.of();
     }
     CppConfiguration cppConfiguration = ccToolchainProvider.getCppConfiguration();
     boolean sharedLinkopts =
         isCreatingSharedLibrary
-            || userLinkFlags.contains("-shared")
+            || Iterables.contains(userLinkFlags, "-shared")
             || cppConfiguration.hasSharedLinkOption();
 
     List<String> result = new ArrayList<>();
@@ -341,7 +337,7 @@ public enum LinkBuildVariables {
   }
 
   private static Iterable<String> removePieIfCreatingSharedLibrary(
-      boolean isCreatingSharedLibrary, List<String> flags) {
+      boolean isCreatingSharedLibrary, Iterable<String> flags) {
     if (isCreatingSharedLibrary) {
       return Iterables.filter(flags, Predicates.not(Predicates.equalTo("-pie")));
     } else {
