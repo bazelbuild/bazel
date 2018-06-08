@@ -25,9 +25,7 @@
 
 namespace blaze_util {
 
-using std::pair;
 using std::string;
-using std::vector;
 
 TEST(PathPosixTest, TestDirname) {
   // The Posix version of SplitPath (thus Dirname too, which is implemented on
