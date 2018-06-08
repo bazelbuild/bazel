@@ -944,11 +944,6 @@ public final class AndroidRuleClasses {
           .add(attr("proguard_apply_dictionary", LABEL).legacyAllowAnyFileType())
           .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))
           .add(
-              attr("$dex_list_obfuscator", LABEL)
-                  .cfg(HostTransition.INSTANCE)
-                  .exec()
-                  .value(env.getToolsLabel("//tools/android:dex_list_obfuscator")))
-          .add(
               attr(":bytecode_optimizers", LABEL_LIST)
                   .cfg(HostTransition.INSTANCE)
                   .value(JavaSemantics.BYTECODE_OPTIMIZERS))

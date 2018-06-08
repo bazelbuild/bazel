@@ -444,9 +444,3 @@ package_group(
     name = "export_deps_whitelist",
     packages = ["//..."],
 )
-
-sh_binary(
-    name = "dex_list_obfuscator",
-    srcs = ["dex_list_obfuscator.sh"],
-    visibility = ["//visibility:public"],
-)
