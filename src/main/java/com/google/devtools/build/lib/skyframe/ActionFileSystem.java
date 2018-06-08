@@ -28,7 +28,9 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.InlineFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.SourceFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -64,6 +66,7 @@ import javax.annotation.Nullable;
  */
 final class ActionFileSystem extends FileSystem implements MetadataProvider, InjectionListener {
   private static final Logger LOGGER = Logger.getLogger(ActionFileSystem.class.getName());
+  public static final BaseEncoding LOWER_CASE_HEX = BaseEncoding.base16().lowerCase();
 
   /** Actual underlying filesystem. */
   private final FileSystem delegate;
@@ -158,7 +161,13 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
   @Override
   @Nullable
   public ActionInput getInput(String execPath) {
-    return inputArtifactData.getInput(execPath);
+    ActionInput input = inputArtifactData.getInput(execPath);
+    if (input != null) {
+      return input;
+    }
+    OptionalInputMetadata metadata =
+        optionalInputs.get(PathFragment.createAlreadyNormalized(execPath));
+    return metadata == null ? null : metadata.getArtifact();
   }
 
   // -------------------- InjectionListener Implementation --------------------
@@ -272,6 +281,24 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
   }
 
   @Override
+  public byte[] getxattr(Path path, String name) throws IOException {
+    FileArtifactValue metadata = getMetadataChecked(asExecPath(path));
+    if (metadata instanceof RemoteFileArtifactValue) {
+      RemoteFileArtifactValue remote = (RemoteFileArtifactValue) metadata;
+      // TODO(b/80244718): inject ActionFileSystem from elsewhere and replace with correct metadata
+      return ("/CENSORED_BY_LEAKR/"
+              + remote.getLocationIndex()
+              + "/"
+              + LOWER_CASE_HEX.encode(remote.getDigest()))
+          .getBytes(US_ASCII);
+    }
+    if (metadata instanceof SourceFileArtifactValue) {
+      return resolveSourcePath((SourceFileArtifactValue) metadata).getxattr(name);
+    }
+    return delegate.getPath(path.asFragment()).getxattr(name);
+  }
+
+  @Override
   protected byte[] getFastDigest(Path path, HashFunction hash) throws IOException {
     if (hash != HashFunction.MD5) {
       return null;
@@ -318,7 +345,37 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
 
   @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
-    PathFragment targetExecPath = asExecPath(targetFragment);
+    // TODO(shahan): this might need to be loosened, but will require more information
+    Preconditions.checkArgument(
+        targetFragment.isAbsolute(),
+        "ActionFileSystem requires symlink targets to be absolute: %s -> %s",
+        linkPath,
+        targetFragment);
+
+    // When creating symbolic links, it matters whether target is a source path or not because
+    // the metadata needs to be handled differently in that case.
+    PathFragment targetExecPath = null;
+    int sourceRootIndex = -1; // index into sourceRoots or -1 if not a source
+    if (targetFragment.startsWith(execRootFragment)) {
+      targetExecPath = targetFragment.relativeTo(execRootFragment);
+    } else {
+      for (int i = 0; i < sourceRoots.size(); ++i) {
+        if (targetFragment.startsWith(sourceRoots.get(i))) {
+          targetExecPath = targetFragment.relativeTo(sourceRoots.get(i));
+          sourceRootIndex = i;
+          break;
+        }
+      }
+      if (sourceRootIndex == -1) {
+        throw new IllegalArgumentException(
+            linkPath
+                + " was not found under any known root: "
+                + execRootFragment
+                + ", "
+                + sourceRoots);
+      }
+    }
+
     FileArtifactValue inputMetadata = inputArtifactData.getMetadata(targetExecPath.getPathString());
     if (inputMetadata == null) {
       OptionalInputMetadata metadataHolder = optionalInputs.get(targetExecPath);
@@ -337,7 +394,14 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
           createSymbolicLinkErrorMessage(
               linkPath, targetFragment, linkPath + " is not an output."));
     }
-    outputHolder.set(inputMetadata, /*notifyConsumer=*/ true);
+    if (sourceRootIndex >= 0) {
+      outputHolder.set(
+          new SourceFileArtifactValue(
+              targetExecPath, sourceRootIndex, inputMetadata.getDigest(), inputMetadata.getSize()),
+          true);
+    } else {
+      outputHolder.set(inputMetadata, /*notifyConsumer=*/ true);
+    }
   }
 
   @Override
@@ -380,11 +444,14 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
   @Override
   protected InputStream getInputStream(Path path) throws IOException {
     FileArtifactValue metadata = getMetadataChecked(asExecPath(path));
-    if (metadata instanceof FileArtifactValue.InlineFileArtifactValue) {
-      return ((FileArtifactValue.InlineFileArtifactValue) metadata).getInputStream();
+    if (metadata instanceof InlineFileArtifactValue) {
+      return ((InlineFileArtifactValue) metadata).getInputStream();
+    }
+    if (metadata instanceof SourceFileArtifactValue) {
+      return resolveSourcePath((SourceFileArtifactValue) metadata).getInputStream();
     }
     Preconditions.checkArgument(
-        !(metadata instanceof FileArtifactValue.RemoteFileArtifactValue),
+        !(metadata instanceof RemoteFileArtifactValue),
         "getInputStream called for remote file: %s",
         path);
     return delegate.getPath(path.asFragment()).getInputStream();
@@ -505,6 +572,13 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
     return ByteString.copyFrom(BaseEncoding.base16().lowerCase().encode(digest).getBytes(US_ASCII));
   }
 
+  /** NB: resolves to the underlying filesytem instead of this one. */
+  private Path resolveSourcePath(SourceFileArtifactValue metadata) {
+    return delegate
+        .getPath(sourceRoots.get(metadata.getSourceRootIndex()))
+        .getRelative(metadata.getExecPath());
+  }
+
   @FunctionalInterface
   public interface MetadataConsumer {
     void accept(Artifact artifact, FileArtifactValue value) throws IOException;
@@ -516,6 +590,10 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
 
     private OptionalInputMetadata(Artifact artifact) {
       this.artifact = artifact;
+    }
+
+    public Artifact getArtifact() {
+      return artifact;
     }
 
     public FileArtifactValue get() throws IOException {
@@ -582,8 +660,8 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
           super.close();
           byte[] data = toByteArray();
           set(
-              new FileArtifactValue.InlineFileArtifactValue(
-                  data, Hashing.md5().hashBytes(data).asBytes()), /*notifyConsumer=*/ true);
+              new InlineFileArtifactValue(data, Hashing.md5().hashBytes(data).asBytes()),
+              /*notifyConsumer=*/ true);
         }
       };
     }

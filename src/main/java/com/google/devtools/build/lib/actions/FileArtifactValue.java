@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
@@ -413,6 +414,62 @@ public abstract class FileArtifactValue implements SkyValue {
     @Override
     public long getSize() {
       return data.length;
+    }
+
+    @Override
+    public long getModifiedTime() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  /**
+   * Used to resolve source symlinks when diskless.
+   *
+   * <p>When {@link com.google.devtools.build.lib.skyframe.ActionFileSystem} creates symlinks, it
+   * relies on metadata ({@link FileArtifactValue}) to resolve the actual underlying data. In the
+   * case of remote or inline files, this information is self-contained. However, in the case of
+   * source files, the path is required to resolve the content.
+   */
+  public static final class SourceFileArtifactValue extends FileArtifactValue {
+    private final PathFragment execPath;
+    private final int sourceRootIndex;
+    private final byte[] digest;
+    private final long size;
+
+    public SourceFileArtifactValue(
+        PathFragment execPath, int sourceRootIndex, byte[] digest, long size) {
+      this.execPath = Preconditions.checkNotNull(execPath);
+      this.sourceRootIndex = sourceRootIndex;
+      this.digest = Preconditions.checkNotNull(digest);
+      this.size = size;
+    }
+
+    public PathFragment getExecPath() {
+      return execPath;
+    }
+
+    public int getSourceRootIndex() {
+      return sourceRootIndex;
+    }
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
+    public long getSize() {
+      return size;
     }
 
     @Override
