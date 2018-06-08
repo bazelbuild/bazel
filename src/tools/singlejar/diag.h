@@ -27,7 +27,7 @@
 #define diag_warn(...) warn(__VA_ARGS__)
 #define diag_warnx(...) warnx(__VA_ARGS__)
 
-#elif defined(COMPILER_MSVC)
+#elif defined(_WIN32)
 
 #include <stdio.h>
 #include <string.h>

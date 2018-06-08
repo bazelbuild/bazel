@@ -15,7 +15,7 @@
 #ifndef BAZEL_SRC_TOOLS_SINGLEJAR_MAPPED_FILE_WINDOWS_H_
 #define BAZEL_SRC_TOOLS_SINGLEJAR_MAPPED_FILE_WINDOWS_H_ 1
 
-#if !defined(COMPILER_MSVC) || !defined(_WIN64)
+#if !defined(_WIN64)
 #error This code is for 64 bit Windows.
 #endif
 

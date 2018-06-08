@@ -29,7 +29,7 @@
 #include <endian.h>
 #elif defined(__FreeBSD__)
 #include <sys/endian.h>
-#elif defined(__APPLE__) || defined(COMPILER_MSVC)
+#elif defined(__APPLE__) || defined(_WIN32)
 // Hopefully OSX and Windows will keep running solely on little endian CPUs, so:
 #define le16toh(x) (x)
 #define le32toh(x) (x)
@@ -44,7 +44,7 @@
 #include <string>
 #include <type_traits>
 
-#ifdef COMPILER_MSVC
+#ifdef _MSC_VER
 #pragma pack(push, 1)
 #define attr_packed
 #else
@@ -653,7 +653,7 @@ class ECD64 {
 } attr_packed;
 static_assert(56 == sizeof(ECD64), "ECD64 class fields layout is incorrect.");
 
-#ifdef COMPILER_MSVC
+#ifdef _MSC_VER
 #pragma pack(pop)
 #endif
 

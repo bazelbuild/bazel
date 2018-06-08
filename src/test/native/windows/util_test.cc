@@ -23,9 +23,9 @@
 #include "gtest/gtest.h"
 #include "src/main/native/windows/util.h"
 
-#if !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
+#if !defined(_WIN32) && !defined(__CYGWIN__)
 #error("This test should only be run on Windows")
-#endif  // !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
+#endif  // !defined(_WIN32) && !defined(__CYGWIN__)
 
 namespace bazel {
 namespace windows {

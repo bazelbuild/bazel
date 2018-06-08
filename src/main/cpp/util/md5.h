@@ -20,9 +20,9 @@
 
 #include <string>
 
-#if defined(COMPILER_MSVC) && !defined(__alignof__)
+#if defined(_MSC_VER) && !defined(__alignof__)
 #define __alignof__ __alignof
-#endif  // COMPILER_MSVC && !__alignof__
+#endif  // _MSC_VER && !__alignof__
 
 namespace blaze_util {
 
