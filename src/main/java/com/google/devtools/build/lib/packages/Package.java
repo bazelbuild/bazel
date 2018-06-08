@@ -340,7 +340,9 @@ public class Package {
     Path current = buildFile.getParentDirectory();
     for (int i = 0, len = packageFragment.segmentCount();
          i < len && !packageFragment.equals(PathFragment.EMPTY_FRAGMENT); i++) {
-      current = current.getParentDirectory();
+      if (current != null) {
+        current = current.getParentDirectory();
+      }
     }
     return Root.fromPath(current);
   }
@@ -367,8 +369,8 @@ public class Package {
     this.packageDirectory = filename.getParentDirectory();
 
     this.sourceRoot = getSourceRoot(filename, packageIdentifier.getSourceRoot());
-    if ((sourceRoot == null
-        || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory))
+    if ((sourceRoot.asPath() == null
+            || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory))
         && !filename.getBaseName().equals("WORKSPACE")) {
       throw new IllegalArgumentException(
           "Invalid BUILD file name for package '" + packageIdentifier + "': " + filename);

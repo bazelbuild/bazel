@@ -144,17 +144,19 @@ public abstract class BlazeOptionHandler {
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
     }
 
-    Path doNotBuild =
-        workspacePath.getParentDirectory().getRelative(BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
+    if (workspacePath.getParentDirectory() != null) {
+      Path doNotBuild =
+          workspacePath.getParentDirectory().getRelative(BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
 
-    if (doNotBuild.exists()) {
-      if (!commandAnnotation.canRunInOutputDirectory()) {
-        eventHandler.handle(Event.error(getNotInRealWorkspaceError(doNotBuild)));
-        return ExitCode.COMMAND_LINE_ERROR;
-      } else {
-        eventHandler.handle(
-            Event.warn(
-                runtime.getProductName() + " is run from output directory. This is unsound."));
+      if (doNotBuild.exists()) {
+        if (!commandAnnotation.canRunInOutputDirectory()) {
+          eventHandler.handle(Event.error(getNotInRealWorkspaceError(doNotBuild)));
+          return ExitCode.COMMAND_LINE_ERROR;
+        } else {
+          eventHandler.handle(
+              Event.warn(
+                  runtime.getProductName() + " is run from output directory. This is unsound."));
+        }
       }
     }
     return ExitCode.SUCCESS;
