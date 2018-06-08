@@ -133,8 +133,7 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
    * NestedSet#children}. When that field is an Object[], this is just identity hash code and
    * reference equality, but when it is something else (like an Artifact), we will do an actual
    * equality comparison. This may make some singleton NestedSets reference-equal where they were
-   * not before. This should be ok, but isn't because Artifact does not properly implement equality
-   * (it ignores the ArtifactOwner).
+   * not before. This should be ok as long as the contained object properly implements equality.
    *
    * <p>TODO(janakr): Fix this bug.
    */

@@ -131,10 +131,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     getConfiguredTarget("//foo:lib");
 
-    Artifact a0 = getBinArtifact("_objs/lib/arc/0/a.o", "//foo:lib");
-    Artifact a1 = getBinArtifact("_objs/lib/arc/1/a.o", "//foo:lib");
-    Artifact a2 = getBinArtifact("_objs/lib/non_arc/a.o", "//foo:lib");
-    Artifact b = getBinArtifact("_objs/lib/arc/b.o", "//foo:lib");
+    Artifact a0 = getBinArtifact("_objs/lib/arc/0/a.o", getConfiguredTarget("//foo:lib"));
+    Artifact a1 = getBinArtifact("_objs/lib/arc/1/a.o", getConfiguredTarget("//foo:lib"));
+    Artifact a2 = getBinArtifact("_objs/lib/non_arc/a.o", getConfiguredTarget("//foo:lib"));
+    Artifact b = getBinArtifact("_objs/lib/arc/b.o", getConfiguredTarget("//foo:lib"));
 
     assertThat(getGeneratingAction(a0)).isNotNull();
     assertThat(getGeneratingAction(a1)).isNotNull();
@@ -157,10 +157,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     getConfiguredTarget("//foo:lib");
 
-    Artifact a0 = getBinArtifact("_objs/lib/foo/a.o", "//foo:lib");
-    Artifact a1 = getBinArtifact("_objs/lib/foo/pkg1/a.o", "//foo:lib");
-    Artifact a2 = getBinArtifact("_objs/lib/foo/pkg2/a.o", "//foo:lib");
-    Artifact b = getBinArtifact("_objs/lib/foo/b.o", "//foo:lib");
+    Artifact a0 = getBinArtifact("_objs/lib/foo/a.o", getConfiguredTarget("//foo:lib"));
+    Artifact a1 = getBinArtifact("_objs/lib/foo/pkg1/a.o", getConfiguredTarget("//foo:lib"));
+    Artifact a2 = getBinArtifact("_objs/lib/foo/pkg2/a.o", getConfiguredTarget("//foo:lib"));
+    Artifact b = getBinArtifact("_objs/lib/foo/b.o", getConfiguredTarget("//foo:lib"));
 
     assertThat(getGeneratingAction(a0)).isNotNull();
     assertThat(getGeneratingAction(a1)).isNotNull();
@@ -738,7 +738,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 "tools/osx/crosstool/iossim/libtool",
                 "-static",
                 "-filelist",
-                getBinArtifact("lib-archive.objlist", "//objc:lib").getExecPathString(),
+                getBinArtifact("lib-archive.objlist", getConfiguredTarget("//objc:lib"))
+                    .getExecPathString(),
                 "-arch_only",
                 "i386",
                 "-syslibroot",
@@ -768,7 +769,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 "tools/osx/crosstool/ios/libtool",
                 "-static",
                 "-filelist",
-                getBinArtifact("lib-archive.objlist", "//objc:lib").getExecPathString(),
+                getBinArtifact("lib-archive.objlist", getConfiguredTarget("//objc:lib"))
+                    .getExecPathString(),
                 "-arch_only",
                 "armv7",
                 "-syslibroot",
@@ -809,8 +811,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 AppleToolchain.sdkDir(),
                 "-o",
                 Iterables.getOnlyElement(linkAction.getOutputs()).getExecPathString(),
-                getBinArtifact("liblib.a", "//objc2:lib").getExecPathString(),
-                getBinArtifact("liblib_dep.a", "//objc:lib_dep").getExecPathString()));
+                getBinArtifact("liblib.a", getConfiguredTarget("//objc2:lib")).getExecPathString(),
+                getBinArtifact("liblib_dep.a", getConfiguredTarget("//objc:lib_dep"))
+                    .getExecPathString()));
     // TODO(hlopko): make containsExactly once crosstools are updated so
     // link_dynamic_library.sh is not needed anymore
     assertThat(baseArtifactNames(linkAction.getInputs())).containsAllOf(
@@ -847,8 +850,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 AppleToolchain.sdkDir(),
                 "-o",
                 Iterables.getOnlyElement(linkAction.getOutputs()).getExecPathString(),
-                getBinArtifact("liblib.a", "//objc2:lib").getExecPathString(),
-                getBinArtifact("liblib_dep.a", "//objc:lib_dep").getExecPathString()));
+                getBinArtifact("liblib.a", getConfiguredTarget("//objc2:lib")).getExecPathString(),
+                getBinArtifact("liblib_dep.a", getConfiguredTarget("//objc:lib_dep"))
+                    .getExecPathString()));
     // TODO(hlopko): make containsExactly once crosstools are updated so
     // link_dynamic_library.sh is not needed anymore
     assertThat(baseArtifactNames(linkAction.getInputs())).containsAllOf(
@@ -1474,7 +1478,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 .add("-static")
                 .add("-filelist")
                 .add(
-                    getBinArtifact("lib-archive.objlist", "//depender_lib:lib").getExecPathString())
+                    getBinArtifact("lib-archive.objlist", getConfiguredTarget("//depender_lib:lib"))
+                        .getExecPathString())
                 .add("-arch_only", "x86_64")
                 .add("-syslibroot")
                 .add(AppleToolchain.sdkDir())

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
@@ -409,6 +410,40 @@ public class ArtifactTest {
     Path execRoot = scratch.getFileSystem().getPath("/");
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/newRoot"));
     assertThat(new Artifact(scratch.file("/newRoot/foo"), root).getRoot()).isEqualTo(root);
+  }
+
+  @Test
+  public void hashCodeAndEquals() throws IOException {
+    Path execRoot = scratch.getFileSystem().getPath("/");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/newRoot"));
+    ArtifactOwner firstOwner = () -> Label.parseAbsoluteUnchecked("//bar:bar");
+    ArtifactOwner secondOwner = () -> Label.parseAbsoluteUnchecked("//foo:foo");
+    Artifact derived1 = new Artifact(root, PathFragment.create("newRoot/shared"), firstOwner);
+    Artifact derived2 = new Artifact(root, PathFragment.create("newRoot/shared"), secondOwner);
+    ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(root.getRoot().asPath()));
+    Artifact source1 = new SourceArtifact(sourceRoot, PathFragment.create("shared"), firstOwner);
+    Artifact source2 = new SourceArtifact(sourceRoot, PathFragment.create("shared"), secondOwner);
+    new EqualsTester()
+        .addEqualityGroup(derived1)
+        .addEqualityGroup(derived2)
+        .addEqualityGroup(source1, source2)
+        .testEquals();
+    assertThat(derived1.hashCode()).isEqualTo(derived2.hashCode());
+    assertThat(derived1.hashCode()).isNotEqualTo(source1.hashCode());
+    assertThat(source1.hashCode()).isEqualTo(source2.hashCode());
+    Artifact.OwnerlessArtifactWrapper wrapper1 = new Artifact.OwnerlessArtifactWrapper(derived1);
+    Artifact.OwnerlessArtifactWrapper wrapper2 = new Artifact.OwnerlessArtifactWrapper(derived2);
+    Artifact.OwnerlessArtifactWrapper wrapper3 = new Artifact.OwnerlessArtifactWrapper(source1);
+    Artifact.OwnerlessArtifactWrapper wrapper4 = new Artifact.OwnerlessArtifactWrapper(source2);
+    new EqualsTester()
+        .addEqualityGroup(wrapper1, wrapper2)
+        .addEqualityGroup(wrapper3, wrapper4)
+        .testEquals();
+    Path path1 = derived1.getPath();
+    Path path2 = derived2.getPath();
+    Path path3 = source1.getPath();
+    Path path4 = source2.getPath();
+    new EqualsTester().addEqualityGroup(path1, path2, path3, path4).testEquals();
   }
 
   private Artifact createDirNameArtifact() throws Exception {

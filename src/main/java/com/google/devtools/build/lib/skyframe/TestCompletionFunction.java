@@ -52,7 +52,7 @@ public final class TestCompletionFunction implements SkyFunction {
         }
       }
     } else {
-      env.getValues(ArtifactSkyKey.mandatoryKeys(TestProvider.getTestStatusArtifacts(ct)));
+      env.getValues(TestProvider.getTestStatusArtifacts(ct));
       if (env.valuesMissing()) {
         return null;
       }

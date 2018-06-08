@@ -153,9 +153,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new FileSymlinkInfiniteExpansionUniquenessFunction());
     skyFunctions.put(
         SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, new FileSymlinkCycleUniquenessFunction());
-    skyFunctions.put(
-        SkyFunctions.ARTIFACT,
-        artifactFakeFunction);
+    skyFunctions.put(Artifact.ARTIFACT, artifactFakeFunction);
 
     progressReceiver = new RecordingEvaluationProgressReceiver();
     differencer = new SequencedRecordingDifferencer();
@@ -896,10 +894,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      ArtifactSkyKey artifactKey = (ArtifactSkyKey) skyKey.argument();
-      Artifact artifact = artifactKey.getArtifact();
       try {
-        return FileArtifactValue.create(artifact.getPath());
+        return FileArtifactValue.create(((Artifact) skyKey).getPath());
       } catch (IOException e) {
         throw new SkyFunctionException(e, Transience.PERSISTENT){};
       }

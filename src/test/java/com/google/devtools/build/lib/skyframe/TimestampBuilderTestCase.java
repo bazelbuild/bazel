@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -207,7 +208,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(FileStateValue.FILE_STATE, new FileStateFunction(tsgmRef, externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
-                .put(SkyFunctions.ARTIFACT, new ArtifactFunction())
+                .put(Artifact.ARTIFACT, new ArtifactFunction())
                 .put(
                     SkyFunctions.ACTION_EXECUTION,
                     new ActionExecutionFunction(skyframeActionExecutor, tsgmRef))
@@ -343,9 +344,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     return createSourceArtifact(scratch.getFileSystem(), name);
   }
 
-  Artifact createSourceArtifact(FileSystem fs, String name) {
+  private static Artifact createSourceArtifact(FileSystem fs, String name) {
     Path root = fs.getPath(TestUtils.tmpDir());
-    return new Artifact(PathFragment.create(name), ArtifactRoot.asSourceRoot(Root.fromPath(root)));
+    return new Artifact.SourceArtifact(
+        ArtifactRoot.asSourceRoot(Root.fromPath(root)),
+        PathFragment.create(name),
+        ArtifactOwner.NullArtifactOwner.INSTANCE);
   }
 
   protected Artifact createDerivedArtifact(String name) {

@@ -19,10 +19,12 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -33,6 +35,8 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -195,5 +199,34 @@ public class ActionExecutionValue implements SkyValue {
               metadata.getSize(), metadata.getDigest(), /*contentsProxy=*/ null));
     }
     return value;
+  }
+
+  private static <V> ImmutableMap<Artifact, V> transformKeys(
+      ImmutableMap<Artifact, V> data, Map<OwnerlessArtifactWrapper, Artifact> newArtifactMap) {
+    if (data.isEmpty()) {
+      return data;
+    }
+    ImmutableMap.Builder<Artifact, V> result = ImmutableMap.builderWithExpectedSize(data.size());
+    for (Map.Entry<Artifact, V> entry : data.entrySet()) {
+      Artifact transformedArtifact =
+          Preconditions.checkNotNull(
+              newArtifactMap.get(new OwnerlessArtifactWrapper(entry.getKey())), entry);
+      result.put(transformedArtifact, entry.getValue());
+    }
+    return result.build();
+  }
+
+  ActionExecutionValue transformForSharedAction(ImmutableSet<Artifact> outputs) {
+    Map<OwnerlessArtifactWrapper, Artifact> newArtifactMap =
+        outputs
+            .stream()
+            .collect(Collectors.toMap(OwnerlessArtifactWrapper::new, Function.identity()));
+    // This is only called for shared actions, so we'll almost certainly have to transform all keys
+    // in all sets.
+    return new ActionExecutionValue(
+        transformKeys(artifactData, newArtifactMap),
+        transformKeys(treeArtifactData, newArtifactMap),
+        transformKeys(additionalOutputData, newArtifactMap),
+        outputSymlinks);
   }
 }

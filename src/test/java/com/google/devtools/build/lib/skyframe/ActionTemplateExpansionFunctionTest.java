@@ -89,7 +89,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(SkyFunctions.ARTIFACT, new DummyArtifactFunction(artifactValueMap))
+                .put(Artifact.ARTIFACT, new DummyArtifactFunction(artifactValueMap))
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new ActionTemplateExpansionFunction(
@@ -264,9 +264,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) {
-      ArtifactSkyKey artifactSkyKey = (ArtifactSkyKey) skyKey.argument();
-      Artifact artifact = artifactSkyKey.getArtifact();
-      return Preconditions.checkNotNull(artifactValueMap.get(artifact));
+      return Preconditions.checkNotNull(artifactValueMap.get(skyKey));
     }
 
     @Override

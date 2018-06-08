@@ -160,7 +160,8 @@ public class RecordingSkyFunctionEnvironment implements Environment {
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getValues(Iterable<SkyKey> depKeys) throws InterruptedException {
+  public Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys)
+      throws InterruptedException {
     recordDeps(depKeys);
     return delegate.getValues(depKeys);
   }

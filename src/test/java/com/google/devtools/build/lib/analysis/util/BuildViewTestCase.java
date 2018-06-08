@@ -1207,19 +1207,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So
-   * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
-   * be "foo.o".
-   */
-  protected Artifact getBinArtifact(String packageRelativePath, String owner) {
-    return getPackageRelativeDerivedArtifact(
-        packageRelativePath,
-        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
-        makeConfiguredTargetKey(owner));
-  }
-
-  /**
-   * Gets a derived Artifact for testing in the subdirectory of the {@link
    * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So to
    * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
    * "foo.o".
@@ -1335,13 +1322,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageRelativePath,
         getConfiguration(owner)
             .getGenfilesDirectory(owner.getLabel().getPackageIdentifier().getRepository()),
-        (AspectValue.AspectKey)
-            AspectValue.createAspectKey(
-                    owner.getLabel(),
-                    getConfiguration(owner),
-                    new AspectDescriptor(creatingAspectFactory, params),
-                    getConfiguration(owner))
-                .argument());
+        getOwnerForAspect(owner, creatingAspectFactory, params));
+  }
+
+  protected AspectValue.AspectKey getOwnerForAspect(
+      ConfiguredTarget owner, NativeAspectClass creatingAspectFactory, AspectParameters params) {
+    return (AspectValue.AspectKey)
+        AspectValue.createAspectKey(
+                owner.getLabel(),
+                getConfiguration(owner),
+                new AspectDescriptor(creatingAspectFactory, params),
+                getConfiguration(owner))
+            .argument();
   }
 
   /**
@@ -1368,11 +1360,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getIncludeDirectory} corresponding to the package of {@code owner}.
-   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
-   * just be "foo.h".
+   * BuildConfiguration#getIncludeDirectory} corresponding to the package of {@code owner}. So to
+   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
+   * "foo.h".
    */
-  private Artifact getIncludeArtifact(String packageRelativePath, ArtifactOwner owner) {
+  protected Artifact getIncludeArtifact(String packageRelativePath, ArtifactOwner owner) {
     return getPackageRelativeDerivedArtifact(packageRelativePath,
         targetConfig.getIncludeDirectory(owner.getLabel().getPackageIdentifier().getRepository()),
         owner);
