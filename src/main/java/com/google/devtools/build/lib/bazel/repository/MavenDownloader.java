@@ -63,19 +63,18 @@ public class MavenDownloader extends HttpDownloader {
     Server server = serverValue.getServer();
 
     // Initialize maven artifacts
-    Artifact artifact;
     String artifactCoords = mapper.get("artifact", Type.STRING);
-    String sha1 =
-        mapper.isAttributeValueExplicitlySpecified("sha1") ? mapper.get("sha1", Type.STRING) : null;
-    if (sha1 != null && !KeyType.SHA1.isValid(sha1)) {
-      throw new IOException("Invalid SHA-1 for maven_jar " + name + ": '" + sha1 + "'");
-    }
+    String sha1 = retrieveSha1(name, "sha1", mapper);
+    String sha1Src = retrieveSha1(name, "sha1_src", mapper);
 
+    Artifact artifact;
     try {
       artifact = new DefaultArtifact(artifactCoords);
     } catch (IllegalArgumentException e) {
       throw new IOException(e.getMessage());
     }
+
+    Artifact artifactWithSrcs = srcjarCoords(artifact);
 
     boolean isCaching = repositoryCache.isEnabled() && KeyType.SHA1.isValid(sha1);
 
@@ -83,7 +82,12 @@ public class MavenDownloader extends HttpDownloader {
       Path downloadPath = getDownloadDestination(outputDirectory, artifact);
       Path cachedDestination = repositoryCache.get(sha1, downloadPath, KeyType.SHA1);
       if (cachedDestination != null) {
-        return new JarPaths(cachedDestination, Optional.absent());
+        Path cachedDestinationSrc = null;
+        if (sha1Src != null) {
+          Path downloadPathSrc = getDownloadDestination(outputDirectory, artifactWithSrcs);
+          cachedDestinationSrc = repositoryCache.get(sha1Src, downloadPathSrc, KeyType.SHA1);
+        }
+        return new JarPaths(cachedDestination, Optional.fromNullable(cachedDestinationSrc));
       }
     }
 
@@ -105,7 +109,6 @@ public class MavenDownloader extends HttpDownloader {
     }
 
     // Try also fetching srcjar.
-    Artifact artifactWithSrcs = srcjarCoords(artifact);
     try {
       artifactWithSrcs = downloadArtifact(artifactWithSrcs, repository, session, system);
     } catch (ArtifactResolutionException e) {
@@ -118,24 +121,47 @@ public class MavenDownloader extends HttpDownloader {
       RepositoryCache.assertFileChecksum(sha1, jarDownload, KeyType.SHA1);
     }
 
-    if (isCaching) {
-      repositoryCache.put(sha1, jarDownload, KeyType.SHA1);
+    Path srcjarDownload = null;
+    if (artifactWithSrcs.getFile() != null) {
+      srcjarDownload = outputDirectory.getRelative(artifactWithSrcs.getFile().getAbsolutePath());
+      if (!Strings.isNullOrEmpty(sha1Src)) {
+        RepositoryCache.assertFileChecksum(sha1Src, srcjarDownload, KeyType.SHA1);
+      }
     }
 
-    if (artifactWithSrcs.getFile() != null) {
-      Path srcjarDownload =
-          outputDirectory.getRelative(artifactWithSrcs.getFile().getAbsolutePath());
-      return new JarPaths(jarDownload, Optional.fromNullable(srcjarDownload));
-    } else {
-      return new JarPaths(jarDownload, Optional.absent());
+    if (isCaching) {
+      repositoryCache.put(sha1, jarDownload, KeyType.SHA1);
+      if (srcjarDownload != null && !Strings.isNullOrEmpty(sha1Src)) {
+        repositoryCache.put(sha1Src, srcjarDownload, KeyType.SHA1);
+      }
     }
+
+    return new JarPaths(jarDownload, Optional.fromNullable(srcjarDownload));
+  }
+
+  private String retrieveSha1(String name, String attribute, WorkspaceAttributeMapper mapper)
+      throws EvalException, IOException {
+    String sha1 =
+        mapper.isAttributeValueExplicitlySpecified(attribute)
+            ? mapper.get(attribute, Type.STRING)
+            : null;
+    if (sha1 != null && !KeyType.SHA1.isValid(sha1)) {
+      throw new IOException("Invalid SHA-1 for maven_jar " + name + ": '" + sha1 + "'");
+    }
+    return sha1;
   }
 
   private Path getDownloadDestination(Path outputDirectory, Artifact artifact) {
     String groupIdPath = artifact.getGroupId().replace('.', '/');
     String artifactId = artifact.getArtifactId();
+    String classifier = artifact.getClassifier();
     String version = artifact.getVersion();
-    String filename = artifactId + '-' + version + '.' + artifact.getExtension();
+    String filename = artifactId + '-' + version;
+
+    if (classifier.equals("sources")) {
+      filename += "-sources";
+    }
+    filename += '.' + artifact.getExtension();
 
     StringJoiner joiner = new StringJoiner("/");
     joiner.add(groupIdPath).add(artifactId).add(version).add(filename);
@@ -209,5 +235,4 @@ public class MavenDownloader extends HttpDownloader {
       // No-op.
     }
   }
-
 }

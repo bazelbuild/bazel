@@ -62,6 +62,25 @@ maven_jar(
     artifact = "com.example.carnivore:carnivore:1.23",
     repository = 'http://127.0.0.1:$fileserver_port/',
     sha1 = '$sha1',
+    sha1_src = '$sha1_src',
+)
+bind(name = 'mongoose', actual = '@endangered//jar')
+EOF
+
+  bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
+  expect_log "Tra-la!"
+}
+
+function test_maven_jar_no_sha1_src() {
+  setup_zoo
+  serve_artifact com.example.carnivore carnivore 1.23
+
+  cat > WORKSPACE <<EOF
+maven_jar(
+    name = 'endangered',
+    artifact = "com.example.carnivore:carnivore:1.23",
+    repository = 'http://127.0.0.1:$fileserver_port/',
+    sha1 = '$sha1',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
