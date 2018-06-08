@@ -42,6 +42,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
 
   private final TestRunnerAction testAction;
   private final TestStatus status;
+  private final String statusDetails;
   private final boolean cachedLocally;
   private final int attempt;
   private final boolean lastAttempt;
@@ -64,6 +65,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
       BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo,
       int attempt,
       BlazeTestStatus status,
+      String statusDetails,
       long startTimeMillis,
       long durationMillis,
       Collection<Pair<String, Path>> files,
@@ -73,6 +75,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     this.executionInfo = Preconditions.checkNotNull(executionInfo);
     this.attempt = attempt;
     this.status = BuildEventStreamerUtils.bepStatus(Preconditions.checkNotNull(status));
+    this.statusDetails = statusDetails;
     this.cachedLocally = cachedLocally;
     this.startTimeMillis = startTimeMillis;
     this.durationMillis = durationMillis;
@@ -98,6 +101,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
         executionInfo,
         attempt,
         attemptData.getStatus(),
+        attemptData.getStatusDetails(),
         attemptData.getStartTimeMillisEpoch(),
         attemptData.getRunDurationMillis(),
         files,
@@ -118,6 +122,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
         executionInfo,
         attempt,
         attemptData.getStatus(),
+        attemptData.getStatusDetails(),
         attemptData.getStartTimeMillisEpoch(),
         attemptData.getRunDurationMillis(),
         files,
@@ -184,10 +189,16 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
 
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
+    return GenericBuildEvent.protoChaining(this).setTestResult(asTestResult(converters)).build();
+  }
+
+  @VisibleForTesting
+  public BuildEventStreamProtos.TestResult asTestResult(BuildEventContext converters) {
     PathConverter pathConverter = converters.pathConverter();
     BuildEventStreamProtos.TestResult.Builder builder =
         BuildEventStreamProtos.TestResult.newBuilder();
     builder.setStatus(status);
+    builder.setStatusDetails(statusDetails);
     builder.setExecutionInfo(executionInfo);
     builder.setCachedLocally(cachedLocally);
     builder.setTestAttemptStartMillisEpoch(startTimeMillis);
@@ -200,6 +211,6 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
               .setUri(pathConverter.apply(file.getSecond()))
               .build());
     }
-    return GenericBuildEvent.protoChaining(this).setTestResult(builder.build()).build();
+    return builder.build();
   }
 }

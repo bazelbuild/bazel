@@ -499,6 +499,10 @@ message TestResult {
   // The status of this test.
   TestStatus status = 5;
 
+  // Additional details about the status of the test. This is intended for
+  // user display and must not be parsed.
+  string status_details = 9;
+
   // True, if the reported attempt is taken from the tool's local cache.
   bool cached_locally = 4;
 
