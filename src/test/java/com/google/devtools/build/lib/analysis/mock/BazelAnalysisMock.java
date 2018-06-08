@@ -272,7 +272,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'instrumentation_test_check', srcs = ['empty.sh'])")
         .add("package_group(name = 'android_device_whitelist', packages = ['//...'])")
         .add("package_group(name = 'export_deps_whitelist', packages = ['//...'])")
-        .add("android_tools_defaults_jar(name = 'android_jar')");
+        .add("android_tools_defaults_jar(name = 'android_jar')")
+        .add("sh_binary(name = 'dex_list_obfuscator', srcs = ['empty.sh'])");
 
     return androidBuildContents.build();
   }
