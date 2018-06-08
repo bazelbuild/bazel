@@ -44,7 +44,6 @@ import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -66,16 +65,12 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
   private final FileSystem delegate;
 
   private final PathFragment execRootFragment;
-  private final Path execRootPath;
   private final ImmutableList<PathFragment> sourceRoots;
 
   private final ActionInputMap inputArtifactData;
 
   /** exec path → artifact and metadata */
   private final HashMap<PathFragment, OptionalInputMetadata> optionalInputs;
-
-  /** digest → artifacts in {@link inputs} */
-  private final ConcurrentHashMap<ByteString, Artifact> optionalInputsByDigest;
 
   /** exec path → artifact and metadata */
   private final ImmutableMap<PathFragment, OutputMetadata> outputs;
@@ -103,7 +98,6 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
       this.delegate = delegate;
 
       this.execRootFragment = execRoot.asFragment();
-      this.execRootPath = getPath(execRootFragment);
       this.sourceRoots =
           sourceRoots
               .stream()
@@ -127,8 +121,6 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
         optionalInputs.computeIfAbsent(
             input.getExecPath(), unused -> new OptionalInputMetadata(input));
       }
-
-      this.optionalInputsByDigest = new ConcurrentHashMap<>();
 
       this.outputs =
           Streams.stream(outputArtifacts)
@@ -496,9 +488,6 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
             }
             if (metadata == null) {
               throw new ActionExecutionFunction.MissingDepException();
-            }
-            if (metadata.getType().exists() && metadata.getDigest() != null) {
-              optionalInputsByDigest.put(toByteString(metadata.getDigest()), artifact);
             }
           }
         }

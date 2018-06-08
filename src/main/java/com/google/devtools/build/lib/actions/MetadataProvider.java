@@ -28,8 +28,8 @@ public interface MetadataProvider {
    * then t >= p. Aside from these properties, t can be any value and may vary arbitrarily across
    * calls.
    *
-   * <p>Returned {@link Metadata} instance correspond to the final target of a symlink, and
-   * therefore must not have a type of {@link FileStateType#SYMLINK} themselves.
+   * <p>Returned {@link FileArtifactValue} instance corresponds to the final target of a symlink and
+   * therefore must not have a type of {@link FileStateType#SYMLINK}.
    *
    * <p>The return value is owned by the cache and must not be modified.
    *
@@ -44,8 +44,5 @@ public interface MetadataProvider {
 
   /** Looks up an input from its exec path. */
   @Nullable
-  default ActionInput getInput(String execPath) {
-    // TODO(shahan): make sure all instances have an implementation and delete the default here.
-    return null;
-  }
+  ActionInput getInput(String execPath);
 }

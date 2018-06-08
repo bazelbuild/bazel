@@ -35,4 +35,9 @@ public final class FakeActionInputFileCache implements MetadataProvider {
   public FileArtifactValue getMetadata(ActionInput input) throws IOException {
     return Preconditions.checkNotNull(inputs.get(input));
   }
+
+  @Override
+  public ActionInput getInput(String execPath) {
+    throw new UnsupportedOperationException();
+  }
 }

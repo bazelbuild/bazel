@@ -50,6 +50,11 @@ final class FakeActionInputFileCache implements MetadataProvider {
         HashCode.fromString(hexDigest).asBytes(), FileContentsProxy.create(stat), stat.getSize());
   }
 
+  @Override
+  public ActionInput getInput(String execPath) {
+    throw new UnsupportedOperationException();
+  }
+
   void setDigest(ActionInput input, String digest) {
     cas.put(input, digest);
   }
