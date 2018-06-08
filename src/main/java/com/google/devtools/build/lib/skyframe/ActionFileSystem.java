@@ -465,7 +465,13 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
 
   @Override
   public void renameTo(Path sourcePath, Path targetPath) throws IOException {
-    throw new UnsupportedOperationException("renameTo(" + sourcePath + ", " + targetPath + ")");
+    PathFragment sourceExecPath = asExecPath(sourcePath);
+    OutputMetadata sourceMetadata = outputs.getIfPresent(sourceExecPath);
+    if (sourceMetadata == null) {
+      throw new IOException("No output file at " + sourcePath + " to move to " + targetPath);
+    }
+    outputs.put(asExecPath(targetPath), sourceMetadata);
+    outputs.invalidate(sourceExecPath);
   }
 
   @Override
