@@ -422,7 +422,7 @@ public class Parser {
 
   // create an error expression
   private Identifier makeErrorExpression(int start, int end) {
-    return setLocation(new Identifier("$error$"), start, end);
+    return setLocation(Identifier.of("$error$"), start, end);
   }
 
   // Convenience wrapper method around ASTNode.setLocation
@@ -461,10 +461,9 @@ public class Parser {
     if (expr instanceof Identifier) {
       // parse a named argument
       if (token.kind == TokenKind.EQUALS) {
-        String name = ((Identifier) expr).getName();
         nextToken();
         Expression val = parseNonTupleExpression();
-        return setLocation(new Argument.Keyword(name, val), start, val);
+        return setLocation(new Argument.Keyword(((Identifier) expr), val), start, val);
       }
     }
 
@@ -480,28 +479,24 @@ public class Parser {
     if (token.kind == TokenKind.STAR_STAR) { // kwarg
       nextToken();
       Identifier ident = parseIdent();
-      return setLocation(new Parameter.StarStar<Expression, Expression>(
-          ident.getName()), start, ident);
+      return setLocation(new Parameter.StarStar<>(ident), start, ident);
     } else if (token.kind == TokenKind.STAR) { // stararg
       int end = token.right;
       nextToken();
       if (token.kind == TokenKind.IDENTIFIER) {
         Identifier ident = parseIdent();
-        return setLocation(new Parameter.Star<Expression, Expression>(ident.getName()),
-            start, ident);
+        return setLocation(new Parameter.Star<>(ident), start, ident);
       } else {
-        return setLocation(new Parameter.Star<Expression, Expression>(null), start, end);
+        return setLocation(new Parameter.Star<>(null), start, end);
       }
     } else {
       Identifier ident = parseIdent();
       if (token.kind == TokenKind.EQUALS) { // there's a default value
         nextToken();
         Expression expr = parseNonTupleExpression();
-        return setLocation(new Parameter.Optional<Expression, Expression>(
-            ident.getName(), expr), start, expr);
+        return setLocation(new Parameter.Optional<>(ident, expr), start, expr);
       } else {
-        return setLocation(new Parameter.Mandatory<Expression, Expression>(
-            ident.getName()), start, ident);
+        return setLocation(new Parameter.Mandatory<>(ident), start, ident);
       }
     }
   }
@@ -896,7 +891,7 @@ public class Parser {
       expect(TokenKind.IDENTIFIER);
       return makeErrorExpression(token.left, token.right);
     }
-    Identifier ident = new Identifier(((String) token.value));
+    Identifier ident = Identifier.of(((String) token.value));
     setLocation(ident, token.left, token.right);
     nextToken();
     return ident;
@@ -1075,7 +1070,7 @@ public class Parser {
     }
 
     String name = (String) token.value;
-    Identifier identifier = new Identifier(name);
+    Identifier identifier = Identifier.of(name);
     if (symbols.containsKey(identifier)) {
       syntaxError(
           String.format("Identifier '%s' is used more than once", identifier.getName()));

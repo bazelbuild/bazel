@@ -148,7 +148,7 @@ public class Eval {
     for (Map.Entry<Identifier, String> entry : node.getSymbolMap().entrySet()) {
       try {
         Identifier name = entry.getKey();
-        Identifier declared = new Identifier(entry.getValue());
+        Identifier declared = Identifier.of(entry.getValue());
 
         if (declared.isPrivate()) {
           throw new EvalException(
