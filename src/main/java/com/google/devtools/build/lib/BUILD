@@ -757,7 +757,10 @@ java_library(
 java_library(
     name = "bazel-commands",
     srcs = glob(["bazel/commands/*.java"]),
-    resources = ["bazel/commands/fetch.txt"],
+    resources = [
+        "bazel/commands/fetch.txt",
+        "bazel/commands/sync.txt",
+    ],
     deps = [
         ":keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -771,6 +774,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2:abstract-blaze-query-env",
         "//src/main/java/com/google/devtools/build/lib/query2:query-engine",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],

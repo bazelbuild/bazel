@@ -39,7 +39,7 @@ public final class RepositoryResolvedModule extends BlazeModule {
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return ImmutableSet.of("fetch", "build", "query").contains(command.name())
+    return ImmutableSet.of("sync", "fetch", "build", "query").contains(command.name())
         ? ImmutableList.<Class<? extends OptionsBase>>of(RepositoryResolvedOptions.class)
         : ImmutableList.<Class<? extends OptionsBase>>of();
   }

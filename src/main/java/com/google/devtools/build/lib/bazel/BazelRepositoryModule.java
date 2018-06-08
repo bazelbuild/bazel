@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
+import com.google.devtools.build.lib.bazel.commands.SyncCommand;
 import com.google.devtools.build.lib.bazel.repository.GitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpFileFunction;
@@ -181,6 +182,7 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
     builder.addCommands(new FetchCommand());
+    builder.addCommands(new SyncCommand());
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
   }
 
@@ -295,7 +297,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return ImmutableSet.of("fetch", "build", "query").contains(command.name())
+    return ImmutableSet.of("sync", "fetch", "build", "query").contains(command.name())
         ? ImmutableList.<Class<? extends OptionsBase>>of(RepositoryOptions.class)
         : ImmutableList.<Class<? extends OptionsBase>>of();
   }
