@@ -516,9 +516,7 @@ public class MethodLibrary {
             + "argument and an optional set of keyword arguments. In the case where the same key "
             + "is given multiple times, the last value will be used. Entries supplied via keyword "
             + "arguments are considered to come after entries supplied via the positional "
-            + "argument. Note that the iteration order for dictionaries is deterministic but "
-            + "unspecified, and not necessarily related to the order in which keys are given to "
-            + "this function.",
+            + "argument.",
     parameters = {
       @Param(
         name = "args",
