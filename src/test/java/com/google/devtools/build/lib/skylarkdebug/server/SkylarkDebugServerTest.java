@@ -169,7 +169,7 @@ public class SkylarkDebugServerTest {
     Environment env = newEnvironment();
 
     Location breakpoint =
-        Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
+        Location.newBuilder().setLineNumber(1).setPath("/a/build/file/BUILD").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
     Thread evaluationThread = execInWorkerThread(buildFile, env);
@@ -178,6 +178,22 @@ public class SkylarkDebugServerTest {
 
     // wait for breakpoint to be hit
     client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+
+    assertThat(client.unnumberedEvents)
+        .contains(
+            DebugEventHelper.threadPausedEvent(
+                SkylarkDebuggingProtos.Thread.newBuilder()
+                    .setName(threadName)
+                    .setId(threadId)
+                    .setIsPaused(true)
+                    .setLocation(breakpoint.toBuilder().setColumnNumber(1))
+                    .build(),
+                ImmutableList.of(
+                    Frame.newBuilder()
+                        .setFunctionName("<top level>")
+                        .setLocation(breakpoint.toBuilder().setColumnNumber(1))
+                        .addScope(Scope.newBuilder().setName("global"))
+                        .build())));
 
     assertThat(listThreads().getThreadList())
         .containsExactly(

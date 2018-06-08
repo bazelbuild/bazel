@@ -225,6 +225,11 @@ final class ThreadHandler {
     }
     // no need to list frames within the synchronize block: threads can only be resumed in response
     // to a client request, and requests are handled serially
+    return listFrames(debuggable, pausedState);
+  }
+
+  private static ImmutableList<SkylarkDebuggingProtos.Frame> listFrames(
+      Debuggable debuggable, PausedThreadState pausedState) {
     return debuggable
         .listFrames(pausedState.location)
         .stream()
@@ -265,6 +270,7 @@ final class ThreadHandler {
 
     SkylarkDebuggingProtos.Thread threadProto;
     PausedThreadState pausedState;
+    Debuggable debuggable;
     synchronized (threads) {
       ThreadState thread = threads.get(threadId);
       if (thread == null) {
@@ -276,13 +282,15 @@ final class ThreadHandler {
         transport.postEvent(DebugEventHelper.threadStartedEvent(threadId, fallbackThreadName));
         thread = doRegisterThread(threadId, fallbackThreadName, env);
       }
+      debuggable = thread.debuggable;
       pausedState = new PausedThreadState(location);
       thread.pausedState = pausedState;
       // get proto after setting the paused state, so that it's up to date
       threadProto = getThreadProto(thread);
     }
 
-    transport.postEvent(DebugEventHelper.threadPausedEvent(threadProto));
+    transport.postEvent(
+        DebugEventHelper.threadPausedEvent(threadProto, listFrames(debuggable, pausedState)));
     pausedState.semaphore.acquireUninterruptibly();
     transport.postEvent(
         DebugEventHelper.threadContinuedEvent(

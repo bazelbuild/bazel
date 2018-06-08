@@ -184,6 +184,11 @@ message ThreadEndedEvent {
 message ThreadPausedEvent {
   // The thread that was paused.
   Thread thread = 1;
+
+  // The list of stack frames for the paused thread. The first element in the
+  // list represents the topmost frame (that is, the current innermost
+  // function).
+  repeated Frame frame = 2;
 }
 
 // An event indicating that a thread has continued execution after being paused.

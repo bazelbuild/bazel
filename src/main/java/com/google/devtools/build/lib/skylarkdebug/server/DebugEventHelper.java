@@ -130,9 +130,9 @@ final class DebugEventHelper {
         .build();
   }
 
-  static DebugEvent threadPausedEvent(Thread thread) {
+  static DebugEvent threadPausedEvent(Thread thread, Collection<Frame> frames) {
     return DebugEvent.newBuilder()
-        .setThreadPaused(ThreadPausedEvent.newBuilder().setThread(thread))
+        .setThreadPaused(ThreadPausedEvent.newBuilder().setThread(thread).addAllFrame(frames))
         .build();
   }
 
