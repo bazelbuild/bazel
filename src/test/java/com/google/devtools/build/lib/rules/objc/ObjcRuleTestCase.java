@@ -734,7 +734,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private void assertCoptsAndDefinesNotPropagatedToProtos(ConfiguredTarget topTarget)
       throws Exception {
     Artifact protoObject =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataA.pbobjc.o", topTarget);
+        getBinArtifact("_objs/x/non_arc/DataA.pbobjc.o", topTarget);
     CommandAction protoObjectAction = (CommandAction) getGeneratingAction(protoObject);
     assertThat(protoObjectAction).isNotNull();
     assertThat(protoObjectAction.getArguments())

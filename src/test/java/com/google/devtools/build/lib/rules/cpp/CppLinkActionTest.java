@@ -249,7 +249,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     configuredTarget = getConfiguredTarget("//x:b");
     linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/b");
-    assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/b/x/a.pic.o");
+    assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/b/a.pic.o");
     runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
     assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
         .containsExactly("bin x/b");
