@@ -458,9 +458,6 @@ public interface JavaSemantics {
       boolean shouldStrip)
       throws InterruptedException;
 
-  /** Add extra dependencies for runfiles of a Java binary. */
-  void addDependenciesForRunfiles(RuleContext ruleContext, Runfiles.Builder builder);
-
   /**
    * Add a source artifact to a {@link JavaTargetAttributes.Builder}. It is called when a source
    * artifact is processed but is not matched by default patterns in the

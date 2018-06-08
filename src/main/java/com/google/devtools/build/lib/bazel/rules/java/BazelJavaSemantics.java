@@ -783,10 +783,6 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public void addDependenciesForRunfiles(RuleContext ruleContext, Runfiles.Builder builder) {
-  }
-
-  @Override
   public void addArtifactToJavaTargetAttribute(JavaTargetAttributes.Builder builder,
       Artifact srcArtifact) {
   }
