@@ -32,7 +32,10 @@ public interface DebugServer {
   <T> T runWithDebugging(Environment env, String threadName, DebugCallable<T> callable)
       throws EvalException, InterruptedException;
 
-  /** Shuts down the debug server, closing any open sockets, etc. */
+  /**
+   * Shuts down the debug server, closing any open sockets, etc. This can be safely called multiple
+   * times.
+   */
   void close();
 
   /**

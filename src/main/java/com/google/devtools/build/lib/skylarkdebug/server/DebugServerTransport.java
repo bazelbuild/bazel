@@ -71,17 +71,23 @@ final class DebugServerTransport {
   @Nullable
   DebugRequest readClientRequest() {
     synchronized (requestStream) {
-      while (true) {
-        if (!clientSocket.isConnected() || clientSocket.isClosed()) {
-          return null;
-        }
-        try {
-          return DebugRequest.parseDelimitedFrom(requestStream);
-        } catch (IOException e) {
-          postEvent(DebugEventHelper.error("Error parsing debug request: " + e.getMessage()));
-        }
+      try {
+        return DebugRequest.parseDelimitedFrom(requestStream);
+      } catch (IOException e) {
+        handleParsingError(e);
+        return null;
       }
     }
+  }
+
+  private void handleParsingError(IOException e) {
+    if (isClosed()) {
+      // an IOException is expected when the client disconnects -- no need to log an error
+      return;
+    }
+    String message = "Error parsing debug request: " + e.getMessage();
+    postEvent(DebugEventHelper.error(message));
+    eventHandler.handle(Event.error(message));
   }
 
   /** Posts a debug event. */

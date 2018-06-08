@@ -103,6 +103,8 @@ public final class SkylarkDebugServer implements DebugServer {
                           "Debug server listener thread died: "
                               + Throwables.getStackTraceAsString(e)));
                 }
+              } finally {
+                close();
               }
             });
 
@@ -119,6 +121,9 @@ public final class SkylarkDebugServer implements DebugServer {
       eventHandler.handle(
           Event.error(
               "Error shutting down the debug server: " + Throwables.getStackTraceAsString(e)));
+    } finally {
+      // ensure no threads are left paused, otherwise the build command will never complete
+      threadHandler.resumeAllThreads();
     }
   }
 

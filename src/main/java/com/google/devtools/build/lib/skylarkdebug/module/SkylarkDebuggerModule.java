@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.skylarkdebug.module;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skylarkdebug.server.SkylarkDebugServer;
 import com.google.devtools.build.lib.syntax.DebugServerUtils;
+import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 
 /** Blaze module for setting up Skylark debugging. */
@@ -38,6 +41,23 @@ public final class SkylarkDebuggerModule extends BlazeModule {
 
   @Override
   public void afterCommand() {
+    disableDebugging();
+  }
+
+  @Override
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+    return "build".equals(command.name())
+        ? ImmutableList.of(SkylarkDebuggerOptions.class)
+        : ImmutableList.of();
+  }
+
+  @Override
+  public void blazeShutdown() {
+    disableDebugging();
+  }
+
+  @Override
+  public void blazeShutdownOnCrash() {
     disableDebugging();
   }
 
