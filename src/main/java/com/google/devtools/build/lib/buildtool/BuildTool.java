@@ -433,9 +433,9 @@ public class BuildTool {
       }
     };
 
-    LoadingPhaseRunner loadingPhaseRunner = env.getSkyframeExecutor().getLoadingPhaseRunner(
-        runtime.getPackageFactory().getRuleClassNames(),
-        request.getLoadingOptions().useSkyframeTargetPatternEvaluator);
+    LoadingPhaseRunner loadingPhaseRunner =
+        env.getSkyframeExecutor().getLoadingPhaseRunner(
+            runtime.getPackageFactory().getRuleClassNames());
     LoadingResult result =
         loadingPhaseRunner.execute(
             getReporter(),

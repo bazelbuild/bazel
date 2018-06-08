@@ -1363,16 +1363,6 @@ public class BuildViewTest extends BuildViewTestBase {
         + "//foo:foo: genrule rule '//foo:genlib' is unexpected here; continuing anyway");
   }
 
-  /** Runs the same test with the reduced loading phase. */
-  @TestSpec(size = Suite.SMALL_TESTS)
-  @RunWith(JUnit4.class)
-  public static class WithSkyframeLoadingPhase extends BuildViewTest {
-    @Override
-    protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.SKYFRAME_LOADING_PHASE);
-    }
-  }
-
   /** Runs the same test with trimmed configurations. */
   @TestSpec(size = Suite.SMALL_TESTS)
   @RunWith(JUnit4.class)

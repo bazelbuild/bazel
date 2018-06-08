@@ -2206,12 +2206,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public abstract void deleteOldNodes(long versionWindowForDirtyGc);
 
-  public LoadingPhaseRunner getLoadingPhaseRunner(Set<String> ruleClassNames, boolean useNewImpl) {
-    if (!useNewImpl) {
-      return new LegacyLoadingPhaseRunner(packageManager, ruleClassNames);
-    } else {
-      return new SkyframeLoadingPhaseRunner(ruleClassNames);
-    }
+  public LoadingPhaseRunner getLoadingPhaseRunner(Set<String> ruleClassNames) {
+    return new SkyframeLoadingPhaseRunner(ruleClassNames);
   }
 
   /**

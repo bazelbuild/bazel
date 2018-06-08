@@ -242,8 +242,7 @@ function test_subcommand_notdefault {
 
 function test_loading_progress {
   bazel clean || fail "${PRODUCT_NAME} clean failed"
-  bazel test --experimental_ui \
-    --experimental_skyframe_target_pattern_evaluator pkg:true 2>$TEST_log \
+  bazel test --experimental_ui pkg:true 2>$TEST_log \
     || fail "${PRODUCT_NAME} test failed"
   # some progress indicator is shown during loading
   expect_log 'Loading.*[0-9,]* packages'

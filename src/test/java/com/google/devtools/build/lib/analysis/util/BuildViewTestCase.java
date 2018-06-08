@@ -134,7 +134,6 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.LegacyLoadingPhaseRunner;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -1741,8 +1740,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     BuildView.Options viewOptions = Options.getDefaults(BuildView.Options.class);
 
-    LoadingPhaseRunner runner = new LegacyLoadingPhaseRunner(getPackageManager(),
-        Collections.unmodifiableSet(ruleClassProvider.getRuleClassMap().keySet()));
+    LoadingPhaseRunner runner =
+        skyframeExecutor.getLoadingPhaseRunner(ruleClassProvider.getRuleClassMap().keySet());
     LoadingResult loadingResult =
         runner.execute(
             reporter,

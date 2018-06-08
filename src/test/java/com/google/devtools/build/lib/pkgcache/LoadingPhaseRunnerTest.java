@@ -94,15 +94,11 @@ public class LoadingPhaseRunnerTest {
 
   @Before
   public final void createLoadingPhaseTester() throws Exception  {
-    tester = new LoadingPhaseTester(useSkyframeTargetPatternEval());
+    tester = new LoadingPhaseTester();
   }
 
   protected List<Target> getTargets(String... targetNames) throws Exception {
     return tester.getTargets(targetNames);
-  }
-
-  protected boolean useSkyframeTargetPatternEval() {
-    return false;
   }
 
   private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
@@ -168,10 +164,7 @@ public class LoadingPhaseRunnerTest {
     assertThat(err.getPattern()).containsExactly("//base:missing");
     TargetParsingCompleteEvent event = tester.findPostOnce(TargetParsingCompleteEvent.class);
     assertThat(event.getOriginalTargetPattern()).containsExactly("//base:hello", "//base:missing");
-    if (useSkyframeTargetPatternEval()) {
-      // The legacy code path wasn't updated to provide this information, and will be deleted soon.
-      assertThat(event.getFailedTargetPatterns()).containsExactly("//base:missing");
-    }
+    assertThat(event.getFailedTargetPatterns()).containsExactly("//base:missing");
   }
 
   @Test
@@ -227,11 +220,7 @@ public class LoadingPhaseRunnerTest {
   @Test
   public void testMistypedTargetKeepGoing() throws Exception {
     LoadingResult result = tester.loadKeepGoing("foo//bar:missing");
-    // Legacy loading phase does _not_ report a target pattern error, and it's work to fix, so we
-    // skip this check for now.
-    if (useSkyframeTargetPatternEval()) {
-      assertThat(result.hasTargetPatternError()).isTrue();
-    }
+    assertThat(result.hasTargetPatternError()).isTrue();
     tester.assertContainsError(
           "invalid target format 'foo//bar:missing': "
           + "invalid package name 'foo//bar': "
@@ -631,13 +620,7 @@ public class LoadingPhaseRunnerTest {
         "sh_binary(name = 'bad', srcs = ['bad.sh'])",
         "undefined_symbol");
     LoadingResult loadingResult = tester.loadKeepGoing("//bad");
-    if (!useSkyframeTargetPatternEval()) {
-      // The LegacyLoadingPhaseRunner drops the error on the floor. The target can be resolved
-      // after all, even if the package is in error.
-      assertThat(loadingResult.hasTargetPatternError()).isFalse();
-    } else {
-      assertThat(loadingResult.hasTargetPatternError()).isTrue();
-    }
+    assertThat(loadingResult.hasTargetPatternError()).isTrue();
     tester.assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
   }
 
@@ -700,23 +683,17 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("test/BUILD", "load(':cycle1.bzl', 'make_cycle')");
     tester.addFile("test/cycle1.bzl", "load(':cycle2.bzl', 'make_cycle')");
     tester.addFile("test/cycle2.bzl", "load(':cycle1.bzl', 'make_cycle')");
-    if (useSkyframeTargetPatternEval()) {
-      // The skyframe target pattern evaluator isn't able to provide partial results in the presence
-      // of cycles, so it simply raises an exception rather than returning an empty LoadingResult.
-      try {
-        tester.load("//test:cycle1");
-        fail();
-      } catch (TargetParsingException e) {
-        assertThat(e).hasMessageThat().contains("cycles detected");
-      }
-    } else {
-      LoadingResult loadingResult = tester.loadKeepGoing("//test:cycle1");
-      assertThat(loadingResult.hasTargetPatternError()).isTrue();
+    // The skyframe target pattern evaluator isn't able to provide partial results in the presence
+    // of cycles, so it simply raises an exception rather than returning an empty LoadingResult.
+    try {
+      tester.load("//test:cycle1");
+      fail();
+    } catch (TargetParsingException e) {
+      assertThat(e).hasMessageThat().contains("cycles detected");
     }
     tester.assertContainsEventWithFrequency("cycle detected in extension", 1);
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//test:cycle1");
-    assertThat(err.getSkipped()).isEqualTo(!useSkyframeTargetPatternEval());
   }
 
   @Test
@@ -756,7 +733,7 @@ public class LoadingPhaseRunnerTest {
 
     private MockToolsConfig mockToolsConfig;
 
-    public LoadingPhaseTester(boolean useNewImpl) throws IOException {
+    public LoadingPhaseTester() throws IOException {
       FileSystem fs = new InMemoryFileSystem(clock);
       this.workspace = fs.getPath("/workspace");
       workspace.createDirectory();
@@ -823,7 +800,7 @@ public class LoadingPhaseRunnerTest {
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(clock));
       loadingPhaseRunner =
-          skyframeExecutor.getLoadingPhaseRunner(pkgFactory.getRuleClassNames(), useNewImpl);
+          skyframeExecutor.getLoadingPhaseRunner(pkgFactory.getRuleClassNames());
       this.options = Options.getDefaults(LoadingOptions.class);
     }
 

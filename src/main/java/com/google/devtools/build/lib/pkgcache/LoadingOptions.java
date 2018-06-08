@@ -139,11 +139,7 @@ public class LoadingOptions extends OptionsBase {
   )
   public boolean buildManualTests;
 
-  // If this option is set, the value of experimental_interleave_loading_and_analysis is completely
-  // ignored. This enables a different LoadingPhaseRunner implementation which doesn't implement
-  // the loading phase at all, and therefore can't currently support the other flag. If we roll this
-  // out soonish, then we're never going to implement the legacy code path in the new
-  // implementation, making it a moot point.
+  @Deprecated
   @Option(
     name = "experimental_skyframe_target_pattern_evaluator",
     defaultValue = "true",

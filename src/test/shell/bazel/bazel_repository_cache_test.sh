@@ -29,7 +29,6 @@ function set_up() {
   # TODO(b/37617303): make test UI-independent
   add_to_bazelrc "fetch --noexperimental_ui"
   add_to_bazelrc "build --noexperimental_ui"
-  add_to_bazelrc "build --noexperimental_skyframe_target_pattern_evaluator"
 }
 
 function tear_down() {
