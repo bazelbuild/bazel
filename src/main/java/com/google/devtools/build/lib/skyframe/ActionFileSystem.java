@@ -16,6 +16,9 @@ package com.google.devtools.build.lib.skyframe;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 import com.google.common.base.Preconditions;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
@@ -30,6 +33,7 @@ import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -73,7 +77,7 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
   private final HashMap<PathFragment, OptionalInputMetadata> optionalInputs;
 
   /** exec path → artifact and metadata */
-  private final ImmutableMap<PathFragment, OutputMetadata> outputs;
+  private final LoadingCache<PathFragment, OutputMetadata> outputs;
 
   /** Used to lookup metadata for optional inputs. */
   private SkyFunction.Environment env = null;
@@ -122,10 +126,10 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
             input.getExecPath(), unused -> new OptionalInputMetadata(input));
       }
 
-      this.outputs =
-          Streams.stream(outputArtifacts)
-              .collect(
-                  ImmutableMap.toImmutableMap(a -> a.getExecPath(), a -> new OutputMetadata(a)));
+      ImmutableMap<PathFragment, Artifact> outputsMapping = Streams.stream(outputArtifacts)
+          .collect(ImmutableMap.toImmutableMap(Artifact::getExecPath, a -> a));
+      this.outputs = CacheBuilder.newBuilder().build(
+          CacheLoader.from(path -> new OutputMetadata(outputsMapping.get(path))));
     } finally {
       Profiler.instance().completeTask(ProfilerTask.ACTION_FS_STAGING);
     }
@@ -162,7 +166,7 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
   @Override
   public void onInsert(ActionInput dest, byte[] digest, long size, int backendIndex)
       throws IOException {
-    OutputMetadata output = outputs.get(dest.getExecPath());
+    OutputMetadata output = outputs.getUnchecked(dest.getExecPath());
     if (output != null) {
       output.set(new RemoteFileArtifactValue(digest, size, backendIndex),
           /*notifyConsumer=*/ false);
@@ -191,6 +195,52 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
     return true;
   }
 
+  @Override
+  protected FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+    FileArtifactValue metadata = getMetadataOrThrowFileNotFound(path);
+    return new FileStatus() {
+      @Override
+      public boolean isFile() {
+        return metadata.getType() == FileStateType.REGULAR_FILE;
+      }
+
+      @Override
+      public boolean isDirectory() {
+        return false;
+      }
+
+      @Override
+      public boolean isSymbolicLink() {
+        return false;
+      }
+
+      @Override
+      public boolean isSpecialFile() {
+        return metadata.getType() == FileStateType.SPECIAL_FILE;
+      }
+
+      @Override
+      public long getSize() {
+        return metadata.getSize();
+      }
+
+      @Override
+      public long getLastModifiedTime() {
+        return metadata.getModifiedTime();
+      }
+
+      @Override
+      public long getLastChangeTime() {
+        return metadata.getModifiedTime();
+      }
+
+      @Override
+      public long getNodeId() {
+        throw new UnsupportedOperationException();
+      }
+    };
+  }
+
   /** ActionFileSystem currently doesn't track directories. */
   @Override
   public boolean createDirectory(Path path) throws IOException {
@@ -207,7 +257,8 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
 
   @Override
   public boolean delete(Path path) throws IOException {
-    throw new UnsupportedOperationException(path.getPathString());
+    // TODO(felly): Support file deletion.
+    return false;
   }
 
   @Override
@@ -230,29 +281,32 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
 
   @Override
   protected boolean isSymbolicLink(Path path) {
-    throw new UnsupportedOperationException(path.getPathString());
+    // TODO(felly): We should have minimal support for symlink awareness when looking at
+    // output --> src and src --> src symlinks.
+    return false;
   }
 
   @Override
   protected boolean isDirectory(Path path, boolean followSymlinks) {
-    Preconditions.checkArgument(
-        followSymlinks, "ActionFileSystem doesn't support no-follow: %s", path);
-    FileArtifactValue metadata = getMetadataUnchecked(path);
-    return metadata == null ? false : metadata.getType() == FileStateType.DIRECTORY;
+    // TODO(felly): Support directory awareness.
+    return true;
+  }
+
+  @Override
+  protected Collection<String> getDirectoryEntries(Path path) throws IOException {
+    // TODO(felly): Support directory traversal.
+    return ImmutableList.of();
   }
 
   @Override
   protected boolean isFile(Path path, boolean followSymlinks) {
-    Preconditions.checkArgument(
-        followSymlinks, "ActionFileSystem doesn't support no-follow: %s", path);
+    // TODO(felly): Unify is* methods with the stat() operation.
     FileArtifactValue metadata = getMetadataUnchecked(path);
     return metadata == null ? false : metadata.getType() == FileStateType.REGULAR_FILE;
   }
 
   @Override
   protected boolean isSpecialFile(Path path, boolean followSymlinks) {
-    Preconditions.checkArgument(
-        followSymlinks, "ActionFileSystem doesn't support no-follow: %s", path);
     FileArtifactValue metadata = getMetadataUnchecked(path);
     return metadata == null ? false : metadata.getType() == FileStateType.SPECIAL_FILE;
   }
@@ -277,7 +331,7 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
           createSymbolicLinkErrorMessage(
               linkPath, targetFragment, targetFragment + " is not an input."));
     }
-    OutputMetadata outputHolder = outputs.get(asExecPath(linkPath));
+    OutputMetadata outputHolder = outputs.getUnchecked(asExecPath(linkPath));
     if (outputHolder == null) {
       throw new FileNotFoundException(
           createSymbolicLinkErrorMessage(
@@ -298,10 +352,6 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
     return getMetadataUnchecked(path) != null;
   }
 
-  @Override
-  protected Collection<String> getDirectoryEntries(Path path) throws IOException {
-    throw new UnsupportedOperationException(path.getPathString());
-  }
 
   @Override
   protected boolean isReadable(Path path) throws IOException {
@@ -341,11 +391,9 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
   }
 
   @Override
-  protected OutputStream getOutputStream(Path path, boolean append) throws IOException {
+  protected OutputStream getOutputStream(Path path, boolean append) {
     Preconditions.checkArgument(!append, "ActionFileSystem doesn't support append.");
-    return Preconditions.checkNotNull(
-            outputs.get(asExecPath(path)), "getOutputStream called for non-output: %s", path)
-        .getOutputStream();
+    return outputs.getUnchecked(asExecPath(path)).getOutputStream();
   }
 
   @Override
@@ -393,7 +441,7 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
       }
     }
     {
-      OutputMetadata metadataHolder = outputs.get(execPath);
+      OutputMetadata metadataHolder = outputs.getIfPresent(execPath);
       if (metadataHolder != null) {
         FileArtifactValue metadata = metadataHolder.get();
         if (metadata != null) {
@@ -423,11 +471,13 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
   }
 
   private boolean isOutput(Path path) {
+    // TODO(felly): This method should instead just refer to potential output paths, which are
+    // anything under the output tree.
     PathFragment fragment = path.asFragment();
     if (!fragment.startsWith(execRootFragment)) {
       return false;
     }
-    return outputs.containsKey(fragment.relativeTo(execRootFragment));
+    return outputs.getIfPresent(fragment.relativeTo(execRootFragment)) != null;
   }
 
   /**
@@ -497,7 +547,7 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
   }
 
   private class OutputMetadata {
-    private final Artifact artifact;
+    private final @Nullable Artifact artifact;
     @Nullable private volatile FileArtifactValue metadata = null;
 
     private OutputMetadata(Artifact artifact) {
@@ -517,7 +567,7 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
      * metadataConsumer if it will be notified separately at the Spawn level.
      */
     public void set(FileArtifactValue metadata, boolean notifyConsumer) throws IOException {
-      if (notifyConsumer) {
+      if (notifyConsumer && artifact != null) {
         metadataConsumer.accept(artifact, metadata);
       }
       this.metadata = metadata;

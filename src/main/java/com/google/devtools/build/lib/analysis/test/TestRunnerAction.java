@@ -239,13 +239,15 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
    * file system for existence of these output files, so it must only be used after test execution.
    */
   // TODO(ulfjack): Instead of going to local disk here, use SpawnResult (add list of files there).
-  public ImmutableList<Pair<String, Path>> getTestOutputsMapping(Path execRoot) {
+  public ImmutableList<Pair<String, Path>> getTestOutputsMapping(
+      @Nullable ActionExecutionContext context, Path execRoot) {
     ImmutableList.Builder<Pair<String, Path>> builder = ImmutableList.builder();
-    if (getTestLog().getPath().exists()) {
-      builder.add(Pair.of(TestFileNameConstants.TEST_LOG, getTestLog().getPath()));
+    if (convertPath(context, getTestLog()).exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_LOG, convertPath(context, getTestLog())));
     }
-    if (getCoverageData() != null && getCoverageData().getPath().exists()) {
-      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE, getCoverageData().getPath()));
+    if (getCoverageData() != null && convertPath(context, getCoverageData()).exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE,
+          convertPath(context, getCoverageData())));
     }
     if (execRoot != null) {
       ResolvedPaths resolvedPaths = resolve(execRoot);
@@ -293,6 +295,13 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     return builder.build();
   }
 
+  private static Path convertPath(@Nullable ActionExecutionContext actionContext,
+      Artifact artifact) {
+    return actionContext == null
+        ? artifact.getPath()
+        : actionContext.getInputPath(artifact);
+  }
+
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
       throws CommandLineExpansionException {
@@ -335,8 +344,10 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   /** Saves cache status to disk. */
-  public void saveCacheStatus(TestResultData data) throws IOException {
-    try (OutputStream out = cacheStatus.getPath().getOutputStream()) {
+  public void saveCacheStatus(
+      ActionExecutionContext actionExecutionContext,
+      TestResultData data) throws IOException {
+    try (OutputStream out = actionExecutionContext.getInputPath(cacheStatus).getOutputStream()) {
       data.writeTo(out);
     }
   }

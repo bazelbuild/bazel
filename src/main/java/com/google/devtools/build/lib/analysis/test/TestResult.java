@@ -167,6 +167,6 @@ public class TestResult {
    */
   private Collection<Pair<String, Path>> getFiles() {
     // TODO(ulfjack): Cache the set of generated files in the TestResultData.
-    return testAction.getTestOutputsMapping(execRoot);
+    return testAction.getTestOutputsMapping(null, execRoot);
   }
 }
