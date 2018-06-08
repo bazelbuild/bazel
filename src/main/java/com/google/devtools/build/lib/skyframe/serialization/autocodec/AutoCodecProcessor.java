@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.CodecScanningConstan
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
+import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;

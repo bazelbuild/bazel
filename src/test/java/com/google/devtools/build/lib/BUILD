@@ -60,6 +60,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skylark:srcs",
         "//src/test/java/com/google/devtools/build/lib/skylarkdebug/server:srcs",
         "//src/test/java/com/google/devtools/build/lib/skylarkinterface/processor:srcs",
+        "//src/test/java/com/google/devtools/build/lib/unsafe:srcs",
     ],
     visibility = ["//src:__pkg__"],
 )

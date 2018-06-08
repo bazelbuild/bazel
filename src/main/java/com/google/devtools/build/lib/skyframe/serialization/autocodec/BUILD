@@ -15,9 +15,9 @@ java_library(
         ":autocodec-annotation",
         # Generated classes have the following dependencies.
         ":registered-singleton",
-        ":unsafe-provider",
         "//third_party/protobuf:protobuf_java",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
     ],
 )
 
@@ -41,11 +41,6 @@ java_plugin(
     ],
 )
 
-java_library(
-    name = "unsafe-provider",
-    srcs = ["UnsafeProvider.java"],
-)
-
 # @AutoCodec annotation processor implementation.
 java_library(
     name = "autocodec-processor",
@@ -58,8 +53,8 @@ java_library(
     deps = [
         ":autocodec-annotation",
         ":registered-singleton",
-        ":unsafe-provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//third_party:auto_service",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -80,7 +75,7 @@ pkg_tar(
         ":libautocodec-annotation.jar": "third_party/bazel_bootstrap/libautocodec-annotation.jar",
         ":libautocodec-processor.jar": "third_party/bazel_bootstrap/libautocodec-processor.jar",
         ":libregistered-singleton.jar": "third_party/bazel_bootstrap/libregistered-singleton.jar",
-        ":libunsafe-provider.jar": "third_party/bazel_bootstrap/libunsafe-provider.jar",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:libunsafe-provider.jar": "third_party/bazel_bootstrap/libunsafe-provider.jar",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:libserialization.jar": "third_party/bazel_bootstrap/libserialization.jar",
     },
     visibility = ["//visibility:public"],

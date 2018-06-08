@@ -77,6 +77,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/windows/runfiles:srcs",
         "//src/main/java/com/google/devtools/build/lib/windows:srcs",
         "//src/main/java/com/google/devtools/build/lib/worker:srcs",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
     ],

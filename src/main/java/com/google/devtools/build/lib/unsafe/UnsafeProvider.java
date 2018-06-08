@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe.serialization.autocodec;
+package com.google.devtools.build.lib.unsafe;
 
 import java.lang.reflect.Field;
 import java.security.AccessController;
@@ -27,6 +27,7 @@ import sun.misc.Unsafe;
  * access this.
  */
 public class UnsafeProvider {
+
   private static final Unsafe UNSAFE = getUnsafe();
 
   public static Unsafe getInstance() {
