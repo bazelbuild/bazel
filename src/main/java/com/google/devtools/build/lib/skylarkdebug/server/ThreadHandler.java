@@ -187,8 +187,8 @@ final class ThreadHandler {
     pausingAllThreads = false;
     thread.readyToPause =
         thread.debuggable.stepControl(DebugEventHelper.convertSteppingEnum(stepping));
-    pausedState.semaphore.release();
     thread.pausedState = null;
+    pausedState.semaphore.release();
   }
 
   void pauseIfNecessary(Environment env, Location location, DebugServerTransport transport) {
@@ -276,14 +276,17 @@ final class ThreadHandler {
         transport.postEvent(DebugEventHelper.threadStartedEvent(threadId, fallbackThreadName));
         thread = doRegisterThread(threadId, fallbackThreadName, env);
       }
-      threadProto = getThreadProto(thread);
       pausedState = new PausedThreadState(location);
       thread.pausedState = pausedState;
+      // get proto after setting the paused state, so that it's up to date
+      threadProto = getThreadProto(thread);
     }
 
     transport.postEvent(DebugEventHelper.threadPausedEvent(threadProto));
     pausedState.semaphore.acquireUninterruptibly();
-    transport.postEvent(DebugEventHelper.threadContinuedEvent(threadProto));
+    transport.postEvent(
+        DebugEventHelper.threadContinuedEvent(
+            threadProto.toBuilder().clearLocation().setIsPaused(false).build()));
   }
 
   private boolean shouldPauseCurrentThread(Environment env, Location location) {
