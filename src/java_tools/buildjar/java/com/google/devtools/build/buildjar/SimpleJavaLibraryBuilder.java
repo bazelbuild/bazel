@@ -148,17 +148,21 @@ public class SimpleJavaLibraryBuilder implements Closeable {
 
   public void buildJar(JavaLibraryBuildRequest build) throws IOException {
     JarCreator jar = new JarCreator(build.getOutputJar());
+    JacocoInstrumentationProcessor processor = null;
     try {
       jar.setNormalize(true);
       jar.setCompression(build.compressJar());
       jar.addDirectory(build.getClassDir());
       jar.setJarOwner(build.getTargetLabel(), build.getInjectingRuleKind());
-      JacocoInstrumentationProcessor processor = build.getJacocoInstrumentationProcessor();
+      processor = build.getJacocoInstrumentationProcessor();
       if (processor != null) {
         processor.processRequest(build, processor.isNewCoverageImplementation() ? jar : null);
       }
     } finally {
       jar.execute();
+      if (processor != null) {
+        processor.cleanup();
+      }
     }
   }
 
