@@ -263,8 +263,11 @@ public final class BlazeRuntime {
   /**
    * Conditionally enable profiling.
    */
-  private final boolean initProfiler(CommandEnvironment env, CommonCommandOptions options,
-      UUID buildID, long execStartTimeNanos) {
+  private final boolean initProfiler(
+      CommandEnvironment env,
+      CommonCommandOptions options,
+      UUID buildID,
+      long execStartTimeNanos) {
     OutputStream out = null;
     boolean recordFullProfilerData = false;
     ProfiledTaskKinds profiledTasks = ProfiledTaskKinds.NONE;
@@ -283,10 +286,14 @@ public final class BlazeRuntime {
         profiledTasks = ProfiledTaskKinds.SLOWEST;
       }
       if (profiledTasks != ProfiledTaskKinds.NONE) {
-        Profiler.instance().start(profiledTasks, out,
+        Profiler.instance().start(
+            profiledTasks,
+            out,
             getProductName() + " profile for " + env.getOutputBase() + " at " + new Date()
             + ", build ID: " + buildID,
-            recordFullProfilerData, clock, execStartTimeNanos);
+            recordFullProfilerData,
+            clock,
+            execStartTimeNanos);
         return true;
       }
     } catch (IOException e) {

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
  * Microbenchmarks for the overhead of {@link AutoProfiler} over using {@link Profiler} manually.
  */
 public class AutoProfilerBenchmark {
-  private final ProfilerTask profilerTaskType = ProfilerTask.TEST;
+  private final ProfilerTask profilerTaskType = ProfilerTask.INFO;
 
   @BeforeExperiment
   void startProfiler() throws Exception {

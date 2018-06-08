@@ -58,11 +58,6 @@ public final class CriticalPathHtml extends HtmlPrinter {
     close();
 
     lnOpen("tr");
-    element("td", "colspan", "3", "Worker thread scheduling delays");
-    element("td", TimeUtilities.prettyTime(criticalPathStats.getWorkerWaitTime()));
-    close(); // tr
-
-    lnOpen("tr");
     element("td", "colspan", "3", "Main thread scheduling delays");
     element("td", TimeUtilities.prettyTime(criticalPathStats.getMainThreadWaitTime()));
     close(); // tr
