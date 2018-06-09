@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -550,19 +550,10 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
   private ArtifactPathResolver pathResolver(ActionFileSystem actionFileSystem) {
     if (actionFileSystem != null) {
-      return new ArtifactPathResolver() {
-        @Override
-        public Path toPath(Artifact artifact) {
-          return actionFileSystem.getPath(artifact.getPath().getPathString());
-        }
-
-        @Override
-        public Root transformRoot(Root root) {
-          return Root.toFileSystem(root, actionFileSystem);
-        }
-      };
+      return ArtifactPathResolver.withTransformedFileSystem(
+          actionFileSystem.getPath(skyframeActionExecutor.getExecRoot().asFragment()));
     }
-    return ArtifactPathResolver.IDENTITY;
+    return ArtifactPathResolver.forExecRoot(skyframeActionExecutor.getExecRoot());
   }
 
   private static final Function<Artifact, SkyKey> TO_NONMANDATORY_SKYKEY =

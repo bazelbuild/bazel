@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.test;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -167,6 +168,6 @@ public class TestResult {
    */
   private Collection<Pair<String, Path>> getFiles() {
     // TODO(ulfjack): Cache the set of generated files in the TestResultData.
-    return testAction.getTestOutputsMapping(null, execRoot);
+    return testAction.getTestOutputsMapping(ArtifactPathResolver.forExecRoot(execRoot), execRoot);
   }
 }

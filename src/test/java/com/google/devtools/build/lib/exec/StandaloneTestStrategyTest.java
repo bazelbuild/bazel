@@ -29,6 +29,7 @@ import com.google.common.collect.MoreCollectors;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -128,6 +129,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(actionExecutionContext.getClientEnv()).thenReturn(ImmutableMap.of());
     when(actionExecutionContext.getEventHandler()).thenReturn(storedEvents);
     when(actionExecutionContext.getInputPath(any())).thenAnswer(this::getInputPathMock);
+    when(actionExecutionContext.getPathResolver()).thenReturn(ArtifactPathResolver.IDENTITY);
 
     SpawnResult expectedSpawnResult =
         new SpawnResult.Builder()
@@ -206,6 +208,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(actionExecutionContext.getClientEnv()).thenReturn(ImmutableMap.of());
     when(actionExecutionContext.getEventHandler()).thenReturn(storedEvents);
     when(actionExecutionContext.getInputPath(any())).thenAnswer(this::getInputPathMock);
+    when(actionExecutionContext.getPathResolver()).thenReturn(ArtifactPathResolver.IDENTITY);
 
     SpawnResult failSpawnResult =
         new SpawnResult.Builder()
@@ -300,6 +303,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(actionExecutionContext.getClientEnv()).thenReturn(ImmutableMap.of());
     when(actionExecutionContext.getEventHandler()).thenReturn(storedEvents);
     when(actionExecutionContext.getInputPath(any())).thenAnswer(this::getInputPathMock);
+    when(actionExecutionContext.getPathResolver()).thenReturn(ArtifactPathResolver.IDENTITY);
 
     SpawnResult expectedSpawnResult =
         new SpawnResult.Builder()
@@ -378,6 +382,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(actionExecutionContext.getClientEnv()).thenReturn(ImmutableMap.of());
     when(actionExecutionContext.getEventHandler()).thenReturn(storedEvents);
     when(actionExecutionContext.getInputPath(any())).thenAnswer(this::getInputPathMock);
+    when(actionExecutionContext.getPathResolver()).thenReturn(ArtifactPathResolver.IDENTITY);
 
     SpawnResult expectedSpawnResult =
         new SpawnResult.Builder()
@@ -472,6 +477,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
     when(actionExecutionContext.getEventBus()).thenReturn(eventBus);
     when(actionExecutionContext.getInputPath(any())).thenAnswer(this::getInputPathMock);
+    when(actionExecutionContext.getPathResolver()).thenReturn(ArtifactPathResolver.IDENTITY);
 
     Path outPath = tmpDirRoot.getRelative("test-out.txt");
     Path errPath = tmpDirRoot.getRelative("test-err.txt");
@@ -562,6 +568,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
     when(actionExecutionContext.getEventBus()).thenReturn(eventBus);
     when(actionExecutionContext.getInputPath(any())).thenAnswer(this::getInputPathMock);
+    when(actionExecutionContext.getPathResolver()).thenReturn(ArtifactPathResolver.IDENTITY);
     Path outPath = tmpDirRoot.getRelative("test-out.txt");
     Path errPath = tmpDirRoot.getRelative("test-err.txt");
     FileOutErr outErr = new FileOutErr(outPath, errPath);
