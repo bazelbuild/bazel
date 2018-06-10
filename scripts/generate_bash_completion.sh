@@ -39,14 +39,12 @@ get_optarg() {
 
 append=
 bazel=
-javabase=
 output=
 prepend=
 while [ ${#} -gt 0 ]; do
   case "${1}" in
     --append=*) append="${append} $(get_optarg "${1}")" ;;
     --bazel=*) bazel="$(get_optarg "${1}")" ;;
-    --javabase=*) javabase="$(get_optarg "${1}")" ;;
     --output=*) output="$(get_optarg "${1}")" ;;
     --prepend=*) prepend="${prepend} $(get_optarg "${1}")" ;;
     --*) die "Unknown option ${1}" ;;
@@ -66,9 +64,7 @@ mkdir "${tempdir}/root"
 
 [ -z "${prepend}" ] || cat ${prepend} >>"${tempdir}/output"
 
-host_javabase_flag=
-[ -z "${javabase}" ] || host_javabase_flag="--host_javabase=${javabase}"
-"${bazel}" --output_user_root="${tempdir}/root" ${host_javabase_flag} \
+"${bazel}" --output_user_root="${tempdir}/root" \
     help completion >>"${tempdir}/output"
 
 [ -z "${append}" ] || cat ${append} >>"${tempdir}/output"

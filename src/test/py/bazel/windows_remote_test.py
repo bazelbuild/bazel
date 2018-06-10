@@ -203,7 +203,7 @@ class WindowsRemoteTest(test_base.TestBase):
 
     # Test.
     exit_code, stdout, stderr = self._RunRemoteBazel([
-        'test', '--test_output=all', '--host_javabase=//foo:jdk8',
+        'test', '--test_output=all',
         '--javabase=//foo:jdk8', '//foo:foo_test'
     ])
     self.AssertExitCode(exit_code, 0, stderr, stdout)

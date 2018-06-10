@@ -497,10 +497,14 @@ sh_test(
     name = "bazel_bootstrap_distfile_test",
     timeout = "eternal",
     srcs = ["bazel_bootstrap_distfile_test.sh"],
-    args = ["$(location //:bazel-distfile)"],
+    args = [
+        "$(location //:bazel-distfile)",
+        "$(location //src:embedded_jdk)",
+    ],
     data = [
         ":test-deps",
         "//:bazel-distfile",
+        "//src:embedded_jdk",
     ],
     tags = ["jdk8"],
 )
