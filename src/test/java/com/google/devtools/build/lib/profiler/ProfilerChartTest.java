@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.InputStream;
 import java.util.List;
 import java.util.Locale;
 import org.junit.Test;
@@ -249,14 +248,8 @@ public class ProfilerChartTest extends FoundationTestCase {
     Path cacheDir = scratch.dir("/tmp");
     Path cacheFile = cacheDir.getRelative("profile1.dat");
     Profiler profiler = Profiler.instance();
-    profiler.start(
-        ProfiledTaskKinds.ALL,
-        cacheFile.getOutputStream(),
-        Profiler.Format.BINARY_BAZEL_FORMAT,
-        "basic test",
-        false,
-        BlazeClock.instance(),
-        BlazeClock.instance().nanoTime());
+    profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "basic test", false,
+        BlazeClock.instance(), BlazeClock.instance().nanoTime());
 
     // Write from multiple threads to generate multiple rows in the chart.
     for (int i = 0; i < noOfRows; i++) {
@@ -266,9 +259,7 @@ public class ProfilerChartTest extends FoundationTestCase {
     }
 
     profiler.stop();
-    try (InputStream in = cacheFile.getInputStream()) {
-      return ProfileInfo.loadProfile(in);
-    }
+    return ProfileInfo.loadProfile(cacheFile);
   }
 
   private void task(final Profiler profiler, ProfilerTask task, String name) {
