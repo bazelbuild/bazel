@@ -518,7 +518,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.COVERAGE_REPORT,
         new CoverageReportFunction(actionKeyContext, removeActionsAfterEvaluation));
     ActionExecutionFunction actionExecutionFunction =
-        new ActionExecutionFunction(skyframeActionExecutor, tsgm);
+        new ActionExecutionFunction(skyframeActionExecutor, directories, tsgm);
     map.put(SkyFunctions.ACTION_EXECUTION, actionExecutionFunction);
     this.actionExecutionFunction = actionExecutionFunction;
     map.put(SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
