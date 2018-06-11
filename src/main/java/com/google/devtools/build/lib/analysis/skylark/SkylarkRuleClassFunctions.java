@@ -683,7 +683,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         addAttribute(definitionLocation, builder,
             descriptor.build(attribute.getFirst()));
       }
-      this.ruleClass = builder.build(ruleClassName, skylarkLabel + "%" + ruleClassName);
+      try {
+        this.ruleClass = builder.build(ruleClassName, skylarkLabel + "%" + ruleClassName);
+      } catch (IllegalArgumentException | IllegalStateException ex) {
+        throw new EvalException(location, ex);
+      }
 
       this.builder = null;
       this.attributes = null;
