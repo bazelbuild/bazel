@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -431,5 +432,23 @@ public class RunfilesTest extends FoundationTestCase {
         new Runfiles.Builder("TESTING").merge(runfiles1).merge(runfiles2).build();
     assertThat(runfilesMerged.getExtraMiddlemen())
         .containsExactlyElementsIn(ImmutableList.of(mm1, mm2));
+  }
+
+  @Test
+  public void testGetEmptyFilenames() {
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
+    Artifact artifact = new Artifact(PathFragment.create("my-artifact"), root);
+    Runfiles runfiles = new Runfiles.Builder("TESTING")
+        .addArtifact(artifact)
+        .addSymlink(PathFragment.create("my-symlink"), artifact)
+        .addRootSymlink(PathFragment.create("my-root-symlink"), artifact)
+        .setEmptyFilesSupplier((manifestPaths) ->
+            manifestPaths
+                .stream()
+                .map((f) -> f.replaceName(f.getBaseName() + "-empty"))
+                .collect(ImmutableList.toImmutableList()))
+        .build();
+    assertThat(runfiles.getEmptyFilenames())
+        .containsExactly("my-artifact-empty", "my-symlink-empty");
   }
 }
