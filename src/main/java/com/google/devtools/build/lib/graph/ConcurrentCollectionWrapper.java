@@ -49,6 +49,11 @@ final class ConcurrentCollectionWrapper<T> {
 
   private volatile Collection<T> collection = null;
 
+  /**
+   * Returns {@code Collections.unmodifiableCollection} wrapper around collection. Iteration over
+   * returned collection at the same time with concurrent modification will cause {@code
+   * java.util.ConcurrentModificationException}
+   */
   public Collection<T> get() {
     Collection<T> collection = this.collection;
     return collection == null
