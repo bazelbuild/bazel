@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Environment.LexicalFrame;
 
@@ -66,8 +67,7 @@ public class UserDefinedFunction extends BaseFunction {
     ImmutableList<String> names = signature.getSignature().getNames();
     LexicalFrame lexicalFrame =
         LexicalFrame.createForUserDefinedFunctionCall(env.mutability(), /*numArgs=*/ names.size());
-    try {
-      Profiler.instance().startTask(ProfilerTask.SKYLARK_USER_FN, getName());
+    try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.SKYLARK_USER_FN, getName())) {
       env.enterScope(this, lexicalFrame, ast, definitionGlobals);
 
       // Registering the functions's arguments as variables in the local Environment
@@ -96,7 +96,6 @@ public class UserDefinedFunction extends BaseFunction {
       }
       return Runtime.NONE;
     } finally {
-      Profiler.instance().completeTask(ProfilerTask.SKYLARK_USER_FN);
       env.exitScope();
     }
   }

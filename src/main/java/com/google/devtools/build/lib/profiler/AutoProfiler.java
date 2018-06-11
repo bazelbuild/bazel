@@ -58,7 +58,7 @@ import javax.annotation.Nullable;
  * }
  * </pre>
  */
-public class AutoProfiler implements AutoCloseable {
+public class AutoProfiler implements SilentCloseable {
   private static final AtomicReference<Clock> CLOCK_REF = new AtomicReference<>(null);
   private static final AtomicReference<LoggingElapsedTimeReceiverFactory>
       LOGGING_ELAPSED_TIME_RECEIVER_FACTORY_REF = new AtomicReference<>(

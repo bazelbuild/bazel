@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.Environment.LexicalFrame;
 import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
@@ -123,14 +124,12 @@ public class BuiltinCallable extends BaseFunction {
       index++;
     }
 
-    Profiler.instance().startTask(ProfilerTask.SKYLARK_BUILTIN_FN, getName());
-
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.SKYLARK_BUILTIN_FN, getName())) {
       env.enterScope(this, SHARED_LEXICAL_FRAME_FOR_BUILTIN_METHOD_CALLS, ast, env.getGlobals());
       return FuncallExpression.callMethod(
           descriptor, getName(), obj, args, ast.getLocation(), env);
     } finally {
-      Profiler.instance().completeTask(ProfilerTask.SKYLARK_BUILTIN_FN);
       env.exitScope();
     }
   }

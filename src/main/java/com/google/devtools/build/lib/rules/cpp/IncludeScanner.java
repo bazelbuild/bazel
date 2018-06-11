@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -109,9 +110,7 @@ public interface IncludeScanner {
       includes.addAll(action.getBuiltInIncludeFiles());
 
       Profiler profiler = Profiler.instance();
-      try {
-        profiler.startTask(ProfilerTask.SCANNER, profilerTaskName);
-
+      try (SilentCloseable c = profiler.profile(ProfilerTask.SCANNER, profilerTaskName)) {
         // We need to scan the action itself, but also the auxiliary scannables
         // (for LIPO). There is no need to call getAuxiliaryScannables
         // recursively.
@@ -148,8 +147,6 @@ public interface IncludeScanner {
         }
       } catch (IOException e) {
         throw new EnvironmentalExecException(e.getMessage());
-      } finally {
-        profiler.completeTask(ProfilerTask.SCANNER);
       }
 
       // Collect inputs and output
