@@ -387,7 +387,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
 }
 
 static bool IsValidEnvName(const char* p) {
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
   for (; *p && *p != '='; ++p) {
     if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
           (*p >= '0' && *p <= '9') || *p == '_')) {
@@ -398,7 +398,7 @@ static bool IsValidEnvName(const char* p) {
   return true;
 }
 
-#if defined(COMPILER_MSVC)
+#if defined(_WIN32)
 static void PreprocessEnvString(string* env_str) {
   static constexpr const char* vars_to_uppercase[] = {"PATH", "SYSTEMROOT",
                                                       "TEMP", "TEMPDIR", "TMP"};
@@ -415,7 +415,7 @@ static void PreprocessEnvString(string* env_str) {
   }
 }
 
-#elif defined(__CYGWIN__)  // not defined(COMPILER_MSVC)
+#elif defined(__CYGWIN__)  // not defined(_WIN32)
 
 static void PreprocessEnvString(string* env_str) {
   int pos = env_str->find_first_of('=');
@@ -435,7 +435,7 @@ static void PreprocessEnvString(string* env_str) {
 static void PreprocessEnvString(const string* env_str) {
   // do nothing.
 }
-#endif  // defined(COMPILER_MSVC)
+#endif  // defined(_WIN32)
 
 static std::vector<std::string> GetProcessedEnv() {
   std::vector<std::string> processed_env;

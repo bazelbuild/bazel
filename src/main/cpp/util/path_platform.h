@@ -59,7 +59,7 @@ std::string MakeAbsolute(const std::string &path);
 // are included by an import statement. The downside to this gain in clarity
 // is that this would add more complexity to the implementation file(s)? of
 // path.h, which would have to have the platform-specific implementations.
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
 const wchar_t *RemoveUncPrefixMaybe(const wchar_t *ptr);
 void AddUncPrefixMaybe(std::wstring *path);
 
@@ -122,7 +122,7 @@ bool IsPathSeparator(char_type ch);
 template <typename char_type>
 bool HasDriveSpecifierPrefix(const char_type *ch);
 
-#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
 }  // namespace blaze_util
 
 #endif  // BAZEL_SRC_MAIN_CPP_UTIL_PATH_PLATFORM_H_

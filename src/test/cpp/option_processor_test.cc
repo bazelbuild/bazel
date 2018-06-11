@@ -319,7 +319,7 @@ TEST_F(OptionProcessorTest, TestDedupePathsWithRelativePath) {
   ASSERT_EQ(expected, internal::DedupeBlazercPaths(input));
 }
 
-#if !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
+#if !defined(_WIN32) && !defined(__CYGWIN__)
 static bool Symlink(const std::string& old_path, const std::string& new_path) {
   return symlink(old_path.c_str(), new_path.c_str()) == 0;
 }
@@ -334,6 +334,6 @@ TEST_F(OptionProcessorTest, TestDedupePathsWithSymbolicLink) {
   std::vector<std::string> expected = {foo_path};
   ASSERT_EQ(expected, internal::DedupeBlazercPaths(input));
 }
-#endif  // !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
+#endif  // !defined(_WIN32) && !defined(__CYGWIN__)
 
 }  // namespace blaze

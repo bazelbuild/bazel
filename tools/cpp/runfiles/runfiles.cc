@@ -13,23 +13,23 @@
 // limitations under the License.
 #include "tools/cpp/runfiles/runfiles.h"
 
-#ifdef COMPILER_MSVC
+#ifdef _WIN32
 #include <windows.h>
-#else  // not COMPILER_MSVC
+#else  // not _WIN32
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#endif  // COMPILER_MSVC
+#endif  // _WIN32
 
 #include <fstream>
 #include <map>
 #include <sstream>
 #include <vector>
 
-#ifdef COMPILER_MSVC
+#ifdef _WIN32
 #include <memory>
-#endif  // COMPILER_MSVC
+#endif  // _WIN32
 
 namespace bazel {
 namespace tools {
@@ -79,7 +79,7 @@ bool IsReadableFile(const string& path) {
 }
 
 bool IsDirectory(const string& path) {
-#ifdef COMPILER_MSVC
+#ifdef _WIN32
   DWORD attrs = GetFileAttributesA(path.c_str());
   return (attrs != INVALID_FILE_ATTRIBUTES) &&
          (attrs & FILE_ATTRIBUTE_DIRECTORY);
@@ -153,7 +153,7 @@ bool IsAbsolute(const string& path) {
 }
 
 string GetEnv(const string& key) {
-#ifdef COMPILER_MSVC
+#ifdef _WIN32
   DWORD size = ::GetEnvironmentVariableA(key.c_str(), NULL, 0);
   if (size == 0) {
     return std::move(string());  // unset or empty envvar

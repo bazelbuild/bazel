@@ -50,7 +50,7 @@ class IFileMtime {
 // Creates a platform-specific implementation of `IFileMtime`.
 IFileMtime *CreateFileMtime();
 
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
 // We cannot include <windows.h> because it #defines many symbols that conflict
 // with our function names, e.g. GetUserName, SendMessage.
 // Instead of typedef'ing HANDLE, let's use the actual type, void*. If that ever
@@ -58,9 +58,9 @@ IFileMtime *CreateFileMtime();
 // (very unlikely, given how fundamental this type is in Windows), then we'd get
 // a compilation error.
 typedef /* HANDLE */ void *file_handle_type;
-#else   // !(defined(COMPILER_MSVC) || defined(__CYGWIN__))
+#else   // !(defined(_WIN32) || defined(__CYGWIN__))
 typedef int file_handle_type;
-#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
 
 // Result of a `ReadFromHandle` operation.
 //
@@ -199,9 +199,9 @@ class DirectoryEntryConsumer {
 void ForEachDirectoryEntry(const std::string &path,
                            DirectoryEntryConsumer *consume);
 
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
 std::wstring GetCwdW();
-#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
 
 }  // namespace blaze_util
 
