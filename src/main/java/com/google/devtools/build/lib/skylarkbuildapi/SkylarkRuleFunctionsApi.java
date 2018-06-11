@@ -262,7 +262,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             defaultValue = "False",
             doc =
-                "Whether targets of this rule can set exec_compatible_with to add extra constraints on the execution platform."),
+                "If true, a special attribute named <code>exec_compatible_with</code> of label-list type is added. Targets may use this attribute to specify additional constraints on the execution platform beyond those given in the <code>exec_compatible_with</code> argument to <code>rule()</code>."),
         @Param(
             name = "exec_compatible_with",
             type = SkylarkList.class,
@@ -289,7 +289,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       String doc,
       SkylarkList<?> providesArg,
       Boolean executionPlatformConstraintsAllowed,
-      SkylarkList<String> execCompatibleWith,
+      SkylarkList<?> execCompatibleWith,
       FuncallExpression ast,
       Environment funcallEnv)
       throws EvalException;

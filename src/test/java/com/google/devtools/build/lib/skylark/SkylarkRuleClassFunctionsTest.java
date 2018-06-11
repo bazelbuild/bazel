@@ -1627,10 +1627,11 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testRuleAddExecutionConstraints() throws Exception {
+    registerDummyUserDefinedFunction();
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
-        "def impl(ctx): return None",
-        "r1 = rule(impl, ",
+        "r1 = rule(",
+        "  implementation = impl,",
         "  toolchains=['//test:my_toolchain_type'],",
         "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         ")");
@@ -1641,9 +1642,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testTargetsCanAddExecutionPlatformConstraints() throws Exception {
+    registerDummyUserDefinedFunction();
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
-        "def impl(ctx): return None",
         "r1 = rule(impl, ",
         "  toolchains=['//test:my_toolchain_type'],",
         "  execution_platform_constraints_allowed=True,",
@@ -1651,6 +1652,22 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.executionPlatformConstraintsAllowed())
         .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
+  }
+
+  @Test
+  public void testTargetsCanAddExecutionPlatformConstraints_attrAlreadyDefined() throws Exception {
+    registerDummyUserDefinedFunction();
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    checkErrorContains(
+        "Rule should not already define the attribute \"exec_compatible_with\"",
+        "r1 = rule(impl, ",
+        "  attrs = {",
+        "    'exec_compatible_with': attr.label_list(),",
+        "  },",
+        "  toolchains=['//test:my_toolchain_type'],",
+        "  execution_platform_constraints_allowed=True,",
+        ")"
+    );
   }
 
   @Test

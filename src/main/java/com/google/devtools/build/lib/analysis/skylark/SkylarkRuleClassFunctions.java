@@ -318,7 +318,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       String doc,
       SkylarkList<?> providesArg,
       Boolean executionPlatformConstraintsAllowed,
-      SkylarkList<String> execCompatibleWith,
+      SkylarkList<?> execCompatibleWith,
       FuncallExpression ast,
       Environment funcallEnv)
       throws EvalException, ConversionException {
@@ -400,9 +400,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       builder.advertiseSkylarkProvider(skylarkProvider);
     }
 
-    // TODO(katre): convert from bool to enum
     if (!execCompatibleWith.isEmpty()) {
-      builder.addExecutionPlatformConstraints(collectConstraintLabels(execCompatibleWith, ast));
+      builder.addExecutionPlatformConstraints(collectConstraintLabels(execCompatibleWith.getContents(String.class, "exec_compatile_with"), ast.getLocation()));
     }
     if (executionPlatformConstraintsAllowed) {
       builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET);
@@ -455,7 +454,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   }
 
   private static ImmutableList<Label> collectConstraintLabels(
-      Iterable<String> rawLabels, FuncallExpression ast) throws EvalException {
+      Iterable<String> rawLabels, Location loc) throws EvalException {
     ImmutableList.Builder<Label> constraintLabels = new ImmutableList.Builder<>();
     for (String rawLabel : rawLabels) {
       try {
@@ -463,7 +462,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         constraintLabels.add(constraintLabel);
       } catch (LabelSyntaxException e) {
         throw new EvalException(
-            ast.getLocation(),
+            loc,
             String.format("Unable to parse constraint %s: %s", rawLabel, e.getMessage()),
             e);
       }
