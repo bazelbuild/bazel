@@ -37,6 +37,7 @@ final class DebugServerTransport {
     // TODO(bazel-team): reject all connections after the first
     eventHandler.handle(Event.progress("Waiting for debugger..."));
     Socket clientSocket = serverSocket.accept();
+    eventHandler.handle(Event.info("Debugger connection successfully established."));
     return new DebugServerTransport(
         eventHandler,
         serverSocket,
@@ -72,7 +73,9 @@ final class DebugServerTransport {
   DebugRequest readClientRequest() {
     synchronized (requestStream) {
       try {
-        return DebugRequest.parseDelimitedFrom(requestStream);
+        DebugRequest request = DebugRequest.parseDelimitedFrom(requestStream);
+        eventHandler.handle(Event.debug("Received debug client request:\n" + request));
+        return request;
       } catch (IOException e) {
         handleParsingError(e);
         return null;
@@ -92,6 +95,7 @@ final class DebugServerTransport {
 
   /** Posts a debug event. */
   void postEvent(DebugEvent event) {
+    eventHandler.handle(Event.debug("Sending debug event:\n" + event));
     synchronized (eventStream) {
       try {
         event.writeDelimitedTo(eventStream);

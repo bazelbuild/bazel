@@ -104,6 +104,10 @@ public final class SkylarkDebugServer implements DebugServer {
                               + Throwables.getStackTraceAsString(e)));
                 }
               } finally {
+                eventHandler.handle(
+                    Event.info(
+                        "Debug server listener thread closed; shutting down debug server and "
+                            + "resuming all threads"));
                 close();
               }
             });
@@ -115,6 +119,7 @@ public final class SkylarkDebugServer implements DebugServer {
   @Override
   public void close() {
     try {
+      eventHandler.handle(Event.debug("Closing debug server"));
       transport.close();
 
     } catch (IOException e) {

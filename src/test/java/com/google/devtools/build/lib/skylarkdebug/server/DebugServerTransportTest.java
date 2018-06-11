@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Con
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.DebugEvent;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.DebugRequest;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingRequest;
+import com.google.devtools.build.lib.syntax.Environment.FailFastException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -29,6 +30,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -84,8 +86,21 @@ public class DebugServerTransportTest {
   }
 
   @Before
-  public void setup() {
-    events.setFailFast(true);
+  public void setupEventHandler() {
+    // fail-fast treats 'debug' messages as errors. Replace with something that doesn't
+    events.setFailFast(false);
+
+    EnumSet<EventKind> failOnEvents = EnumSet.copyOf(EventKind.ERRORS_AND_WARNINGS);
+    failOnEvents.remove(EventKind.DEBUG);
+
+    events
+        .reporter()
+        .addHandler(
+            event -> {
+              if (failOnEvents.contains(event.getKind())) {
+                throw new FailFastException(event.toString());
+              }
+            });
   }
 
   @Test
