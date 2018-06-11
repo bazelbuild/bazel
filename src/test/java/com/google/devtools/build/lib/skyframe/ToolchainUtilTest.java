@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.InvalidConstraintValueException;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.InvalidPlatformException;
+import com.google.devtools.build.lib.skyframe.ToolchainUtil.NoMatchingPlatformException;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.UnresolvedToolchainsException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -110,6 +111,32 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     assertThat(toolchainContext.getExecutionPlatform()).isNotNull();
     assertThat(toolchainContext.getExecutionPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:mac"));
+
+    assertThat(toolchainContext.getTargetPlatform()).isNotNull();
+    assertThat(toolchainContext.getTargetPlatform().label())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
+  }
+
+  @Test
+  public void createToolchainContext_noToolchainType() throws Exception {
+    rewriteWorkspace("register_execution_platforms('//platforms:mac', '//platforms:linux')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    CreateToolchainContextKey key =
+        CreateToolchainContextKey.create("test", ImmutableSet.of(), targetConfigKey);
+
+    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    ToolchainContext toolchainContext = result.get(key).toolchainContext();
+    assertThat(toolchainContext).isNotNull();
+
+    assertThat(toolchainContext.getRequiredToolchains()).isEmpty();
+
+    // With no toolchains requested, should fall back to the host platform.
+    assertThat(toolchainContext.getExecutionPlatform()).isNotNull();
+    assertThat(toolchainContext.getExecutionPlatform().label())
+        .isEqualTo(Label.parseAbsoluteUnchecked("@bazel_tools//platforms:host_platform"));
 
     assertThat(toolchainContext.getTargetPlatform()).isNotNull();
     assertThat(toolchainContext.getTargetPlatform().label())
@@ -333,6 +360,63 @@ public class ToolchainUtilTest extends ToolchainTestCase {
         .hasCauseThat()
         .hasMessageThat()
         .contains("//platforms:linux");
+  }
+
+  @Test
+  public void createToolchainContext_noMatchingPlatform() throws Exception {
+    // Write toolchain A, and a toolchain implementing it.
+    scratch.appendFile(
+        "a/BUILD",
+        "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
+        "toolchain_type(name = 'toolchain_type')",
+        "toolchain(",
+        "    name = 'toolchain',",
+        "    toolchain_type = ':toolchain_type',",
+        "    exec_compatible_with = ['//constraints:mac'],",
+        "    target_compatible_with = [],",
+        "    toolchain = ':toolchain_impl')",
+        "test_toolchain(",
+        "    name='toolchain_impl',",
+        "    data = 'a')");
+    // Write toolchain B, and a toolchain implementing it.
+    scratch.appendFile(
+        "b/BUILD",
+        "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
+        "toolchain_type(name = 'toolchain_type')",
+        "toolchain(",
+        "    name = 'toolchain',",
+        "    toolchain_type = ':toolchain_type',",
+        "    exec_compatible_with = ['//constraints:linux'],",
+        "    target_compatible_with = [],",
+        "    toolchain = ':toolchain_impl')",
+        "test_toolchain(",
+        "    name='toolchain_impl',",
+        "    data = 'b')");
+
+    rewriteWorkspace(
+        "register_toolchains('//a:toolchain', '//b:toolchain')",
+        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    CreateToolchainContextKey key =
+        CreateToolchainContextKey.create(
+            "test",
+            ImmutableSet.of(
+                Label.parseAbsoluteUnchecked("//a:toolchain_type"),
+                Label.parseAbsoluteUnchecked("//b:toolchain_type")),
+            targetConfigKey);
+
+    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .isInstanceOf(ToolchainContextException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasCauseThat()
+        .isInstanceOf(NoMatchingPlatformException.class);
   }
 
   // Calls ToolchainUtil.createToolchainContext.
