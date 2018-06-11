@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
+import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.query2.engine.Callback;
@@ -137,6 +138,8 @@ public class ConfiguredTargetQueryEnvironment
 
   private RecursivePackageProviderBackedTargetPatternResolver resolver;
 
+  private CqueryOptions cqueryOptions;
+
   public ConfiguredTargetQueryEnvironment(
       boolean keepGoing,
       ExtendedEventHandler eventHandler,
@@ -169,6 +172,21 @@ public class ConfiguredTargetQueryEnvironment
         };
   }
 
+  public ConfiguredTargetQueryEnvironment(
+      boolean keepGoing,
+      ExtendedEventHandler eventHandler,
+      Iterable<QueryFunction> extraFunctions,
+      BuildConfiguration defaultTargetConfiguration,
+      BuildConfiguration hostConfiguration,
+      String parserPrefix,
+      PathPackageLocator pkgPath,
+      Supplier<WalkableGraph> walkableGraphSupplier,
+      CqueryOptions cqueryOptions) {
+    this(keepGoing, eventHandler, extraFunctions, defaultTargetConfiguration, hostConfiguration,
+        parserPrefix, pkgPath, walkableGraphSupplier, cqueryOptions.toSettings());
+    this.cqueryOptions = cqueryOptions;
+  }
+
   private static ImmutableList<QueryFunction> populateFunctions() {
     return new ImmutableList.Builder<QueryFunction>()
         .addAll(QueryEnvironment.DEFAULT_QUERY_FUNCTIONS)
@@ -182,21 +200,22 @@ public class ConfiguredTargetQueryEnvironment
 
   public ImmutableList<CqueryThreadsafeCallback> getDefaultOutputFormatters(
       TargetAccessor<ConfiguredTarget> accessor,
-      CqueryOptions options,
       Reporter reporter,
       SkyframeExecutor skyframeExecutor,
       BuildConfiguration hostConfiguration,
       @Nullable RuleTransitionFactory trimmingTransitionFactory,
-      AspectResolver resolver) {
+      PackageManager packageManager) {
+    AspectResolver aspectResolver =
+        cqueryOptions.aspectDeps.createResolver(packageManager, reporter);
     OutputStream out = reporter.getOutErr().getOutputStream();
     return new ImmutableList.Builder<CqueryThreadsafeCallback>()
         .add(
             new LabelAndConfigurationOutputFormatterCallback(
-                reporter, options, out, skyframeExecutor, accessor))
+                reporter, cqueryOptions, out, skyframeExecutor, accessor))
         .add(
             new TransitionsOutputFormatterCallback(
                 reporter,
-                options,
+                cqueryOptions,
                 out,
                 skyframeExecutor,
                 accessor,
@@ -204,8 +223,12 @@ public class ConfiguredTargetQueryEnvironment
                 trimmingTransitionFactory))
         .add(
             new ProtoOutputFormatterCallback(
-                reporter, options, out, skyframeExecutor, accessor, resolver))
+                reporter, cqueryOptions, out, skyframeExecutor, accessor, aspectResolver))
         .build();
+  }
+
+  public String getOutputFormat() {
+    return cqueryOptions.outputFormat;
   }
 
   @Override
