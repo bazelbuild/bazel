@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.buildeventservice.client;
 
-import com.google.common.base.Function;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import io.grpc.Status;
+import java.util.function.Function;
 
 /** Interface used to abstract both gRPC and Stubby BuildEventServiceBackend. */
 public interface BuildEventServiceClient {
