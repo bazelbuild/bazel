@@ -56,11 +56,11 @@ function test_determinism()  {
     unzip -q "${DISTFILE}"
 
     # Build Bazel once.
-    bazel --output_base="${TEST_TMPDIR}/out1" build --nostamp //src:bazel
+    bazel --output_base="${TEST_TMPDIR}/out1" build --nostamp //src:bazel_with_jdk
     hash_outputs >"${TEST_TMPDIR}/sum1"
 
     # Build Bazel twice.
-    bazel-bin/src/bazel --output_base="${TEST_TMPDIR}/out2" build --nostamp //src:bazel
+    bazel-bin/src/bazel_with_jdk --output_base="${TEST_TMPDIR}/out2" build --nostamp //src:bazel_with_jdk
     hash_outputs >"${TEST_TMPDIR}/sum2"
 
     if ! diff -U0 "${TEST_TMPDIR}/sum1" "${TEST_TMPDIR}/sum2" >$TEST_log; then
