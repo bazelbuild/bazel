@@ -35,6 +35,8 @@ final class ApiLevelR17 extends ApiLevel {
           .putAll("23", "arm", "x86", "arm64", "x86_64")
           .putAll("24", "arm", "x86", "arm64", "x86_64")
           .putAll("26", "arm", "x86", "arm64", "x86_64")
+          .putAll("27", "arm", "x86", "arm64", "x86_64")
+          .putAll("28", "arm", "x86", "arm64", "x86_64")
           .build();
 
   /** This map fill in the gaps of {@code API_LEVEL_TO_ARCHITECTURES}. */
