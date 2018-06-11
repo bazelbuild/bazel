@@ -357,6 +357,8 @@ class TestBase(unittest.TestCase):
           'BAZEL_SH':
               TestBase.GetEnv('BAZEL_SH',
                               'c:\\tools\\msys64\\usr\\bin\\bash.exe'),
+          'JAVA_HOME':
+              TestBase.GetEnv('JAVA_HOME'),
       }
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
