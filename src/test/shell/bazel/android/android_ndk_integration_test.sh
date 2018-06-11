@@ -175,7 +175,7 @@ EOF
 
 function check_num_sos() {
   num_sos=$(unzip -Z1 bazel-bin/java/bazel/bin.apk '*.so' | wc -l | sed -e 's/[[:space:]]//g')
-  assert_equals "5" "$num_sos"
+  assert_equals "4" "$num_sos"
 }
 
 function check_soname() {
@@ -202,9 +202,9 @@ function test_android_binary() {
   setup_android_ndk_support
   create_android_binary
 
-  cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
+  cpus="armeabi-v7a,arm64-v8a,x86,x86_64"
 
-  bazel build -s //java/bazel:bin --fat_apk_cpu="$cpus" || fail "build failed"
+  assert_build //java/bazel:bin --fat_apk_cpu="$cpus"
   check_num_sos
   check_soname
 }
@@ -215,12 +215,9 @@ function test_android_binary_clang() {
   setup_android_ndk_support
   create_android_binary
 
-  cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
+  cpus="armeabi-v7a,arm64-v8a,x86,x86_64"
 
-  bazel build -s //java/bazel:bin \
-      --fat_apk_cpu="$cpus" \
-      --android_compiler=clang5.0.300080 \
-      || fail "build failed"
+  assert_build //java/bazel:bin --fat_apk_cpu="$cpus"
   check_num_sos
   check_soname
 }
@@ -240,12 +237,11 @@ EOF
 #include <arm_neon.h>
 int main() { return 0; }
 EOF
-  bazel build //:foo \
-    --compiler=clang5.0.300080 \
+  assert_build :foo \
+    --compiler=clang6.0.2 \
     --cpu=armeabi-v7a \
     --crosstool_top=//external:android/crosstool \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
-    || fail "build failed"
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 }
 
 function test_android_ndk_repository_path_from_environment() {
@@ -270,8 +266,8 @@ android_ndk_repository(
     api_level = 25,
 )
 EOF
-  bazel build @androidndk//:files >& $TEST_log && fail "Should have failed"
-  expect_log "Either the path attribute of android_ndk_repository"
+  assert_build_fails @androidndk//:files \
+    "Either the path attribute of android_ndk_repository"
 }
 
 function test_android_ndk_repository_wrong_path() {
@@ -284,8 +280,8 @@ android_ndk_repository(
     path = "$TEST_TMPDIR/some_dir",
 )
 EOF
-  bazel build @androidndk//:files >& $TEST_log && fail "Should have failed"
-  expect_log "Unable to read the Android NDK at $TEST_TMPDIR/some_dir, the path may be invalid." \
+  assert_build_fails @androidndk//:files \
+    "Unable to read the Android NDK at $TEST_TMPDIR/some_dir, the path may be invalid." \
     " Is the path in android_ndk_repository() or \$ANDROID_NDK_HOME set correctly?"
 }
 
@@ -301,7 +297,7 @@ EOF
   cat > foo.cc <<EOF
 int main() { return 0; }
 EOF
-  bazel build //:foo.stripped \
+  assert_build //:foo.stripped \
     --cpu=armeabi-v7a \
     --crosstool_top=//external:android/crosstool \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
@@ -406,7 +402,7 @@ function test_crosstool_libcpp_with_multiarch() {
   setup_android_ndk_support
   create_android_binary
 
-  cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
+  cpus="armeabi-v7a,arm64-v8a,x86,x86_64"
 
   assert_build //java/bazel:bin \
     --fat_apk_cpu="$cpus" \
