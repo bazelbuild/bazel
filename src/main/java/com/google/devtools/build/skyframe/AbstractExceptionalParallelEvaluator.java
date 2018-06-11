@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationSuccessState;
@@ -211,11 +212,9 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       }
     }
 
-    Profiler.instance().startTask(ProfilerTask.SKYFRAME_EVAL, "Parallel Evaluator evaluation");
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.SKYFRAME_EVAL, "Parallel Evaluator evaluation")) {
       return doMutatingEvaluation(skyKeySet);
-    } finally {
-      Profiler.instance().completeTask(ProfilerTask.SKYFRAME_EVAL);
     }
   }
 

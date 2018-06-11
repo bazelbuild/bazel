@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
@@ -923,14 +924,11 @@ public class CppCompileAction extends AbstractAction
   @ThreadCompatible
   public final void updateActionInputs(NestedSet<Artifact> discoveredInputs) {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
-    Profiler.instance().startTask(ProfilerTask.ACTION_UPDATE, describe());
-    try {
+    try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.ACTION_UPDATE, describe())) {
       inputs.addTransitive(mandatoryInputs);
       inputs.addAll(inputsForInvalidation);
       inputs.addTransitive(discoveredInputs);
       updateInputs(inputs.build());
-    } finally {
-      Profiler.instance().completeTask(ProfilerTask.ACTION_UPDATE);
     }
   }
 

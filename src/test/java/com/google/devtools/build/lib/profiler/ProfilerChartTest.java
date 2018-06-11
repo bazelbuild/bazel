@@ -55,8 +55,7 @@ public class ProfilerChartTest extends FoundationTestCase {
     Runnable run = new Runnable() {
       @Override
       public void run() {
-        Profiler.instance().startTask(ProfilerTask.ACTION, "action");
-        Profiler.instance().completeTask(ProfilerTask.ACTION);
+        Profiler.instance().profile(ProfilerTask.ACTION, "action").close();
       }
     };
     int threads = 4; // there is one extra thread due due the event that finalizes the profiler
@@ -79,11 +78,11 @@ public class ProfilerChartTest extends FoundationTestCase {
       @Override
       public void run() {
         Profiler profiler = Profiler.instance();
-        profiler.startTask(ProfilerTask.ACTION, "action"); // Stays
-        task(profiler, ProfilerTask.REMOTE_EXECUTION, "remote execution"); // Removed
-        task(profiler, ProfilerTask.ACTION_CHECK, "check"); // Removed
-        task(profiler, ProfilerTask.ACTION_LOCK, "lock"); // Stays
-        profiler.completeTask(ProfilerTask.ACTION);
+        try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action")) { // Stays
+          task(profiler, ProfilerTask.REMOTE_EXECUTION, "remote execution"); // Removed
+          task(profiler, ProfilerTask.ACTION_CHECK, "check"); // Removed
+          task(profiler, ProfilerTask.ACTION_LOCK, "lock"); // Stays
+        }
         task(profiler, ProfilerTask.INFO, "info"); // Stays
         task(profiler, ProfilerTask.VFS_STAT, "stat"); // Stays, if showVFS
         task(profiler, ProfilerTask.WAIT, "wait"); // Stays
@@ -264,13 +263,11 @@ public class ProfilerChartTest extends FoundationTestCase {
   }
 
   private void task(final Profiler profiler, ProfilerTask task, String name) {
-    profiler.startTask(task, name);
-    try {
+    try (SilentCloseable c = profiler.profile(task, name)) {
       Thread.sleep(100);
     } catch (InterruptedException e) {
       // ignore
     }
-    profiler.completeTask(task);
   }
 
   private static final class TestingChartVisitor implements ChartVisitor {

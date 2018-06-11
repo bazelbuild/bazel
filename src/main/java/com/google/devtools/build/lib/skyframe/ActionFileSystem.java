@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -100,8 +101,8 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
       ActionInputMap inputArtifactData,
       Iterable<Artifact> allowedInputs,
       Iterable<Artifact> outputArtifacts) {
-    try {
-      Profiler.instance().startTask(ProfilerTask.ACTION_FS_STAGING, "staging");
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.ACTION_FS_STAGING, "staging")) {
       this.delegate = delegate;
 
       this.execRootFragment = execRoot.asFragment();
@@ -133,8 +134,6 @@ final class ActionFileSystem extends FileSystem implements MetadataProvider, Inj
           .collect(ImmutableMap.toImmutableMap(Artifact::getExecPath, a -> a));
       this.outputs = CacheBuilder.newBuilder().build(
           CacheLoader.from(path -> new OutputMetadata(outputsMapping.get(path))));
-    } finally {
-      Profiler.instance().completeTask(ProfilerTask.ACTION_FS_STAGING);
     }
   }
 

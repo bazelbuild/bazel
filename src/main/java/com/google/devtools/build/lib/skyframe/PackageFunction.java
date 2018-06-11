@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -1177,11 +1178,11 @@ public class PackageFunction implements SkyFunction {
       throws InterruptedException, PackageFunctionException {
     LoadedPackageCacheEntry packageCacheEntry = packageFunctionCache.getIfPresent(packageId);
     if (packageCacheEntry == null) {
-      profiler.startTask(ProfilerTask.CREATE_PACKAGE, packageId.toString());
       if (packageProgress != null) {
         packageProgress.startReadPackage(packageId);
       }
-      try {
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.CREATE_PACKAGE, packageId.toString())) {
         AstParseResult astParseResult = astCache.getIfPresent(packageId);
         if (astParseResult == null) {
           if (showLoadingProgress.get()) {
@@ -1267,8 +1268,6 @@ public class PackageFunction implements SkyFunction {
           packageProgress.doneReadPackage(packageId);
         }
         packageFunctionCache.put(packageId, packageCacheEntry);
-      } finally {
-        profiler.completeTask(ProfilerTask.CREATE_PACKAGE);
       }
     }
     return packageCacheEntry;

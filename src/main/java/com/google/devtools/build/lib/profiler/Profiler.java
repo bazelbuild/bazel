@@ -806,17 +806,26 @@ public final class Profiler {
   }
 
   /**
-   * Records the beginning of the task specified by the parameters. This method should always be
-   * followed by completeTask() invocation to mark the end of task execution (usually ensured by try
-   * {} finally {} block). Failure to do so will result in task stack corruption.
+   * Records the beginning of a task as specified, and returns a {@link SilentCloseable} instance
+   * that ends the task. This lets the system do the work of ending the task, with the compiler
+   * giving a warning if the returned instance is not closed.
    *
    * <p>Use of this method allows to support nested task monitoring. For tasks that are known to not
    * have any subtasks, logSimpleTask() should be used instead.
    *
+   * <p>Use like this:
+   * <pre>
+   * {@code
+   * try (SilentCloseable c = Profiler.instance().profile(type, "description")) {
+   *   // Your code here.
+   * }
+   * }
+   * </pre>
+   *
    * @param type predefined task type - see ProfilerTask for available types.
    * @param description task description. May be stored until the end of the build.
    */
-  public void startTask(ProfilerTask type, String description) {
+  public SilentCloseable profile(ProfilerTask type, String description) {
     // ProfilerInfo.allTasksById is supposed to be an id -> Task map, but it is in fact a List,
     // which means that we cannot drop tasks to which we had already assigned ids. Therefore,
     // non-leaf tasks must not have a minimum duration. However, we don't quite consistently
@@ -825,6 +834,9 @@ public final class Profiler {
     Preconditions.checkNotNull(description);
     if (isActive() && isProfiling(type)) {
       taskStack.push(type, description);
+      return () -> completeTask(type);
+    } else {
+      return () -> {};
     }
   }
 
@@ -835,7 +847,7 @@ public final class Profiler {
    *
    * @param type task type.
    */
-  public void completeTask(ProfilerTask type) {
+  private void completeTask(ProfilerTask type) {
     if (isActive() && isProfiling(type)) {
       long endTime = clock.nanoTime();
       TaskData data = taskStack.pop();

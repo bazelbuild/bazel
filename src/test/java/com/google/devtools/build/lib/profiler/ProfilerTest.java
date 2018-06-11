@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.profiler;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
@@ -85,9 +84,9 @@ public class ProfilerTest extends FoundationTestCase {
     Path cacheFile = cacheDir.getRelative("profile1.dat");
     profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "basic test", false,
         BlazeClock.instance(), BlazeClock.instance().nanoTime());
-    profiler.startTask(ProfilerTask.ACTION, "action task");
-    profiler.logEvent(ProfilerTask.INFO, "event");
-    profiler.completeTask(ProfilerTask.ACTION);
+    try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
+      profiler.logEvent(ProfilerTask.INFO, "event");
+    }
     profiler.stop();
     ProfileInfo info = ProfileInfo.loadProfile(cacheFile);
     info.calculateStats();
@@ -110,24 +109,21 @@ public class ProfilerTest extends FoundationTestCase {
         BlazeClock.instance(), BlazeClock.instance().nanoTime());
     profiler.logSimpleTask(BlazeClock.instance().nanoTime(),
                            ProfilerTask.PHASE, "profiler start");
-    profiler.startTask(ProfilerTask.ACTION, "complex task");
-    profiler.logEvent(ProfilerTask.PHASE, "event1");
-    profiler.startTask(ProfilerTask.ACTION_CHECK, "complex subtask");
-    // next task takes less than 10 ms and should be only aggregated
-    profiler.logSimpleTask(BlazeClock.instance().nanoTime(),
-                           ProfilerTask.VFS_STAT, "stat1");
-    long startTime = BlazeClock.instance().nanoTime();
-    clock.advanceMillis(20);
-    // this one will take at least 20 ms and should be present
-    profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, "stat2");
-    profiler.completeTask(ProfilerTask.ACTION_CHECK);
-    profiler.completeTask(ProfilerTask.ACTION);
+    try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "complex task")) {
+      profiler.logEvent(ProfilerTask.PHASE, "event1");
+      try (SilentCloseable c2 = profiler.profile(ProfilerTask.ACTION_CHECK, "complex subtask")) {
+        // next task takes less than 10 ms and should be only aggregated
+        profiler.logSimpleTask(BlazeClock.instance().nanoTime(),
+                               ProfilerTask.VFS_STAT, "stat1");
+        long startTime = BlazeClock.instance().nanoTime();
+        clock.advanceMillis(20);
+        // this one will take at least 20 ms and should be present
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, "stat2");
+      }
+    }
     profiler.stop();
     // all other calls to profiler should be ignored
     profiler.logEvent(ProfilerTask.PHASE, "should be ignored");
-    // normally this would cause an exception but it is ignored since profiler
-    // is disabled
-    profiler.completeTask(ProfilerTask.ACTION_EXECUTE);
 
     ProfileInfo info = ProfileInfo.loadProfile(cacheFile);
     info.calculateStats();
@@ -167,11 +163,11 @@ public class ProfilerTest extends FoundationTestCase {
     Path cacheFile = cacheDir.getRelative("profile1.dat");
     profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "basic test", true,
         BlazeClock.instance(), BlazeClock.instance().nanoTime());
-    profiler.startTask(ProfilerTask.ACTION, "action task");
-    // Next task takes less than 10 ms but should be recorded anyway.
-    clock.advanceMillis(1);
-    profiler.logSimpleTask(BlazeClock.instance().nanoTime(), ProfilerTask.VFS_STAT, "stat1");
-    profiler.completeTask(ProfilerTask.ACTION);
+    try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
+      // Next task takes less than 10 ms but should be recorded anyway.
+      clock.advanceMillis(1);
+      profiler.logSimpleTask(BlazeClock.instance().nanoTime(), ProfilerTask.VFS_STAT, "stat1");
+    }
     profiler.stop();
     ProfileInfo info = ProfileInfo.loadProfile(cacheFile);
     info.calculateStats();
@@ -300,22 +296,6 @@ public class ProfilerTest extends FoundationTestCase {
   }
 
   @Test
-  public void testInconsistentCompleteTask() throws Exception {
-    Path cacheFile = cacheDir.getRelative("profile2.dat");
-    profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(),
-        "task stack inconsistency test", false,
-        BlazeClock.instance(), BlazeClock.instance().nanoTime());
-    profiler.startTask(ProfilerTask.PHASE, "some task");
-    try {
-      profiler.completeTask(ProfilerTask.ACTION);
-      fail();
-    } catch (IllegalStateException e) {
-      // this is expected
-    }
-    profiler.stop();
-  }
-
-  @Test
   public void testConcurrentProfiling() throws Exception {
     Path cacheFile = cacheDir.getRelative("profile3.dat");
     profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "concurrent test", false,
@@ -339,14 +319,14 @@ public class ProfilerTest extends FoundationTestCase {
     };
     long id2 = thread2.getId();
 
-    profiler.startTask(ProfilerTask.PHASE, "main task");
-    profiler.logEvent(ProfilerTask.INFO, "starting threads");
-    thread1.start();
-    thread2.start();
-    thread2.join();
-    thread1.join();
-    profiler.logEvent(ProfilerTask.INFO, "joined");
-    profiler.completeTask(ProfilerTask.PHASE);
+    try (SilentCloseable c = profiler.profile(ProfilerTask.PHASE, "main task")) {
+      profiler.logEvent(ProfilerTask.INFO, "starting threads");
+      thread1.start();
+      thread2.start();
+      thread2.join();
+      thread1.join();
+      profiler.logEvent(ProfilerTask.INFO, "joined");
+    }
     profiler.stop();
 
     ProfileInfo info = ProfileInfo.loadProfile(cacheFile);
@@ -393,11 +373,11 @@ public class ProfilerTest extends FoundationTestCase {
         new Thread() {
           @Override
           public void run() {
-            profiler.startTask(ProfilerTask.INFO, "complex task");
-            for (int i = 0; i < 100; i++) {
-              Profiler.instance().logEvent(ProfilerTask.INFO, "thread2a");
+            try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "complex task")) {
+              for (int i = 0; i < 100; i++) {
+                Profiler.instance().logEvent(ProfilerTask.INFO, "thread2a");
+              }
             }
-            profiler.completeTask(ProfilerTask.INFO);
             try {
               profiler.markPhase(ProfilePhase.EXECUTE);
             } catch (InterruptedException e) {
@@ -441,10 +421,10 @@ public class ProfilerTest extends FoundationTestCase {
     profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "phase test", false,
         BlazeClock.instance(), BlazeClock.instance().nanoTime());
     for (int i = 0; i < 100; i++) {
-      profiler.startTask(ProfilerTask.INFO, "outer task " + i);
-      clock.advanceMillis(1);
-      profiler.logEvent(ProfilerTask.INFO, "inner task " + i);
-      profiler.completeTask(ProfilerTask.INFO);
+      try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "outer task " + i)) {
+        clock.advanceMillis(1);
+        profiler.logEvent(ProfilerTask.INFO, "inner task " + i);
+      }
     }
     profiler.stop();
 
@@ -470,12 +450,12 @@ public class ProfilerTest extends FoundationTestCase {
     Path dataFile = cacheDir.getRelative("profile5.dat");
     profiler.start(ProfiledTaskKinds.ALL, dataFile.getOutputStream(), "phase test", false,
         BlazeClock.instance(), BlazeClock.instance().nanoTime());
-    profiler.startTask(ProfilerTask.INFO, "outer task");
-    profiler.logEvent(ProfilerTask.PHASE, "inner task");
-    profiler.completeTask(ProfilerTask.INFO);
-    profiler.startTask(ProfilerTask.SCANNER, "outer task 2");
-    profiler.logSimpleTask(Profiler.nanoTimeMaybe(), ProfilerTask.INFO, "inner task 2");
-    profiler.completeTask(ProfilerTask.SCANNER);
+    try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "outer task")) {
+      profiler.logEvent(ProfilerTask.PHASE, "inner task");
+    }
+    try (SilentCloseable c = profiler.profile(ProfilerTask.SCANNER, "outer task 2")) {
+      profiler.logSimpleTask(Profiler.nanoTimeMaybe(), ProfilerTask.INFO, "inner task 2");
+    }
     profiler.stop();
 
     // Validate our test profile.

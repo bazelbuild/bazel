@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
-
 import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
@@ -34,8 +32,9 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
-import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.OutputService;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -640,7 +639,8 @@ public final class CommandEnvironment {
     // and so we need to compute it freshly. Otherwise, we can used the immutable value that's
     // precomputed by our BlazeWorkspace.
     if (getOutputService() != null) {
-      try (AutoProfiler p = profiled("Finding output file system", ProfilerTask.INFO)) {
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.INFO, "Finding output file system")) {
         return getOutputService().getFilesSystemName();
       }
     }

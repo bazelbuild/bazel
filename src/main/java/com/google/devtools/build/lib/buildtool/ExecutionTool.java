@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -369,7 +370,7 @@ public class ExecutionTool {
       env.getEventBus()
           .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
 
-      try (AutoProfiler p = AutoProfiler.profiled("Show results", ProfilerTask.INFO)) {
+      try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "Show results")) {
         buildResult.setSuccessfulTargets(
             determineSuccessfulTargets(configuredTargets, builtTargets));
         buildResult.setSuccessfulAspects(determineSuccessfulAspects(aspects, builtAspects));
@@ -379,7 +380,7 @@ public class ExecutionTool {
             analysisResult.getTargetsToSkip(), analysisResult.getAspects());
       }
 
-      try (AutoProfiler p = AutoProfiler.profiled("Show artifacts", ProfilerTask.INFO)) {
+      try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "Show artifacts")) {
         if (request.getBuildOptions().showArtifacts) {
           BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
           buildResultPrinter.showArtifacts(
@@ -444,7 +445,8 @@ public class ExecutionTool {
    * Prepare for a local output build.
    */
   private void startLocalOutputBuild() throws ExecutorInitException {
-    try (AutoProfiler p = AutoProfiler.profiled("Starting local output build", ProfilerTask.INFO)) {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.INFO, "Starting local output build")) {
       Path outputPath = env.getDirectories().getOutputPath(env.getWorkspaceName());
       Path localOutputPath = env.getDirectories().getLocalOutputPath();
 
