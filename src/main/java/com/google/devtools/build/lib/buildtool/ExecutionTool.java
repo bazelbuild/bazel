@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.ActionContextConsumer;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
@@ -140,12 +139,9 @@ public class ExecutionTool {
     // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
     // these dependencies should be added to the ActionContextConsumer of the module that actually
     // depends on them.
-    builder.addActionContextConsumer(
-        b -> {
-          b.strategyByContextMap()
-              .put(WorkspaceStatusAction.Context.class, "")
-              .put(SymlinkTreeActionContext.class, "");
-        });
+    builder
+        .addStrategyByContext(WorkspaceStatusAction.Context.class, "")
+        .addStrategyByContext(SymlinkTreeActionContext.class, "");
 
     // Unfortunately, the exec root cache is not shared with caches in the remote execution client.
     this.fileCache =
@@ -162,13 +158,8 @@ public class ExecutionTool {
     // independently from each other, for example, to run genrules locally and Java compile action
     // in prod. Thus, for SpawnActions, we decide the action context to use not only based on the
     // context class, but also the mnemonic of the action.
-    SpawnActionContextMaps.Builder spawnActionContextMapsBuilder =
-        new SpawnActionContextMaps.Builder();
-    for (ActionContextConsumer consumer : builder.getActionContextConsumers()) {
-      consumer.populate(spawnActionContextMapsBuilder);
-    }
     spawnActionContextMaps =
-        spawnActionContextMapsBuilder.build(
+        builder.getSpawnActionContextMapsBuilder().build(
             actionContextProviders, request.getOptions(ExecutionOptions.class).testStrategy);
   }
 

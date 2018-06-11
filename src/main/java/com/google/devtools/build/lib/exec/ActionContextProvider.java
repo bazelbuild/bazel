@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 /**
  * An object that provides execution strategies to {@link BlazeExecutor}.
  *
- * <p>For more information, see {@link ActionContextConsumer}.
+ * <p>For more information, see {@link ExecutorBuilder}.
  */
 public abstract class ActionContextProvider {
   /**
