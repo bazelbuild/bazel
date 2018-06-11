@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.standalone;
 
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -26,6 +27,12 @@ public class StandaloneModule extends BlazeModule {
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     builder.addActionContextProvider(new StandaloneActionContextProvider(env));
     builder.addActionContextProvider(new DummyIncludeScanningContextProvider(env));
-    builder.addActionContextConsumer(new StandaloneActionContextConsumer());
+    // This makes the "sandboxed" strategy the default Spawn strategy, unless it is overridden by a
+    // later BlazeModule.
+    builder.addStrategyByMnemonic("", "standalone");
+
+    // This makes the "standalone" strategy available via --spawn_strategy=standalone, but it is not
+    // necessarily the default.
+    builder.addStrategyByContext(SpawnActionContext.class, "standalone");
   }
 }

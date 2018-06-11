@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -133,7 +134,18 @@ public final class SandboxModule extends BlazeModule {
       throw new ExecutorInitException("Failed to initialize sandbox", e);
     }
     builder.addActionContextProvider(provider);
-    builder.addActionContextConsumer(new SandboxActionContextConsumer(cmdEnv));
+
+    if (LinuxSandboxedSpawnRunner.isSupported(cmdEnv)
+        || DarwinSandboxedSpawnRunner.isSupported(cmdEnv)
+        || ProcessWrapperSandboxedSpawnRunner.isSupported(cmdEnv)) {
+      // This makes the "sandboxed" strategy available via --spawn_strategy=sandboxed,
+      // but it is not necessarily the default.
+      builder.addStrategyByContext(SpawnActionContext.class, "sandboxed");
+
+      // This makes the "sandboxed" strategy the default Spawn strategy, unless it is
+      // overridden by a later BlazeModule.
+      builder.addStrategyByMnemonic("", "sandboxed");
+    }
 
     // Do not remove the sandbox base when --sandbox_debug was specified so that people can check
     // out the contents of the generated sandbox directories.

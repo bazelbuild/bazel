@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -125,7 +126,8 @@ public class WorkerModule extends BlazeModule {
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     Preconditions.checkNotNull(workerPool);
     builder.addActionContextProvider(new WorkerActionContextProvider(env, workerPool));
-    builder.addActionContextConsumer(new WorkerActionContextConsumer());
+    builder.addStrategyByContext(SpawnActionContext.class, "standalone");
+    builder.addStrategyByContext(SpawnActionContext.class, "worker");
   }
 
   @Subscribe
