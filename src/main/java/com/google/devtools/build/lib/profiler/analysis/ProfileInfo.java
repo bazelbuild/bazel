@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
@@ -882,23 +883,22 @@ public class ProfileInfo {
   /**
    * Loads and parses Blaze profile file.
    *
-   * @param profileFile profile file path
+   * @param profileStream profile file path
    *
    * @return ProfileInfo object with some fields populated (call calculateStats()
    *         and analyzeRelationships() to populate the remaining fields)
    * @throws UnsupportedEncodingException if the file format is invalid
    * @throws IOException if the file can't be read
    */
-  public static ProfileInfo loadProfile(Path profileFile)
-      throws IOException {
-    // It is extremely important to wrap InflaterInputStream using
-    // BufferedInputStream because majority of reads would be done using
-    // readInt()/readLong() methods and InflaterInputStream is very inefficient
-    // in handling small read requests (performance difference with 1MB buffer
-    // used below is almost 10x).
-    DataInputStream in = new DataInputStream(
-        new BufferedInputStream(new InflaterInputStream(
-        profileFile.getInputStream(), new Inflater(false), 65536), 1024 * 1024));
+  public static ProfileInfo loadProfile(InputStream profileStream) throws IOException {
+    // It is extremely important to wrap InflaterInputStream using BufferedInputStream because
+    // the majority of reads would be done using readInt()/readLong() methods and
+    // InflaterInputStream is very inefficient in handling small read requests (performance
+    // difference with 1MB buffer used below is almost 10x).
+    DataInputStream in =
+        new DataInputStream(
+            new BufferedInputStream(
+                new InflaterInputStream(profileStream, new Inflater(false), 65536), 1024 * 1024));
 
     if (in.readInt() != Profiler.MAGIC) {
       in.close();
@@ -995,7 +995,10 @@ public class ProfileInfo {
   public static ProfileInfo loadProfileVerbosely(Path profileFile, InfoListener reporter)
       throws IOException {
     reporter.info("Loading " + profileFile.getPathString());
-    ProfileInfo profileInfo = ProfileInfo.loadProfile(profileFile);
+    ProfileInfo profileInfo;
+    try (InputStream in = profileFile.getInputStream()) {
+      profileInfo = ProfileInfo.loadProfile(in);
+    }
     if (profileInfo.isCorruptedOrIncomplete()) {
       reporter.warn("Profile file is incomplete or corrupted - not all records were parsed");
     }
