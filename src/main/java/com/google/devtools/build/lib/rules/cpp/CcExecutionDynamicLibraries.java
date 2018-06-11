@@ -19,19 +19,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcExecutionDynamicLibrariesApi;
 
 /** An object that contains the execution-time dynamic libraries of a C++ rule. */
 @Immutable
 @AutoCodec
-@SkylarkModule(
-  name = "cc_execution_dynamic_libraries ",
-  documented = false,
-  category = SkylarkModuleCategory.PROVIDER,
-  doc = "."
-)
-public final class CcExecutionDynamicLibraries {
+public final class CcExecutionDynamicLibraries implements CcExecutionDynamicLibrariesApi {
   public static final CcExecutionDynamicLibraries EMPTY =
       new CcExecutionDynamicLibraries(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 

@@ -35,8 +35,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringChunk;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -993,13 +992,7 @@ public class CcToolchainFeatures implements Serializable {
   /** Captures the set of enabled features and action configs for a rule. */
   @Immutable
   @AutoCodec
-  @SkylarkModule(
-    name = "feature_configuration",
-    documented = false,
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "Class used to construct command lines from CROSSTOOL features."
-  )
-  public static class FeatureConfiguration {
+  public static class FeatureConfiguration implements FeatureConfigurationApi {
     private final ImmutableSet<String> enabledFeatureNames;
     private final ImmutableList<Feature> enabledFeatures;
     private final ImmutableSet<String> enabledActionConfigActionNames;

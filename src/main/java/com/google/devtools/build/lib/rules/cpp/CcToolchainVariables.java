@@ -32,8 +32,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -49,12 +48,7 @@ import javax.annotation.Nullable;
  * <p>TODO(b/32655571): Investigate cleanup once implicit iteration is not needed. Variables
  * instance could serve as a top level View used to expand all flag_groups.
  */
-@SkylarkModule(
-    name = "variables",
-    documented = false,
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "Class encapsulating build variables.")
-public abstract class CcToolchainVariables {
+public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
   /**
    * A piece of a single string value.
