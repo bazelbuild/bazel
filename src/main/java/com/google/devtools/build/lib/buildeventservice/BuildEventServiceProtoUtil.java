@@ -103,19 +103,8 @@ public final class BuildEventServiceProtoUtil {
         .build();
   }
 
-  /**
-   * Utility method used to create a PublishBuildToolEventStreamRequest that delimits the end of the
-   * stream.
-   */
-  public PublishBuildToolEventStreamRequest streamFinished() {
-    return streamFinished(streamSequenceNumber.getAndIncrement());
-  }
-
-  /**
-   * Utility method used to create a PublishBuildToolEventStreamRequest from an packed bazel event
-   */
-  public PublishBuildToolEventStreamRequest bazelEvent(Any packedEvent) {
-    return bazelEvent(streamSequenceNumber.getAndIncrement(), packedEvent);
+  public int nextSequenceNumber() {
+    return streamSequenceNumber.getAndIncrement();
   }
 
   @VisibleForTesting
