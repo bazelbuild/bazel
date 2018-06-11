@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
-import com.google.devtools.build.lib.buildtool.CqueryBuildTool.ConfiguredTargetQueryCommandLineException;
+import com.google.devtools.build.lib.buildtool.PostAnalysisQueryBuildTool.PostAnalysisQueryCommandLineException;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -131,14 +131,10 @@ public class BuildTool {
    * @param result the build result that is the mutable result of this build
    * @param validator target validator
    */
-  public void buildTargets(
-      BuildRequest request,
-      BuildResult result,
-      TargetValidator validator)
+  public void buildTargets(BuildRequest request, BuildResult result, TargetValidator validator)
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
-          InvalidConfigurationException, TestExecException,
-          ConfiguredTargetQueryCommandLineException {
+          InvalidConfigurationException, TestExecException, PostAnalysisQueryCommandLineException {
     validateOptions(request);
     BuildOptions buildOptions = runtime.createBuildOptions(request);
     // Sync the package manager before sending the BuildStartingEvent in runLoadingPhase()
@@ -311,8 +307,7 @@ public class BuildTool {
       AnalysisResult analysisResult,
       BuildConfigurationCollection configurations)
       throws InterruptedException, ViewCreationFailedException,
-          ConfiguredTargetQueryCommandLineException {
-  }
+          PostAnalysisQueryCommandLineException {}
 
   private void reportExceptionError(Exception e) {
     if (e.getMessage() != null) {
@@ -376,7 +371,7 @@ public class BuildTool {
     } catch (TargetParsingException | LoadingFailedException | ViewCreationFailedException e) {
       exitCode = ExitCode.PARSING_FAILURE;
       reportExceptionError(e);
-    } catch (ConfiguredTargetQueryCommandLineException e) {
+    } catch (PostAnalysisQueryCommandLineException e) {
       exitCode = ExitCode.COMMAND_LINE_ERROR;
       reportExceptionError(e);
     } catch (TestExecException e) {
