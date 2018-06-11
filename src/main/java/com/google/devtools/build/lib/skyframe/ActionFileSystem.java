@@ -73,6 +73,7 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
   private final FileSystem delegate;
 
   private final PathFragment execRootFragment;
+  private final PathFragment outputPathFragment;
   private final ImmutableList<PathFragment> sourceRoots;
 
   private final ActionInputMap inputArtifactData;
@@ -97,6 +98,7 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
   ActionFileSystem(
       FileSystem delegate,
       Path execRoot,
+      String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> allowedInputs,
@@ -106,6 +108,7 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
       this.delegate = delegate;
 
       this.execRootFragment = execRoot.asFragment();
+      this.outputPathFragment = execRootFragment.getRelative(relativeOutputPath);
       this.sourceRoots =
           sourceRoots
               .stream()
@@ -297,7 +300,7 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
     if (metadata instanceof SourceFileArtifactValue) {
       return resolveSourcePath((SourceFileArtifactValue) metadata).getxattr(name);
     }
-    return delegate.getPath(path.asFragment()).getxattr(name);
+    return getSourcePath(path.asFragment()).getxattr(name);
   }
 
   @Override
@@ -371,6 +374,8 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
               linkPath, targetFragment, linkPath + " is not an output."));
     }
     if (sourceRootIndex >= 0) {
+      Preconditions.checkState(!targetExecPath.startsWith(outputPathFragment), "Target exec path "
+          + "%s does not start with output path fragment %s", targetExecPath, outputPathFragment);
       outputHolder.set(
           new SourceFileArtifactValue(
               targetExecPath, sourceRootIndex, inputMetadata.getDigest(), inputMetadata.getSize()),
@@ -430,7 +435,7 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
         !(metadata instanceof RemoteFileArtifactValue),
         "getInputStream called for remote file: %s",
         path);
-    return delegate.getPath(path.asFragment()).getInputStream();
+    return getSourcePath(path.asFragment()).getInputStream();
   }
 
   @Override
@@ -520,13 +525,14 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
   }
 
   private boolean isOutput(Path path) {
-    // TODO(felly): This method should instead just refer to potential output paths, which are
-    // anything under the output tree.
-    PathFragment fragment = path.asFragment();
-    if (!fragment.startsWith(execRootFragment)) {
-      return false;
+    return path.asFragment().startsWith(outputPathFragment);
+  }
+
+  private Path getSourcePath(PathFragment path) throws IOException {
+    if (path.startsWith(outputPathFragment)) {
+      throw new IOException("ActionFS cannot delegate to underlying output path for " + path);
     }
-    return outputs.getIfPresent(fragment.relativeTo(execRootFragment)) != null;
+    return delegate.getPath(path);
   }
 
   /**
@@ -555,9 +561,8 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
   }
 
   /** NB: resolves to the underlying filesytem instead of this one. */
-  private Path resolveSourcePath(SourceFileArtifactValue metadata) {
-    return delegate
-        .getPath(sourceRoots.get(metadata.getSourceRootIndex()))
+  private Path resolveSourcePath(SourceFileArtifactValue metadata) throws IOException {
+    return getSourcePath(sourceRoots.get(metadata.getSourceRootIndex()))
         .getRelative(metadata.getExecPath());
   }
 
