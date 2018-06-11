@@ -131,8 +131,13 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name = 'runtime', srcs = ['test-setup.sh'])",
         "filegroup(name = 'test_setup', srcs = ['test-setup.sh'])",
         "filegroup(name = 'collect_coverage', srcs = ['collect_coverage.sh'])",
-        "filegroup(name='coverage_support', srcs=['collect_coverage.sh','LcovMerger'])",
+        "filegroup(name='coverage_support', srcs=['collect_coverage.sh'])",
         "filegroup(name = 'coverage_report_generator', srcs = ['coverage_report_generator.sh'])");
+
+    config.create(
+        "/bazel_tools_workspace/tools/test/LcovMerger/java/com/google/devtools/lcovmerger/BUILD",
+        "filegroup(name='srcs', srcs = glob(['**']))",
+        "filegroup(name='Main', srcs = ['Main.java'])");
 
     config.create(
         "/bazel_tools_workspace/tools/python/BUILD",
