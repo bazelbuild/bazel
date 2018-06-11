@@ -513,7 +513,11 @@ public class WorkspaceFactory {
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
           Rule rule =
               WorkspaceFactoryHelper.createAndAddRepositoryRule(
-                  builder, ruleClass, bindRuleClass, getFinalKwargs(kwargs), ast);
+                  builder,
+                  ruleClass,
+                  bindRuleClass,
+                  getFinalKwargs(kwargs, env.getSemantics()),
+                  ast);
           if (!isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
                 ast.getLocation(), rule + "'s name field must be a legal workspace name");
@@ -528,12 +532,17 @@ public class WorkspaceFactory {
     };
   }
 
-  private static Map<String, Object> getFinalKwargs(Map<String, Object> kwargs) {
-    // 'repo_mapping' is not an explicit attribute of any rule and so it would
-    // result in a rule error if propagated to the rule factory.
-    return kwargs.entrySet().stream()
-        .filter(x -> !x.getKey().equals("repo_mapping"))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  private static Map<String, Object> getFinalKwargs(
+      Map<String, Object> kwargs,
+      SkylarkSemantics semantics) {
+    if (semantics.experimentalEnableRepoMapping()) {
+      // 'repo_mapping' is not an explicit attribute of any rule and so it would
+      // result in a rule error if propagated to the rule factory.
+      return kwargs.entrySet().stream()
+          .filter(x -> !x.getKey().equals("repo_mapping"))
+          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+    return kwargs;
   }
 
   private static ImmutableMap<String, BaseFunction> createWorkspaceFunctions(
