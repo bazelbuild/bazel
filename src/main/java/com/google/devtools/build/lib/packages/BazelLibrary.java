@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SelectorList;
@@ -221,9 +222,9 @@ public class BazelLibrary {
       };
 
   /** Adds bindings for all the builtin functions of this class to the given map builder. */
-  public static void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
+  public static void addBindingsToBuilder(ImmutableMap.Builder<Identifier, Object> builder) {
     for (BaseFunction function : allFunctions) {
-      builder.put(function.getName(), function);
+      builder.put(Identifier.of(function.getName()), function);
     }
   }
 
@@ -234,7 +235,7 @@ public class BazelLibrary {
   public static final GlobalFrame GLOBALS = createGlobals();
 
   private static GlobalFrame createGlobals() {
-    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+    ImmutableMap.Builder<Identifier, Object> builder = ImmutableMap.builder();
     addSkylarkGlobalsToBuilder(builder);
     return GlobalFrame.createForBuiltins(builder.build());
   }
@@ -242,7 +243,7 @@ public class BazelLibrary {
   /**
    * Adds bindings for skylark built-ins to the given environment map builder.
    */
-  public static void addSkylarkGlobalsToBuilder(ImmutableMap.Builder<String, Object> envBuilder) {
+  public static void addSkylarkGlobalsToBuilder(ImmutableMap.Builder<Identifier, Object> envBuilder) {
     Runtime.addConstantsToBuilder(envBuilder);
     MethodLibrary.addBindingsToBuilder(envBuilder);
     BazelLibrary.addBindingsToBuilder(envBuilder);

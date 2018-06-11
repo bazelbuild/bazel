@@ -121,7 +121,7 @@ public final class Runtime {
           + "indirectly), but not in a file-level expression in the .bzl file. "
           + "When implementing a rule, use <a href=\"ctx.html#label\">ctx.label</a> to know where "
           + "the rule comes from. ")
-  public static final String PKG_NAME = "PACKAGE_NAME";
+  public static final Identifier PKG_NAME = Identifier.of("PACKAGE_NAME");
 
   @SkylarkSignature(
       name = "REPOSITORY_NAME",
@@ -136,18 +136,18 @@ public final class Runtime {
               + "<code>@</code>. It can only be accessed in functions (transitively) called from "
               + "BUILD files, i.e. it follows the same restrictions as "
               + "<a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>.")
-  public static final String REPOSITORY_NAME = "REPOSITORY_NAME";
+  public static final Identifier REPOSITORY_NAME = Identifier.of("REPOSITORY_NAME");
 
   /** Adds bindings for False/True/None constants to the given map builder. */
-  public static void addConstantsToBuilder(ImmutableMap.Builder<String, Object> builder) {
+  public static void addConstantsToBuilder(ImmutableMap.Builder<Identifier, Object> builder) {
     // In Python 2.x, True and False are global values and can be redefined by the user.
     // In Python 3.x, they are keywords. We implement them as values. Currently they can't be
     // redefined because builtins can't be overridden. In the future we should permit shadowing of
     // most builtins but still prevent shadowing of these constants.
     builder
-        .put("False", FALSE)
-        .put("True", TRUE)
-        .put("None", NONE);
+        .put(Identifier.of("False"), FALSE)
+        .put(Identifier.of("True"), TRUE)
+        .put(Identifier.of("None"), NONE);
   }
 
 
@@ -334,10 +334,10 @@ public final class Runtime {
    * @param moduleClass the Class object containing globals.
    */
   public static void setupModuleGlobals(Environment env, Class<?> moduleClass) {
-    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<Identifier, Object> envBuilder = ImmutableMap.builder();
 
     setupModuleGlobals(envBuilder, moduleClass);
-    for (Map.Entry<String, Object> envEntry : envBuilder.build().entrySet()) {
+    for (Map.Entry<Identifier, Object> envEntry : envBuilder.build().entrySet()) {
       env.setup(envEntry.getKey(), envEntry.getValue());
     }
   }
@@ -366,13 +366,13 @@ public final class Runtime {
    *     and which will be built into a global frame
    * @param moduleClass the Class object containing globals
    */
-  public static void setupModuleGlobals(ImmutableMap.Builder<String, Object> builder,
+  public static void setupModuleGlobals(ImmutableMap.Builder<Identifier, Object> builder,
       Class<?> moduleClass) {
     try {
       SkylarkModule skylarkModule = SkylarkInterfaceUtils.getSkylarkModule(moduleClass);
       if (skylarkModule != null) {
         builder.put(
-            skylarkModule.name(),
+            Identifier.of(skylarkModule.name()),
             moduleClass.getConstructor().newInstance());
       }
       for (Field field : moduleClass.getDeclaredFields()) {
@@ -386,14 +386,16 @@ public final class Runtime {
           if (!(value instanceof BuiltinFunction.Factory
               || (value instanceof BaseFunction
                   && !annotation.objectType().equals(Object.class)))) {
-            builder.put(annotation.name(), value);
+            builder.put(Identifier.of(annotation.name()), value);
           }
         }
       }
       if (SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(moduleClass)) {
         Object moduleInstance = moduleClass.getConstructor().newInstance();
         for (String methodName : FuncallExpression.getMethodNames(moduleClass)) {
-          builder.put(methodName, FuncallExpression.getBuiltinCallable(moduleInstance, methodName));
+          builder.put(
+              Identifier.of(methodName),
+              FuncallExpression.getBuiltinCallable(moduleInstance, methodName));
         }
       }
     } catch (ReflectiveOperationException e) {

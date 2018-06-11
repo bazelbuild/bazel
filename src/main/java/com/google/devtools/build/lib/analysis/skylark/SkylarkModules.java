@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.packages.BazelLibrary;
 import com.google.devtools.build.lib.packages.SkylarkNativeModule;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
+import com.google.devtools.build.lib.syntax.Identifier;
 
 /**
  * The basis for a Skylark Environment with all build-related modules registered.
@@ -43,7 +44,7 @@ public final class SkylarkModules {
    * Adds bindings for skylark built-ins and non-rules-specific globals of the build API to
    * the given environment map builder.
    */
-  public static void addSkylarkGlobalsToBuilder(ImmutableMap.Builder<String, Object> envBuilder) {
+  public static void addSkylarkGlobalsToBuilder(ImmutableMap.Builder<Identifier, Object> envBuilder) {
     BazelLibrary.addSkylarkGlobalsToBuilder(envBuilder);
     topLevelBootstrap.addBindingsToBuilder(envBuilder);
   }

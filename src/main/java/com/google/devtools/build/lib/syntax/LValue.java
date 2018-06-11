@@ -98,7 +98,7 @@ public final class LValue extends ASTNode {
       throws EvalException {
     Preconditions.checkNotNull(value, "trying to assign null to %s", ident);
 
-    if (env.isKnownGlobalVariable(ident.getName())) {
+    if (env.isKnownGlobalVariable(ident)) {
       throw new EvalException(
           loc,
           String.format(

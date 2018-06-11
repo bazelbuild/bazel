@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Val
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.lang.reflect.Array;
@@ -30,6 +31,12 @@ import java.util.Map;
 /** Helper class for creating {@link SkylarkDebuggingProtos.Value} from skylark objects. */
 final class DebuggerSerialization {
 
+  static Value getValueProto(Identifier identifier, Object value) {
+    return getValueProto(identifier.getName(), value);
+  }
+
+  /** @deprecated Use {@link #getValueProto(Identifier, Object)} instead. */
+  @Deprecated
   static Value getValueProto(String label, Object value) {
     // TODO(bazel-team): prune cycles, and provide a way to limit breadth/depth of children reported
     return Value.newBuilder()

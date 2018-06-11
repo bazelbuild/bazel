@@ -73,7 +73,7 @@ public final class Identifier extends Expression {
 
   @Override
   Object doEval(Environment env) throws EvalException {
-    Object value = env.lookup(name);
+    Object value = env.lookup(this);
     if (value == null) {
       throw createInvalidIdentifierException(env.getVariableNames());
     }

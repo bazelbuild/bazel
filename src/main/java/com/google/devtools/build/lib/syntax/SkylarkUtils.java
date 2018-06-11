@@ -26,7 +26,7 @@ public final class SkylarkUtils {
     Object lipoDataTransition;
   }
 
-  private static final String BAZEL_INFO_KEY = "$bazel";
+  private static final Identifier BAZEL_INFO_KEY = Identifier.of("$bazel");
 
   private static BazelInfo getInfo(Environment env) {
     Object info = env.lookup(BAZEL_INFO_KEY);

@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
@@ -74,7 +75,7 @@ public class WorkspaceFactory {
           "__workspace_dir__", // serializable so optional
           "DEFAULT_SERVER_JAVABASE", // serializable so optional
           "DEFAULT_SYSTEM_JAVABASE", // serializable so optional
-          PackageFactory.PKG_CONTEXT);
+          PackageFactory.PKG_CONTEXT.getName());
 
   private final Package.Builder builder;
 
@@ -233,10 +234,10 @@ public class WorkspaceFactory {
     // each workspace file.
     ImmutableMap.Builder<String, Object> bindingsBuilder = ImmutableMap.builder();
     GlobalFrame globals = workspaceEnv.getGlobals();
-    for (String s : globals.getBindings().keySet()) {
+    for (Identifier s : globals.getBindings().keySet()) {
       Object o = globals.get(s);
-      if (!isAWorkspaceFunction(s, o)) {
-        bindingsBuilder.put(s, o);
+      if (!isAWorkspaceFunction(s.getName(), o)) {
+        bindingsBuilder.put(s.getName(), o);
       }
     }
     variableBindings = bindingsBuilder.build();
@@ -554,7 +555,7 @@ public class WorkspaceFactory {
 
   private void addWorkspaceFunctions(Environment workspaceEnv, StoredEventHandler localReporter) {
     try {
-      workspaceEnv.setup("workspace", newWorkspaceFunction.apply(allowOverride, ruleFactory));
+      workspaceEnv.setup(Identifier.of("workspace"), newWorkspaceFunction.apply(allowOverride, ruleFactory));
       for (Map.Entry<String, BaseFunction> function : workspaceFunctions.entrySet()) {
         workspaceEnv.update(function.getKey(), function.getValue());
       }

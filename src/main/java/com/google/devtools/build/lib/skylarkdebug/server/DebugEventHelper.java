@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Thr
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.DebugFrame;
 import com.google.devtools.build.lib.syntax.Debuggable.Stepping;
+import com.google.devtools.build.lib.syntax.Identifier;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -167,18 +168,18 @@ final class DebugEventHelper {
   }
 
   private static ImmutableList<Scope> getScopes(DebugFrame frame) {
-    ImmutableMap<String, Object> localVars = frame.lexicalFrameBindings();
+    ImmutableMap<Identifier, Object> localVars = frame.lexicalFrameBindings();
     if (localVars.isEmpty()) {
       return ImmutableList.of(getScope("global", frame.globalBindings()));
     }
-    Map<String, Object> globalVars = new LinkedHashMap<>(frame.globalBindings());
+    Map<Identifier, Object> globalVars = new LinkedHashMap<>(frame.globalBindings());
     // remove shadowed bindings
     localVars.keySet().forEach(globalVars::remove);
 
     return ImmutableList.of(getScope("local", localVars), getScope("global", globalVars));
   }
 
-  private static SkylarkDebuggingProtos.Scope getScope(String name, Map<String, Object> bindings) {
+  private static SkylarkDebuggingProtos.Scope getScope(String name, Map<Identifier, Object> bindings) {
     SkylarkDebuggingProtos.Scope.Builder builder =
         SkylarkDebuggingProtos.Scope.newBuilder().setName(name);
     bindings.forEach((s, o) -> builder.addBinding(DebuggerSerialization.getValueProto(s, o)));

@@ -476,7 +476,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
               .createSkylarkRuleClassEnvironment(
                   extensionLabel, mutability, skylarkSemantics,
                   eventHandler, ast.getContentHashCode(), importMap);
-      extensionEnv.setupOverride("native", packageFactory.getNativeModule(inWorkspace));
+      extensionEnv.setupOverride(Identifier.of("native"), packageFactory.getNativeModule(inWorkspace));
       execAndExport(ast, extensionLabel, eventHandler, extensionEnv);
 
       Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
@@ -509,7 +509,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     AssignmentStatement assignmentStatement = (AssignmentStatement) statement;
     ImmutableSet<Identifier> boundIdentifiers = assignmentStatement.getLValue().boundIdentifiers();
     for (Identifier ident : boundIdentifiers) {
-      Object lookup = extensionEnv.lookup(ident.getName());
+      Object lookup = extensionEnv.lookup(ident);
       if (lookup instanceof SkylarkExportable) {
         try {
           SkylarkExportable exportable = (SkylarkExportable) lookup;

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.syntax.Environment.FailFastException;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Parser;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
@@ -166,8 +167,12 @@ public class EvaluationTestCase {
     return this;
   }
 
-  public Object lookup(String varname) throws Exception {
-    return env.lookup(varname);
+  public Object lookup(Identifier identifier) {
+    return env.lookup(identifier);
+  }
+
+  public Object lookup(String varname) {
+    return env.lookup(Identifier.of(varname));
   }
 
   public Object eval(String... input) throws Exception {
