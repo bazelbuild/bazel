@@ -65,6 +65,10 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   @VisibleForTesting
   static String sandboxExecBinary = "/usr/bin/sandbox-exec";
 
+  /**
+   * Returns whether the darwin sandbox is supported on the local machine by running a small command
+   * in it. This is expensive!
+   */
   public static boolean isSupported(CommandEnvironment cmdEnv) {
     if (OS.getCurrent() != OS.DARWIN) {
       return false;
