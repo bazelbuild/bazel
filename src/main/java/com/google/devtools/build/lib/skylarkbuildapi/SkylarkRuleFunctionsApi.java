@@ -262,7 +262,11 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             defaultValue = "False",
             doc =
-                "If true, a special attribute named <code>exec_compatible_with</code> of label-list type is added. Targets may use this attribute to specify additional constraints on the execution platform beyond those given in the <code>exec_compatible_with</code> argument to <code>rule()</code>."),
+                "If true, a special attribute named <code>exec_compatible_with</code> of "
+                    + "label-list type is added, which must not already exist in "
+                    + "<code>attrs</code>. Targets may use this attribute to specify additional "
+                    + "constraints on the execution platform beyond those given in the "
+                    + "<code>exec_compatible_with</code> argument to <code>rule()</code>."),
         @Param(
             name = "exec_compatible_with",
             type = SkylarkList.class,
@@ -271,7 +275,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             defaultValue = "[]",
             doc =
-                "A list of constraints on the execution platform that targets of this rule will use.")
+                "A list of constraints on the execution platform that apply to all targets of "
+                    + "this rule type.")
       },
       useAst = true,
       useEnvironment = true)
