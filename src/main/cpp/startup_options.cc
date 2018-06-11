@@ -108,13 +108,13 @@ StartupOptions::StartupOptions(const string &product_name,
                     << "'.";
   }
 
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
   string windows_unix_root = WindowsUnixRoot(blaze::GetEnv("BAZEL_SH"));
   if (!windows_unix_root.empty()) {
     host_jvm_args.push_back(string("-Dbazel.windows_unix_root=") +
                             windows_unix_root);
   }
-#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
 
   const string product_name_lower = GetLowercaseProductName();
   output_user_root = blaze_util::JoinPath(
@@ -528,7 +528,7 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMMemoryArguments(
   return blaze_exit_code::SUCCESS;
 }
 
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
 // Extract the Windows path of "/" from $BAZEL_SH.
 // $BAZEL_SH usually has the form `<prefix>/usr/bin/bash.exe` or
 // `<prefix>/bin/bash.exe`, and this method returns that `<prefix>` part.
@@ -554,6 +554,6 @@ string StartupOptions::WindowsUnixRoot(const string &bazel_sh) {
     return split.first;
   }
 }
-#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
 
 }  // namespace blaze

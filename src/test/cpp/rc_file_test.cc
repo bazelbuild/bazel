@@ -30,7 +30,7 @@ namespace blaze {
 using ::testing::HasSubstr;
 using ::testing::MatchesRegex;
 
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
 constexpr const char* kNullDevice = "nul";
 #else  // Assume POSIX if not Windows.
 constexpr const char* kNullDevice = "/dev/null";
