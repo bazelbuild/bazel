@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
@@ -746,6 +747,16 @@ public abstract class AndroidSkylarkData
 
   public static <T extends NativeInfo> SkylarkList<T> getProviders(
       SkylarkList<ConfiguredTarget> targets, NativeProvider<T> provider) {
+    return SkylarkList.createImmutable(
+        targets
+            .stream()
+            .map(target -> target.get(provider))
+            .filter(Objects::nonNull)
+            .collect(ImmutableList.toImmutableList()));
+  }
+
+  protected static <T extends NativeInfo> SkylarkList<T> getProviders(
+      SkylarkList<ConfiguredTarget> targets, BuiltinProvider<T> provider) {
     return SkylarkList.createImmutable(
         targets
             .stream()

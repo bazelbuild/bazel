@@ -17,17 +17,24 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidResourcesInfoApi;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 
 /** A provider that supplies ResourceContainers from its transitive closure. */
 @Immutable
 public class AndroidResourcesInfo extends NativeInfo implements AndroidResourcesInfoApi {
 
   private static final String SKYLARK_NAME = "AndroidResourcesInfo";
-  public static final NativeProvider<AndroidResourcesInfo> PROVIDER =
-      new NativeProvider<AndroidResourcesInfo>(AndroidResourcesInfo.class, SKYLARK_NAME) {};
+
+  /**
+   * Provider instance for {@link AndroidResourcesInfo}.
+   */
+  public static final AndroidResourcesInfoProvider PROVIDER =
+      new AndroidResourcesInfoProvider();
 
   /*
    * Local information about the target that produced this provider, for tooling. These values will
@@ -146,5 +153,20 @@ public class AndroidResourcesInfo extends NativeInfo implements AndroidResources
 
   public NestedSet<Artifact> getTransitiveRTxt() {
     return transitiveRTxt;
+  }
+
+  /** Provider for {@link AndroidResourcesInfo}. */
+  public static class AndroidResourcesInfoProvider extends BuiltinProvider<AndroidResourcesInfo>
+      implements AndroidResourcesInfoApiProvider {
+
+    private AndroidResourcesInfoProvider() {
+      super(SKYLARK_NAME, AndroidResourcesInfo.class);
+    }
+
+    @Override
+    public AndroidResourcesInfo createInfo(SkylarkDict<?, ?> kwargs, Location loc)
+        throws EvalException {
+      return throwUnsupportedConstructorException(loc);
+    }
   }
 }

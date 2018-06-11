@@ -563,8 +563,10 @@ public final class AndroidRuleClasses {
               attr(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, LABEL)
                   .cfg(HostTransition.INSTANCE)
                   .value(env.getToolsLabel("//tools/android:databinding_annotation_processor")))
-          .advertiseSkylarkProvider(AndroidResourcesInfo.PROVIDER.id())
-          .advertiseSkylarkProvider(AndroidNativeLibsInfo.PROVIDER.id())
+          .advertiseSkylarkProvider(
+              SkylarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()))
+          .advertiseSkylarkProvider(
+              SkylarkProviderIdentifier.forKey(AndroidNativeLibsInfo.PROVIDER.getKey()))
           .build();
     }
 
@@ -1030,7 +1032,7 @@ public final class AndroidRuleClasses {
                   .exec()
                   .value(env.getToolsLabel("//tools/android:zip_filter")))
           .removeAttribute("data")
-          .advertiseSkylarkProvider(ApkInfo.PROVIDER.id())
+          .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(ApkInfo.PROVIDER.getKey()))
           .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
           .build();
     }
