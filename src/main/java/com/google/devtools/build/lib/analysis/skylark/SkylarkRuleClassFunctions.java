@@ -686,6 +686,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       try {
         this.ruleClass = builder.build(ruleClassName, skylarkLabel + "%" + ruleClassName);
       } catch (IllegalArgumentException | IllegalStateException ex) {
+        // RuleClass.Builder.build throws these to signal invalid states during rule class generation.
         throw new EvalException(location, ex);
       }
 
