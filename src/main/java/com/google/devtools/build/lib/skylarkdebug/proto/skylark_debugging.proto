@@ -184,11 +184,6 @@ message ThreadEndedEvent {
 message ThreadPausedEvent {
   // The thread that was paused.
   Thread thread = 1;
-
-  // The list of stack frames for the paused thread. The first element in the
-  // list represents the topmost frame (that is, the current innermost
-  // function).
-  repeated Frame frame = 2;
 }
 
 // An event indicating that a thread has continued execution after being paused.
@@ -268,16 +263,45 @@ message Thread {
   // The identifier of the thread.
   int64 id = 1;
 
-  // Indicates whether the thread is paused (if true) or running (if false).
-  bool is_paused = 2;
-
-  // If the thread is paused, this field contains the location in Skylark code
-  // of the next statement or expression that will be executed.
-  Location location = 3;
+  // Present if the thread is paused, providing details such as the thread's
+  // location. Not set if the thread is running.
+  ThreadPausedState thread_paused_state = 2;
 
   // A descriptive name for the thread that can be displayed in the debugger's
   // UI.
-  string name = 4;
+  string name = 3;
+}
+
+// Information about a paused thread.
+message ThreadPausedState {
+  PauseReason pause_reason = 1;
+
+  // The location in Skylark code of the next statement or expression that will
+  // be executed.
+  Location location = 2;
+
+  // The list of stack frames for the paused thread. The first element in the
+  // list represents the topmost frame (that is, the current innermost
+  // function).
+  repeated Frame frame = 3;
+}
+
+// The reason why a thread was paused
+enum PauseReason {
+  // The debug server hasn't set a reason for pausing a thread.
+  UNSET = 0;
+
+  // The stepping condition in a ContinueExecutionRequest was hit.
+  STEPPING = 4;
+
+  // All threads are paused (e.g. prior to the initial StartDebuggingRequest).
+  ALL_THREADS_PAUSED = 1;
+
+  // Thread paused in response to a PauseThreadRequest.
+  PAUSE_THREAD_REQUEST = 2;
+
+  // A breakpoint was hit.
+  HIT_BREAKPOINT = 3;
 }
 
 // The debugger representation of a Skylark value.

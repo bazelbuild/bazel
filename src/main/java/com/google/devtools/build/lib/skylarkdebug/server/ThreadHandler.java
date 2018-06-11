@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
+import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PauseReason;
+import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadPausedState;
 import com.google.devtools.build.lib.syntax.Debuggable;
 import com.google.devtools.build.lib.syntax.Debuggable.ReadyToPause;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -62,13 +64,17 @@ final class ThreadHandler {
   /** Information about a paused thread. */
   private static class PausedThreadState {
 
+    /** The reason execution was paused. */
+    final PauseReason pauseReason;
+
     /** The {@link Location} where execution is currently paused. */
     final Location location;
 
     /** Used to block execution of threads */
     final Semaphore semaphore;
 
-    PausedThreadState(Location location) {
+    PausedThreadState(PauseReason pauseReason, Location location) {
+      this.pauseReason = pauseReason;
       this.location = location;
       this.semaphore = new Semaphore(0);
     }
@@ -192,8 +198,9 @@ final class ThreadHandler {
   }
 
   void pauseIfNecessary(Environment env, Location location, DebugServerTransport transport) {
-    if (shouldPauseCurrentThread(env, location)) {
-      pauseCurrentThread(env, location, transport);
+    PauseReason pauseReason = shouldPauseCurrentThread(env, location);
+    if (pauseReason != null) {
+      pauseCurrentThread(env, pauseReason, location, transport);
     }
   }
 
@@ -210,22 +217,17 @@ final class ThreadHandler {
   /** Handles a {@code ListFramesRequest} and returns its response. */
   ImmutableList<SkylarkDebuggingProtos.Frame> listFrames(long threadId)
       throws DebugRequestException {
-    Debuggable debuggable;
-    PausedThreadState pausedState;
     synchronized (threads) {
       ThreadState thread = threads.get(threadId);
       if (thread == null) {
         throw new DebugRequestException(String.format("Thread %s is not running.", threadId));
       }
-      pausedState = thread.pausedState;
+      PausedThreadState pausedState = thread.pausedState;
       if (pausedState == null) {
         throw new DebugRequestException(String.format("Thread %s is not paused.", threadId));
       }
-      debuggable = thread.debuggable;
+      return listFrames(thread.debuggable, pausedState);
     }
-    // no need to list frames within the synchronize block: threads can only be resumed in response
-    // to a client request, and requests are handled serially
-    return listFrames(debuggable, pausedState);
   }
 
   private static ImmutableList<SkylarkDebuggingProtos.Frame> listFrames(
@@ -265,12 +267,11 @@ final class ThreadHandler {
    * ContinueExecutionRequest.
    */
   private void pauseCurrentThread(
-      Environment env, Location location, DebugServerTransport transport) {
+      Environment env, PauseReason pauseReason, Location location, DebugServerTransport transport) {
     long threadId = Thread.currentThread().getId();
 
     SkylarkDebuggingProtos.Thread threadProto;
     PausedThreadState pausedState;
-    Debuggable debuggable;
     synchronized (threads) {
       ThreadState thread = threads.get(threadId);
       if (thread == null) {
@@ -282,28 +283,32 @@ final class ThreadHandler {
         transport.postEvent(DebugEventHelper.threadStartedEvent(threadId, fallbackThreadName));
         thread = doRegisterThread(threadId, fallbackThreadName, env);
       }
-      debuggable = thread.debuggable;
-      pausedState = new PausedThreadState(location);
+      pausedState = new PausedThreadState(pauseReason, location);
       thread.pausedState = pausedState;
       // get proto after setting the paused state, so that it's up to date
       threadProto = getThreadProto(thread);
     }
 
-    transport.postEvent(
-        DebugEventHelper.threadPausedEvent(threadProto, listFrames(debuggable, pausedState)));
+    transport.postEvent(DebugEventHelper.threadPausedEvent(threadProto));
     pausedState.semaphore.acquireUninterruptibly();
     transport.postEvent(
         DebugEventHelper.threadContinuedEvent(
-            threadProto.toBuilder().clearLocation().setIsPaused(false).build()));
+            threadProto.toBuilder().clearThreadPausedState().build()));
   }
 
-  private boolean shouldPauseCurrentThread(Environment env, Location location) {
+  @Nullable
+  private PauseReason shouldPauseCurrentThread(Environment env, Location location) {
     long threadId = Thread.currentThread().getId();
-    if (threadsToPause.remove(threadId) || pausingAllThreads) {
-      return true;
+    boolean pausingAllThreads = this.pausingAllThreads;
+    if (pausingAllThreads) {
+      threadsToPause.remove(threadId);
+      return PauseReason.ALL_THREADS_PAUSED;
+    }
+    if (threadsToPause.remove(threadId)) {
+      return PauseReason.PAUSE_THREAD_REQUEST;
     }
     if (hasBreakpointAtLocation(location)) {
-      return true;
+      return PauseReason.HIT_BREAKPOINT;
     }
 
     // TODO(bazel-team): if contention becomes a problem, consider changing 'threads' to a
@@ -311,10 +316,10 @@ final class ThreadHandler {
     synchronized (threads) {
       ThreadState thread = threads.get(threadId);
       if (thread != null && thread.readyToPause != null && thread.readyToPause.test(env)) {
-        return true;
+        return PauseReason.STEPPING;
       }
     }
-    return false;
+    return null;
   }
 
   private boolean hasBreakpointAtLocation(Location location) {
@@ -336,9 +341,11 @@ final class ThreadHandler {
 
     PausedThreadState pausedState = thread.pausedState;
     if (pausedState != null) {
-      builder
-          .setIsPaused(true)
-          .setLocation(DebugEventHelper.getLocationProto(pausedState.location));
+      builder.setThreadPausedState(
+          ThreadPausedState.newBuilder()
+              .setPauseReason(pausedState.pauseReason)
+              .setLocation(DebugEventHelper.getLocationProto(pausedState.location))
+              .addAllFrame(listFrames(thread.debuggable, pausedState)));
     }
     return builder.build();
   }
