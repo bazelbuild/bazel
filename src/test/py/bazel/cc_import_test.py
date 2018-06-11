@@ -79,7 +79,7 @@ class CcImportTest(test_base.TestBase):
     self.ScratchFile('lib/a.cc', [
         '#include <stdio.h>',
         '',
-        '#ifdef COMPILER_MSVC',
+        '#ifdef _WIN32',
         '  #define DLLEXPORT __declspec(dllexport)',
         '#else',
         '  #define DLLEXPORT',

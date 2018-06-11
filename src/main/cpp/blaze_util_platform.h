@@ -128,7 +128,7 @@ extern const char kListSeparator;
 bool SymlinkDirectories(const std::string& target, const std::string& link);
 
 struct BlazeLock {
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
   /* HANDLE */ void* handle;
 #else
   int lockfd;

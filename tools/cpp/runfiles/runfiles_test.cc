@@ -14,9 +14,9 @@
 
 #include "tools/cpp/runfiles/runfiles.h"
 
-#ifdef COMPILER_MSVC
+#ifdef _WIN32
 #include <windows.h>
-#endif  // COMPILER_MSVC
+#endif  // _WIN32
 
 #include <fstream>
 #include <memory>
@@ -95,7 +95,7 @@ void RunfilesTest::AssertEnvvars(const Runfiles& runfiles,
 }
 
 string RunfilesTest::GetTemp() {
-#ifdef COMPILER_MSVC
+#ifdef _WIN32
   DWORD size = ::GetEnvironmentVariableA("TEST_TMPDIR", NULL, 0);
   if (size == 0) {
     return std::move(string());  // unset or empty envvar
