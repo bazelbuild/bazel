@@ -175,7 +175,7 @@ public final class Lexer {
      error(message, pos - 1, pos - 1);
   }
 
-  private void error(String message, int start, int end)  {
+  private void error(String message, int start, int end) {
     this.containsErrors = true;
     eventHandler.handle(Event.error(createLocation(start, end), message));
   }
@@ -763,155 +763,129 @@ public final class Lexer {
       char c = buffer[pos];
       pos++;
       switch (c) {
-      case '{': {
-        setToken(TokenKind.LBRACE, pos - 1, pos);
-        openParenStackDepth++;
-        break;
-      }
-      case '}': {
-        setToken(TokenKind.RBRACE, pos - 1, pos);
-        popParen();
-        break;
-      }
-      case '(': {
-        setToken(TokenKind.LPAREN, pos - 1, pos);
-        openParenStackDepth++;
-        break;
-      }
-      case ')': {
-        setToken(TokenKind.RPAREN, pos - 1, pos);
-        popParen();
-        break;
-      }
-      case '[': {
-        setToken(TokenKind.LBRACKET, pos - 1, pos);
-        openParenStackDepth++;
-        break;
-      }
-      case ']': {
-        setToken(TokenKind.RBRACKET, pos - 1, pos);
-        popParen();
-        break;
-      }
-      case '>': {
-        setToken(TokenKind.GREATER, pos - 1, pos);
-        break;
-      }
-      case '<': {
-        setToken(TokenKind.LESS, pos - 1, pos);
-        break;
-      }
-      case ':': {
-        setToken(TokenKind.COLON, pos - 1, pos);
-        break;
-      }
-      case ',': {
-        setToken(TokenKind.COMMA, pos - 1, pos);
-        break;
-      }
-      case '+': {
-        setToken(TokenKind.PLUS, pos - 1, pos);
-        break;
-      }
-      case '-': {
-        setToken(TokenKind.MINUS, pos - 1, pos);
-        break;
-      }
-      case '|': {
-        setToken(TokenKind.PIPE, pos - 1, pos);
-        break;
-      }
-      case '=': {
-        setToken(TokenKind.EQUALS, pos - 1, pos);
-        break;
-      }
-      case '%': {
-        setToken(TokenKind.PERCENT, pos - 1, pos);
-        break;
-      }
-      case '/': {
-        if (lookaheadIs(0, '/') && lookaheadIs(1, '=')) {
-          setToken(TokenKind.SLASH_SLASH_EQUALS, pos - 1, pos + 2);
-          pos += 2;
-        } else if (lookaheadIs(0, '/')) {
-          setToken(TokenKind.SLASH_SLASH, pos - 1, pos + 1);
-          pos += 1;
-        } else {
-          // /= is handled by tokenizeTwoChars.
-          setToken(TokenKind.SLASH, pos - 1, pos);
-        }
-        break;
-      }
-      case ';': {
-        setToken(TokenKind.SEMI, pos - 1, pos);
-        break;
-      }
-      case '.': {
-        setToken(TokenKind.DOT, pos - 1, pos);
-        break;
-      }
-      case '*': {
-        setToken(TokenKind.STAR, pos - 1, pos);
-        break;
-      }
-      case ' ':
-      case '\t':
-      case '\r': {
-        /* ignore */
-        break;
-      }
-      case '\\': {
-        // Backslash character is valid only at the end of a line (or in a string)
-        if (lookaheadIs(0, '\n')) {
-          pos += 1;  // skip the end of line character
-        } else if (lookaheadIs(0, '\r') && lookaheadIs(1, '\n')) {
-          pos += 2;  // skip the CRLF at the end of line
-        } else {
-          setToken(TokenKind.ILLEGAL, pos - 1, pos, Character.toString(c));
-        }
-        break;
-      }
-      case '\n': {
-        newline();
-        break;
-      }
-      case '#': {
-        int oldPos = pos - 1;
-        while (pos < buffer.length) {
-          c = buffer[pos];
-          if (c == '\n') {
-            break;
-          } else {
-            pos++;
-          }
-        }
-        makeComment(oldPos, pos, bufferSlice(oldPos, pos));
-        break;
-      }
-      case '\'':
-      case '\"': {
-        stringLiteral(c, false);
-        break;
-      }
-      default: {
-        // detect raw strings, e.g. r"str"
-        if (c == 'r' && pos < buffer.length
-            && (buffer[pos] == '\'' || buffer[pos] == '\"')) {
-          c = buffer[pos];
-          pos++;
-          stringLiteral(c, true);
+        case '{':
+          setToken(TokenKind.LBRACE, pos - 1, pos);
+          openParenStackDepth++;
           break;
-        }
+        case '}':
+          setToken(TokenKind.RBRACE, pos - 1, pos);
+          popParen();
+          break;
+        case '(':
+          setToken(TokenKind.LPAREN, pos - 1, pos);
+          openParenStackDepth++;
+          break;
+        case ')':
+          setToken(TokenKind.RPAREN, pos - 1, pos);
+          popParen();
+          break;
+        case '[':
+          setToken(TokenKind.LBRACKET, pos - 1, pos);
+          openParenStackDepth++;
+          break;
+        case ']':
+          setToken(TokenKind.RBRACKET, pos - 1, pos);
+          popParen();
+          break;
+        case '>':
+          setToken(TokenKind.GREATER, pos - 1, pos);
+          break;
+        case '<':
+          setToken(TokenKind.LESS, pos - 1, pos);
+          break;
+        case ':':
+          setToken(TokenKind.COLON, pos - 1, pos);
+          break;
+        case ',':
+          setToken(TokenKind.COMMA, pos - 1, pos);
+          break;
+        case '+':
+          setToken(TokenKind.PLUS, pos - 1, pos);
+          break;
+        case '-':
+          setToken(TokenKind.MINUS, pos - 1, pos);
+          break;
+        case '|':
+          setToken(TokenKind.PIPE, pos - 1, pos);
+          break;
+        case '=':
+          setToken(TokenKind.EQUALS, pos - 1, pos);
+          break;
+        case '%':
+          setToken(TokenKind.PERCENT, pos - 1, pos);
+          break;
+        case '/':
+          if (lookaheadIs(0, '/') && lookaheadIs(1, '=')) {
+            setToken(TokenKind.SLASH_SLASH_EQUALS, pos - 1, pos + 2);
+            pos += 2;
+          } else if (lookaheadIs(0, '/')) {
+            setToken(TokenKind.SLASH_SLASH, pos - 1, pos + 1);
+            pos += 1;
+          } else {
+            // /= is handled by tokenizeTwoChars.
+            setToken(TokenKind.SLASH, pos - 1, pos);
+          }
+          break;
+        case ';':
+          setToken(TokenKind.SEMI, pos - 1, pos);
+          break;
+        case '.':
+          setToken(TokenKind.DOT, pos - 1, pos);
+          break;
+        case '*':
+          setToken(TokenKind.STAR, pos - 1, pos);
+          break;
+        case ' ':
+        case '\t':
+        case '\r':
+          /* ignore */
+          break;
+        case '\\':
+          // Backslash character is valid only at the end of a line (or in a string)
+          if (lookaheadIs(0, '\n')) {
+            pos += 1; // skip the end of line character
+          } else if (lookaheadIs(0, '\r') && lookaheadIs(1, '\n')) {
+            pos += 2; // skip the CRLF at the end of line
+          } else {
+            setToken(TokenKind.ILLEGAL, pos - 1, pos, Character.toString(c));
+          }
+          break;
+        case '\n':
+          newline();
+          break;
+        case '#':
+          int oldPos = pos - 1;
+          while (pos < buffer.length) {
+            c = buffer[pos];
+            if (c == '\n') {
+              break;
+            } else {
+              pos++;
+            }
+          }
+          makeComment(oldPos, pos, bufferSlice(oldPos, pos));
+          break;
+        case '\'':
+        case '\"':
+          stringLiteral(c, false);
+          break;
+        default:
+          // detect raw strings, e.g. r"str"
+          if (c == 'r' && pos < buffer.length && (buffer[pos] == '\'' || buffer[pos] == '\"')) {
+            c = buffer[pos];
+            pos++;
+            stringLiteral(c, true);
+            break;
+          }
 
-        if (c >= '0' && c <= '9') {
-          integer();
-        } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
-          identifierOrKeyword();
-        } else {
-          error("invalid character: '" + c + "'");
-        }
-        break;
-      } // default
+          if (c >= '0' && c <= '9') {
+            integer();
+          } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+            identifierOrKeyword();
+          } else {
+            error("invalid character: '" + c + "'");
+          }
+          break;
       } // switch
       if (token.kind != null) { // stop here if we scanned a token
         return;
