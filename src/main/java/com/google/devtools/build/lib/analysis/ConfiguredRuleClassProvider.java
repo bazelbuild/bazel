@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -244,8 +243,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         ImmutableList.<Bootstrap>builder();
     private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
         ImmutableMap.builder();
-     private ImmutableList.Builder<Class<?>> skylarkModules =
-        ImmutableList.<Class<?>>builder();
     private Set<String> reservedActionMnemonics = new TreeSet<>();
     private BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
@@ -369,11 +366,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     public Builder addSkylarkAccessibleTopLevels(String name, Object object) {
       this.skylarkAccessibleTopLevels.put(name, object);
-      return this;
-    }
-
-    public Builder addSkylarkModule(Class<?>... modules) {
-      this.skylarkModules.add(modules);
       return this;
     }
 
@@ -529,7 +521,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
           skylarkBootstraps.build(),
-          skylarkModules.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
           constraintSemantics);
@@ -667,7 +658,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
       ImmutableList<Bootstrap> skylarkBootstraps,
-      ImmutableList<Class<?>> skylarkModules,
       ImmutableSet<String> reservedActionMnemonics,
       BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
       ConstraintSemantics constraintSemantics) {
@@ -686,7 +676,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.universalFragments = universalFragments;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkBootstraps, skylarkModules);
+    this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkBootstraps);
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
     this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
@@ -811,14 +801,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private Environment.GlobalFrame createGlobals(
       ImmutableMap<String, Object> skylarkAccessibleTopLevels,
-      ImmutableList<Bootstrap> bootstraps,
-      ImmutableList<Class<?>> modules) {
+      ImmutableList<Bootstrap> bootstraps) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
     SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
-    for (Class<?> module : modules) {
-      Runtime.setupModuleGlobals(envBuilder, module);
-    }
     envBuilder.putAll(skylarkAccessibleTopLevels.entrySet());
     for (Bootstrap bootstrap : bootstraps) {
       bootstrap.addBindingsToBuilder(envBuilder);
