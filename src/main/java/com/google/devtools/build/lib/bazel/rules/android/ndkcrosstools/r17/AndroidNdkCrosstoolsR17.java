@@ -88,7 +88,6 @@ final class AndroidNdkCrosstoolsR17 {
     ImmutableMap<String, String> defaultCpus =
         ImmutableMap.<String, String>builder()
             // arm
-            .put("armeabi", "arm-linux-androideabi-clang" + clangVersion)
             .put("armeabi-v7a", "arm-linux-androideabi-clang" + clangVersion + "-v7a")
             .put("arm64-v8a", "aarch64-linux-android-clang" + clangVersion)
 
