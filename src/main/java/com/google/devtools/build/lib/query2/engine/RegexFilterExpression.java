@@ -34,7 +34,7 @@ public abstract class RegexFilterExpression implements QueryFunction {
   @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       QueryExpression expression,
       final List<Argument> args,
       Callback<T> callback) {

@@ -54,7 +54,7 @@ public class AllPathsFunction implements QueryFunction {
   @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       final QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) {
@@ -79,14 +79,14 @@ public class AllPathsFunction implements QueryFunction {
 
             env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
 
-            Set<T> reachableFromX = env.getTransitiveClosure(fromValue);
+            Set<T> reachableFromX = env.getTransitiveClosure(fromValue, context);
             Predicate<T> reachable = Predicates.in(reachableFromX);
             Uniquifier<T> uniquifier = env.createUniquifier();
             Collection<T> result = uniquifier.unique(intersection(reachableFromX, toValue));
             callback.process(result);
             Collection<T> worklist = result;
             while (!worklist.isEmpty()) {
-              Iterable<T> reverseDeps = env.getReverseDeps(worklist);
+              Iterable<T> reverseDeps = env.getReverseDeps(worklist, context);
               worklist = uniquifier.unique(Iterables.filter(reverseDeps, reachable));
               callback.process(worklist);
             }

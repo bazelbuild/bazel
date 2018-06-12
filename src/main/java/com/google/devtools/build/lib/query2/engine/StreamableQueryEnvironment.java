@@ -22,30 +22,28 @@ public interface StreamableQueryEnvironment<T> extends QueryEnvironment<T> {
   QueryTaskFuture<Void> getAllRdepsBoundedParallel(
       QueryExpression expression,
       int depth,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       Callback<T> callback);
 
   QueryTaskFuture<Void> getAllRdepsUnboundedParallel(
-      QueryExpression expression,
-      VariableContext<T> context,
-      Callback<T> callback);
+      QueryExpression expression, QueryExpressionContext<T> context, Callback<T> callback);
 
   QueryTaskFuture<Void> getRdepsBoundedParallel(
       QueryExpression expression,
       int depth,
       QueryExpression universe,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       Callback<T> callback);
 
   QueryTaskFuture<Void> getRdepsUnboundedParallel(
       QueryExpression expression,
       QueryExpression universe,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       Callback<T> callback);
 
   QueryTaskFuture<Void> getDepsUnboundedParallel(
       QueryExpression expression,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       Callback<T> callback,
       Callback<T> errorReporter);
 }

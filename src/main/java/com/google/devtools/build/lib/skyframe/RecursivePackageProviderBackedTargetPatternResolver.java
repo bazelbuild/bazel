@@ -17,7 +17,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.pkgcache.FilteringPolicies.NO_FILTER;
 
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,7 +51,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -101,19 +99,13 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     return recursivePackageProvider.bulkGetPackages(pkgIds);
   }
 
-  /** Optionally convert a {@link Target} before including it in returns. */
-  protected Target maybeConvertTargetBeforeReturn(Target target) {
-    return target;
-  }
-
   @Override
   public Target getTargetOrNull(Label label) throws InterruptedException {
     try {
       if (!isPackage(label.getPackageIdentifier())) {
         return null;
       }
-      return maybeConvertTargetBeforeReturn(
-          recursivePackageProvider.getTarget(eventHandler, label));
+      return recursivePackageProvider.getTarget(eventHandler, label);
     } catch (NoSuchThingException e) {
       return null;
     }
@@ -125,7 +117,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     try {
       Target target = recursivePackageProvider.getTarget(eventHandler, label);
       return policy.shouldRetain(target, true)
-          ? ResolvedTargets.of(maybeConvertTargetBeforeReturn(target))
+          ? ResolvedTargets.of(target)
           : ResolvedTargets.<Target>empty();
     } catch (NoSuchThingException e) {
       throw new TargetParsingException(e.getMessage(), e);
@@ -141,15 +133,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
         : policy;
     try {
       Package pkg = getPackage(packageIdentifier);
-      return TargetPatternResolverUtil.resolvePackageTargets(
-          pkg,
-          actualPolicy,
-          new Function<Target, Target>() {
-            @Override
-            public Target apply(Target target) {
-              return maybeConvertTargetBeforeReturn(Preconditions.checkNotNull(target));
-            }
-          });
+      return TargetPatternResolverUtil.resolvePackageTargets(pkg, actualPolicy);
     } catch (NoSuchThingException e) {
       String message = TargetPatternResolverUtil.getParsingErrorMessage(
           e.getMessage(), originalPattern);
@@ -306,45 +290,43 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     for (final Iterable<PackageIdentifier> pkgIdBatch : partitions) {
       futures.add(
           executor.submit(
-              new Callable<Void>() {
-                @Override
-                public Void call() throws E, TargetParsingException, InterruptedException {
-                  ImmutableSet<PackageIdentifier> pkgIdBatchSet = ImmutableSet.copyOf(pkgIdBatch);
-                  packageSemaphore.acquireAll(pkgIdBatchSet);
-                  try {
-                    Iterable<ResolvedTargets<Target>> resolvedTargets =
-                        bulkGetTargetsInPackage(originalPattern, pkgIdBatch, NO_FILTER).values();
-                    List<Target> filteredTargets = new ArrayList<>(calculateSize(resolvedTargets));
-                    for (ResolvedTargets<Target> targets : resolvedTargets) {
-                      for (Target target : targets.getTargets()) {
-                        // Perform the no-targets-found check before applying the filtering policy
-                        // so we only return the error if the input directory's subtree really
-                        // contains no targets.
-                        foundTarget.set(true);
-                        if (actualPolicy.shouldRetain(target, false)) {
-                          filteredTargets.add(maybeConvertTargetBeforeReturn(target));
-                        }
+              () -> {
+                ImmutableSet<PackageIdentifier> pkgIdBatchSet = ImmutableSet.copyOf(pkgIdBatch);
+                packageSemaphore.acquireAll(pkgIdBatchSet);
+                try {
+                  Iterable<ResolvedTargets<Target>> resolvedTargets =
+                      bulkGetTargetsInPackage(originalPattern, pkgIdBatch, NO_FILTER).values();
+                  List<Target> filteredTargets = new ArrayList<>(calculateSize(resolvedTargets));
+                  for (ResolvedTargets<Target> targets : resolvedTargets) {
+                    for (Target target : targets.getTargets()) {
+                      // Perform the no-targets-found check before applying the filtering policy
+                      // so we only return the error if the input directory's subtree really
+                      // contains no targets.
+                      foundTarget.set(true);
+                      if (actualPolicy.shouldRetain(target, false)) {
+                        filteredTargets.add(target);
                       }
                     }
-                    callback.process(filteredTargets);
-                  } finally {
-                    packageSemaphore.releaseAll(pkgIdBatchSet);
                   }
-                  return null;
+                  // TODO(bazel-core): Invoking the callback while holding onto the package
+                  // semaphore can lead to deadlocks. Also, if the semaphore has a small count,
+                  // acquireAll can also lead to problems if we don't batch appropriately.
+                  // Although we default to an unbounded semaphore for SkyQuery and this is an
+                  // unreported issue, consider refactoring so that the code is strictly correct.
+                  callback.process(filteredTargets);
+                } finally {
+                  packageSemaphore.releaseAll(pkgIdBatchSet);
                 }
+                return null;
               }));
     }
     return Futures.whenAllSucceed(futures)
         .call(
-            new Callable<Void>() {
-              @Override
-              public Void call() throws TargetParsingException {
-                if (!foundTarget.get()) {
-                  throw new TargetParsingException(
-                      "no targets found beneath '" + pathFragment + "'");
-                }
-                return null;
+            () -> {
+              if (!foundTarget.get()) {
+                throw new TargetParsingException("no targets found beneath '" + pathFragment + "'");
               }
+              return null;
             },
             directExecutor());
   }
