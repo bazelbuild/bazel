@@ -47,7 +47,7 @@ public class CqueryBuildTool extends PostAnalysisQueryBuildTool {
         extraFunctions,
         targetConfig,
         hostConfiguration,
-        env.newTargetPatternEvaluator().getOffset(),
+        env.getRelativeWorkingDirectory().getPathString(),
         env.getPackageManager().getPackagePath(),
         () -> walkableGraph,
         cqueryOptions);
