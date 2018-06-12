@@ -591,7 +591,6 @@ public class BuildView {
               target.getFirst(), target.getSecond(), aspectConfigurations.get(target)));
     }
 
-    skyframeExecutor.maybeInvalidateWorkspaceStatusValue(loadingResult.getWorkspaceName());
     SkyframeAnalysisResult skyframeAnalysisResult;
     try {
       skyframeAnalysisResult =

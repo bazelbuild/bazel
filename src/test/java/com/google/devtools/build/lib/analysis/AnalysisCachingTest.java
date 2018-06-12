@@ -451,22 +451,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update();
     assertContainsEvent("Heuristic sharding is intended as a one-off experimentation tool");
   }
-  
-  @Test
-  public void testWorkspaceStatusCommandIsNotCachedForNullBuild() throws Exception {
-    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
-      // TODO(b/66477180): maybe just ignore.
-      return;
-    }
-    update();
-    WorkspaceStatusAction actionA = getView().getLastWorkspaceBuildInfoActionForTesting();
-    assertThat(actionA.getMnemonic()).isEqualTo("DummyBuildInfoAction");
-
-    workspaceStatusActionFactory.setKey("Second");
-    update();
-    WorkspaceStatusAction actionB = getView().getLastWorkspaceBuildInfoActionForTesting();
-    assertThat(actionB.getMnemonic()).isEqualTo("DummyBuildInfoActionSecond");
-  }
 
   @Test
   public void testSkyframeCacheInvalidationBuildFileChange() throws Exception {

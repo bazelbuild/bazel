@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -63,7 +62,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
@@ -207,17 +205,14 @@ public final class AnalysisTestUtil {
   /** A dummy WorkspaceStatusAction. */
   @Immutable
   public static final class DummyWorkspaceStatusAction extends WorkspaceStatusAction {
-    private final String key;
     private final Artifact stableStatus;
     private final Artifact volatileStatus;
 
-    public DummyWorkspaceStatusAction(String key,
-        Artifact stableStatus, Artifact volatileStatus) {
+    public DummyWorkspaceStatusAction(Artifact stableStatus, Artifact volatileStatus) {
       super(
           ActionOwner.SYSTEM_ACTION_OWNER,
           ImmutableList.<Artifact>of(),
           ImmutableList.of(stableStatus, volatileStatus));
-      this.key = key;
       this.stableStatus = stableStatus;
       this.volatileStatus = volatileStatus;
     }
@@ -236,7 +231,7 @@ public final class AnalysisTestUtil {
 
     @Override
     public String getMnemonic() {
-      return "DummyBuildInfoAction" + key;
+      return "DummyBuildInfoAction";
     }
 
     @Override
@@ -250,21 +245,6 @@ public final class AnalysisTestUtil {
     @Override
     public Artifact getStableStatus() {
       return stableStatus;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof DummyWorkspaceStatusAction)) {
-        return false;
-      }
-
-      DummyWorkspaceStatusAction that = (DummyWorkspaceStatusAction) o;
-      return that.key.equals(this.key);
-    }
-
-    @Override
-    public int hashCode() {
-      return key.hashCode();
     }
   }
 
@@ -287,28 +267,21 @@ public final class AnalysisTestUtil {
    */
   public static class DummyWorkspaceStatusActionFactory implements WorkspaceStatusAction.Factory {
     private final BlazeDirectories directories;
-    private String key;
 
     public DummyWorkspaceStatusActionFactory(BlazeDirectories directories) {
       this.directories = directories;
-      this.key = "";
-    }
-
-    public void setKey(String key) {
-      this.key = key;
     }
 
     @Override
     public WorkspaceStatusAction createWorkspaceStatusAction(
-        ArtifactFactory artifactFactory, ArtifactOwner artifactOwner, Supplier<UUID> buildId,
-        String workspaceName) {
+        ArtifactFactory artifactFactory, ArtifactOwner artifactOwner, String workspaceName) {
       Artifact stableStatus = artifactFactory.getDerivedArtifact(
           PathFragment.create("build-info.txt"),
           directories.getBuildDataDirectory(workspaceName), artifactOwner);
       Artifact volatileStatus = artifactFactory.getConstantMetadataArtifact(
           PathFragment.create("build-changelist.txt"),
           directories.getBuildDataDirectory(workspaceName), artifactOwner);
-      return new DummyWorkspaceStatusAction(key, stableStatus, volatileStatus);
+      return new DummyWorkspaceStatusAction(stableStatus, volatileStatus);
     }
 
     @Override
