@@ -68,6 +68,7 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -132,6 +133,7 @@ public class ByteStreamUploaderTest {
     retryService.shutdownNow();
   }
 
+  @Ignore // TODO(buchgr): This test is so flaky that it fails three times in a row on Bazel CI.
   @Test(timeout = 10000)
   public void singleBlobUploadShouldWork() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
