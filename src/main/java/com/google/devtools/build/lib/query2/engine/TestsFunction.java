@@ -63,7 +63,7 @@ public class TestsFunction implements QueryFunction {
   @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) {

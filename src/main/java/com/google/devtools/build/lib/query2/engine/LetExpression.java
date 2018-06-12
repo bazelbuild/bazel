@@ -68,7 +68,7 @@ public class LetExpression extends QueryExpression {
   @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
-      final VariableContext<T> context,
+      final QueryExpressionContext<T> context,
       final Callback<T> callback) {
     if (!NAME_PATTERN.matcher(varName).matches()) {
       return env.immediateFailedFuture(
@@ -78,7 +78,7 @@ public class LetExpression extends QueryExpression {
         QueryUtil.evalAll(env, context, varExpr);
     Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> evalBodyAsyncFunction =
         varValue -> {
-          VariableContext<T> bodyContext = VariableContext.with(context, varName, varValue);
+          QueryExpressionContext<T> bodyContext = context.with(varName, varValue);
           return env.eval(bodyExpr, bodyContext, callback);
         };
     return env.transformAsync(varValueFuture, evalBodyAsyncFunction);

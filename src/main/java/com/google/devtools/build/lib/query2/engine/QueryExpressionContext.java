@@ -16,19 +16,20 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
-/** An immutable context of variable bindings for variables introduced by {@link LetExpression}s. */
+/**
+ * An immutable context, including variable bindings for variables introduced by {@link
+ * LetExpression}s.
+ */
 @Immutable
 @ThreadSafe
-public class VariableContext<T> {
-  private final ImmutableMap<String, Set<T>> context;
+public class QueryExpressionContext<T> {
+  protected final ImmutableMap<String, Set<T>> context;
 
-  private VariableContext(ImmutableMap<String, Set<T>> context) {
+  protected QueryExpressionContext(ImmutableMap<String, Set<T>> context) {
     this.context = context;
   }
 
@@ -41,21 +42,21 @@ public class VariableContext<T> {
     return context.get(name);
   }
 
-  /** Returns a {@link VariableContext} with no variables defined. */
-  public static <T> VariableContext<T> empty() {
-    return new VariableContext<>(ImmutableMap.<String, Set<T>>of());
+  /** Returns a {@link QueryExpressionContext} with no variables defined. */
+  public static <T> QueryExpressionContext<T> empty() {
+    return new QueryExpressionContext<>(ImmutableMap.<String, Set<T>>of());
+  }
+  /**
+   * Returns a {@link QueryExpressionContext} that has all the same bindings as the given {@code
+   * variableContext} and also the binding of {@code name} to {@code value}.
+   */
+  protected QueryExpressionContext<T> with(String name, Set<T> value) {
+    return new QueryExpressionContext<>(withNewVariable(name, value));
   }
 
-  /**
-   * Returns a {@link VariableContext} that has all the same bindings as the given
-   * {@code variableContext} and also the binding of {@code name} to {@code value}.
-   */
-  static <T> VariableContext<T> with(
-      VariableContext<T> variableContext,
-      String name,
-      Set<T> value) {
+  protected final ImmutableMap<String, Set<T>> withNewVariable(String name, Set<T> value) {
     ImmutableMap.Builder<String, Set<T>> newContextBuilder = ImmutableMap.builder();
-    for (Map.Entry<String, Set<T>> entry : variableContext.context.entrySet()) {
+    for (Map.Entry<String, Set<T>> entry : context.entrySet()) {
       if (!entry.getKey().equals(name)) {
         // The binding of 'name' to 'value' should override any existing binding of name in
         // 'variableContext'. These are the semantics we want in order for nested let-expressions
@@ -64,7 +65,12 @@ public class VariableContext<T> {
       }
     }
     newContextBuilder.put(name, value);
-    return new VariableContext<>(newContextBuilder.build());
+    return newContextBuilder.build();
+  }
+
+  @Override
+  public String toString() {
+    return "QueryExpressionContext: " + context;
   }
 }
 

@@ -48,13 +48,11 @@ final class DepsFunction implements QueryFunction {
     return ImmutableList.of(ArgumentType.EXPRESSION, ArgumentType.INTEGER);
   }
 
-  /**
-   * Breadth-first search from the arguments.
-   */
+  /** Breadth-first search from the arguments. */
   @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       final QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) {
@@ -92,7 +90,7 @@ final class DepsFunction implements QueryFunction {
                 minDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(current, i);
             callback.process(toProcess);
             current = env.createThreadSafeMutableSet();
-            Iterables.addAll(current, env.getFwdDeps(toProcess));
+            Iterables.addAll(current, env.getFwdDeps(toProcess, context));
             if (current.isEmpty()) {
               // Exit when there are no more nodes to visit.
               break;

@@ -32,10 +32,10 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
-import com.google.devtools.build.lib.query2.engine.VariableContext;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -104,7 +104,11 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
    */
   protected void evalTopLevelInternal(QueryExpression expr, OutputFormatterCallback<T> callback)
       throws QueryException, InterruptedException {
-    ((QueryTaskFutureImpl<Void>) eval(expr, VariableContext.<T>empty(), callback)).getChecked();
+    ((QueryTaskFutureImpl<Void>) eval(expr, createEmptyContext(), callback)).getChecked();
+  }
+
+  protected QueryExpressionContext<T> createEmptyContext() {
+    return QueryExpressionContext.empty();
   }
 
   /**

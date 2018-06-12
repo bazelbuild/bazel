@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MinDepthUniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MutableKeyExtractorBackedMapImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
@@ -455,7 +456,8 @@ public class ConfiguredTargetQueryEnvironment
   }
 
   @Override
-  public ThreadSafeMutableSet<ConfiguredTarget> getFwdDeps(Iterable<ConfiguredTarget> targets)
+  public ThreadSafeMutableSet<ConfiguredTarget> getFwdDeps(
+      Iterable<ConfiguredTarget> targets, QueryExpressionContext<ConfiguredTarget> context)
       throws InterruptedException {
     Map<SkyKey, ConfiguredTarget> targetsByKey = new HashMap<>(Iterables.size(targets));
     for (ConfiguredTarget target : targets) {
@@ -488,7 +490,8 @@ public class ConfiguredTargetQueryEnvironment
   }
 
   @Override
-  public Collection<ConfiguredTarget> getReverseDeps(Iterable<ConfiguredTarget> targets)
+  public Collection<ConfiguredTarget> getReverseDeps(
+      Iterable<ConfiguredTarget> targets, QueryExpressionContext<ConfiguredTarget> context)
       throws InterruptedException {
     Map<SkyKey, ConfiguredTarget> targetsByKey = new HashMap<>(Iterables.size(targets));
     for (ConfiguredTarget target : targets) {
@@ -604,12 +607,13 @@ public class ConfiguredTargetQueryEnvironment
     return ConfiguredTargetKey.of(target, getConfiguration(target));
   }
 
-
   @Override
   public ThreadSafeMutableSet<ConfiguredTarget> getTransitiveClosure(
-      ThreadSafeMutableSet<ConfiguredTarget> targets) throws InterruptedException {
+      ThreadSafeMutableSet<ConfiguredTarget> targets,
+      QueryExpressionContext<ConfiguredTarget> context)
+      throws InterruptedException {
     return SkyQueryUtils.getTransitiveClosure(
-        targets, this::getFwdDeps, createThreadSafeMutableSet());
+        targets, targets1 -> getFwdDeps(targets1, context), createThreadSafeMutableSet());
   }
 
   @Override
@@ -620,10 +624,14 @@ public class ConfiguredTargetQueryEnvironment
   }
 
   @Override
-  public ImmutableList<ConfiguredTarget> getNodesOnPath(ConfiguredTarget from, ConfiguredTarget to)
+  public ImmutableList<ConfiguredTarget> getNodesOnPath(
+      ConfiguredTarget from, ConfiguredTarget to, QueryExpressionContext<ConfiguredTarget> context)
       throws InterruptedException {
     return SkyQueryUtils.getNodesOnPath(
-        from, to, this::getFwdDeps, configuredTargetKeyExtractor::extractKey);
+        from,
+        to,
+        targets -> getFwdDeps(targets, context),
+        configuredTargetKeyExtractor::extractKey);
   }
 
   @Override
@@ -672,7 +680,8 @@ public class ConfiguredTargetQueryEnvironment
       QueryExpression caller,
       ThreadSafeMutableSet<ConfiguredTarget> nodes,
       boolean buildFiles,
-      boolean loads)
+      boolean loads,
+      QueryExpressionContext<ConfiguredTarget> context)
       throws QueryException, InterruptedException {
     throw new QueryException("buildfiles() doesn't make sense for the configured target graph");
   }
