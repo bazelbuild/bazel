@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -115,7 +116,35 @@ public final class Label
    *
    * @param defaultToMain Treat labels in the default repository as being in the main one instead.
    */
+  @Deprecated
+  // TODO(dannark): Remove usages of this method, use other parseAbsolute() instead
   public static Label parseAbsolute(String absName, boolean defaultToMain)
+      throws LabelSyntaxException {
+    return parseAbsolute(absName, defaultToMain, /* repositoryMapping= */ ImmutableMap.of());
+  }
+
+  /**
+   * Factory for Labels from absolute string form. e.g.
+   *
+   * <pre>
+   * //foo/bar
+   * //foo/bar:quux
+   * {@literal @}foo
+   * {@literal @}foo//bar
+   * {@literal @}foo//bar:baz
+   * </pre>
+   *
+   * <p>Labels that begin with a repository name may have the repository name remapped to a
+   * different name if it appears in {@code repositoryMapping}. This happens if the current
+   * repository being evaluated is external to the main repository and the main repository set the
+   * {@code repo_mapping} attribute when declaring this repository.
+   *
+   * @param defaultToMain Treat labels in the default repository as being in the main one instead.
+   */
+  public static Label parseAbsolute(
+      String absName,
+      boolean defaultToMain,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws LabelSyntaxException {
     String repo = defaultToMain ? "@" : RepositoryName.DEFAULT_REPOSITORY;
     int packageStartPos = absName.indexOf("//");
@@ -134,10 +163,19 @@ public final class Label
       if (repo.isEmpty() && ABSOLUTE_PACKAGE_NAMES.contains(packageFragment)) {
         repo = "@";
       }
-      return create(PackageIdentifier.create(repo, packageFragment), labelParts.getTargetName());
+      RepositoryName globalRepoName = getGlobalRepoName(repo, repositoryMapping);
+      return create(
+          PackageIdentifier.create(globalRepoName, packageFragment), labelParts.getTargetName());
     } catch (BadLabelException e) {
       throw new LabelSyntaxException(e.getMessage());
     }
+  }
+
+  private static RepositoryName getGlobalRepoName(
+      String repo, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      throws LabelSyntaxException {
+    RepositoryName repoName = RepositoryName.create(repo);
+    return repositoryMapping.getOrDefault(repoName, repoName);
   }
 
   /**
