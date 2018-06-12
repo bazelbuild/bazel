@@ -86,7 +86,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.TriState;
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -277,7 +276,7 @@ public final class BlazeRuntime {
         Path profilePath = env.getWorkspace().getRelative(options.profilePath);
 
         recordFullProfilerData = options.recordFullProfilerData;
-        out = new BufferedOutputStream(profilePath.getOutputStream(), 1024 * 1024);
+        out = profilePath.getOutputStream();
         env.getReporter().handle(Event.info("Writing profile data to '" + profilePath + "'"));
         profiledTasks = ProfiledTaskKinds.ALL;
       } else if (options.alwaysProfileSlowOperations) {
@@ -289,8 +288,13 @@ public final class BlazeRuntime {
         Profiler.instance().start(
             profiledTasks,
             out,
-            getProductName() + " profile for " + env.getOutputBase() + " at " + new Date()
-            + ", build ID: " + buildID,
+            Profiler.Format.BINARY_BAZEL_FORMAT,
+            String.format(
+                "%s profile for %s at %s, build ID: %s",
+                getProductName(),
+                env.getOutputBase(),
+                new Date(),
+                buildID),
             recordFullProfilerData,
             clock,
             execStartTimeNanos);
