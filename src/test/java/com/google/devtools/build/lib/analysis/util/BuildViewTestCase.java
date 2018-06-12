@@ -900,8 +900,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .build());
 
     invalidatePackages();
-    // Need to re-initialize the workspace status.
-    getSkyframeExecutor().maybeInvalidateWorkspaceStatusValue("test");
   }
 
   /**

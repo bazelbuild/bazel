@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -260,7 +259,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // would be preferable, but we have no way to have the Action depend on that value directly.
   // Having the BuildInfoFunction own the supplier is currently not possible either, because then
   // it would be invalidated on every build, since it would depend on the build id value.
-  private MutableSupplier<UUID> buildId = new MutableSupplier<>();
+  private final MutableSupplier<UUID> buildId = new MutableSupplier<>();
   private final ActionKeyContext actionKeyContext;
 
   protected boolean active = true;
@@ -332,7 +331,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       FileSystem fileSystem,
       BlazeDirectories directories,
       ActionKeyContext actionKeyContext,
-      Factory workspaceStatusActionFactory,
+      WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ExternalFileAction externalFileAction,
@@ -809,22 +808,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.set(injectable(), defaultsPackageContents);
   }
 
-  public void maybeInvalidateWorkspaceStatusValue(String workspaceName)
-      throws InterruptedException {
-    WorkspaceStatusAction newWorkspaceStatusAction = makeWorkspaceStatusAction(workspaceName);
-    WorkspaceStatusAction oldWorkspaceStatusAction = getLastWorkspaceStatusAction();
-    if (oldWorkspaceStatusAction != null
-        && !newWorkspaceStatusAction.equals(oldWorkspaceStatusAction)) {
-      // TODO(janakr): don't invalidate here, just use different keys for different configs. Can't
-      // be done right now because of lack of configuration trimming and fact that everything
-      // depends on workspace status action.
-      invalidate(WorkspaceStatusValue.BUILD_INFO_KEY::equals);
-    }
-  }
-
   private WorkspaceStatusAction makeWorkspaceStatusAction(String workspaceName) {
     return workspaceStatusActionFactory.createWorkspaceStatusAction(
-        artifactFactory.get(), WorkspaceStatusValue.BUILD_INFO_KEY, buildId, workspaceName);
+        artifactFactory.get(), WorkspaceStatusValue.BUILD_INFO_KEY, workspaceName);
+  }
+
+  @VisibleForTesting
+  public WorkspaceStatusAction.Factory getWorkspaceStatusActionFactoryForTesting() {
+    return workspaceStatusActionFactory;
   }
 
   @VisibleForTesting

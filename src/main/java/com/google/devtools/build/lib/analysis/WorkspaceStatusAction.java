@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Splitter;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -36,7 +35,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * An action writing the workspace status files.
@@ -184,13 +182,12 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     /**
      * Creates the workspace status action.
      *
-     * <p>If the objects returned for two builds are equals, the workspace status action can be
-     * be reused between them. Note that this only applies to the action object itself (the action
-     * will be unconditionally re-executed on every build)
+     * <p>The action will have a supplier inside it allowing it to access data that may change on
+     * every build. Since the action is unconditionally executed on each build, we don't recreate
+     * the action on every build, just re-executing and letting it read the updated data each time.
      */
     WorkspaceStatusAction createWorkspaceStatusAction(
-        ArtifactFactory artifactFactory, ArtifactOwner artifactOwner, Supplier<UUID> buildId,
-        String workspaceName);
+        ArtifactFactory artifactFactory, ArtifactOwner artifactOwner, String workspaceName);
 
     /**
      * Creates a dummy workspace status map. Used in cases where the build failed, so that part of
