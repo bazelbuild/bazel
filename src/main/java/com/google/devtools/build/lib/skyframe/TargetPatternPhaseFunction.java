@@ -16,18 +16,21 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.pkgcache.CompileOneDependencyTransformer;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
-import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
@@ -35,11 +38,13 @@ import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -163,7 +168,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       env.getListener().handle(Event.warn("Target pattern parsing failed."));
     }
 
-    LoadingPhaseRunner.maybeReportDeprecation(env.getListener(), targets.getTargets());
+    maybeReportDeprecation(env.getListener(), targets.getTargets());
 
     ResolvedTargets.Builder<Label> expandedLabelsBuilder = ResolvedTargets.builder();
     for (Target target : targets.getTargets()) {
@@ -210,6 +215,24 @@ final class TargetPatternPhaseFunction implements SkyFunction {
                 expandedTargets.getTargets(),
                 failedPatterns));
     return result;
+  }
+
+  /**
+   * Emit a warning when a deprecated target is mentioned on the command line.
+   *
+   * <p>Note that this does not stop us from emitting "target X depends on deprecated target Y"
+   * style warnings for the same target and it is a good thing; <i>depending</i> on a target and
+   * <i>wanting</i> to build it are different things.
+   */
+  private static void maybeReportDeprecation(
+      ExtendedEventHandler eventHandler, Collection<Target> targets) {
+    for (Rule rule : Iterables.filter(targets, Rule.class)) {
+      if (rule.isAttributeValueExplicitlySpecified("deprecation")) {
+        eventHandler.handle(Event.warn(rule.getLocation(), String.format(
+            "target '%s' is deprecated: %s", rule.getLabel(),
+            NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING))));
+      }
+    }
   }
 
   /**

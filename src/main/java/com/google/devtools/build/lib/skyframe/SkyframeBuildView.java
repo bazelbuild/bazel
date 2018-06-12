@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -60,7 +61,6 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
-import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
@@ -248,8 +248,7 @@ public final class SkyframeBuildView {
     }
     PackageRoots packageRoots =
         singleSourceRoot == null
-            ? new MapAsPackageRoots(
-                LoadingPhaseRunner.collectPackageRoots(packages.build().toCollection()))
+            ? new MapAsPackageRoots(collectPackageRoots(packages.build().toCollection()))
             : new PackageRootsNoSymlinkCreation(singleSourceRoot);
 
     if (!result.hasError() && badActions.isEmpty()) {
@@ -414,6 +413,17 @@ public final class SkyframeBuildView {
         result.getWalkableGraph(),
         ImmutableList.copyOf(goodAspects),
         packageRoots);
+  }
+
+  /** Returns a map of collected package names to root paths. */
+  private static ImmutableMap<PackageIdentifier, Root> collectPackageRoots(
+      Collection<Package> packages) {
+    // Make a map of the package names to their root paths.
+    ImmutableMap.Builder<PackageIdentifier, Root> packageRoots = ImmutableMap.builder();
+    for (Package pkg : packages) {
+      packageRoots.put(pkg.getPackageIdentifier(), pkg.getSourceRoot());
+    }
+    return packageRoots.build();
   }
 
   @Nullable

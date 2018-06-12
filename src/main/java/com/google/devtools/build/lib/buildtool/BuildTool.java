@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.LoadingCallback;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
-import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -428,11 +427,8 @@ public class BuildTool {
       }
     };
 
-    LoadingPhaseRunner loadingPhaseRunner =
-        env.getSkyframeExecutor().getLoadingPhaseRunner(
-            runtime.getPackageFactory().getRuleClassNames());
     LoadingResult result =
-        loadingPhaseRunner.execute(
+        env.getSkyframeExecutor().loadTargetPatterns(
             getReporter(),
             request.getTargets(),
             env.getRelativeWorkingDirectory(),
