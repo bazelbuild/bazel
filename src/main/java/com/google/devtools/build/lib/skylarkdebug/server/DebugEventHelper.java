@@ -159,11 +159,14 @@ final class DebugEventHelper {
   }
 
   static SkylarkDebuggingProtos.Frame getFrameProto(DebugFrame frame) {
-    return SkylarkDebuggingProtos.Frame.newBuilder()
-        .setFunctionName(frame.functionName())
-        .setLocation(getLocationProto(frame.location()))
-        .addAllScope(getScopes(frame))
-        .build();
+    SkylarkDebuggingProtos.Frame.Builder builder =
+        SkylarkDebuggingProtos.Frame.newBuilder()
+            .setFunctionName(frame.functionName())
+            .addAllScope(getScopes(frame));
+    if (frame.location() != null) {
+      builder.setLocation(getLocationProto(frame.location()));
+    }
+    return builder.build();
   }
 
   private static ImmutableList<Scope> getScopes(DebugFrame frame) {
