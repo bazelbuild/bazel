@@ -203,8 +203,8 @@ Then you can generate and view the graph by piping the text output above
 straight to xdot:
 
 ```
-bazel query --nohost_deps --noimplicit_deps 'deps(//main:hello-world)' \
-  --output graph | xdot
+xdot <(bazel query --nohost_deps --noimplicit_deps 'deps(//main:hello-world)' \
+  --output graph)
 ```
 
 As you can see, the first stage of the sample project has a single target
