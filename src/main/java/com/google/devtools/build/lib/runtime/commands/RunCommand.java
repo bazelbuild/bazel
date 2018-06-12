@@ -186,13 +186,19 @@ public class RunCommand implements BlazeCommand  {
     String productName = env.getRuntime().getProductName();
     Artifact executable = targetToRun.getProvider(FilesToRunProvider.class).getExecutable();
 
+    BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+
     PathFragment executablePath = executable.getPath().asFragment();
-    PathFragment prettyExecutablePath = OutputDirectoryLinksUtils.getPrettyPath(
-          executable.getPath(),
-          env.getWorkspaceName(),
-          env.getWorkspace(),
-          env.getOptions().getOptions(BuildRequestOptions.class).getSymlinkPrefix(productName),
-          productName);
+    PathFragment prettyExecutablePath =
+        OutputDirectoryLinksUtils.getPrettyPath(
+            executable.getPath(),
+            env.getWorkspaceName(),
+            env.getWorkspace(),
+            requestOptions.printWorkspaceInOutputPathsIfNeeded
+                ? env.getWorkingDirectory()
+                : env.getWorkspace(),
+            requestOptions.getSymlinkPrefix(productName),
+            productName);
 
     RunUnder runUnder = env.getOptions().getOptions(BuildConfiguration.Options.class).runUnder;
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option
