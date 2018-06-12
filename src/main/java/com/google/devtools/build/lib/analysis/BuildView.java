@@ -539,7 +539,9 @@ public class BuildView {
         }
         SkylarkImport skylarkImport;
         try {
-          skylarkImport = SkylarkImports.create(bzlFileLoadLikeString);
+          skylarkImport =
+              SkylarkImports.create(
+                  bzlFileLoadLikeString, /* repositoryMapping= */ ImmutableMap.of());
         } catch (SkylarkImportSyntaxException e) {
           throw new ViewCreationFailedException(
               String.format("Invalid aspect '%s': %s", aspect, e.getMessage()), e);

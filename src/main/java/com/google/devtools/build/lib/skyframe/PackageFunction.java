@@ -1220,7 +1220,7 @@ public class PackageFunction implements SkyFunction {
           StoredEventHandler astParsingEventHandler = new StoredEventHandler();
           BuildFileAST ast =
               PackageFactory.parseBuildFile(
-                  packageId, input, preludeStatements, astParsingEventHandler);
+                  packageId, input, preludeStatements, repositoryMapping, astParsingEventHandler);
           astParseResult = new AstParseResult(ast, astParsingEventHandler);
           astCache.put(packageId, astParseResult);
         }

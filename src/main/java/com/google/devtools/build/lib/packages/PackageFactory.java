@@ -1246,12 +1246,17 @@ public final class PackageFactory {
     // Run the lexer and parser with a local reporter, so that errors from other threads do not
     // show up below.
     BuildFileAST buildFileAST =
-        parseBuildFile(packageId, input, preludeStatements, localReporterForParsing);
+        parseBuildFile(
+            packageId,
+            input,
+            preludeStatements,
+            /* repositoryMapping= */ ImmutableMap.of(),
+            localReporterForParsing);
     AstParseResult astParseResult =
         new AstParseResult(buildFileAST, localReporterForParsing);
     return createPackageFromAst(
         workspaceName,
-        /*repositoryMapping=*/ ImmutableMap.of(),
+        /* repositoryMapping= */ ImmutableMap.of(),
         packageId,
         buildFile,
         astParseResult,
@@ -1266,10 +1271,12 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       ParserInputSource in,
       List<Statement> preludeStatements,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       ExtendedEventHandler eventHandler) {
     // Logged messages are used as a testability hook tracing the parsing progress
     logger.fine("Starting to parse " + packageId);
-    BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(in, preludeStatements, eventHandler);
+    BuildFileAST buildFileAST =
+        BuildFileAST.parseBuildFile(in, preludeStatements, repositoryMapping, eventHandler);
     logger.fine("Finished parsing of " + packageId);
     return buildFileAST;
   }
@@ -1373,10 +1380,10 @@ public final class PackageFactory {
                 packageId,
                 buildFile,
                 input,
-                /*preludeStatements=*/ ImmutableList.<Statement>of(),
-                /*imports=*/ ImmutableMap.<String, Extension>of(),
-                /*skylarkFileDependencies=*/ ImmutableList.<Label>of(),
-                /*defaultVisibility=*/ ConstantRuleVisibility.PUBLIC,
+                /* preludeStatements= */ ImmutableList.<Statement>of(),
+                /* imports= */ ImmutableMap.<String, Extension>of(),
+                /* skylarkFileDependencies= */ ImmutableList.<Label>of(),
+                /* defaultVisibility= */ ConstantRuleVisibility.PUBLIC,
                 semantics,
                 globber)
             .build();
