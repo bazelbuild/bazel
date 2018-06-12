@@ -367,6 +367,21 @@ public class BuildRequestOptions extends OptionsBase {
   }
 
   @Option(
+    name = "print_workspace_in_output_paths_if_needed",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+    help =
+        "If enabled, when the current working directory is deeper than the workspace (for example, "
+            + "when running from <workspace>/foo instead of <workspace>), printed output paths "
+            + "include the absolute path to the workspace (for example, "
+            + "<workspace>/<symlink_prefix>-bin/foo/binary instead of "
+            + "<symlink_prefix>-bin/foo/binary)."
+  )
+  public boolean printWorkspaceInOutputPathsIfNeeded;
+
+
+  @Option(
     name = "use_action_cache",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

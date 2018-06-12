@@ -150,34 +150,44 @@ public class OutputDirectoryLinksUtils {
 
   /**
    * Returns a convenient path to the specified file, relativizing it and using output-dir symlinks
-   * if possible.  Otherwise, return a path relative to the workspace directory if possible.
+   * if possible. Otherwise, return a path relative to the workspace directory if possible.
    * Otherwise, return the absolute path.
    *
    * <p>This method must be called after the symlinks are created at the end of a build. If called
    * before, the pretty path may be incorrect if the symlinks end up pointing somewhere new.
    */
-  public static PathFragment getPrettyPath(Path file, String workspaceName,
-      Path workspaceDirectory, String symlinkPrefix, String productName) {
+  public static PathFragment getPrettyPath(
+      Path file,
+      String workspaceName,
+      Path workspaceDirectory,
+      Path workingDirectory,
+      String symlinkPrefix,
+      String productName) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return file.asFragment();
     }
 
     for (String link : LINKS) {
-      PathFragment result = relativize(file, workspaceDirectory, symlinkPrefix + link);
+      PathFragment result =
+          relativize(file, workspaceDirectory, workingDirectory, symlinkPrefix + link);
       if (result != null) {
         return result;
       }
     }
 
-    PathFragment result = relativize(file, workspaceDirectory,
-        execRootSymlink(symlinkPrefix, workspaceName));
+    PathFragment result =
+        relativize(
+            file,
+            workspaceDirectory,
+            workingDirectory,
+            execRootSymlink(symlinkPrefix, workspaceName));
     if (result != null) {
       return result;
     }
 
     ImmutableList<String> outputSymlinkNames = getOutputSymlinkNames(productName, symlinkPrefix);
     checkArgument(!outputSymlinkNames.isEmpty());
-    result = relativize(file, workspaceDirectory, outputSymlinkNames.get(0));
+    result = relativize(file, workspaceDirectory, workingDirectory, outputSymlinkNames.get(0));
     if (result != null) {
       return result;
     }
@@ -187,14 +197,19 @@ public class OutputDirectoryLinksUtils {
 
   // Helper to getPrettyPath.  Returns file, relativized w.r.t. the referent of
   // "linkname", or null if it was a not a child.
-  private static PathFragment relativize(Path file, Path workspaceDirectory, String linkname) {
+  private static PathFragment relativize(
+      Path file, Path workspaceDirectory, Path workingDirectory, String linkname) {
     PathFragment link = PathFragment.create(linkname);
     try {
       Path dir = workspaceDirectory.getRelative(link);
       PathFragment levelOneLinkTarget = dir.readSymbolicLink();
       if (levelOneLinkTarget.isAbsolute() &&
           file.startsWith(dir = file.getRelative(levelOneLinkTarget))) {
-        return link.getRelative(file.relativeTo(dir));
+        PathFragment outputLink =
+            workingDirectory.equals(workspaceDirectory)
+                ? link
+                : workspaceDirectory.getRelative(link).asFragment();
+        return outputLink.getRelative(file.relativeTo(dir));
       }
     } catch (IOException e) {
       /* ignore */

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
@@ -146,7 +147,7 @@ public final class CommandEnvironment {
 
     // TODO(ulfjack): We don't call beforeCommand() in tests, but rely on workingDirectory being set
     // in setupPackageCache(). This leads to NPE if we don't set it here.
-    this.workingDirectory = directories.getWorkspace();
+    this.setWorkingDirectory(directories.getWorkspace());
     this.workspaceName = null;
 
     workspace.getSkyframeExecutor().setEventBus(eventBus);
@@ -554,8 +555,16 @@ public final class CommandEnvironment {
     return commandStartTime;
   }
 
-  void setWorkingDirectory(Path workingDirectory) {
+  @VisibleForTesting
+  public void setWorkingDirectoryForTesting(Path workingDirectory) {
+    setWorkingDirectory(workingDirectory);
+  }
+
+  private void setWorkingDirectory(Path workingDirectory) {
     this.workingDirectory = workingDirectory;
+    if (getWorkspace() != null) {
+      this.relativeWorkingDirectory = workingDirectory.relativeTo(getWorkspace());
+    }
   }
 
   /**
@@ -608,8 +617,7 @@ public final class CommandEnvironment {
       workspace = FileSystemUtils.getWorkingDirectory(getRuntime().getFileSystem());
       workingDirectory = workspace;
     }
-    this.relativeWorkingDirectory = workingDirectory.relativeTo(workspace);
-    this.workingDirectory = workingDirectory;
+    this.setWorkingDirectory(workingDirectory);
 
     // Fail fast in the case where a Blaze command forgets to install the package path correctly.
     skyframeExecutor.setActive(false);
