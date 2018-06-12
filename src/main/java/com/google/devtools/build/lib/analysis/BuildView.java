@@ -100,12 +100,10 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -1292,36 +1290,5 @@ public class BuildView {
       }
     }
     return null;
-  }
-
-  /**
-   * A converter for loading phase thread count. Since the default is not a true constant, we create
-   * a converter here to implement the default logic.
-   */
-  public static final class LoadingPhaseThreadCountConverter implements Converter<Integer> {
-    @Override
-    public Integer convert(String input) throws OptionsParsingException {
-      if ("-1".equals(input)) {
-        // Reduce thread count while running tests. Test cases are typically small, and large thread
-        // pools vying for a relatively small number of CPU cores may induce non-optimal
-        // performance.
-        return System.getenv("TEST_TMPDIR") == null ? 200 : 5;
-      }
-
-      try {
-        int result = Integer.decode(input);
-        if (result < 0) {
-          throw new OptionsParsingException("'" + input + "' must be at least -1");
-        }
-        return result;
-      } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not an int");
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "an integer";
-    }
   }
 }
