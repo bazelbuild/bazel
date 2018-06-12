@@ -280,7 +280,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       SkylarkList<?> fragments,
       SkylarkList<?> hostFragments,
       Boolean skylarkTestable,
-      SkylarkList<String> toolchains,
+      SkylarkList<?> toolchains,
       String doc,
       SkylarkList<?> providesArg,
       FuncallExpression ast,
@@ -409,7 +409,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       SkylarkList providesArg,
       SkylarkList fragments,
       SkylarkList hostFragments,
-      SkylarkList<String> toolchains,
+      SkylarkList<?> toolchains,
       String doc,
       FuncallExpression ast,
       Environment funcallEnv)
