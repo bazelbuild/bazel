@@ -213,7 +213,8 @@ message Frame {
   // The scopes that contain value bindings accessible in this frame.
   repeated Scope scope = 2;
 
-  // The source location where the frame is currently paused.
+  // The source location where the frame is currently paused. May not be set in
+  // some situations.
   Location location = 3;
 }
 

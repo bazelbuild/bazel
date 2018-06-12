@@ -93,8 +93,7 @@ public class BuiltinCallable extends BaseFunction {
 
   @Override
   @Nullable
-  public Object call(Object[] args,
-      FuncallExpression ast, Environment env)
+  public Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException {
     Preconditions.checkNotNull(env);
 
