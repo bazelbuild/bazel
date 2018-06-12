@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.vfs.Path;
@@ -125,7 +125,7 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
   }
 
   @Override
-  public TargetPatternEvaluator newTargetPatternEvaluator() {
+  public TargetPatternPreloader newTargetPatternPreloader() {
     return new SkyframeTargetPatternEvaluator(skyframeExecutor);
   }
 }

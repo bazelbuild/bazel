@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -316,12 +316,10 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Creates and returns a new target pattern parser.
+   * Creates and returns a new target pattern preloader.
    */
-  public TargetPatternEvaluator newTargetPatternEvaluator() {
-    TargetPatternEvaluator result = getPackageManager().newTargetPatternEvaluator();
-    result.updateOffset(relativeWorkingDirectory);
-    return result;
+  public TargetPatternPreloader newTargetPatternPreloader() {
+    return getPackageManager().newTargetPatternPreloader();
   }
 
   public PackageRootResolver getPackageRootResolver() {
