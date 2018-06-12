@@ -92,6 +92,7 @@ import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -308,16 +309,15 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidDeviceScriptFixtureRule());
           builder.addRuleDefinition(new AndroidHostServiceFixtureRule());
 
-          builder.addSkylarkAccessibleTopLevels("android_common", new AndroidSkylarkCommon());
-          builder.addSkylarkAccessibleTopLevels(ApkInfo.NAME, ApkInfo.PROVIDER);
-          builder.addSkylarkAccessibleTopLevels(
-              AndroidInstrumentationInfo.NAME, AndroidInstrumentationInfo.PROVIDER);
-          builder.addSkylarkAccessibleTopLevels(
-              AndroidDeviceBrokerInfo.NAME, AndroidDeviceBrokerInfo.PROVIDER);
-          builder.addSkylarkAccessibleTopLevels(
-              AndroidResourcesInfo.NAME, AndroidResourcesInfo.PROVIDER);
-          builder.addSkylarkAccessibleTopLevels(
-              AndroidNativeLibsInfo.NAME, AndroidNativeLibsInfo.PROVIDER);
+          AndroidBootstrap bootstrap =
+              new AndroidBootstrap(
+                  new AndroidSkylarkCommon(),
+                  ApkInfo.PROVIDER,
+                  AndroidInstrumentationInfo.PROVIDER,
+                  AndroidDeviceBrokerInfo.PROVIDER,
+                  AndroidResourcesInfo.PROVIDER,
+                  AndroidNativeLibsInfo.PROVIDER);
+          builder.addSkylarkBootstrap(bootstrap);
 
           try {
             builder.addWorkspaceFilePrefix(
