@@ -248,7 +248,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                     BuildRequestOptions.class,
                     BuildView.Options.class,
                     KeepGoingOption.class,
-                    LoadingPhaseThreadsOption.class),
+                    LoadingPhaseThreadsOption.class,
+                    LoadingOptions.class),
                 ruleClassProvider.getConfigurationOptions()));
     optionsParser.parse(new String[] {"--default_visibility=public" });
     optionsParser.parse(args);
@@ -308,7 +309,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
           throws Exception {
     Set<Flag> flags = config.flags;
 
-    LoadingOptions loadingOptions = Options.getDefaults(LoadingOptions.class);
+    LoadingOptions loadingOptions = optionsParser.getOptions(LoadingOptions.class);
 
     BuildView.Options viewOptions = optionsParser.getOptions(BuildView.Options.class);
     // update --keep_going option if test requested it.
