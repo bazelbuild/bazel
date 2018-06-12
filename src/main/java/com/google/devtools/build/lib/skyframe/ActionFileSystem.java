@@ -97,7 +97,7 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
 
   ActionFileSystem(
       FileSystem delegate,
-      Path execRoot,
+      PathFragment execRoot,
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
       ActionInputMap inputArtifactData,
@@ -107,7 +107,7 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
         Profiler.instance().profile(ProfilerTask.ACTION_FS_STAGING, "staging")) {
       this.delegate = delegate;
 
-      this.execRootFragment = execRoot.asFragment();
+      this.execRootFragment = execRoot;
       this.outputPathFragment = execRootFragment.getRelative(relativeOutputPath);
       this.sourceRoots =
           sourceRoots
@@ -639,10 +639,15 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
       return new ByteArrayOutputStream() {
         @Override
         public void close() throws IOException {
+          flush();
           super.close();
+        }
+
+        @Override
+        public void flush() throws IOException {
+          super.flush();
           byte[] data = toByteArray();
-          set(
-              new InlineFileArtifactValue(data, Hashing.md5().hashBytes(data).asBytes()),
+          set(new InlineFileArtifactValue(data, Hashing.md5().hashBytes(data).asBytes()),
               /*notifyConsumer=*/ true);
         }
       };
