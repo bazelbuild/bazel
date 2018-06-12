@@ -177,11 +177,9 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
   @Override
   public void onInsert(ActionInput dest, byte[] digest, long size, int backendIndex)
       throws IOException {
-    OutputMetadata output = outputs.getUnchecked(dest.getExecPath());
-    if (output != null) {
-      output.set(new RemoteFileArtifactValue(digest, size, backendIndex),
-          /*notifyConsumer=*/ false);
-    }
+    outputs.getUnchecked(dest.getExecPath()).set(
+        new RemoteFileArtifactValue(digest, size, backendIndex),
+        /*notifyConsumer=*/ false);
   }
 
   // -------------------- FileSystem implementation --------------------
@@ -271,8 +269,9 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
 
   @Override
   public boolean delete(Path path) throws IOException {
-    // TODO(felly): Support file deletion.
-    return false;
+    PathFragment execPath = asExecPath(path);
+    OutputMetadata output = outputs.getIfPresent(execPath);
+    return output != null && outputs.asMap().remove(execPath, output);
   }
 
   @Override
@@ -367,12 +366,9 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
           createSymbolicLinkErrorMessage(
               linkPath, targetFragment, targetFragment + " is not an input."));
     }
-    OutputMetadata outputHolder = outputs.getUnchecked(asExecPath(linkPath));
-    if (outputHolder == null) {
-      throw new FileNotFoundException(
-          createSymbolicLinkErrorMessage(
-              linkPath, targetFragment, linkPath + " is not an output."));
-    }
+    OutputMetadata outputHolder = Preconditions.checkNotNull(
+        outputs.getUnchecked(asExecPath(linkPath)),
+        "Unexpected null output path: %s", linkPath);
     if (sourceRootIndex >= 0) {
       Preconditions.checkState(!targetExecPath.startsWith(outputPathFragment), "Target exec path "
           + "%s does not start with output path fragment %s", targetExecPath, outputPathFragment);
@@ -431,10 +427,9 @@ final class ActionFileSystem extends AbstractFileSystemWithCustomStat
     if (metadata instanceof SourceFileArtifactValue) {
       return resolveSourcePath((SourceFileArtifactValue) metadata).getInputStream();
     }
-    Preconditions.checkArgument(
-        !(metadata instanceof RemoteFileArtifactValue),
-        "getInputStream called for remote file: %s",
-        path);
+    if (metadata instanceof RemoteFileArtifactValue) {
+      throw new IOException("ActionFileSystem cannot read remote file: " + path);
+    }
     return getSourcePath(path.asFragment()).getInputStream();
   }
 
