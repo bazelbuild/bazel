@@ -38,7 +38,7 @@ public class AndroidLocalTestConfiguration extends BuildConfiguration.Fragment {
   public static final class Options extends FragmentOptions {
     @Option(
       name = "experimental_android_local_test_binary_resources",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
