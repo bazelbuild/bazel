@@ -77,12 +77,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link LoadingPhaseRunner}. */
+/** Tests for {@link SkyframeExecutor#loadTargetPatterns}. */
 @RunWith(JUnit4.class)
 public class LoadingPhaseRunnerTest {
 
   private static final ImmutableList<Logger> loggers = ImmutableList.of(
-      Logger.getLogger(LoadingPhaseRunner.class.getName()),
       Logger.getLogger(BuildView.class.getName()));
   static {
     for (Logger logger : loggers) {
@@ -720,7 +719,6 @@ public class LoadingPhaseRunnerTest {
     private final SkyframeExecutor skyframeExecutor;
 
     private final List<Path> changes = new ArrayList<>();
-    private final LoadingPhaseRunner loadingPhaseRunner;
     private final BlazeDirectories directories;
     private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
@@ -799,8 +797,6 @@ public class LoadingPhaseRunnerTest {
           ImmutableMap.<String, String>of(),
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(clock));
-      loadingPhaseRunner =
-          skyframeExecutor.getLoadingPhaseRunner(pkgFactory.getRuleClassNames());
       this.options = Options.getDefaults(LoadingOptions.class);
     }
 
@@ -837,7 +833,7 @@ public class LoadingPhaseRunnerTest {
       LoadingResult result;
       try {
         result =
-            loadingPhaseRunner.execute(
+            skyframeExecutor.loadTargetPatterns(
                 storedErrors,
                 ImmutableList.copyOf(patterns),
                 PathFragment.EMPTY_FRAGMENT,

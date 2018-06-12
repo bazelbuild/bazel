@@ -110,7 +110,6 @@ import com.google.devtools.build.lib.pkgcache.LoadingCallback;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
-import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -2211,93 +2210,76 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public abstract void deleteOldNodes(long versionWindowForDirtyGc);
 
-  public LoadingPhaseRunner getLoadingPhaseRunner(Set<String> ruleClassNames) {
-    return new SkyframeLoadingPhaseRunner(ruleClassNames);
-  }
-
-  /**
-   * Skyframe-based implementation of {@link LoadingPhaseRunner} based on {@link
-   * TargetPatternPhaseFunction}.
-   */
-  final class SkyframeLoadingPhaseRunner extends LoadingPhaseRunner {
-    private final Set<String> ruleClassNames;
-
-    public SkyframeLoadingPhaseRunner(Set<String> ruleClassNames) {
-      this.ruleClassNames = ruleClassNames;
-    }
-
-    @Override
-    public LoadingResult execute(
-        ExtendedEventHandler eventHandler,
-        List<String> targetPatterns,
-        PathFragment relativeWorkingDirectory,
-        LoadingOptions options,
-        boolean keepGoing,
-        boolean determineTests,
-        @Nullable LoadingCallback callback)
-        throws TargetParsingException, LoadingFailedException, InterruptedException {
-      Stopwatch timer = Stopwatch.createStarted();
-      SkyKey key =
-          TargetPatternPhaseValue.key(
-              ImmutableList.copyOf(targetPatterns),
-              relativeWorkingDirectory.getPathString(),
-              options.compileOneDependency,
-              options.buildTestsOnly,
-              determineTests,
-              ImmutableList.copyOf(options.buildTagFilterList),
-              options.buildManualTests,
-              options.expandTestSuites,
-              TestFilter.forOptions(options, eventHandler, ruleClassNames));
-      EvaluationResult<TargetPatternPhaseValue> evalResult;
-      eventHandler.post(new LoadingPhaseStartedEvent(packageProgress));
-      evalResult =
-          buildDriver.evaluate(
-              ImmutableList.of(key), keepGoing, /*numThreads=*/ DEFAULT_THREAD_COUNT, eventHandler);
-      if (evalResult.hasError()) {
-        ErrorInfo errorInfo = evalResult.getError(key);
-        TargetParsingException exc;
-        if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
-          exc = new TargetParsingException("cycles detected during target parsing");
-          getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
-          // Fallback: we don't know which patterns failed, specifically, so we report the entire
-          // set as being in error.
+  public LoadingResult loadTargetPatterns(
+      ExtendedEventHandler eventHandler,
+      List<String> targetPatterns,
+      PathFragment relativeWorkingDirectory,
+      LoadingOptions options,
+      boolean keepGoing,
+      boolean determineTests,
+      @Nullable LoadingCallback callback)
+      throws TargetParsingException, LoadingFailedException, InterruptedException {
+    Stopwatch timer = Stopwatch.createStarted();
+    SkyKey key =
+        TargetPatternPhaseValue.key(
+            ImmutableList.copyOf(targetPatterns),
+            relativeWorkingDirectory.getPathString(),
+            options.compileOneDependency,
+            options.buildTestsOnly,
+            determineTests,
+            ImmutableList.copyOf(options.buildTagFilterList),
+            options.buildManualTests,
+            options.expandTestSuites,
+            TestFilter.forOptions(options, eventHandler, pkgFactory.getRuleClassNames()));
+    EvaluationResult<TargetPatternPhaseValue> evalResult;
+    eventHandler.post(new LoadingPhaseStartedEvent(packageProgress));
+    evalResult =
+        buildDriver.evaluate(
+            ImmutableList.of(key), keepGoing, /*numThreads=*/ DEFAULT_THREAD_COUNT, eventHandler);
+    if (evalResult.hasError()) {
+      ErrorInfo errorInfo = evalResult.getError(key);
+      TargetParsingException exc;
+      if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
+        exc = new TargetParsingException("cycles detected during target parsing");
+        getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
+        // Fallback: we don't know which patterns failed, specifically, so we report the entire
+        // set as being in error.
+        eventHandler.post(PatternExpandingError.failed(targetPatterns, exc.getMessage()));
+      } else {
+        // TargetPatternPhaseFunction never directly throws. Thus, the only way
+        // evalResult.hasError() && keepGoing can hold is if there are cycles, which is handled
+        // above.
+        Preconditions.checkState(!keepGoing);
+        // Following SkyframeTargetPatternEvaluator, we convert any exception into a
+        // TargetParsingException.
+        Exception e = Preconditions.checkNotNull(errorInfo.getException());
+        exc =
+            (e instanceof TargetParsingException)
+                ? (TargetParsingException) e
+                : new TargetParsingException(e.getMessage(), e);
+        if (!(e instanceof TargetParsingException)) {
+          // If it's a TargetParsingException, then the TargetPatternPhaseFunction has already
+          // reported the error, so we don't need to report it again.
           eventHandler.post(PatternExpandingError.failed(targetPatterns, exc.getMessage()));
-        } else {
-          // TargetPatternPhaseFunction never directly throws. Thus, the only way
-          // evalResult.hasError() && keepGoing can hold is if there are cycles, which is handled
-          // above.
-          Preconditions.checkState(!keepGoing);
-          // Following SkyframeTargetPatternEvaluator, we convert any exception into a
-          // TargetParsingException.
-          Exception e = Preconditions.checkNotNull(errorInfo.getException());
-          exc =
-              (e instanceof TargetParsingException)
-                  ? (TargetParsingException) e
-                  : new TargetParsingException(e.getMessage(), e);
-          if (!(e instanceof TargetParsingException)) {
-            // If it's a TargetParsingException, then the TargetPatternPhaseFunction has already
-            // reported the error, so we don't need to report it again.
-            eventHandler.post(PatternExpandingError.failed(targetPatterns, exc.getMessage()));
-          }
         }
-        throw exc;
       }
-      long timeMillis = timer.stop().elapsed(TimeUnit.MILLISECONDS);
-
-      TargetPatternPhaseValue patternParsingValue = evalResult.get(key);
-      eventHandler.post(new TargetParsingPhaseTimeEvent(timeMillis));
-      ImmutableSet<Target> targets = patternParsingValue.getTargets(eventHandler, packageManager);
-      if (callback != null) {
-        callback.notifyTargets(targets);
-      }
-      eventHandler.post(
-          new LoadingPhaseCompleteEvent(
-              targets,
-              patternParsingValue.getRemovedTargets(eventHandler, packageManager),
-              PackageManagerStatistics.ZERO,
-              /*timeInMs=*/ 0));
-      return patternParsingValue.toLoadingResult(eventHandler, packageManager);
+      throw exc;
     }
+    long timeMillis = timer.stop().elapsed(TimeUnit.MILLISECONDS);
+
+    TargetPatternPhaseValue patternParsingValue = evalResult.get(key);
+    eventHandler.post(new TargetParsingPhaseTimeEvent(timeMillis));
+    ImmutableSet<Target> targets = patternParsingValue.getTargets(eventHandler, packageManager);
+    if (callback != null) {
+      callback.notifyTargets(targets);
+    }
+    eventHandler.post(
+        new LoadingPhaseCompleteEvent(
+            targets,
+            patternParsingValue.getRemovedTargets(eventHandler, packageManager),
+            PackageManagerStatistics.ZERO,
+            /*timeInMs=*/ 0));
+    return patternParsingValue.toLoadingResult(eventHandler, packageManager);
   }
 
   /**
