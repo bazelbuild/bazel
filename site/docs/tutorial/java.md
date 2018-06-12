@@ -412,7 +412,8 @@ dependencies.
 *  The [C++ build tutorial](../tutorial/cpp.md) to get started with building
    C++ projects with Bazel.
 
-*  The [mobile application tutorial](../tutorial/app.md) to get started with
+*  The [Android application tutorial](../tutorial/android-app.md) and
+   [iOS application tutorial](../tutorial/ios-app.md) to get started with
    building mobile applications for Android and iOS with Bazel.
 
 Happy building!
