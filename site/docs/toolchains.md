@@ -16,14 +16,17 @@ title: Toolchains
 
 ## Overview
 
-A *Bazel toolchain* is a configuration [provider](skylark/rules.html#providers)
+A *Bazel toolchain* is a configuration
+[provider](skylark/rules.html#providers)
 that tells a build rule what build tools, such as compilers and linkers, to use
 and how to configure them using parameters defined by the rule's creator.
 
 When a build runs, Bazel performs toolchain resolution based on the specified
-[execution and target platforms](platforms.html) to determine and apply the
+[execution and target platforms](platforms.html)
+to determine and apply the
 toolchain most appropriate to that build. It does so by matching the
-[constraints](platforms.html#defining-a-platform) specified in the project's
+[constraints](platforms.html#defining-a-platform)
+specified in the project's
 `BUILD` file(s) with the constraints specified in the toolchain definition.
 
 ## Toolchain Resolution
@@ -34,13 +37,21 @@ platform and a toolchain type-to-toolchain map. Toolchain resolution works as fo
 
 1. Collect all available execution platforms, including the host. This is an ordered list.
    - Execution platforms are collected from the following sources:
-     1. Any extra execution platforms given on the command line via the [--extra_execution_platforms](https://docs.bazel.build/versions/master/command-line-reference.html#flag--extra_execution_platforms) flag.
-     2. Any execution platforms in the `WORKSPACE` file, via the [register_execution_platforms](https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_execution_platforms) function.
+     1. Any extra execution platforms given on the command line via the
+     [`--extra_execution_platforms`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--extra_execution_platforms)
+     flag.
+     2. Any execution platforms in the `WORKSPACE` file, via the
+     [`register_execution_platforms`](https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_execution_platforms)
+     function.
      3. The host platform.
 2. Collect all available toolchains. This is also an ordered list.
    - Toolchains are collected from the following sources:
-     1. Any extra toolchains given on the command line via the [--extra_toolchains](https://docs.bazel.build/versions/master/command-line-reference.html#flag--extra_toolchains)` flag.
-     2. Any toolchains in the `WORKSPACE` file, via the [register_toolchains](https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_toolchains) function.
+     1. Any extra toolchains given on the command line via the
+     [`--extra_toolchains`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--extra_toolchains)
+     flag.
+     2. Any toolchains in the `WORKSPACE` file, via the
+     [`register_toolchains`](https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_toolchains)
+     function.
 3. For each toolchain type and execution platform, select the first toolchain that matches the execution platform and target platform.
 4. With the full set of toolchains and execution platforms for each type, select the first execution platform that can satisfy all toolchain types.
 
@@ -58,14 +69,18 @@ Defining a toolchain requires the following:
 
 *  **Toolchain rule** - a rule invoked in a custom build or test rule that
    specifies the build tool configuration options particular to the toolchain
-   and supported [platforms](platforms.html) (for example, [`go_toolchain`](https://github.com/bazelbuild/rules_go/blob/master/go/private/go_toolchain.bzl)).
-   This rule must return a [`ToolchainInfo` provider](skylark/lib/platform_common.html#ToolchainInfo).
+   and supported
+   [platforms](platforms.html)
+   (for example, [`go_toolchain`](https://github.com/bazelbuild/rules_go/blob/master/go/private/go_toolchain.bzl)).
+   This rule must return a
+   [`ToolchainInfo` provider](skylark/lib/platform_common.html#ToolchainInfo).
    The toolchain rule is lazily instantiated by Bazel on an as-needed basis.
    Because of this, a toolchain rule's dependencies can be as complex as needed,
    including reliance on remote repositories, without affecting builds that do
    not use them.
 
-*  **Toolchain definition** - tells Bazel which [platform constraints](platforms.html#defining-a-platform)
+*  **Toolchain definition** - tells Bazel which
+   [platform constraints](platforms.html#defining-a-platform)
    apply to the toolchain using the `toolchain()` rule. This rule must specify a
    unique toolchain type label, which is used as input during toolchain
    resolution.
