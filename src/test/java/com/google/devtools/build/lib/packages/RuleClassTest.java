@@ -1139,11 +1139,58 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     RuleClass.Builder childRuleClassBuilder =
         new RuleClass.Builder("childRuleClass", RuleClassType.NORMAL, false, parentRuleClass)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY);
+
+    RuleClass childRuleClass = childRuleClassBuilder.build();
+
+    assertThat(childRuleClass.executionPlatformConstraintsAllowed())
+        .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
+    assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isTrue();
+  }
+
+  @Test
+  public void testExecutionPlatformConstraints_inherit_multipleParents() {
+    RuleClass parentRuleClass1 =
+        new RuleClass.Builder("parentRuleClass1", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST))
+            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
+            .build();
+    RuleClass parentRuleClass2 =
+        new RuleClass.Builder("$parentRuleClass2", RuleClassType.ABSTRACT, false)
+            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE)
+            .build();
+
+    RuleClass.Builder childRuleClassBuilder =
+        new RuleClass.Builder(
+                "childRuleClass", RuleClassType.NORMAL, false, parentRuleClass1, parentRuleClass2)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY);
+
+    RuleClass childRuleClass = childRuleClassBuilder.build();
+
+    assertThat(childRuleClass.executionPlatformConstraintsAllowed())
+        .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
+    assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isTrue();
+  }
+
+  @Test
+  public void testExecutionPlatformConstraints_inherit_parentAllowsPerTarget_override() {
+    RuleClass parentRuleClass =
+        new RuleClass.Builder("parentRuleClass", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST))
+            .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
+            .build();
+
+    RuleClass.Builder childRuleClassBuilder =
+        new RuleClass.Builder("childRuleClass", RuleClassType.NORMAL, false, parentRuleClass)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE);
 
     RuleClass childRuleClass = childRuleClassBuilder.build();
 
+    assertThat(childRuleClass.executionPlatformConstraintsAllowed())
+        .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_RULE);
     assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isFalse();
   }
 
@@ -1162,6 +1209,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     RuleClass childRuleClass = childRuleClassBuilder.build();
 
+    assertThat(childRuleClass.executionPlatformConstraintsAllowed())
+        .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
     assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isTrue();
   }
 

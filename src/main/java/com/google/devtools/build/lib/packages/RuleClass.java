@@ -209,13 +209,34 @@ public class RuleClass {
      * Allows additional execution platform constraints to be added in the rule definition, which
      * apply to all targets of that rule.
      */
-    PER_RULE,
+    PER_RULE(1),
     /**
      * Users are allowed to specify additional execution platform constraints for each target, using
      * the 'exec_compatible_with' attribute. This also allows setting constraints in the rule
      * definition, like PER_RULE.
      */
-    PER_TARGET;
+    PER_TARGET(2);
+
+    private final int priority;
+
+    ExecutionPlatformConstraintsAllowed(int priority) {
+      this.priority = priority;
+    }
+
+    public int priority() {
+      return priority;
+    }
+
+    public static ExecutionPlatformConstraintsAllowed highestPriority(
+        ExecutionPlatformConstraintsAllowed first, ExecutionPlatformConstraintsAllowed... rest) {
+      ExecutionPlatformConstraintsAllowed result = first;
+      for (ExecutionPlatformConstraintsAllowed value : rest) {
+        if (result == null || result.priority() < value.priority()) {
+          result = value;
+        }
+      }
+      return result;
+    }
   }
 
   /**
@@ -668,7 +689,11 @@ public class RuleClass {
 
         addRequiredToolchains(parent.getRequiredToolchains());
         supportsPlatforms = parent.supportsPlatforms;
-        // executionPlatformConstraintsAllowed is not inherited and takes the default.
+
+        // Make sure we use the highest priority value from all parents.
+        executionPlatformConstraintsAllowed(
+            ExecutionPlatformConstraintsAllowed.highestPriority(
+                executionPlatformConstraintsAllowed, parent.executionPlatformConstraintsAllowed()));
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
 
         for (Attribute attribute : parent.getAttributes()) {
