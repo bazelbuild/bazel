@@ -4,6 +4,18 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
+filegroup(
+    name = "package-srcs",
+    srcs = [
+        "platforms.BUILD",
+    ],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)
+
 # These match values in //src/main/java/com/google/devtools/build/lib/util:CPU.java
 constraint_setting(name = "cpu")
 
@@ -24,6 +36,11 @@ constraint_value(
 
 constraint_value(
     name = "arm",
+    constraint_setting = ":cpu",
+)
+
+constraint_value(
+    name = "aarch64",
     constraint_setting = ":cpu",
 )
 
@@ -95,6 +112,7 @@ platform(
         ":x86_64",
         ":ppc",
         ":arm",
+	":aarch64",
         ":s390x",
     ],
     host_platform = True,
@@ -116,6 +134,7 @@ platform(
         ":x86_64",
         ":ppc",
         ":arm",
+	":aarch64",
         ":s390x",
     ],
     os_constraints = [

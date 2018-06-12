@@ -40,6 +40,11 @@ constraint_value(
 )
 
 constraint_value(
+    name = "aarch64",
+    constraint_setting = ":cpu",
+)
+
+constraint_value(
     name = "s390x",
     constraint_setting = ":cpu",
 )
@@ -107,6 +112,7 @@ platform(
         ":x86_64",
         ":ppc",
         ":arm",
+	":aarch64",
         ":s390x",
     ],
     host_platform = True,
@@ -128,6 +134,7 @@ platform(
         ":x86_64",
         ":ppc",
         ":arm",
+	":aarch64",
         ":s390x",
     ],
     os_constraints = [
