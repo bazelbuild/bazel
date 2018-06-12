@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
 
 /** A module that contains Skylark utilities for C++ support. */
 public class CcModule implements CcModuleApi {
-  public static final CcModule INSTANCE = new CcModule();
 
   @Override
   public Provider getCcToolchainProvider() {
