@@ -289,13 +289,13 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
       ConfigurationResolver.putOnlyEntry(map, "foo", "baz");
       fail("Expected an exception when trying to add a new value to an existing key");
     } catch (VerifyException e) {
-      assertThat(e).hasMessage("couldn't insert baz: map already has key foo");
+      assertThat(e).hasMessage("couldn't insert baz: map already has values for key foo: [bar]");
     }
     try {
       ConfigurationResolver.putOnlyEntry(map, "foo", "bar");
       fail("Expected an exception when trying to add a pre-existing <key, value> pair");
     } catch (VerifyException e) {
-      assertThat(e).hasMessage("couldn't insert bar: map already has key foo");
+      assertThat(e).hasMessage("couldn't insert bar: map already has values for key foo: [bar]");
     }
   }
 
