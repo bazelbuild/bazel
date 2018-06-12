@@ -385,4 +385,33 @@ EOF
       || fail "should build apple_binary with dSYMs"
 }
 
+function test_apple_binary_spaces() {
+  rm -rf package
+  mkdir -p package
+  cat > package/BUILD <<EOF
+apple_binary(
+    name = "main_binary",
+    deps = [":main_lib"],
+    platform_type = "ios",
+    minimum_os_version = "10.0",
+)
+objc_library(
+    name = "main_lib",
+    srcs = ["the main.m"],
+)
+EOF
+  cat > "package/the main.m" <<EOF
+int main() {
+  return 0;
+}
+EOF
+
+  bazel build --verbose_failures //package:main_binary \
+      --apple_crosstool_transition \
+      --ios_multi_cpus=i386,x86_64 \
+      --xcode_version=$XCODE_VERSION \
+      --apple_generate_dsym=true \
+      || fail "should build apple_binary with dSYMs"
+}
+
 run_suite "apple_tests"
