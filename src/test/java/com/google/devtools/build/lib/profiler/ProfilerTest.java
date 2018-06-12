@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.profiler;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.profiler.Profiler.Format.BINARY_BAZEL_FORMAT;
+import static com.google.devtools.build.lib.profiler.Profiler.Format.JSON_TRACE_FILE_FORMAT;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.fail;
 
@@ -573,7 +574,7 @@ public class ProfilerTest {
   }
 
   @Test
-  public void testIOExceptionInOutputStream() throws Exception {
+  public void testIOExceptionInOutputStreamBinaryFormat() throws Exception {
     OutputStream failingOutputStream = new OutputStream() {
       @Override
       public void write(int b) throws IOException {
@@ -584,6 +585,32 @@ public class ProfilerTest {
         ProfiledTaskKinds.ALL,
         failingOutputStream,
         BINARY_BAZEL_FORMAT,
+        "basic test",
+        false,
+        BlazeClock.instance(),
+        BlazeClock.instance().nanoTime());
+    profiler.logSimpleTaskDuration(
+        Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
+    try {
+      profiler.stop();
+      fail();
+    } catch (IOException expected) {
+      assertThat(expected).hasMessageThat().isEqualTo("Expected failure.");
+    }
+  }
+
+  @Test
+  public void testIOExceptionInOutputStreamJsonFormat() throws Exception {
+    OutputStream failingOutputStream = new OutputStream() {
+      @Override
+      public void write(int b) throws IOException {
+        throw new IOException("Expected failure.");
+      }
+    };
+    profiler.start(
+        ProfiledTaskKinds.ALL,
+        failingOutputStream,
+        JSON_TRACE_FILE_FORMAT,
         "basic test",
         false,
         BlazeClock.instance(),
