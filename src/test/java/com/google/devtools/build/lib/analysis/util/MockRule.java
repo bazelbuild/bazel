@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.util;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
 
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import java.util.Arrays;
 
 /**
@@ -106,35 +108,44 @@ public interface MockRule extends RuleDefinition {
     private final String name;
     private final MockRuleCustomBehavior customBehavior;
     private final Class<? extends RuleConfiguredTargetFactory> factory;
-    private final Class<? extends RuleDefinition> ancestor;
+    private final ImmutableList<Class<? extends RuleDefinition>> ancestors;
+    private final RuleClassType type;
 
     /** The default {@link RuleConfiguredTargetFactory} for this rule class. */
     private static final Class<? extends RuleConfiguredTargetFactory> DEFAULT_FACTORY =
         MockRuleDefaults.DefaultConfiguredTargetFactory.class;
     /** The default {@link RuleDefinition} for this rule class. */
-    private static final Class<? extends RuleDefinition> DEFAULT_ANCESTOR =
-        BaseRuleClasses.RootRule.class;
+    private static final ImmutableList<Class<? extends RuleDefinition>> DEFAULT_ANCESTORS =
+        ImmutableList.of(BaseRuleClasses.RootRule.class);
 
     State(String ruleClassName, MockRuleCustomBehavior customBehavior,
         Class<? extends RuleConfiguredTargetFactory> factory,
-        Class<? extends RuleDefinition> ancestor) {
+        ImmutableList<Class<? extends RuleDefinition>> ancestors,
+        RuleClassType type) {
       this.name = Preconditions.checkNotNull(ruleClassName);
       this.customBehavior = Preconditions.checkNotNull(customBehavior);
       this.factory = factory;
-      this.ancestor = ancestor;
+      this.ancestors = ancestors;
+      this.type = type;
     }
 
     public static class Builder {
       private Class<? extends RuleConfiguredTargetFactory> factory = DEFAULT_FACTORY;
-      private Class<? extends RuleDefinition> ancestor = DEFAULT_ANCESTOR;
+      private ImmutableList<Class<? extends RuleDefinition>> ancestors = DEFAULT_ANCESTORS;
+      private RuleClassType type = RuleClassType.NORMAL;
 
       public Builder factory(Class<? extends RuleConfiguredTargetFactory> factory) {
         this.factory = factory;
         return this;
       }
 
-      public Builder ancestor(Class<? extends RuleDefinition> ancestor) {
-        this.ancestor = ancestor;
+      public Builder ancestor(Class<? extends RuleDefinition>... ancestor) {
+        this.ancestors = ImmutableList.copyOf(ancestor);
+        return this;
+      }
+
+      public Builder type(RuleClassType type) {
+        this.type = type;
         return this;
       }
 
@@ -148,7 +159,7 @@ public interface MockRule extends RuleDefinition {
       }
 
       private State build(String ruleClassName, MockRuleCustomBehavior customBehavior) {
-        return new State(ruleClassName, customBehavior, factory, ancestor);
+        return new State(ruleClassName, customBehavior, factory, ancestors, type);
       }
     }
   }
@@ -165,10 +176,19 @@ public interface MockRule extends RuleDefinition {
   /**
    * Sets a custom ancestor {@link RuleDefinition} for this mock rule.
    *
-   * <p>If not set, {@link State#DEFAULT_ANCESTOR} is used.
+   * <p>If not set, {@link State#DEFAULT_ANCESTORS} is used.
    */
-  static State.Builder ancestor(Class<? extends RuleDefinition> ancestor) {
+  static State.Builder ancestor(Class<? extends RuleDefinition>... ancestor) {
     return new State.Builder().ancestor(ancestor);
+  }
+
+  /**
+   * Sets a custom {@link RuleClassType} for this mock rule.
+   *
+   * <p>If not set, {@link RuleClassType#NORMAL} is used.
+   */
+  static State.Builder type(RuleClassType type) {
+    return new State.Builder().type(type);
   }
 
   /**
@@ -214,7 +234,7 @@ public interface MockRule extends RuleDefinition {
   @Override
   default RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     State state = define();
-    if (state.ancestor == State.DEFAULT_ANCESTOR) {
+    if (State.DEFAULT_ANCESTORS.equals(state.ancestors)) {
       MockRuleDefaults.DEFAULT_ATTRIBUTES.stream().forEach(builder::add);
     }
     state.customBehavior.customize(builder, environment);
@@ -231,9 +251,9 @@ public interface MockRule extends RuleDefinition {
     State state = define();
     return RuleDefinition.Metadata.builder()
         .name(state.name)
-        .type(RuleClass.Builder.RuleClassType.NORMAL)
+        .type(state.type)
         .factoryClass(state.factory)
-        .ancestors(state.ancestor)
+        .ancestors(state.ancestors)
         .build();
   }
 }
