@@ -30,7 +30,10 @@ import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -138,7 +141,8 @@ public final class Profiler {
 
   /** File format enum. */
   public static enum Format {
-    BINARY_BAZEL_FORMAT;
+    BINARY_BAZEL_FORMAT,
+    JSON_TRACE_FILE_FORMAT;
   }
 
   /** A task that was very slow. */
@@ -408,6 +412,17 @@ public final class Profiler {
       }
     },
 
+    /** A set of tasks that's useful for the Json trace output. */
+    ALL_FOR_TRACE {
+      @Override
+      boolean isProfiling(ProfilerTask type) {
+        return !type.isVfs()
+            // Exclude the critical path - it's not useful in the Json trace output.
+            && type != ProfilerTask.CRITICAL_PATH
+            && type != ProfilerTask.CRITICAL_PATH_COMPONENT;
+      }
+    },
+
     /**
      * Profile all tasks.
      *
@@ -550,6 +565,9 @@ public final class Profiler {
     if (stream != null) {
       if (format == Format.BINARY_BAZEL_FORMAT) {
         writer = new BinaryFormatWriter(stream, profileStartTime, comment);
+        writer.start();
+      } else if (format == Format.JSON_TRACE_FILE_FORMAT) {
+        writer = new JsonTraceFileWriter(stream, profileStartTime);
         writer.start();
       }
     }
@@ -930,6 +948,83 @@ public final class Profiler {
           }
           receivedPoisonPill = true;
           out.writeInt(EOF_MARKER);
+          out.close();
+        } catch (IOException e) {
+          this.savedException = e;
+          try {
+            out.close();
+          } catch (IOException e2) {
+            // ignore it
+          }
+          if (!receivedPoisonPill) {
+            while (queue.take() != POISON_PILL) {
+              // We keep emptying the queue, but we can't write anything.
+            }
+          }
+        }
+      } catch (InterruptedException e) {
+        // Exit silently.
+      }
+    }
+  }
+
+  /** Writes the profile in Json Trace file format. */
+  private static class JsonTraceFileWriter extends FileWriter {
+    private final Writer out;
+    private final long profileStartTimeNanos;
+
+    JsonTraceFileWriter(
+        OutputStream out,
+        long profileStartTimeNanos) {
+      this.out =
+          // The buffer size of 262144 is chosen at random. We might also want to use compression
+          // in the future.
+          new OutputStreamWriter(new BufferedOutputStream(out, 262144), StandardCharsets.UTF_8);
+      this.profileStartTimeNanos = profileStartTimeNanos;
+    }
+
+    /**
+     * Saves all gathered information from taskQueue queue to the file.
+     * Method is invoked internally by the Timer-based thread and at the end of
+     * profiling session.
+     */
+    @Override
+    public void run() {
+      try {
+        boolean receivedPoisonPill = false;
+        try {
+          out.append("[");
+          boolean first = true;
+          TaskData data;
+          while ((data = queue.take()) != POISON_PILL) {
+            if (data.duration == 0) {
+              continue;
+            }
+            if (first) {
+              first = false;
+            } else {
+              out.append(",");
+            }
+            char eventType = data.duration == 0 ? 'i' : 'X';
+            out.append("{");
+            out.append("\"name\":\"").append(data.description).append("\",");
+            out.append("\"ph\":\"").append(eventType).append("\",");
+            out.append("\"ts\":")
+                .append(
+                    Long.toString(
+                        TimeUnit.NANOSECONDS.toMicros(data.startTimeNanos - profileStartTimeNanos)))
+                .append(",");
+            if (data.duration != 0) {
+              out.append("\"dur\":")
+                  .append(Long.toString(TimeUnit.NANOSECONDS.toMicros(data.duration)))
+                  .append(",");
+            }
+            out.append("\"pid\":1,");
+            out.append("\"tid\":").append(Long.toString(data.threadId));
+            out.append("}\n");
+          }
+          receivedPoisonPill = true;
+          out.append("]");
           out.close();
         } catch (IOException e) {
           this.savedException = e;

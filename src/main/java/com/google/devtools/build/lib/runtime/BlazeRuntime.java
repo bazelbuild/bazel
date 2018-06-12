@@ -272,7 +272,15 @@ public final class BlazeRuntime {
     ProfiledTaskKinds profiledTasks = ProfiledTaskKinds.NONE;
 
     try {
-      if (options.profilePath != null) {
+      if (options.enableTracer) {
+        Path profilePath = options.profilePath != null
+            ? env.getWorkspace().getRelative(options.profilePath)
+            : env.getOutputBase().getRelative("command.profile");
+        recordFullProfilerData = false;
+        out = profilePath.getOutputStream();
+        env.getReporter().handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
+        profiledTasks = ProfiledTaskKinds.ALL_FOR_TRACE;
+      } else if (options.profilePath != null) {
         Path profilePath = env.getWorkspace().getRelative(options.profilePath);
 
         recordFullProfilerData = options.recordFullProfilerData;
