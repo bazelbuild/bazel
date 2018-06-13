@@ -66,9 +66,13 @@ def patch(ctx):
     """Implementation of patching an already extracted repository"""
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     for patchfile in ctx.attr.patches:
-        command = "{patchtool} -p0 < {patchfile}".format(
+        command = "{patchtool} {patch_args} < {patchfile}".format(
             patchtool = ctx.attr.patch_tool,
             patchfile = ctx.path(patchfile),
+            patch_args = " ".join([
+                "'%s'" % arg
+                for arg in ctx.attr.patch_args
+            ]),
         )
         st = ctx.execute([bash_exe, "-c", command])
         if st.return_code:
