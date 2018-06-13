@@ -2486,6 +2486,61 @@ echo "STABLE_USER_NAME $USER"
   built for the host configuration, regardless of the stamp attribute.
 </p>
 
+<h3 id='platform_build_options'>Platform options</h3>
+
+<p>
+  Use these options to control the host and target platforms that configure how builds work, and to
+  control what execution platforms and toolchains are available to Bazel rules.
+</p>
+
+<p>
+  Please see background information on
+  <a href="platforms.html">Platforms</a> and <a href="toolchains.html">Toolchains</a>.
+</p>
+
+<h4 id="flag--platforms"><code class='flag'>--platforms <var>labels</var></code></h4>
+<p>
+  The labels of the platform rules describing the target platforms for the
+  current command.
+</p>
+
+<h4 id="flag--host_platform"><code class='flag'>--host_platform <var>label</var></code></h4>
+<p>
+  The label of a platform rule that describes the host system.
+</p>
+
+<h4 id="flag--extra_execution_platforms"><code class='flag'>--extra_execution_platforms <var>labels</var></code></h4>
+<p>
+  The platforms that are available as execution platforms to run actions.
+  Platforms can be specified by exact target, or as a target pattern. These
+  platforms will be considered before those declared in the WORKSPACE file by
+  <a href="https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_execution_platforms">
+  register_execution_platforms()</a>.
+</p>
+
+<h4 id="flag--extra_toolchains"><code class='flag'>--extra_toolchains <var>labels</var></code></h4>
+<p>
+  The toolchain rules to be considered during toolchain resolution. Toolchains
+  can be specified by exact target, or as a target pattern. These toolchains will
+  be considered before those declared in the WORKSPACE file by
+  <a href="https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_toolchains">
+  register_toolchains()</a>.
+</p>
+
+<h4 id="flag--toolchain_resolution_debug"><code class='flag'>--toolchain_resolution_debug=false</code></h4>
+<p>
+  Print debug information while finding toolchains for a rule. This might help
+  developers of Bazel or Skylark rules with debugging failures due to missing
+  toolchains.
+</p>
+
+<h4 id="flag--enabled_toolchain_types"><code class='flag'>--enabled_toolchain_types <var>labels</var></code></h4>
+<p>
+  Enable toolchain resolution for the given toolchain type, if the rules used support that.
+  This does not directly change the core Bazel machinery, but is a signal to participating rule
+  implementations that toolchain resolution should be used.
+</p>
+
 <h3 id='misc_build_options'>Miscellaneous options</h3>
 
 <h4 id='flag--symlink_prefix'><code class='flag'>--symlink_prefix <var>string</var></code></h4>
