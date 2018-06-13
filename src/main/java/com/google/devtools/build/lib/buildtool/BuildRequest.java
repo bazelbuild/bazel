@@ -20,7 +20,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -75,7 +75,7 @@ public class BuildRequest implements OptionsClassProvider {
           PackageCacheOptions.class,
           SkylarkSemanticsOptions.class,
           LoadingOptions.class,
-          BuildView.Options.class,
+          AnalysisOptions.class,
           ExecutionOptions.class,
           KeepGoingOption.class,
           LoadingPhaseThreadsOption.class);
@@ -202,8 +202,8 @@ public class BuildRequest implements OptionsClassProvider {
    * Returns the set of command-line options related to the view specified for
    * this request.
    */
-  public BuildView.Options getViewOptions() {
-    return getOptions(BuildView.Options.class);
+  public AnalysisOptions getViewOptions() {
+    return getOptions(AnalysisOptions.class);
   }
 
   /** Returns the value of the --keep_going option. */

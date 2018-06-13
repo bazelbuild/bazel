@@ -100,12 +100,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -164,78 +158,6 @@ import javax.annotation.Nullable;
  * invariants.
  */
 public class BuildView {
-
-  /**
-   * Options that affect the <i>mechanism</i> of analysis. These are distinct from {@link
-   * com.google.devtools.build.lib.analysis.config.BuildOptions}, which affect the <i>value</i> of a
-   * BuildConfiguration.
-   */
-  public static class Options extends OptionsBase {
-    @Option(
-      name = "analysis_warnings_as_errors",
-      deprecationWarning =
-          "analysis_warnings_as_errors is now a no-op and will be removed in"
-              + " an upcoming Blaze release",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "Treat visible analysis warnings as errors."
-    )
-    public boolean analysisWarningsAsErrors;
-
-    @Option(
-      name = "discard_analysis_cache",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Discard the analysis cache immediately after the analysis phase completes."
-              + " Reduces memory usage by ~10%, but makes further incremental builds slower."
-    )
-    public boolean discardAnalysisCache;
-
-    @Option(
-      name = "experimental_extra_action_filter",
-      defaultValue = "",
-      converter = RegexFilter.RegexFilterConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Filters set of targets to schedule extra_actions for."
-    )
-    public RegexFilter extraActionFilter;
-
-    @Option(
-      name = "experimental_extra_action_top_level_only",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Only schedules extra_actions for top level targets."
-    )
-    public boolean extraActionTopLevelOnly;
-
-    @Option(
-      name = "version_window_for_dirty_node_gc",
-      defaultValue = "0",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Nodes that have been dirty for more than this many versions will be deleted"
-              + " from the graph upon the next update. Values must be non-negative long integers,"
-              + " or -1 indicating the maximum possible window."
-    )
-    public long versionWindowForDirtyNodeGc;
-
-    @Deprecated
-    @Option(
-      name = "experimental_interleave_loading_and_analysis",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op."
-    )
-    public boolean interleaveLoadingAndAnalysis;
-  }
-
   private static final Logger logger = Logger.getLogger(BuildView.class.getName());
 
   private final BlazeDirectories directories;
@@ -333,7 +255,7 @@ public class BuildView {
       LoadingResult loadingResult,
       BuildConfigurationCollection configurations,
       List<String> aspects,
-      Options viewOptions,
+      AnalysisOptions viewOptions,
       boolean keepGoing,
       int loadingPhaseThreads,
       TopLevelArtifactContext topLevelOptions,
@@ -503,7 +425,7 @@ public class BuildView {
       ExtendedEventHandler eventHandler,
       LoadingResult loadingResult,
       TopLevelArtifactContext topLevelOptions,
-      BuildView.Options viewOptions,
+      AnalysisOptions viewOptions,
       SkyframeAnalysisResult skyframeAnalysisResult,
       Set<ConfiguredTarget> targetsToSkip,
       List<TargetAndConfiguration> topLevelTargetsWithConfigs)
@@ -633,7 +555,7 @@ public class BuildView {
   }
 
   private void addExtraActionsIfRequested(
-      Options viewOptions,
+      AnalysisOptions viewOptions,
       Collection<ConfiguredTarget> configuredTargets,
       Collection<AspectValue> aspects,
       Set<Artifact> artifactsToBuild,
@@ -654,7 +576,7 @@ public class BuildView {
   }
 
   private NestedSet<Artifact> addExtraActionsFromTargets(
-      BuildView.Options viewOptions,
+      AnalysisOptions viewOptions,
       Collection<ConfiguredTarget> configuredTargets,
       ExtendedEventHandler eventHandler) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
@@ -709,7 +631,7 @@ public class BuildView {
   }
 
   private NestedSet<Artifact> addExtraActionsFromAspects(
-      BuildView.Options viewOptions, Collection<AspectValue> aspects) {
+      AnalysisOptions viewOptions, Collection<AspectValue> aspects) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (AspectValue aspect : aspects) {
       ExtraActionArtifactsProvider provider =
@@ -1160,36 +1082,5 @@ public class BuildView {
       }
     }
     return null;
-  }
-
-  /**
-   * A converter for loading phase thread count. Since the default is not a true constant, we create
-   * a converter here to implement the default logic.
-   */
-  public static final class LoadingPhaseThreadCountConverter implements Converter<Integer> {
-    @Override
-    public Integer convert(String input) throws OptionsParsingException {
-      if ("-1".equals(input)) {
-        // Reduce thread count while running tests. Test cases are typically small, and large thread
-        // pools vying for a relatively small number of CPU cores may induce non-optimal
-        // performance.
-        return System.getenv("TEST_TMPDIR") == null ? 200 : 5;
-      }
-
-      try {
-        int result = Integer.decode(input);
-        if (result < 0) {
-          throw new OptionsParsingException("'" + input + "' must be at least -1");
-        }
-        return result;
-      } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not an int");
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "an integer";
-    }
   }
 }

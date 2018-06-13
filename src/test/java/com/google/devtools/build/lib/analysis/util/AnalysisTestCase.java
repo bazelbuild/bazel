@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
@@ -243,7 +244,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                     PackageCacheOptions.class,
                     SkylarkSemanticsOptions.class,
                     BuildRequestOptions.class,
-                    BuildView.Options.class,
+                    AnalysisOptions.class,
                     KeepGoingOption.class,
                     LoadingPhaseThreadsOption.class,
                     LoadingOptions.class),
@@ -308,7 +309,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
     LoadingOptions loadingOptions = optionsParser.getOptions(LoadingOptions.class);
 
-    BuildView.Options viewOptions = optionsParser.getOptions(BuildView.Options.class);
+    AnalysisOptions viewOptions = optionsParser.getOptions(AnalysisOptions.class);
     // update --keep_going option if test requested it.
     boolean keepGoing = flags.contains(Flag.KEEP_GOING);
 

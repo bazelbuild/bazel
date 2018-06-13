@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -1727,7 +1728,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             ? Options.getDefaults(LoadingOptions.class)
             : customLoadingOptions;
 
-    BuildView.Options viewOptions = Options.getDefaults(BuildView.Options.class);
+    AnalysisOptions viewOptions = Options.getDefaults(AnalysisOptions.class);
 
     LoadingResult loadingResult =
         skyframeExecutor.loadTargetPatterns(
