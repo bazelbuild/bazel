@@ -36,9 +36,16 @@ final class DebuggerSerialization {
         .setLabel(label)
         // TODO(bazel-team): omit type details for non-Skylark values
         .setType(EvalUtils.getDataTypeName(value))
-        .setDescription(Printer.repr(value))
+        .setDescription(getDescription(value))
         .addAllChild(getChildren(value))
         .build();
+  }
+
+  private static String getDescription(Object value) {
+    if (value instanceof String) {
+      return (String) value;
+    }
+    return Printer.repr(value);
   }
 
   private static Value errorValue(String errorMessage) {
