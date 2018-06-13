@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
-import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
+import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;

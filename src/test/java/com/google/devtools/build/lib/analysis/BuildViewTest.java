@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -1287,7 +1286,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "extra_action(name='xa', cmd='echo dont-care')",
         "action_listener(name='listener', mnemonics=['Mnemonic'], extra_actions=[':xa'])");
 
-    BuildView.AnalysisResult analysisResult = update("//x:a");
+    AnalysisResult analysisResult = update("//x:a");
 
     List<String> owners = new ArrayList<>();
     for (Artifact artifact : analysisResult.getAdditionalArtifactsToBuild()) {
