@@ -64,7 +64,7 @@ py_test(
     name = "bazel_external_repository_test",
     size = "medium",
     srcs = ["bazel_external_repository_test.py"],
-    tags = ["requires_internet"],
+    data = glob(["testdata/bazel_external_repository_test/**"]),
     deps = [":test_base"],
 )
 
