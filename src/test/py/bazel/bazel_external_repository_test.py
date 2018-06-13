@@ -31,11 +31,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   _http_server = None
 
   def StartHttpServer(self):
-    """Runs a simple http server to serve files under current directory.
-
-    Returns:
-      ThreadedTCPServer: a reference to the server started.
-    """
+    """Runs a simple http server to serve files under current directory."""
     # Port 0 means to select an arbitrary unused port
     host, port = 'localhost', 0
     http_handler = SimpleHTTPServer.SimpleHTTPRequestHandler
