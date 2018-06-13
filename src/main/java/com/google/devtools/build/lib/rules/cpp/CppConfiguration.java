@@ -55,6 +55,35 @@ import javax.annotation.Nullable;
  * This class represents the C/C++ parts of the {@link BuildConfiguration}, including the host
  * architecture, target architecture, compiler version, and a standard library version. It has
  * information about the tools locations and the flags required for compiling.
+ *
+ * <p>Before {@link CppConfiguration} is created, two things need to be done:
+ *
+ * <ol>
+ *   <li>choosing a {@link CcToolchainRule} label from {@code toolchains} map attribute of {@link
+ *       CcToolchainSuiteRule}.
+ *   <li>selection of a {@link
+ *       com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain} from the
+ *       CROSSTOOL file.
+ * </ol>
+ *
+ * <p>The process goes as follows:
+ *
+ * <p>Check for existence of {@link CcToolchainSuiteRule}.toolchains[<cpu>|<compiler>], if
+ * --compiler is specified, otherwise check for {@link CcToolchainSuiteRule}.toolchains[<cpu>].
+ *
+ * <ul>
+ *   <li>if a value is found, load the {@link CcToolchainRule} rule and look for the {@code
+ *       toolchain_identifier} attribute.
+ *   <li>
+ *       <ul>
+ *         <li>if the attribute exists, loop through all the {@code CToolchain}s in CROSSTOOL and
+ *             select the one with the matching toolchain identifier.
+ *         <li>otherwise fall back to selecting the CToolchain from CROSSTOOL by matching the --cpu
+ *             and --compiler values.
+ *       </ul>
+ *   <li>If a value is not found, select the CToolchain from CROSSTOOL by matching the --cpu and
+ *       --compiler values, and construct the key as follows: <toolchain.cpu>|<toolchain.compiler>.
+ * </ul>
  */
 @AutoCodec
 @Immutable
