@@ -1029,7 +1029,9 @@ public class CppHelper {
       Artifact defParser,
       ImmutableList<Artifact> objectFiles,
       String dllName) {
-    Artifact defFile = ruleContext.getBinArtifact(ruleContext.getLabel().getName() + ".def");
+    Artifact defFile = ruleContext.getBinArtifact(
+        ruleContext.getLabel().getName()
+            + ".gen" + Iterables.getOnlyElement(CppFileTypes.WINDOWS_DEF_FILE.getExtensions()));
     CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
     for (Artifact objectFile : objectFiles) {
       argv.addDynamicString(objectFile.getExecPathString());

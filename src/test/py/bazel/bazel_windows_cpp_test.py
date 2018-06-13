@@ -142,7 +142,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Windows.
     import_library = os.path.join(bazel_bin, 'A.if.lib')
     shared_library = os.path.join(bazel_bin, 'A.dll')
-    def_file = os.path.join(bazel_bin, 'A.def')
+    def_file = os.path.join(bazel_bin, 'A.gen.def')
     self.assertTrue(os.path.exists(import_library))
     self.assertTrue(os.path.exists(shared_library))
     # DEF file shouldn't be generated for //:A
@@ -163,7 +163,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Windows.
     import_library = os.path.join(bazel_bin, 'B.if.lib')
     shared_library = os.path.join(bazel_bin, 'B.dll')
-    def_file = os.path.join(bazel_bin, 'B.def')
+    def_file = os.path.join(bazel_bin, 'B.gen.def')
     self.assertTrue(os.path.exists(import_library))
     self.assertTrue(os.path.exists(shared_library))
     # DEF file should be generated for //:B
@@ -195,13 +195,13 @@ class BazelWindowsCppTest(test_base.TestBase):
     # a_shared_library
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A.dll')))
     # a_def_file
-    self.assertFalse(os.path.exists(os.path.join(bazel_bin, 'A.def')))
+    self.assertFalse(os.path.exists(os.path.join(bazel_bin, 'A.gen.def')))
     # b_import_library
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'B.if.lib')))
     # b_shared_library
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'B.dll')))
     # b_def_file
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'B.def')))
+    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'B.gen.def')))
     # c_exe
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'C.exe')))
 
@@ -362,7 +362,7 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     main_library = os.path.join(bazel_bin, 'main/main.dll')
     main_interface = os.path.join(bazel_bin, 'main/main.dll.if.lib')
-    def_file = os.path.join(bazel_bin, 'main/main.dll.def')
+    def_file = os.path.join(bazel_bin, 'main/main.dll.gen.def')
     self.assertTrue(os.path.exists(main_library))
     self.assertTrue(os.path.exists(main_interface))
     self.assertTrue(os.path.exists(def_file))
@@ -396,7 +396,7 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     main_library = os.path.join(bazel_bin, 'main/main.dll')
     main_interface = os.path.join(bazel_bin, 'main/main.dll.if.lib')
-    def_file = os.path.join(bazel_bin, 'main/main.dll.def')
+    def_file = os.path.join(bazel_bin, 'main/main.dll.gen.def')
     self.assertTrue(os.path.exists(main_library))
     self.assertTrue(os.path.exists(main_interface))
     self.assertTrue(os.path.exists(def_file))
@@ -429,7 +429,7 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     # Although windows_export_all_symbols is not specified for this target,
     # we should still be able to get the DEF file by def_file output group.
-    def_file = os.path.join(bazel_bin, 'main/main.dll.def')
+    def_file = os.path.join(bazel_bin, 'main/main.dll.gen.def')
     self.assertTrue(os.path.exists(def_file))
     self.AssertFileContentContains(def_file, 'hello_A')
     self.AssertFileContentContains(def_file, 'hello_B')
@@ -476,7 +476,7 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     bazel_bin = self.getBazelInfo('bazel-bin')
     lib_if = os.path.join(bazel_bin, 'lib.if.lib')
-    lib_def = os.path.join(bazel_bin, 'lib.def')
+    lib_def = os.path.join(bazel_bin, 'lib.gen.def')
     self.assertTrue(os.path.exists(lib_if))
     self.assertFalse(os.path.exists(lib_def))
 
