@@ -105,7 +105,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
    * Updates the {@link RuleConfiguredTargetBuilder} that is used for this rule.
    *
    * <p>GenRule implementations can override this method to enhance and update the builder without
-   * needing to entirely override the {@link ConfiguredTargetFactory#create} method.
+   * needing to entirely override the {@link com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory#create} method.
    */
   protected RuleConfiguredTargetBuilder updateBuilder(
       RuleConfiguredTargetBuilder builder,
