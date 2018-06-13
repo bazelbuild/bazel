@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
+import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1370,7 +1372,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         new SpawnActionTemplate.Builder(inputTree, outputTree)
             .setExecutable(ruleContext.getExecutablePrerequisite("$dexmerger", Mode.HOST))
             .setMnemonics("DexShardsToMerge", "DexMerger")
-            .setOutputPathMapper(input -> input.getParentRelativePath());
+            .setOutputPathMapper(
+                // Use an anonymous inner class for serialization.
+                new OutputPathMapper() {
+                  @Override
+                  public PathFragment parentRelativeOutputPath(TreeFileArtifact input) {
+                    return input.getParentRelativePath();
+                  }
+                });
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .addPlaceholderTreeArtifactExecPath("--input", inputTree)

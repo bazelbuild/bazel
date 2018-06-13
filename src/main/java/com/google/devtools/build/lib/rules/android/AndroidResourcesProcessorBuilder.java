@@ -18,13 +18,16 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidDataConverter.JoinerType;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Collections;
 import java.util.List;
 
 /** Builder for creating resource processing action. */
 public class AndroidResourcesProcessorBuilder {
 
-  private static final AndroidDataConverter<ParsedAndroidAssets> AAPT2_ASSET_DEP_TO_ARG =
+  @AutoCodec @VisibleForSerialization
+  static final AndroidDataConverter<ParsedAndroidAssets> AAPT2_ASSET_DEP_TO_ARG =
       AndroidDataConverter.<ParsedAndroidAssets>builder(JoinerType.SEMICOLON_AMPERSAND)
           .withRoots(ParsedAndroidAssets::getResourceRoots)
           .withRoots(ParsedAndroidAssets::getAssetRoots)
@@ -32,7 +35,8 @@ public class AndroidResourcesProcessorBuilder {
           .withArtifact(ParsedAndroidAssets::getSymbols)
           .build();
 
-  private static final AndroidDataConverter<ParsedAndroidAssets> AAPT2_ASSET_DEP_TO_ARG_NO_PARSE =
+  @AutoCodec @VisibleForSerialization
+  static final AndroidDataConverter<ParsedAndroidAssets> AAPT2_ASSET_DEP_TO_ARG_NO_PARSE =
       AndroidDataConverter.<ParsedAndroidAssets>builder(JoinerType.SEMICOLON_AMPERSAND)
           .withRoots(ParsedAndroidAssets::getResourceRoots)
           .withRoots(ParsedAndroidAssets::getAssetRoots)
@@ -40,7 +44,8 @@ public class AndroidResourcesProcessorBuilder {
           .withArtifact(ParsedAndroidAssets::getCompiledSymbols)
           .build();
 
-  private static final AndroidDataConverter<ValidatedAndroidData> AAPT2_RESOURCE_DEP_TO_ARG =
+  @AutoCodec @VisibleForSerialization
+  static final AndroidDataConverter<ValidatedAndroidData> AAPT2_RESOURCE_DEP_TO_ARG =
       AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
           .withRoots(ValidatedAndroidData::getResourceRoots)
           .withRoots(ValidatedAndroidData::getAssetRoots)
@@ -50,17 +55,18 @@ public class AndroidResourcesProcessorBuilder {
           .maybeWithArtifact(ValidatedAndroidData::getSymbols)
           .build();
 
-  private static final AndroidDataConverter<ValidatedAndroidData>
-      AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE =
-          AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
-              .withRoots(ValidatedAndroidData::getResourceRoots)
-              .withRoots(ValidatedAndroidData::getAssetRoots)
-              .withArtifact(ValidatedAndroidData::getManifest)
-              .maybeWithArtifact(ValidatedAndroidData::getAapt2RTxt)
-              .maybeWithArtifact(ValidatedAndroidData::getCompiledSymbols)
-              .build();
+  @AutoCodec @VisibleForSerialization
+  static final AndroidDataConverter<ValidatedAndroidData> AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE =
+      AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
+          .withRoots(ValidatedAndroidData::getResourceRoots)
+          .withRoots(ValidatedAndroidData::getAssetRoots)
+          .withArtifact(ValidatedAndroidData::getManifest)
+          .maybeWithArtifact(ValidatedAndroidData::getAapt2RTxt)
+          .maybeWithArtifact(ValidatedAndroidData::getCompiledSymbols)
+          .build();
 
-  private static final AndroidDataConverter<ValidatedAndroidData> RESOURCE_DEP_TO_ARG =
+  @AutoCodec @VisibleForSerialization
+  static final AndroidDataConverter<ValidatedAndroidData> RESOURCE_DEP_TO_ARG =
       AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
           .withRoots(ValidatedAndroidData::getResourceRoots)
           .withRoots(ValidatedAndroidData::getAssetRoots)
