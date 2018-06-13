@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -211,22 +210,6 @@ public class JavaCommon {
 
   public JavaCompilationArtifacts getJavaCompilationArtifacts() {
     return javaArtifacts;
-  }
-
-  public NestedSet<Artifact> getProcessorClasspathJars() {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
-    for (JavaPluginInfoProvider plugin : activePlugins) {
-      builder.addTransitive(plugin.getProcessorClasspath());
-    }
-    return builder.build();
-  }
-
-  public ImmutableList<String> getProcessorClassNames() {
-    Set<String> processorNames = new LinkedHashSet<>();
-    for (JavaPluginInfoProvider plugin : activePlugins) {
-      processorNames.addAll(plugin.getProcessorClasses());
-    }
-    return ImmutableList.copyOf(processorNames);
   }
 
   /**
@@ -408,37 +391,6 @@ public class JavaCommon {
     }
 
     return builder.build();
-  }
-
-  /**
-   * Collects transitive gen jars for the current rule.
-   */
-  private JavaGenJarsProvider collectTransitiveGenJars(
-          boolean usesAnnotationProcessing,
-          @Nullable Artifact genClassJar,
-          @Nullable Artifact genSourceJar) {
-    NestedSetBuilder<Artifact> classJarsBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> sourceJarsBuilder = NestedSetBuilder.stableOrder();
-
-    if (genClassJar != null) {
-      classJarsBuilder.add(genClassJar);
-    }
-    if (genSourceJar != null) {
-      sourceJarsBuilder.add(genSourceJar);
-    }
-    for (JavaGenJarsProvider dep : getDependencies(JavaGenJarsProvider.class)) {
-      classJarsBuilder.addTransitive(dep.getTransitiveGenClassJars());
-      sourceJarsBuilder.addTransitive(dep.getTransitiveGenSourceJars());
-    }
-    return new JavaGenJarsProvider(
-        usesAnnotationProcessing,
-        genClassJar,
-        genSourceJar,
-        getProcessorClasspathJars(),
-        getProcessorClassNames(),
-        classJarsBuilder.build(),
-        sourceJarsBuilder.build()
-    );
   }
 
   /**
@@ -749,16 +701,20 @@ public class JavaCommon {
       JavaInfo.Builder javaInfoBuilder,
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar) {
-    JavaGenJarsProvider genJarsProvider = collectTransitiveGenJars(
-        javaCompilationHelper.usesAnnotationProcessing(),
-        genClassJar, genSourceJar);
+    JavaGenJarsProvider genJarsProvider =
+        JavaGenJarsProvider.create(
+            javaCompilationHelper.usesAnnotationProcessing(),
+            genClassJar,
+            genSourceJar,
+            activePlugins,
+            getDependencies(JavaGenJarsProvider.class));
 
     NestedSetBuilder<Artifact> genJarsBuilder = NestedSetBuilder.stableOrder();
     genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenClassJars());
     genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenSourceJars());
 
     builder
-        .add(JavaGenJarsProvider.class, genJarsProvider)
+        .addProvider(JavaGenJarsProvider.class, genJarsProvider)
         .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genJarsBuilder.build());
 
     javaInfoBuilder.addProvider(JavaGenJarsProvider.class, genJarsProvider);

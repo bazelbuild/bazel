@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
-import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -307,6 +306,52 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(prettyArtifactNames(outputJar.getSrcJars()))
         .containsExactly("java/test/libdep-src.jar");
     assertThat(outputs.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
+  }
+
+  /**
+   * Tests that JavaInfo.java_annotation_processing returned from java_common.compile looks as
+   * expected, and specifically, looks as if java_library was used instead.
+   */
+  @Test
+  public void testJavaCommonCompileExposesAnnotationProcessingInfo() throws Exception {
+    // Set up a Skylark rule that uses java_common.compile and supports annotation processing in
+    // the same way as java_library, then use a helper method to test that the custom rule produces
+    // the same annotation processing information as java_library would.
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  return java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    deps = [d[JavaInfo] for d in ctx.attr.deps],",
+        "    exports = [e[JavaInfo] for e in ctx.attr.exports],",
+        "    plugins = [p[JavaInfo] for p in ctx.attr.plugins],",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    host_javabase = ctx.attr._host_javabase",
+        "  )",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    'deps': attr.label_list(),",
+        "    'exports': attr.label_list(),",
+        "    'plugins': attr.label_list(),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+
+    testAnnotationProcessingInfoIsSkylarkAccessible(
+        /*toBeProcessedRuleName=*/ "java_custom_library",
+        /*extraLoad=*/ "load(':custom_rule.bzl', 'java_custom_library')");
   }
 
   @Test
@@ -702,19 +747,38 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     return result;
   }
 
+  /**
+   * Tests that a java_library exposes java_processing_info as expected when annotation processing
+   * is used.
+   */
   @Test
   public void testJavaPlugin() throws Exception {
+    testAnnotationProcessingInfoIsSkylarkAccessible(
+        /*toBeProcessedRuleName=*/ "java_library", /*extraLoad=*/ "");
+  }
+
+  /**
+   * Tests that JavaInfo's java_annotation_processing looks as expected with a target that's
+   * assumed to use annotation processing itself and has a dep and an export that likewise use
+   * annotation processing.
+   */
+  private void testAnnotationProcessingInfoIsSkylarkAccessible(
+      String toBeProcessedRuleName, String extraLoad) throws Exception {
     scratch.file(
-      "java/test/extension.bzl",
-      "result = provider()",
-      "def impl(ctx):",
-      "   depj = ctx.attr.dep.java",
-      "   return [result(",
-      "             processor_classpath = depj.annotation_processing.processor_classpath,",
-      "             processor_classnames = depj.annotation_processing.processor_classnames,",
-      "          )]",
-      "my_rule = rule(impl, attrs = { 'dep' : attr.label() })"
-    );
+        "java/test/extension.bzl",
+        "result = provider()",
+        "def impl(ctx):",
+        "   depj = ctx.attr.dep[JavaInfo]",
+        "   return [result(",
+        "             enabled = depj.annotation_processing.enabled,",
+        "             class_jar = depj.annotation_processing.class_jar,",
+        "             source_jar = depj.annotation_processing.source_jar,",
+        "             processor_classpath = depj.annotation_processing.processor_classpath,",
+        "             processor_classnames = depj.annotation_processing.processor_classnames,",
+        "             transitive_class_jars = depj.annotation_processing.transitive_class_jars,",
+        "             transitive_source_jars = depj.annotation_processing.transitive_source_jars,",
+        "          )]",
+        "my_rule = rule(impl, attrs = { 'dep' : attr.label() })");
     scratch.file(
       "java/test/BUILD",
       "load(':extension.bzl', 'my_rule')",
@@ -724,27 +788,53 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
       "    srcs = ['AnnotationProcessor.java'],",
       "    processor_class = 'com.google.process.stuff',",
       "    deps = [ ':plugin_dep' ])",
-      "java_library(name = 'to_be_processed',",
+      extraLoad,
+      toBeProcessedRuleName + "(",
+      "    name = 'to_be_processed',",
       "    plugins = [':plugin'],",
-      "    srcs = ['ToBeProcessed.java'])",
+      "    srcs = ['ToBeProcessed.java'],",
+      "    deps = [':dep'],",
+      "    exports = [':export'],",
+      ")",
+      "java_library(",
+      "  name = 'dep',",
+      "  srcs = ['Dep.java'],",
+      "  plugins = [':plugin']",
+      ")",
+      "java_library(",
+      "  name = 'export',",
+      "  srcs = ['Export.java'],",
+      "  plugins = [':plugin']",
+      ")",
       "my_rule(name = 'my', dep = ':to_be_processed')");
+
+    // Assert that java_annotation_processing for :to_be_processed looks as expected:
+    // the target itself uses :plugin as the processor, and transitive information includes
+    // the target's own as well as :dep's and :export's annotation processing outputs, since those
+    // two targets also use annotation processing.
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
     Info info =
         configuredTarget.get(
             new SkylarkKey(Label.parseAbsolute("//java/test:extension.bzl"), "result"));
 
+    assertThat(info.getValue("enabled")).isEqualTo(Boolean.TRUE);
+    assertThat(info.getValue("class_jar")).isNotNull();
+    assertThat(info.getValue("source_jar")).isNotNull();
     assertThat((List<?>) info.getValue("processor_classnames"))
         .containsExactly("com.google.process.stuff");
     assertThat(
             Iterables.transform(
                 ((SkylarkNestedSet) info.getValue("processor_classpath")).toCollection(),
-                new Function<Object, String>() {
-                  @Override
-                  public String apply(Object o) {
-                    return ((Artifact) o).getFilename();
-                  }
-                }))
+                o -> ((Artifact) o).getFilename()))
         .containsExactly("libplugin.jar", "libplugin_dep.jar");
+    assertThat(((SkylarkNestedSet) info.getValue("transitive_class_jars")).toCollection())
+        .hasSize(3); // from to_be_processed, dep, and export
+    assertThat(((SkylarkNestedSet) info.getValue("transitive_class_jars")).toCollection())
+        .contains(info.getValue("class_jar"));
+    assertThat(((SkylarkNestedSet) info.getValue("transitive_source_jars")).toCollection())
+        .hasSize(3); // from to_be_processed, dep, and export
+    assertThat(((SkylarkNestedSet) info.getValue("transitive_source_jars")).toCollection())
+        .contains(info.getValue("source_jar"));
   }
 
   @Test
