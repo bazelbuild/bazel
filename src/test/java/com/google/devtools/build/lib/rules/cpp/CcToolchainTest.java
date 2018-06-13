@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -959,7 +958,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
-    assertThat(toolchainProvider.getSysroot()).isEqualTo(PathFragment.create("libc1"));
+    assertThat(toolchainProvider.getSysroot()).isEqualTo("libc1");
   }
 
   @Test
@@ -997,6 +996,6 @@ public class CcToolchainTest extends BuildViewTestCase {
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
-    assertThat(toolchainProvider.getSysroot()).isEqualTo(PathFragment.create("libc2"));
+    assertThat(toolchainProvider.getSysroot()).isEqualTo("libc2");
   }
 }
