@@ -17,12 +17,29 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
+import javax.annotation.Nullable;
 
 /**
  * An indirection layer on Path resolution of {@link Artifact} and {@link Root}.
+ *
+ * Serves as converter interface primarily for switching the {@link FileSystem} underyling the
+ * values.
  */
 public interface ArtifactPathResolver {
+
+  /**
+   * @return a resolved Path corresponding to the given actionInput.
+   */
   Path toPath(ActionInput actionInput);
+
+  /**
+   * @return a resolved Path corresponding to the given path.
+   */
+  Path convertPath(Path path);
+
+  /**
+   * @return a resolved Rooth corresponding to the given Root.
+   */
   Root transformRoot(Root root);
 
   ArtifactPathResolver IDENTITY = new IdentityResolver(null);
@@ -33,6 +50,16 @@ public interface ArtifactPathResolver {
 
   static ArtifactPathResolver withTransformedFileSystem(Path execRoot) {
     return new TransformResolver(execRoot);
+  }
+
+  static ArtifactPathResolver createPathResolver(@Nullable FileSystem fileSystem,
+      Path execRoot) {
+    if (fileSystem == null) {
+      return forExecRoot(execRoot);
+    } else {
+      return withTransformedFileSystem(
+          fileSystem.getPath(execRoot.asFragment()));
+    }
   }
 
   /**
@@ -57,6 +84,11 @@ public interface ArtifactPathResolver {
     @Override
     public Root transformRoot(Root root) {
       return Preconditions.checkNotNull(root);
+    }
+
+    @Override
+    public Path convertPath(Path path) {
+      return path;
     }
   };
 
@@ -83,6 +115,11 @@ public interface ArtifactPathResolver {
     @Override
     public Root transformRoot(Root root) {
       return Root.toFileSystem(Preconditions.checkNotNull(root), fileSystem);
+    }
+
+    @Override
+    public Path convertPath(Path path) {
+      return fileSystem.getPath(path.asFragment());
     }
   }
 }
