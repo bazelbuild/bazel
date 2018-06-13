@@ -53,7 +53,7 @@ public class NestedSetFingerprintCache {
     }
     DigestMap digestMap = mapFnToDigestMap.computeIfAbsent(mapFn, this::newDigestMap);
     fingerprint.addInt(nestedSet.getOrder().ordinal());
-    Object children = nestedSet.rawChildren();
+    Object children = nestedSet.getChildren();
     addToFingerprint(mapFn, fingerprint, digestMap, children);
   }
 
