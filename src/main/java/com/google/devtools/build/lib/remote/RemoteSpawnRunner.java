@@ -435,14 +435,19 @@ class RemoteSpawnRunner implements SpawnRunner {
       AbstractRemoteActionCache remoteCache,
       ActionKey actionKey)
       throws ExecException, IOException, InterruptedException {
-    Map<Path, Long> ctimesBefore = getInputCtimes(inputMap);
-    SpawnResult result = fallbackRunner.exec(spawn, context);
-    Map<Path, Long> ctimesAfter = getInputCtimes(inputMap);
-    for (Map.Entry<Path, Long> e : ctimesBefore.entrySet()) {
-      // Skip uploading to remote cache, because an input was modified during execution.
-      if (!ctimesAfter.get(e.getKey()).equals(e.getValue())) {
-        return result;
+    final SpawnResult result;
+    if (options.remoteCacheValidateInputCtimes) {
+      Map<Path, Long> ctimesBefore = getInputCtimes(inputMap);
+      result = fallbackRunner.exec(spawn, context);
+      Map<Path, Long> ctimesAfter = getInputCtimes(inputMap);
+      for (Map.Entry<Path, Long> e : ctimesBefore.entrySet()) {
+        // Skip uploading to remote cache, because an input was modified during execution.
+        if (!ctimesAfter.get(e.getKey()).equals(e.getValue())) {
+          return result;
+        }
       }
+    } else {
+      result = fallbackRunner.exec(spawn, context);
     }
     boolean uploadAction =
         Spawns.mayBeCached(spawn)
