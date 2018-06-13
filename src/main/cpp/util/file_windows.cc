@@ -114,15 +114,58 @@ class WindowsFileMtime : public IFileMtime {
   bool SetToDistantFuture(const string& path) override;
 
  private:
+  // 1 year in FILETIME.
+  static const ULARGE_INTEGER kOneYear;
   // 9 years in the future.
   const FILETIME near_future_;
   // 10 years in the future.
   const FILETIME distant_future_;
 
-  static FILETIME GetNow();
-  static FILETIME GetFuture(WORD years);
+  static ULARGE_INTEGER&& OneYearDelay();
+  static const FILETIME GetNow();
+  static const FILETIME GetFuture(WORD years);
   static bool Set(const string& path, const FILETIME& time);
 };
+
+const ULARGE_INTEGER WindowsFileMtime::kOneYear =
+    std::move(WindowsFileMtime::OneYearDelay());
+
+ULARGE_INTEGER&& WindowsFileMtime::OneYearDelay() {
+  SYSTEMTIME now;
+  GetSystemTime(&now);
+  now.wMonth = 1;
+  now.wDayOfWeek = 0;
+  now.wDay = 1;
+  now.wHour = 0;
+  now.wMinute = 0;
+  now.wSecond = 0;
+  now.wMilliseconds = 0;
+
+  FILETIME now_ft;
+  if (!::SystemTimeToFileTime(&now, &now_ft)) {
+    string err = GetLastErrorString();
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "WindowsFileMtime::OneYearDelay: SystemTimeToFileTime 1 failed: "
+        << err;
+  }
+  ULARGE_INTEGER t1;
+  t1.LowPart = now_ft.dwLowDateTime;
+  t1.HighPart = now_ft.dwHighDateTime;
+
+  now.wYear++;
+  if (!::SystemTimeToFileTime(&now, &now_ft)) {
+    string err = GetLastErrorString();
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "WindowsFileMtime::OneYearDelay: SystemTimeToFileTime 2 failed: "
+        << err;
+  }
+  ULARGE_INTEGER t2;
+  t2.LowPart = now_ft.dwLowDateTime;
+  t2.HighPart = now_ft.dwHighDateTime;
+
+  t2.QuadPart -= t1.QuadPart;
+  return std::move(t2);
+}
 
 bool WindowsFileMtime::GetIfInDistantFuture(const string& path, bool* result) {
   if (path.empty()) {
@@ -215,36 +258,23 @@ bool WindowsFileMtime::Set(const string& path, const FILETIME& time) {
              /* lpLastWriteTime */ &time) == TRUE;
 }
 
-FILETIME WindowsFileMtime::GetNow() {
-  SYSTEMTIME sys_time;
-  ::GetSystemTime(&sys_time);
-  FILETIME file_time;
-  if (!::SystemTimeToFileTime(&sys_time, &file_time)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WindowsFileMtime::GetNow: SystemTimeToFileTime failed: "
-        << GetLastErrorString();
-  }
-  return file_time;
+const FILETIME WindowsFileMtime::GetNow() {
+  FILETIME now;
+  GetSystemTimeAsFileTime(&now);
+  return now;
 }
 
-FILETIME WindowsFileMtime::GetFuture(WORD years) {
-  SYSTEMTIME future_time;
-  GetSystemTime(&future_time);
-  future_time.wYear += years;
-  future_time.wMonth = 1;
-  future_time.wDayOfWeek = 0;
-  future_time.wDay = 1;
-  future_time.wHour = 0;
-  future_time.wMinute = 0;
-  future_time.wSecond = 0;
-  future_time.wMilliseconds = 0;
-  FILETIME file_time;
-  if (!::SystemTimeToFileTime(&future_time, &file_time)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WindowsFileMtime::GetFuture: SystemTimeToFileTime failed: "
-        << GetLastErrorString();
-  }
-  return file_time;
+const FILETIME WindowsFileMtime::GetFuture(WORD years) {
+  FILETIME result;
+  GetSystemTimeAsFileTime(&result);
+
+  ULARGE_INTEGER result_value;
+  result_value.LowPart = result.dwLowDateTime;
+  result_value.HighPart = result.dwHighDateTime;
+  result_value.QuadPart += kOneYear.QuadPart * years;
+  result.dwLowDateTime = result_value.LowPart;
+  result.dwHighDateTime = result_value.HighPart;
+  return result;
 }
 
 IFileMtime* CreateFileMtime() { return new WindowsFileMtime(); }
