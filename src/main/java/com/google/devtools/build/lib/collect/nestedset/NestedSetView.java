@@ -42,7 +42,7 @@ public class NestedSetView<E> {
 
   /** Construct a view of a given NestedSet. */
   public NestedSetView(NestedSet<E> set) {
-    this(set.rawChildren());
+    this(set.getChildren());
   }
 
   /**

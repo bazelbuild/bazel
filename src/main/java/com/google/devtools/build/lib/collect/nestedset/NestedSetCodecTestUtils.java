@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester.VerificationFunction;
 import java.io.IOException;
 
 /** Utilities for testing NestedSet serialization. */
@@ -49,7 +50,7 @@ public class NestedSetCodecTestUtils {
         return false;
       }
       HasNestedSet that = (HasNestedSet) o;
-      return Objects.equal(nestedSetField.rawChildren(), that.nestedSetField.rawChildren());
+      return Objects.equal(nestedSetField.getChildren(), that.nestedSetField.getChildren());
     }
 
     @Override
@@ -59,7 +60,8 @@ public class NestedSetCodecTestUtils {
   }
 
   /** Perform serialization/deserialization checks for several simple NestedSet examples. */
-  public static void checkCodec(ObjectCodecs objectCodecs, boolean allowFutureBlocking)
+  public static void checkCodec(
+      ObjectCodecs objectCodecs, boolean allowFutureBlocking, boolean assertSymmetricEquality)
       throws Exception {
     new SerializationTester(
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -86,7 +88,7 @@ public class NestedSetCodecTestUtils {
                 new HasNestedSet(NestedSetBuilder.create(Order.STABLE_ORDER, "a"))))
         .setObjectCodecs(objectCodecs)
         .makeMemoizingAndAllowFutureBlocking(allowFutureBlocking)
-        .setVerificationFunction(NestedSetCodecTestUtils::verifyDeserialization)
+        .setVerificationFunction(verificationFunction(assertSymmetricEquality))
         .runTests();
   }
 
@@ -94,15 +96,21 @@ public class NestedSetCodecTestUtils {
       NestedSetStore store, NestedSet<?> nestedSet, SerializationContext serializationContext)
       throws IOException, SerializationException {
     return store
-        .computeFingerprintAndStore((Object[]) nestedSet.rawChildren(), serializationContext)
+        .computeFingerprintAndStore((Object[]) nestedSet.getChildren(), serializationContext)
         .writeStatus();
   }
 
-  private static void verifyDeserialization(
-      NestedSet<String> subject, NestedSet<String> deserialized) {
-    assertThat(subject.getOrder()).isEqualTo(deserialized.getOrder());
-    assertThat(subject.toSet()).isEqualTo(deserialized.toSet());
-    verifyStructure(subject.rawChildren(), deserialized.rawChildren());
+  private static VerificationFunction<NestedSet<String>> verificationFunction(
+      boolean assertSymmetricEquality) {
+    return (subject, deserialized) -> {
+      if (assertSymmetricEquality) {
+        assertThat(subject).isEqualTo(deserialized);
+        assertThat(deserialized).isEqualTo(subject);
+      }
+      assertThat(subject.getOrder()).isEqualTo(deserialized.getOrder());
+      assertThat(subject.toSet()).isEqualTo(deserialized.toSet());
+      verifyStructure(subject.getChildren(), deserialized.getChildren());
+    };
   }
 
   private static void verifyStructure(Object lhs, Object rhs) {

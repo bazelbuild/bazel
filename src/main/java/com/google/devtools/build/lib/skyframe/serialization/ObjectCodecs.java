@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
@@ -40,6 +41,16 @@ public class ObjectCodecs {
 
   public ObjectCodecs(ObjectCodecRegistry codecRegistry) {
     this(codecRegistry, ImmutableMap.of());
+  }
+
+  @VisibleForTesting
+  public SerializationContext getSerializationContext() {
+    return serializationContext;
+  }
+
+  @VisibleForTesting
+  public DeserializationContext getDeserializationContext() {
+    return deserializationContext;
   }
 
   public ByteString serialize(Object subject) throws SerializationException {
