@@ -926,6 +926,11 @@ public class Package {
       return this;
     }
 
+    /** Get the repository mapping for this package */
+    ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+      return this.repositoryMapping;
+    }
+
     /**
      * Sets the name of this package's BUILD file.
      */
