@@ -632,7 +632,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "executable",
         "stamp",
         "heuristic_label_expansion",
-        "kind");
+        "kind",
+        "exec_compatible_with");
   }
 
   @Test

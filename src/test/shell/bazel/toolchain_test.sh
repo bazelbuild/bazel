@@ -686,4 +686,52 @@ EOF
 }
 
 
+function test_native_rule_target_exec_constraints() {
+  mkdir -p platform
+  cat >> platform/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+constraint_setting(name = "test")
+
+constraint_value(
+    name = "test_enabled",
+    constraint_setting = ":test",
+)
+
+platform(
+    name = "test_platform",
+    constraint_values = [
+        ":test_enabled",
+    ],
+)
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+genrule(
+    name = "target",
+    outs = ["out.txt"],
+    cmd = """
+      echo "platform" > \$@
+    """,
+    exec_compatible_with = [
+        "//platform:test_enabled",
+    ],
+)
+EOF
+
+  # When no platform has the constraint, an error
+  bazel build \
+    --toolchain_resolution_debug \
+    //demo:target &> $TEST_log && fail "Build failure expected"
+  expect_log "While resolving toolchains for target //demo:target: .* from available execution platforms \[\]"
+
+  # When the platform exists, it is used.
+  bazel build \
+    --extra_execution_platforms=//platform:test_platform \
+    --toolchain_resolution_debug \
+    //demo:target &> $TEST_log || fail "Build failed"
+  expect_log "ToolchainUtil: Selected execution platform //platform:test_platform"
+}
+
+
 run_suite "toolchain tests"
