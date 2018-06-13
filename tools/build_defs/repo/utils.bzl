@@ -76,7 +76,8 @@ def patch(ctx):
         )
         st = ctx.execute([bash_exe, "-c", command])
         if st.return_code:
-            fail("Error applying patch %s:\n%s" % (str(patchfile), st.stderr))
+            fail("Error applying patch %s:\n%s%s" %
+                 (str(patchfile), st.stderr, st.stdout))
     for cmd in ctx.attr.patch_cmds:
         st = ctx.execute([bash_exe, "-c", cmd])
         if st.return_code:

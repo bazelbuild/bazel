@@ -110,6 +110,38 @@ EOF
   grep -q 'env' $foopath || fail "expected unpatched file"
 }
 
+test_patch_failed() {
+  EXTREPODIR=`pwd`
+
+  cat > my_patch_tool <<'EOF'
+#!/bin/sh
+
+echo Helpful message
+exit 1
+EOF
+  chmod u+x my_patch_tool
+
+  # Test that the patches attribute of http_archive is honored
+  mkdir main
+  cd main
+  echo "ignored anyway" > patch_foo.sh
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext-0.1.2",
+  urls=["file://${EXTREPODIR}/ext.zip"],
+  build_file_content="exports_files([\"foo.sh\"])",
+  patches = ["//:patch_foo.sh"],
+  patch_tool = "${EXTREPODIR}/my_patch_tool",
+)
+EOF
+  touch BUILD
+
+  bazel build @ext//... >"${TEST_log}" 2>&1 && fail "expected failure" || :
+  expect_log 'Helpful message'
+}
+
 test_patch_git() {
   EXTREPODIR=`pwd`
   export GIT_CONFIG_NOSYSTEM=YES
