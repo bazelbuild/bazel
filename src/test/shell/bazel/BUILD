@@ -536,7 +536,10 @@ sh_test(
     name = "help_test",
     size = "small",
     srcs = ["help_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
