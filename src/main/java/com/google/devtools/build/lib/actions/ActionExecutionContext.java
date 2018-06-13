@@ -84,7 +84,7 @@ public class ActionExecutionContext implements Closeable {
     this.artifactExpander = artifactExpander;
     this.env = env;
     this.actionFileSystem = actionFileSystem;
-    this.pathResolver = createPathResolver(actionFileSystem,
+    this.pathResolver = ArtifactPathResolver.createPathResolver(actionFileSystem,
         // executor is only ever null in testing.
         executor == null ? null : executor.getExecRoot());
   }
@@ -178,16 +178,6 @@ public class ActionExecutionContext implements Closeable {
 
   public Root getRoot(Artifact artifact) {
     return pathResolver.transformRoot(artifact.getRoot().getRoot());
-  }
-
-  private static ArtifactPathResolver createPathResolver(FileSystem actionFileSystem,
-      Path execRoot) {
-    if (actionFileSystem == null) {
-      return ArtifactPathResolver.forExecRoot(execRoot);
-    } else {
-      return ArtifactPathResolver.withTransformedFileSystem(
-          actionFileSystem.getPath(execRoot.asFragment()));
-    }
   }
 
   public ArtifactPathResolver getPathResolver() {
