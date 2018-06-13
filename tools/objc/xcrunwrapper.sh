@@ -59,20 +59,4 @@ for ARG in "$@" ; do
   UPDATEDARGS+=("${ARG}")
 done
 
-set +e
 /usr/bin/xcrun "${TOOLNAME}" "${UPDATEDARGS[@]}"
-XCRUN_EXITCODE=$?
-set -e
-REGEX="^(.*)sdk\" cannot be located(.*)$"
-if [[ ${XCRUN_EXITCODE} -ne 0 ]] ; then
-  # If xcrun failed it is assumed it will fail again in the same fashion.
-  # The second invocation is because combining and collecting stderr while
-  # preserving and emitting stdout is difficult without additional file IO.
-  XCRUN_OUTPUT="$(/usr/bin/xcrun "${TOOLNAME}" "${UPDATEDARGS[@]}" 2>&1)"
-  if [[ "${XCRUN_OUTPUT}" =~ ${REGEX} ]] ; then
-    echo "xcrunwrapper: SDK not located. This may indicate that the xcode and \
-SDK version pair is not available."
-  fi
-fi
-
-exit ${XCRUN_EXITCODE}
