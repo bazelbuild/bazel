@@ -219,8 +219,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(
             hello
                 .get(CcLinkingInfo.PROVIDER)
-                .getCcExecutionDynamicLibraries()
-                .getExecutionDynamicLibraryArtifacts())
+                .getCcDynamicLibrariesForRuntime()
+                .getDynamicLibrariesForRuntimeArtifacts())
         .containsExactly(implSharedObjectLink);
   }
 
@@ -284,8 +284,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(
             hello
                 .get(CcLinkingInfo.PROVIDER)
-                .getCcExecutionDynamicLibraries()
-                .getExecutionDynamicLibraryArtifacts())
+                .getCcDynamicLibrariesForRuntime()
+                .getDynamicLibrariesForRuntimeArtifacts())
         .containsExactly(implSharedObjectLink);
   }
 
@@ -1431,7 +1431,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcLinkParamsHasExecutionDynamicLibraries() throws Exception {
+  public void testCcLinkParamsHasDynamicLibrariesForRuntime() throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(
@@ -1444,13 +1444,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             .get(CcLinkingInfo.PROVIDER)
             .getCcLinkParamsStore()
             .getCcLinkParams(false, true)
-            .getExecutionDynamicLibraries();
+            .getDynamicLibrariesForRuntime();
     assertThat(artifactsToStrings(libraries)).doesNotContain("bin a/libfoo.ifso");
     assertThat(artifactsToStrings(libraries)).contains("bin a/libfoo.so");
   }
 
   @Test
-  public void testCcLinkParamsHasExecutionDynamicLibrariesWithoutCopyFeature() throws Exception {
+  public void testCcLinkParamsHasDynamicLibrariesForRuntimeWithoutCopyFeature() throws Exception {
     useConfiguration("--cpu=k8");
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'])");
@@ -1459,13 +1459,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             .get(CcLinkingInfo.PROVIDER)
             .getCcLinkParamsStore()
             .getCcLinkParams(false, true)
-            .getExecutionDynamicLibraries();
+            .getDynamicLibrariesForRuntime();
     assertThat(artifactsToStrings(libraries)).doesNotContain("bin _solib_k8/liba_Slibfoo.ifso");
     assertThat(artifactsToStrings(libraries)).contains("bin _solib_k8/liba_Slibfoo.so");
   }
 
   @Test
-  public void testCcLinkParamsDoNotHasExecutionDynamicLibraries() throws Exception {
+  public void testCcLinkParamsDoNotHaveDynamicLibrariesForRuntime() throws Exception {
     useConfiguration("--cpu=k8");
     ConfiguredTarget target =
         scratchConfiguredTarget(
@@ -1475,7 +1475,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             .get(CcLinkingInfo.PROVIDER)
             .getCcLinkParamsStore()
             .getCcLinkParams(false, true)
-            .getExecutionDynamicLibraries();
+            .getDynamicLibrariesForRuntime();
     assertThat(artifactsToStrings(libraries)).isEmpty();
   }
 

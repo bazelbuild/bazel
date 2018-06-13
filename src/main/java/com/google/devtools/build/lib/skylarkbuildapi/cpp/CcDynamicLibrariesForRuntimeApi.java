@@ -17,14 +17,11 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/**
- * An object that contains the execution-time dynamic libraries of a C++ rule.
- */
+ /** An object that contains the dynamic libraries for runtime of a C++ rule. */
 @SkylarkModule(
-    name = "cc_execution_dynamic_libraries ",
+    name = "cc_dynamic_libraries_for_runtime",
     documented = false,
     category = SkylarkModuleCategory.PROVIDER,
-    doc = "."
-)
-public interface CcExecutionDynamicLibrariesApi {
+    doc = ".")
+public interface CcDynamicLibrariesForRuntimeApi {
 }
