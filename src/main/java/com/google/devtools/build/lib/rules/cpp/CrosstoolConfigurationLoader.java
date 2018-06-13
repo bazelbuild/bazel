@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.io.BaseEncoding;
@@ -375,7 +376,7 @@ public class CrosstoolConfigurationLoader {
               + cpuBuilder
               + "]");
     }
-    checkToolChain(selectedIdentifier, desiredCpu);
+    checkToolchain(selectedIdentifier, desiredCpu);
 
     for (CrosstoolConfig.CToolchain toolchain : release.getToolchainList()) {
       if (toolchain.getToolchainIdentifier().equals(selectedIdentifier)) {
@@ -406,15 +407,14 @@ public class CrosstoolConfigurationLoader {
   }
 
   /**
-   * Makes sure that {@code selectedIdentifier} is a valid identifier for a toolchain,
-   * i.e. it starts with a letter or an underscore and continues with only dots, dashes,
-   * spaces, letters, digits or underscores (i.e. matches the following regular expression:
-   * "[a-zA-Z_][\.\- \w]*").
+   * Makes sure that {@code selectedIdentifier} is a valid identifier for a toolchain, i.e. it
+   * starts with a letter or an underscore and continues with only dots, dashes, spaces, letters,
+   * digits or underscores (i.e. matches the following regular expression: "[a-zA-Z_][\.\- \w]*").
    *
-   * @throws InvalidConfigurationException if selectedIdentifier does not match the
-   *         aforementioned regular expression.
+   * @throws InvalidConfigurationException if selectedIdentifier does not match the aforementioned
+   *     regular expression.
    */
-  private static void checkToolChain(String selectedIdentifier, String cpu)
+  private static void checkToolchain(String selectedIdentifier, String cpu)
       throws InvalidConfigurationException {
     // If you update this regex, please do so in the javadoc comment too, and also in the
     // crosstool_config.proto file.
@@ -437,5 +437,48 @@ public class CrosstoolConfigurationLoader {
     // Make sure that we have the requested toolchain in the result. Throw an exception if not.
     selectToolchain(file.getProto(), options, cpuTransformer);
     return file.getProto();
+  }
+
+  /**
+   * Selects a crosstool toolchain based on the toolchain identifier.
+   *
+   * @throws InvalidConfigurationException if no matching toolchain can be found, if multiple
+   *     toolchains with the same identifier are found, or if the target_cpu or compiler of the
+   *     selected toolchain are not the same as --cpu and --compiler options.
+   */
+  public static CrosstoolConfig.CToolchain getToolchainByIdentifier(
+      CrosstoolConfig.CrosstoolRelease proto,
+      String toolchainIdentifier,
+      String cpu,
+      @Nullable String compiler)
+      throws InvalidConfigurationException {
+    checkToolchain(toolchainIdentifier, cpu);
+    CrosstoolConfig.CToolchain selectedToolchain = null;
+    for (CrosstoolConfig.CToolchain toolchain : proto.getToolchainList()) {
+      if (toolchain.getToolchainIdentifier().equals(toolchainIdentifier)) {
+        if (selectedToolchain != null) {
+          throw new InvalidConfigurationException(
+              String.format("Multiple toolchains with '%s' identifier", toolchainIdentifier));
+        }
+        selectedToolchain = toolchain;
+      }
+    }
+    if (selectedToolchain == null) {
+      throw new InvalidConfigurationException(
+          String.format("Toolchain identifier '%s' was not found", toolchainIdentifier));
+    }
+    if ((compiler != null && !selectedToolchain.getCompiler().equals(compiler))
+        || !selectedToolchain.getTargetCpu().equals(cpu)) {
+      throw new InvalidConfigurationException(
+          String.format(
+              "The selected toolchain's cpu and compiler must match the command line options:\n"
+                  + "  --cpu: %s, toolchain.target_cpu: %s\n"
+                  + "  --compiler: %s, toolchain.compiler: %s",
+              cpu,
+              selectedToolchain.getTargetCpu(),
+              Strings.nullToEmpty(compiler),
+              selectedToolchain.getCompiler()));
+    }
+    return selectedToolchain;
   }
 }
