@@ -20,28 +20,24 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 
-/**
- * Information about the C++ toolchain.
- */
+/** Information about the C++ toolchain. */
 @SkylarkModule(name = "CcToolchainInfo", doc = "Information about the C++ compiler being used.")
-public interface CcToolchainProviderApi<PathFragmentT> extends ToolchainInfoApi {
+public interface CcToolchainProviderApi extends ToolchainInfoApi {
 
   @SkylarkCallable(
       name = "built_in_include_directories",
       doc = "Returns the list of built-in directories of the compiler.",
-      structField = true
-  )
-  public ImmutableList<PathFragmentT> getBuiltInIncludeDirectories();
+      structField = true)
+  public ImmutableList<String> getBuiltInIncludeDirectoriesAsStrings();
 
   @SkylarkCallable(
-    name = "sysroot",
-    structField = true,
-    doc =
-        "Returns the sysroot to be used. If the toolchain compiler does not support "
-            + "different sysroots, or the sysroot is the same as the default sysroot, then "
-            + "this method returns <code>None</code>."
-  )
-  public PathFragmentT getSysroot();
+      name = "sysroot",
+      structField = true,
+      doc =
+          "Returns the sysroot to be used. If the toolchain compiler does not support "
+              + "different sysroots, or the sysroot is the same as the default sysroot, then "
+              + "this method returns <code>None</code>.")
+  public String getSysroot();
 
   @SkylarkCallable(name = "compiler", structField = true, doc = "C++ compiler.",
       allowReturnNones = true)

@@ -45,8 +45,7 @@ import javax.annotation.Nullable;
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
 @Immutable
 @AutoCodec
-public final class CcToolchainProvider extends ToolchainInfo
-    implements CcToolchainProviderApi<PathFragment> {
+public final class CcToolchainProvider extends ToolchainInfo implements CcToolchainProviderApi {
   public static final String SKYLARK_NAME = "CcToolchainInfo";
 
   /** An empty toolchain to be returned in the error case (instead of null). */
@@ -289,6 +288,13 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   @Override
+  public ImmutableList<String> getBuiltInIncludeDirectoriesAsStrings() {
+    return builtInIncludeDirectories
+        .stream()
+        .map(PathFragment::getSafePathString)
+        .collect(ImmutableList.toImmutableList());
+  }
+
   public ImmutableList<PathFragment> getBuiltInIncludeDirectories() {
     return builtInIncludeDirectories;
   }
@@ -582,8 +588,8 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   @Override
-  public PathFragment getSysroot() {
-    return sysroot;
+  public String getSysroot() {
+    return sysroot != null ? sysroot.getPathString() : null;
   }
 
   /**

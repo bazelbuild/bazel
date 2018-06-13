@@ -582,7 +582,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         .containsExactly(
             getToolPath("system-include-dir-A-1"), getToolPath("system-include-dir-A-2"))
         .inOrder();
-    assertThat(ccProviderA.getSysroot()).isEqualTo(PathFragment.create("some"));
+    assertThat(ccProviderA.getSysroot()).isEqualTo("some");
 
     // Cursory testing of the "B" toolchain only; assume that if none of
     // toolchain B bled through into toolchain A, the reverse also didn't occur. And
