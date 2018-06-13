@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
-import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
@@ -228,26 +227,14 @@ public class BuildView {
 
   /** Returns the collection of configured targets corresponding to any of the provided targets. */
   @VisibleForTesting
-  static Iterable<? extends ConfiguredTarget> filterTestsByTargets(
-      Collection<? extends ConfiguredTarget> targets,
-      final Set<? extends Target> allowedTargets,
-      ExtendedEventHandler eventHandler,
-      PackageManager packageManager) {
+  static LinkedHashSet<ConfiguredTarget> filterTestsByTargets(
+      Collection<ConfiguredTarget> targets, Collection<Target> allowedTargets) {
+    Set<Label> allowedTargetLabels =
+        allowedTargets.stream().map(Target::getLabel).collect(Collectors.toSet());
     return targets
         .stream()
-        .filter(
-            ct -> {
-              Target target = null;
-              try {
-                target = packageManager.getTarget(eventHandler, ct.getLabel());
-              } catch (NoSuchTargetException | NoSuchPackageException | InterruptedException e) {
-                eventHandler.handle(
-                    Event.error("Failed to get target from package when filtering."));
-                return false;
-              }
-              return allowedTargets.contains(target);
-            })
-        .collect(Collectors.toSet());
+        .filter(ct -> allowedTargetLabels.contains(ct.getLabel()))
+        .collect(Collectors.toCollection(LinkedHashSet::new));
   }
 
   @ThreadCompatible
@@ -438,13 +425,7 @@ public class BuildView {
     Set<ConfiguredTarget> allTargetsToTest = null;
     if (testsToRun != null) {
       // Determine the subset of configured targets that are meant to be run as tests.
-      allTargetsToTest =
-          Sets.newLinkedHashSet(
-              filterTestsByTargets(
-                  configuredTargets,
-                  Sets.newHashSet(testsToRun),
-                  eventHandler,
-                  skyframeExecutor.getPackageManager()));
+      allTargetsToTest = filterTestsByTargets(configuredTargets, testsToRun);
     }
 
     Set<Artifact> artifactsToBuild = new HashSet<>();
