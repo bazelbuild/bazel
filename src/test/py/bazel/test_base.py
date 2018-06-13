@@ -215,8 +215,8 @@ class TestBase(unittest.TestCase):
     if os.path.exists(abspath) and not os.path.isfile(abspath):
       raise IOError('"%s" (%s) exists and is not a file' % (dst_path, abspath))
     self.ScratchDir(os.path.dirname(dst_path))
-    with open(src_path, 'r') as s:
-      with open(abspath, 'w') as d:
+    with open(src_path, 'rb') as s:
+      with open(abspath, 'wb') as d:
         d.write(s.read())
     if executable:
       os.chmod(abspath, stat.S_IRWXU)
