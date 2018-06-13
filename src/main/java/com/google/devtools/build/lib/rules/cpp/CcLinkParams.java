@@ -73,7 +73,7 @@ public final class CcLinkParams {
   private final NestedSet<LinkOptions> linkOpts;
   private final NestedSet<Linkstamp> linkstamps;
   private final NestedSet<LibraryToLink> libraries;
-  private final NestedSet<Artifact> executionDynamicLibraries;
+  private final NestedSet<Artifact> dynamicLibrariesForRuntime;
   private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
   private final NestedSet<Artifact> nonCodeInputs;
 
@@ -83,13 +83,13 @@ public final class CcLinkParams {
       NestedSet<LinkOptions> linkOpts,
       NestedSet<Linkstamp> linkstamps,
       NestedSet<LibraryToLink> libraries,
-      NestedSet<Artifact> executionDynamicLibraries,
+      NestedSet<Artifact> dynamicLibrariesForRuntime,
       ExtraLinkTimeLibraries extraLinkTimeLibraries,
       NestedSet<Artifact> nonCodeInputs) {
     this.linkOpts = linkOpts;
     this.linkstamps = linkstamps;
     this.libraries = libraries;
-    this.executionDynamicLibraries = executionDynamicLibraries;
+    this.dynamicLibrariesForRuntime = dynamicLibrariesForRuntime;
     this.extraLinkTimeLibraries = extraLinkTimeLibraries;
     this.nonCodeInputs = nonCodeInputs;
   }
@@ -119,11 +119,9 @@ public final class CcLinkParams {
     return libraries;
   }
 
-  /**
-   * Returns the executionDynamicLibraries.
-   */
-  public NestedSet<Artifact> getExecutionDynamicLibraries() {
-    return executionDynamicLibraries;
+  /** Returns the dynamicLibrariesForRuntime. */
+  public NestedSet<Artifact> getDynamicLibrariesForRuntime() {
+    return dynamicLibrariesForRuntime;
   }
 
   /**
@@ -171,7 +169,7 @@ public final class CcLinkParams {
         NestedSetBuilder.compileOrder();
     private final NestedSetBuilder<LibraryToLink> librariesBuilder =
         NestedSetBuilder.linkOrder();
-    private final NestedSetBuilder<Artifact> executionDynamicLibrariesBuilder =
+    private final NestedSetBuilder<Artifact> dynamicLibrariesForRuntimeBuilder =
         NestedSetBuilder.stableOrder();
 
     /**
@@ -213,7 +211,7 @@ public final class CcLinkParams {
           linkOptsBuilder.build(),
           linkstampsBuilder.build(),
           librariesBuilder.build(),
-          executionDynamicLibrariesBuilder.build(),
+          dynamicLibrariesForRuntimeBuilder.build(),
           extraLinkTimeLibraries,
           nonCodeInputs);
     }
@@ -299,7 +297,7 @@ public final class CcLinkParams {
       linkOptsBuilder.addTransitive(args.getLinkopts());
       linkstampsBuilder.addTransitive(args.getLinkstamps());
       librariesBuilder.addTransitive(args.getLibraries());
-      executionDynamicLibrariesBuilder.addTransitive(args.getExecutionDynamicLibraries());
+      dynamicLibrariesForRuntimeBuilder.addTransitive(args.getDynamicLibrariesForRuntime());
       if (args.getExtraLinkTimeLibraries() != null) {
         if (extraLinkTimeLibrariesBuilder == null) {
           extraLinkTimeLibrariesBuilder = ExtraLinkTimeLibraries.builder();
@@ -350,8 +348,8 @@ public final class CcLinkParams {
     }
 
     /** Adds a collection of library artifacts. */
-    public Builder addExecutionDynamicLibraries(Iterable<Artifact> libraries) {
-      executionDynamicLibrariesBuilder.addAll(libraries);
+    public Builder addDynamicLibrariesForRuntime(Iterable<Artifact> libraries) {
+      dynamicLibrariesForRuntimeBuilder.addAll(libraries);
       return this;
     }
 

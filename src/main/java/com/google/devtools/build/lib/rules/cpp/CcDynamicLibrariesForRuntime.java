@@ -19,30 +19,31 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcExecutionDynamicLibrariesApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcDynamicLibrariesForRuntimeApi;
 
-/** An object that contains the execution-time dynamic libraries of a C++ rule. */
+/** An object that contains the dynamic libraries for runtime of a C++ rule. */
 @Immutable
 @AutoCodec
-public final class CcExecutionDynamicLibraries implements CcExecutionDynamicLibrariesApi {
-  public static final CcExecutionDynamicLibraries EMPTY =
-      new CcExecutionDynamicLibraries(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+public final class CcDynamicLibrariesForRuntime implements
+    CcDynamicLibrariesForRuntimeApi {
+  public static final CcDynamicLibrariesForRuntime EMPTY =
+      new CcDynamicLibrariesForRuntime(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
-  private final NestedSet<Artifact> ccExecutionDynamicLibraries;
+  private final NestedSet<Artifact> ccDynamicLibrariesForRuntime;
 
-  public CcExecutionDynamicLibraries(NestedSet<Artifact> ccExecutionDynamicLibraries) {
-    this.ccExecutionDynamicLibraries = ccExecutionDynamicLibraries;
+  public CcDynamicLibrariesForRuntime(NestedSet<Artifact> ccDynamicLibrariesForRuntime) {
+    this.ccDynamicLibrariesForRuntime = ccDynamicLibrariesForRuntime;
   }
 
   /**
-   * Returns the execution-time dynamic libraries.
+   * Returns the dynamic libraries for runtime.
    *
-   *  <p>This normally returns the dynamic library created by the rule itself. However, if the rule
+   * <p>This normally returns the dynamic library created by the rule itself. However, if the rule
    * does not create any dynamic libraries, then it returns the combined results of calling
-   * getExecutionDynamicLibraryArtifacts on all the rule's deps. This behaviour is so that this
+   * getDynamicLibrariesForRuntimeArtifacts on all the rule's deps. This behaviour is so that this
    * method is useful for a cc_library with deps but no srcs.
    */
-  public NestedSet<Artifact> getExecutionDynamicLibraryArtifacts() {
-    return ccExecutionDynamicLibraries;
+  public NestedSet<Artifact> getDynamicLibrariesForRuntimeArtifacts() {
+    return ccDynamicLibrariesForRuntime;
   }
 }

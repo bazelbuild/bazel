@@ -60,18 +60,18 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
 
   private final CcLinkParamsStore ccLinkParamsStore;
   private final CcRunfiles ccRunfiles;
-  private final CcExecutionDynamicLibraries ccExecutionDynamicLibraries;
+  private final CcDynamicLibrariesForRuntime ccDynamicLibrariesForRuntime;
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
   CcLinkingInfo(
       CcLinkParamsStore ccLinkParamsStore,
       CcRunfiles ccRunfiles,
-      CcExecutionDynamicLibraries ccExecutionDynamicLibraries) {
+      CcDynamicLibrariesForRuntime ccDynamicLibrariesForRuntime) {
     super(PROVIDER);
     this.ccLinkParamsStore = ccLinkParamsStore;
     this.ccRunfiles = ccRunfiles;
-    this.ccExecutionDynamicLibraries = ccExecutionDynamicLibraries;
+    this.ccDynamicLibrariesForRuntime = ccDynamicLibrariesForRuntime;
   }
 
   public CcLinkParamsStore getCcLinkParamsStore() {
@@ -83,15 +83,15 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
     return ccRunfiles;
   }
 
-  public CcExecutionDynamicLibraries getCcExecutionDynamicLibraries() {
-    return ccExecutionDynamicLibraries;
+  public CcDynamicLibrariesForRuntime getCcDynamicLibrariesForRuntime() {
+    return ccDynamicLibrariesForRuntime;
   }
 
   /** A Builder for {@link CcLinkingInfo}. */
   public static class Builder {
     CcLinkParamsStore ccLinkParamsStore;
     CcRunfiles ccRunfiles;
-    CcExecutionDynamicLibraries ccExecutionDynamicLibraries;
+    CcDynamicLibrariesForRuntime ccDynamicLibrariesForRuntime;
 
     public static CcLinkingInfo.Builder create() {
       return new CcLinkingInfo.Builder();
@@ -109,15 +109,15 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
       return this;
     }
 
-    public Builder setCcExecutionDynamicLibraries(
-        CcExecutionDynamicLibraries ccExecutionDynamicLibraries) {
-      Preconditions.checkState(this.ccExecutionDynamicLibraries == null);
-      this.ccExecutionDynamicLibraries = ccExecutionDynamicLibraries;
+    public Builder setCcDynamicLibrariesForRuntime(
+        CcDynamicLibrariesForRuntime ccDynamicLibrariesForRuntime) {
+      Preconditions.checkState(this.ccDynamicLibrariesForRuntime == null);
+      this.ccDynamicLibrariesForRuntime = ccDynamicLibrariesForRuntime;
       return this;
     }
 
     public CcLinkingInfo build() {
-      return new CcLinkingInfo(ccLinkParamsStore, ccRunfiles, ccExecutionDynamicLibraries);
+      return new CcLinkingInfo(ccLinkParamsStore, ccRunfiles, ccDynamicLibrariesForRuntime);
     }
   }
 }

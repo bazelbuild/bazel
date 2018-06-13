@@ -299,8 +299,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                     common.getDynamicLibrarySymlink(library, true),
                     library,
                     CcLinkingOutputs.libraryIdentifierOf(library)));
-    linkingHelper.addDynamicLibraries(dynamicLibraries);
-    linkingHelper.addExecutionDynamicLibraries(dynamicLibraries);
+    linkingHelper.addDynamicLibrariesForLinking(dynamicLibraries);
+    linkingHelper.addDynamicLibrariesForRuntime(dynamicLibraries);
 
     CompilationInfo compilationInfo = compilationHelper.compile();
     LinkingInfo linkingInfo =
@@ -391,8 +391,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         (CcLinkingInfo) linkingInfo.getProviders().getProvider(CcLinkingInfo.PROVIDER.getKey());
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
     ccLinkingInfoBuilder.setCcLinkParamsStore(ccLinkingInfo.getCcLinkParamsStore());
-    ccLinkingInfoBuilder.setCcExecutionDynamicLibraries(
-        ccLinkingInfo.getCcExecutionDynamicLibraries());
+    ccLinkingInfoBuilder.setCcDynamicLibrariesForRuntime(
+        ccLinkingInfo.getCcDynamicLibrariesForRuntime());
     ccLinkingInfoBuilder.setCcRunfiles(new CcRunfiles(staticRunfiles, sharedRunfiles));
 
     return ccLinkingInfoBuilder.build();
