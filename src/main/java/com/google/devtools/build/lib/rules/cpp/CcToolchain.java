@@ -762,8 +762,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       return CrosstoolConfigurationLoader.selectToolchain(
           cppConfiguration.getCrosstoolFile().getProto(),
           config,
-          cppConfiguration.getLipoMode(),
-          cppConfiguration.shouldConvertLipoToThinLto(),
           cppConfiguration.getCpuTransformer());
     } catch (InvalidConfigurationException e) {
       ruleContext.throwWithRuleError(
