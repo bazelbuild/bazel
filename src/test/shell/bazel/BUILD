@@ -586,6 +586,7 @@ test_suite(
     tests = [
         ":bazel_bootstrap_distfile_test",
         ":bazel_windows_example_test",
+        ":help_test",
     ],
     visibility = ["//src/test/shell:__pkg__"],
 )
