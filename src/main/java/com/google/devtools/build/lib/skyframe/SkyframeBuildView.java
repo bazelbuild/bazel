@@ -182,7 +182,7 @@ public final class SkyframeBuildView {
    * Drops the analysis cache. If building with Skyframe, targets in {@code topLevelTargets} may
    * remain in the cache for use during the execution phase.
    *
-   * @see com.google.devtools.build.lib.analysis.BuildView.Options#discardAnalysisCache
+   * @see com.google.devtools.build.lib.analysis.AnalysisOptions#discardAnalysisCache
    */
   public void clearAnalysisCache(
       Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
