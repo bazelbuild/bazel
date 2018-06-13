@@ -59,7 +59,7 @@ ain.bzl),
 and [Go](https://github.com/bazelbuild/rules_go/blob/master/go/toolchains.rst),
 and new toolchain rules are under way for other languages and tools such as
 [bash](https://docs.google.com/document/d/e/2PACX-1vRCSB_n3vctL6bKiPkIa_RN_ybzoAccSe0ic8mxdFNZGNBJ3QGhcKjsL7YKf-ngVyjRZwCmhi_5KhcX/pub).
-If a toolchain rule does not exist for the tool your rule uses, consider [creating a custom toolchain rule](https://docs.bazel.build/versions/master/toolchains.html#creating-a-toolchain-rule).
+If a toolchain rule does not exist for the tool your rule uses, consider [/toolchains.html#creating-a-toolchain-rule).
 
 ## Managing implicit dependencies
 
@@ -79,6 +79,12 @@ However, since in a remote execution scenario each build action executes a
 separate compiler instance, compiler state and _bar_'s implicit dependency on
 _foo_ will be lost and the build will fail.
 
+To help detect and eliminate these dependency problems, Bazel 0.14.1 offers the
+local Docker sandbox, which has the same restrictions for dependencies as remote
+execution. Use the sandbox to prepare your build for remote execution by
+identifying and resolving dependency-related build errors. See [Troubleshooting Bazel Remote Execution with Docker Sandbox](/remote-execution-sandbox.html)
+for more information.
+
 ## Managing platform-dependent binaries
 
 Typically, a binary built on the host platform cannot safely execute on an
@@ -86,9 +92,7 @@ arbitrary remote execution platform due to potentially mismatched dependencies.
 For example, the SingleJar binary supplied with Bazel targets the host platform.
 However, for remote execution, SingleJar must be compiled as part of the process
 of building your code so that it targets the remote execution platform. (See the
-[target selection
-logic](https://github.com/bazelbuild/bazel/blob/130aeadfd660336572c3da397f1f107f
-0c89aa8d/tools/jdk/BUILD#L115).)
+[target selection logic](https://github.com/bazelbuild/bazel/blob/130aeadfd660336572c3da397f1f107f0c89aa8d/tools/jdk/BUILD#L115).)
 
 Do not ship binaries of build tools required by your build with your source code
 unless you are sure they will safely run in your execution platform. Instead, do
