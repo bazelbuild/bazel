@@ -59,17 +59,6 @@ public abstract class MockCcSupport {
       return this;
     }
 
-    /** Adds a default toolchain in the order of the calls. */
-    public CrosstoolBuilder addDefaultToolchain(
-        String cpu, String toolchainIdentifier, boolean supportsLipo) {
-      builder
-          .addDefaultToolchainBuilder()
-          .setCpu(cpu)
-          .setToolchainIdentifier(toolchainIdentifier)
-          .setSupportsLipo(supportsLipo);
-      return this;
-    }
-
     /** Adds a toolchain where all required fields are set. */
     public CrosstoolBuilder addToolchain(String cpu, String toolchainIdentifier, String compiler) {
       builder
