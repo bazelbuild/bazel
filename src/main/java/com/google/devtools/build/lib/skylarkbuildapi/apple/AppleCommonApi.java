@@ -336,15 +336,25 @@ public interface AppleCommonApi<FileApiT extends FileApi,
 
   @SkylarkCallable(
       name = "link_multi_arch_binary",
-      doc = "Links a (potentially multi-architecture) binary targeting Apple platforms. This "
-          + "method comprises a bulk of the logic of the <code>apple_binary</code> rule, and is "
-          + "exposed as an API to iterate on migration of <code>apple_binary</code> to skylark.\n"
-          + "<p>This API is <b>highly experimental</b> and subject to change at any time. Do not "
-          + "depend on the stability of this function at this time.",
-      mandatoryPositionals = 1 // The SkylarkRuleContext.
-  )
+      doc =
+          "Links a (potentially multi-architecture) binary targeting Apple platforms. This "
+              + "method comprises a bulk of the logic of the <code>apple_binary</code> rule, and "
+              + "is exposed as an API to iterate on migration of <code>apple_binary</code> to "
+              + "Skylark.\n"
+              + "<p>This API is <b>highly experimental</b> and subject to change at any time. Do "
+              + "not depend on the stability of this function at this time.",
+      parameters = {
+        @Param(
+            name = "ctx",
+            type = SkylarkRuleContextApi.class,
+            named = true,
+            positional = false,
+            doc = "The Skylark rule context."),
+      },
+      useEnvironment = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
-  public StructApi linkMultiArchBinary(SkylarkRuleContextApi skylarkRuleContext)
+  public StructApi linkMultiArchBinary(
+      SkylarkRuleContextApi skylarkRuleContext, Environment environment)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
