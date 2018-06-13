@@ -40,15 +40,42 @@ public class ComposingRuleTransitionFactory implements RuleTransitionFactory {
 
   @Override
   public PatchTransition buildTransitionFor(Rule rule) {
-    ConfigurationTransition composedTransition = TransitionResolver.composeTransitions(
+    ConfigurationTransition composed = TransitionResolver.composeTransitions(
         rtf1.buildTransitionFor(rule), rtf2.buildTransitionFor(rule));
-    // Even though we know the composed transition isn't a split (because neither of its children
-    // can be splits), the returned type is a generic ConfigurationTransition. So cast that back to
-    // a PatchTransition here.
-    //
-    // We could alternatively change RuleTransitionFactory's signature to a ConfigurationTransition.
-    // But it's nice to strongly enforce the interface expectation that rule transitions don't
-    // split.
-    return (BuildOptions options) -> Iterables.getOnlyElement(composedTransition.apply(options));
+    if (composed instanceof PatchTransition) {
+      // This is one of the two input transitions. Especially if it's a NoTransition or
+      // HostTransition, we should give it back so it can be specially identified as described
+      // in composeTransitions.
+      return (PatchTransition) composed;
+    } else {
+      // This is a composed transition, but we need a composed transition which is both a
+      // PatchTransition and can be registered as equal to another instance of the same composed
+      // transition.
+      return new AsPatchTransition(composed);
+    }
+  }
+
+  private static final class AsPatchTransition implements PatchTransition {
+    private final ConfigurationTransition wrapped;
+
+    private AsPatchTransition(ConfigurationTransition wrapped) {
+      this.wrapped = wrapped;
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptions options) {
+      return Iterables.getOnlyElement(wrapped.apply(options));
+    }
+
+    @Override
+    public int hashCode() {
+      return wrapped.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof AsPatchTransition
+          && this.wrapped.equals(((AsPatchTransition) other).wrapped);
+    }
   }
 }
