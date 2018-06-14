@@ -233,10 +233,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     mutableActionGraph = new MapBasedActionGraph(actionKeyContext);
     ruleClassProvider = getRuleClassProvider();
 
-    ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues = ImmutableList.of(
-        PrecomputedValue.injected(
-            RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
-            ImmutableMap.<RepositoryName, PathFragment>of()));
+    ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues =
+        ImmutableList.of(
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
+                ImmutableMap.<RepositoryName, PathFragment>of()),
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY));
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)

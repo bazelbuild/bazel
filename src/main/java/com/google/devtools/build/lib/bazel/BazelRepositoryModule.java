@@ -293,7 +293,12 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public ImmutableList<Injected> getPrecomputedValues() {
     return ImmutableList.of(
-        PrecomputedValue.injected(RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides));
+        PrecomputedValue.injected(RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides),
+        // That key will be reinjected by the sync command with a universally unique identifier.
+        // Nevertheless, we need to provide a default value for other commands.
+        PrecomputedValue.injected(
+            RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+            RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY));
   }
 
   @Override
