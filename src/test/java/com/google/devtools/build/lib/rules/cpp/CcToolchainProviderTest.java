@@ -14,14 +14,22 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,7 +38,7 @@ import org.junit.runners.JUnit4;
  * Unit tests for {@code CcToolchainProvider}
  */
 @RunWith(JUnit4.class)
-public class CcToolchainProviderTest {
+public class CcToolchainProviderTest extends BuildViewTestCase {
   @Test
   public void equalityIsObjectIdentity() throws Exception {
     CcToolchainProvider a =
@@ -111,5 +119,67 @@ public class CcToolchainProviderTest {
         .addEqualityGroup(a)
         .addEqualityGroup(b)
         .testEquals();
+  }
+
+  @Test
+  public void testSkylarkCallables() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder()
+                .addCompilerFlag("-foo_compiler")
+                .addCxxFlag("-foo_cxx")
+                .setBuiltinSysroot("/usr/local/custom-sysroot")
+                .addToolPath(ToolPath.newBuilder().setName("ar").setPath("foo/ar/path").build())
+                .buildPartial());
+    useConfiguration("--cpu=k8");
+    scratch.file("test/rule.bzl",
+        "def _impl(ctx):",
+        "  provider = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  return struct(",
+        "    dirs = provider.built_in_include_directories,",
+        "    link_options = provider.link_options_do_not_use,",
+        "    unfiltered_compiler_options = provider.unfiltered_compiler_options([]),",
+        "    sysroot = provider.sysroot,",
+        "    cpu = provider.cpu,",
+        "    compiler_options = provider.compiler_options(),",
+        "    cxx_options = provider.cxx_options(),",
+        "    ar_executable = provider.ar_executable,",
+        "  )",
+        "",
+        "my_rule = rule(",
+        "  _impl,",
+        "  attrs = {'_cc_toolchain': attr.label(default=Label('//test:toolchain')) }",
+        ")");
+
+    scratch.file("test/BUILD",
+        "load(':rule.bzl', 'my_rule')",
+        "cc_toolchain_alias(name = 'toolchain')",
+        "my_rule(name = 'target')");
+
+    ConfiguredTarget ct = getConfiguredTarget("//test:target");
+
+    @SuppressWarnings("unchecked")
+    List<String> compilerOptions = (List<String>) ct.get("compiler_options");
+    assertThat(compilerOptions).contains("-foo_compiler");
+
+    @SuppressWarnings("unchecked")
+    List<String> cxxOptions = (List<String>) ct.get("cxx_options");
+    assertThat(cxxOptions).contains("-foo_cxx");
+
+    assertThat((String) ct.get("ar_executable")).endsWith("foo/ar/path");
+
+    assertThat(ct.get("cpu")).isEqualTo("k8");
+
+    assertThat(ct.get("sysroot")).isEqualTo("/usr/local/custom-sysroot");
+
+    @SuppressWarnings("unchecked")
+    List<String> linkOptions = (List<String>) ct.get("link_options");
+    assertThat(linkOptions).contains("--sysroot=/usr/local/custom-sysroot");
+
+    @SuppressWarnings("unchecked")
+    List<String> unfilteredCompilerOptions = (List<String>) ct.get("unfiltered_compiler_options");
+    assertThat(unfilteredCompilerOptions).contains("--sysroot=/usr/local/custom-sysroot");
   }
 }
