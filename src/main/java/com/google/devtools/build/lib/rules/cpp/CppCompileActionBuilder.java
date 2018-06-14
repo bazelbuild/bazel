@@ -73,7 +73,7 @@ public class CppCompileActionBuilder {
   private UUID actionClassId = GUID;
   private CppConfiguration cppConfiguration;
   private ImmutableMap<Artifact, IncludeScannable> lipoScannableMap;
-  private final ImmutableList.Builder<Artifact> additionalIncludeScanningRoots;
+  private final ArrayList<Artifact> additionalIncludeScanningRoots;
   private Boolean shouldScanIncludes;
   private Map<String, String> executionInfo = new LinkedHashMap<>();
   private CppSemantics cppSemantics;
@@ -121,7 +121,7 @@ public class CppCompileActionBuilder {
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.lipoScannableMap = ImmutableMap.copyOf(lipoScannableMap);
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
-    this.additionalIncludeScanningRoots = new ImmutableList.Builder<>();
+    this.additionalIncludeScanningRoots = new ArrayList<>();
     this.allowUsingHeaderModules = true;
     this.env = configuration.getActionEnvironment();
     this.codeCoverageEnabled = configuration.isCodeCoverageEnabled();
@@ -139,8 +139,8 @@ public class CppCompileActionBuilder {
     this.mandatoryInputsBuilder = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(other.mandatoryInputsBuilder.build());
     this.inputsForInvalidation = other.inputsForInvalidation;
-    this.additionalIncludeScanningRoots =
-        new ImmutableList.Builder<Artifact>().addAll(other.additionalIncludeScanningRoots.build());
+    this.additionalIncludeScanningRoots = new ArrayList<>();
+    this.additionalIncludeScanningRoots.addAll(other.additionalIncludeScanningRoots);
     this.outputFile = other.outputFile;
     this.dwoFile = other.dwoFile;
     this.ltoIndexingFile = other.ltoIndexingFile;
@@ -412,7 +412,7 @@ public class CppCompileActionBuilder {
               ccCompilationContext,
               coptsFilter,
               getLipoScannables(realMandatoryInputs),
-              additionalIncludeScanningRoots.build(),
+              ImmutableList.copyOf(additionalIncludeScanningRoots),
               actionClassId,
               ImmutableMap.copyOf(executionInfo),
               getActionName(),
@@ -564,7 +564,7 @@ public class CppCompileActionBuilder {
   }
 
   public CppCompileActionBuilder addAdditionalIncludeScanningRoots(
-      Iterable<Artifact> additionalIncludeScanningRoots) {
+      List<Artifact> additionalIncludeScanningRoots) {
     this.additionalIncludeScanningRoots.addAll(additionalIncludeScanningRoots);
     return this;
   }
