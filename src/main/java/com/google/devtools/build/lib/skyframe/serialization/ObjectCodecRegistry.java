@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -106,7 +107,7 @@ public class ObjectCodecRegistry {
       // Enums must be serialized using declaring class.
       type = ((Enum) obj).getDeclaringClass();
     }
-    return getDynamicCodecDescriptor(type.getName());
+    return getDynamicCodecDescriptor(type.getName(), type);
   }
 
   /**
@@ -157,7 +158,7 @@ public class ObjectCodecRegistry {
     if (!allowDefaultCodec || tagOffset < 0 || tagOffset >= classNames.size()) {
       throw new SerializationException.NoCodecException("No codec available for tag " + tag);
     }
-    return getDynamicCodecDescriptor(classNames.get(tagOffset));
+    return getDynamicCodecDescriptor(classNames.get(tagOffset), /*type=*/ null);
   }
 
   /**
@@ -382,18 +383,32 @@ public class ObjectCodecRegistry {
     return new TypedCodecDescriptor(tag, new EnumCodec(enumType));
   }
 
-  private CodecDescriptor getDynamicCodecDescriptor(String className)
+  private CodecDescriptor getDynamicCodecDescriptor(String className, @Nullable Class<?> type)
       throws SerializationException.NoCodecException {
     Supplier<CodecDescriptor> supplier = dynamicCodecs.get(className);
-    if (supplier == null) {
-      throw new SerializationException.NoCodecException(
-          "No default codec available for " + className);
+    if (supplier != null) {
+      CodecDescriptor descriptor = supplier.get();
+      if (descriptor == null) {
+        throw new SerializationException.NoCodecException(
+            "There was a problem creating a codec for " + className + ". Check logs for details");
+      }
+      return descriptor;
     }
-    CodecDescriptor descriptor = supplier.get();
-    if (descriptor == null) {
-      throw new SerializationException.NoCodecException(
-          "There was a problem creating a codec for " + className + " check logs for details.");
+    if (type != null && LambdaCodec.isProbablyLambda(type)) {
+      if (Serializable.class.isAssignableFrom(type)) {
+        // LambdaCodec is hidden away as a codec for Serializable. This avoids special-casing it in
+        // all places we look up a codec, and doesn't clash with anything else because Serializable
+        // is an interface, not a class.
+        return classMappedCodecs.get(Serializable.class);
+      } else {
+        throw new SerializationException.NoCodecException(
+            "No default codec available for "
+                + className
+                + ". If this is a lambda, try casting it to (type & Serializable), like "
+                + "(Supplier<String> & Serializable)");
+      }
     }
-    return descriptor;
+    throw new SerializationException.NoCodecException(
+        "No default codec available for " + className);
   }
 }

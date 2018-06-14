@@ -46,7 +46,10 @@ public class AutoRegistry {
 
   /** Classes outside {@link AutoRegistry#PACKAGE_PREFIX} that need to be serialized. */
   private static final ImmutableList<String> EXTERNAL_CLASS_NAMES_TO_REGISTER =
-      ImmutableList.of("java.io.FileNotFoundException", "java.io.IOException");
+      ImmutableList.of(
+          "java.io.FileNotFoundException",
+          "java.io.IOException",
+          "java.lang.invoke.SerializedLambda");
 
   private static final ImmutableList<Object> REFERENCE_CONSTANTS_TO_REGISTER =
       ImmutableList.of(
