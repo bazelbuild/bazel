@@ -114,9 +114,14 @@ function java_compilation() {
     cat "$paramfile" >&2
   fi
 
+  # Use BAZEL_JAVAC_OPTS to pass additional arguments to javac, e.g.,
+  # export BAZEL_JAVAC_OPTS="-J-Xmx2g -J-Xms200m"
+  # Useful if your system chooses too small of a max heap for javac.
+  # We intentionally rely on shell word splitting to allow multiple
+  # additional arguments to be passed to javac.
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
-      -encoding UTF-8 "@${paramfile}"
+      -encoding UTF-8 ${BAZEL_JAVAC_OPTS} "@${paramfile}"
 
   log "Extracting helper classes for $name..."
   for f in ${library_jars} ; do
