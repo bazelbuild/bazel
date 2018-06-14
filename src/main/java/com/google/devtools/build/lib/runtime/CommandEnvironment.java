@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -69,12 +68,12 @@ public final class CommandEnvironment {
   private final BlazeWorkspace workspace;
   private final BlazeDirectories directories;
 
-  private UUID commandId;  // Unique identifier for the command being run
-  private String buildRequestId;  // Unique identifier for the build being run
+  private final UUID commandId;  // Unique identifier for the command being run
+  private final String buildRequestId;  // Unique identifier for the build being run
   private final Reporter reporter;
   private final EventBus eventBus;
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
-  private final Map<String, String> clientEnv = new TreeMap<>();
+  private final Map<String, String> clientEnv;
   private final Set<String> visibleActionEnv = new TreeSet<>();
   private final Set<String> visibleTestEnv = new TreeSet<>();
   private final Map<String, String> actionClientEnv = new TreeMap<>();
@@ -161,9 +160,10 @@ public final class CommandEnvironment {
         Preconditions.checkNotNull(
             options.getOptions(CommonCommandOptions.class),
             "CommandEnvironment needs its options provider to have CommonCommandOptions loaded.");
-    this.commandId = commandOptions.invocationId;
-    this.buildRequestId = commandOptions.buildRequestId;
-    updateClientEnv(clientOptions.clientEnv, warnings);
+    this.clientEnv = computeClientEnv(clientOptions.clientEnv);
+    this.commandId = computeCommandId(commandOptions.invocationId, warnings);
+    this.buildRequestId = computeBuildRequestId(commandOptions.buildRequestId, warnings);
+    this.crashData = new String[] { commandId + " (build id)" };
 
     // actionClientEnv contains the environment where values from actionEnvironment are overridden.
     actionClientEnv.putAll(clientEnv);
@@ -221,7 +221,7 @@ public final class CommandEnvironment {
    * command.
    */
   public Map<String, String> getClientEnv() {
-    return Collections.unmodifiableMap(clientEnv);
+    return clientEnv;
   }
 
   public Command getCommand() {
@@ -263,17 +263,18 @@ public final class CommandEnvironment {
     return Collections.unmodifiableMap(result);
   }
 
-  private void updateClientEnv(
-      List<Map.Entry<String, String>> clientEnvList, List<String> warnings) {
-    Preconditions.checkState(clientEnv.isEmpty());
-
-    Collection<Map.Entry<String, String>> env = clientEnvList;
-    for (Map.Entry<String, String> entry : env) {
+  private Map<String, String> computeClientEnv(List<Map.Entry<String, String>> clientEnvList) {
+    Map<String, String> clientEnv = new TreeMap<>();
+    for (Map.Entry<String, String> entry : clientEnvList) {
       clientEnv.put(entry.getKey(), entry.getValue());
     }
+    return Collections.unmodifiableMap(clientEnv);
+  }
 
+  private UUID computeCommandId(UUID idFromOptions, List<String> warnings) {
     // TODO(b/67895628): Stop reading ids from the environment after the compatibility window has
     // passed.
+    UUID commandId = idFromOptions;
     if (commandId == null) { // Try to set the clientId from the client environment.
       String uuidString = clientEnv.getOrDefault("BAZEL_INTERNAL_INVOCATION_ID", "");
       if (!uuidString.isEmpty()) {
@@ -290,6 +291,11 @@ public final class CommandEnvironment {
         commandId = UUID.randomUUID();
       }
     }
+    return commandId;
+  }
+
+  private String computeBuildRequestId(String idFromOptions, List<String> warnings) {
+    String buildRequestId = idFromOptions;
     if (buildRequestId == null) {
       String uuidString = clientEnv.getOrDefault("BAZEL_INTERNAL_BUILD_REQUEST_ID", "");
       if (!uuidString.isEmpty()) {
@@ -301,7 +307,7 @@ public final class CommandEnvironment {
         buildRequestId = UUID.randomUUID().toString();
       }
     }
-    setCommandIdInCrashData();
+    return buildRequestId;
   }
 
   public TimestampGranularityMonitor getTimestampGranularityMonitor() {
@@ -333,7 +339,7 @@ public final class CommandEnvironment {
    * the build info.
    */
   public UUID getCommandId() {
-    return Preconditions.checkNotNull(commandId);
+    return commandId;
   }
 
   /**
@@ -342,7 +348,7 @@ public final class CommandEnvironment {
    * strings, so we accept these when passed by environment variable for compatibility.
    */
   public String getBuildRequestId() {
-    return Preconditions.checkNotNull(buildRequestId);
+    return buildRequestId;
   }
 
   public SkyframeExecutor getSkyframeExecutor() {
@@ -433,23 +439,7 @@ public final class CommandEnvironment {
    * as it is determined.
    */
   String[] getCrashData() {
-    if (crashData == null) {
-      String buildId;
-      if (commandId == null) {
-        buildId = " (build id not set yet)";
-      } else {
-        buildId = commandId + " (build id)";
-      }
-      crashData = new String[] {buildId};
-    }
     return crashData;
-  }
-
-  private void setCommandIdInCrashData() {
-    // Update the command id in the crash data, if it is already generated
-    if (crashData != null && crashData.length >= 2) {
-      crashData[1] = getCommandId() + " (build id)";
-    }
   }
 
   /**
