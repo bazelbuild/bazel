@@ -30,7 +30,7 @@ function set_up() {
     (( attempts++ ))
     worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
     hazelcast_port=$(pick_random_unused_tcp_port) || fail "no port found"
-    "${bazel_data}/src/tools/remote/worker" \
+    "${BAZEL_RUNFILES}/src/tools/remote/worker" \
         --work_path="${work_path}" \
         --listen_port=${worker_port} \
         --hazelcast_standalone_listen_port=${hazelcast_port} \
