@@ -155,22 +155,17 @@ public final class Label
       repo = absName;
       absName = "//:" + absName.substring(1);
     }
-    String error = RepositoryName.validate(repo);
-    if (error != null) {
-      throw new LabelSyntaxException(
-          "invalid repository name '" + StringUtilities.sanitizeControlChars(repo) + "': " + error);
-    }
     try {
       LabelValidator.PackageAndTarget labelParts = LabelValidator.parseAbsoluteLabel(absName);
-      PackageIdentifier pkgId =
-          validatePackageName(
-              labelParts.getPackageName(), labelParts.getTargetName(), repo, repositoryMapping);
-      PathFragment packageFragment = pkgId.getPackageFragment();
+      PackageIdentifier pkgIdWithoutRepo =
+          validatePackageName(labelParts.getPackageName(), labelParts.getTargetName());
+      PathFragment packageFragment = pkgIdWithoutRepo.getPackageFragment();
       if (repo.isEmpty() && ABSOLUTE_PACKAGE_NAMES.contains(packageFragment)) {
-        pkgId =
-            PackageIdentifier.create(getGlobalRepoName("@", repositoryMapping), packageFragment);
+        repo = "@";
       }
-      return create(pkgId, labelParts.getTargetName());
+      RepositoryName globalRepoName = getGlobalRepoName(repo, repositoryMapping);
+      return create(
+          PackageIdentifier.create(globalRepoName, packageFragment), labelParts.getTargetName());
     } catch (BadLabelException e) {
       throw new LabelSyntaxException(e.getMessage());
     }
@@ -294,25 +289,15 @@ public final class Label
     return name;
   }
 
-  private static PackageIdentifier validatePackageName(String packageIdentifier, String name)
-      throws LabelSyntaxException {
-    return validatePackageName(
-        packageIdentifier, name, /* repo= */ null, /* repositoryMapping= */ null);
-  }
-
   /**
    * Validates the given package name and returns a canonical {@link PackageIdentifier} instance if
    * it is valid. Otherwise it throws a SyntaxException.
    */
-  private static PackageIdentifier validatePackageName(
-      String packageIdentifier,
-      String name,
-      String repo,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+  private static PackageIdentifier validatePackageName(String packageIdentifier, String name)
       throws LabelSyntaxException {
     String error = null;
     try {
-      return PackageIdentifier.parse(packageIdentifier, repo, repositoryMapping);
+      return PackageIdentifier.parse(packageIdentifier);
     } catch (LabelSyntaxException e) {
       error = e.getMessage();
       error = "invalid package name '" + packageIdentifier + "': " + error;
