@@ -171,13 +171,7 @@ public class SkylarkDebugServerTest {
                 .setThreadPausedState(
                     ThreadPausedState.newBuilder()
                         .setPauseReason(PauseReason.ALL_THREADS_PAUSED)
-                        .setLocation(expectedLocation)
-                        .addFrame(
-                            Frame.newBuilder()
-                                .setFunctionName("<top level>")
-                                .setLocation(expectedLocation)
-                                .addScope(Scope.newBuilder().setName("global"))
-                                .build()))
+                        .setLocation(expectedLocation))
                 .build());
 
     sendStartDebuggingRequest();
@@ -217,12 +211,7 @@ public class SkylarkDebugServerTest {
             .setThreadPausedState(
                 ThreadPausedState.newBuilder()
                     .setPauseReason(PauseReason.HIT_BREAKPOINT)
-                    .setLocation(breakpoint.toBuilder().setColumnNumber(1))
-                    .addFrame(
-                        Frame.newBuilder()
-                            .setFunctionName("<top level>")
-                            .setLocation(breakpoint.toBuilder().setColumnNumber(1))
-                            .addScope(Scope.newBuilder().setName("global"))))
+                    .setLocation(breakpoint.toBuilder().setColumnNumber(1)))
             .build();
 
     assertThat(client.unnumberedEvents)
@@ -449,7 +438,6 @@ public class SkylarkDebugServerTest {
     ThreadPausedState pausedState = threads.getThread(0).getThreadPausedState();
     assertThat(pausedState.getPauseReason()).isEqualTo(PauseReason.STEPPING);
     assertThat(pausedState.getLocation()).isEqualTo(expectedLocation);
-    assertThat(pausedState.getFrameCount()).isEqualTo(2);
   }
 
   @Test

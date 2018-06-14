@@ -192,17 +192,13 @@ message ThreadContinuedEvent {
   Thread thread = 1;
 }
 
-// A location or condition where the debug server will pause execution.
+// A location where the debug server will pause execution.
 message Breakpoint {
   oneof condition {
     // A breakpoint that is triggered when a particular line is reached.
     // Column index will be ignored for breakpoints.
     Location location = 1;
   }
-  // An optional condition for the breakpoint. When present, the breakpoint will
-  // be triggered iff both the primary condition holds and this expression
-  // evaluates to True.
-  string expression = 2;
 }
 
 // A single frame in a thread's stack trace.
@@ -280,11 +276,6 @@ message ThreadPausedState {
   // The location in Skylark code of the next statement or expression that will
   // be executed.
   Location location = 2;
-
-  // The list of stack frames for the paused thread. The first element in the
-  // list represents the topmost frame (that is, the current innermost
-  // function).
-  repeated Frame frame = 3;
 }
 
 // The reason why a thread was paused
