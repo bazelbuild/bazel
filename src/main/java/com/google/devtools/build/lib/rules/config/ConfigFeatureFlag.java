@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.syntax.Printer;
+import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
@@ -101,7 +102,7 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
 
     List<String> specifiedValues = ruleContext.attributes().get("allowed_values", STRING_LIST);
     ImmutableSet<String> values = ImmutableSet.copyOf(specifiedValues);
-    Predicate<String> isValidValue = Predicates.in(values);
+    Predicate<String> isValidValue = (Predicate<String> & Serializable) Predicates.in(values);
     if (values.size() != specifiedValues.size()) {
       ImmutableMultiset<String> groupedValues = ImmutableMultiset.copyOf(specifiedValues);
       ImmutableList.Builder<String> duplicates = new ImmutableList.Builder<String>();
