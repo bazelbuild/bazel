@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -1373,13 +1374,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .setExecutable(ruleContext.getExecutablePrerequisite("$dexmerger", Mode.HOST))
             .setMnemonics("DexShardsToMerge", "DexMerger")
             .setOutputPathMapper(
-                // Use an anonymous inner class for serialization.
-                new OutputPathMapper() {
-                  @Override
-                  public PathFragment parentRelativeOutputPath(TreeFileArtifact input) {
-                    return input.getParentRelativePath();
-                  }
-                });
+                (OutputPathMapper & Serializable) TreeFileArtifact::getParentRelativePath);
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .addPlaceholderTreeArtifactExecPath("--input", inputTree)
