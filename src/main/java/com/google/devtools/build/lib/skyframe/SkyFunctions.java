@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.skyframe.ShareabilityOfValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -81,7 +82,8 @@ public final class SkyFunctions {
       SkyFunctionName.create("TARGET_COMPLETION");
   public static final SkyFunctionName ASPECT_COMPLETION =
       SkyFunctionName.create("ASPECT_COMPLETION");
-  public static final SkyFunctionName TEST_COMPLETION = SkyFunctionName.create("TEST_COMPLETION");
+  public static final SkyFunctionName TEST_COMPLETION =
+      SkyFunctionName.create("TEST_COMPLETION", ShareabilityOfValue.NEVER);
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.create("BUILD_CONFIGURATION");
   public static final SkyFunctionName CONFIGURATION_FRAGMENT =

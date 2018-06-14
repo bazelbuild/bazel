@@ -105,10 +105,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     int actionIndex = actionLookupData.getActionIndex();
     Action action = actionLookupValue.getAction(actionIndex);
     skyframeActionExecutor.noteActionEvaluationStarted(actionLookupData, action);
-    // TODO(bazel-team): Non-volatile NotifyOnActionCacheHit actions perform worse in Skyframe than
-    // legacy when they are not at the top of the action graph. In legacy, they are stored
-    // separately, so notifying non-dirty actions is cheap. In Skyframe, they depend on the
-    // BUILD_ID, forcing invalidation of upward transitive closure on each build.
     if ((action.isVolatile() && !(action instanceof SkyframeAwareAction))
         || action instanceof NotifyOnActionCacheHit) {
       // Volatile build actions may need to execute even if none of their known inputs have changed.
@@ -413,11 +409,12 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           "Error, we're not re-executing a "
               + "SkyframeAwareAction which should be re-executed unconditionally. Action: %s",
           action);
-      return new ActionExecutionValue(
+      return ActionExecutionValue.create(
           metadataHandler.getOutputArtifactData(),
           metadataHandler.getOutputTreeArtifactData(),
           metadataHandler.getAdditionalOutputData(),
-          /*outputSymlinks=*/ null);
+          /*outputSymlinks=*/ null,
+          action instanceof NotifyOnActionCacheHit);
     }
 
     // Delete the metadataHandler's cache of the action's outputs, since they are being deleted.

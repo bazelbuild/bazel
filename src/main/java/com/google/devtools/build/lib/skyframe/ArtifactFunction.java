@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -318,7 +317,6 @@ class ArtifactFunction implements SkyFunction {
     return Label.print(ArtifactSkyKey.artifact(skyKey).getOwner());
   }
 
-  @VisibleForTesting
   static ActionLookupKey getActionLookupKey(Artifact artifact) {
     ArtifactOwner artifactOwner = artifact.getArtifactOwner();
 
@@ -327,7 +325,7 @@ class ArtifactFunction implements SkyFunction {
   }
 
   @Nullable
-  private static ActionLookupValue getActionLookupValue(
+  static ActionLookupValue getActionLookupValue(
       SkyKey actionLookupKey, SkyFunction.Environment env, Artifact artifact)
       throws InterruptedException {
     ActionLookupValue value = (ActionLookupValue) env.getValue(actionLookupKey);

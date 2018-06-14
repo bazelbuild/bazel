@@ -272,11 +272,12 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
 
       TreeArtifactValue treeArtifactValue = TreeArtifactValue.create(treeArtifactData);
 
-      return new ActionExecutionValue(
+      return ActionExecutionValue.create(
           fileData,
           ImmutableMap.of(output, treeArtifactValue),
           ImmutableMap.<Artifact, FileArtifactValue>of(),
-          /*outputSymlinks=*/ null);
+          /*outputSymlinks=*/ null,
+          /*notifyOnActionCacheHitAction=*/ false);
     }
 
     @Override
