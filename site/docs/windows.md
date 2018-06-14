@@ -12,8 +12,8 @@ instructions.
 
 ## Known issues
 
-We mark Windows-related Bazel issues on GitHub with the "multi-platform >
-windows" label. [You can see the open issues here.](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
+We mark Windows-related Bazel issues on GitHub with the "platform:windows"
+label. [You can see the open issues here.](https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3A%22platform%3A+windows%22)
 
 ## Running Bazel: MSYS2 shell vs. Command Prompt vs. PowerShell
 
