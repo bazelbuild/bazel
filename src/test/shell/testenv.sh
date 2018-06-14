@@ -83,7 +83,6 @@ workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
 distdir_bzl_file="${BAZEL_RUNFILES}/distdir.bzl"
 
 # Bazel
-bazel_tree="$(rlocation io_bazel/src/test/shell/bazel/doc-srcs.zip)"
 bazel_data="${BAZEL_RUNFILES}"
 
 # Java
@@ -400,6 +399,10 @@ function setup_clean_workspace() {
   bazel info bazel-bin >"$bazel_stdout" 2>"$bazel_stderr" \
     && export BAZEL_BIN_DIR=$(cat "$bazel_stdout") \
     || log_fatal "'bazel info bazel-bin' failed, stderr: $(cat "$bazel_stderr")"
+  # Shut down this server in case the tests will run Bazel in a different output
+  # root, otherwise we could not clean up $WORKSPACE_DIR (under $TEST_TMPDIR)
+  # once the test is finished.
+  bazel shutdown
   rm -f "$bazel_stdout" "$bazel_stderr"
 
   if is_windows; then
@@ -414,6 +417,8 @@ function cleanup_workspace() {
     log_info "Cleaning up workspace" >> $TEST_log
     cd ${WORKSPACE_DIR}
     bazel clean >> $TEST_log 2>&1 # Clean up the output base
+    # Shut down this server to allow any cleanup code to delete its output_root.
+    bazel shutdown
 
     for i in *; do
       if ! is_tools_directory "$i"; then
@@ -501,7 +506,6 @@ function assert_bazel_run() {
 }
 
 setup_bazelrc
-setup_clean_workspace
 
 ################### shell/integration/testenv ############################
 # Setting up the environment for our legacy integration tests.
