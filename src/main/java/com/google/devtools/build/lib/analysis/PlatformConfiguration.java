@@ -19,20 +19,14 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformConfigurationApi;
 import java.util.List;
 
 /** A configuration fragment describing the current platform configuration. */
 @AutoCodec
 @ThreadSafety.Immutable
-@SkylarkModule(
-  name = "platform",
-  doc = "The platform configuration.",
-  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
-public class PlatformConfiguration extends BuildConfiguration.Fragment {
+public class PlatformConfiguration extends BuildConfiguration.Fragment
+    implements PlatformConfigurationApi {
   private final Label hostPlatform;
   private final ImmutableList<String> extraExecutionPlatforms;
   private final ImmutableList<Label> targetPlatforms;
@@ -53,7 +47,7 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
     this.enabledToolchainTypes = enabledToolchainTypes;
   }
 
-  @SkylarkCallable(name = "host_platform", structField = true, doc = "The current host platform")
+  @Override
   public Label getHostPlatform() {
     return hostPlatform;
   }
@@ -66,7 +60,7 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
     return extraExecutionPlatforms;
   }
 
-  @SkylarkCallable(name = "platforms", structField = true, doc = "The current target platforms")
+  @Override
   public ImmutableList<Label> getTargetPlatforms() {
     return targetPlatforms;
   }
@@ -79,11 +73,7 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
     return extraToolchains;
   }
 
-  @SkylarkCallable(
-    name = "enabled_toolchain_types",
-    structField = true,
-    doc = "The set of toolchain types enabled for platform-based toolchain selection."
-  )
+  @Override
   public List<Label> getEnabledToolchainTypes() {
     return enabledToolchainTypes;
   }

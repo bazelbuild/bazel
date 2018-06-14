@@ -16,19 +16,22 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineItem.ParametrizedMapFn;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Objects;
+import com.google.errorprone.annotations.CompileTimeConstant;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Factory for functions to convert a {@code T} to a commandline argument. Uses a certain convention
  * for commandline arguments (e.g., separators, and ordering of container elements).
+ *
+ * <p>Should only need to be created statically, and in limited quantity.
  */
 public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
 
@@ -36,12 +39,13 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
    * Converts Android data to the "SerializedAndroidData" format used by the Android data processing
    * actions.
    */
+  @AutoCodec
   static final AndroidDataConverter<MergableAndroidData> MERGABLE_DATA_CONVERTER =
       AndroidDataConverter.<MergableAndroidData>builder(JoinerType.SEMICOLON_AMPERSAND)
           .withRoots(MergableAndroidData::getResourceRoots)
           .withRoots(MergableAndroidData::getAssetRoots)
           .withLabel(MergableAndroidData::getLabel)
-          .withArtifact(MergableAndroidData::getSymbols)
+          .maybeWithArtifact(MergableAndroidData::getSymbols)
           .build();
 
   /** Indicates the type of joiner between options expected by the command line. */
@@ -73,19 +77,17 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
     this.joinerType = joinerType;
   }
 
+  // We must override equals and hashCode as per the contract of ParametrizedMapFn, but we
+  // statically create a very small number of these objects, so we know that reference equality is
+  // enough.
   @Override
   public boolean equals(Object obj) {
-    if (!(obj instanceof AndroidDataConverter)) {
-      return false;
-    }
-
-    AndroidDataConverter<?> other = (AndroidDataConverter) obj;
-    return suppliers.equals(other.suppliers) && joinerType.equals(other.joinerType);
+    return this == obj;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(suppliers, joinerType);
+    return System.identityHashCode(this);
   }
 
   @Override
@@ -118,16 +120,13 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
     return new Builder<>(joinerType);
   }
 
-  public void addDepsToCommandLine(
-      CustomCommandLine.Builder cmdBuilder,
-      NestedSet<? extends T> direct,
-      NestedSet<? extends T> transitive) {
-    cmdBuilder.addAll("--data", getVectorArg(transitive));
-    cmdBuilder.addAll("--directData", getVectorArg(direct));
-  }
-
   public VectorArg<String> getVectorArg(NestedSet<? extends T> values) {
     return VectorArg.join(joinerType.listSeparator).each(values).mapped(this);
+  }
+
+  public VectorArg<String> getVectorArgForEach(
+      @CompileTimeConstant String arg, NestedSet<? extends T> values) {
+    return VectorArg.addBefore(arg).each(values).mapped(this);
   }
 
   static class Builder<T> {
@@ -139,31 +138,25 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
     }
 
     Builder<T> withRoots(Function<T, ImmutableList<PathFragment>> rootsFunction) {
-      return with(new Function<T, String>() {
-        @Override
-        public String apply(T t) {
-          return rootsToString(rootsFunction.apply(t));
-        }
-      });
+      return with(t -> rootsToString(rootsFunction.apply(t)));
     }
 
     Builder<T> withArtifact(Function<T, Artifact> artifactFunction) {
-      return with(new Function<T, String>() {
-        @Override
-        public String apply(T t) {
-          return artifactFunction.apply(t).getExecPathString();
-        }
-      });
+      return with(t -> artifactFunction.apply(t).getExecPathString());
+    }
+
+    Builder<T> maybeWithArtifact(Function<T, Artifact> nullableArtifactFunction) {
+      return with(
+          t -> {
+            @Nullable Artifact artifact = nullableArtifactFunction.apply(t);
+            return artifact == null ? "" : artifact.getExecPathString();
+          });
     }
 
     Builder<T> withLabel(Function<T, Label> labelFunction) {
       // Escape labels, since they are known to contain separating characters (specifically, ':').
-      return with(new Function<T, String>() {
-        @Override
-        public String apply(T t) {
-          return joinerType.escape(labelFunction.apply(t).toString());
-        }
-      });
+      // Anonymous inner class for serialization.
+      return with(t -> joinerType.escape(labelFunction.apply(t).toString()));
     }
 
     Builder<T> with(Function<T, String> stringFunction) {

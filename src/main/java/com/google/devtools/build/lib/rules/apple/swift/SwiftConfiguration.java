@@ -24,22 +24,16 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.SwiftConfigurationApi;
 
 /**
  * A configuration containing flags required for Swift tools. This is used primarily by swift_*
  * family of rules written in Skylark.
  */
 @AutoCodec
-@SkylarkModule(
-  name = "swift",
-  doc = "A configuration fragment for Swift tools.",
-  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
 @Immutable
-public class SwiftConfiguration extends BuildConfiguration.Fragment {
+public class SwiftConfiguration extends BuildConfiguration.Fragment
+    implements SwiftConfigurationApi {
   private final ImmutableList<String> copts;
 
   public SwiftConfiguration(SwiftCommandLineOptions options) {
@@ -52,10 +46,7 @@ public class SwiftConfiguration extends BuildConfiguration.Fragment {
   }
 
   /** Returns a list of options to use for compiling Swift. */
-  @SkylarkCallable(
-    name = "copts",
-    doc = "A list of compiler options that should be passed to <code>swiftc</code> when compiling "
-        + "Swift code.")
+  @Override
   public ImmutableList<String> getCopts() {
     return copts;
   }

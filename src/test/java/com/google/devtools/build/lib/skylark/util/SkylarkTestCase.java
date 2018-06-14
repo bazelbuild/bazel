@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
@@ -29,13 +30,14 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import java.util.List;
 import org.junit.Before;
 
 /**
@@ -52,21 +54,25 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     ev.initialize();
   }
 
+  private static final Environment.GlobalFrame getSkylarkGlobals() {
+    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
+
+    SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
+    Runtime.setupModuleGlobals(envBuilder, PlatformCommon.class);
+
+    return GlobalFrame.createForBuiltins(envBuilder.build());
+  }
+
   protected EvaluationTestCase createEvaluationTestCase(SkylarkSemantics semantics) {
     return new EvaluationTestCase() {
       @Override
       public Environment newEnvironment() throws Exception {
-        List<Class<?>> modules =
-            new ImmutableList.Builder<Class<?>>()
-                .addAll(SkylarkModules.MODULES)
-                .add(PlatformCommon.class)
-                .build();
         Environment env =
             Environment.builder(mutability)
                 .setSemantics(semantics)
                 .setEventHandler(getEventHandler())
                 .setGlobals(
-                    SkylarkModules.getGlobals(modules)
+                    getSkylarkGlobals()
                         .withLabel(
                             Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
                 .setPhase(Phase.LOADING)

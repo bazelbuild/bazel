@@ -33,13 +33,13 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -55,10 +56,10 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
+import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.BuildView;
-import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -122,7 +123,6 @@ import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -134,7 +134,6 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.LegacyLoadingPhaseRunner;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -180,7 +179,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected AnalysisMock analysisMock;
   protected ConfiguredRuleClassProvider ruleClassProvider;
-  protected BuildView view;
+  protected BuildViewForTesting view;
 
   protected SequencedSkyframeExecutor skyframeExecutor;
 
@@ -234,10 +233,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     mutableActionGraph = new MapBasedActionGraph(actionKeyContext);
     ruleClassProvider = getRuleClassProvider();
 
-    ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues = ImmutableList.of(
-        PrecomputedValue.injected(
-            RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
-            ImmutableMap.<RepositoryName, PathFragment>of()));
+    ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues =
+        ImmutableList.of(
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
+                ImmutableMap.<RepositoryName, PathFragment>of()),
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY));
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
@@ -512,7 +515,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.setupDefaultPackage(defaultsPackageContent);
     skyframeExecutor.handleConfiguredTargetChange();
 
-    view = new BuildView(directories, ruleClassProvider, skyframeExecutor, null);
+    view = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
     view.setConfigurationsForTesting(event -> {}, masterConfig);
 
     view.setArtifactRoots(new PackageRootsNoSymlinkCreation(Root.fromPath(rootDirectory)));
@@ -902,8 +905,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .build());
 
     invalidatePackages();
-    // Need to re-initialize the workspace status.
-    getSkyframeExecutor().maybeInvalidateWorkspaceStatusValue("test");
   }
 
   /**
@@ -1142,6 +1143,32 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Gets a tree artifact, creating it if necessary. {@code ArtifactOwner} should be a genuine
+   * {@link ConfiguredTargetKey} corresponding to a {@link ConfiguredTarget}. If called from a test
+   * that does not exercise the analysis phase, the convenience methods {@link
+   * #getBinArtifactWithNoOwner} or {@link #getGenfilesArtifactWithNoOwner} should be used instead.
+   */
+  protected Artifact getTreeArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
+    return view.getArtifactFactory().getTreeArtifact(rootRelativePath, root, owner);
+  }
+
+  /**
+   * Gets a Tree Artifact for testing in the subdirectory of the {@link
+   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So to
+   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
+   * "foo.o".
+   */
+  protected final Artifact getTreeArtifact(String packageRelativePath, ConfiguredTarget owner) {
+    return getPackageRelativeTreeArtifact(
+        packageRelativePath,
+        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
+        ConfiguredTargetKey.of(
+            owner, skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey())));
+  }
+
+
+  /**
    * Gets a derived Artifact for testing with path of the form
    * root/owner.getPackageFragment()/packageRelativePath.
    *
@@ -1155,6 +1182,20 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Gets a tree Artifact for testing with path of the form
+   * root/owner.getPackageFragment()/packageRelativePath.
+   *
+   * @see #getDerivedArtifact(PathFragment, ArtifactRoot, ArtifactOwner)
+   */
+  private Artifact getPackageRelativeTreeArtifact(
+      String packageRelativePath, ArtifactRoot root, ArtifactOwner owner) {
+    return getTreeArtifact(
+        owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
+        root, owner);
+  }
+
+
+  /**
    * Gets a derived Artifact for testing in the {@link BuildConfiguration#getBinDirectory}. This
    * method should only be used for tests that do no analysis, and so there is no ConfiguredTarget
    * to own this artifact. If the test runs the analysis phase, {@link #getBinArtifact(String,
@@ -1164,19 +1205,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getDerivedArtifact(PathFragment.create(rootRelativePath),
         targetConfig.getBinDirectory(RepositoryName.MAIN),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
-  }
-
-  /**
-   * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So
-   * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
-   * be "foo.o".
-   */
-  protected Artifact getBinArtifact(String packageRelativePath, String owner) {
-    return getPackageRelativeDerivedArtifact(
-        packageRelativePath,
-        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
-        makeConfiguredTargetKey(owner));
   }
 
   /**
@@ -1296,13 +1324,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageRelativePath,
         getConfiguration(owner)
             .getGenfilesDirectory(owner.getLabel().getPackageIdentifier().getRepository()),
-        (AspectValue.AspectKey)
-            AspectValue.createAspectKey(
-                    owner.getLabel(),
-                    getConfiguration(owner),
-                    new AspectDescriptor(creatingAspectFactory, params),
-                    getConfiguration(owner))
-                .argument());
+        getOwnerForAspect(owner, creatingAspectFactory, params));
+  }
+
+  protected AspectValue.AspectKey getOwnerForAspect(
+      ConfiguredTarget owner, NativeAspectClass creatingAspectFactory, AspectParameters params) {
+    return (AspectValue.AspectKey)
+        AspectValue.createAspectKey(
+                owner.getLabel(),
+                getConfiguration(owner),
+                new AspectDescriptor(creatingAspectFactory, params),
+                getConfiguration(owner))
+            .argument();
   }
 
   /**
@@ -1329,11 +1362,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getIncludeDirectory} corresponding to the package of {@code owner}.
-   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
-   * just be "foo.h".
+   * BuildConfiguration#getIncludeDirectory} corresponding to the package of {@code owner}. So to
+   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
+   * "foo.h".
    */
-  private Artifact getIncludeArtifact(String packageRelativePath, ArtifactOwner owner) {
+  protected Artifact getIncludeArtifact(String packageRelativePath, ArtifactOwner owner) {
     return getPackageRelativeDerivedArtifact(packageRelativePath,
         targetConfig.getIncludeDirectory(owner.getLabel().getPackageIdentifier().getRepository()),
         owner);
@@ -1633,7 +1666,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       return null;
     } else {
       return skyframeExecutor.getConfigurationForTesting(
-          reporter, fromConfig.fragmentClasses(), transition.apply(fromConfig.getOptions()));
+          reporter, fromConfig.fragmentClasses(), transition.patch(fromConfig.getOptions()));
     }
   }
 
@@ -1699,12 +1732,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             ? Options.getDefaults(LoadingOptions.class)
             : customLoadingOptions;
 
-    BuildView.Options viewOptions = Options.getDefaults(BuildView.Options.class);
+    AnalysisOptions viewOptions = Options.getDefaults(AnalysisOptions.class);
 
-    LoadingPhaseRunner runner = new LegacyLoadingPhaseRunner(getPackageManager(),
-        Collections.unmodifiableSet(ruleClassProvider.getRuleClassMap().keySet()));
     LoadingResult loadingResult =
-        runner.execute(
+        skyframeExecutor.loadTargetPatterns(
             reporter,
             targets,
             PathFragment.EMPTY_FRAGMENT,
@@ -1922,6 +1953,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
+    public ImmutableSet<Artifact> getTreeArtifactsConflictingWithFiles() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ActionKeyContext getActionKeyContext() {
       return actionKeyContext;
     }
@@ -2067,12 +2103,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /** Creates instances of {@link ActionExecutionContext} consistent with test case. */
   public class ActionExecutionContextBuilder {
-    private ActionInputFileCache actionInputFileCache = null;
+    private MetadataProvider actionInputFileCache = null;
     private TreeMap<String, String> clientEnv = new TreeMap<>();
     private ArtifactExpander artifactExpander = null;
 
-    public ActionExecutionContextBuilder setActionInputFileCache(
-        ActionInputFileCache actionInputFileCache) {
+    public ActionExecutionContextBuilder setMetadataProvider(
+        MetadataProvider actionInputFileCache) {
       this.actionInputFileCache = actionInputFileCache;
       return this;
     }
@@ -2089,7 +2125,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           /*actionInputPrefetcher=*/ null,
           actionKeyContext,
           /*metadataHandler=*/ null,
-          actionLogBufferPathGenerator.generate(),
+          actionLogBufferPathGenerator.generate(ArtifactPathResolver.IDENTITY),
           clientEnv,
           ImmutableMap.of(),
           artifactExpander,

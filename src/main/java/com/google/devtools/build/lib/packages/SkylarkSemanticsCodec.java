@@ -43,10 +43,10 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
       SerializationContext context, SkylarkSemantics semantics, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     // <== Add new options here in alphabetic order ==>
+    codedOut.writeBoolNoTag(semantics.experimentalEnableRepoMapping());
     codedOut.writeBoolNoTag(semantics.incompatibleBzlDisallowLoadAfterStatement());
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetIsNotIterable());
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetUnion());
-    codedOut.writeBoolNoTag(semantics.incompatibleDisableGlobTracking());
     codedOut.writeBoolNoTag(semantics.incompatibleDisableObjcProviderResources());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowDictPlus());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowFileType());
@@ -54,6 +54,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowOldStyleArgsAdd());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowSlashOperator());
     codedOut.writeBoolNoTag(semantics.incompatibleNewActionsApi());
+    codedOut.writeBoolNoTag(semantics.incompatibleNoSupportToolsInActionInputs());
     codedOut.writeBoolNoTag(semantics.incompatiblePackageNameIsAFunction());
     codedOut.writeBoolNoTag(semantics.incompatibleRemoveNativeGitRepository());
     codedOut.writeBoolNoTag(semantics.incompatibleRemoveNativeHttpArchive());
@@ -67,10 +68,10 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     SkylarkSemantics.Builder builder = SkylarkSemantics.builder();
 
     // <== Add new options here in alphabetic order ==>
+    builder.experimentalEnableRepoMapping(codedIn.readBool());
     builder.incompatibleBzlDisallowLoadAfterStatement(codedIn.readBool());
     builder.incompatibleDepsetIsNotIterable(codedIn.readBool());
     builder.incompatibleDepsetUnion(codedIn.readBool());
-    builder.incompatibleDisableGlobTracking(codedIn.readBool());
     builder.incompatibleDisableObjcProviderResources(codedIn.readBool());
     builder.incompatibleDisallowDictPlus(codedIn.readBool());
     builder.incompatibleDisallowFileType(codedIn.readBool());
@@ -78,6 +79,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     builder.incompatibleDisallowOldStyleArgsAdd(codedIn.readBool());
     builder.incompatibleDisallowSlashOperator(codedIn.readBool());
     builder.incompatibleNewActionsApi(codedIn.readBool());
+    builder.incompatibleNoSupportToolsInActionInputs(codedIn.readBool());
     builder.incompatiblePackageNameIsAFunction(codedIn.readBool());
     builder.incompatibleRemoveNativeGitRepository(codedIn.readBool());
     builder.incompatibleRemoveNativeHttpArchive(codedIn.readBool());

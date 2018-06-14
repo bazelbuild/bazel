@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
+import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.query2.engine.Callback;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MinDepthUniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MutableKeyExtractorBackedMapImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
@@ -62,6 +64,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
+import com.google.devtools.build.lib.skyframe.RecursivePkgValueRootPackageExtractor;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
@@ -90,15 +93,14 @@ import javax.annotation.Nullable;
  *
  * <p>This environment can theoretically be used for multiple queries, but currently is only ever
  * used for one over the course of its lifetime. If this ever changed to be used for multiple, the
- * {@link accessor} field should be initialized on a per-query basis not a per-environment basis.
+ * {@link ConfiguredTargetAccessor} field should be initialized on a per-query basis not a
+ * per-environment basis.
  *
- * <p>There is currently a limited way to specify a configuration in the query syntax via
- * {@link ConfigFunction}. This currently still limits the user to choosing the 'target', 'host', or
- * null configurations. It shouldn't be terribly difficult to expand this with
- * {@link OptionsDiffForReconstruction} to handle fully customizable configurations if the need
- * arises in the future.
- *
- * <p>On the other end, recursive target patterns are not supported.
+ * <p>There is currently a limited way to specify a configuration in the query syntax via {@link
+ * ConfigFunction}. This currently still limits the user to choosing the 'target', 'host', or null
+ * configurations. It shouldn't be terribly difficult to expand this with {@link
+ * OptionsDiffForReconstruction} to handle fully customizable configurations if the need arises in
+ * the future.
  *
  * <p>Aspects are also not supported, but probably should be in some fashion.
  */
@@ -137,6 +139,8 @@ public class ConfiguredTargetQueryEnvironment
 
   private RecursivePackageProviderBackedTargetPatternResolver resolver;
 
+  private CqueryOptions cqueryOptions;
+
   public ConfiguredTargetQueryEnvironment(
       boolean keepGoing,
       ExtendedEventHandler eventHandler,
@@ -169,6 +173,21 @@ public class ConfiguredTargetQueryEnvironment
         };
   }
 
+  public ConfiguredTargetQueryEnvironment(
+      boolean keepGoing,
+      ExtendedEventHandler eventHandler,
+      Iterable<QueryFunction> extraFunctions,
+      BuildConfiguration defaultTargetConfiguration,
+      BuildConfiguration hostConfiguration,
+      String parserPrefix,
+      PathPackageLocator pkgPath,
+      Supplier<WalkableGraph> walkableGraphSupplier,
+      CqueryOptions cqueryOptions) {
+    this(keepGoing, eventHandler, extraFunctions, defaultTargetConfiguration, hostConfiguration,
+        parserPrefix, pkgPath, walkableGraphSupplier, cqueryOptions.toSettings());
+    this.cqueryOptions = cqueryOptions;
+  }
+
   private static ImmutableList<QueryFunction> populateFunctions() {
     return new ImmutableList.Builder<QueryFunction>()
         .addAll(QueryEnvironment.DEFAULT_QUERY_FUNCTIONS)
@@ -182,21 +201,22 @@ public class ConfiguredTargetQueryEnvironment
 
   public ImmutableList<CqueryThreadsafeCallback> getDefaultOutputFormatters(
       TargetAccessor<ConfiguredTarget> accessor,
-      CqueryOptions options,
       Reporter reporter,
       SkyframeExecutor skyframeExecutor,
       BuildConfiguration hostConfiguration,
       @Nullable RuleTransitionFactory trimmingTransitionFactory,
-      AspectResolver resolver) {
+      PackageManager packageManager) {
+    AspectResolver aspectResolver =
+        cqueryOptions.aspectDeps.createResolver(packageManager, reporter);
     OutputStream out = reporter.getOutErr().getOutputStream();
     return new ImmutableList.Builder<CqueryThreadsafeCallback>()
         .add(
             new LabelAndConfigurationOutputFormatterCallback(
-                reporter, options, out, skyframeExecutor, accessor))
+                reporter, cqueryOptions, out, skyframeExecutor, accessor))
         .add(
             new TransitionsOutputFormatterCallback(
                 reporter,
-                options,
+                cqueryOptions,
                 out,
                 skyframeExecutor,
                 accessor,
@@ -204,8 +224,12 @@ public class ConfiguredTargetQueryEnvironment
                 trimmingTransitionFactory))
         .add(
             new ProtoOutputFormatterCallback(
-                reporter, options, out, skyframeExecutor, accessor, resolver))
+                reporter, cqueryOptions, out, skyframeExecutor, accessor, aspectResolver))
         .build();
+  }
+
+  public String getOutputFormat() {
+    return cqueryOptions.outputFormat;
   }
 
   @Override
@@ -219,7 +243,8 @@ public class ConfiguredTargetQueryEnvironment
   private void beforeEvaluateQuery() throws InterruptedException, QueryException {
     graph = walkableGraphSupplier.get();
     GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider =
-        new GraphBackedRecursivePackageProvider(graph, ALL_PATTERNS, pkgPath);
+        new GraphBackedRecursivePackageProvider(
+            graph, ALL_PATTERNS, pkgPath, new RecursivePkgValueRootPackageExtractor());
     resolver =
         new RecursivePackageProviderBackedTargetPatternResolver(
             graphBackedRecursivePackageProvider,
@@ -431,7 +456,8 @@ public class ConfiguredTargetQueryEnvironment
   }
 
   @Override
-  public ThreadSafeMutableSet<ConfiguredTarget> getFwdDeps(Iterable<ConfiguredTarget> targets)
+  public ThreadSafeMutableSet<ConfiguredTarget> getFwdDeps(
+      Iterable<ConfiguredTarget> targets, QueryExpressionContext<ConfiguredTarget> context)
       throws InterruptedException {
     Map<SkyKey, ConfiguredTarget> targetsByKey = new HashMap<>(Iterables.size(targets));
     for (ConfiguredTarget target : targets) {
@@ -464,7 +490,8 @@ public class ConfiguredTargetQueryEnvironment
   }
 
   @Override
-  public Collection<ConfiguredTarget> getReverseDeps(Iterable<ConfiguredTarget> targets)
+  public Collection<ConfiguredTarget> getReverseDeps(
+      Iterable<ConfiguredTarget> targets, QueryExpressionContext<ConfiguredTarget> context)
       throws InterruptedException {
     Map<SkyKey, ConfiguredTarget> targetsByKey = new HashMap<>(Iterables.size(targets));
     for (ConfiguredTarget target : targets) {
@@ -580,12 +607,13 @@ public class ConfiguredTargetQueryEnvironment
     return ConfiguredTargetKey.of(target, getConfiguration(target));
   }
 
-
   @Override
   public ThreadSafeMutableSet<ConfiguredTarget> getTransitiveClosure(
-      ThreadSafeMutableSet<ConfiguredTarget> targets) throws InterruptedException {
+      ThreadSafeMutableSet<ConfiguredTarget> targets,
+      QueryExpressionContext<ConfiguredTarget> context)
+      throws InterruptedException {
     return SkyQueryUtils.getTransitiveClosure(
-        targets, this::getFwdDeps, createThreadSafeMutableSet());
+        targets, targets1 -> getFwdDeps(targets1, context), createThreadSafeMutableSet());
   }
 
   @Override
@@ -596,10 +624,14 @@ public class ConfiguredTargetQueryEnvironment
   }
 
   @Override
-  public ImmutableList<ConfiguredTarget> getNodesOnPath(ConfiguredTarget from, ConfiguredTarget to)
+  public ImmutableList<ConfiguredTarget> getNodesOnPath(
+      ConfiguredTarget from, ConfiguredTarget to, QueryExpressionContext<ConfiguredTarget> context)
       throws InterruptedException {
     return SkyQueryUtils.getNodesOnPath(
-        from, to, this::getFwdDeps, configuredTargetKeyExtractor::extractKey);
+        from,
+        to,
+        targets -> getFwdDeps(targets, context),
+        configuredTargetKeyExtractor::extractKey);
   }
 
   @Override
@@ -627,23 +659,9 @@ public class ConfiguredTargetQueryEnvironment
         configuredTargetKeyExtractor, SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
   }
 
+  /** Target patterns are resolved on the fly so no pre-work to be done here. */
   @Override
-  protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
-      throws QueryException, TargetParsingException, InterruptedException {
-    for (String pattern : patterns) {
-      if (TargetPattern.defaultParser()
-          .parse(pattern)
-          .getType()
-          .equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY)) {
-        // TODO(bazel-team): allow recursive patterns if the pattern is present in the graph? We
-        // could do a mini-eval here to update the graph to contain the necessary nodes for
-        // GraphBackedRecursivePackageProvider, since all the package loading and directory
-        // traversal should already be done.
-        throw new QueryException(
-            "Recursive pattern '" + pattern + "' is not supported in configured target query");
-      }
-    }
-  }
+  protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns) {}
 
   public static QueryOptions parseOptions(String rawOptions) throws QueryException {
     List<String> options = new ArrayList<>(Arrays.asList(rawOptions.split(" ")));
@@ -662,7 +680,8 @@ public class ConfiguredTargetQueryEnvironment
       QueryExpression caller,
       ThreadSafeMutableSet<ConfiguredTarget> nodes,
       boolean buildFiles,
-      boolean loads)
+      boolean loads,
+      QueryExpressionContext<ConfiguredTarget> context)
       throws QueryException, InterruptedException {
     throw new QueryException("buildfiles() doesn't make sense for the configured target graph");
   }

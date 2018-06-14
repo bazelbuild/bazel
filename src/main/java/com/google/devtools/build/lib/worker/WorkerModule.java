@@ -16,17 +16,28 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
+import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
+import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand.CleanStartingEvent;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
@@ -124,8 +135,35 @@ public class WorkerModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     Preconditions.checkNotNull(workerPool);
-    builder.addActionContextProvider(new WorkerActionContextProvider(env, workerPool));
-    builder.addActionContextConsumer(new WorkerActionContextConsumer());
+    ImmutableMultimap<String, String> extraFlags =
+        ImmutableMultimap.copyOf(env.getOptions().getOptions(WorkerOptions.class).workerExtraFlags);
+    WorkerSpawnRunner spawnRunner =
+        new WorkerSpawnRunner(
+            env.getExecRoot(),
+            workerPool,
+            extraFlags,
+            env.getReporter(),
+            createFallbackRunner(env));
+    builder.addActionContext(new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner));
+
+    builder.addStrategyByContext(SpawnActionContext.class, "standalone");
+    builder.addStrategyByContext(SpawnActionContext.class, "worker");
+  }
+
+  private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
+    LocalExecutionOptions localExecutionOptions =
+        env.getOptions().getOptions(LocalExecutionOptions.class);
+    LocalEnvProvider localEnvProvider =
+        OS.getCurrent() == OS.DARWIN
+            ? new XcodeLocalEnvProvider(env.getClientEnv())
+            : (OS.getCurrent() == OS.WINDOWS
+                ? new WindowsLocalEnvProvider(env.getClientEnv())
+                : new PosixLocalEnvProvider(env.getClientEnv()));
+    return new LocalSpawnRunner(
+        env.getExecRoot(),
+        localExecutionOptions,
+        ResourceManager.instance(),
+        localEnvProvider);
   }
 
   @Subscribe

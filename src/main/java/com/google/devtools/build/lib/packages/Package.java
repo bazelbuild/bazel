@@ -25,6 +25,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
 import com.google.devtools.build.lib.events.Event;
@@ -180,6 +181,20 @@ public class Package {
   private License defaultLicense;
   private Set<License.DistributionType> defaultDistributionSet;
 
+  /**
+   * The map from each repository to that repository's remappings map.
+   * This is only used in the //external package, it is an empty map for all other packages.
+   * For example, an entry of {"@foo" : {"@x", "@y"}} indicates that, within repository foo,
+   * "@x" should be remapped to "@y".
+   */
+  private ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
+      externalPackageRepositoryMappings;
+
+  /**
+   * The map of repository reassignments for BUILD packages. This will be empty for packages
+   * within the main workspace.
+   */
+  private ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
 
   /**
    * The names of the package() attributes that declare default values for rule
@@ -222,6 +237,49 @@ public class Package {
   /** Returns this packages' identifier. */
   public PackageIdentifier getPackageIdentifier() {
     return packageIdentifier;
+  }
+
+  /**
+   * Returns the repository mapping for the requested external repository.
+   *
+   * @throws UnsupportedOperationException if called from a package other than
+   *     the //external package
+   */
+  public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
+      RepositoryName repository) {
+    if (!isWorkspace()) {
+      throw new UnsupportedOperationException("Can only access the external package repository"
+          + "mappings from the //external package");
+    }
+    return externalPackageRepositoryMappings.getOrDefault(repository, ImmutableMap.of());
+  }
+
+  /**
+   * Returns the workspace mappings for the repository with the given absolute name.
+   *
+   * @throws LabelSyntaxException if repository is not a valid {@link RepositoryName}
+   */
+  public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
+      String repository) throws LabelSyntaxException {
+    RepositoryName repositoryName = RepositoryName.create(repository);
+    return getRepositoryMapping(repositoryName);
+  }
+
+  /**
+   * Gets the global name for a repository within an external repository.
+   *
+   * <p>{@code localName} is a repository name reference found in a BUILD file within a repository
+   * external to the main workspace. This method returns the main workspace's global remapped name
+   * for {@code localName}.
+   */
+  public RepositoryName getGlobalName(RepositoryName localName) {
+    RepositoryName globalname = repositoryMapping.get(localName);
+    return globalname != null ? globalname : localName;
+  }
+
+  /** Returns whether we are in the WORKSPACE file or not. */
+  public boolean isWorkspace() {
+    return getPackageIdentifier().equals(Label.EXTERNAL_PACKAGE_IDENTIFIER);
   }
 
   /**
@@ -282,7 +340,9 @@ public class Package {
     Path current = buildFile.getParentDirectory();
     for (int i = 0, len = packageFragment.segmentCount();
          i < len && !packageFragment.equals(PathFragment.EMPTY_FRAGMENT); i++) {
-      current = current.getParentDirectory();
+      if (current != null) {
+        current = current.getParentDirectory();
+      }
     }
     return Root.fromPath(current);
   }
@@ -309,8 +369,8 @@ public class Package {
     this.packageDirectory = filename.getParentDirectory();
 
     this.sourceRoot = getSourceRoot(filename, packageIdentifier.getSourceRoot());
-    if ((sourceRoot == null
-        || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory))
+    if ((sourceRoot.asPath() == null
+            || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory))
         && !filename.getBaseName().equals("WORKSPACE")) {
       throw new IllegalArgumentException(
           "Invalid BUILD file name for package '" + packageIdentifier + "': " + filename);
@@ -335,6 +395,20 @@ public class Package {
     this.posts = ImmutableList.copyOf(builder.posts);
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
+    this.repositoryMapping = builder.repositoryMapping;
+    ImmutableMap.Builder<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
+        repositoryMappingsBuilder = ImmutableMap.builder();
+    if (!builder.externalPackageRepositoryMappings.isEmpty() && !builder.isWorkspace()) {
+      // 'repo_mapping' should only be used in the //external package, i.e. should only appear
+      // in WORKSPACE files. Currently, if someone tries to use 'repo_mapping' in a BUILD rule, they
+      // will get a "no such attribute" error. This check is to protect against a 'repo_mapping'
+      // attribute being added to a rule in the future.
+      throw new IllegalArgumentException(
+          "'repo_mapping' may only be used in the //external package");
+    }
+    builder.externalPackageRepositoryMappings.forEach((k, v) ->
+        repositoryMappingsBuilder.put(k, ImmutableMap.copyOf(v)));
+    this.externalPackageRepositoryMappings = repositoryMappingsBuilder.build();
   }
 
   /**
@@ -498,11 +572,13 @@ public class Package {
     // stat(2) is executed.
     Path filename = getPackageDirectory().getRelative(targetName);
     String suffix;
-    if (!PathFragment.isNormalized(targetName)) {
-      // Don't check for file existence in this case because the error message
-      // would be confusing and wrong. If the targetName is "foo/bar/.", and
-      // there is a directory "foo/bar", it doesn't mean that "//pkg:foo/bar/."
-      // is a valid label.
+    if (!PathFragment.isNormalized(targetName) || "*".equals(targetName)) {
+      // Don't check for file existence if the target name is not normalized
+      // because the error message would be confusing and wrong. If the
+      // targetName is "foo/bar/.", and there is a directory "foo/bar", it
+      // doesn't mean that "//pkg:foo/bar/." is a valid label.
+      // Also don't check if the target name is a single * character since
+      // it's invalid on Windows.
       suffix = "";
     } else if (filename.isDirectory()) {
       suffix = "; however, a source directory of this name exists.  (Perhaps add "
@@ -727,6 +803,13 @@ public class Package {
      */
     protected Package pkg;
 
+    // The map from each repository to that repository's remappings map.
+    // This is only used in the //external package, it is an empty map for all other packages.
+    private final HashMap<RepositoryName, HashMap<RepositoryName, RepositoryName>>
+        externalPackageRepositoryMappings = new HashMap<>();
+    // The map of repository reassignments for BUILD packages loaded within external repositories.
+    // It will be empty for packages within the main workspace.
+    private ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of();
     private Path filename = null;
     private Label buildFileLabel = null;
     private InputFile buildFile = null;
@@ -797,6 +880,50 @@ public class Package {
     /** Determine if we are in the WORKSPACE file or not */
     public boolean isWorkspace() {
       return pkg.getPackageIdentifier().equals(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+    }
+
+    /**
+     * Updates the externalPackageRepositoryMappings entry for {@code repoWithin}. Adds new
+     * entry from {@code localName} to {@code mappedName} in {@code repoWithin}'s map.
+     *
+     * @param repoWithin the RepositoryName within which the mapping should apply
+     * @param localName the RepositoryName that actually appears in the WORKSPACE and BUILD files
+     *    in the {@code repoWithin} repository
+     * @param mappedName the RepositoryName by which localName should be referenced
+     */
+    public Builder addRepositoryMappingEntry(
+        RepositoryName repoWithin, RepositoryName localName, RepositoryName mappedName) {
+      HashMap<RepositoryName, RepositoryName> mapping =
+          externalPackageRepositoryMappings
+              .computeIfAbsent(repoWithin, (RepositoryName k) -> new HashMap<>());
+      mapping.put(localName, mappedName);
+      return this;
+    }
+
+    /** Adds all the mappings from a given {@link Package}. */
+    public Builder addRepositoryMappings(Package aPackage) {
+      ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
+          repositoryMappings = aPackage.externalPackageRepositoryMappings;
+      for (Map.Entry<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>> repositoryName :
+          repositoryMappings.entrySet()) {
+        for (Map.Entry<RepositoryName, RepositoryName> repositoryNameRepositoryNameEntry :
+            repositoryName.getValue().entrySet()) {
+          addRepositoryMappingEntry(
+              repositoryName.getKey(),
+              repositoryNameRepositoryNameEntry.getKey(),
+              repositoryNameRepositoryNameEntry.getValue());
+        }
+      }
+      return this;
+    }
+
+    /**
+     * Sets the repository mapping for a regular, BUILD file package (i.e. not the //external
+     * package)
+     */
+    Builder setRepositoryMapping(ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      this.repositoryMapping = repositoryMapping;
+      return this;
     }
 
     /**
@@ -1520,6 +1647,7 @@ public class Package {
         Package input,
         CodedOutputStream codedOut)
         throws IOException, SerializationException {
+      context.checkClassExplicitlyAllowed(Package.class);
       PackageCodecDependencies codecDeps = context.getDependency(PackageCodecDependencies.class);
       codecDeps.getPackageSerializer().serialize(context, input, codedOut);
     }

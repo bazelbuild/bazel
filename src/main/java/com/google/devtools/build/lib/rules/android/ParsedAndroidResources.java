@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
@@ -32,7 +31,7 @@ public class ParsedAndroidResources extends AndroidResources
   private final StampedAndroidManifest manifest;
 
   public static ParsedAndroidResources parseFrom(
-      RuleContext ruleContext,
+      AndroidDataContext dataContext,
       AndroidResources resources,
       StampedAndroidManifest manifest,
       boolean enableDataBinding,
@@ -41,23 +40,23 @@ public class ParsedAndroidResources extends AndroidResources
 
     boolean isAapt2 = aaptVersion == AndroidAaptVersion.AAPT2;
 
-    AndroidResourceParsingActionBuilder builder =
-        new AndroidResourceParsingActionBuilder(ruleContext);
+    AndroidResourceParsingActionBuilder builder = new AndroidResourceParsingActionBuilder();
 
     if (enableDataBinding && isAapt2) {
       // TODO(corysmith): Centralize the data binding processing and zipping into a single
       // action. Data binding processing needs to be triggered here as well as the merger to
       // avoid aapt2 from throwing an error during compilation.
-      builder.setDataBindingInfoZip(DataBinding.getSuffixedInfoFile(ruleContext, "_unused"));
+      builder.setDataBindingInfoZip(
+          DataBinding.getSuffixedInfoFile(dataContext.getActionConstructionContext(), "_unused"));
     }
 
     return builder
-        .setOutput(ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_MERGED_SYMBOLS))
+        .setOutput(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_MERGED_SYMBOLS))
         .setCompiledSymbolsOutput(
             isAapt2
-                ? ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS)
+                ? dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS)
                 : null)
-        .build(resources, manifest);
+        .build(dataContext, resources, manifest);
   }
 
   public static ParsedAndroidResources of(
@@ -127,13 +126,13 @@ public class ParsedAndroidResources extends AndroidResources
 
   /** Merges this target's resources with resources from dependencies. */
   MergedAndroidResources merge(
-      RuleContext ruleContext,
+      AndroidDataContext dataContext,
       ResourceDependencies resourceDeps,
       boolean enableDataBinding,
       AndroidAaptVersion aaptVersion)
       throws InterruptedException {
     return MergedAndroidResources.mergeFrom(
-        ruleContext, this, resourceDeps, enableDataBinding, aaptVersion);
+        dataContext, this, resourceDeps, enableDataBinding, aaptVersion);
   }
 
   @Override

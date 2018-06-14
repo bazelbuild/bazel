@@ -19,55 +19,62 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcRunfilesApi;
 
 /**
- * Runfiles provider for C++ targets.
+ * Runfiles for C++ targets.
  *
- * <p>Contains two {@link Runfiles} objects: one for the eventual statically linked binary and one
- * for the one that uses shared libraries. Data dependencies are present in both.
+ * <p>Contains two {@link Runfiles} objects: one for the statically linked binary and one for the
+ * dynamically linked binary. Both contain dynamic libraries needed at runtime and data
+ * dependencies.
  */
 @Immutable
 @AutoCodec
-public final class CcRunfiles {
+public final class CcRunfiles implements CcRunfilesApi {
 
-  private final Runfiles staticRunfiles;
-  private final Runfiles sharedRunfiles;
+  private final Runfiles runfilesForLinkingStatically;
+  private final Runfiles runfilesForLinkingDynamically;
 
   @AutoCodec.Instantiator
-  public CcRunfiles(Runfiles staticRunfiles, Runfiles sharedRunfiles) {
-    this.staticRunfiles = staticRunfiles;
-    this.sharedRunfiles = sharedRunfiles;
+  public CcRunfiles(Runfiles runfilesForLinkingStatically, Runfiles runfilesForLinkingDynamically) {
+    this.runfilesForLinkingStatically = runfilesForLinkingStatically;
+    this.runfilesForLinkingDynamically = runfilesForLinkingDynamically;
   }
 
-  public Runfiles getStaticRunfiles() {
-    return staticRunfiles;
+  @Override
+  public Runfiles getRunfilesForLinkingStatically() {
+    return runfilesForLinkingStatically;
   }
 
-  public Runfiles getSharedRunfiles() {
-    return sharedRunfiles;
+  @Override
+  public Runfiles getRunfilesForLinkingDynamically() {
+    return runfilesForLinkingDynamically;
   }
 
   /**
    * Returns a function that gets the static C++ runfiles from a {@link TransitiveInfoCollection} or
    * the empty runfiles instance if it does not contain that provider.
    */
-  public static final Function<TransitiveInfoCollection, Runfiles> STATIC_RUNFILES =
+  public static final Function<TransitiveInfoCollection, Runfiles> RUNFILES_FOR_LINKING_STATICALLY =
       input -> {
         CcLinkingInfo provider = input.get(CcLinkingInfo.PROVIDER);
         CcRunfiles ccRunfiles = provider == null ? null : provider.getCcRunfiles();
-        return ccRunfiles == null ? Runfiles.EMPTY : ccRunfiles.getStaticRunfiles();
+        return ccRunfiles == null ? Runfiles.EMPTY : ccRunfiles.getRunfilesForLinkingStatically();
       };
 
   /**
    * Returns a function that gets the shared C++ runfiles from a {@link TransitiveInfoCollection} or
    * the empty runfiles instance if it does not contain that provider.
    */
-  public static final Function<TransitiveInfoCollection, Runfiles> SHARED_RUNFILES =
-      input -> {
-        CcLinkingInfo provider = input.get(CcLinkingInfo.PROVIDER);
-        CcRunfiles ccRunfiles = provider == null ? null : provider.getCcRunfiles();
-        return ccRunfiles == null ? Runfiles.EMPTY : ccRunfiles.getSharedRunfiles();
-      };
+  public static final Function<TransitiveInfoCollection, Runfiles>
+      RUNFILES_FOR_LINKING_DYNAMICALLY =
+          input -> {
+            CcLinkingInfo provider = input.get(CcLinkingInfo.PROVIDER);
+            CcRunfiles ccRunfiles = provider == null ? null : provider.getCcRunfiles();
+            return ccRunfiles == null
+                ? Runfiles.EMPTY
+                : ccRunfiles.getRunfilesForLinkingDynamically();
+          };
 
   /**
    * Returns a function that gets the C++ runfiles from a {@link TransitiveInfoCollection} or
@@ -75,6 +82,6 @@ public final class CcRunfiles {
    */
   public static final Function<TransitiveInfoCollection, Runfiles> runfilesFunction(
       boolean linkingStatically) {
-    return linkingStatically ? STATIC_RUNFILES : SHARED_RUNFILES;
+    return linkingStatically ? RUNFILES_FOR_LINKING_STATICALLY : RUNFILES_FOR_LINKING_DYNAMICALLY;
   }
 }

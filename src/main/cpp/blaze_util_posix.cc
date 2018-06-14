@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/main/cpp/blaze_util_platform.h"
+
 #define _WITH_DPRINTF
 #include <dirent.h>
 #include <errno.h>
@@ -36,7 +38,6 @@
 #include <cinttypes>
 
 #include "src/main/cpp/blaze_util.h"
-#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/global_variables.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
@@ -45,6 +46,8 @@
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 
 namespace blaze {
 
@@ -172,10 +175,6 @@ void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
   const char** argv = ConvertStringVectorToArgv(args_vector);
   execv(exe.c_str(), const_cast<char**>(argv));
 }
-
-std::string ConvertPath(const std::string &path) { return path; }
-
-std::string PathAsJvmFlag(const std::string& path) { return path; }
 
 const char kListSeparator = ':';
 
@@ -401,10 +400,6 @@ int ExecuteDaemon(const string& exe,
       return -1;
     }
   }
-}
-
-bool CompareAbsolutePaths(const string& a, const string& b) {
-  return a == b;
 }
 
 string GetHashedBaseDir(const string& root, const string& hashable) {

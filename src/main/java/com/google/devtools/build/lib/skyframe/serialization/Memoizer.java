@@ -135,7 +135,6 @@ class Memoizer {
   /** A context for serializing; wraps a memo table. Not thread-safe. */
   static class Serializer {
     private final SerializingMemoTable memo = new SerializingMemoTable();
-    @Nullable private String lastString = null;
 
     /**
      * Serializes an object using the given codec and current memo table state.
@@ -151,57 +150,16 @@ class Memoizer {
         throws SerializationException, IOException {
       MemoizationStrategy strategy = codec.getStrategy();
       if (strategy == MemoizationStrategy.DO_NOT_MEMOIZE) {
-        // TODO(janakr): there is no reason this is limited to the DO_NOT_MEMOIZE case, but we don't
-        // memoize Strings, so putting the code here saves a tiny bit of work in the other cases. If
-        // the StringCodec#getStrategy changes, this block of code will have to move.
-        if (!maybeEmitString(context, obj, codec, codedOut)) {
-          codec.serialize(context, obj, codedOut);
-        }
+        codec.serialize(context, obj, codedOut);
       } else {
         // The caller already checked the table, so this is definitely a new value.
         serializeMemoContent(context, obj, codec, codedOut, strategy);
       }
     }
 
-    private <T> boolean maybeEmitString(
-        SerializationContext context,
-        T obj,
-        ObjectCodec<? super T> codec,
-        CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      if (!(obj instanceof String)) {
-        return false;
-      }
-      int commonPrefixLen = -1;
-      String str = (String) obj;
-      if (lastString != null) {
-        commonPrefixLen = commonPrefixLen(str, lastString);
-        if (commonPrefixLen != 0) {
-          @SuppressWarnings("unchecked")
-          T checkObj = (T) codec.getEncodedClass().cast(str.substring(commonPrefixLen));
-          obj = checkObj;
-        }
-      }
-      lastString = str;
-      codec.serialize(context, obj, codedOut);
-      if (commonPrefixLen > -1) {
-        codedOut.writeInt32NoTag(commonPrefixLen);
-      }
-      return true;
-    }
-
     @Nullable
     Integer getMemoizedIndex(Object obj) {
       return memo.lookupNullable(obj);
-    }
-
-    private static int commonPrefixLen(String first, String second) {
-      int shared = 0;
-      int max = Math.min(first.length(), second.length());
-      while (shared < max && first.charAt(shared) == second.charAt(shared)) {
-        ++shared;
-      }
-      return shared;
     }
 
     // Corresponds to MemoContent in the abstract grammar.
@@ -267,7 +225,6 @@ class Memoizer {
    */
   static class Deserializer {
     private final DeserializingMemoTable memo = new DeserializingMemoTable();
-    @Nullable private String lastString = null;
     @Nullable private Integer tagForMemoizedBefore = null;
     private final Deque<Object> memoizedBeforeStackForSanityChecking = new ArrayDeque<>();
 
@@ -287,7 +244,7 @@ class Memoizer {
           codec);
       MemoizationStrategy strategy = codec.getStrategy();
       if (strategy == MemoizationStrategy.DO_NOT_MEMOIZE) {
-        return maybeTransformString(codec.deserialize(context, codedIn), codec, codedIn);
+        return codec.deserialize(context, codedIn);
       } else {
           switch (strategy) {
             case MEMOIZE_BEFORE:
@@ -298,42 +255,6 @@ class Memoizer {
               throw new AssertionError("Unreachable (strategy=" + strategy + ")");
           }
         }
-    }
-
-    private <T> T maybeTransformString(
-        T value, ObjectCodec<? extends T> codec, CodedInputStream codedIn) throws IOException {
-      if (!(value instanceof String)) {
-        return value;
-      }
-      String str = (String) value;
-      if (lastString != null) {
-        int commonPrefixLen = codedIn.readInt32();
-        Preconditions.checkState(
-            commonPrefixLen > -1, "Bad data for %s and %s (%s)", str, lastString, commonPrefixLen);
-        if (commonPrefixLen > 0) {
-          int lastLen = lastString.length();
-          Preconditions.checkState(
-              lastLen >= commonPrefixLen,
-              "Bad data for %s (%s and %s)",
-              str,
-              lastString,
-              commonPrefixLen);
-          if (str.isEmpty()) {
-            // This is a substring or the same string. Save some garbage by re-using if possible.
-            if (commonPrefixLen < lastLen) {
-              str = lastString.substring(0, commonPrefixLen);
-            } else {
-              // commonPrefixLen == lastLen.
-              str = lastString;
-            }
-          } else {
-            str = lastString.substring(0, commonPrefixLen) + str;
-          }
-          value = codec.getEncodedClass().cast(str);
-        }
-      }
-      lastString = str;
-      return value;
     }
 
     Object getMemoized(int memoIndex) {

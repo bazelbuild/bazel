@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -115,7 +116,8 @@ public class AppleCcToolchain extends CcToolchain {
       RuleContext ruleContext, NestedSet<Artifact> link) {
     return NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(link)
-        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_top", Mode.TARGET))
+        .addTransitive(
+            AnalysisUtils.getMiddlemanFor(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET))
         .build();
   }
 

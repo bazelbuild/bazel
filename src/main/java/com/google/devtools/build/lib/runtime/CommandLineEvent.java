@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent;
@@ -260,7 +260,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     }
 
     @Override
-    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
       return GenericBuildEvent.protoChaining(this)
           .setStructuredCommandLine(
               CommandLine.newBuilder()
@@ -305,7 +305,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     /**
      * Returns the effective startup options.
      *
-     * <p>Since in this command line the command options include invocation policy's and blazercs'
+     * <p>Since in this command line the command options include invocation policy's and rcs'
      * contents expanded fully, the list of startup options should prevent reapplication of these
      * contents.
      *
@@ -319,7 +319,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
       // Create the fake ones to prevent reapplication of the original rc file contents.
       OptionsParser fakeOptions = OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
       try {
-        fakeOptions.parse("--nomaster_blazerc", "--blazerc=/dev/null");
+        fakeOptions.parse("--ignore_all_rc_files");
       } catch (OptionsParsingException e) {
         // Unless someone changes the definition of these flags, this is impossible.
         throw new IllegalStateException(e);
@@ -336,8 +336,11 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
                           .filter(
                               option -> {
                                 String optionName = option.getOptionName();
-                                return !optionName.equals("blazerc")
+                                return !optionName.equals("ignore_all_rc_files")
+                                    && !optionName.equals("blazerc")
                                     && !optionName.equals("master_blazerc")
+                                    && !optionName.equals("bazelrc")
+                                    && !optionName.equals("master_bazelrc")
                                     && !optionName.equals("invocation_policy");
                               })
                           .collect(Collectors.toList()))
@@ -360,7 +363,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     }
 
     @Override
-    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
       return GenericBuildEvent.protoChaining(this)
           .setStructuredCommandLine(
               CommandLine.newBuilder()
@@ -389,7 +392,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     }
 
     @Override
-    public BuildEvent asStreamProto(BuildEventConverters converters) {
+    public BuildEvent asStreamProto(BuildEventContext converters) {
       return GenericBuildEvent.protoChaining(this).setStructuredCommandLine(commandLine).build();
     }
 

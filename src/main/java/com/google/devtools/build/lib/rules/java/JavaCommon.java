@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -58,7 +59,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -212,22 +212,6 @@ public class JavaCommon {
     return javaArtifacts;
   }
 
-  public NestedSet<Artifact> getProcessorClasspathJars() {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
-    for (JavaPluginInfoProvider plugin : activePlugins) {
-      builder.addTransitive(plugin.getProcessorClasspath());
-    }
-    return builder.build();
-  }
-
-  public ImmutableList<String> getProcessorClassNames() {
-    Set<String> processorNames = new LinkedHashSet<>();
-    for (JavaPluginInfoProvider plugin : activePlugins) {
-      processorNames.addAll(plugin.getProcessorClasses());
-    }
-    return ImmutableList.copyOf(processorNames);
-  }
-
   /**
    * Creates the java.library.path from a list of the native libraries.
    * Concatenates the parent directories of the shared libraries into a Java
@@ -306,16 +290,26 @@ public class JavaCommon {
    * @param outDeps output (compile-time) dependency artifact of this target
    */
   public NestedSet<Artifact> collectCompileTimeDependencyArtifacts(@Nullable Artifact outDeps) {
+    return collectCompileTimeDependencyArtifacts(
+        outDeps,
+        JavaInfo.getProvidersFromListOfTargets(
+            JavaCompilationArgsProvider.class, getExports(ruleContext)));
+  }
+
+  /**
+   * Collects Java dependency artifacts for a target.
+   *
+   * @param jdeps dependency artifact of this target
+   * @param exports dependencies with export-like semantics
+   */
+  public static NestedSet<Artifact> collectCompileTimeDependencyArtifacts(
+      @Nullable Artifact jdeps, Iterable<JavaCompilationArgsProvider> exports) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    if (outDeps != null) {
-      builder.add(outDeps);
+    if (jdeps != null) {
+      builder.add(jdeps);
     }
-
-    for (JavaCompilationArgsProvider provider : JavaInfo.getProvidersFromListOfTargets(
-        JavaCompilationArgsProvider.class, getExports(ruleContext))) {
-      builder.addTransitive(provider.getCompileTimeJavaDependencyArtifacts());
-    }
-
+    exports.forEach(
+        export -> builder.addTransitive(export.getCompileTimeJavaDependencyArtifacts()));
     return builder.build();
   }
 
@@ -364,7 +358,7 @@ public class JavaCommon {
     builder.addJavaTargets(targetsTreatedAsDeps(ClasspathType.BOTH));
 
     if (ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
-      builder.addJavaTargets(ruleContext.getPrerequisites("data", Mode.DATA));
+      builder.addJavaTargets(ruleContext.getPrerequisites("data", Mode.DONT_CHECK));
     }
     return builder.build();
   }
@@ -397,37 +391,6 @@ public class JavaCommon {
     }
 
     return builder.build();
-  }
-
-  /**
-   * Collects transitive gen jars for the current rule.
-   */
-  private JavaGenJarsProvider collectTransitiveGenJars(
-          boolean usesAnnotationProcessing,
-          @Nullable Artifact genClassJar,
-          @Nullable Artifact genSourceJar) {
-    NestedSetBuilder<Artifact> classJarsBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> sourceJarsBuilder = NestedSetBuilder.stableOrder();
-
-    if (genClassJar != null) {
-      classJarsBuilder.add(genClassJar);
-    }
-    if (genSourceJar != null) {
-      sourceJarsBuilder.add(genSourceJar);
-    }
-    for (JavaGenJarsProvider dep : getDependencies(JavaGenJarsProvider.class)) {
-      classJarsBuilder.addTransitive(dep.getTransitiveGenClassJars());
-      sourceJarsBuilder.addTransitive(dep.getTransitiveGenSourceJars());
-    }
-    return new JavaGenJarsProvider(
-        usesAnnotationProcessing,
-        genClassJar,
-        genSourceJar,
-        getProcessorClasspathJars(),
-        getProcessorClassNames(),
-        classJarsBuilder.build(),
-        sourceJarsBuilder.build()
-    );
   }
 
   /**
@@ -626,8 +589,6 @@ public class JavaCommon {
     javaTargetAttributes.addSourceArtifacts(extraSrcs);
     processRuntimeDeps(javaTargetAttributes);
 
-    semantics.checkProtoDeps(ruleContext, targetsTreatedAsDeps(ClasspathType.BOTH));
-
     if (disallowDepsWithoutSrcs(ruleContext.getRule().getRuleClass())
         && ruleContext.attributes().get("srcs", BuildType.LABEL_LIST).isEmpty()
         && ruleContext.getRule().isAttributeValueExplicitlySpecified("deps")) {
@@ -740,16 +701,20 @@ public class JavaCommon {
       JavaInfo.Builder javaInfoBuilder,
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar) {
-    JavaGenJarsProvider genJarsProvider = collectTransitiveGenJars(
-        javaCompilationHelper.usesAnnotationProcessing(),
-        genClassJar, genSourceJar);
+    JavaGenJarsProvider genJarsProvider =
+        JavaGenJarsProvider.create(
+            javaCompilationHelper.usesAnnotationProcessing(),
+            genClassJar,
+            genSourceJar,
+            activePlugins,
+            getDependencies(JavaGenJarsProvider.class));
 
     NestedSetBuilder<Artifact> genJarsBuilder = NestedSetBuilder.stableOrder();
     genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenClassJars());
     genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenSourceJars());
 
     builder
-        .add(JavaGenJarsProvider.class, genJarsProvider)
+        .addProvider(JavaGenJarsProvider.class, genJarsProvider)
         .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genJarsBuilder.build());
 
     javaInfoBuilder.addProvider(JavaGenJarsProvider.class, genJarsProvider);
@@ -919,6 +884,10 @@ public class JavaCommon {
     return AnalysisUtils.getProviders(getDependencies(), provider);
   }
 
+  /** Gets all the deps that implement a particular provider. */
+  public final <P extends Info> Iterable<P> getDependencies(BuiltinProvider<P> provider) {
+    return AnalysisUtils.getProviders(getDependencies(), provider);
+  }
 
   /**
    * Returns true if and only if this target has the neverlink attribute set to

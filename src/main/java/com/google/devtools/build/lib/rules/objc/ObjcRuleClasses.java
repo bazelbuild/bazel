@@ -667,18 +667,6 @@ public class ObjcRuleClasses {
                   .direct_compile_time_input()
                   .allowedRuleClasses("objc_framework")
                   .allowedFileTypes())
-          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(non_propagated_deps) -->
-          The list of targets that are required in order to build this target,
-          but which are not included in the final bundle.
-          This attribute should only rarely be used, and probably only for proto
-          dependencies.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr("non_propagated_deps", LABEL_LIST)
-                  .direct_compile_time_input()
-                  .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
-                  .mandatoryProviders(ObjcProvider.SKYLARK_CONSTRUCTOR.id())
-                  .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(defines) -->
           Extra <code>-D</code> flags to pass to the compiler. They should be in
           the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
@@ -975,19 +963,6 @@ public class ObjcRuleClasses {
           Extra flags to pass to the linker.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("linkopts", STRING_LIST))
-          /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(non_propagated_deps) -->
-          The list of targets that are required in order to build this target,
-          but which are not included in the final binary.
-          This attribute should only rarely be used, and probably only for proto
-          dependencies.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr("non_propagated_deps", LABEL_LIST)
-                  .direct_compile_time_input()
-                  .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
-                  .mandatoryProviders(ObjcProvider.SKYLARK_CONSTRUCTOR.id())
-                  .cfg(splitTransitionProvider)
-                  .allowedFileTypes())
           .add(
               attr("$j2objc_dead_code_pruner", LABEL)
                   .allowedFileTypes(FileType.of(".py"))

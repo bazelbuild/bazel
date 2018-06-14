@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.events.Event;
 /** Filters out events which should not be stored during evaluation in {@link ParallelEvaluator}. */
 public interface EventFilter extends Predicate<Event> {
   /**
-   * Returns true if any events should be stored. Otherwise, optimizations may be made to avoid
-   * doing unnecessary work when evaluating node entries.
+   * Returns true if any events/postables should be stored. Otherwise, optimizations may be made to
+   * avoid doing unnecessary work when evaluating node entries.
    */
-  boolean storeEvents();
+  boolean storeEventsAndPosts();
 }

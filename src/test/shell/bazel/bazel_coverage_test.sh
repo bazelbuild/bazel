@@ -206,12 +206,12 @@ EOF
   cat <<EOF > result.dat
 SF:com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
-FNDA:0,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
+FNDA:0,com/example/Collatz::<init> ()V
 FNDA:1,com/example/Collatz::getCollatzFinal (I)I
+FNF:0
+FNH:0
 BA:6,2
-BA:6,2
-BA:9,2
 BA:9,2
 DA:3,0
 DA:6,3
@@ -219,6 +219,8 @@ DA:7,2
 DA:9,4
 DA:10,5
 DA:12,7
+LH:0
+LF:0
 end_of_record
 EOF
 
@@ -297,12 +299,12 @@ EOF
   cat <<EOF > result.dat
 SF:src/main/com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
-FNDA:0,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
+FNDA:0,com/example/Collatz::<init> ()V
 FNDA:1,com/example/Collatz::getCollatzFinal (I)I
+FNF:0
+FNH:0
 BA:6,2
-BA:6,2
-BA:9,2
 BA:9,2
 DA:3,0
 DA:6,3
@@ -310,6 +312,8 @@ DA:7,2
 DA:9,4
 DA:10,5
 DA:12,7
+LH:0
+LF:0
 end_of_record
 EOF
 

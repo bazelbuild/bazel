@@ -317,4 +317,105 @@ EOF
   assert_contains "This is repo_two" bazel-genfiles/external/new_repo/gen.out
 }
 
+function test_package_loading_with_remapping_changes() {
+  # structure is
+  # workspace/
+  #   WORKSPACE (name=main)
+  #   flower/
+  #     WORKSPACE (name=flower)
+  #     daisy/
+  #       BUILD (:daisy)
+  #   tree/
+  #     WORKSPACE (name=tree, local_repository(flower))
+  #     oak/
+  #       BUILD (:oak)
+
+  mkdir -p flower/daisy
+  echo 'workspace(name="flower")' > flower/WORKSPACE
+  echo 'sh_library(name="daisy")' > flower/daisy/BUILD
+
+  mkdir -p tree/oak
+  cat > tree/WORKSPACE <<EOF
+workspace(name="tree")
+local_repository(
+    name = "flower",
+    path="../flower",
+    repo_mapping = {"@tulip" : "@rose"}
+)
+EOF
+  echo 'sh_library(name="oak")' > tree/oak/BUILD
+
+  cd tree
+
+  # Do initial load of the packages
+  bazel query --experimental_enable_repo_mapping --noexperimental_ui \
+        //oak:all >& "$TEST_log" || fail "Expected success"
+  expect_log "Loading package: oak"
+  expect_log "//oak:oak"
+
+  bazel query --experimental_enable_repo_mapping --noexperimental_ui \
+        @flower//daisy:all >& "$TEST_log" || fail "Expected success"
+  expect_log "Loading package: @flower//daisy"
+  expect_log "@flower//daisy:daisy"
+
+  # Change mapping in tree/WORKSPACE
+  cat > WORKSPACE <<EOF
+workspace(name="tree")
+local_repository(
+    name = "flower",
+    path="../flower",
+    repo_mapping = {"@tulip" : "@daffodil"}
+)
+EOF
+
+  # Test that packages in the tree workspace are not affected
+  bazel query --experimental_enable_repo_mapping --noexperimental_ui \
+        //oak:all >& "$TEST_log" || fail "Expected success"
+  expect_not_log "Loading package: oak"
+  expect_log "//oak:oak"
+
+  # Test that packages in the flower workspace are reloaded
+  bazel query --experimental_enable_repo_mapping --noexperimental_ui \
+        @flower//daisy:all >& "$TEST_log" || fail "Expected success"
+  expect_log "Loading package: @flower//daisy"
+  expect_log "@flower//daisy:daisy"
+}
+
+function test_repository_mapping_in_build_file_load() {
+  # Main repo assigns @x to @y within @a
+  mkdir -p main
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+
+local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@y"})
+local_repository(name = "y", path="../y")
+EOF
+  touch main/BUILD
+
+  # Repository y is a substitute for x
+  mkdir -p y
+  touch y/WORKSPACE
+  touch y/BUILD
+  cat > y/symbol.bzl <<EOF
+Y_SYMBOL = "y_symbol"
+EOF
+
+  # Repository a refers to @x
+  mkdir -p a
+  touch a/WORKSPACE
+  cat > a/BUILD<<EOF
+load("@x//:symbol.bzl", "Y_SYMBOL")
+genrule(name = "a",
+        outs = ["result.txt"],
+        cmd = "echo %s > \$(location result.txt);" % (Y_SYMBOL)
+)
+EOF
+
+  cd main
+  bazel build --experimental_enable_repo_mapping @a//:a || fail "Expected build to succeed"
+  cat bazel-genfiles/external/a/result.txt
+  grep "y_symbol" bazel-genfiles/external/a/result.txt \
+      || fail "expected 'y_symbol' in $(cat bazel-genfiles/external/a/result.txt)"
+}
+
 run_suite "workspace tests"

@@ -19,9 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDebugOutputsApi;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -40,12 +38,8 @@ import java.util.Map;
  * <p>Example: { "arm64": { "bitcode_symbols": Artifact, "dsym_binary": Artifact } }
  */
 @Immutable
-@SkylarkModule(
-    name = "AppleDebugOutputs",
-    category = SkylarkModuleCategory.PROVIDER,
-    doc = "A provider that holds debug outputs of an apple_binary target."
-)
-public final class AppleDebugOutputsInfo extends NativeInfo {
+public final class AppleDebugOutputsInfo extends NativeInfo
+    implements AppleDebugOutputsApi<Artifact> {
 
   /** Expected types of debug outputs. */
   enum OutputType {
@@ -98,13 +92,7 @@ public final class AppleDebugOutputsInfo extends NativeInfo {
   /**
    * Returns the multi-architecture dylib binary that apple_binary created.
    */
-  @SkylarkCallable(name = "outputs_map",
-      structField = true,
-      doc = "A dictionary of: { arch: { output_type: file, output_type: file, ... } }, "
-          + "where 'arch' is any Apple architecture such as 'arm64' or 'armv7', 'output_type' is "
-          + "a string descriptor such as 'bitcode_symbols' or 'dsym_binary', and the file is the "
-          + "file matching that descriptor for that architecture."
-  )
+  @Override
   public ImmutableMap<String, ImmutableMap<String, Artifact>> getOutputsMap() {
     return outputsMap;
   }

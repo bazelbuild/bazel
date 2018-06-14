@@ -25,10 +25,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -48,6 +51,7 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -419,6 +423,16 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
     String workspaceName = workspaceNameValue.getName();
+
+    RepositoryMappingValue repositoryMappingValue =
+        (RepositoryMappingValue)
+            env.getValue(RepositoryMappingValue.key(packageId.getRepository()));
+    if (repositoryMappingValue == null) {
+      return null;
+    }
+    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping =
+        repositoryMappingValue.getRepositoryMapping();
+
     RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
     FileValue buildFileValue = null;
     Path buildFilePath = buildFileRootedPath.asPath();
@@ -474,6 +488,7 @@ public class PackageFunction implements SkyFunction {
     LoadedPackageCacheEntry packageCacheEntry =
         loadPackage(
             workspaceName,
+            repositoryMapping,
             replacementContents,
             packageId,
             buildFilePath,
@@ -1138,8 +1153,8 @@ public class PackageFunction implements SkyFunction {
   }
 
   /**
-   * Constructs a {@link Package} object for the given package using legacy package loading. Note
-   * that the returned package may be in error.
+   * Constructs a {@link Package} object for the given package. Note that the returned package
+   * may be in error.
    *
    * <p>May return null if the computation has to be restarted.
    *
@@ -1150,6 +1165,7 @@ public class PackageFunction implements SkyFunction {
   @Nullable
   private LoadedPackageCacheEntry loadPackage(
       String workspaceName,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       @Nullable String replacementContents,
       PackageIdentifier packageId,
       Path buildFilePath,
@@ -1162,11 +1178,11 @@ public class PackageFunction implements SkyFunction {
       throws InterruptedException, PackageFunctionException {
     LoadedPackageCacheEntry packageCacheEntry = packageFunctionCache.getIfPresent(packageId);
     if (packageCacheEntry == null) {
-      profiler.startTask(ProfilerTask.CREATE_PACKAGE, packageId.toString());
       if (packageProgress != null) {
         packageProgress.startReadPackage(packageId);
       }
-      try {
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.CREATE_PACKAGE, packageId.toString())) {
         AstParseResult astParseResult = astCache.getIfPresent(packageId);
         if (astParseResult == null) {
           if (showLoadingProgress.get()) {
@@ -1204,7 +1220,7 @@ public class PackageFunction implements SkyFunction {
           StoredEventHandler astParsingEventHandler = new StoredEventHandler();
           BuildFileAST ast =
               PackageFactory.parseBuildFile(
-                  packageId, input, preludeStatements, astParsingEventHandler);
+                  packageId, input, preludeStatements, repositoryMapping, astParsingEventHandler);
           astParseResult = new AstParseResult(ast, astParsingEventHandler);
           astCache.put(packageId, astParseResult);
         }
@@ -1230,16 +1246,18 @@ public class PackageFunction implements SkyFunction {
         GlobberWithSkyframeGlobDeps globberWithSkyframeGlobDeps =
             makeGlobber(buildFilePath, packageId, packageRoot, env);
         long startTimeNanos = BlazeClock.nanoTime();
-        Package.Builder pkgBuilder = packageFactory.createPackageFromAst(
-            workspaceName,
-            packageId,
-            buildFilePath,
-            astParseResult,
-            importResult.importMap,
-            importResult.fileDependencies,
-            defaultVisibility,
-            skylarkSemantics,
-            globberWithSkyframeGlobDeps);
+        Package.Builder pkgBuilder =
+            packageFactory.createPackageFromAst(
+                workspaceName,
+                repositoryMapping,
+                packageId,
+                buildFilePath,
+                astParseResult,
+                importResult.importMap,
+                importResult.fileDependencies,
+                defaultVisibility,
+                skylarkSemantics,
+                globberWithSkyframeGlobDeps);
         long loadTimeNanos = Math.max(BlazeClock.nanoTime() - startTimeNanos, 0L);
         packageCacheEntry = new LoadedPackageCacheEntry(
             pkgBuilder,
@@ -1250,8 +1268,6 @@ public class PackageFunction implements SkyFunction {
           packageProgress.doneReadPackage(packageId);
         }
         packageFunctionCache.put(packageId, packageCacheEntry);
-      } finally {
-        profiler.completeTask(ProfilerTask.CREATE_PACKAGE);
       }
     }
     return packageCacheEntry;

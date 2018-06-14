@@ -28,9 +28,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaConfigurationApi;
 import com.google.devtools.common.options.TriState;
 import java.util.List;
 import java.util.Map;
@@ -39,12 +37,7 @@ import javax.annotation.Nullable;
 /** A java compiler configuration containing the flags required for compilation. */
 @AutoCodec
 @Immutable
-@SkylarkModule(
-  name = "java",
-  doc = "A java compiler configuration.",
-  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
-public final class JavaConfiguration extends Fragment {
+public final class JavaConfiguration extends Fragment implements JavaConfigurationApi {
   /** Values for the --java_classpath option */
   public enum JavaClasspathMode {
     /** Use full transitive classpaths, the default behavior. */
@@ -76,9 +69,7 @@ public final class JavaConfiguration extends Fragment {
     /** Emit warnings when the dependencies of java_import/aar_import are not complete. */
     WARNING,
     /** Emit errors when the dependencies of java_import/aar_import are not complete. */
-    ERROR,
-    /** Emit errors when the DIRECT dependencies of java_import/aar_import are not complete. */
-    STRICT_ERROR,
+    ERROR
   }
 
   /**
@@ -303,19 +294,14 @@ public final class JavaConfiguration extends Fragment {
     this.useLegacyBazelJavaTest = useLegacyBazelJavaTest;
   }
 
-  @SkylarkCallable(name = "default_javac_flags", structField = true,
-      doc = "The default flags for the Java compiler.")
+  @Override
   // TODO(bazel-team): this is the command-line passed options, we should remove from skylark
   // probably.
   public ImmutableList<String> getDefaultJavacFlags() {
     return commandLineJavacFlags;
   }
 
-  @SkylarkCallable(
-      name = "strict_java_deps",
-      structField = true,
-      doc = "The value of the strict_java_deps flag."
-  )
+  @Override
   public String getStrictJavaDepsName() {
     return strictJavaDeps.name().toLowerCase();
   }

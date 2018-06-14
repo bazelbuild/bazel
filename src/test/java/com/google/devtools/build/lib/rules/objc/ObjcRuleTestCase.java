@@ -129,25 +129,28 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    */
   protected String configurationBin(
       String arch, ConfigurationDistinguisher configurationDistinguisher) {
-    return configurationBin(arch, configurationDistinguisher, null);
+    return configurationBin(arch, configurationDistinguisher, null, CompilationMode.FASTBUILD);
   }
 
   /**
-   * Returns the bin dir for artifacts built for a given Apple architecture and minimum OS
-   * version (as set by a configuration transition) and configuration distinguisher but the global
-   * default for {@code --cpu}.
+   * Returns the bin dir for artifacts built for a given Apple architecture and minimum OS version
+   * (as set by a configuration transition) and configuration distinguisher but the global default
+   * for {@code --cpu}.
    *
    * @param arch the given Apple architecture which artifacts are built under this configuration.
    *     Note this will likely be different than the value of {@code --cpu}.
-   * @param configurationDistinguisher the configuration distinguisher used to describe the
-   *     a configuration transition
-   * @param minOsVersion the minimum os version for which to compile artifacts in the
-   *     configuration
+   * @param configurationDistinguisher the configuration distinguisher used to describe the a
+   *     configuration transition
+   * @param minOsVersion the minimum os version for which to compile artifacts in the configuration
+   * @param compilationMode the compilation mode used during the build
    */
   protected String configurationBin(
-      String arch, ConfigurationDistinguisher configurationDistinguisher,
-      DottedVersion minOsVersion) {
-    return configurationDir(arch, configurationDistinguisher, minOsVersion) + "bin/";
+      String arch,
+      ConfigurationDistinguisher configurationDistinguisher,
+      DottedVersion minOsVersion,
+      CompilationMode compilationMode) {
+    return configurationDir(arch, configurationDistinguisher, minOsVersion, compilationMode)
+        + "bin/";
   }
 
    /**
@@ -165,10 +168,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected String configurationGenfiles(
       String arch, ConfigurationDistinguisher configurationDistinguisher,
       DottedVersion minOsVersion) {
-    return configurationDir(arch, configurationDistinguisher, minOsVersion)
-        + getTargetConfiguration().getGenfilesDirectory(RepositoryName.MAIN)
-            .getExecPath().getBaseName();
-
+    return configurationDir(
+            arch, configurationDistinguisher, minOsVersion, CompilationMode.FASTBUILD)
+        + getTargetConfiguration()
+            .getGenfilesDirectory(RepositoryName.MAIN)
+            .getExecPath()
+            .getBaseName();
   }
 
   private static String toolExecutable(String toolSrcPath) {
@@ -177,26 +182,31 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   private String configurationDir(
-      String arch, ConfigurationDistinguisher configurationDistinguisher,
-      DottedVersion minOsVersion) {
+      String arch,
+      ConfigurationDistinguisher configurationDistinguisher,
+      DottedVersion minOsVersion,
+      CompilationMode compilationMode) {
     String minOsSegment = minOsVersion == null ? "" : "-min" + minOsVersion;
+    String modeSegment = compilationModeFlag(compilationMode);
     switch (configurationDistinguisher) {
       case UNKNOWN:
-        return String.format("%s-out/ios_%s-fastbuild/", TestConstants.PRODUCT_NAME, arch);
+        return String.format("%s-out/ios_%s-%s/", TestConstants.PRODUCT_NAME, arch, modeSegment);
       case APPLEBIN_IOS:
         return String.format(
-            "%1$s-out/ios-%2$s%4$s-%3$s-ios_%2$s-fastbuild/",
+            "%1$s-out/ios-%2$s%4$s-%3$s-ios_%2$s-%5$s/",
             TestConstants.PRODUCT_NAME,
             arch,
             configurationDistinguisher.toString().toLowerCase(Locale.US),
-            minOsSegment);
+            minOsSegment,
+            modeSegment);
       case APPLEBIN_WATCHOS:
         return String.format(
-            "%1$s-out/watchos-%2$s%4$s-%3$s-watchos_%2$s-fastbuild/",
+            "%1$s-out/watchos-%2$s%4$s-%3$s-watchos_%2$s-%5$s/",
             TestConstants.PRODUCT_NAME,
             arch,
             configurationDistinguisher.toString().toLowerCase(Locale.US),
-            minOsSegment);
+            minOsSegment,
+            modeSegment);
       default:
         throw new AssertionError();
     }
@@ -396,16 +406,16 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void assertAppleSdkVersionEnv(CommandAction action, String versionString) {
-    assertThat(action.getEnvironment())
+    assertThat(action.getIncompleteEnvironmentForTesting())
         .containsEntry("APPLE_SDK_VERSION_OVERRIDE", versionString);
   }
 
   protected void assertAppleSdkPlatformEnv(CommandAction action, String platformName) {
-    assertThat(action.getEnvironment()).containsEntry("APPLE_SDK_PLATFORM", platformName);
+    assertThat(action.getIncompleteEnvironmentForTesting()).containsEntry("APPLE_SDK_PLATFORM", platformName);
   }
 
   protected void assertXcodeVersionEnv(CommandAction action, String versionNumber) {
-    assertThat(action.getEnvironment()).containsEntry("XCODE_VERSION_OVERRIDE", versionNumber);
+    assertThat(action.getIncompleteEnvironmentForTesting()).containsEntry("XCODE_VERSION_OVERRIDE", versionNumber);
   }
 
   protected ObjcProvider providerForTarget(String label) throws Exception {
@@ -724,7 +734,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private void assertCoptsAndDefinesNotPropagatedToProtos(ConfiguredTarget topTarget)
       throws Exception {
     Artifact protoObject =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataA.pbobjc.o", topTarget);
+        getBinArtifact("_objs/x/non_arc/DataA.pbobjc.o", topTarget);
     CommandAction protoObjectAction = (CommandAction) getGeneratingAction(protoObject);
     assertThat(protoObjectAction).isNotNull();
     assertThat(protoObjectAction.getArguments())
@@ -924,7 +934,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     Artifact actoolZipOut = getBinArtifact("x" + artifactName(".actool.zip"),
         getConfiguredTarget("//x:x"));
     Artifact actoolPartialInfoplist =
-        getBinArtifact("x" + artifactName(".actool-PartialInfo.plist"), "//x:x");
+        getBinArtifact(
+            "x" + artifactName(".actool-PartialInfo.plist"), getConfiguredTarget("//x:x"));
     SpawnAction actoolZipAction = (SpawnAction) getGeneratingAction(actoolZipOut);
     assertThat(actoolZipAction.getArguments())
         .containsExactly(
@@ -2267,6 +2278,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "config_setting(",
         "  name = 'flag1@on',",
         "  flag_values = {':flag1': 'on'},",
+        "  transitive_configs = [':flag1'],",
         ")",
         "config_feature_flag(",
         "  name = 'flag2',",
@@ -2276,6 +2288,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "config_setting(",
         "  name = 'flag2@on',",
         "  flag_values = {':flag2': 'on'},",
+        "  transitive_configs = [':flag2'],",
         ")",
         "objc_library(",
         "  name = 'objcLib',",
@@ -2293,6 +2306,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    ':flag2@on': ['-FLAG_2_ON'],",
         "    '//conditions:default': ['-FLAG_2_OFF'],",
         "  }),",
+        "  transitive_configs = [':flag1', ':flag2'],",
         ")");
   }
 }

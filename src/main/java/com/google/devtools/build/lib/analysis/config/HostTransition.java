@@ -29,7 +29,7 @@ public final class HostTransition implements PatchTransition {
   }
 
   @Override
-  public BuildOptions apply(BuildOptions options) {
+  public BuildOptions patch(BuildOptions options) {
     if (options.get(BuildConfiguration.Options.class).isHost) {
       // If the input already comes from the host configuration, just return the existing values.
       //

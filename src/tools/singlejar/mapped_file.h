@@ -28,11 +28,11 @@
  */
 class MappedFile {
  public:
-#ifdef COMPILER_MSVC
+#ifdef _WIN32
   typedef /* HANDLE = void* */ void *FileHandleType;
-#else  // not COMPILER_MSVC
+#else   // not _WIN32
   typedef int FileHandleType;
-#endif  // COMPILER_MSVC
+#endif  // _WIN32
 
   MappedFile();
 
@@ -64,10 +64,10 @@ class MappedFile {
   FileHandleType fd_;
 };
 
-#ifdef COMPILER_MSVC
+#ifdef _WIN32
 #include "src/tools/singlejar/mapped_file_windows.inc"
-#else  // not COMPILER_MSVC
+#else  // not _WIN32
 #include "src/tools/singlejar/mapped_file_posix.inc"
-#endif  // COMPILER_MSVC
+#endif  // _WIN32
 
 #endif  //  BAZEL_SRC_TOOLS_SINGLEJAR_MAPPED_FILE_H_

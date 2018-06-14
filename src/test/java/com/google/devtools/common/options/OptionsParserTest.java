@@ -816,6 +816,21 @@ public class OptionsParserTest {
   }
 
   @Test
+  public void noWarningsWhenOverrideExplicitWithExpansion() throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(ExpansionOptions.class);
+    parser.parse(
+        OptionPriority.PriorityCategory.RC_FILE,
+        null,
+        Arrays.asList("--underlying=direct_value", "--expands"));
+    ExpansionOptions options = parser.getOptions(ExpansionOptions.class);
+    assertThat(options.underlying).isEqualTo("from_expansion");
+    assertThat(parser.getWarnings())
+        .doesNotContain(
+            "option '--expands' was expanded and now overrides the explicit option "
+                + "--underlying=direct_value with --underlying=from_expansion");
+  }
+
+  @Test
   public void noWarningsWhenValueNotChanged() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ExpansionOptions.class);
     parser.parse(

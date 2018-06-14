@@ -24,9 +24,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -177,7 +180,14 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
                 "--cpp_out=%s/external/bla",
                 getTargetConfiguration().getGenfilesFragment().toString()));
 
-    Artifact headerFile = getGenfilesArtifactWithNoOwner("external/bla/foo/bar.pb.h");
+    Artifact headerFile =
+        getDerivedArtifact(
+            PathFragment.create("external/bla/foo/bar.pb.h"),
+            targetConfig.getGenfilesDirectory(),
+            getOwnerForAspect(
+                getConfiguredTarget("@bla//foo:bar_proto"),
+                ruleClassProvider.getNativeAspectClass(BazelCcProtoAspect.class.getSimpleName()),
+                AspectParameters.EMPTY));
     CcCompilationContext ccCompilationContext =
         target.get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs()).containsExactly(headerFile);

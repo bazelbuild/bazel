@@ -341,7 +341,8 @@ public abstract class ResourceContainer implements ValidatedAndroidData {
         return ruleContext.attributes().get("custom_package", Type.STRING);
       }
 
-      return AndroidManifest.getJavaPackageFromPath(ruleContext, getJavaSourceJar().getExecPath());
+      return AndroidManifest.getJavaPackageFromPath(
+          ruleContext, ruleContext, getJavaSourceJar().getExecPath());
     }
 
     private static boolean hasCustomPackage(RuleContext ruleContext) {

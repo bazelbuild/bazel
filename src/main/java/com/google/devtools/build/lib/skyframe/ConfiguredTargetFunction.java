@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.PlatformSemantics;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -41,20 +42,27 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
+import com.google.devtools.build.lib.causes.AnalysisFailedCause;
+import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
@@ -78,6 +86,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -161,7 +170,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
     NestedSetBuilder<Package> transitivePackagesForPackageRootResolution =
         storeTransitivePackagesForPackageRootResolution ? NestedSetBuilder.stableOrder() : null;
-    NestedSetBuilder<Label> transitiveLoadingRootCauses = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
 
     ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
     Label label = configuredTargetKey.getLabel();
@@ -197,7 +206,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           new ConfiguredValueCreationException(e.getMessage(), label, configuration));
     }
     if (pkg.containsErrors()) {
-      transitiveLoadingRootCauses.add(label);
+      transitiveRootCauses.add(
+          new LoadingFailedCause(label, new NoSuchTargetException(target).getMessage()));
     }
     if (transitivePackagesForPackageRootResolution != null) {
       transitivePackagesForPackageRootResolution.add(pkg);
@@ -241,7 +251,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               resolver,
               ctgValue,
               transitivePackagesForPackageRootResolution,
-              transitiveLoadingRootCauses,
+              transitiveRootCauses,
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
       if (env.valuesMissing()) {
         return null;
@@ -253,9 +263,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // more root causes during computeDependencies.
       // Note that this doesn't apply to AspectFunction, because aspects can't have configurable
       // attributes.
-      if (!transitiveLoadingRootCauses.isEmpty() && configConditions != NO_CONFIG_CONDITIONS) {
+      if (!transitiveRootCauses.isEmpty() && configConditions != NO_CONFIG_CONDITIONS) {
         throw new ConfiguredTargetFunctionException(
-            new ConfiguredValueCreationException(transitiveLoadingRootCauses.build()));
+            new ConfiguredValueCreationException(
+                "Cannot compute config conditions", configuration, transitiveRootCauses.build()));
       }
 
       // Determine what toolchains are needed by this target.
@@ -264,11 +275,15 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         if (rule.getRuleClassObject().supportsPlatforms()) {
           ImmutableSet<Label> requiredToolchains =
               rule.getRuleClassObject().getRequiredToolchains();
+
+          // Collect local (target, rule) constraints for filtering out execution platforms.
+          ImmutableSet<Label> execConstraintLabels = getExecutionPlatformConstraints(rule);
           toolchainContext =
               ToolchainUtil.createToolchainContext(
                   env,
                   rule.toString(),
                   requiredToolchains,
+                  execConstraintLabels,
                   configuredTargetKey.getConfigurationKey());
           if (env.valuesMissing()) {
             return null;
@@ -288,14 +303,15 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               ruleClassProvider,
               view.getHostConfiguration(configuration),
               transitivePackagesForPackageRootResolution,
-              transitiveLoadingRootCauses,
+              transitiveRootCauses,
               defaultBuildOptions);
       if (env.valuesMissing()) {
         return null;
       }
-      if (!transitiveLoadingRootCauses.isEmpty()) {
+      if (!transitiveRootCauses.isEmpty()) {
         throw new ConfiguredTargetFunctionException(
-            new ConfiguredValueCreationException(transitiveLoadingRootCauses.build()));
+            new ConfiguredValueCreationException(
+                "Analysis failed", configuration, transitiveRootCauses.build()));
       }
       Preconditions.checkNotNull(depValueMap);
       ConfiguredTargetValue ans =
@@ -315,21 +331,15 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
         // Check if this is caused by an unresolved toolchain, and report it as such.
         if (toolchainContext != null) {
-          ImmutableSet.Builder<Label> causes = new ImmutableSet.Builder<Label>();
-          if (cvce.getAnalysisRootCause() != null) {
-            causes.add(cvce.getAnalysisRootCause());
-          }
-          if (!cvce.getRootCauses().isEmpty()) {
-            causes.addAll(cvce.getRootCauses());
-          }
           Set<Label> toolchainDependencyErrors =
-              toolchainContext.filterToolchainLabels(causes.build());
+              toolchainContext.filterToolchainLabels(
+                  Iterables.transform(cvce.getRootCauses(), Cause::getLabel));
           if (!toolchainDependencyErrors.isEmpty()) {
             env.getListener()
                 .handle(
                     Event.error(
                         String.format(
-                            "While resolving toolchains for target %s: %s",
+                            "XXX - While resolving toolchains for target %s: %s",
                             target.getLabel(), e.getCause().getMessage())));
           }
         }
@@ -352,13 +362,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             new ConfiguredValueCreationException(e.getMessage(), target.getLabel(), configuration));
       }
     } catch (AspectCreationException e) {
-      // getAnalysisRootCause may be null if the analysis of the aspect itself failed.
-      Label analysisRootCause = target.getLabel();
-      if (e.getAnalysisRootCause() != null) {
-        analysisRootCause = e.getAnalysisRootCause();
-      }
       throw new ConfiguredTargetFunctionException(
-          new ConfiguredValueCreationException(e.getMessage(), analysisRootCause, configuration));
+          new ConfiguredValueCreationException(
+              e.getMessage(),
+              configuration,
+              e.getCauses()));
     } catch (ToolchainContextException e) {
       // We need to throw a ConfiguredValueCreationException, so either find one or make one.
       ConfiguredValueCreationException cvce;
@@ -380,6 +388,25 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } finally {
       cpuBoundSemaphore.release();
     }
+  }
+
+  /**
+   * Returns the target-specific execution platform constraints, based on the rule definition and
+   * any constraints added by the target.
+   */
+  private static ImmutableSet<Label> getExecutionPlatformConstraints(Rule rule) {
+    NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
+    ImmutableSet.Builder<Label> execConstraintLabels = new ImmutableSet.Builder<>();
+
+    execConstraintLabels.addAll(rule.getRuleClassObject().getExecutionPlatformConstraints());
+
+    if (rule.getRuleClassObject().executionPlatformConstraintsAllowed()
+        == ExecutionPlatformConstraintsAllowed.PER_TARGET) {
+      execConstraintLabels.addAll(
+          mapper.get(PlatformSemantics.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));
+    }
+
+    return execConstraintLabels.build();
   }
 
   /**
@@ -415,7 +442,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       RuleClassProvider ruleClassProvider,
       BuildConfiguration hostConfiguration,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
-      NestedSetBuilder<Label> transitiveLoadingRootCauses,
+      NestedSetBuilder<Cause> transitiveRootCauses,
       BuildOptions defaultBuildOptions)
       throws DependencyEvaluationException, ConfiguredTargetFunctionException,
           AspectCreationException, InterruptedException {
@@ -431,14 +458,15 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               toolchainContext == null
                   ? ImmutableSet.of()
                   : toolchainContext.getResolvedToolchainLabels(),
-              transitiveLoadingRootCauses,
+              transitiveRootCauses,
               defaultBuildOptions,
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
     } catch (EvalException e) {
       // EvalException can only be thrown by computed Skylark attributes in the current rule.
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(
-          new ConfiguredValueCreationException(e.print(), ctgValue.getLabel()));
+          new ConfiguredValueCreationException(
+              e.print(), ctgValue.getLabel(), ctgValue.getConfiguration()));
     } catch (InvalidConfigurationException e) {
       throw new DependencyEvaluationException(e);
     } catch (InconsistentAspectOrderException e) {
@@ -469,9 +497,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     Map<SkyKey, ConfiguredTargetAndData> depValues =
         resolveConfiguredTargetDependencies(
             env,
+            ctgValue,
             depValueNames.values(),
             transitivePackagesForPackageRootResolution,
-            transitiveLoadingRootCauses);
+            transitiveRootCauses);
     if (depValues == null) {
       return null;
     }
@@ -492,7 +521,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           Event.error(ctgValue.getTarget().getLocation(), e.getMessage()));
 
       throw new ConfiguredTargetFunctionException(
-          new ConfiguredValueCreationException(e.getMessage(), ctgValue.getLabel()));
+          new ConfiguredValueCreationException(
+              e.getMessage(), ctgValue.getLabel(), ctgValue.getConfiguration()));
     }
   }
 
@@ -510,7 +540,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       SkyframeDependencyResolver resolver,
       TargetAndConfiguration ctgValue,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
-      NestedSetBuilder<Label> transitiveLoadingRootCauses,
+      NestedSetBuilder<Cause> transitiveRootCauses,
       @Nullable RuleTransitionFactory trimmingTransitionFactory)
       throws DependencyEvaluationException, InterruptedException {
     if (!(target instanceof Rule)) {
@@ -533,42 +563,44 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return NO_CONFIG_CONDITIONS;
     }
 
-    // Collect the corresponding Skyframe configured target values. Abort early if they haven't
-    // been computed yet.
-    Collection<Dependency> configValueNames;
+    // Collect the actual deps, hard-coded to the current configuration (since by definition config
+    // conditions evaluate over the current target's configuration).
+    ImmutableList.Builder<Dependency> depsBuilder = ImmutableList.builder();
     try {
-      configValueNames = resolver.resolveRuleLabels(
-          ctgValue, configLabelMap, transitiveLoadingRootCauses, trimmingTransitionFactory);
+      for (Dependency dep : resolver.resolveRuleLabels(
+          ctgValue, configLabelMap, transitiveRootCauses, trimmingTransitionFactory)) {
+        if (dep.hasExplicitConfiguration() && dep.getConfiguration() == null) {
+          // Bazel assumes non-existent labels are source files, which have a null configuration.
+          // Keep those as is. Otherwise ConfiguredTargetAndData throws an exception about a
+          // source file having a non-null configuration. The error checking later in this method
+          // reports a proper "bad config condition" error to the user.
+          depsBuilder.add(dep);
+        } else {
+          depsBuilder.add(Dependency.withConfigurationAndAspects(dep.getLabel(),
+              ctgValue.getConfiguration(), dep.getAspects()));
+        }
+      }
     } catch (InconsistentAspectOrderException e) {
       throw new DependencyEvaluationException(e);
     }
     if (env.valuesMissing()) {
       return null;
     }
-
-    // No need to get new configs from Skyframe - config_setting rules always use the current
-    // target's config.
-    // TODO(bazel-team): remove the need for this special transformation. We can probably do this by
-    // simply passing this through trimConfigurations.
-    ImmutableList.Builder<Dependency> staticConfigs = ImmutableList.builder();
-    for (Dependency dep : configValueNames) {
-      staticConfigs.add(Dependency.withConfigurationAndAspects(dep.getLabel(),
-          ctgValue.getConfiguration(), dep.getAspects()));
-    }
-    configValueNames = staticConfigs.build();
+    ImmutableList<Dependency> configConditionDeps = depsBuilder.build();
 
     Map<SkyKey, ConfiguredTargetAndData> configValues =
         resolveConfiguredTargetDependencies(
             env,
-            configValueNames,
+            ctgValue,
+            configConditionDeps,
             transitivePackagesForPackageRootResolution,
-            transitiveLoadingRootCauses);
+            transitiveRootCauses);
     if (configValues == null) {
       return null;
     }
 
     // Get the configured targets as ConfigMatchingProvider interfaces.
-    for (Dependency entry : configValueNames) {
+    for (Dependency entry : configConditionDeps) {
       SkyKey baseKey = ConfiguredTargetValue.key(entry.getLabel(), entry.getConfiguration());
       ConfiguredTarget value = configValues.get(baseKey).getConfiguredTarget();
       // The code above guarantees that value is non-null here.
@@ -580,8 +612,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         String message =
             entry.getLabel() + " is not a valid configuration key for " + target.getLabel();
         env.getListener().handle(Event.error(TargetUtils.getLocationMaybe(target), message));
-        throw new DependencyEvaluationException(new ConfiguredValueCreationException(
-            message, target.getLabel()));
+        throw new DependencyEvaluationException(
+            new ConfiguredValueCreationException(
+                message, ctgValue.getLabel(), ctgValue.getConfiguration()));
       }
     }
 
@@ -597,12 +630,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   @Nullable
   private static Map<SkyKey, ConfiguredTargetAndData> resolveConfiguredTargetDependencies(
       Environment env,
+      TargetAndConfiguration ctgValue,
       Collection<Dependency> deps,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
-      NestedSetBuilder<Label> transitiveLoadingRootCauses)
+      NestedSetBuilder<Cause> transitiveRootCauses)
       throws DependencyEvaluationException, InterruptedException {
     boolean missedValues = env.valuesMissing();
-    boolean failed = false;
+    String failWithMessage = null;
     // Naively we would like to just fetch all requested ConfiguredTargets, together with their
     // Packages. However, some ConfiguredTargets are AliasConfiguredTargets, which means that their
     // associated Targets (and therefore associated Packages) don't correspond to their own Labels.
@@ -677,12 +711,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             }
           }
         } catch (ConfiguredValueCreationException e) {
-          // TODO(ulfjack): If there is an analysis root cause, we drop all loading root causes.
-          if (e.getAnalysisRootCause() != null) {
-            throw new DependencyEvaluationException(e);
-          }
-          transitiveLoadingRootCauses.addTransitive(e.loadingRootCauses);
-          failed = true;
+          transitiveRootCauses.addTransitive(e.rootCauses);
+          failWithMessage = e.getMessage();
         }
       }
       if (aliasDepsToRedo.isEmpty()) {
@@ -693,9 +723,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
     if (missedValues) {
       return null;
-    } else if (failed) {
+    } else if (failWithMessage != null) {
       throw new DependencyEvaluationException(
-          new ConfiguredValueCreationException(transitiveLoadingRootCauses.build()));
+          new ConfiguredValueCreationException(
+              failWithMessage, ctgValue.getConfiguration(), transitiveRootCauses.build()));
     } else {
       return result;
     }
@@ -753,11 +784,21 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     events.replayOn(env.getListener());
     if (events.hasErrors()) {
       analysisEnvironment.disable(target);
+      NestedSet<Cause> rootCauses = NestedSetBuilder.wrap(
+          Order.STABLE_ORDER,
+          events.getEvents().stream()
+              .filter((event) -> event.getKind() == EventKind.ERROR)
+              .map((event) ->
+                  new AnalysisFailedCause(
+                      target.getLabel(),
+                      ConfiguredValueCreationException.toId(configuration),
+                      event.getMessage()))
+              .collect(Collectors.toList()));
       throw new ConfiguredTargetFunctionException(
           new ConfiguredValueCreationException(
               "Analysis of target '" + target.getLabel() + "' failed; build aborted",
-              target.getLabel(),
-              configuration));
+              configuration,
+              rootCauses));
     }
     Preconditions.checkState(!analysisEnvironment.hasErrors(),
         "Analysis environment hasError() but no errors reported");
@@ -804,54 +845,44 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    */
   @AutoCodec
   public static final class ConfiguredValueCreationException extends Exception {
-    private final NestedSet<Label> loadingRootCauses;
-    // TODO(ulfjack): Collect all analysis root causes, not just the first one.
-    @Nullable private final Label analysisRootCause;
-    @Nullable private final BuildEventId configuration;
-
-    private ConfiguredValueCreationException(
-        String message, Label currentTarget, BuildConfiguration configuration) {
-      this(
-          message,
-          Preconditions.checkNotNull(currentTarget),
-          NestedSetBuilder.<Label>emptySet(Order.STABLE_ORDER),
-          configuration == null ? null : configuration.getEventId());
+    private static ConfigurationId toId(BuildConfiguration config) {
+      return config == null ? null : config.getEventId().asStreamProto().getConfiguration();
     }
+
+    @Nullable private final BuildEventId configuration;
+    private final NestedSet<Cause> rootCauses;
 
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     ConfiguredValueCreationException(
         String message,
-        Label analysisRootCause,
-        NestedSet<Label> loadingRootCauses,
-        BuildEventId configuration) {
+        @Nullable BuildEventId configuration,
+        NestedSet<Cause> rootCauses) {
       super(message);
-      this.loadingRootCauses = loadingRootCauses;
-      this.analysisRootCause = analysisRootCause;
+      this.rootCauses = rootCauses;
       this.configuration = configuration;
     }
 
-    private ConfiguredValueCreationException(String message, Label currentTarget) {
-      this(message, currentTarget, /*configuration=*/ null);
+    private ConfiguredValueCreationException(
+        String message, Label currentTarget, @Nullable BuildConfiguration configuration) {
+      this(
+          message,
+          configuration == null ? null : configuration.getEventId(),
+          NestedSetBuilder.<Cause>stableOrder()
+              .add(new AnalysisFailedCause(currentTarget, toId(configuration), message))
+              .build());
     }
 
-    private ConfiguredValueCreationException(String message, NestedSet<Label> rootCauses) {
-      this(message, /*analysisRootCause=*/ null, rootCauses, /*configuration=*/ null);
+    private ConfiguredValueCreationException(
+        String message, @Nullable BuildConfiguration configuration, NestedSet<Cause> rootCauses) {
+      this(message, configuration == null ? null : configuration.getEventId(), rootCauses);
     }
 
-    private ConfiguredValueCreationException(NestedSet<Label> rootCauses) {
-      this("Loading failed", rootCauses);
+    public NestedSet<Cause> getRootCauses() {
+      return rootCauses;
     }
 
-    public NestedSet<Label> getRootCauses() {
-      return loadingRootCauses;
-    }
-
-    public Label getAnalysisRootCause() {
-      return analysisRootCause;
-    }
-
-    public BuildEventId getConfiguration() {
+    @Nullable public BuildEventId getConfiguration() {
       return configuration;
     }
   }

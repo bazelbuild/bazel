@@ -50,9 +50,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -139,16 +137,10 @@ public final class CcCompilationHelper {
    * Contains the providers as well as the {@code CcCompilationOutputs} and the {@code
    * CcCompilationContext}.
    */
-  @SkylarkModule(
-    name = "compilation_info",
-    documented = false,
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "Helper class containing CC compilation providers."
-  )
   // TODO(plf): Rename so that it's not confused with CcCompilationContext and also consider
   // merging
   // this class with {@code CcCompilationOutputs}.
-  public static final class CompilationInfo {
+  public static final class CompilationInfo implements CompilationInfoApi {
     private final TransitiveInfoProviderMap providers;
     private final Map<String, NestedSet<Artifact>> outputGroups;
     private final CcCompilationOutputs compilationOutputs;
@@ -170,7 +162,7 @@ public final class CcCompilationHelper {
       return outputGroups;
     }
 
-    @SkylarkCallable(name = "cc_output_groups", documented = false)
+    @Override
     public Map<String, SkylarkNestedSet> getSkylarkOutputGroups() {
       Map<String, SkylarkNestedSet> skylarkOutputGroups = new TreeMap<>();
       for (Map.Entry<String, NestedSet<Artifact>> entry : outputGroups.entrySet()) {
@@ -180,12 +172,12 @@ public final class CcCompilationHelper {
       return skylarkOutputGroups;
     }
 
-    @SkylarkCallable(name = "cc_compilation_outputs", documented = false)
+    @Override
     public CcCompilationOutputs getCcCompilationOutputs() {
       return compilationOutputs;
     }
 
-    @SkylarkCallable(name = "cc_compilation_info", documented = false)
+    @Override
     public CcCompilationInfo getCcCompilationInfo() {
       return (CcCompilationInfo) providers.getProvider(CcCompilationInfo.PROVIDER.getKey());
     }
@@ -206,7 +198,7 @@ public final class CcCompilationHelper {
   private final List<Artifact> publicTextualHeaders = new ArrayList<>();
   private final List<Artifact> privateHeaders = new ArrayList<>();
   private final List<Artifact> additionalInputs = new ArrayList<>();
-  private final List<Artifact> compilationMandatoryInputs = new ArrayList<>();
+  private final List<Artifact> additionalCompilationInputs = new ArrayList<>();
   private final List<Artifact> additionalIncludeScanningRoots = new ArrayList<>();
   private final List<PathFragment> additionalExportedHeaders = new ArrayList<>();
   private final List<CppModuleMap> additionalCppModuleMaps = new ArrayList<>();
@@ -217,7 +209,7 @@ public final class CcCompilationHelper {
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
   private final List<TransitiveInfoCollection> deps = new ArrayList<>();
-  private final List<CcCompilationContext> depCcCompilationContexts = new ArrayList<>();
+  private final List<CcCompilationInfo> ccCompilationInfos = new ArrayList<>();
   private final List<PathFragment> looseIncludeDirs = new ArrayList<>();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> includeDirs = new ArrayList<>();
@@ -395,6 +387,33 @@ public final class CcCompilationHelper {
     return this;
   }
 
+  public CcCompilationHelper addPrivateHeaders(Collection<Artifact> privateHeaders) {
+    for (Artifact privateHeader : privateHeaders) {
+      addPrivateHeader(privateHeader, ruleContext.getLabel());
+    }
+    return this;
+  }
+
+  public CcCompilationHelper addPrivateHeaders(Iterable<Pair<Artifact, Label>> privateHeaders) {
+    for (Pair<Artifact, Label> headerLabelPair : privateHeaders) {
+      addPrivateHeader(headerLabelPair.first, headerLabelPair.second);
+    }
+    return this;
+  }
+
+  private CcCompilationHelper addPrivateHeader(Artifact privateHeader, Label label) {
+    boolean isHeader = CppFileTypes.CPP_HEADER.matches(privateHeader.getExecPath());
+    boolean isTextualInclude =
+        CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(privateHeader.getExecPath());
+    Preconditions.checkState(isHeader || isTextualInclude);
+
+    if (shouldProcessHeaders() && !isTextualInclude) {
+      compilationUnitSources.add(CppSource.create(privateHeader, label, CppSource.Type.HEADER));
+    }
+    this.privateHeaders.add(privateHeader);
+    return this;
+  }
+
   /**
    * Add the corresponding files as source files. These may also be header files, in which case they
    * will not be compiled, but also not made visible as includes to dependent rules. The given build
@@ -461,23 +480,19 @@ public final class CcCompilationHelper {
    */
   private void addSource(Artifact source, Label label) {
     Preconditions.checkNotNull(featureConfiguration);
-    boolean isHeader = CppFileTypes.CPP_HEADER.matches(source.getExecPath());
-    boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(source.getExecPath());
+    Preconditions.checkState(!CppFileTypes.CPP_HEADER.matches(source.getExecPath()));
     // We assume TreeArtifacts passed in are directories containing proper sources for compilation.
-    boolean isCompiledSource =
-        sourceCategory.getSourceTypes().matches(source.getExecPathString())
-            || source.isTreeArtifact();
-    if (isHeader || isTextualInclude) {
-      privateHeaders.add(source);
-    }
-    if (isTextualInclude || !isCompiledSource || (isHeader && !shouldProcessHeaders())) {
+    if (!sourceCategory.getSourceTypes().matches(source.getExecPathString())
+        && !source.isTreeArtifact()) {
+      // TODO(plf): If it's a non-source file we ignore it. This is only the case for precompiled
+      // files which should be forbidden in srcs of cc_library|binary and instead be migrated to
+      // cc_import rules.
       return;
     }
+
     boolean isClifInputProto = CppFileTypes.CLIF_INPUT_PROTO.matches(source.getExecPathString());
     CppSource.Type type;
-    if (isHeader) {
-      type = CppSource.Type.HEADER;
-    } else if (isClifInputProto) {
+    if (isClifInputProto) {
       type = CppSource.Type.CLIF_INPUT_PROTO;
     } else {
       type = CppSource.Type.SOURCE;
@@ -558,8 +573,9 @@ public final class CcCompilationHelper {
     return this;
   }
 
-  public CcCompilationHelper addDepCcCompilationContext(CcCompilationContext ccCompilationContext) {
-    this.depCcCompilationContexts.add(Preconditions.checkNotNull(ccCompilationContext));
+  /** For adding CC compilation infos that affect compilation, e.g: from dependencies. */
+  public CcCompilationHelper addCcCompilationInfos(Iterable<CcCompilationInfo> ccCompilationInfos) {
+    Iterables.addAll(this.ccCompilationInfos, Preconditions.checkNotNull(ccCompilationInfos));
     return this;
   }
 
@@ -680,9 +696,9 @@ public final class CcCompilationHelper {
   }
 
   /** Adds mandatory inputs for the compilation action. */
-  public CcCompilationHelper addCompilationMandatoryInputs(
+  public CcCompilationHelper addAdditionalCompilationInputs(
       Collection<Artifact> compilationMandatoryInputs) {
-    this.compilationMandatoryInputs.addAll(compilationMandatoryInputs);
+    this.additionalCompilationInputs.addAll(compilationMandatoryInputs);
     return this;
   }
 
@@ -707,6 +723,10 @@ public final class CcCompilationHelper {
         LanguageDependentFragment.Checker.depSupportsLanguage(
             ruleContext, dep, CppRuleClasses.LANGUAGE, "deps");
       }
+    }
+
+    if (!generatePicAction && !generateNoPicAction) {
+      ruleContext.ruleError("Either PIC or no PIC actions have to be created.");
     }
 
     ccCompilationContext = initializeCcCompilationContext();
@@ -937,9 +957,13 @@ public final class CcCompilationHelper {
     if (useDeps) {
       ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
           CcCompilationInfo.getCcCompilationContexts(deps));
-      ccCompilationContextBuilder.mergeDependentCcCompilationContexts(depCcCompilationContexts);
+      ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
+          ccCompilationInfos
+              .stream()
+              .map(CcCompilationInfo::getCcCompilationContext)
+              .collect(ImmutableList.toImmutableList()));
     }
-    CppHelper.mergeToolchainDependentCcCompilationContext(
+    mergeToolchainDependentCcCompilationContext(
         ruleContext, ccToolchain, ccCompilationContextBuilder);
 
     // But defines come after those inherited from deps.
@@ -1117,7 +1141,7 @@ public final class CcCompilationHelper {
     }
 
     if (ccToolchain != null) {
-      result.add(ccToolchain.getCcCompilationContext().getCppModuleMap());
+      result.add(ccToolchain.getCcCompilationInfo().getCcCompilationContext().getCppModuleMap());
     }
     for (CppModuleMap additionalCppModuleMap : additionalCppModuleMaps) {
       result.add(additionalCppModuleMap);
@@ -1321,7 +1345,7 @@ public final class CcCompilationHelper {
 
       builder
           .setSemantics(semantics)
-          .addMandatoryInputs(compilationMandatoryInputs)
+          .addMandatoryInputs(additionalCompilationInputs)
           .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
 
       boolean bitcodeOutput =
@@ -1517,16 +1541,16 @@ public final class CcCompilationHelper {
         ruleContext,
         featureConfiguration,
         ccToolchain,
-        sourceFile,
-        builder.getOutputFile(),
-        gcnoFile,
-        dwoFile,
-        ltoIndexingFile,
+        toPathString(sourceFile),
+        toPathString(builder.getOutputFile()),
+        toPathString(gcnoFile),
+        toPathString(dwoFile),
+        toPathString(ltoIndexingFile),
         ImmutableList.of(),
         userCompileFlags.build(),
         cppModuleMap,
         usePic,
-        builder.getRealOutputFilePath(),
+        builder.getTempOutputFile(),
         CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
         dotdFileExecPath,
         ImmutableList.copyOf(variablesExtensions),
@@ -1536,6 +1560,10 @@ public final class CcCompilationHelper {
         ccCompilationContext.getQuoteIncludeDirs(),
         ccCompilationContext.getSystemIncludeDirs(),
         ccCompilationContext.getDefines());
+  }
+
+  private static String toPathString(Artifact a) {
+    return a == null ? null : a.getExecPathString();
   }
 
   /**
@@ -1731,7 +1759,6 @@ public final class CcCompilationHelper {
           CcCompilationContext.mergeForLipo(
               lipoProvider.getLipoCcCompilationContext(), ccCompilationContext));
     }
-    Preconditions.checkState(generatePicAction || generateNoPicAction);
     if (fake) {
       boolean usePic = !generateNoPicAction;
       createFakeSourceAction(
@@ -2097,5 +2124,33 @@ public final class CcCompilationHelper {
     ruleContext.registerAction(sdAction);
 
     return ImmutableList.of(dAction.getOutputFile(), sdAction.getOutputFile());
+  }
+
+  /**
+   * Merges the STL and toolchain contexts into context builder. The STL is automatically determined
+   * using the ":stl" attribute.
+   */
+  private static void mergeToolchainDependentCcCompilationContext(
+      RuleContext ruleContext,
+      CcToolchainProvider toolchain,
+      CcCompilationContext.Builder ccCompilationContextBuilder) {
+    if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
+      TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
+      if (stl != null) {
+        CcCompilationInfo ccCompilationInfo = stl.get(CcCompilationInfo.PROVIDER);
+        CcCompilationContext ccCompilationContext =
+            ccCompilationInfo != null ? ccCompilationInfo.getCcCompilationContext() : null;
+        if (ccCompilationContext == null) {
+          ruleContext.ruleError(
+              "Unable to merge the STL '" + stl.getLabel() + "' and toolchain contexts");
+          return;
+        }
+        ccCompilationContextBuilder.mergeDependentCcCompilationContext(ccCompilationContext);
+      }
+    }
+    if (toolchain != null) {
+      ccCompilationContextBuilder.mergeDependentCcCompilationContext(
+          toolchain.getCcCompilationContext());
+    }
   }
 }

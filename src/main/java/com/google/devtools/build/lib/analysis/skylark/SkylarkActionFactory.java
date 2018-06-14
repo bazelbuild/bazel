@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.skylark;
 
+import static java.util.stream.Collectors.toList;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
@@ -45,8 +48,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -107,14 +108,22 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   @Override
   public Artifact declareDirectory(String filename, Object sibling) throws EvalException {
     context.checkMutable("actions.declare_directory");
+    Artifact result;
     if (Runtime.NONE.equals(sibling)) {
-      return ruleContext.getPackageRelativeTreeArtifact(
-          PathFragment.create(filename), newFileRoot());
+      result =
+          ruleContext.getPackageRelativeTreeArtifact(PathFragment.create(filename), newFileRoot());
     } else {
       PathFragment original = ((Artifact) sibling).getRootRelativePath();
       PathFragment fragment = original.replaceName(filename);
-      return ruleContext.getTreeArtifact(fragment, newFileRoot());
+      result = ruleContext.getTreeArtifact(fragment, newFileRoot());
     }
+    if (!result.isTreeArtifact()) {
+      throw new EvalException(
+          null,
+          String.format(
+              "'%s' has already been declared as a regular file, not directory.", filename));
+    }
+    return result;
   }
 
   @Override
@@ -386,11 +395,45 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       }
     } else {
       // Users didn't pass 'tools', kick in compatibility modes
-      // Full legacy support -- add tools from inputs
-      for (Artifact artifact : inputArtifacts) {
-        FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
-        if (provider != null) {
-          builder.addTool(provider);
+      if (skylarkSemantics.incompatibleNoSupportToolsInActionInputs()) {
+        // In this mode we error out if we find any tools among the inputs
+        List<Artifact> tools = null;
+        for (Artifact artifact : inputArtifacts) {
+          FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
+          if (provider != null) {
+            tools = tools != null ? tools : new ArrayList<>(1);
+            tools.add(artifact);
+          }
+        }
+        if (tools != null) {
+          String toolsAsString =
+              Joiner.on(", ")
+                  .join(
+                      tools
+                          .stream()
+                          .map(Artifact::getExecPathString)
+                          .map(s -> "'" + s + "'")
+                          .collect(toList()));
+          throw new EvalException(
+              location,
+              String.format(
+                  "Found tool(s) %s in inputs. "
+                      + "A tool is an input with executable=True set. "
+                      + "All tools should be passed using the 'tools' "
+                      + "argument instead of 'inputs' in order to make their runfiles available "
+                      + "to the action. This safety check will not be performed once the action "
+                      + "is modified to take a 'tools' argument. "
+                      + "To temporarily disable this check, "
+                      + "set --incompatible_no_support_tools_in_action_inputs=false.",
+                  toolsAsString));
+        }
+      } else {
+        // Full legacy support -- add tools from inputs
+        for (Artifact artifact : inputArtifacts) {
+          FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
+          if (provider != null) {
+            builder.addTool(provider);
+          }
         }
       }
     }
@@ -483,90 +526,6 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   }
 
   /** Args module. */
-  @SkylarkModule(
-    name = "Args",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc =
-        "An object that encapsulates, in a memory-efficient way, the data needed to build part or "
-            + "all of a command line."
-            + ""
-            + "<p>It often happens that an action requires a large command line containing values "
-            + "accumulated from transitive dependencies. For example, a linker command line might "
-            + "list every object file needed by all of the libraries being linked. It is best "
-            + "practice to store such transitive data in <a href='depset.html'><code>depset"
-            + "</code></a>s, so that they can be shared by multiple targets. However, if the rule "
-            + "author had to convert these depsets into lists of strings in order to construct an "
-            + "action command line, it would defeat this memory-sharing optimization."
-            + ""
-            + "<p>For this reason, the action-constructing functions accept <code>Args</code> "
-            + "objects in addition to strings. Each <code>Args</code> object represents a "
-            + "concatenation of strings and depsets, with optional transformations for "
-            + "manipulating the data. <code>Args</code> objects do not process the depsets they "
-            + "encapsulate until the execution phase, when it comes time to calculate the command "
-            + "line. This helps defer any expensive copying until after the analysis phase is "
-            + "complete. See the <a href='../performance.$DOC_EXT'>Optimizing Performance</a> page "
-            + "for more information."
-            + ""
-            + "<p><code>Args</code> are constructed by calling <a href='actions.html#args'><code>"
-            + "ctx.actions.args()</code></a>. They can be passed as the <code>arguments</code> "
-            + "parameter of <a href='actions.html#run'><code>ctx.actions.run()</code></a> or "
-            + "<a href='actions.html#run_shell'><code>ctx.actions.run_shell()</code></a>. Each "
-            + "mutation of an <code>Args</code> object appends values to the eventual command "
-            + "line."
-            + ""
-            + "<p>The <code>map_each</code> feature allows you to customize how items are "
-            + "transformed into strings. If you do not provide a <code>map_each</code> function, "
-            + "the standard conversion is as follows: "
-            + "<ul>"
-            + "<li>Values that are already strings are left as-is."
-            + "<li><a href='File.html'><code>File</code></a> objects are turned into their "
-            + "    <code>File.path</code> values."
-            + "<li>All other types are turned into strings in an <i>unspecified</i> manner. For "
-            + "    this reason, you should avoid passing values that are not of string or "
-            + "    <code>File</code> type to <code>add()</code>, and if you pass them to "
-            + "    <code>add_all()</code> or <code>add_joined()</code> then you should provide a "
-            + "    <code>map_each</code> function."
-            + "</ul>"
-            + ""
-            + "<p>When using string formatting (<code>format</code>, <code>format_each</code>, and "
-            + "<code>format_joined</code> params of the <code>add*()</code> methods), the format "
-            + "template is interpreted in the same way as <code>%</code>-substitution on strings, "
-            + "except that the template must have exactly one substitution placeholder and it must "
-            + "be <code>%s</code>. Literal percents may be escaped as <code>%%</code>. Formatting "
-            + "is applied after the value is converted to a string as per the above."
-            + ""
-            + "<p>Each of the <code>add*()</code> methods have an alternate form that accepts an "
-            + "extra positional parameter, an \"arg name\" string to insert before the rest of the "
-            + "arguments. For <code>add_all</code> and <code>add_joined</code> the extra string "
-            + "will not be added if the sequence turns out to be empty. "
-            + "For instance, the same usage can add either <code>--foo val1 val2 val3 --bar"
-            + "</code> or just <code>--bar</code> to the command line, depending on whether the "
-            + "given sequence contains <code>val1..val3</code> or is empty."
-            + ""
-            + "<p>If the size of the command line can grow longer than the maximum size allowed by "
-            + "the system, the arguments can be spilled over into parameter files. See "
-            + "<a href='#use_param_file'><code>use_param_file()</code></a> and "
-            + "<a href='#set_param_file_format'><code>set_param_file_format()</code></a>."
-            + ""
-            + "<p>Example: Suppose we wanted to generate the command line: "
-            + "<pre>\n"
-            + "--foo foo1.txt foo2.txt ... fooN.txt --bar bar1.txt,bar2.txt,...,barM.txt --baz\n"
-            + "</pre>"
-            + "We could use the following <code>Args</code> object: "
-            + "<pre class=language-python>\n"
-            + "# foo_deps and bar_deps are depsets containing\n"
-            + "# File objects for the foo and bar .txt files.\n"
-            + "args = ctx.actions.args()\n"
-            + "args.add_all(\"--foo\", foo_deps)\n"
-            + "args.add_joined(\"--bar\", bar_deps, join_with=\",\")\n"
-            + "args.add(\"--baz\")\n"
-            + "ctx.actions.run(\n"
-            + "  ...\n"
-            + "  arguments = [args],\n"
-            + "  ...\n"
-            + ")\n"
-            + "</pre>"
-  )
   @VisibleForTesting
   public static class Args extends SkylarkMutable implements CommandLineArgsApi {
     private final Mutability mutability;

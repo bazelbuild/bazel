@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -246,13 +245,13 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
       SkylarkLateBoundDefault resolver =
           fieldCache.get(cacheKey).get(fragmentFieldName);
       if (resolver == null) {
-        String fragmentName = SkylarkModule.Resolver.resolveName(fragmentClass);
-        if (Strings.isNullOrEmpty(fragmentName)) {
+        SkylarkModule moduleAnnotation = SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
+        if (moduleAnnotation == null) {
           throw new AssertionError("fragment class must have a valid skylark name");
         }
         throw new InvalidConfigurationFieldException(
             String.format("invalid configuration field name '%s' on fragment '%s'",
-                fragmentFieldName, fragmentName));
+                fragmentFieldName, moduleAnnotation.name()));
       }
       return resolver;
     } catch (ExecutionException e) {

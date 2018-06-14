@@ -17,17 +17,17 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 
 /**
- * A {@link CcLinkParamsStore} to be propagated to dependent cc_{library, binary} targets.
+ * A {@link AbstractCcLinkParamsStore} to be propagated to dependent cc_{library, binary} targets.
  */
-class ObjcLibraryCcLinkParamsStore extends CcLinkParamsStore {
+class ObjcLibraryCcLinkParamsStore extends AbstractCcLinkParamsStore {
 
   private final ObjcCommon common;
 

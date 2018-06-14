@@ -110,6 +110,38 @@ EOF
   grep -q 'env' $foopath || fail "expected unpatched file"
 }
 
+test_patch_failed() {
+  EXTREPODIR=`pwd`
+
+  cat > my_patch_tool <<'EOF'
+#!/bin/sh
+
+echo Helpful message
+exit 1
+EOF
+  chmod u+x my_patch_tool
+
+  # Test that the patches attribute of http_archive is honored
+  mkdir main
+  cd main
+  echo "ignored anyway" > patch_foo.sh
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext-0.1.2",
+  urls=["file://${EXTREPODIR}/ext.zip"],
+  build_file_content="exports_files([\"foo.sh\"])",
+  patches = ["//:patch_foo.sh"],
+  patch_tool = "${EXTREPODIR}/my_patch_tool",
+)
+EOF
+  touch BUILD
+
+  bazel build @ext//... >"${TEST_log}" 2>&1 && fail "expected failure" || :
+  expect_log 'Helpful message'
+}
+
 test_patch_git() {
   EXTREPODIR=`pwd`
   export GIT_CONFIG_NOSYSTEM=YES
@@ -491,6 +523,62 @@ EOF
   expect_log "from external repo"
   expect_log "GOOD"
   expect_not_log "BAD"
+}
+
+test_git_format_patch() {
+  EXTREPODIR=`pwd`
+
+  # Verify that a patch in the style of git-format-patch(1) can be handled.
+  mkdir main
+  cd main
+  ls -al
+  cat > 0001-foo.sh-remove-dragons.patch <<'EOF'
+From a8c0f9248dd85feac9d08b017776b5aedd1e7be8 Mon Sep 17 00:00:00 2001
+From: Klaus Aehlig <aehlig@google.com>
+Date: Wed, 13 Jun 2018 11:32:39 +0200
+Subject: [PATCH] foo.sh: remove dragons
+
+---
+ foo.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/foo.sh b/foo.sh
+index 1f4c41e..9d548ff 100644
+--- a/foo.sh
++++ b/foo.sh
+@@ -1,3 +1,3 @@
+ #!/usr/bin/env sh
+
+-echo Here be dragons...
++echo New version of foo.sh, no more dangerous animals...
+--
+2.18.0.rc1.244.gcf134e6275-goog
+
+EOF
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext-0.1.2",
+  urls=["file://${EXTREPODIR}/ext.zip"],
+  build_file_content="exports_files([\"foo.sh\"])",
+  patches = ["//:0001-foo.sh-remove-dragons.patch"],
+  patch_args = ["-p1"],
+  patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "foo",
+  outs = ["foo.sh"],
+  srcs = ["@ext//:foo.sh"],
+  cmd = "cp $< $@; chmod u+x $@",
+  executable = True,
+)
+EOF
+  bazel build :foo.sh
+  foopath=`bazel info bazel-genfiles`/foo.sh
+  grep -q 'New version' $foopath || fail "expected patch to be applied"
 }
 
 run_suite "external patching tests"

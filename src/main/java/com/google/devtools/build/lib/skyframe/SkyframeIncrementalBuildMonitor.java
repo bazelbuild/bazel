@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ChangedFilesMessage;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -37,7 +38,7 @@ class SkyframeIncrementalBuildMonitor {
 
   public void accrue(Iterable<SkyKey> invalidatedValues) {
     for (SkyKey skyKey : invalidatedValues) {
-      if (skyKey.functionName().equals(SkyFunctions.FILE_STATE)) {
+      if (skyKey.functionName().equals(FileStateValue.FILE_STATE)) {
         RootedPath file = (RootedPath) skyKey.argument();
         maybeAddFile(file.getRootRelativePath());
       }

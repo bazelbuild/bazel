@@ -59,9 +59,13 @@ public class LazyClassEntryStateTest {
   public void testIncompleteState() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> IncompleteState.create(LIST_CLASS_INFO, ImmutableList.of()));
+        () ->
+            IncompleteState.create(
+                LIST_CLASS_INFO,
+                ResolutionFailureChain.createWithParent(LIST_CLASS_INFO, ImmutableList.of())));
     IncompleteState state =
-        IncompleteState.create(LIST_CLASS_INFO, ImmutableList.of("java/lang/Object"));
+        IncompleteState.create(
+            LIST_CLASS_INFO, ResolutionFailureChain.createMissingClass("java/lang/Object"));
 
     assertThat(state.isExistingState()).isFalse();
     assertThat(state.isIncompleteState()).isTrue();
@@ -76,9 +80,9 @@ public class LazyClassEntryStateTest {
     assertThat(classInfo.declaredMembers()).hasSize(1);
     assertThat(classInfo.declaredMembers()).containsExactly(MemberInfo.create("hashCode", "()I"));
 
-    ImmutableList<String> failurePath = state.getResolutionFailurePath();
-    assertThat(failurePath).hasSize(1);
-    assertThat(failurePath).containsExactly("java/lang/Object");
+    assertThat(state.resolutionFailureChain().getMissingClassesWithSubclasses()).isEmpty();
+    assertThat(state.missingAncestors()).hasSize(1);
+    assertThat(state.missingAncestors()).containsExactly("java/lang/Object");
   }
 
   @Test

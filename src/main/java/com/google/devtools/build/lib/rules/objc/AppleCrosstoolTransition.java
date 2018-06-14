@@ -36,7 +36,7 @@ public class AppleCrosstoolTransition implements PatchTransition {
   public static final PatchTransition APPLE_CROSSTOOL_TRANSITION = new AppleCrosstoolTransition();
 
   @Override
-  public BuildOptions apply(BuildOptions buildOptions) {
+  public BuildOptions patch(BuildOptions buildOptions) {
     BuildOptions result = buildOptions.clone();
 
     if (!appleCrosstoolTransitionIsAppliedForAllObjc(buildOptions)) {
@@ -77,7 +77,6 @@ public class AppleCrosstoolTransition implements PatchTransition {
     // OSX toolchains always use the runtime of the platform they are targeting (i.e. we do not
     // support custom production environments).
     to.get(CppOptions.class).libcTopLabel = null;
-    to.get(CppOptions.class).glibc = null;
 
     // OSX toolchains do not support fission.
     to.get(CppOptions.class).fissionModes = ImmutableList.of();

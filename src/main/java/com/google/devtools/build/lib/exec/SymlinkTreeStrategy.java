@@ -13,18 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.skyframe.OutputService;
-import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -44,7 +41,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
   }
 
   @Override
-  public List<SpawnResult> createSymlinks(
+  public void createSymlinks(
       SymlinkTreeAction action,
       ActionExecutionContext actionExecutionContext,
       ImmutableMap<String, String> shellEnvironment,
@@ -60,7 +57,6 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
               actionExecutionContext.getInputPath(action.getOutputManifest()),
               action.isFilesetTree(),
               action.getOutputManifest().getExecPath().getParentDirectory());
-          return ImmutableList.of();
         } else {
           SymlinkTreeHelper helper =
               new SymlinkTreeHelper(
@@ -69,13 +65,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
                       .getInputPath(action.getOutputManifest())
                       .getParentDirectory(),
                   action.isFilesetTree());
-          return helper.createSymlinks(
-              action,
-              actionExecutionContext,
-              binTools,
-              shellEnvironment,
-              action.getInputManifest(),
-              enableRunfiles);
+          helper.createSymlinks(actionExecutionContext, binTools, shellEnvironment, enableRunfiles);
         }
       } catch (ExecException e) {
         throw e.toActionExecutionException(

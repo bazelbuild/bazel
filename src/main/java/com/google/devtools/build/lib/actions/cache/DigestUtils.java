@@ -19,6 +19,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Longs;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -286,15 +287,15 @@ public class DigestUtils {
   }
 
   /**
-   * @param mdMap A collection of (execPath, Metadata) pairs. Values may be null.
+   * @param mdMap A collection of (execPath, FileArtifactValue) pairs. Values may be null.
    * @return an <b>order-independent</b> digest from the given "set" of (path, metadata) pairs.
    */
-  public static Md5Digest fromMetadata(Map<String, Metadata> mdMap) {
+  public static Md5Digest fromMetadata(Map<String, FileArtifactValue> mdMap) {
     byte[] result = new byte[Md5Digest.MD5_SIZE];
     // Profiling showed that MD5 engine instantiation was a hotspot, so create one instance for
     // this computation to amortize its cost.
     Fingerprint fp = new Fingerprint();
-    for (Map.Entry<String, Metadata> entry : mdMap.entrySet()) {
+    for (Map.Entry<String, FileArtifactValue> entry : mdMap.entrySet()) {
       xorWith(result, getDigest(fp, entry.getKey(), entry.getValue()));
     }
     return new Md5Digest(result);
@@ -315,7 +316,7 @@ public class DigestUtils {
     return new Md5Digest(result);
   }
 
-  private static byte[] getDigest(Fingerprint fp, String execPath, Metadata md) {
+  private static byte[] getDigest(Fingerprint fp, String execPath, FileArtifactValue md) {
     fp.addString(execPath);
 
     if (md == null) {

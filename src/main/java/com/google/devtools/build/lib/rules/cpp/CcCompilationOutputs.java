@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -101,6 +102,11 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
    */
   public ImmutableList<Artifact> getObjectFiles(boolean usePic) {
     return usePic ? picObjectFiles : objectFiles;
+  }
+
+  @Override
+  public SkylarkList<Artifact> getSkylarkObjectFiles(boolean usePic) {
+    return SkylarkList.createImmutable(getObjectFiles(usePic));
   }
 
   /** Returns unmodifiable map of bitcode object files resulting from compilation. */

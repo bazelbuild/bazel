@@ -15,44 +15,29 @@ package com.google.devtools.build.lib.exec.util;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.cache.Metadata;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.protobuf.ByteString;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
 
-/** A fake implementation of the {@link ActionInputFileCache} interface. */
-public final class FakeActionInputFileCache implements ActionInputFileCache {
-  private final Map<ActionInput, Metadata> inputs = new HashMap<>();
+/** A fake implementation of the {@link MetadataProvider} interface. */
+public final class FakeActionInputFileCache implements MetadataProvider {
+  private final Map<ActionInput, FileArtifactValue> inputs = new HashMap<>();
 
-  public FakeActionInputFileCache() {
-  }
+  public FakeActionInputFileCache() {}
 
-  public void put(ActionInput artifact, Metadata metadata) {
+  public void put(ActionInput artifact, FileArtifactValue metadata) {
     inputs.put(artifact, metadata);
   }
 
   @Override
-  public Metadata getMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getMetadata(ActionInput input) throws IOException {
     return Preconditions.checkNotNull(inputs.get(input));
   }
 
   @Override
-  public boolean contentsAvailableLocally(ByteString digest) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  @Nullable
-  public ActionInput getInputFromDigest(ByteString hexDigest) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public Path getInputPath(ActionInput input) {
+  public ActionInput getInput(String execPath) {
     throw new UnsupportedOperationException();
   }
 }

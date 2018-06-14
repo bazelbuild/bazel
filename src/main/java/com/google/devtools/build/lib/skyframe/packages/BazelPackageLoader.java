@@ -101,7 +101,10 @@ public class BazelPackageLoader extends AbstractPackageLoader {
         PrecomputedValue.injected(PrecomputedValue.ACTION_ENV, ImmutableMap.of()),
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
-            Suppliers.ofInstance(ImmutableMap.of())));
+            Suppliers.ofInstance(ImmutableMap.of())),
+        PrecomputedValue.injected(
+            RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+            RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY));
 
     return builder;
   }

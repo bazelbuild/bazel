@@ -345,7 +345,7 @@ public final class Runfiles implements RunfilesApi {
   @Override
   public NestedSet<Artifact> getArtifacts() {
     NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
-    allArtifacts.addAll(unconditionalArtifacts.toCollection());
+    allArtifacts.addTransitive(unconditionalArtifacts);
     for (PruningManifest manifest : getPruningManifests()) {
       allArtifacts.addTransitive(manifest.getCandidateRunfiles());
     }
@@ -1002,7 +1002,8 @@ public final class Runfiles implements RunfilesApi {
      * Collects runfiles from data dependencies of a target.
      */
     public Builder addDataDeps(RuleContext ruleContext) {
-      addTargets(getPrerequisites(ruleContext, "data", Mode.DATA), RunfilesProvider.DATA_RUNFILES);
+      addTargets(getPrerequisites(ruleContext, "data", Mode.DONT_CHECK),
+          RunfilesProvider.DATA_RUNFILES);
       return this;
     }
 

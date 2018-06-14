@@ -38,16 +38,13 @@ public class ClassCacheTest extends AbstractClassCacheTest {
     try (ClassCache cache =
         new ClassCache(
             ImmutableList.of(bootclasspath),
-            ImmutableList.of(libraryJar),
-            ImmutableList.of(libraryJar),
+            ImmutableList.of(),
+            ImmutableList.of(libraryJar, libraryInterfaceJar),
             ImmutableList.of())) {
       assertCache(
           cache,
           libraryJarPositives,
-          combine(
-              libraryInterfacePositives,
-              libraryAnnotationsJarPositives,
-              libraryExceptionJarPositives));
+          combine(libraryAnnotationsJarPositives, libraryExceptionJarPositives));
     }
   }
 
@@ -80,8 +77,24 @@ public class ClassCacheTest extends AbstractClassCacheTest {
         AbstractClassEntryState state = cache.getClassState(PACKAGE_NAME + "Client");
         assertThat(state.isIncompleteState()).isTrue();
 
-        ImmutableList<String> failureCause = state.asIncompleteState().getResolutionFailurePath();
-        assertThat(failureCause).containsExactly(PACKAGE_NAME + "Library").inOrder();
+        ImmutableList<String> successPart =
+            state
+                .asIncompleteState()
+                .resolutionFailureChain()
+                .getMissingClassesWithSubclasses()
+                .values()
+                .stream()
+                .distinct()
+                .sorted()
+                .map(ClassInfo::internalName)
+                .collect(ImmutableList.toImmutableList());
+        assertThat(successPart).containsExactly(PACKAGE_NAME + "Client").inOrder();
+        assertThat(state.asIncompleteState().missingAncestors())
+            .containsExactly(
+                PACKAGE_NAME + "Library",
+                PACKAGE_NAME + "LibraryInterface",
+                PACKAGE_NAME + "LibraryInterface$One",
+                PACKAGE_NAME + "LibraryInterface$Two");
       }
       assertThat(cache.getClassState(PACKAGE_NAME + "Client").isIncompleteState()).isTrue();
       assertThat(cache.getClassState(PACKAGE_NAME + "Client$NestedAnnotation"))

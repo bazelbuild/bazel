@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -31,10 +32,12 @@ import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.SpellChecker;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -75,7 +78,7 @@ import javax.annotation.Nullable;
  * that the words "dynamic" and "static" refer to the point of view of the source code, and here we
  * have a dual point of view.
  */
-public final class Environment implements Freezable {
+public final class Environment implements Freezable, Debuggable {
 
   /**
    * A phase for enabling or disabling certain builtin functions
@@ -460,7 +463,7 @@ public final class Environment implements Freezable {
     final BaseFunction function;
 
     /** The {@link FuncallExpression} to which this Continuation will return. */
-    final FuncallExpression caller;
+    @Nullable final FuncallExpression caller;
 
     /** The next Continuation after this Continuation. */
     @Nullable final Continuation continuation;
@@ -475,12 +478,12 @@ public final class Environment implements Freezable {
     @Nullable final LinkedHashSet<String> knownGlobalVariables;
 
     Continuation(
-        Continuation continuation,
+        @Nullable Continuation continuation,
         BaseFunction function,
-        FuncallExpression caller,
+        @Nullable FuncallExpression caller,
         LexicalFrame lexicalFrame,
         GlobalFrame globalFrame,
-        LinkedHashSet<String> knownGlobalVariables) {
+        @Nullable LinkedHashSet<String> knownGlobalVariables) {
       this.continuation = continuation;
       this.function = function;
       this.caller = caller;
@@ -716,13 +719,17 @@ public final class Environment implements Freezable {
 
   /**
    * Enters a scope by saving state to a new Continuation
+   *
    * @param function the function whose scope to enter
    * @param lexical the lexical frame to use
    * @param caller the source AST node for the caller
    * @param globals the global Frame that this function closes over from its definition Environment
    */
   void enterScope(
-      BaseFunction function, LexicalFrame lexical, FuncallExpression caller, GlobalFrame globals) {
+      BaseFunction function,
+      LexicalFrame lexical,
+      @Nullable FuncallExpression caller,
+      GlobalFrame globals) {
     continuation =
         new Continuation(
             continuation, function, caller, lexicalFrame, globalFrame, knownGlobalVariables);
@@ -1148,6 +1155,92 @@ public final class Environment implements Freezable {
     vars.addAll(globalFrame.getTransitiveBindings().keySet());
     vars.addAll(dynamicFrame.getTransitiveBindings().keySet());
     return vars;
+  }
+
+  private static final class EvalEventHandler implements EventHandler {
+    List<String> messages = new ArrayList<>();
+
+    @Override
+    public void handle(Event event) {
+      if (event.getKind() == EventKind.ERROR) {
+        messages.add(event.getMessage());
+      }
+    }
+  }
+
+  @Override
+  public Object evaluate(String expression) throws EvalException, InterruptedException {
+    ParserInputSource inputSource =
+        ParserInputSource.create(expression, PathFragment.create("<debug eval>"));
+    EvalEventHandler eventHandler = new EvalEventHandler();
+    Expression expr = Parser.parseExpression(inputSource, eventHandler);
+    if (!eventHandler.messages.isEmpty()) {
+      throw new EvalException(expr.getLocation(), eventHandler.messages.get(0));
+    }
+    return expr.eval(this);
+  }
+
+  @Override
+  public ImmutableList<DebugFrame> listFrames(Location currentLocation) {
+    ImmutableList.Builder<DebugFrame> frameListBuilder = ImmutableList.builder();
+
+    Continuation currentContinuation = continuation;
+    Frame currentFrame = currentFrame();
+
+    // if there's a continuation then the current frame is a lexical frame
+    while (currentContinuation != null) {
+      frameListBuilder.add(
+          DebugFrame.builder()
+              .setLexicalFrameBindings(ImmutableMap.copyOf(currentFrame.getTransitiveBindings()))
+              .setGlobalBindings(ImmutableMap.copyOf(getGlobals().getTransitiveBindings()))
+              .setFunctionName(currentContinuation.function.getFullName())
+              .setLocation(currentLocation)
+              .build());
+
+      currentFrame = currentContinuation.lexicalFrame;
+      currentLocation =
+          currentContinuation.caller != null ? currentContinuation.caller.getLocation() : null;
+      currentContinuation = currentContinuation.continuation;
+    }
+
+    frameListBuilder.add(
+        DebugFrame.builder()
+            .setGlobalBindings(ImmutableMap.copyOf(getGlobals().getTransitiveBindings()))
+            .setFunctionName("<top level>")
+            .setLocation(currentLocation)
+            .build());
+
+    return frameListBuilder.build();
+  }
+
+  @Override
+  @Nullable
+  public ReadyToPause stepControl(Stepping stepping) {
+    final Continuation pausedContinuation = continuation;
+
+    switch (stepping) {
+      case NONE:
+        return null;
+      case INTO:
+        // pause at the very next statement
+        return env -> true;
+      case OVER:
+        return env -> isAt(env, pausedContinuation) || isOutside(env, pausedContinuation);
+      case OUT:
+        // if we're at the outer-most frame, same as NONE
+        return pausedContinuation == null ? null : env -> isOutside(env, pausedContinuation);
+    }
+    throw new IllegalArgumentException("Unsupported stepping type: " + stepping);
+  }
+
+  /** Returns true if {@code env} is in a parent frame of {@code pausedContinuation}. */
+  private static boolean isOutside(Environment env, @Nullable Continuation pausedContinuation) {
+    return pausedContinuation != null && env.continuation == pausedContinuation.continuation;
+  }
+
+  /** Returns true if {@code env} is at the same frame as {@code pausedContinuation. */
+  private static boolean isAt(Environment env, @Nullable Continuation pausedContinuation) {
+    return env.continuation == pausedContinuation;
   }
 
   @Override

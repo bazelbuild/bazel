@@ -216,7 +216,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -749,6 +748,22 @@ toolchain {
     }
   }
   feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
     name: "legacy_link_flags"
     flag_set {
       action: "c++-link-executable"
@@ -866,7 +881,6 @@ toolchain {
       action: "c++-module-codegen"
       action: "assemble"
       action: "preprocess-assemble"
-      action: "lto-backend"
       flag_group {
         flag: "-gsplit-dwarf"
       }
@@ -1131,7 +1145,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -1156,7 +1169,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "lto-backend"
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
@@ -1175,7 +1187,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -1240,21 +1251,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -1958,7 +1965,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -2491,6 +2497,22 @@ toolchain {
     }
   }
   feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
     name: "legacy_link_flags"
     flag_set {
       action: "c++-link-executable"
@@ -2608,7 +2630,6 @@ toolchain {
       action: "c++-module-codegen"
       action: "assemble"
       action: "preprocess-assemble"
-      action: "lto-backend"
       flag_group {
         flag: "-gsplit-dwarf"
       }
@@ -2873,7 +2894,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -2898,7 +2918,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "lto-backend"
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
@@ -2917,7 +2936,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -2982,21 +3000,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -3695,7 +3709,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -4228,6 +4241,22 @@ toolchain {
     }
   }
   feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
     name: "legacy_link_flags"
     flag_set {
       action: "c++-link-executable"
@@ -4345,7 +4374,6 @@ toolchain {
       action: "c++-module-codegen"
       action: "assemble"
       action: "preprocess-assemble"
-      action: "lto-backend"
       flag_group {
         flag: "-gsplit-dwarf"
       }
@@ -4610,7 +4638,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -4635,7 +4662,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "lto-backend"
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
@@ -4654,7 +4680,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -4719,21 +4744,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -5432,7 +5453,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -5965,6 +5985,22 @@ toolchain {
     }
   }
   feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
     name: "legacy_link_flags"
     flag_set {
       action: "c++-link-executable"
@@ -6082,7 +6118,6 @@ toolchain {
       action: "c++-module-codegen"
       action: "assemble"
       action: "preprocess-assemble"
-      action: "lto-backend"
       flag_group {
         flag: "-gsplit-dwarf"
       }
@@ -6347,7 +6382,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -6372,7 +6406,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "lto-backend"
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
@@ -6391,7 +6424,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -6456,21 +6488,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -7173,7 +7201,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -7706,6 +7733,22 @@ toolchain {
     }
   }
   feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
     name: "legacy_link_flags"
     flag_set {
       action: "c++-link-executable"
@@ -7823,7 +7866,6 @@ toolchain {
       action: "c++-module-codegen"
       action: "assemble"
       action: "preprocess-assemble"
-      action: "lto-backend"
       flag_group {
         flag: "-gsplit-dwarf"
       }
@@ -8092,7 +8134,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -8117,7 +8158,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "lto-backend"
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
@@ -8136,7 +8176,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -8201,21 +8240,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -8920,7 +8955,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -9455,6 +9489,22 @@ toolchain {
     }
   }
   feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
     name: "legacy_link_flags"
     flag_set {
       action: "c++-link-executable"
@@ -9572,7 +9622,6 @@ toolchain {
       action: "c++-module-codegen"
       action: "assemble"
       action: "preprocess-assemble"
-      action: "lto-backend"
       flag_group {
         flag: "-gsplit-dwarf"
       }
@@ -9841,7 +9890,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -9866,7 +9914,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "lto-backend"
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
@@ -9885,7 +9932,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -9950,21 +9996,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -10670,7 +10712,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -11203,6 +11244,22 @@ toolchain {
     }
   }
   feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
     name: "legacy_link_flags"
     flag_set {
       action: "c++-link-executable"
@@ -11320,7 +11377,6 @@ toolchain {
       action: "c++-module-codegen"
       action: "assemble"
       action: "preprocess-assemble"
-      action: "lto-backend"
       flag_group {
         flag: "-gsplit-dwarf"
       }
@@ -11613,7 +11669,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -11638,7 +11693,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "lto-backend"
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
@@ -11657,7 +11711,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -11722,21 +11775,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -12448,7 +12497,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -12981,6 +13029,22 @@ toolchain {
     }
   }
   feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
     name: "legacy_link_flags"
     flag_set {
       action: "c++-link-executable"
@@ -13098,7 +13162,6 @@ toolchain {
       action: "c++-module-codegen"
       action: "assemble"
       action: "preprocess-assemble"
-      action: "lto-backend"
       flag_group {
         flag: "-gsplit-dwarf"
       }
@@ -13367,7 +13430,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -13392,7 +13454,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "lto-backend"
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
@@ -13411,7 +13472,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -13476,21 +13536,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -14195,7 +14251,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -14728,6 +14783,22 @@ toolchain {
     }
   }
   feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
     name: "legacy_link_flags"
     flag_set {
       action: "c++-link-executable"
@@ -14845,7 +14916,6 @@ toolchain {
       action: "c++-module-codegen"
       action: "assemble"
       action: "preprocess-assemble"
-      action: "lto-backend"
       flag_group {
         flag: "-gsplit-dwarf"
       }
@@ -15136,7 +15206,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -15161,7 +15230,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "lto-backend"
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
@@ -15180,7 +15248,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -15245,21 +15312,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -15962,7 +16025,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -16497,6 +16559,22 @@ toolchain {
     }
   }
   feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
     name: "legacy_link_flags"
     flag_set {
       action: "c++-link-executable"
@@ -16614,7 +16692,6 @@ toolchain {
       action: "c++-module-codegen"
       action: "assemble"
       action: "preprocess-assemble"
-      action: "lto-backend"
       flag_group {
         flag: "-gsplit-dwarf"
       }
@@ -16905,7 +16982,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -16930,7 +17006,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "lto-backend"
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
@@ -16949,7 +17024,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -17014,21 +17088,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -17732,7 +17802,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -18265,6 +18334,22 @@ toolchain {
     }
   }
   feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
     name: "legacy_link_flags"
     flag_set {
       action: "c++-link-executable"
@@ -18382,7 +18467,6 @@ toolchain {
       action: "c++-module-codegen"
       action: "assemble"
       action: "preprocess-assemble"
-      action: "lto-backend"
       flag_group {
         flag: "-gsplit-dwarf"
       }
@@ -18697,7 +18781,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -18722,7 +18805,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "lto-backend"
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
@@ -18741,7 +18823,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -18806,21 +18887,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -19530,7 +19607,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -20063,6 +20139,22 @@ toolchain {
     }
   }
   feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
     name: "legacy_link_flags"
     flag_set {
       action: "c++-link-executable"
@@ -20180,7 +20272,6 @@ toolchain {
       action: "c++-module-codegen"
       action: "assemble"
       action: "preprocess-assemble"
-      action: "lto-backend"
       flag_group {
         flag: "-gsplit-dwarf"
       }
@@ -20471,7 +20562,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -20496,7 +20586,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "lto-backend"
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
@@ -20515,7 +20604,6 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
-      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -20580,21 +20668,17 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-o"
-        flag: "%{output_object_file}"
-        expand_if_all_available: "output_object_file"
-      }
-      flag_group {
         flag: "-S"
-        flag: "-o"
-        flag: "%{output_assembly_file}"
         expand_if_all_available: "output_assembly_file"
       }
       flag_group {
         flag: "-E"
-        flag: "-o"
-        flag: "%{output_preprocess_file}"
         expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }

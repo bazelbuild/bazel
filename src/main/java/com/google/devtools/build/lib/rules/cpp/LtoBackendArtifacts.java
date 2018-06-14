@@ -52,6 +52,7 @@ import java.util.Map;
  */
 @AutoCodec
 public final class LtoBackendArtifacts {
+
   // A file containing mapping of symbol => bitcode file containing the symbol.
   // It will be null when this is a shared non-lto backend.
   private final Artifact index;
@@ -230,10 +231,18 @@ public final class LtoBackendArtifacts {
     // The input to the LTO backend step is the bitcode file.
     buildVariablesBuilder.addStringVariable(
         "thinlto_input_bitcode_file", bitcodeFile.getExecPath().toString());
-    Artifact autoFdoProfile = fdoSupport.getFdoSupport().buildProfileForLtoBackend(
-        fdoSupport, featureConfiguration, buildVariablesBuilder, ruleContext);
-    if (autoFdoProfile != null) {
-      builder.addInput(autoFdoProfile);
+    ProfileArtifacts profileArtifacts =
+        Preconditions.checkNotNull(
+            fdoSupport
+                .getFdoSupport()
+                .buildProfileForLtoBackend(
+                    fdoSupport, featureConfiguration, buildVariablesBuilder, ruleContext));
+
+    if (profileArtifacts.getProfileArtifact() != null) {
+      builder.addInput(profileArtifacts.getProfileArtifact());
+    }
+    if (profileArtifacts.getPrefetchHintsArtifact() != null) {
+      builder.addInput(profileArtifacts.getPrefetchHintsArtifact());
     }
 
     if (generateDwo) {
@@ -251,7 +260,8 @@ public final class LtoBackendArtifacts {
     execArgs.addAll(commandLine);
     CcToolchainVariables buildVariables = buildVariablesBuilder.build();
     // Feature options should go after --copt for consistency with compile actions.
-    execArgs.addAll(featureConfiguration.getCommandLine("lto-backend", buildVariables));
+    execArgs.addAll(
+        featureConfiguration.getCommandLine(CppActionNames.LTO_BACKEND, buildVariables));
     // If this is a PIC compile (set based on the CppConfiguration), the PIC
     // option should be added after the rest of the command line so that it
     // cannot be overridden. This is consistent with the ordering in the

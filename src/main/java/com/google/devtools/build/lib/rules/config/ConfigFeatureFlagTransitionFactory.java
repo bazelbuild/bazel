@@ -55,7 +55,7 @@ public class ConfigFeatureFlagTransitionFactory implements RuleTransitionFactory
     }
 
     @Override
-    public BuildOptions apply(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options) {
       if (!options.contains(ConfigFeatureFlagOptions.class)) {
         return options;
       }
@@ -103,6 +103,13 @@ public class ConfigFeatureFlagTransitionFactory implements RuleTransitionFactory
     } else {
       return NoTransition.INSTANCE;
     }
+  }
+
+  /**
+   * Returns the attribute examined by this transition factory.
+   */
+  public String getAttributeName() {
+    return this.attributeName;
   }
 
   @Override

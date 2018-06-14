@@ -30,11 +30,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -221,7 +221,7 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public ActionInputFileCache getActionInputFileCache() {
+    public MetadataProvider getMetadataProvider() {
       return mockFileCache;
     }
 
@@ -251,7 +251,7 @@ public class LocalSpawnRunnerTest {
     }
   }
 
-  private final ActionInputFileCache mockFileCache = mock(ActionInputFileCache.class);
+  private final MetadataProvider mockFileCache = mock(MetadataProvider.class);
   private final ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
 
   private Logger logger;

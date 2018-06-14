@@ -1,0 +1,15 @@
+major_version: "local"
+minor_version: ""
+default_target_cpu: "local"
+
+toolchain {
+  abi_version: "local"
+  abi_libc_version: "local"
+  compiler: "local"
+  host_system_name: "local"
+  target_libc: "local"
+  target_cpu: "local"
+  target_system_name: "local"
+  toolchain_identifier: "local"
+}
+

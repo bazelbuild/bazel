@@ -13,8 +13,9 @@
 # limitations under the License.
 
 """Rule that stubs out the xcode_config_alias rule if it is not supported."""
+
 def xcode_config_alias(name):
-  if hasattr(native, "xcode_config_alias"):
-    native.xcode_config_alias(name=name)
-  else:
-    native.filegroup(name=name)
+    if hasattr(native, "xcode_config_alias"):
+        native.xcode_config_alias(name = name)
+    else:
+        native.filegroup(name = name)

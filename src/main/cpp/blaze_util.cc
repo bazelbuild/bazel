@@ -28,6 +28,7 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/numbers.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 
@@ -42,18 +43,6 @@ const char kServerPidFile[] = "server.pid.txt";
 const unsigned int kPostShutdownGracePeriodSeconds = 60;
 
 const unsigned int kPostKillGracePeriodSeconds = 10;
-
-string MakeAbsolute(const string &p) {
-  string path = ConvertPath(p);
-  if (path.empty()) {
-    return blaze_util::GetCwd();
-  }
-  if (blaze_util::IsDevNull(path.c_str()) || blaze_util::IsAbsolute(path)) {
-    return path;
-  }
-
-  return blaze_util::JoinPath(blaze_util::GetCwd(), path);
-}
 
 const char* GetUnaryOption(const char *arg,
                            const char *next_arg,
@@ -128,6 +117,14 @@ bool SearchNullaryOption(const vector<string>& args,
 bool IsArg(const string& arg) {
   return blaze_util::starts_with(arg, "-") && (arg != "--help")
       && (arg != "-help") && (arg != "-h");
+}
+
+std::string AbsolutePathFromFlag(const std::string& value) {
+  if (value.empty()) {
+    return blaze_util::GetCwd();
+  } else {
+    return blaze_util::MakeAbsolute(value);
+  }
 }
 
 void LogWait(unsigned int elapsed_seconds, unsigned int wait_seconds) {

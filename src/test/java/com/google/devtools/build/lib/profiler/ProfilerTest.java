@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.profiler;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.profiler.Profiler.Format.BINARY_BAZEL_FORMAT;
+import static com.google.devtools.build.lib.profiler.Profiler.Format.JSON_TRACE_FILE_FORMAT;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.fail;
 
@@ -24,15 +26,15 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.profiler.Profiler.ProfiledTaskKinds;
 import com.google.devtools.build.lib.profiler.Profiler.SlowTask;
 import com.google.devtools.build.lib.profiler.analysis.ProfileInfo;
-import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
-import java.io.InputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -41,6 +43,7 @@ import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,16 +54,9 @@ import org.junit.runners.JUnit4;
  */
 @TestSpec(size = Suite.MEDIUM_TESTS) // testConcurrentProfiling takes ~700ms, testProfiler 100ms.
 @RunWith(JUnit4.class)
-public class ProfilerTest extends FoundationTestCase {
-
-  private Path cacheDir;
+public class ProfilerTest {
   private Profiler profiler = Profiler.instance();
   private ManualClock clock;
-
-  @Before
-  public final void createCacheDirectory() throws Exception {
-    cacheDir = scratch.dir("/tmp");
-  }
 
   @Before
   public final void setManualClock() {
@@ -68,12 +64,33 @@ public class ProfilerTest extends FoundationTestCase {
     BlazeClock.setClock(clock);
   }
 
+  @After
+  public void forceStopToAvoidPoisoningTheProfiler() {
+    // If a test does not stop the profiler, e.g., due to a test failure, all subsequent tests fail
+    // because the profiler is still running, so we force-stop the profiler here.
+    try {
+      profiler.stop();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private ByteArrayOutputStream start(ProfiledTaskKinds kinds, Profiler.Format format) {
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    profiler.start(
+        kinds, buffer, format, "test", false, BlazeClock.instance(), BlazeClock.nanoTime());
+    return buffer;
+  }
+
+  private void startUnbuffered(ProfiledTaskKinds kinds) {
+    profiler.start(
+        kinds, null, null, "test", false, BlazeClock.instance(), BlazeClock.nanoTime());
+  }
+
   @Test
   public void testProfilerActivation() throws Exception {
-    Path cacheFile = cacheDir.getRelative("profile1.dat");
     assertThat(profiler.isActive()).isFalse();
-    profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "basic test", false,
-        BlazeClock.instance(), BlazeClock.instance().nanoTime());
+    start(ProfiledTaskKinds.ALL, BINARY_BAZEL_FORMAT);
     assertThat(profiler.isActive()).isTrue();
 
     profiler.stop();
@@ -82,14 +99,12 @@ public class ProfilerTest extends FoundationTestCase {
 
   @Test
   public void testTaskDetails() throws Exception {
-    Path cacheFile = cacheDir.getRelative("profile1.dat");
-    profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "basic test", false,
-        BlazeClock.instance(), BlazeClock.instance().nanoTime());
-    profiler.startTask(ProfilerTask.ACTION, "action task");
-    profiler.logEvent(ProfilerTask.TEST, "event");
-    profiler.completeTask(ProfilerTask.ACTION);
+    ByteArrayOutputStream buffer = start(ProfiledTaskKinds.ALL, BINARY_BAZEL_FORMAT);
+    try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
+      profiler.logEvent(ProfilerTask.INFO, "event");
+    }
     profiler.stop();
-    ProfileInfo info = ProfileInfo.loadProfile(cacheFile);
+    ProfileInfo info = ProfileInfo.loadProfile(new ByteArrayInputStream(buffer.toByteArray()));
     info.calculateStats();
 
     ProfileInfo.Task task = info.allTasksById.get(0);
@@ -99,37 +114,32 @@ public class ProfilerTest extends FoundationTestCase {
 
     task = info.allTasksById.get(1);
     assertThat(task.id).isEqualTo(2);
-    assertThat(task.type).isEqualTo(ProfilerTask.TEST);
+    assertThat(task.type).isEqualTo(ProfilerTask.INFO);
     assertThat(task.getDescription()).isEqualTo("event");
   }
 
   @Test
   public void testProfiler() throws Exception {
-    Path cacheFile = cacheDir.getRelative("profile1.dat");
-    profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "basic test", false,
-        BlazeClock.instance(), BlazeClock.instance().nanoTime());
+    ByteArrayOutputStream buffer = start(ProfiledTaskKinds.ALL, BINARY_BAZEL_FORMAT);
     profiler.logSimpleTask(BlazeClock.instance().nanoTime(),
                            ProfilerTask.PHASE, "profiler start");
-    profiler.startTask(ProfilerTask.ACTION, "complex task");
-    profiler.logEvent(ProfilerTask.PHASE, "event1");
-    profiler.startTask(ProfilerTask.ACTION_CHECK, "complex subtask");
-    // next task takes less than 10 ms and should be only aggregated
-    profiler.logSimpleTask(BlazeClock.instance().nanoTime(),
-                           ProfilerTask.VFS_STAT, "stat1");
-    long startTime = BlazeClock.instance().nanoTime();
-    clock.advanceMillis(20);
-    // this one will take at least 20 ms and should be present
-    profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, "stat2");
-    profiler.completeTask(ProfilerTask.ACTION_CHECK);
-    profiler.completeTask(ProfilerTask.ACTION);
+    try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "complex task")) {
+      profiler.logEvent(ProfilerTask.PHASE, "event1");
+      try (SilentCloseable c2 = profiler.profile(ProfilerTask.ACTION_CHECK, "complex subtask")) {
+        // next task takes less than 10 ms and should be only aggregated
+        profiler.logSimpleTask(BlazeClock.instance().nanoTime(),
+                               ProfilerTask.VFS_STAT, "stat1");
+        long startTime = BlazeClock.instance().nanoTime();
+        clock.advanceMillis(20);
+        // this one will take at least 20 ms and should be present
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, "stat2");
+      }
+    }
     profiler.stop();
     // all other calls to profiler should be ignored
     profiler.logEvent(ProfilerTask.PHASE, "should be ignored");
-    // normally this would cause an exception but it is ignored since profiler
-    // is disabled
-    profiler.completeTask(ProfilerTask.ACTION_EXECUTE);
 
-    ProfileInfo info = ProfileInfo.loadProfile(cacheFile);
+    ProfileInfo info = ProfileInfo.loadProfile(new ByteArrayInputStream(buffer.toByteArray()));
     info.calculateStats();
     assertThat(info.allTasksById).hasSize(6); // only 5 tasks + finalization should be recorded
 
@@ -164,16 +174,22 @@ public class ProfilerTest extends FoundationTestCase {
 
   @Test
   public void testProfilerRecordingAllEvents() throws Exception {
-    Path cacheFile = cacheDir.getRelative("profile1.dat");
-    profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "basic test", true,
-        BlazeClock.instance(), BlazeClock.instance().nanoTime());
-    profiler.startTask(ProfilerTask.ACTION, "action task");
-    // Next task takes less than 10 ms but should be recorded anyway.
-    clock.advanceMillis(1);
-    profiler.logSimpleTask(BlazeClock.instance().nanoTime(), ProfilerTask.VFS_STAT, "stat1");
-    profiler.completeTask(ProfilerTask.ACTION);
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    profiler.start(
+        ProfiledTaskKinds.ALL,
+        buffer,
+        BINARY_BAZEL_FORMAT,
+        "basic test",
+        true,
+        BlazeClock.instance(),
+        BlazeClock.instance().nanoTime());
+    try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
+      // Next task takes less than 10 ms but should be recorded anyway.
+      clock.advanceMillis(1);
+      profiler.logSimpleTask(BlazeClock.instance().nanoTime(), ProfilerTask.VFS_STAT, "stat1");
+    }
     profiler.stop();
-    ProfileInfo info = ProfileInfo.loadProfile(cacheFile);
+    ProfileInfo info = ProfileInfo.loadProfile(new ByteArrayInputStream(buffer.toByteArray()));
     info.calculateStats();
     assertThat(info.allTasksById).hasSize(3); // 2 tasks + finalization should be recorded
 
@@ -186,10 +202,16 @@ public class ProfilerTest extends FoundationTestCase {
 
   @Test
   public void testProfilerRecordingOnlySlowestEvents() throws Exception {
-    Path profileData = cacheDir.getRelative("foo");
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
-    profiler.start(ProfiledTaskKinds.SLOWEST, profileData.getOutputStream(), "test", true,
-        BlazeClock.instance(), BlazeClock.instance().nanoTime());
+    profiler.start(
+        ProfiledTaskKinds.SLOWEST,
+        buffer,
+        BINARY_BAZEL_FORMAT,
+        "test",
+        true,
+        BlazeClock.instance(),
+        BlazeClock.instance().nanoTime());
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
     profiler.logSimpleTask(20000, 30000, ProfilerTask.REMOTE_EXECUTION, "remote execution");
 
@@ -198,7 +220,7 @@ public class ProfilerTest extends FoundationTestCase {
 
     profiler.stop();
 
-    ProfileInfo info = ProfileInfo.loadProfile(profileData);
+    ProfileInfo info = ProfileInfo.loadProfile(new ByteArrayInputStream(buffer.toByteArray()));
     info.calculateStats();
     assertThat(info.allTasksById).hasSize(1); // only VFS_STAT task should be recorded
 
@@ -207,14 +229,20 @@ public class ProfilerTest extends FoundationTestCase {
   }
 
   @Test
+  public void testSlowestTasks() throws Exception {
+    startUnbuffered(ProfiledTaskKinds.ALL);
+    profiler.logSimpleTaskDuration(
+        Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.LOCAL_PARSE, "foo");
+    Iterable<SlowTask> slowestTasks = profiler.getSlowestTasks();
+    assertThat(slowestTasks).hasSize(1);
+    SlowTask task = slowestTasks.iterator().next();
+    assertThat(task.type).isEqualTo(ProfilerTask.LOCAL_PARSE);
+    profiler.stop();
+  }
+
+  @Test
   public void testGetSlowestTasksCapped() throws Exception {
-    profiler.start(
-        ProfiledTaskKinds.SLOWEST,
-        ByteStreams.nullOutputStream(),
-        "test",
-        /*recordAllDurations=*/ true,
-        BlazeClock.instance(),
-        BlazeClock.instance().nanoTime());
+    startUnbuffered(ProfiledTaskKinds.SLOWEST);
 
     // Add some fast tasks - these shouldn't show up in the slowest.
     for (int i = 0; i < ProfilerTask.VFS_STAT.slowestInstancesCount; i++) {
@@ -283,10 +311,15 @@ public class ProfilerTest extends FoundationTestCase {
 
   @Test
   public void testProfilerRecordsNothing() throws Exception {
-    Path profileData = cacheDir.getRelative("foo");
-
-    profiler.start(ProfiledTaskKinds.NONE, profileData.getOutputStream(), "test", true,
-        BlazeClock.instance(), BlazeClock.instance().nanoTime());
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    profiler.start(
+        ProfiledTaskKinds.NONE,
+        buffer,
+        BINARY_BAZEL_FORMAT,
+        "test",
+        true,
+        BlazeClock.instance(),
+        BlazeClock.instance().nanoTime());
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
 
     assertThat(ProfilerTask.VFS_STAT.collectsSlowestInstances()).isTrue();
@@ -294,38 +327,20 @@ public class ProfilerTest extends FoundationTestCase {
 
     profiler.stop();
 
-    ProfileInfo info = ProfileInfo.loadProfile(profileData);
+    ProfileInfo info = ProfileInfo.loadProfile(new ByteArrayInputStream(buffer.toByteArray()));
     info.calculateStats();
     assertThat(info.allTasksById).isEmpty();
   }
 
   @Test
-  public void testInconsistentCompleteTask() throws Exception {
-    Path cacheFile = cacheDir.getRelative("profile2.dat");
-    profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(),
-        "task stack inconsistency test", false,
-        BlazeClock.instance(), BlazeClock.instance().nanoTime());
-    profiler.startTask(ProfilerTask.PHASE, "some task");
-    try {
-      profiler.completeTask(ProfilerTask.ACTION);
-      fail();
-    } catch (IllegalStateException e) {
-      // this is expected
-    }
-    profiler.stop();
-  }
-
-  @Test
   public void testConcurrentProfiling() throws Exception {
-    Path cacheFile = cacheDir.getRelative("profile3.dat");
-    profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "concurrent test", false,
-        BlazeClock.instance(), BlazeClock.instance().nanoTime());
+    ByteArrayOutputStream buffer = start(ProfiledTaskKinds.ALL, BINARY_BAZEL_FORMAT);
 
     long id = Thread.currentThread().getId();
     Thread thread1 = new Thread() {
       @Override public void run() {
         for (int i = 0; i < 10000; i++) {
-          Profiler.instance().logEvent(ProfilerTask.TEST, "thread1");
+          Profiler.instance().logEvent(ProfilerTask.INFO, "thread1");
         }
       }
     };
@@ -333,23 +348,23 @@ public class ProfilerTest extends FoundationTestCase {
     Thread thread2 = new Thread() {
       @Override public void run() {
         for (int i = 0; i < 10000; i++) {
-          Profiler.instance().logEvent(ProfilerTask.TEST, "thread2");
+          Profiler.instance().logEvent(ProfilerTask.INFO, "thread2");
         }
       }
     };
     long id2 = thread2.getId();
 
-    profiler.startTask(ProfilerTask.PHASE, "main task");
-    profiler.logEvent(ProfilerTask.TEST, "starting threads");
-    thread1.start();
-    thread2.start();
-    thread2.join();
-    thread1.join();
-    profiler.logEvent(ProfilerTask.TEST, "joined");
-    profiler.completeTask(ProfilerTask.PHASE);
+    try (SilentCloseable c = profiler.profile(ProfilerTask.PHASE, "main task")) {
+      profiler.logEvent(ProfilerTask.INFO, "starting threads");
+      thread1.start();
+      thread2.start();
+      thread2.join();
+      thread1.join();
+      profiler.logEvent(ProfilerTask.INFO, "joined");
+    }
     profiler.stop();
 
-    ProfileInfo info = ProfileInfo.loadProfile(cacheFile);
+    ProfileInfo info = ProfileInfo.loadProfile(new ByteArrayInputStream(buffer.toByteArray()));
     info.calculateStats();
     info.analyzeRelationships();
     assertThat(info.allTasksById).hasSize(4 + 10000 + 10000); // total number of tasks
@@ -373,13 +388,11 @@ public class ProfilerTest extends FoundationTestCase {
 
   @Test
   public void testPhaseTasks() throws Exception {
-    Path cacheFile = cacheDir.getRelative("profile4.dat");
-    profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "phase test", false,
-        BlazeClock.instance(), BlazeClock.instance().nanoTime());
+    ByteArrayOutputStream buffer = start(ProfiledTaskKinds.ALL, BINARY_BAZEL_FORMAT);
     Thread thread1 = new Thread() {
       @Override public void run() {
         for (int i = 0; i < 100; i++) {
-          Profiler.instance().logEvent(ProfilerTask.TEST, "thread1");
+          Profiler.instance().logEvent(ProfilerTask.INFO, "thread1");
         }
       }
     };
@@ -393,28 +406,28 @@ public class ProfilerTest extends FoundationTestCase {
         new Thread() {
           @Override
           public void run() {
-            profiler.startTask(ProfilerTask.TEST, "complex task");
-            for (int i = 0; i < 100; i++) {
-              Profiler.instance().logEvent(ProfilerTask.TEST, "thread2a");
+            try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "complex task")) {
+              for (int i = 0; i < 100; i++) {
+                Profiler.instance().logEvent(ProfilerTask.INFO, "thread2a");
+              }
             }
-            profiler.completeTask(ProfilerTask.TEST);
             try {
               profiler.markPhase(ProfilePhase.EXECUTE);
             } catch (InterruptedException e) {
               throw new IllegalStateException(e);
             }
             for (int i = 0; i < 100; i++) {
-              Profiler.instance().logEvent(ProfilerTask.TEST, "thread2b");
+              Profiler.instance().logEvent(ProfilerTask.INFO, "thread2b");
             }
           }
         };
     thread2.start();
     thread2.join();
-    profiler.logEvent(ProfilerTask.TEST, "last task");
+    profiler.logEvent(ProfilerTask.INFO, "last task");
     clock.advanceMillis(1);
     profiler.stop();
 
-    ProfileInfo info = ProfileInfo.loadProfile(cacheFile);
+    ProfileInfo info = ProfileInfo.loadProfile(new ByteArrayInputStream(buffer.toByteArray()));
     info.calculateStats();
     info.analyzeRelationships();
     // number of tasks: INIT(1) + LOAD(1) + Thread1.TEST(100) + ANALYZE(1)
@@ -437,25 +450,21 @@ public class ProfilerTest extends FoundationTestCase {
 
   @Test
   public void testCorruptedFile() throws Exception {
-    Path cacheFile = cacheDir.getRelative("profile5.dat");
-    profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "phase test", false,
-        BlazeClock.instance(), BlazeClock.instance().nanoTime());
+    ByteArrayOutputStream buffer = start(ProfiledTaskKinds.ALL, BINARY_BAZEL_FORMAT);
     for (int i = 0; i < 100; i++) {
-      profiler.startTask(ProfilerTask.TEST, "outer task " + i);
-      clock.advanceMillis(1);
-      profiler.logEvent(ProfilerTask.TEST, "inner task " + i);
-      profiler.completeTask(ProfilerTask.TEST);
+      try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "outer task " + i)) {
+        clock.advanceMillis(1);
+        profiler.logEvent(ProfilerTask.INFO, "inner task " + i);
+      }
     }
     profiler.stop();
 
-    ProfileInfo info = ProfileInfo.loadProfile(cacheFile);
+    ProfileInfo info = ProfileInfo.loadProfile(new ByteArrayInputStream(buffer.toByteArray()));
     info.calculateStats();
     assertThat(info.isCorruptedOrIncomplete()).isFalse();
 
-    Path corruptedFile = cacheDir.getRelative("profile5bad.dat");
-    FileSystemUtils.writeContent(
-        corruptedFile, Arrays.copyOf(FileSystemUtils.readContent(cacheFile), 2000));
-    info = ProfileInfo.loadProfile(corruptedFile);
+    info = ProfileInfo.loadProfile(
+        new ByteArrayInputStream(Arrays.copyOf(buffer.toByteArray(), 2000)));
     info.calculateStats();
     assertThat(info.isCorruptedOrIncomplete()).isTrue();
     // Since root tasks will appear after nested tasks in the profile file and
@@ -467,47 +476,44 @@ public class ProfilerTest extends FoundationTestCase {
 
   @Test
   public void testUnsupportedProfilerRecord() throws Exception {
-    Path dataFile = cacheDir.getRelative("profile5.dat");
-    profiler.start(ProfiledTaskKinds.ALL, dataFile.getOutputStream(), "phase test", false,
-        BlazeClock.instance(), BlazeClock.instance().nanoTime());
-    profiler.startTask(ProfilerTask.TEST, "outer task");
-    profiler.logEvent(ProfilerTask.EXCEPTION, "inner task");
-    profiler.completeTask(ProfilerTask.TEST);
-    profiler.startTask(ProfilerTask.SCANNER, "outer task 2");
-    profiler.logSimpleTask(Profiler.nanoTimeMaybe(), ProfilerTask.TEST, "inner task 2");
-    profiler.completeTask(ProfilerTask.SCANNER);
+    ByteArrayOutputStream buffer = start(ProfiledTaskKinds.ALL, BINARY_BAZEL_FORMAT);
+    try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "outer task")) {
+      profiler.logEvent(ProfilerTask.PHASE, "inner task");
+    }
+    try (SilentCloseable c = profiler.profile(ProfilerTask.SCANNER, "outer task 2")) {
+      profiler.logSimpleTask(Profiler.nanoTimeMaybe(), ProfilerTask.INFO, "inner task 2");
+    }
     profiler.stop();
 
     // Validate our test profile.
-    ProfileInfo info = ProfileInfo.loadProfile(dataFile);
+    ProfileInfo info = ProfileInfo.loadProfile(new ByteArrayInputStream(buffer.toByteArray()));
     info.calculateStats();
     assertThat(info.isCorruptedOrIncomplete()).isFalse();
-    assertThat(info.getStatsForType(ProfilerTask.TEST, info.rootTasksById).count).isEqualTo(2);
+    assertThat(info.getStatsForType(ProfilerTask.INFO, info.rootTasksById).count).isEqualTo(3);
     assertThat(info.getStatsForType(ProfilerTask.UNKNOWN, info.rootTasksById).count).isEqualTo(0);
 
     // Now replace "TEST" type with something unsupported - e.g. "XXXX".
-    InputStream in = new InflaterInputStream(dataFile.getInputStream(), new Inflater(false), 65536);
-    byte[] buffer = new byte[60000];
-    int len = in.read(buffer);
-    in.close();
-    assertThat(len).isLessThan(buffer.length); // Validate that file was completely decoded.
-    String content = new String(buffer, ISO_8859_1);
-    int infoIndex = content.indexOf("TEST");
+    byte[] deflated = ByteStreams.toByteArray(new InflaterInputStream(
+        new ByteArrayInputStream(buffer.toByteArray()), new Inflater(false), 65536));
+    String content = new String(deflated, ISO_8859_1);
+    int infoIndex = content.indexOf("INFO");
     assertThat(infoIndex).isGreaterThan(0);
     content = content.substring(0, infoIndex) + "XXXX" + content.substring(infoIndex + 4);
-    OutputStream out = new DeflaterOutputStream(dataFile.getOutputStream(),
-        new Deflater(Deflater.BEST_SPEED, false), 65536);
+
+    buffer = new ByteArrayOutputStream();
+    OutputStream out =
+        new DeflaterOutputStream(buffer, new Deflater(Deflater.BEST_SPEED, false), 65536);
     out.write(content.getBytes(ISO_8859_1));
     out.close();
 
     // Validate that XXXX records were classified as UNKNOWN.
-    info = ProfileInfo.loadProfile(dataFile);
+    info = ProfileInfo.loadProfile(new ByteArrayInputStream(buffer.toByteArray()));
     info.calculateStats();
     assertThat(info.isCorruptedOrIncomplete()).isFalse();
-    assertThat(info.getStatsForType(ProfilerTask.TEST, info.rootTasksById).count).isEqualTo(0);
+    assertThat(info.getStatsForType(ProfilerTask.INFO, info.rootTasksById).count).isEqualTo(0);
     assertThat(info.getStatsForType(ProfilerTask.SCANNER, info.rootTasksById).count).isEqualTo(1);
-    assertThat(info.getStatsForType(ProfilerTask.EXCEPTION, info.rootTasksById).count).isEqualTo(1);
-    assertThat(info.getStatsForType(ProfilerTask.UNKNOWN, info.rootTasksById).count).isEqualTo(2);
+    assertThat(info.getStatsForType(ProfilerTask.PHASE, info.rootTasksById).count).isEqualTo(1);
+    assertThat(info.getStatsForType(ProfilerTask.UNKNOWN, info.rootTasksById).count).isEqualTo(3);
   }
 
   @Test
@@ -525,10 +531,97 @@ public class ProfilerTest extends FoundationTestCase {
         return initialNanoTime - numNanoTimeCalls.addAndGet(1);
       }
     };
-    Path cacheFile = cacheDir.getRelative("profile1.dat");
-    profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(),
-        "testResilenceToNonDecreasingNanoTimes", false, badClock, initialNanoTime);
-    profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.TEST, "some task");
+    profiler.start(
+        ProfiledTaskKinds.ALL,
+        new ByteArrayOutputStream(),
+        BINARY_BAZEL_FORMAT,
+        "testResilenceToNonDecreasingNanoTimes",
+        false,
+        badClock,
+        initialNanoTime);
+    profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.INFO, "some task");
     profiler.stop();
+  }
+
+  /** Checks that the histograms are cleared in the stop call. */
+  @Test
+  public void testEmptyTaskHistograms() throws Exception {
+    startUnbuffered(ProfiledTaskKinds.ALL);
+    profiler.logSimpleTaskDuration(
+        Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
+    profiler.stop();
+    ImmutableList<StatRecorder> histograms = profiler.getTasksHistograms();
+    for (StatRecorder recorder : histograms) {
+      assertThat(recorder.isEmpty()).isTrue();
+    }
+  }
+
+  @Test
+  public void testTaskHistograms() throws Exception {
+    startUnbuffered(ProfiledTaskKinds.ALL);
+    profiler.logSimpleTaskDuration(
+        Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
+    ImmutableList<StatRecorder> histograms = profiler.getTasksHistograms();
+    StatRecorder infoStatRecorder = histograms.get(ProfilerTask.INFO.ordinal());
+    assertThat(infoStatRecorder.isEmpty()).isFalse();
+    // This is the only provided API to get the contents of the StatRecorder.
+    assertThat(infoStatRecorder.toString()).contains("'INFO'");
+    assertThat(infoStatRecorder.toString()).contains("Count: 1");
+    assertThat(infoStatRecorder.toString()).contains("[8192..16384 ms]");
+    // The stop() call is here because the histograms are cleared in the stop call. See the
+    // documentation of {@link Profiler#getTasksHistograms}.
+    profiler.stop();
+  }
+
+  @Test
+  public void testIOExceptionInOutputStreamBinaryFormat() throws Exception {
+    OutputStream failingOutputStream = new OutputStream() {
+      @Override
+      public void write(int b) throws IOException {
+        throw new IOException("Expected failure.");
+      }
+    };
+    profiler.start(
+        ProfiledTaskKinds.ALL,
+        failingOutputStream,
+        BINARY_BAZEL_FORMAT,
+        "basic test",
+        false,
+        BlazeClock.instance(),
+        BlazeClock.instance().nanoTime());
+    profiler.logSimpleTaskDuration(
+        Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
+    try {
+      profiler.stop();
+      fail();
+    } catch (IOException expected) {
+      assertThat(expected).hasMessageThat().isEqualTo("Expected failure.");
+    }
+  }
+
+  @Test
+  public void testIOExceptionInOutputStreamJsonFormat() throws Exception {
+    OutputStream failingOutputStream = new OutputStream() {
+      @Override
+      public void write(int b) throws IOException {
+        throw new IOException("Expected failure.");
+      }
+    };
+    profiler.start(
+        ProfiledTaskKinds.ALL,
+        failingOutputStream,
+        JSON_TRACE_FILE_FORMAT,
+        "basic test",
+        false,
+        BlazeClock.instance(),
+        BlazeClock.instance().nanoTime());
+    profiler.logSimpleTaskDuration(
+        Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
+    try {
+      profiler.stop();
+      fail();
+    } catch (IOException expected) {
+      assertThat(expected).hasMessageThat().isEqualTo("Expected failure.");
+    }
   }
 }

@@ -52,6 +52,7 @@ public class TestSuite implements RuleConfiguredTargetFactory {
 
     List<String> tagsAttribute = new ArrayList<>(
         ruleContext.attributes().get("tags", Type.STRING_LIST));
+    // TODO(ulfjack): This is inconsistent with the other places that do test_suite expansion.
     tagsAttribute.remove("manual");
     Pair<Collection<String>, Collection<String>> requiredExcluded =
         TestTargetUtils.sortTagsBySense(tagsAttribute);
@@ -66,9 +67,10 @@ public class TestSuite implements RuleConfiguredTargetFactory {
               getPrerequisites(ruleContext, "tests"),
               getPrerequisites(ruleContext, "$implicit_tests"))) {
       if (dep.getProvider(TestProvider.class) != null) {
+        // getTestTags maps to Rule.getRuleTags.
         List<String> tags = dep.getProvider(TestProvider.class).getTestTags();
         if (!TestTargetUtils.testMatchesFilters(
-            tags, requiredExcluded.first, requiredExcluded.second, true)) {
+            tags, requiredExcluded.first, requiredExcluded.second)) {
           // This test does not match our filter. Ignore it.
           continue;
         }

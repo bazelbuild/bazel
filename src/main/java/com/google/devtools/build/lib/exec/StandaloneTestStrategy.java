@@ -161,19 +161,17 @@ public class StandaloneTestStrategy extends TestStrategy {
                 workingDirectory);
       }
       processLastTestAttempt(attempt, dataBuilder, standaloneTestResult.testResultData());
-      ImmutableList<Pair<String, Path>> testOutputs = action.getTestOutputsMapping(execRoot);
+      ImmutableList<Pair<String, Path>> testOutputs =
+          action.getTestOutputsMapping(actionExecutionContext.getPathResolver(), execRoot);
       actionExecutionContext
           .getEventHandler()
           .post(
               TestAttempt.forExecutedTestResult(
                   action,
-                  standaloneTestResult.executionInfo(),
+                  standaloneTestResult.testResultData(),
                   attempt,
-                  standaloneTestResult.testResultData().getStatus(),
-                  standaloneTestResult.testResultData().getStartTimeMillisEpoch(),
-                  standaloneTestResult.testResultData().getRunDurationMillis(),
                   testOutputs,
-                  standaloneTestResult.testResultData().getWarningList(),
+                  standaloneTestResult.executionInfo(),
                   true));
       finalizeTest(actionExecutionContext, action, dataBuilder.build());
 
@@ -181,7 +179,14 @@ public class StandaloneTestStrategy extends TestStrategy {
       // returning the last list?
       return standaloneTestResult.spawnResults();
     } catch (IOException e) {
-      actionExecutionContext.getEventHandler().handle(Event.error("Caught I/O exception: " + e));
+      // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
+      // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
+      StringBuilder sb = new StringBuilder();
+      sb.append("Caught I/O exception: ").append(e.getMessage());
+      for (Object s : e.getStackTrace()) {
+        sb.append("\n\t").append(s);
+      }
+      actionExecutionContext.getEventHandler().handle(Event.error(sb.toString()));
       throw new EnvironmentalExecException("unexpected I/O exception", e);
     }
   }
@@ -206,7 +211,8 @@ public class StandaloneTestStrategy extends TestStrategy {
     // Get the normal test output paths, and then update them to use "attempt_N" names, and
     // attemptDir, before adding them to the outputs.
     ImmutableList<Pair<String, Path>> testOutputs =
-        action.getTestOutputsMapping(actionExecutionContext.getExecRoot());
+        action.getTestOutputsMapping(actionExecutionContext.getPathResolver(),
+            actionExecutionContext.getExecRoot());
     for (Pair<String, Path> testOutput : testOutputs) {
       // e.g. /testRoot/test.dir/file, an example we follow throughout this loop's comments.
       Path testOutputPath = testOutput.getSecond();
@@ -244,13 +250,10 @@ public class StandaloneTestStrategy extends TestStrategy {
         .post(
             TestAttempt.forExecutedTestResult(
                 action,
-                result.executionInfo(),
+                data,
                 attempt,
-                data.getStatus(),
-                data.getStartTimeMillisEpoch(),
-                data.getRunDurationMillis(),
                 testOutputsBuilder.build(),
-                data.getWarningList(),
+                result.executionInfo(),
                 false));
     processTestOutput(actionExecutionContext, new TestResult(action, data, false), testLog);
   }
@@ -331,7 +334,8 @@ public class StandaloneTestStrategy extends TestStrategy {
     TestResultData.Builder builder = TestResultData.newBuilder();
 
     long startTime = actionExecutionContext.getClock().currentTimeMillis();
-    SpawnActionContext spawnActionContext = actionExecutionContext.getSpawnActionContext(spawn);
+    SpawnActionContext spawnActionContext =
+        actionExecutionContext.getContext(SpawnActionContext.class);
     List<SpawnResult> spawnResults = ImmutableList.of();
     BuildEventStreamProtos.TestResult.ExecutionInfo.Builder executionInfo =
         BuildEventStreamProtos.TestResult.ExecutionInfo.newBuilder();

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -367,6 +368,9 @@ public final class CommandInterruptionTest {
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
                     // Can't create a defaults package without the base options in there!
                     builder.addConfigurationOptions(BuildConfiguration.Options.class);
+                    // Need to have some defaults values to satisfy DefaultsPackage.getContent()
+                    // TODO(dbabkin): remove when DefaultsPackage been deprecated b/79239052
+                    builder.addConfigurationOptions(TestConfiguration.TestOptions.class);
                   }
                 })
             .addBlazeModule(
@@ -447,7 +451,7 @@ public final class CommandInterruptionTest {
   public void exitForbidsNullExitCode() throws Exception {
     CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
     try {
-      command.getModuleEnvironment().exit(new AbruptExitException(null));
+      command.getModuleEnvironment().exit(new AbruptExitException("", null));
       throw new AssertionError(
           "It shouldn't be allowed to pass an AbruptExitException with null ExitCode to exit()!");
     } catch (NullPointerException expected) {
@@ -460,16 +464,16 @@ public final class CommandInterruptionTest {
   @Test
   public void callingExitOnceInterruptsAndOverridesExitCode() throws Exception {
     CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
-    command.getModuleEnvironment().exit(new AbruptExitException(ExitCode.NO_TESTS_FOUND));
+    command.getModuleEnvironment().exit(new AbruptExitException("", ExitCode.NO_TESTS_FOUND));
     command.assertFinishedWith(ExitCode.NO_TESTS_FOUND);
   }
 
   @Test
   public void callingExitSecondTimeNeitherInterruptsNorReOverridesExitCode() throws Exception {
     CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ true);
-    command.getModuleEnvironment().exit(new AbruptExitException(ExitCode.NO_TESTS_FOUND));
+    command.getModuleEnvironment().exit(new AbruptExitException("", ExitCode.NO_TESTS_FOUND));
     command.assertNotFinishedYet();
-    command.getModuleEnvironment().exit(new AbruptExitException(ExitCode.ANALYSIS_FAILURE));
+    command.getModuleEnvironment().exit(new AbruptExitException("", ExitCode.ANALYSIS_FAILURE));
     command.assertNotFinishedYet();
     command.requestExitWith(ExitCode.SUCCESS);
     command.assertFinishedWith(ExitCode.NO_TESTS_FOUND);
@@ -478,7 +482,7 @@ public final class CommandInterruptionTest {
   @Test
   public void abruptExitCodesDontOverrideInfrastructureFailures() throws Exception {
     CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ true);
-    command.getModuleEnvironment().exit(new AbruptExitException(ExitCode.NO_TESTS_FOUND));
+    command.getModuleEnvironment().exit(new AbruptExitException("", ExitCode.NO_TESTS_FOUND));
     command.assertNotFinishedYet();
     command.requestExitWith(ExitCode.BLAZE_INTERNAL_ERROR);
     command.assertFinishedWith(ExitCode.BLAZE_INTERNAL_ERROR);
@@ -492,7 +496,7 @@ public final class CommandInterruptionTest {
     CommandState newCommandOnSameThread =
         snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
     firstCommand.assertOnSameThreadAs(newCommandOnSameThread);
-    firstCommand.getModuleEnvironment().exit(new AbruptExitException(ExitCode.RUN_FAILURE));
+    firstCommand.getModuleEnvironment().exit(new AbruptExitException("", ExitCode.RUN_FAILURE));
     newCommandOnSameThread.assertNotFinishedYet();
     newCommandOnSameThread.requestExitWith(ExitCode.SUCCESS);
   }

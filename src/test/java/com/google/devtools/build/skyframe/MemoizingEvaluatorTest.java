@@ -26,7 +26,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -62,6 +61,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -2424,6 +2424,74 @@ public class MemoizingEvaluatorTest {
         RunResetNodeOnRequestWithDepsMode.NO_KEEP_EDGES_SO_NO_REEVALUATION);
   }
 
+  private void missingDirtyChild(boolean sameGroup) throws Exception {
+    SkyKey topKey = GraphTester.skyKey("top");
+    SkyKey missingChild = GraphTester.skyKey("missing");
+    AtomicInteger numInconsistencyCalls = new AtomicInteger(0);
+    tester.setGraphInconsistencyReceiver(
+        (key, otherKey, inconsistency) -> {
+          Preconditions.checkState(missingChild.equals(otherKey), otherKey);
+          Preconditions.checkState(
+              inconsistency
+                  == GraphInconsistencyReceiver.Inconsistency.CHILD_MISSING_FOR_DIRTY_NODE,
+              inconsistency);
+          Preconditions.checkState(topKey.equals(key), key);
+          numInconsistencyCalls.incrementAndGet();
+        });
+    tester.initialize(/*keepEdges=*/ true);
+    tester.getOrCreate(missingChild).setConstantValue(new StringValue("will go missing"));
+    SkyKey presentChild = GraphTester.skyKey("present");
+    tester.getOrCreate(presentChild).setConstantValue(new StringValue("present"));
+    StringValue topValue = new StringValue("top");
+    tester
+        .getOrCreate(topKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                if (sameGroup) {
+                  env.getValues(ImmutableSet.of(presentChild, missingChild));
+                } else {
+                  env.getValue(presentChild);
+                  if (env.valuesMissing()) {
+                    return null;
+                  }
+                  env.getValue(missingChild);
+                }
+                return env.valuesMissing() ? null : topValue;
+              }
+
+              @Nullable
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey)).isEqualTo(topValue);
+    deleteKeyFromGraph(missingChild);
+    tester
+        .getOrCreate(presentChild, /*markAsModified=*/ true)
+        .setConstantValue(new StringValue("changed"));
+    tester.invalidate();
+    assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey)).isEqualTo(topValue);
+    assertThat(numInconsistencyCalls.get()).isEqualTo(1);
+  }
+
+  protected void deleteKeyFromGraph(SkyKey key) {
+    ((InMemoryMemoizingEvaluator) tester.evaluator).getGraphForTesting().remove(key);
+  }
+
+  @Test
+  public void missingDirtyChild_SameGroup() throws Exception {
+    missingDirtyChild(/*sameGroup=*/ true);
+  }
+
+  @Test
+  public void missingDirtyChild_DifferentGroup() throws Exception {
+    missingDirtyChild(/*sameGroup=*/ false);
+  }
+
   /**
    * The same dep is requested in two groups, but its value determines what the other dep in the
    * second group is. When it changes, the other dep in the second group should not be requested.
@@ -4268,7 +4336,9 @@ public class MemoizingEvaluatorTest {
         new TrackingProgressReceiver() {
           @Override
           public void evaluated(
-              SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {
+              SkyKey skyKey,
+              Supplier<EvaluationSuccessState> evaluationSuccessState,
+              EvaluationState state) {
             evaluated.add(skyKey);
           }
         });
@@ -4404,7 +4474,9 @@ public class MemoizingEvaluatorTest {
         new TrackingProgressReceiver() {
           @Override
           public void evaluated(
-              SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {
+              SkyKey skyKey,
+              Supplier<EvaluationSuccessState> evaluationSuccessState,
+              EvaluationState state) {
             evaluated.add(skyKey);
           }
         });

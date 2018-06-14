@@ -96,8 +96,13 @@ public final class CppFileTypes {
 
         @Override
         public boolean apply(String path) {
+          if (PIC_ARCHIVE.matches(path)
+              || ALWAYS_LINK_LIBRARY.matches(path)
+              || path.endsWith(".if.lib")) {
+            return false;
+          }
           for (String ext : extensions) {
-            if (path.endsWith(ext) && !PIC_ARCHIVE.matches(path)) {
+            if (path.endsWith(ext)) {
               return true;
             }
           }
@@ -117,12 +122,13 @@ public final class CppFileTypes {
 
         @Override
         public boolean apply(String path) {
-          return path.endsWith(ext) && !ALWAYS_LINK_PIC_LIBRARY.matches(path);
+          return (path.endsWith(ext) && !ALWAYS_LINK_PIC_LIBRARY.matches(path))
+              || path.endsWith(".lo.lib");
         }
 
         @Override
         public List<String> getExtensions() {
-          return ImmutableList.of(ext);
+          return ImmutableList.of(ext, ".lo.lib");
         }
       };
 
@@ -133,12 +139,12 @@ public final class CppFileTypes {
 
         @Override
         public boolean apply(String path) {
-          return path.endsWith(ext) && !PIC_OBJECT_FILE.matches(path);
+          return (path.endsWith(ext) && !PIC_OBJECT_FILE.matches(path)) || path.endsWith(".obj");
         }
 
         @Override
         public List<String> getExtensions() {
-          return ImmutableList.of(ext);
+          return ImmutableList.of(ext, ".obj");
         }
       };
 
@@ -177,6 +183,7 @@ public final class CppFileTypes {
   public static final FileType COVERAGE_DATA = FileType.of(".gcda");
   public static final FileType COVERAGE_DATA_IMPORTS = FileType.of(".gcda.imports");
   public static final FileType GCC_AUTO_PROFILE = FileType.of(".afdo");
+  public static final FileType XBINARY_PROFILE = FileType.of(".xfdo");
   public static final FileType LLVM_PROFILE = FileType.of(".profdata");
   public static final FileType LLVM_PROFILE_RAW = FileType.of(".profraw");
 

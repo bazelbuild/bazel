@@ -287,12 +287,17 @@ public class CppRuleClasses {
   /*
    * A string constant for allowing implicit ThinLTO enablement for AFDO.
    */
-  public static final java.lang.String AUTOFDO_IMPLICIT_THINLTO = "autofdo_implicit_thinlto";
+  public static final String AUTOFDO_IMPLICIT_THINLTO = "autofdo_implicit_thinlto";
 
   /*
    * A string constant for enabling ThinLTO for AFDO implicitly.
    */
-  public static final java.lang.String ENABLE_AFDO_THINLTO = "enable_afdo_thinlto";
+  public static final String ENABLE_AFDO_THINLTO = "enable_afdo_thinlto";
+
+  /*
+   * A string constant for enabling ThinLTO for FDO implicitly.
+   */
+  public static final String ENABLE_FDO_THINLTO = "enable_fdo_thinlto";
 
   /**
    * A string constant for allowing use of shared LTO backend actions for linkstatic tests building
@@ -372,9 +377,17 @@ public class CppRuleClasses {
   public static final String FDO_OPTIMIZE = "fdo_optimize";
 
   /**
+   * A string constant for the cache prefetch hints feature.
+   */
+  public static final String FDO_PREFETCH_HINTS = "fdo_prefetch_hints";
+
+  /**
    * A string constant for the autofdo feature.
    */
   public static final String AUTOFDO = "autofdo";
+
+  /** A string constant for the xbinaryfdo feature. */
+  public static final String XBINARYFDO = "xbinaryfdo";
 
   /**
    * A string constant for the lipo feature.

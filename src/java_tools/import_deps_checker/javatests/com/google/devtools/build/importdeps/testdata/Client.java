@@ -68,6 +68,10 @@ public class Client<@TypeAnnotation T> extends Library
     System.out.println(array.clone().length);
     Integer b = Integer.valueOf(0);
     System.out.println(b);
+
+    Class11 eleven = new Class11();
+    eleven.foo();
+    eleven.bar();
   }
 
   public void testEnums() {

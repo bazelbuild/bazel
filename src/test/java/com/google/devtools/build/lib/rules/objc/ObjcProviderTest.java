@@ -53,44 +53,6 @@ public class ObjcProviderTest {
   }
 
   @Test
-  public void onlyNonPropagatesProvider() {
-    ObjcProvider dep = objcProviderBuilder()
-        .add(ObjcProvider.SDK_DYLIB, "foo")
-        .build();
-    ObjcProvider notPropagates = objcProviderBuilder()
-        .addTransitiveWithoutPropagating(ImmutableList.of(dep))
-        .build();
-    assertThat(notPropagates.get(ObjcProvider.SDK_DYLIB)).containsExactly("foo");
-  }
-
-  @Test
-  public void propagatesAndNonPropagatesProvider() {
-    ObjcProvider dep = objcProviderBuilder()
-        .add(ObjcProvider.SDK_DYLIB, "foo")
-        .build();
-    ObjcProvider provider = objcProviderBuilder()
-        .addTransitiveWithoutPropagating(ImmutableList.of(dep))
-        .add(ObjcProvider.SDK_DYLIB, "bar")
-        .build();
-    assertThat(provider.get(ObjcProvider.SDK_DYLIB)).containsExactly("foo", "bar").inOrder();
-  }
-
-  @Test
-  public void doesNotPropagate() {
-    ObjcProvider dep = objcProviderBuilder()
-        .add(ObjcProvider.SDK_DYLIB, "foo")
-        .build();
-    ObjcProvider provider = objcProviderBuilder()
-        .addTransitiveWithoutPropagating(ImmutableList.of(dep))
-        .add(ObjcProvider.SDK_DYLIB, "bar")
-        .build();
-    ObjcProvider depender = objcProviderBuilder()
-        .addTransitiveAndPropagate(provider)
-        .build();
-    assertThat(depender.get(ObjcProvider.SDK_DYLIB)).containsExactly("bar");
-  }
-
-  @Test
   public void strictDependencyDoesNotPropagateMoreThanOneLevel() {
     PathFragment strictInclude = PathFragment.create("strict_path");
     PathFragment propagatedInclude = PathFragment.create("propagated_path");

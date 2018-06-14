@@ -299,6 +299,7 @@ function test_no_package_loading_on_benign_workspace_file_changes() {
   # TODO(b/37617303): make tests UI-independent
   bazel query --noexperimental_ui //foo:all >& "$TEST_log" \
       || fail "Expected success"
+  expect_log "Loading package: foo"
   expect_log "//foo:shname1"
 
   echo 'sh_library(name="shname2")' > foo/BUILD
@@ -308,7 +309,7 @@ function test_no_package_loading_on_benign_workspace_file_changes() {
   expect_log "Loading package: foo"
   expect_log "//foo:shname2"
 
-  echo 'workspace(name="wsname1")' > WORKSPACE
+  # Test that comment changes do not cause package reloading
   echo '#benign comment' >> WORKSPACE
   # TODO(b/37617303): make tests UI-independent
   bazel query --noexperimental_ui //foo:all >& "$TEST_log" \

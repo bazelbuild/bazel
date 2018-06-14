@@ -42,8 +42,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -119,10 +118,6 @@ public class BazelJavaSemantics implements JavaSemantics {
   @Override
   public void checkForProtoLibraryAndJavaProtoLibraryOnSameProto(
       RuleContext ruleContext, JavaCommon javaCommon) {}
-
-  @Override
-  public void checkProtoDeps(
-      RuleContext ruleContext, Collection<? extends TransitiveInfoCollection> deps) {}
 
   private static final String JUNIT4_RUNNER = "org.junit.runner.JUnitCore";
 
@@ -568,16 +563,16 @@ public class BazelJavaSemantics implements JavaSemantics {
       RuleConfiguredTargetBuilder ruleBuilder) {
     // TODO(plf): Figure out whether we can remove support for C++ dependencies in Bazel.
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcLinkParamsInfo(
-        new CcLinkParamsInfo(
-            new CcLinkParamsStore() {
+    ccLinkingInfoBuilder.setCcLinkParamsStore(
+        new CcLinkParamsStore(
+            new AbstractCcLinkParamsStore() {
               @Override
               protected void collect(
                   CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
                 builder.addTransitiveTargets(
                     javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH),
                     JavaCcLinkParamsProvider.TO_LINK_PARAMS,
-                    CcLinkParamsInfo.TO_LINK_PARAMS);
+                    CcLinkParamsStore.TO_LINK_PARAMS);
               }
             }));
     ruleBuilder.addNativeDeclaredProvider(ccLinkingInfoBuilder.build());
@@ -785,10 +780,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       boolean shouldStrip) {
     Artifact launcher = JavaHelper.launcherArtifactForTarget(this, ruleContext);
     return new Pair<>(launcher, launcher);
-  }
-
-  @Override
-  public void addDependenciesForRunfiles(RuleContext ruleContext, Runfiles.Builder builder) {
   }
 
   @Override

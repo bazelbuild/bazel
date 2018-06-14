@@ -18,9 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleLoadableBundleBinaryApi;
 
 /**
  * Provider containing the executable binary output that was built using an apple_binary target with
@@ -33,13 +31,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
  * </ul>
  */
 @Immutable
-@SkylarkModule(
-    name = "AppleLoadableBundleBinary",
-    category = SkylarkModuleCategory.PROVIDER,
-    doc = "A provider containing the executable binary output that was built using an "
-        + "apple_binary target with the 'loadable_bundle' type."
-)
-public final class AppleLoadableBundleBinaryInfo extends NativeInfo {
+public final class AppleLoadableBundleBinaryInfo extends NativeInfo
+    implements AppleLoadableBundleBinaryApi {
 
   /** Skylark name for the AppleLoadableBundleBinary. */
   public static final String SKYLARK_NAME = "AppleLoadableBundleBinary";
@@ -66,10 +59,7 @@ public final class AppleLoadableBundleBinaryInfo extends NativeInfo {
   /**
    * Returns the multi-architecture binary that apple_binary created.
    */
-  @SkylarkCallable(name = "binary",
-      structField = true,
-      doc = "The binary file output by apple_binary."
-  )
+  @Override
   public Artifact getAppleLoadableBundleBinary() {
     return appleLoadableBundleBinary;
   }
@@ -78,11 +68,7 @@ public final class AppleLoadableBundleBinaryInfo extends NativeInfo {
    * Returns the {@link ObjcProvider} which contains information about the transitive dependencies
    * linked into the dylib.
    */
-  @SkylarkCallable(name = "objc",
-      structField = true,
-      doc = "A provider which contains information about the transitive dependencies linked into "
-          + "the binary."
-  )
+  @Override
   public ObjcProvider getDepsObjcProvider() {
     return depsObjcProvider;
   }

@@ -18,11 +18,11 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.io.ByteArrayOutputStream;
-
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -228,7 +227,7 @@ public class SpawnLogContext implements ActionContext {
       }
       // Try to access the cached metadata, otherwise fall back to local computation.
       try {
-        Metadata metadata = metadataProvider.getMetadata(input);
+        FileArtifactValue metadata = metadataProvider.getMetadata(input);
         if (metadata != null) {
           byte[] hash = metadata.getDigest();
           if (hash != null) {

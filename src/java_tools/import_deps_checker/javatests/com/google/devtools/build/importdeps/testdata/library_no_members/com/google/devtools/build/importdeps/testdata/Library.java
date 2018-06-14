@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.importdeps.testdata;
 
+import com.google.devtools.build.importdeps.testdata.LibraryInterface.InterfaceBar;
+import com.google.devtools.build.importdeps.testdata.LibraryInterface.InterfaceFoo;
+
 /**
  * A library class for testing. This library class is very similar to {@link Library}, but it does
  * not have any members (fields or methods).
@@ -48,4 +51,7 @@ public class Library {
 
   /** A library class for testing. */
   public static class Class10 extends Class9 {}
+
+  /** A library class for testing. */
+  public static class Class11 implements InterfaceBar, InterfaceFoo {}
 }

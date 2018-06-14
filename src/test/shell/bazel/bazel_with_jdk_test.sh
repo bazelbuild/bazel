@@ -38,6 +38,8 @@ function set_up() {
   # actually using the bundled one. Remove it.
   fgrep -v -- "--host_javabase" "$TEST_TMPDIR/bazelrc" > "$TEST_TMPDIR/bazelrc.new"
   mv "$TEST_TMPDIR/bazelrc.new" "$TEST_TMPDIR/bazelrc"
+  # ... but ensure JAVA_HOME is set, so we can find a default --javabase
+  export JAVA_HOME="${bazel_javabase}"
 }
 
 function cleanup() {

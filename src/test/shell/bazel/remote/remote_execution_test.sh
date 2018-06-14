@@ -89,7 +89,6 @@ EOF
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
@@ -119,7 +118,6 @@ EOF
   bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
       || fail "Failed to run //a:test with remote execution"
@@ -144,7 +142,6 @@ EOF
 
   bazel clean --expunge >& $TEST_log
   bazel build \
-      --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache service"
@@ -168,7 +165,6 @@ EOF
   bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
       && fail "Expected test failure" || true
@@ -194,7 +190,6 @@ EOF
 int main() { std::cout << "Fail me!" << std::endl; return 1; }
 EOF
   bazel test \
-      --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
@@ -219,7 +214,6 @@ EOF
 int main() { std::cout << "Fail me!" << std::endl; return 1; }
 EOF
   bazel test \
-      --experimental_remote_spawn_cache \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
@@ -236,7 +230,6 @@ EOF
 int main() { std::cout << "Fail me again!" << std::endl; return 1; }
 EOF
   bazel test \
-      --experimental_remote_spawn_cache \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
@@ -272,7 +265,6 @@ EOF
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
       //a:large_output >& $TEST_log \
       || fail "Failed to build //a:large_output with remote execution"
   diff bazel-genfiles/a/large_blob.txt ${TEST_TMPDIR}/large_blob_expected.txt \
@@ -296,7 +288,6 @@ EOF
   bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
       || fail "Failed to run //a:test with remote execution"
@@ -331,7 +322,6 @@ EOF
   bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
       || fail "Failed to run //a:test with remote execution"
@@ -370,7 +360,6 @@ EOF
   bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
       && fail "Expected test failure" || true
@@ -400,7 +389,6 @@ package(default_visibility = ["//visibility:public"])
 empty(name = 'test')
 EOF
   bazel build \
-      --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \

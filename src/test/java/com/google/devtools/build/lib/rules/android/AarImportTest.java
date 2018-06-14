@@ -235,14 +235,10 @@ public class AarImportTest extends BuildViewTestCase {
             "--checking_mode=error",
             "--rule_label",
             "--jdeps_output");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/bar/classes_and_libs_merged.jar");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/java/baz-ijar.jar");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/classes_and_libs_merged.jar");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/foo/classes_and_libs_merged.jar");
     ensureArgumentsHaveClassEntryOptionWithSuffix(
         arguments, "/intermediate/classes_and_libs_merged.jar");
     assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
-        .isEqualTo(5);
+        .isEqualTo(1);
   }
 
   @Test
@@ -263,78 +259,6 @@ public class AarImportTest extends BuildViewTestCase {
     // Get the other artifact from the output group
     Artifact artifact = ActionsTestUtil.getFirstArtifactEndingWith(outputGroup, ".txt");
 
-    assertThat(artifact.isTreeArtifact()).isFalse();
-    assertThat(artifact.getExecPathString())
-        .endsWith("_aar/last/aar_import_deps_checker_result.txt");
-
-    SpawnAction checkerAction = getGeneratingSpawnAction(artifact);
-    List<String> arguments = checkerAction.getArguments();
-    assertThat(arguments)
-        .containsAllOf(
-            "--bootclasspath_entry",
-            "--classpath_entry",
-            "--input",
-            "--output",
-            "--checking_mode=error",
-            "--rule_label",
-            "--jdeps_output");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/bar/classes_and_libs_merged.jar");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/java/baz-ijar.jar");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/baz/classes_and_libs_merged.jar");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(arguments, "/foo/classes_and_libs_merged.jar");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(
-        arguments, "/intermediate/classes_and_libs_merged.jar");
-    assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
-        .isEqualTo(5);
-  }
-
-  @Test
-  public void testDepsCheckerActionExistsForLevelStrictError_NotDecoupled() throws Exception {
-    useConfiguration(
-        "--experimental_import_deps_checking=STRICT_ERROR", "--noandroid_decouple_data_processing");
-    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:last");
-    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
-    NestedSet<Artifact> outputGroup =
-        outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    Artifact artifact = Iterables.getOnlyElement(outputGroup);
-    assertThat(artifact.isTreeArtifact()).isFalse();
-    assertThat(artifact.getExecPathString())
-        .endsWith("_aar/last/aar_import_deps_checker_result.txt");
-
-    SpawnAction checkerAction = getGeneratingSpawnAction(artifact);
-    List<String> arguments = checkerAction.getArguments();
-    assertThat(arguments)
-        .containsAllOf(
-            "--bootclasspath_entry",
-            "--classpath_entry",
-            "--input",
-            "--output",
-            "--checking_mode=error",
-            "--rule_label",
-            "--jdeps_output");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(
-        arguments, "/intermediate/classes_and_libs_merged.jar");
-    assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
-        .isEqualTo(1);
-  }
-
-  @Test
-  public void testDepsCheckerActionExistsForLevelStrictError() throws Exception {
-    useConfiguration(
-        "--experimental_import_deps_checking=STRICT_ERROR", "--android_decouple_data_processing");
-    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:last");
-    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
-    NestedSet<Artifact> outputGroup =
-        outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(outputGroup).hasSize(2);
-
-    // We should force asset merging to happen
-    Artifact mergedAssetsZip =
-        aarImportTarget.get(AndroidAssetsInfo.PROVIDER).getValidationResult();
-    assertThat(outputGroup).contains(mergedAssetsZip);
-
-    // Get the other artifact from the output group
-    Artifact artifact = ActionsTestUtil.getFirstArtifactEndingWith(outputGroup, ".txt");
     assertThat(artifact.isTreeArtifact()).isFalse();
     assertThat(artifact.getExecPathString())
         .endsWith("_aar/last/aar_import_deps_checker_result.txt");

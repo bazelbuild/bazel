@@ -38,14 +38,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.ZipFilterBuilder.CheckHashMismatchMode;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
@@ -102,6 +103,18 @@ public class AndroidCommon {
 
   public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
       RuleContext ruleContext, Mode mode, NativeProvider<T> key) {
+    IterablesChain.Builder<T> builder = IterablesChain.builder();
+    AttributeMap attributes = ruleContext.attributes();
+    for (String attr : TRANSITIVE_ATTRIBUTES) {
+      if (attributes.has(attr, BuildType.LABEL_LIST)) {
+        builder.add(ruleContext.getPrerequisites(attr, mode, key));
+      }
+    }
+    return builder.build();
+  }
+
+  public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
+      RuleContext ruleContext, Mode mode, BuiltinProvider<T> key) {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : TRANSITIVE_ATTRIBUTES) {
@@ -276,6 +289,14 @@ public class AndroidCommon {
     return ideInfoProviderBuilder.build();
   }
 
+  /**
+   * Gets the Java package for the current target.
+   *
+   * @deprecated If no custom_package is specified, this method will derive the Java package from
+   *     the package path, even if that path is not a valid Java path. Use {@link
+   *     AndroidManifest#getAndroidPackage(RuleContext)} instead.
+   */
+  @Deprecated
   public static String getJavaPackage(RuleContext ruleContext) {
     AttributeMap attributes = ruleContext.attributes();
     if (attributes.isAttributeValueExplicitlySpecified("custom_package")) {
@@ -539,19 +560,7 @@ public class AndroidCommon {
             javaCommon.getJavacOpts(),
             attributes,
             useDataBinding ? DataBinding.processDeps(ruleContext) : ImmutableList.<Artifact>of(),
-            /* We have to disable strict deps checking with data binding because data binding
-             * propagates layout XML up the dependency chain. Say a library's XML references a Java
-             * class, e.g.: "<variable type="some.package.SomeClass" />". Data binding's annotation
-             * processor triggers a compile against SomeClass. Because data binding reprocesses
-             * bindings each step up the dependency chain (via merged resources), that means this
-             * compile also happens at the top-level binary. Since SomeClass.java is declared in the
-             * library, this creates a strict deps violation.
-             *
-             * This weakening of strict deps is unfortunate and deserves to be fixed. Once data
-             * binding integrates with aapt2 this problem should naturally go away (since
-             * reprocessing will no longer happen).
-             */
-            /*disableStrictDeps=*/ useDataBinding);
+            /*disableStrictDeps=*/ false);
 
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     attributes.setTargetLabel(ruleContext.getLabel());
@@ -800,14 +809,14 @@ public class AndroidCommon {
     return asNeverLink;
   }
 
-  public CcLinkParamsStore getCcLinkParamsStore() {
+  public AbstractCcLinkParamsStore getCcLinkParamsStore() {
     return getCcLinkParamsStore(
         javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH), ImmutableList.<String>of());
   }
 
-  public static CcLinkParamsStore getCcLinkParamsStore(
+  public static AbstractCcLinkParamsStore getCcLinkParamsStore(
       final Iterable<? extends TransitiveInfoCollection> deps, final Collection<String> linkOpts) {
-    return new CcLinkParamsStore() {
+    return new AbstractCcLinkParamsStore() {
       @Override
       protected void collect(
           CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
@@ -818,7 +827,7 @@ public class AndroidCommon {
             // Link in Android-specific C++ code (e.g., android_libraries) in the transitive closure
             AndroidCcLinkParamsProvider.TO_LINK_PARAMS,
             // Link in non-language-specific C++ code in the transitive closure
-            CcLinkParamsInfo.TO_LINK_PARAMS);
+            CcLinkParamsStore.TO_LINK_PARAMS);
         builder.addLinkOpts(linkOpts);
       }
     };

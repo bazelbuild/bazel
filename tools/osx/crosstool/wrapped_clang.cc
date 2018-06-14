@@ -118,17 +118,6 @@ void RunSubProcess(const std::vector<std::string> &args) {
   }
 }
 
-// Splits txt using whitespace delimiter, pushing each substring into strs.
-void SplitAndAdd(const std::string &txt, std::vector<std::string> &strs) {
-  for (std::istringstream stream(txt); !stream.eof();) {
-    std::string substring;
-    stream >> substring;
-    if (!substring.empty()) {
-      strs.push_back(substring);
-    }
-  }
-}
-
 // Finds and replaces all instances of oldsub with newsub, in-place on str.
 void FindAndReplace(const std::string &oldsub, const std::string &newsub,
                     std::string *str) {
@@ -207,7 +196,7 @@ int main(int argc, char *argv[]) {
     }
     FindAndReplace("__BAZEL_XCODE_DEVELOPER_DIR__", developer_dir, &arg);
     FindAndReplace("__BAZEL_XCODE_SDKROOT__", sdk_root, &arg);
-    SplitAndAdd(arg, processed_args);
+    processed_args.push_back(arg);
   }
 
   // Check to see if we should postprocess with dsymutil.

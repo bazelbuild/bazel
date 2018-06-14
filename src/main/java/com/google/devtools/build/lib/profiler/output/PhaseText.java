@@ -122,8 +122,7 @@ public final class PhaseText extends TextPrinter {
     }
     lnPrint("=== EXECUTION PHASE INFORMATION ===\n");
 
-    long graphTime = execPhase.getTotalDurationNanos(ProfilerTask.ACTION_GRAPH);
-    long execTime = execPhase.getPhaseDurationNanos() - graphTime;
+    long execTime = execPhase.getPhaseDurationNanos();
 
     if (prepPhase.wasExecuted()) {
       lnPrintf(
@@ -142,8 +141,6 @@ public final class PhaseText extends TextPrinter {
           TimeUtilities.prettyTime(finishPhase.getPhaseDurationNanos()));
     }
     printLn();
-    lnPrintf(
-        TWO_COLUMN_FORMAT, "Action dependency map creation", TimeUtilities.prettyTime(graphTime));
     lnPrintf(TWO_COLUMN_FORMAT, "Actual execution time", TimeUtilities.prettyTime(execTime));
 
     CriticalPathText criticalPaths = null;

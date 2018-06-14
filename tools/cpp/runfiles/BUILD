@@ -17,6 +17,7 @@ filegroup(
     srcs = [
         "BUILD.tools",
         "runfiles.cc",
+        "runfiles.h",
     ],
     visibility = ["//tools:__pkg__"],
 )
@@ -34,7 +35,7 @@ cc_test(
     visibility = ["//visibility:public"],
     deps = [
         ":runfiles",
-        "//src/main/cpp/util:file",
+        "//src/main/cpp/util:filesystem",
         "@com_google_googletest//:gtest_main",
     ],
 )

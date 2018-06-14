@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;

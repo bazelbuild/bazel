@@ -149,16 +149,21 @@ genrule(
 sh_binary(
     name = "build_java8_legacy_dex",
     srcs = ["build_java8_legacy_dex.sh"],
-    data = [":java8_legacy_dex"],
+    data = [
+        "minify_java8_legacy_libs.cfg",
+        ":desugared_java8_legacy_libs",
+        ":dexer",
+        "@bazel_tools//src/tools/android/java/com/google/devtools/build/android/desugar/scan:KeepScanner",
+        "@bazel_tools//third_party/java/proguard",
+    ],
     visibility = ["//visibility:public"],
 )
 
 genrule(
     name = "java8_legacy_dex",
-    srcs = ["desugared_java8_legacy_libs"],
     outs = ["java8_legacy.dex.zip"],
-    cmd = """$(location :dexer) --dex "--output=$@" $<""",
-    tools = [":dexer"],
+    cmd = """$(location :build_java8_legacy_dex) --output $@""",
+    tools = [":build_java8_legacy_dex"],
     visibility = ["//visibility:public"],
 )
 
@@ -433,4 +438,15 @@ config_setting(
 package_group(
     name = "android_device_whitelist",
     packages = ["//..."],
+)
+
+package_group(
+    name = "export_deps_whitelist",
+    packages = ["//..."],
+)
+
+sh_binary(
+    name = "dex_list_obfuscator",
+    srcs = ["dex_list_obfuscator.sh"],
+    visibility = ["//visibility:public"],
 )

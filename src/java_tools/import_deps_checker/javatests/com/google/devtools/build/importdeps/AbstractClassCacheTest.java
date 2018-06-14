@@ -41,7 +41,7 @@ public abstract class AbstractClassCacheTest {
       ImmutableList.<String>builder()
           .add("Library")
           .addAll(
-              IntStream.range(1, 11)
+              IntStream.range(1, 12)
                   .mapToObj(i -> "Library$Class" + i)
                   .collect(ImmutableList.toImmutableList()))
           .build()
@@ -83,7 +83,9 @@ public abstract class AbstractClassCacheTest {
           PACKAGE_NAME + "LibraryInterface",
           PACKAGE_NAME + "LibraryInterface$Func",
           PACKAGE_NAME + "LibraryInterface$One",
-          PACKAGE_NAME + "LibraryInterface$Two");
+          PACKAGE_NAME + "LibraryInterface$Two",
+          PACKAGE_NAME + "LibraryInterface$InterfaceFoo",
+          PACKAGE_NAME + "LibraryInterface$InterfaceBar");
 
   static Path getPathFromSystemProperty(String propertyName) {
     String path =

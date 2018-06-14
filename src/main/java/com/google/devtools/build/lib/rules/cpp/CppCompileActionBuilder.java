@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -21,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -56,7 +58,6 @@ public class CppCompileActionBuilder {
   private CcToolchainVariables variables = CcToolchainVariables.EMPTY;
   private Artifact sourceFile;
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
-  private Artifact optionalSourceFile;
   private Artifact outputFile;
   private Artifact dwoFile;
   private Artifact ltoIndexingFile;
@@ -78,7 +79,7 @@ public class CppCompileActionBuilder {
   private CppSemantics cppSemantics;
   private CcToolchainProvider ccToolchain;
   @Nullable private final Artifact grepIncludes;
-  private final ImmutableMap<String, String> localShellEnvironment;
+  private ActionEnvironment env;
   private final boolean codeCoverageEnabled;
   @Nullable private String actionName;
   private ImmutableList<Artifact> builtinIncludeFiles;
@@ -122,7 +123,7 @@ public class CppCompileActionBuilder {
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.additionalIncludeScanningRoots = new ImmutableList.Builder<>();
     this.allowUsingHeaderModules = true;
-    this.localShellEnvironment = configuration.getLocalShellEnvironment();
+    this.env = configuration.getActionEnvironment();
     this.codeCoverageEnabled = configuration.isCodeCoverageEnabled();
     this.ccToolchain = ccToolchain;
     this.grepIncludes = grepIncludes;
@@ -140,7 +141,6 @@ public class CppCompileActionBuilder {
     this.inputsForInvalidation = other.inputsForInvalidation;
     this.additionalIncludeScanningRoots =
         new ImmutableList.Builder<Artifact>().addAll(other.additionalIncludeScanningRoots.build());
-    this.optionalSourceFile = other.optionalSourceFile;
     this.outputFile = other.outputFile;
     this.dwoFile = other.dwoFile;
     this.ltoIndexingFile = other.ltoIndexingFile;
@@ -159,7 +159,7 @@ public class CppCompileActionBuilder {
     this.lipoScannableMap = other.lipoScannableMap;
     this.shouldScanIncludes = other.shouldScanIncludes;
     this.executionInfo = new LinkedHashMap<>(other.executionInfo);
-    this.localShellEnvironment = other.localShellEnvironment;
+    this.env = other.env;
     this.codeCoverageEnabled = other.codeCoverageEnabled;
     this.cppSemantics = other.cppSemantics;
     this.ccToolchain = other.ccToolchain;
@@ -232,15 +232,15 @@ public class CppCompileActionBuilder {
     }
     PathFragment sourcePath = sourceFile.getExecPath();
     if (CppFileTypes.CPP_MODULE_MAP.matches(sourcePath)) {
-      return CppCompileAction.CPP_MODULE_COMPILE;
+      return CppActionNames.CPP_MODULE_COMPILE;
     } else if (CppFileTypes.CPP_HEADER.matches(sourcePath)) {
       // TODO(bazel-team): Handle C headers that probably don't work in C++ mode.
       if (!cppConfiguration.getParseHeadersVerifiesModules()
           && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)) {
-        return CppCompileAction.CPP_HEADER_PARSING;
+        return CppActionNames.CPP_HEADER_PARSING;
       } else if (!cppConfiguration.getParseHeadersVerifiesModules()
           && featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)) {
-        return CppCompileAction.CPP_HEADER_PREPROCESSING;
+        return CppActionNames.CPP_HEADER_PREPROCESSING;
       } else {
         // CcCommon.collectCAndCppSources() ensures we do not add headers to
         // the compilation artifacts unless either 'parse_headers' or
@@ -248,21 +248,21 @@ public class CppCompileActionBuilder {
         throw new IllegalStateException();
       }
     } else if (CppFileTypes.C_SOURCE.matches(sourcePath)) {
-      return CppCompileAction.C_COMPILE;
+      return CppActionNames.C_COMPILE;
     } else if (CppFileTypes.CPP_SOURCE.matches(sourcePath)) {
-      return CppCompileAction.CPP_COMPILE;
+      return CppActionNames.CPP_COMPILE;
     } else if (CppFileTypes.OBJC_SOURCE.matches(sourcePath)) {
-      return CppCompileAction.OBJC_COMPILE;
+      return CppActionNames.OBJC_COMPILE;
     } else if (CppFileTypes.OBJCPP_SOURCE.matches(sourcePath)) {
-      return CppCompileAction.OBJCPP_COMPILE;
+      return CppActionNames.OBJCPP_COMPILE;
     } else if (CppFileTypes.ASSEMBLER.matches(sourcePath)) {
-      return CppCompileAction.ASSEMBLE;
+      return CppActionNames.ASSEMBLE;
     } else if (CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR.matches(sourcePath)) {
-      return CppCompileAction.PREPROCESS_ASSEMBLE;
+      return CppActionNames.PREPROCESS_ASSEMBLE;
     } else if (CppFileTypes.CLIF_INPUT_PROTO.matches(sourcePath)) {
-      return CppCompileAction.CLIF_MATCH;
+      return CppActionNames.CLIF_MATCH;
     } else if (CppFileTypes.CPP_MODULE.matches(sourcePath)) {
-      return CppCompileAction.CPP_MODULE_CODEGEN;
+      return CppActionNames.CPP_MODULE_CODEGEN;
     }
     // CcCompilationHelper ensures CppCompileAction only gets instantiated for supported file types.
     throw new IllegalStateException();
@@ -318,9 +318,7 @@ public class CppCompileActionBuilder {
     // finalizeCompileActionBuilder on this builder.
     Preconditions.checkNotNull(shouldScanIncludes);
     Preconditions.checkNotNull(featureConfiguration);
-    boolean useHeaderModules =
-        allowUsingHeaderModules
-            && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES);
+    boolean useHeaderModules = useHeaderModules();
 
     if (featureConfiguration.actionIsConfigured(getActionName())) {
       for (String executionRequirement :
@@ -335,9 +333,9 @@ public class CppCompileActionBuilder {
     NestedSet<Artifact> realMandatoryInputs = buildMandatoryInputs();
     NestedSet<Artifact> allInputs = buildAllInputs(realMandatoryInputs);
 
-    NestedSetBuilder<Artifact> prunableInputBuilder = NestedSetBuilder.stableOrder();
-    prunableInputBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
-    prunableInputBuilder.addTransitive(cppSemantics.getAdditionalPrunableIncludes());
+    NestedSetBuilder<Artifact> prunableHeadersBuilder = NestedSetBuilder.stableOrder();
+    prunableHeadersBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
+    prunableHeadersBuilder.addTransitive(cppSemantics.getAdditionalPrunableIncludes());
 
     Iterable<IncludeScannable> lipoScannables = getLipoScannables(realMandatoryInputs);
     // We need to add "legal generated scanner files" coming through LIPO scannables here. These
@@ -348,12 +346,12 @@ public class CppCompileActionBuilder {
     for (IncludeScannable lipoScannable : lipoScannables) {
       for (Artifact value : lipoScannable.getLegalGeneratedScannerFileMap().values()) {
         if (value != null) {
-          prunableInputBuilder.add(value);
+          prunableHeadersBuilder.add(value);
         }
       }
     }
 
-    NestedSet<Artifact> prunableInputs = prunableInputBuilder.build();
+    NestedSet<Artifact> prunableHeaders = prunableHeadersBuilder.build();
 
     // Copying the collections is needed to make the builder reusable.
     CppCompileAction action;
@@ -368,17 +366,18 @@ public class CppCompileActionBuilder {
               sourceFile,
               shouldScanIncludes,
               shouldPruneModules(),
+              cppConfiguration.getPruneCppInputDiscovery(),
               usePic,
               useHeaderModules,
               cppConfiguration.isStrictSystemIncludes(),
               realMandatoryInputs,
               inputsForInvalidation,
               getBuiltinIncludeFiles(),
-              prunableInputs,
+              prunableHeaders,
               outputFile,
               tempOutputFile,
               dotdFile,
-              localShellEnvironment,
+              env,
               ccCompilationContext,
               coptsFilter,
               getLipoScannables(realMandatoryInputs),
@@ -396,20 +395,20 @@ public class CppCompileActionBuilder {
               sourceFile,
               shouldScanIncludes,
               shouldPruneModules(),
+              cppConfiguration.getPruneCppInputDiscovery(),
               usePic,
               useHeaderModules,
               cppConfiguration.isStrictSystemIncludes(),
               realMandatoryInputs,
               inputsForInvalidation,
               getBuiltinIncludeFiles(),
-              prunableInputs,
+              prunableHeaders,
               outputFile,
               dotdFile,
               gcnoFile,
               dwoFile,
               ltoIndexingFile,
-              optionalSourceFile,
-              localShellEnvironment,
+              env,
               ccCompilationContext,
               coptsFilter,
               getLipoScannables(realMandatoryInputs),
@@ -461,9 +460,6 @@ public class CppCompileActionBuilder {
    */
   NestedSet<Artifact> buildAllInputs(NestedSet<Artifact> mandatoryInputs) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    if (optionalSourceFile != null) {
-      builder.add(optionalSourceFile);
-    }
     builder.addTransitive(mandatoryInputs);
     builder.addAll(inputsForInvalidation);
     return builder.build();
@@ -471,7 +467,10 @@ public class CppCompileActionBuilder {
 
   private boolean useHeaderModules() {
     return allowUsingHeaderModules
-        && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES);
+        && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
+        && (sourceFile.isFileType(CppFileTypes.CPP_SOURCE)
+            || sourceFile.isFileType(CppFileTypes.CPP_HEADER)
+            || sourceFile.isFileType(CppFileTypes.CPP_MODULE_MAP));
   }
 
   private boolean shouldPruneModules() {
@@ -551,17 +550,6 @@ public class CppCompileActionBuilder {
 
   public CppCompileActionBuilder setActionClassId(UUID uuid) {
     this.actionClassId = uuid;
-    return this;
-  }
-
-  /**
-   * Set an optional source file (usually with metadata of the main source file). The optional
-   * source file can only be set once, whether via this method or through the constructor
-   * {@link #CppCompileActionBuilder(CppCompileActionBuilder)}.
-   */
-  public CppCompileActionBuilder addOptionalSourceFile(Artifact artifact) {
-    Preconditions.checkState(optionalSourceFile == null, "%s %s", optionalSourceFile, artifact);
-    optionalSourceFile = artifact;
     return this;
   }
 
@@ -718,5 +706,14 @@ public class CppCompileActionBuilder {
     } else {
       return getOutputFile().getExecPath();
     }
+  }
+
+  /**
+   * Do not use! This method is only intended for testing.
+   */
+  @VisibleForTesting
+  public CppCompileActionBuilder setActionEnvironment(ActionEnvironment env) {
+    this.env = env;
+    return this;
   }
 }

@@ -27,11 +27,14 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.MirroredTypesException;
 import javax.lang.model.type.TypeMirror;
 
 /** Static utilities for AutoCodec processors. */
@@ -71,7 +74,7 @@ class AutoCodecUtil {
    * @param encodedType type being serialized
    */
   static MethodSpec.Builder initializeSerializeMethodBuilder(
-      TypeElement encodedType, ProcessingEnvironment env) {
+      TypeElement encodedType, AutoCodec annotation, ProcessingEnvironment env) {
     MethodSpec.Builder builder =
         MethodSpec.methodBuilder("serialize")
             .addModifiers(Modifier.PUBLIC)
@@ -82,6 +85,21 @@ class AutoCodecUtil {
             .addParameter(SerializationContext.class, "context")
             .addParameter(TypeName.get(env.getTypeUtils().erasure(encodedType.asType())), "input")
             .addParameter(CodedOutputStream.class, "codedOut");
+    if (annotation.checkClassExplicitlyAllowed()) {
+      builder.addStatement("context.checkClassExplicitlyAllowed(getEncodedClass())");
+    }
+    List<? extends TypeMirror> explicitlyAllowedClasses;
+    try {
+      explicitlyAllowedClasses =
+          Arrays.stream(annotation.explicitlyAllowClass())
+              .map((clazz) -> getType(clazz, env))
+              .collect(Collectors.toList());
+    } catch (MirroredTypesException e) {
+      explicitlyAllowedClasses = e.getTypeMirrors();
+    }
+    for (TypeMirror explicitlyAllowedClass : explicitlyAllowedClasses) {
+      builder.addStatement("context.addExplicitlyAllowedClass($T.class)", explicitlyAllowedClass);
+    }
     return builder;
   }
 

@@ -135,12 +135,12 @@ char (&ArraySizeHelper(const T (&array)[N]))[N];
 
 #define arraysize(array) (sizeof(ArraySizeHelper(array)))
 
-#ifdef COMPILER_MSVC
+#ifdef _WIN32
 // TODO(laszlocsomor) 2016-11-28: move pid_t usage out of global_variables.h and
 // whereever else it appears. Find some way to not have to declare a pid_t here,
 // either by making PID handling platform-independent or some other idea; remove
 // the following typedef afterwards.
 typedef int pid_t;
-#endif  // COMPILER_MSVC
+#endif  // _WIN32
 
 #endif  // BAZEL_SRC_MAIN_CPP_UTIL_PORT_H_

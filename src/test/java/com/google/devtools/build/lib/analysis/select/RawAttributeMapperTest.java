@@ -69,7 +69,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
       assertThat(e)
           .hasCauseThat()
           .hasMessageThat()
-          .contains("SelectorList cannot be cast to java.util.List");
+          .containsMatch(".*SelectorList cannot be cast to .*java\\.util\\.List");
     }
   }
 
@@ -107,7 +107,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
       assertThat(e)
           .hasCauseThat()
           .hasMessageThat()
-          .contains("SelectorList cannot be cast to java.util.List");
+          .containsMatch(".*SelectorList cannot be cast to .*java\\.util\\.List");
     }
   }
 

@@ -18,20 +18,25 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import java.io.IOException;
 
 /**
  * A simple {@link BuildEventTransport} that writes a varint delimited binary representation of
  * {@link BuildEvent} protocol buffers to a file.
  */
 public final class BinaryFormatFileTransport extends FileTransport {
-
+  private final BuildEventProtocolOptions options;
   private final PathConverter pathConverter;
 
-  BinaryFormatFileTransport(String path, PathConverter pathConverter) {
+  BinaryFormatFileTransport(
+      String path, BuildEventProtocolOptions options, PathConverter pathConverter)
+          throws IOException {
     super(path);
+    this.options = options;
     this.pathConverter = pathConverter;
   }
 
@@ -43,15 +48,21 @@ public final class BinaryFormatFileTransport extends FileTransport {
   @Override
   public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
     checkNotNull(event);
-    BuildEventConverters converters =
-        new BuildEventConverters() {
+    BuildEventContext converters =
+        new BuildEventContext() {
           @Override
           public PathConverter pathConverter() {
             return pathConverter;
           }
+
           @Override
           public ArtifactGroupNamer artifactGroupNamer() {
             return namer;
+          }
+
+          @Override
+          public BuildEventProtocolOptions getOptions() {
+            return options;
           }
         };
     write(event.asStreamProto(converters));

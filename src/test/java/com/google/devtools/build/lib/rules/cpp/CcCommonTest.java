@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.bazel.rules.CcRules;
 import com.google.devtools.build.lib.bazel.rules.GenericRules;
+import com.google.devtools.build.lib.bazel.rules.ToolchainRules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.rules.cpp.transitions.LipoDataTransitionRul
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -120,8 +120,8 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(
             emptylib
                 .get(CcLinkingInfo.PROVIDER)
-                .getCcExecutionDynamicLibrariesInfo()
-                .getExecutionDynamicLibraryArtifacts()
+                .getCcDynamicLibrariesForRuntime()
+                .getDynamicLibrariesForRuntimeArtifacts()
                 .isEmpty())
         .isTrue();
   }
@@ -134,7 +134,7 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testEmptyBinary() throws Exception {
     ConfiguredTarget emptybin = getConfiguredTarget("//empty:emptybinary");
     assertThat(baseNamesOf(getFilesToBuild(emptybin)))
-        .isEqualTo("emptybinary" + OsUtils.executableExtension());
+        .isEqualTo("emptybinary");
   }
 
   private List<String> getCopts(String target) throws Exception {
@@ -233,8 +233,8 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(
             statically
                 .get(CcLinkingInfo.PROVIDER)
-                .getCcExecutionDynamicLibrariesInfo()
-                .getExecutionDynamicLibraryArtifacts()
+                .getCcDynamicLibrariesForRuntime()
+                .getDynamicLibrariesForRuntimeArtifacts()
                 .isEmpty())
         .isTrue();
     Artifact staticallyDotA = getOnlyElement(getFilesToBuild(statically));
@@ -998,6 +998,7 @@ public class CcCommonTest extends BuildViewTestCase {
           CoreRules.INSTANCE.init(builder);
           CoreWorkspaceRules.INSTANCE.init(builder);
           PlatformRules.INSTANCE.init(builder);
+          ToolchainRules.INSTANCE.init(builder);
           GenericRules.INSTANCE.init(builder);
           CcRules.INSTANCE.init(builder);
           return builder.build();

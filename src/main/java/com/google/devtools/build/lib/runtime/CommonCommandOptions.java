@@ -194,6 +194,17 @@ public class CommonCommandOptions extends OptionsBase {
   public String buildRequestId;
 
   @Option(
+    name = "experimental_generate_json_trace_profile",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+    help =
+        "If enabled, Bazel profiles the build and writes a JSON-format profile into a file in the "
+            + "output base."
+  )
+  public boolean enableTracer;
+
+  @Option(
     name = "profile",
     defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -372,4 +383,29 @@ public class CommonCommandOptions extends OptionsBase {
   )
   public List<String> deprecationWarnings;
 
+  @Option(
+      name = "track_incremental_state",
+      oldName = "keep_incrementality_data",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "If false, Blaze will not persist data that allows for invalidation and re-evaluation "
+              + "on incremental builds in order to save memory on this build. Subsequent builds "
+              + "will not have any incrementality with respect to this one. Usually you will want "
+              + "to specify --batch when setting this to false."
+  )
+  public boolean trackIncrementalState;
+
+  @Option(
+      name = "keep_state_after_build",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "If false, Blaze will discard the inmemory state from this build when the build "
+              + "finishes. Subsequent builds will not have any incrementality with respect to this "
+              + "one."
+  )
+  public boolean keepStateAfterBuild;
 }

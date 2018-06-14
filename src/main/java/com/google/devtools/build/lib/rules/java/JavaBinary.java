@@ -538,7 +538,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites("runtime_deps", Mode.TARGET);
     builder.addTargets(runtimeDeps, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
-    semantics.addDependenciesForRunfiles(ruleContext, builder);
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()
         && !ruleContext.getConfiguration().isExperimentalJavaCoverage()) {

@@ -14,19 +14,25 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior.ERROR;
+import static com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior.IGNORE;
+import static com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior.RESOLVE;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
-import com.google.devtools.build.lib.skyframe.FileArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -35,6 +41,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
@@ -261,5 +268,49 @@ public class SpawnInputExpanderTest {
     assertThat(inputMappings)
         .containsEntry(
             PathFragment.create("out/foo/bar"), ActionInputHelper.fromPath("/some"));
+  }
+
+  private FilesetOutputSymlink filesetSymlink(String from, String to) {
+    return new FilesetOutputSymlink(PathFragment.create(from), PathFragment.create(to));
+  }
+
+  private ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> simpleFilesetManifest() {
+    return ImmutableMap.of(
+        PathFragment.create("out"),
+        ImmutableList.of(
+            filesetSymlink("workspace/bar", "foo"),
+            filesetSymlink("workspace/foo", "/foo/bar")));
+  }
+
+  @Test
+  public void testManifestWithErrorOnRelativeSymlink() throws Exception {
+    expander = new SpawnInputExpander(execRoot, /*strict=*/ true, ERROR);
+    try {
+      expander.addFilesetManifests(simpleFilesetManifest(), new HashMap<>());
+      fail();
+    } catch (IOException e) {
+      assertThat(e).hasMessageThat().contains("runfiles target is not absolute: foo");
+    }
+  }
+
+  @Test
+  public void testManifestWithIgnoredRelativeSymlink() throws Exception {
+    expander = new SpawnInputExpander(execRoot, /*strict=*/ true, IGNORE);
+    Map<PathFragment, ActionInput> entries = new HashMap<>();
+    expander.addFilesetManifests(simpleFilesetManifest(), entries);
+    assertThat(entries)
+        .containsExactly(
+            PathFragment.create("out/workspace/foo"), ActionInputHelper.fromPath("/foo/bar"));
+  }
+
+  @Test
+  public void testManifestWithResolvedRelativeSymlink() throws Exception {
+    expander = new SpawnInputExpander(execRoot, /*strict=*/ true, RESOLVE);
+    Map<PathFragment, ActionInput> entries = new HashMap<>();
+    expander.addFilesetManifests(simpleFilesetManifest(), entries);
+    assertThat(entries)
+        .containsExactly(
+            PathFragment.create("out/workspace/bar"), ActionInputHelper.fromPath("/foo/bar"),
+            PathFragment.create("out/workspace/foo"), ActionInputHelper.fromPath("/foo/bar"));
   }
 }

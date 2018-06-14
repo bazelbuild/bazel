@@ -55,14 +55,14 @@ public class CompileCommandLineTest extends BuildViewTestCase {
     return CcToolchainFeaturesTest.buildFeatures(crosstool)
         .getFeatureConfiguration(
             ImmutableSet.of(
-                CppCompileAction.ASSEMBLE,
-                CppCompileAction.PREPROCESS_ASSEMBLE,
-                CppCompileAction.C_COMPILE,
-                CppCompileAction.CPP_COMPILE,
-                CppCompileAction.CPP_HEADER_PARSING,
-                CppCompileAction.CPP_HEADER_PREPROCESSING,
-                CppCompileAction.CPP_MODULE_CODEGEN,
-                CppCompileAction.CPP_MODULE_COMPILE));
+                CppActionNames.ASSEMBLE,
+                CppActionNames.PREPROCESS_ASSEMBLE,
+                CppActionNames.C_COMPILE,
+                CppActionNames.CPP_COMPILE,
+                CppActionNames.CPP_HEADER_PARSING,
+                CppActionNames.CPP_HEADER_PREPROCESSING,
+                CppActionNames.CPP_MODULE_CODEGEN,
+                CppActionNames.CPP_MODULE_COMPILE));
   }
 
   @Test

@@ -34,10 +34,11 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
-import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -101,9 +102,9 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     // Assertions about digest. As of this writing this logic is essentially the same
     // as that in TreeArtifact, but it's good practice to unit test anyway to guard against
     // breaking changes.
-    Map<String, Metadata> digestBuilder = new HashMap<>();
+    Map<String, FileArtifactValue> digestBuilder = new HashMap<>();
     for (PathFragment child : children) {
-      Metadata subdigest = FileArtifactValue.create(tree.getPath().getRelative(child));
+      FileArtifactValue subdigest = FileArtifactValue.create(tree.getPath().getRelative(child));
       digestBuilder.put(child.getPathString(), subdigest);
     }
     assertThat(DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe())
@@ -114,7 +115,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   @Test
   public void testEmptyTreeArtifacts() throws Exception {
     TreeArtifactValue value = doTestTreeArtifacts(ImmutableList.<PathFragment>of());
-    // Additional test, only for this test method: we expect the Metadata is equal to
+    // Additional test, only for this test method: we expect the FileArtifactValue is equal to
     // the digest [0, 0, ...]
     assertThat(value.getMetadata().getDigest()).isEqualTo(value.getDigest());
     // Java zero-fills arrays.
@@ -271,11 +272,12 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
 
       TreeArtifactValue treeArtifactValue = TreeArtifactValue.create(treeArtifactData);
 
-      return new ActionExecutionValue(
+      return ActionExecutionValue.create(
           fileData,
           ImmutableMap.of(output, treeArtifactValue),
           ImmutableMap.<Artifact, FileArtifactValue>of(),
-          /*outputSymlinks=*/ null);
+          /*outputSymlinks=*/ null,
+          /*notifyOnActionCacheHitAction=*/ false);
     }
 
     @Override

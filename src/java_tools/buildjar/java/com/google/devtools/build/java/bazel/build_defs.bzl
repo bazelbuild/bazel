@@ -15,25 +15,27 @@
 """Rules to make the default javacopts available as a Java API."""
 
 def _default_javacopts(ctx):
-   javacopts = java_common.default_javac_opts(
-       ctx, java_toolchain_attr = "_java_toolchain")
-   ctx.template_action(
-      template = ctx.file.template,
-      output = ctx.outputs.out,
-      substitutions = {
-          "%javacopts%": '"%s"' % '", "'.join(javacopts),
-      }
-   )
+    javacopts = java_common.default_javac_opts(
+        ctx,
+        java_toolchain_attr = "_java_toolchain",
+    )
+    ctx.template_action(
+        template = ctx.file.template,
+        output = ctx.outputs.out,
+        substitutions = {
+            "%javacopts%": '"%s"' % '", "'.join(javacopts),
+        },
+    )
 
 default_javacopts = rule(
-    implementation=_default_javacopts,
-    attrs={
+    implementation = _default_javacopts,
+    attrs = {
         "template": attr.label(
-            mandatory=True,
-            allow_files=True,
-            single_file=True,
+            mandatory = True,
+            allow_files = True,
+            single_file = True,
         ),
-        "out": attr.output(mandatory=True),
+        "out": attr.output(mandatory = True),
         "_java_toolchain": attr.label(
             default = Label("//tools/jdk:current_java_toolchain"),
         ),

@@ -75,7 +75,7 @@ public class CppLinkstampCompileHelper {
             .setBuiltinIncludeFiles(buildInfoHeaderArtifacts)
             .addMandatoryInputs(nonCodeInputs)
             .setCppConfiguration(cppConfiguration)
-            .setActionName(CppCompileAction.LINKSTAMP_COMPILE);
+            .setActionName(CppActionNames.LINKSTAMP_COMPILE);
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     return builder.buildOrThrowIllegalStateException();
   }
@@ -140,14 +140,14 @@ public class CppLinkstampCompileHelper {
       boolean codeCoverageEnabled) {
     // TODO(b/34761650): Remove all this hardcoding by separating a full blown compile action.
     Preconditions.checkArgument(
-        featureConfiguration.actionIsConfigured(CppCompileAction.LINKSTAMP_COMPILE));
+        featureConfiguration.actionIsConfigured(CppActionNames.LINKSTAMP_COMPILE));
 
     return CompileBuildVariables.setupVariablesOrReportRuleError(
         ruleContext,
         featureConfiguration,
         ccToolchainProvider,
-        sourceFile,
-        outputFile,
+        sourceFile.getExecPathString(),
+        outputFile.getExecPathString(),
         /* gcnoFile= */ null,
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
@@ -158,7 +158,7 @@ public class CppLinkstampCompileHelper {
         CcCompilationHelper.getCoptsFromOptions(cppConfiguration, sourceFile.getExecPathString()),
         /* cppModuleMap= */ null,
         needsPic,
-        outputFile.getExecPath(),
+        /* fakeOutputFile= */ null,
         fdoBuildStamp,
         /* dotdFileExecPath= */ null,
         /* variablesExtensions= */ ImmutableList.of(),

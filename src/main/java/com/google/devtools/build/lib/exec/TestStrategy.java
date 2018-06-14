@@ -246,7 +246,7 @@ public abstract class TestStrategy implements TestActionContext {
    */
   protected void postTestResult(ActionExecutionContext actionExecutionContext, TestResult result)
       throws IOException {
-    result.getTestAction().saveCacheStatus(result.getData());
+    result.getTestAction().saveCacheStatus(actionExecutionContext, result.getData());
     actionExecutionContext.getEventBus().post(result);
   }
 
@@ -409,13 +409,7 @@ public abstract class TestStrategy implements TestActionContext {
             actionExecutionContext.getInputPath(execSettings.getInputManifest()),
             runfilesDir,
             false)
-        .createSymlinks(
-            testAction,
-            actionExecutionContext,
-            binTools,
-            shellEnvironment,
-            execSettings.getInputManifest(),
-            enableRunfiles);
+        .createSymlinks(actionExecutionContext, binTools, shellEnvironment, enableRunfiles);
 
     actionExecutionContext.getEventHandler()
         .handle(Event.progress(testAction.getProgressMessage()));

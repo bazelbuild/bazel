@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Locale;
 import org.junit.Test;
@@ -55,8 +56,7 @@ public class ProfilerChartTest extends FoundationTestCase {
     Runnable run = new Runnable() {
       @Override
       public void run() {
-        Profiler.instance().startTask(ProfilerTask.ACTION, "action");
-        Profiler.instance().completeTask(ProfilerTask.ACTION);
+        Profiler.instance().profile(ProfilerTask.ACTION, "action").close();
       }
     };
     int threads = 4; // there is one extra thread due due the event that finalizes the profiler
@@ -79,11 +79,11 @@ public class ProfilerChartTest extends FoundationTestCase {
       @Override
       public void run() {
         Profiler profiler = Profiler.instance();
-        profiler.startTask(ProfilerTask.ACTION, "action"); // Stays
-        task(profiler, ProfilerTask.REMOTE_EXECUTION, "remote execution"); // Removed
-        task(profiler, ProfilerTask.ACTION_CHECK, "check"); // Removed
-        task(profiler, ProfilerTask.ACTION_LOCK, "lock"); // Stays
-        profiler.completeTask(ProfilerTask.ACTION);
+        try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action")) { // Stays
+          task(profiler, ProfilerTask.REMOTE_EXECUTION, "remote execution"); // Removed
+          task(profiler, ProfilerTask.ACTION_CHECK, "check"); // Removed
+          task(profiler, ProfilerTask.ACTION_LOCK, "lock"); // Stays
+        }
         task(profiler, ProfilerTask.INFO, "info"); // Stays
         task(profiler, ProfilerTask.VFS_STAT, "stat"); // Stays, if showVFS
         task(profiler, ProfilerTask.WAIT, "wait"); // Stays
@@ -249,8 +249,14 @@ public class ProfilerChartTest extends FoundationTestCase {
     Path cacheDir = scratch.dir("/tmp");
     Path cacheFile = cacheDir.getRelative("profile1.dat");
     Profiler profiler = Profiler.instance();
-    profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "basic test", false,
-        BlazeClock.instance(), BlazeClock.instance().nanoTime());
+    profiler.start(
+        ProfiledTaskKinds.ALL,
+        cacheFile.getOutputStream(),
+        Profiler.Format.BINARY_BAZEL_FORMAT,
+        "basic test",
+        false,
+        BlazeClock.instance(),
+        BlazeClock.instance().nanoTime());
 
     // Write from multiple threads to generate multiple rows in the chart.
     for (int i = 0; i < noOfRows; i++) {
@@ -260,17 +266,17 @@ public class ProfilerChartTest extends FoundationTestCase {
     }
 
     profiler.stop();
-    return ProfileInfo.loadProfile(cacheFile);
+    try (InputStream in = cacheFile.getInputStream()) {
+      return ProfileInfo.loadProfile(in);
+    }
   }
 
   private void task(final Profiler profiler, ProfilerTask task, String name) {
-    profiler.startTask(task, name);
-    try {
+    try (SilentCloseable c = profiler.profile(task, name)) {
       Thread.sleep(100);
     } catch (InterruptedException e) {
       // ignore
     }
-    profiler.completeTask(task);
   }
 
   private static final class TestingChartVisitor implements ChartVisitor {

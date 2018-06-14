@@ -48,7 +48,8 @@ public class ResultCollector {
           "The old value and the new value are not the same object. old=%s, new=%s",
           oldValue,
           state);
-      missingClasss.add(state.asIncompleteState().getMissingAncestor()); // Add the real missing.
+      // Add the real missing.
+      state.asIncompleteState().missingAncestors().forEach(missingClasss::add);
     } else if (state.isMissingState()) {
       missingClasss.add(internalName);
     } else {
@@ -64,7 +65,7 @@ public class ResultCollector {
         && indirectDeps.isEmpty();
   }
 
-  public void addMissingMember(String owner, MemberInfo member) {
+  public void addMissingMember(ClassInfo owner, MemberInfo member) {
     missingMembers.add(MissingMember.create(owner, member));
   }
 
@@ -96,15 +97,15 @@ public class ResultCollector {
   @AutoValue
   public abstract static class MissingMember implements Comparable<MissingMember> {
 
-    public static MissingMember create(String owner, String memberName, String descriptor) {
+    public static MissingMember create(ClassInfo owner, String memberName, String descriptor) {
       return create(owner, MemberInfo.create(memberName, descriptor));
     }
 
-    public static MissingMember create(String owner, MemberInfo member) {
+    public static MissingMember create(ClassInfo owner, MemberInfo member) {
       return new AutoValue_ResultCollector_MissingMember(owner, member);
     }
 
-    public abstract String owner();
+    public abstract ClassInfo owner();
 
     public abstract MemberInfo member();
 

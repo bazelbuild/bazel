@@ -18,12 +18,15 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Pluggable semantics for Android rules.
@@ -41,12 +44,23 @@ public interface AndroidSemantics {
       throws InterruptedException, RuleErrorException {
     Artifact rawManifest = ApplicationManifest.getManifestFromAttributes(ruleContext);
     return ApplicationManifest.fromExplicitManifest(
-        ruleContext, renameManifest(ruleContext, rawManifest));
+        ruleContext, renameManifest(makeContextForNative(ruleContext), rawManifest));
   }
 
-  default Artifact renameManifest(RuleContext ruleContext, Artifact rawManifest)
+  default Artifact renameManifest(AndroidDataContext dataContext, Artifact rawManifest)
       throws InterruptedException {
-    return ApplicationManifest.renameManifestIfNeeded(ruleContext, rawManifest);
+    return ApplicationManifest.renameManifestIfNeeded(dataContext, rawManifest);
+  }
+
+  default Optional<Artifact> maybeDoLegacyManifestMerging(
+      Map<Artifact, Label> mergeeManifests,
+      AndroidDataContext dataContext,
+      Artifact primaryManifest) {
+    if (mergeeManifests.isEmpty()) {
+      return Optional.empty();
+    }
+
+    throw new UnsupportedOperationException();
   }
 
   /** Returns the name of the file in which the file names of native dependencies are listed. */
@@ -74,7 +88,8 @@ public interface AndroidSemantics {
       throws InterruptedException;
 
   /** Given an Android {@code manifest}, returns a list of relevant Proguard specs. */
-  ImmutableList<Artifact> getProguardSpecsForManifest(RuleContext ruleContext, Artifact manifest);
+  ImmutableList<Artifact> getProguardSpecsForManifest(
+      AndroidDataContext dataContext, Artifact manifest);
 
   /**
    * Add coverage instrumentation to the Java compilation of an Android binary.
@@ -94,13 +109,12 @@ public interface AndroidSemantics {
   ImmutableList<String> getAttributesWithJavaRuntimeDeps(RuleContext ruleContext);
 
   /** A hook for checks of internal-only or external-only attributes of {@code android_binary}. */
-  default void validateAndroidBinaryRuleContext(RuleContext ruleContext) throws RuleErrorException {
-  }
+  default void validateAndroidBinaryRuleContext(RuleContext ruleContext)
+      throws RuleErrorException {}
 
   /** A hook for checks of internal-only or external-only attributes of {@code android_library}. */
   default void validateAndroidLibraryRuleContext(RuleContext ruleContext)
-      throws RuleErrorException {
-  }
+      throws RuleErrorException {}
 
   /** The artifact for the map that proguard will output. */
   Artifact getProguardOutputMap(RuleContext ruleContext) throws InterruptedException;
@@ -112,4 +126,8 @@ public interface AndroidSemantics {
       Artifact classesDexZip,
       ProguardOutput proguardOutput)
       throws InterruptedException;
+
+  default AndroidDataContext makeContextForNative(RuleContext ruleContext) {
+    return AndroidDataContext.forNative(ruleContext);
+  }
 }

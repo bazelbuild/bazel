@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -115,7 +116,35 @@ public final class Label
    *
    * @param defaultToMain Treat labels in the default repository as being in the main one instead.
    */
+  @Deprecated
+  // TODO(dannark): Remove usages of this method, use other parseAbsolute() instead
   public static Label parseAbsolute(String absName, boolean defaultToMain)
+      throws LabelSyntaxException {
+    return parseAbsolute(absName, defaultToMain, /* repositoryMapping= */ ImmutableMap.of());
+  }
+
+  /**
+   * Factory for Labels from absolute string form. e.g.
+   *
+   * <pre>
+   * //foo/bar
+   * //foo/bar:quux
+   * {@literal @}foo
+   * {@literal @}foo//bar
+   * {@literal @}foo//bar:baz
+   * </pre>
+   *
+   * <p>Labels that begin with a repository name may have the repository name remapped to a
+   * different name if it appears in {@code repositoryMapping}. This happens if the current
+   * repository being evaluated is external to the main repository and the main repository set the
+   * {@code repo_mapping} attribute when declaring this repository.
+   *
+   * @param defaultToMain Treat labels in the default repository as being in the main one instead.
+   */
+  public static Label parseAbsolute(
+      String absName,
+      boolean defaultToMain,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws LabelSyntaxException {
     String repo = defaultToMain ? "@" : RepositoryName.DEFAULT_REPOSITORY;
     int packageStartPos = absName.indexOf("//");
@@ -126,18 +155,32 @@ public final class Label
       repo = absName;
       absName = "//:" + absName.substring(1);
     }
+    String error = RepositoryName.validate(repo);
+    if (error != null) {
+      throw new LabelSyntaxException(
+          "invalid repository name '" + StringUtilities.sanitizeControlChars(repo) + "': " + error);
+    }
     try {
       LabelValidator.PackageAndTarget labelParts = LabelValidator.parseAbsoluteLabel(absName);
-      PackageIdentifier pkgIdWithoutRepo =
-          validatePackageName(labelParts.getPackageName(), labelParts.getTargetName());
-      PathFragment packageFragment = pkgIdWithoutRepo.getPackageFragment();
+      PackageIdentifier pkgId =
+          validatePackageName(
+              labelParts.getPackageName(), labelParts.getTargetName(), repo, repositoryMapping);
+      PathFragment packageFragment = pkgId.getPackageFragment();
       if (repo.isEmpty() && ABSOLUTE_PACKAGE_NAMES.contains(packageFragment)) {
-        repo = "@";
+        pkgId =
+            PackageIdentifier.create(getGlobalRepoName("@", repositoryMapping), packageFragment);
       }
-      return create(PackageIdentifier.create(repo, packageFragment), labelParts.getTargetName());
+      return create(pkgId, labelParts.getTargetName());
     } catch (BadLabelException e) {
       throw new LabelSyntaxException(e.getMessage());
     }
+  }
+
+  private static RepositoryName getGlobalRepoName(
+      String repo, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      throws LabelSyntaxException {
+    RepositoryName repoName = RepositoryName.create(repo);
+    return repositoryMapping.getOrDefault(repoName, repoName);
   }
 
   /**
@@ -251,15 +294,25 @@ public final class Label
     return name;
   }
 
+  private static PackageIdentifier validatePackageName(String packageIdentifier, String name)
+      throws LabelSyntaxException {
+    return validatePackageName(
+        packageIdentifier, name, /* repo= */ null, /* repositoryMapping= */ null);
+  }
+
   /**
    * Validates the given package name and returns a canonical {@link PackageIdentifier} instance if
    * it is valid. Otherwise it throws a SyntaxException.
    */
-  private static PackageIdentifier validatePackageName(String packageIdentifier, String name)
+  private static PackageIdentifier validatePackageName(
+      String packageIdentifier,
+      String name,
+      String repo,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws LabelSyntaxException {
     String error = null;
     try {
-      return PackageIdentifier.parse(packageIdentifier);
+      return PackageIdentifier.parse(packageIdentifier, repo, repositoryMapping);
     } catch (LabelSyntaxException e) {
       error = e.getMessage();
       error = "invalid package name '" + packageIdentifier + "': " + error;
@@ -539,9 +592,8 @@ public final class Label
       return false;
     }
     Label otherLabel = (Label) other;
-    // Perform the equality comparisons in order from least likely to most likely.
-    return name.equals(otherLabel.name)
-        && packageIdentifier.equals(otherLabel.packageIdentifier);
+    // Package identifiers are interned so we compare them first.
+    return packageIdentifier.equals(otherLabel.packageIdentifier) && name.equals(otherLabel.name);
   }
 
   /**

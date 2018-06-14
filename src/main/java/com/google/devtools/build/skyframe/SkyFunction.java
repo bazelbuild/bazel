@@ -205,7 +205,7 @@ public interface SkyFunction {
      * is {@code true}, and, {@code m.get(k) != null} iff the dependency was already evaluated and
      * was not in error.
      */
-    Map<SkyKey, SkyValue> getValues(Iterable<SkyKey> depKeys) throws InterruptedException;
+    Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys) throws InterruptedException;
 
     /**
      * Similar to {@link #getValues} but allows the caller to specify a set of types that are proper

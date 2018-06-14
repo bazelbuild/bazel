@@ -35,9 +35,9 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringChunk;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.io.IOException;
@@ -48,7 +48,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -937,7 +936,8 @@ public class CcToolchainFeatures implements Serializable {
   private static class ArtifactNamePattern {
 
     private final ArtifactCategory artifactCategory;
-    private final ImmutableList<StringChunk> chunks;
+    private final String prefix;
+    private final String extension;
 
     private ArtifactNamePattern(CToolchain.ArtifactNamePattern artifactNamePattern)
         throws InvalidConfigurationException {
@@ -954,10 +954,20 @@ public class CcToolchainFeatures implements Serializable {
                 "Invalid toolchain configuration: Artifact category %s not recognized",
                 artifactNamePattern.getCategoryName()));
       }
+
+      String extension = artifactNamePattern.getExtension();
+      if (!foundCategory.getAllowedExtensions().contains(extension)) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "Unrecognized file extension '%s', allowed extensions are %s,"
+                    + " please check artifact_name_pattern configuration for %s in your CROSSTOOL.",
+                extension,
+                StringUtil.joinEnglishList(foundCategory.getAllowedExtensions(), "or", "'"),
+                foundCategory.getCategoryName()));
+      }
       this.artifactCategory = foundCategory;
-      
-      StringValueParser parser = new StringValueParser(artifactNamePattern.getPattern());
-      this.chunks = parser.getChunks();
+      this.prefix = artifactNamePattern.getPrefix();
+      this.extension = artifactNamePattern.getExtension();
     }
 
     /** Returns the ArtifactCategory for this ArtifactNamePattern. */
@@ -965,31 +975,24 @@ public class CcToolchainFeatures implements Serializable {
       return this.artifactCategory;
     }
 
-    /**
-     * Returns the artifact name that this pattern selects.
-     */
-    public String getArtifactName(Map<String, String> variables) {
-      StringBuilder resultBuilder = new StringBuilder();
-      CcToolchainVariables artifactNameVariables =
-          new CcToolchainVariables.Builder().addAllStringVariables(variables).build();
-      for (StringChunk chunk : chunks) {
-        resultBuilder.append(chunk.expand(artifactNameVariables));
-      }
-      String result = resultBuilder.toString();
-      return result.charAt(0) == '/' ? result.substring(1) : result;
+    public String getPrefix() {
+      return this.prefix;
+    }
+
+    public String getExtension() {
+      return this.extension;
+    }
+
+    /** Returns the artifact name that this pattern selects. */
+    public String getArtifactName(String baseName) {
+      return prefix + baseName + extension;
     }
   }
 
   /** Captures the set of enabled features and action configs for a rule. */
   @Immutable
   @AutoCodec
-  @SkylarkModule(
-    name = "feature_configuration",
-    documented = false,
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "Class used to construct command lines from CROSSTOOL features."
-  )
-  public static class FeatureConfiguration {
+  public static class FeatureConfiguration implements FeatureConfigurationApi {
     private final ImmutableSet<String> enabledFeatureNames;
     private final ImmutableList<Feature> enabledFeatures;
     private final ImmutableSet<String> enabledActionConfigActionNames;
@@ -1457,10 +1460,29 @@ public class CcToolchainFeatures implements Serializable {
               MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName()));
     }
 
-    return patternForCategory.getArtifactName(ImmutableMap.of(
-        "output_name", outputName,
-        "base_name", output.getBaseName(),
-        "output_directory", output.getParentDirectory().getPathString()));
+    return output.getParentDirectory()
+        .getChild(patternForCategory.getArtifactName(output.getBaseName())).getPathString();
+  }
+
+  /**
+   * Returns the artifact name extension selected by the toolchain for the given artifact category.
+   *
+   * @throws InvalidConfigurationException if the category is not supported by the action config.
+   */
+  String getArtifactNameExtensionForCategory(ArtifactCategory artifactCategory)
+      throws InvalidConfigurationException {
+    ArtifactNamePattern patternForCategory = null;
+    for (ArtifactNamePattern artifactNamePattern : artifactNamePatterns) {
+      if (artifactNamePattern.getArtifactCategory() == artifactCategory) {
+        patternForCategory = artifactNamePattern;
+      }
+    }
+    if (patternForCategory == null) {
+      throw new InvalidConfigurationException(
+          String.format(
+              MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName()));
+    }
+    return patternForCategory.getExtension();
   }
 
   /** Returns true if the toolchain defines an ArtifactNamePattern for the given category. */

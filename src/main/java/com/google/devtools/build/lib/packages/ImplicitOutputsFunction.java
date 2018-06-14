@@ -105,7 +105,7 @@ public abstract class ImplicitOutputsFunction {
         }
       }
       ClassObject attrs =
-          NativeProvider.STRUCT.create(
+          StructProvider.STRUCT.create(
               attrValues,
               "Attribute '%s' either doesn't exist "
                   + "or uses a select() (i.e. could have multiple values)");

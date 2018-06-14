@@ -38,6 +38,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.logging.Logger;
 
 /** A Skyframe value representing a {@link BuildConfiguration}. */
 // TODO(bazel-team): mark this immutable when BuildConfiguration is immutable.
@@ -45,7 +46,7 @@ import java.util.concurrent.ConcurrentMap;
 @AutoCodec
 @ThreadSafe
 public class BuildConfigurationValue implements SkyValue {
-
+  private static final Logger logger = Logger.getLogger(BuildConfigurationValue.class.getName());
   private final BuildConfiguration configuration;
 
   BuildConfigurationValue(BuildConfiguration configuration) {
@@ -138,7 +139,7 @@ public class BuildConfigurationValue implements SkyValue {
 
     @Override
     public String toString() {
-      return optionsDiff.getChecksum();
+      return "BuildConfigurationValue.Key[" + optionsDiff.getChecksum() + "]";
     }
 
     private static class Codec implements ObjectCodec<Key> {
@@ -159,11 +160,24 @@ public class BuildConfigurationValue implements SkyValue {
           ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
           CodedOutputStream bytesOut = CodedOutputStream.newInstance(byteArrayOutputStream);
           context.serialize(obj.optionsDiff, bytesOut);
+          bytesOut.flush();
+          byteArrayOutputStream.flush();
+          int optionsDiffSerializedSize = byteArrayOutputStream.toByteArray().length;
           context.serialize(obj.fragments, bytesOut);
           bytesOut.flush();
           byteArrayOutputStream.flush();
           bytes = byteArrayOutputStream.toByteArray();
           cache.put(obj, bytes);
+          logger.info(
+              "Serialized "
+                  + obj.optionsDiff
+                  + " and "
+                  + obj.fragments
+                  + " to "
+                  + bytes.length
+                  + " bytes (optionsDiff took "
+                  + optionsDiffSerializedSize
+                  + " bytes)");
         }
         codedOut.writeInt32NoTag(bytes.length);
         codedOut.writeRawBytes(bytes);

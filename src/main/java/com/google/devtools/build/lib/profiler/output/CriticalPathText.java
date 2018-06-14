@@ -54,10 +54,6 @@ public final class CriticalPathText extends TextPrinter {
 
     lnPrintf(
         TWO_COLUMN_FORMAT,
-        "Worker thread scheduling delays",
-        TimeUtilities.prettyTime(criticalPathStats.getWorkerWaitTime()));
-    lnPrintf(
-        TWO_COLUMN_FORMAT,
         "Main thread scheduling delays",
         TimeUtilities.prettyTime(criticalPathStats.getMainThreadWaitTime()));
 

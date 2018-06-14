@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -88,7 +89,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(SkyFunctions.ARTIFACT, new DummyArtifactFunction(artifactValueMap))
+                .put(Artifact.ARTIFACT, new DummyArtifactFunction(artifactValueMap))
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new ActionTemplateExpansionFunction(
@@ -263,9 +264,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) {
-      ArtifactSkyKey artifactSkyKey = (ArtifactSkyKey) skyKey.argument();
-      Artifact artifact = artifactSkyKey.getArtifact();
-      return Preconditions.checkNotNull(artifactValueMap.get(artifact));
+      return Preconditions.checkNotNull(artifactValueMap.get(skyKey));
     }
 
     @Override

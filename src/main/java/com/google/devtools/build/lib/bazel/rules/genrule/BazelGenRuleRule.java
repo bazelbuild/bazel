@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
@@ -65,7 +64,6 @@ public final class BazelGenRuleRule implements RuleDefinition {
                 .cfg(HostTransition.INSTANCE)
                 .value(JavaSemantics.hostJdkAttribute(env))
                 .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id()))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .build();
   }
 

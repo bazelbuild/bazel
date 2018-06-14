@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
@@ -39,7 +40,11 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.In
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
@@ -70,7 +75,10 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public void collectRunfilesForBinary(
-      RuleContext ruleContext, Runfiles.Builder builder, PyCommon common) {
+      RuleContext ruleContext,
+      Runfiles.Builder builder,
+      PyCommon common,
+      CcLinkingInfo ccLinkingInfo) {
     addRuntime(ruleContext, builder);
   }
 
@@ -128,7 +136,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   public Artifact createExecutable(
       RuleContext ruleContext,
       PyCommon common,
-      CcLinkParamsStore ccLinkParamsStore,
+      CcLinkingInfo ccLinkingInfo,
       NestedSet<PathFragment> imports)
       throws InterruptedException {
     String main = common.determineMainExecutableSource(/*withWorkspaceName=*/ true);
@@ -354,4 +362,21 @@ public class BazelPythonSemantics implements PythonSemantics {
     return pythonBinary;
   }
 
+  @Override
+  public CcLinkingInfo buildCcLinkingInfoProvider(
+      Iterable<? extends TransitiveInfoCollection> deps) {
+    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
+    AbstractCcLinkParamsStore ccLinkParamsStore =
+        new AbstractCcLinkParamsStore() {
+          @Override
+          protected void collect(
+              CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
+            builder.addTransitiveTargets(
+                deps, CcLinkParamsStore.TO_LINK_PARAMS, PyCcLinkParamsProvider.TO_LINK_PARAMS);
+          }
+        };
+    // TODO(plf): return empty CcLinkingInfo.
+    ccLinkingInfoBuilder.setCcLinkParamsStore(new CcLinkParamsStore(ccLinkParamsStore));
+    return ccLinkingInfoBuilder.build();
+  }
 }

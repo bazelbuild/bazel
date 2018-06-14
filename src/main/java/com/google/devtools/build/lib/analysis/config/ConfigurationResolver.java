@@ -28,8 +28,6 @@ import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Event;
@@ -261,7 +259,7 @@ public final class ConfigurationResolver {
     // resolveAspectDependencies don't get a chance to make their own Skyframe requests before
     // bailing out of this ConfiguredTargetFunction call. Ideally we could batch all requests
     // from all methods into a single Skyframe call, but there are enough subtle data flow
-    // dependencies in ConfiguredTargetFucntion to make that impractical.
+    // dependencies in ConfiguredTargetFunction to make that impractical.
     Map<SkyKey, ValueOrException<InvalidConfigurationException>> depConfigValues =
         env.getValuesOrThrow(keysToEntries.keySet(), InvalidConfigurationException.class);
 
@@ -366,6 +364,15 @@ public final class ConfigurationResolver {
       }
       return hashCode;
     }
+
+    @Override
+    public String toString() {
+      return "AttributeAndLabel{attribute="
+          + attribute.toString()
+          + ", label="
+          + label.toString()
+          + "}";
+    }
   }
 
   /**
@@ -379,8 +386,8 @@ public final class ConfigurationResolver {
     // evaluating value.toString() on every call. This approach essentially eliminates the overhead.
     if (map.containsKey(key)) {
       throw new VerifyException(
-          String.format("couldn't insert %s: map already has key %s",
-              value.toString(), key.toString()));
+          String.format("couldn't insert %s: map already has values for key %s: %s",
+              value.toString(), key.toString(), map.get(key).toString()));
     }
     map.put(key, value);
   }
@@ -424,23 +431,9 @@ public final class ConfigurationResolver {
       ConfigurationTransition transition,
       Iterable<Class<? extends BuildConfiguration.Fragment>> requiredFragments,
       RuleClassProvider ruleClassProvider, boolean trimResults) {
-    List<BuildOptions> result;
-    if (transition instanceof PatchTransition) {
-      // TODO(bazel-team): safety-check that this never mutates fromOptions.
-      result = ImmutableList.of(((PatchTransition) transition).apply(fromOptions));
-    } else if (transition instanceof SplitTransition) {
-      List<BuildOptions> toOptions = ((SplitTransition) transition).split(fromOptions);
-      if (toOptions.isEmpty()) {
-        // When the split returns an empty list, it's signaling it doesn't apply to this instance.
-        // So return the original options.
-        result = ImmutableList.<BuildOptions>of(fromOptions);
-      } else {
-        result = toOptions;
-      }
-    } else {
-      throw new IllegalStateException(String.format(
-          "unsupported config transition type: %s", transition.getClass().getName()));
-    }
+
+    // TODO(bazel-team): safety-check that this never mutates fromOptions.
+    List<BuildOptions> result = transition.apply(fromOptions);
 
     if (!trimResults) {
       return result;

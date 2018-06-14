@@ -14,17 +14,41 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.UnsafeJdk9StringCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
+import com.google.protobuf.ByteString;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Basic tests for {@link StringCodec}. */
+/** Basic tests for {@link StringCodec} or {@link UnsafeJdk9StringCodec}. */
 @RunWith(JUnit4.class)
 public class StringCodecTest {
   @Test
   public void testCodec() throws Exception {
-    new SerializationTester("usually precomputed and supports weird unicodes: （╯°□°）╯︵┻━┻ ")
+    new SerializationTester("usually precomputed and supports weird unicodes: （╯°□°）╯︵┻━┻ ", "")
         .runTests();
+  }
+
+  @Test
+  public void sizeOk() throws Exception {
+    for (String str :
+        ImmutableList.of(
+            "//a/b/c/d/e/f/g/h/ijklmn:opqrstuvw.xyz",
+            "java/com/google/devtools/build/lib/util/more/strings",
+            "java/com/google/devtools/build/lib/util/more/strings/náme_with_àccent")) {
+      ByteString withSimple =
+          TestUtils.toBytesMemoized(
+              str, new ObjectCodecRegistry.Builder().add(StringCodecs.simple()).build());
+      ByteString withUnsafe =
+          TestUtils.toBytesMemoized(
+              str, new ObjectCodecRegistry.Builder().add(StringCodecs.asciiOptimized()).build());
+      assertWithMessage(str + " too big").that(withUnsafe.size()).isAtMost(withSimple.size());
+    }
   }
 }

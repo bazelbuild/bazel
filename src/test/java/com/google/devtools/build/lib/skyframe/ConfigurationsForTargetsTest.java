@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -148,7 +149,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 stateProvider.lateBoundRuleClassProvider(),
                 stateProvider.lateBoundHostConfig(),
                 NestedSetBuilder.<Package>stableOrder(),
-                NestedSetBuilder.<Label>stableOrder(),
+                NestedSetBuilder.<Cause>stableOrder(),
                 buildOptionsSupplier.get());
         return env.valuesMissing() ? null : new Value(depMap);
       } catch (RuntimeException e) {
@@ -288,13 +289,13 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
       ConfigurationResolver.putOnlyEntry(map, "foo", "baz");
       fail("Expected an exception when trying to add a new value to an existing key");
     } catch (VerifyException e) {
-      assertThat(e).hasMessage("couldn't insert baz: map already has key foo");
+      assertThat(e).hasMessage("couldn't insert baz: map already has values for key foo: [bar]");
     }
     try {
       ConfigurationResolver.putOnlyEntry(map, "foo", "bar");
       fail("Expected an exception when trying to add a pre-existing <key, value> pair");
     } catch (VerifyException e) {
-      assertThat(e).hasMessage("couldn't insert bar: map already has key foo");
+      assertThat(e).hasMessage("couldn't insert bar: map already has values for key foo: [bar]");
     }
   }
 

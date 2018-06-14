@@ -21,10 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 
 /**
  * A lazy, automatically populated registry.
@@ -49,7 +46,10 @@ public class AutoRegistry {
 
   /** Classes outside {@link AutoRegistry#PACKAGE_PREFIX} that need to be serialized. */
   private static final ImmutableList<String> EXTERNAL_CLASS_NAMES_TO_REGISTER =
-      ImmutableList.of("java.io.FileNotFoundException", "java.io.IOException");
+      ImmutableList.of(
+          "java.io.FileNotFoundException",
+          "java.io.IOException",
+          "java.lang.invoke.SerializedLambda");
 
   private static final ImmutableList<Object> REFERENCE_CONSTANTS_TO_REGISTER =
       ImmutableList.of(
@@ -61,14 +61,6 @@ public class AutoRegistry {
           ImmutableSet.of(),
           Comparator.naturalOrder(),
           Ordering.natural());
-
-  private static final ImmutableList<Object> VALUE_CONSTANTS_TO_REGISTER =
-      ImmutableList.of(
-          "",
-          Boolean.FALSE,
-          Boolean.TRUE,
-          Collections.unmodifiableMap(new HashMap<>()),
-          Collections.unmodifiableList(new ArrayList<>()));
 
   public static ObjectCodecRegistry get() {
     return SUPPLIER.get();
@@ -82,9 +74,6 @@ public class AutoRegistry {
       }
       for (Object constant : REFERENCE_CONSTANTS_TO_REGISTER) {
         registry.addReferenceConstant(constant);
-      }
-      for (Object constant : VALUE_CONSTANTS_TO_REGISTER) {
-        registry.addValueConstant(constant);
       }
       for (String classNamePrefix : CLASS_NAME_PREFIX_BLACKLIST) {
         registry.blacklistClassNamePrefix(classNamePrefix);

@@ -86,6 +86,7 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsNullaryOption(options, "experimental_oom_more_eagerly");
   ExpectIsNullaryOption(options, "fatal_event_bus_exceptions");
   ExpectIsNullaryOption(options, "host_jvm_debug");
+  ExpectIsNullaryOption(options, "ignore_all_rc_files");
   ExpectIsNullaryOption(options, "master_bazelrc");
   ExpectIsNullaryOption(options, "watchfs");
   ExpectIsNullaryOption(options, "write_command_log");
@@ -109,6 +110,70 @@ TEST_F(BazelStartupOptionsTest, BlazercFlagsAreNotAccepted) {
   EXPECT_FALSE(startup_options_->IsUnary("--master_blazerc"));
   EXPECT_FALSE(startup_options_->IsNullary("--blazerc"));
   EXPECT_FALSE(startup_options_->IsUnary("--blazerc"));
+}
+
+TEST_F(BazelStartupOptionsTest, IgnoredBazelrcFlagWarns) {
+  ParseStartupOptionsAndExpectWarning(
+      startup_options_.get(), {"--bazelrc=somefile", "--ignore_all_rc_files"},
+      "WARNING: Value of --bazelrc is ignored, since --ignore_all_rc_files is "
+      "on.\n");
+}
+
+TEST_F(BazelStartupOptionsTest, IgnoredBazelrcFlagWarnsWhenAfterIgnore) {
+  ParseStartupOptionsAndExpectWarning(
+      startup_options_.get(), {"--ignore_all_rc_files", "--bazelrc=somefile"},
+      "WARNING: Value of --bazelrc is ignored, since --ignore_all_rc_files is "
+      "on.\n");
+}
+
+TEST_F(BazelStartupOptionsTest, IgnoredMasterBazelrcFlagWarns) {
+  ParseStartupOptionsAndExpectWarning(
+      startup_options_.get(), {"--master_bazelrc", "--ignore_all_rc_files"},
+      "WARNING: Explicit value of --master_bazelrc is ignored, "
+      "since --ignore_all_rc_files is on.\n");
+}
+
+TEST_F(BazelStartupOptionsTest, IgnoredMasterBazelrcFlagWarnsAfterIgnore) {
+  ParseStartupOptionsAndExpectWarning(
+      startup_options_.get(), {"--ignore_all_rc_files", "--master_bazelrc"},
+      "WARNING: Explicit value of --master_bazelrc is ignored, "
+      "since --ignore_all_rc_files is on.\n");
+}
+
+TEST_F(BazelStartupOptionsTest, MultipleIgnoredRcFlagsWarnOnceEach) {
+  ParseStartupOptionsAndExpectWarning(
+      startup_options_.get(),
+      {"--master_bazelrc", "--bazelrc=somefile", "--ignore_all_rc_files",
+       "--bazelrc=thefinalfile", "--master_bazelrc"},
+      "WARNING: Value of --bazelrc is ignored, "
+      "since --ignore_all_rc_files is on.\n"
+      "WARNING: Explicit value of --master_bazelrc is ignored, "
+      "since --ignore_all_rc_files is on.\n");
+}
+
+TEST_F(BazelStartupOptionsTest, IgnoredNoMasterBazelrcDoesNotWarn) {
+  // Warning for nomaster would feel pretty spammy - it's redundant, but the
+  // behavior is as one would expect, so warning is unnecessary.
+  ParseStartupOptionsAndExpectWarning(
+      startup_options_.get(), {"--ignore_all_rc_files", "--nomaster_bazelrc"},
+      "");
+}
+
+TEST_F(BazelStartupOptionsTest, IgnoreOptionDoesNotWarnOnItsOwn) {
+  ParseStartupOptionsAndExpectWarning(startup_options_.get(),
+                                      {"--ignore_all_rc_files"}, "");
+}
+
+TEST_F(BazelStartupOptionsTest, NonIgnoredOptionDoesNotWarn) {
+  ParseStartupOptionsAndExpectWarning(startup_options_.get(),
+                                      {"--bazelrc=somefile"}, "");
+}
+
+TEST_F(BazelStartupOptionsTest, FinalValueOfIgnoreIsUsedForWarning) {
+  ParseStartupOptionsAndExpectWarning(
+      startup_options_.get(),
+      {"--ignore_all_rc_files", "--master_bazelrc", "--noignore_all_rc_files"},
+      "");
 }
 
 }  // namespace blaze

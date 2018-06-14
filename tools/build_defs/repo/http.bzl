@@ -22,6 +22,7 @@ load(
     "@bazel_tools//tools/build_defs/repo:http.bzl",
     "http_archive",
     "http_file",
+    "http_jar",
 )
 ```
 
@@ -29,37 +30,36 @@ These rules are improved versions of the native http rules and will eventually
 replace the native rules.
 """
 
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "workspace_and_buildfile", "patch")
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_buildfile")
 
 def _http_archive_impl(ctx):
-  """Implementation of the http_archive rule."""
-  if not ctx.attr.url and not ctx.attr.urls:
-    ctx.fail("At least of of url and urls must be provided")
-  if ctx.attr.build_file and ctx.attr.build_file_content:
-    ctx.fail("Only one of build_file and build_file_content can be provided.")
+    """Implementation of the http_archive rule."""
+    if not ctx.attr.url and not ctx.attr.urls:
+        ctx.fail("At least of of url and urls must be provided")
+    if ctx.attr.build_file and ctx.attr.build_file_content:
+        ctx.fail("Only one of build_file and build_file_content can be provided.")
 
-  # These print statement is not only for debug, but it also ensures the file
-  # is referenced before the download is started; this is necessary till a
-  # proper fix for https://github.com/bazelbuild/bazel/issues/2700 is
-  # implemented. A proper could, e.g., be to ensure that all ctx.path of
-  # all the lables provided as arguments are present before the implementation
-  # function is called the first time.
-  if ctx.attr.build_file:
-    print("ctx.attr.build_file %s, path %s" %
-          (str(ctx.attr.build_file), ctx.path(ctx.attr.build_file)))
-  for patchfile in ctx.attr.patches:
-    print("patch file %s, path %s" % (patchfile, ctx.path(patchfile)))
+    if ctx.attr.build_file:
+        print("ctx.attr.build_file %s, path %s" %
+              (str(ctx.attr.build_file), ctx.path(ctx.attr.build_file)))
+    for patchfile in ctx.attr.patches:
+        print("patch file %s, path %s" % (patchfile, ctx.path(patchfile)))
 
-  all_urls = []
-  if ctx.attr.urls:
-    all_urls = ctx.attr.urls
-  if ctx.attr.url:
-    all_urls = [ctx.attr.url] + all_urls
+    all_urls = []
+    if ctx.attr.urls:
+        all_urls = ctx.attr.urls
+    if ctx.attr.url:
+        all_urls = [ctx.attr.url] + all_urls
 
-  ctx.download_and_extract(all_urls, "", ctx.attr.sha256, ctx.attr.type,
-                           ctx.attr.strip_prefix)
-  patch(ctx)
-  workspace_and_buildfile(ctx)
+    ctx.download_and_extract(
+        all_urls,
+        "",
+        ctx.attr.sha256,
+        ctx.attr.type,
+        ctx.attr.strip_prefix,
+    )
+    patch(ctx)
+    workspace_and_buildfile(ctx)
 
 _HTTP_FILE_BUILD = """
 package(default_visibility = ["//visibility:public"])
@@ -71,12 +71,43 @@ filegroup(
 """
 
 def _http_file_impl(ctx):
-  """Implementation of the http_file rule."""
-  ctx.download(ctx.attr.urls, "file/downloaded", ctx.attr.sha256,
-               ctx.attr.executable)
-  ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name=ctx.name))
-  ctx.file("file/BUILD", _HTTP_FILE_BUILD)
+    """Implementation of the http_file rule."""
+    ctx.download(
+        ctx.attr.urls,
+        "file/downloaded",
+        ctx.attr.sha256,
+        ctx.attr.executable,
+    )
+    ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
+    ctx.file("file/BUILD", _HTTP_FILE_BUILD)
 
+_HTTP_JAR_BUILD = """
+package(default_visibility = ["//visibility:public"])
+
+java_import(
+  name = 'jar',
+  jars = ['downloaded.jar'],
+  visibility = ['//visibility:public'],
+)
+
+filegroup(
+  name = 'file',
+  srcs = ['downloaded.jar'],
+  visibility = ['//visibility:public'],
+)
+
+"""
+
+def _http_jar_impl(ctx):
+    """Implementation of the http_jar rule."""
+    all_urls = []
+    if ctx.attr.urls:
+        all_urls = ctx.attr.urls
+    if ctx.attr.url:
+        all_urls = [ctx.attr.url] + all_urls
+    ctx.download(all_urls, "jar/downloaded.jar", ctx.attr.sha256)
+    ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
+    ctx.file("jar/BUILD", _HTTP_JAR_BUILD)
 
 _http_archive_attrs = {
     "url": attr.string(),
@@ -86,11 +117,13 @@ _http_archive_attrs = {
     "type": attr.string(),
     "build_file": attr.label(),
     "build_file_content": attr.string(),
-    "patches": attr.label_list(default=[]),
-    "patch_tool": attr.string(default="patch"),
-    "patch_cmds": attr.string_list(default=[]),
+    "patches": attr.label_list(default = []),
+    "patch_tool": attr.string(default = "patch"),
+    "patch_args": attr.string_list(default = ["-p0"]),
+    "patch_cmds": attr.string_list(default = []),
+    "workspace_file": attr.label(),
+    "workspace_file_content": attr.string(),
 }
-
 
 http_archive = repository_rule(
     implementation = _http_archive_impl,
@@ -154,6 +187,14 @@ Args:
   build_file_content: The content for the BUILD file for this repository.
 
     Either `build_file` or `build_file_content` can be specified.
+  workspace_file: The file to use as the `WORKSPACE` file for this repository.
+
+    Either `workspace_file` or `workspace_file_content` can be specified, or
+    neither, but not both.
+  workspace_file_content: The content for the WORKSPACE file for this repository.
+
+    Either `workspace_file` or `workspace_file_content` can be specified, or
+    neither, but not both.
   sha256: The expected SHA-256 of the file downloaded.
 
     This must match the SHA-256 of the file downloaded. _It is a security risk
@@ -199,16 +240,16 @@ Args:
   patches: A list of files that are to be applied as patches after extracting
     the archive.
   patch_tool: the patch(1) utility to use.
+  patch_args: arguments given to the patch tool, defaults to ["-p0"]
   patch_cmds: sequence of commands to be applied after patches are applied.
 """
-
 
 http_file = repository_rule(
     implementation = _http_file_impl,
     attrs = {
         "executable": attr.bool(),
         "sha256": attr.string(),
-        "urls": attr.string_list(mandatory=True),
+        "urls": attr.string_list(mandatory = True),
     },
 )
 """Downloads a file from a URL and makes it available to be used as a file
@@ -243,4 +284,42 @@ Args:
 
     Each entry must be an file, http or https URL. Redirections are followed.
     Authentication is not supported.
+"""
+
+http_jar = repository_rule(
+    implementation = _http_jar_impl,
+    attrs = {
+        "sha256": attr.string(),
+        "url": attr.string(),
+        "urls": attr.string_list(),
+    },
+)
+"""Downloads a jar from a URL and makes it available as java_import
+
+Downloaded files must have a .jar extension.
+
+Examples:
+  Suppose the current repository contains the source code for a chat program, rooted at the
+  directory `~/chat-app`. It needs to depend on an SSL library which is available from
+  `http://example.com/openssl-0.2.jar`.
+
+  Targets in the `~/chat-app` repository can depend on this target if the following lines are
+  added to `~/chat-app/WORKSPACE`:
+
+  ```python
+  http_jar(
+      name = "my_ssl",
+      url = "http://example.com/openssl-0.2.jar",
+      sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
+  )
+  ```
+
+  Targets would specify <code>@my_ssl//jar</code> as a dependency to depend on this jar.
+
+
+Args:
+  name: A unique name for this rule.
+  sha256: The expected SHA-256 of the file downloaded.
+  url: The URL to fetch the jar from. It must end in `.jar`.
+  urls: A list of URLS the jar can be fetched from. They have to end in `.jar`.
 """

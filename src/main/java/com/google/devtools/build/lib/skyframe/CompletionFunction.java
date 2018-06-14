@@ -79,10 +79,8 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     MissingInputFileException getMissingFilesException(
         TValue value, int missingCount, Environment env) throws InterruptedException;
 
-    /**
-     * Creates a successful completion value.
-     */
-    TResult createResult(TValue value);
+    /** Provides a successful completion value. */
+    TResult getResult();
 
     /** Creates a failed completion value. */
     ExtendedEventHandler.Postable createFailed(
@@ -157,8 +155,8 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     }
 
     @Override
-    public TargetCompletionValue createResult(ConfiguredTargetValue value) {
-      return new TargetCompletionValue(value.getConfiguredTarget());
+    public TargetCompletionValue getResult() {
+      return TargetCompletionValue.INSTANCE;
     }
 
     @Override
@@ -251,7 +249,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     }
 
     @Override
-    public AspectCompletionValue createResult(AspectValue value) {
+    public AspectCompletionValue getResult() {
       return AspectCompletionValue.INSTANCE;
     }
 
@@ -304,8 +302,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
 
     Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps =
         env.getValuesOrThrow(
-            ArtifactSkyKey.mandatoryKeys(
-                completor.getAllArtifactsToBuild(value, topLevelContext).getAllArtifacts()),
+            completor.getAllArtifactsToBuild(value, topLevelContext).getAllArtifacts(),
             MissingInputFileException.class,
             ActionExecutionException.class);
 
@@ -322,7 +319,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
         missingCount++;
         final Label inputOwner = input.getOwner();
         if (inputOwner != null) {
-          Cause cause = new LabelCause(inputOwner);
+          Cause cause = new LabelCause(inputOwner, e.getMessage());
           rootCausesBuilder.add(cause);
           env.getListener().handle(completor.getRootCauseError(value, cause, env));
         }
@@ -369,7 +366,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       return null;
     }
     env.getListener().post(postable);
-    return completor.createResult(value);
+    return completor.getResult();
   }
 
   @Override

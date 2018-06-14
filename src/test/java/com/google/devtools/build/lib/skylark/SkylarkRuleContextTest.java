@@ -613,6 +613,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(result).containsExactly(
         "name",
         "visibility",
+        "transitive_configs",
         "tags",
         "generator_name",
         "generator_function",
@@ -631,7 +632,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "executable",
         "stamp",
         "heuristic_label_expansion",
-        "kind");
+        "kind",
+        "exec_compatible_with");
   }
 
   @Test
@@ -759,6 +761,61 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(result).isEqualTo("$ABC");
   }
 
+  private void setUpMakeVarToolchain() throws Exception {
+    scratch.file(
+        "vars/vars.bzl",
+        "def _make_var_supplier_impl(ctx):",
+        "  val = ctx.attr.value",
+        "  return [platform_common.TemplateVariableInfo({'MAKE_VAR_VALUE': val})]",
+        "make_var_supplier = rule(",
+        "    implementation = _make_var_supplier_impl,",
+        "    attrs = {",
+        "        'value': attr.string(mandatory = True),",
+        "    })",
+        "def _make_var_user_impl(ctx):",
+        "  return []",
+        "make_var_user = rule(",
+        "    implementation = _make_var_user_impl,",
+        ")");
+    scratch.file(
+        "vars/BUILD",
+        "load(':vars.bzl', 'make_var_supplier', 'make_var_user')",
+        "make_var_supplier(name = 'supplier', value = 'foo')",
+        "make_var_user(",
+        "    name = 'vars',",
+        "    toolchains = [':supplier'],",
+        ")");
+  }
+
+  @Test
+  public void testExpandMakeVariables_cc() throws Exception {
+    setUpMakeVarToolchain();
+    SkylarkRuleContext ruleContext = createRuleContext("//vars:vars");
+    String result =
+        (String)
+            evalRuleContextCode(
+                ruleContext, "ruleContext.expand_make_variables('cmd', '$(CC)', {})");
+    assertThat(result).isNotEmpty();
+  }
+
+  @Test
+  public void testExpandMakeVariables_toolchain() throws Exception {
+    setUpMakeVarToolchain();
+    SkylarkRuleContext ruleContext = createRuleContext("//vars:vars");
+    Object result =
+        evalRuleContextCode(
+            ruleContext, "ruleContext.expand_make_variables('cmd', '$(MAKE_VAR_VALUE)', {})");
+    assertThat(result).isEqualTo("foo");
+  }
+
+  @Test
+  public void testVar_toolchain() throws Exception {
+    setUpMakeVarToolchain();
+    SkylarkRuleContext ruleContext = createRuleContext("//vars:vars");
+    Object result = evalRuleContextCode(ruleContext, "ruleContext.var['MAKE_VAR_VALUE']");
+    assertThat(result).isEqualTo("foo");
+  }
+
   @Test
   public void testConfiguration() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
@@ -773,6 +830,12 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat((SkylarkList<?>) result).containsExactly("cc_include_scanning", "f1", "f2");
   }
 
+  @Test
+  public void testDisabledFeatures() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:cc_with_features");
+    Object result = evalRuleContextCode(ruleContext, "ruleContext.disabled_features");
+    assertThat((SkylarkList<?>) result).containsExactly("f3");
+  }
 
   @Test
   public void testHostConfiguration() throws Exception {

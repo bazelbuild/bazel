@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 import java.util.Collection;
@@ -608,7 +607,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
       reportWarning("target '" + getName() + "' is both a rule and a file; please choose "
                     + "another name for the rule", eventHandler);
     }
-    OutputFile outputFile = new OutputFile(pkg, label, this);
+    OutputFile outputFile = new OutputFile(pkg, label, ruleClass.getOutputFileKind(), this);
     outputFilesBuilder.add(outputFile);
     return outputFile;
   }
@@ -690,18 +689,6 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
     if (isAttrDefined("output_licenses", BuildType.LICENSE)
         && attributes.isAttributeValueExplicitlySpecified("output_licenses")) {
       return attributes.get("output_licenses", BuildType.LICENSE);
-    } else {
-      return null;
-    }
-  }
-
-  /**
-   * Returns the globs that were expanded to create an attribute value, or
-   * null if unknown or not applicable.
-   */
-  public static GlobList<?> getGlobInfo(Object attributeValue) {
-    if (attributeValue instanceof GlobList<?>) {
-      return (GlobList<?>) attributeValue;
     } else {
       return null;
     }

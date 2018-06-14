@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
-import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkParamsStore;
 import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.constructJcapFromAspectDeps;
@@ -43,7 +42,6 @@ import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
-import com.google.devtools.build.lib.rules.java.ProtoJavaApiInfoAspectProvider;
 
 /** Implementation of the java_lite_proto_library rule. */
 public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
@@ -84,12 +82,6 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         JavaInfo.Builder.create()
             .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-            .addProvider(
-                ProtoJavaApiInfoAspectProvider.class,
-                ProtoJavaApiInfoAspectProvider.merge(
-                    JavaInfo.getProvidersFromListOfTargets(
-                        ProtoJavaApiInfoAspectProvider.class,
-                        ruleContext.getPrerequisites("deps", TARGET))))
             .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
             .addProvider(JavaRunfilesProvider.class, javaRunfilesProvider)
             .setJavaConstraints(ImmutableList.of("android"))

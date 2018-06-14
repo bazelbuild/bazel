@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import java.util.Objects;
 
 /** Android assets that have been merged together with their dependencies. */
@@ -25,14 +24,14 @@ public class MergedAndroidAssets extends ParsedAndroidAssets {
   private final AssetDependencies assetDependencies;
 
   static MergedAndroidAssets mergeFrom(
-      RuleContext ruleContext, ParsedAndroidAssets parsed, AssetDependencies deps)
+      AndroidDataContext dataContext, ParsedAndroidAssets parsed, AssetDependencies deps)
       throws InterruptedException {
 
     Artifact mergedAssets =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_ASSETS_ZIP);
+        dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_ASSETS_ZIP);
 
-    BusyBoxActionBuilder builder = BusyBoxActionBuilder.create(ruleContext, "MERGE_ASSETS");
-    if (AndroidCommon.getAndroidConfig(ruleContext).throwOnResourceConflict()) {
+    BusyBoxActionBuilder builder = BusyBoxActionBuilder.create(dataContext, "MERGE_ASSETS");
+    if (dataContext.getAndroidConfig().throwOnResourceConflict()) {
       builder.addFlag("--throwOnAssetConflict");
     }
 

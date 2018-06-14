@@ -146,7 +146,11 @@ public class AndroidResourcesTest extends ResourceTestBase {
     RuleContext ruleContext = getRuleContext();
     ValidatedAndroidResources unfiltered =
         new AndroidResources(unfilteredResources, getResourceRoots(unfilteredResources))
-            .process(ruleContext, getManifest(), /* neverlink = */ false);
+            .process(
+                ruleContext,
+                AndroidDataContext.forNative(ruleContext),
+                getManifest(),
+                /* neverlink = */ false);
     Optional<? extends AndroidResources> maybeFiltered =
         assertFilter(unfiltered, filteredResources, /* isDependency = */ true);
 
@@ -291,7 +295,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
     ParsedAndroidResources parsed = assertParse(ruleContext);
     MergedAndroidResources merged =
         parsed.merge(
-            ruleContext,
+            AndroidDataContext.forNative(ruleContext),
             ResourceDependencies.empty(),
             /* enableDataBinding = */ true,
             AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
@@ -328,7 +332,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
     ParsedAndroidResources parsed = assertParse(ruleContext);
     MergedAndroidResources merged =
         parsed.merge(
-            ruleContext,
+            AndroidDataContext.forNative(ruleContext),
             ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
             DataBinding.isEnabled(ruleContext),
             AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
@@ -370,7 +374,9 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
     MergedAndroidResources merged = makeMergedResources(ruleContext);
     ValidatedAndroidResources validated =
-        merged.validate(ruleContext, AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
+        merged.validate(
+            AndroidDataContext.forNative(ruleContext),
+            AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
 
     // Inherited values should be equal
     assertThat(merged).isEqualTo(new MergedAndroidResources(validated));
@@ -397,7 +403,9 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
     MergedAndroidResources merged = makeMergedResources(ruleContext);
     ValidatedAndroidResources validated =
-        merged.validate(ruleContext, AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
+        merged.validate(
+            AndroidDataContext.forNative(ruleContext),
+            AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
 
     // Inherited values should be equal
     assertThat(merged).isEqualTo(new MergedAndroidResources(validated));
@@ -438,7 +446,11 @@ public class AndroidResourcesTest extends ResourceTestBase {
     ProcessedAndroidData processedData =
         ProcessedAndroidData.of(
             makeParsedResources(ruleContext),
-            AndroidAssets.from(ruleContext).process(ruleContext, /* neverlink = */ false),
+            AndroidAssets.from(ruleContext)
+                .process(
+                    AndroidDataContext.forNative(ruleContext),
+                    AssetDependencies.empty(),
+                    AndroidAaptVersion.chooseTargetAaptVersion(ruleContext)),
             manifest,
             rTxt,
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR),
@@ -450,7 +462,9 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
     ValidatedAndroidData validated =
         processedData
-            .generateRClass(ruleContext, AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
+            .generateRClass(
+                AndroidDataContext.forNative(ruleContext),
+                AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
             .getValidatedResources();
 
     // An action to generate the R.class file should be registered.
@@ -463,9 +477,11 @@ public class AndroidResourcesTest extends ResourceTestBase {
   @Test
   public void testProcessBinaryDataGeneratesProguardOutput() throws Exception {
     RuleContext ruleContext = getRuleContext("android_binary", "manifest='AndroidManifest.xml',");
+    AndroidDataContext dataContext = AndroidDataContext.forNative(ruleContext);
 
     ResourceApk resourceApk =
         ProcessedAndroidData.processBinaryDataFrom(
+                dataContext,
                 ruleContext,
                 getManifest(),
                 false,
@@ -478,8 +494,10 @@ public class AndroidResourcesTest extends ResourceTestBase {
                 ResourceFilterFactory.empty(),
                 ImmutableList.of(),
                 false,
-                false)
-            .generateRClass(ruleContext, AndroidAaptVersion.AUTO);
+                false,
+                null,
+                null)
+            .generateRClass(dataContext, AndroidAaptVersion.AUTO);
 
     assertThat(resourceApk.getResourceProguardConfig()).isNotNull();
     assertThat(resourceApk.getMainDexProguardConfig()).isNotNull();
@@ -504,7 +522,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
     ParsedAndroidResources parsed =
         raw.parse(
-            ruleContext,
+            AndroidDataContext.forNative(ruleContext),
             manifest,
             enableDataBinding,
             AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
@@ -522,7 +540,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
       throws RuleErrorException, InterruptedException {
     return makeParsedResources(ruleContext)
         .merge(
-            ruleContext,
+            AndroidDataContext.forNative(ruleContext),
             ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
             DataBinding.isEnabled(ruleContext),
             AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
@@ -540,7 +558,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
     return new AndroidResources(
             resources, AndroidResources.getResourceRoots(ruleContext, resources, "resource_files"))
         .parse(
-            ruleContext,
+            AndroidDataContext.forNative(ruleContext),
             getManifest(),
             enableDataBinding,
             AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));

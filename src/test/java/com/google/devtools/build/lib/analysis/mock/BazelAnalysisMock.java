@@ -131,8 +131,13 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name = 'runtime', srcs = ['test-setup.sh'])",
         "filegroup(name = 'test_setup', srcs = ['test-setup.sh'])",
         "filegroup(name = 'collect_coverage', srcs = ['collect_coverage.sh'])",
-        "filegroup(name='coverage_support', srcs=['collect_coverage.sh','LcovMerger'])",
+        "filegroup(name='coverage_support', srcs=['collect_coverage.sh'])",
         "filegroup(name = 'coverage_report_generator', srcs = ['coverage_report_generator.sh'])");
+
+    config.create(
+        "/bazel_tools_workspace/tools/test/LcovMerger/java/com/google/devtools/lcovmerger/BUILD",
+        "filegroup(name='srcs', srcs = glob(['**']))",
+        "filegroup(name='Main', srcs = ['Main.java'])");
 
     config.create(
         "/bazel_tools_workspace/tools/python/BUILD",
@@ -147,6 +152,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "    name='config_feature_flag',",
         "    includes=['@//tools/whitelists/config_feature_flag'],",
         ")");
+
+    config.create(
+        "tools/whitelists/config_feature_flag/BUILD",
+        "package_group(name='config_feature_flag', packages=['//...'])");
 
     config.create(
         "tools/whitelists/config_feature_flag/BUILD",
@@ -267,7 +276,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'jarjar_bin', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'instrumentation_test_check', srcs = ['empty.sh'])")
         .add("package_group(name = 'android_device_whitelist', packages = ['//...'])")
-        .add("android_tools_defaults_jar(name = 'android_jar')");
+        .add("package_group(name = 'export_deps_whitelist', packages = ['//...'])")
+        .add("android_tools_defaults_jar(name = 'android_jar')")
+        .add("sh_binary(name = 'dex_list_obfuscator', srcs = ['empty.sh'])");
 
     return androidBuildContents.build();
   }

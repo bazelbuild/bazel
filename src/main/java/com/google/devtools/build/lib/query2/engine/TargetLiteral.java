@@ -45,7 +45,7 @@ public final class TargetLiteral extends QueryExpression {
   }
 
   private <T> QueryTaskFuture<Void> evalVarReference(
-      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback) {
+      QueryEnvironment<T> env, QueryExpressionContext<T> context, Callback<T> callback) {
     String varName = LetExpression.getNameFromReference(pattern);
     Set<T> value = context.get(varName);
     if (value == null) {
@@ -64,7 +64,7 @@ public final class TargetLiteral extends QueryExpression {
 
   @Override
   public <T> QueryTaskFuture<Void> eval(
-      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback) {
+      QueryEnvironment<T> env, QueryExpressionContext<T> context, Callback<T> callback) {
     if (isVariableReference()) {
       return evalVarReference(env, context, callback);
     } else {

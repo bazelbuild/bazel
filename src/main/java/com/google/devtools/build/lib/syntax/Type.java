@@ -23,7 +23,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
@@ -598,19 +597,6 @@ public abstract class Type<T> {
               new ConversionException(message));
         }
         ++index;
-      }
-      // We preserve GlobList-s so they can make it to attributes;
-      // some external code relies on attributes preserving this information.
-      // TODO(bazel-team): somehow make Skylark extensible enough that
-      // GlobList support can be wholly moved out of Skylark into an extension.
-      if (x instanceof GlobList<?>) {
-        return new GlobList<>(((GlobList<?>) x).getCriteria(), result);
-      }
-      if (x instanceof MutableList) {
-        GlobList<?> globList = ((MutableList) x).getGlobList();
-        if (globList != null) {
-          return new GlobList<>(globList.getCriteria(), result);
-        }
       }
       return result;
     }

@@ -174,6 +174,10 @@ public class GlobCache {
       // invalid as a label, plus users should say explicitly if they
       // really want to name the package directory.
       if (!relative.isEmpty()) {
+        if (relative.charAt(0) == '@') {
+          // Add explicit colon to disambiguate from external repository.
+          relative = ":" + relative;
+        }
         result.add(relative);
       }
     }

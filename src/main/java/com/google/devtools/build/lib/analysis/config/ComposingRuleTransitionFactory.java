@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
@@ -38,7 +40,42 @@ public class ComposingRuleTransitionFactory implements RuleTransitionFactory {
 
   @Override
   public PatchTransition buildTransitionFor(Rule rule) {
-    return TransitionResolver.composePatchTransitions(
+    ConfigurationTransition composed = TransitionResolver.composeTransitions(
         rtf1.buildTransitionFor(rule), rtf2.buildTransitionFor(rule));
+    if (composed instanceof PatchTransition) {
+      // This is one of the two input transitions. Especially if it's a NoTransition or
+      // HostTransition, we should give it back so it can be specially identified as described
+      // in composeTransitions.
+      return (PatchTransition) composed;
+    } else {
+      // This is a composed transition, but we need a composed transition which is both a
+      // PatchTransition and can be registered as equal to another instance of the same composed
+      // transition.
+      return new AsPatchTransition(composed);
+    }
+  }
+
+  private static final class AsPatchTransition implements PatchTransition {
+    private final ConfigurationTransition wrapped;
+
+    private AsPatchTransition(ConfigurationTransition wrapped) {
+      this.wrapped = wrapped;
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptions options) {
+      return Iterables.getOnlyElement(wrapped.apply(options));
+    }
+
+    @Override
+    public int hashCode() {
+      return wrapped.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof AsPatchTransition
+          && this.wrapped.equals(((AsPatchTransition) other).wrapped);
+    }
   }
 }

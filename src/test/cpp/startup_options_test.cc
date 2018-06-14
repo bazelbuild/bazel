@@ -34,6 +34,7 @@ class FakeStartupOptions : public StartupOptions {
     *is_processed = false;
     return blaze_exit_code::SUCCESS;
   }
+  void MaybeLogStartupOptionWarnings() const override {}
 };
 
 class StartupOptionsTest : public ::testing::Test {

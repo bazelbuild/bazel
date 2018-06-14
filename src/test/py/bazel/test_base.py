@@ -61,6 +61,9 @@ class TestBase(unittest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     os.chdir(self._test_cwd)
 
+  def tearDown(self):
+    self.RunBazel(['shutdown'])
+
   def AssertExitCode(self,
                      actual_exit_code,
                      expected_exit_code,
@@ -212,8 +215,8 @@ class TestBase(unittest.TestCase):
     if os.path.exists(abspath) and not os.path.isfile(abspath):
       raise IOError('"%s" (%s) exists and is not a file' % (dst_path, abspath))
     self.ScratchDir(os.path.dirname(dst_path))
-    with open(src_path, 'r') as s:
-      with open(abspath, 'w') as d:
+    with open(src_path, 'rb') as s:
+      with open(abspath, 'wb') as d:
         d.write(s.read())
     if executable:
       os.chmod(abspath, stat.S_IRWXU)
@@ -354,10 +357,8 @@ class TestBase(unittest.TestCase):
           'BAZEL_SH':
               TestBase.GetEnv('BAZEL_SH',
                               'c:\\tools\\msys64\\usr\\bin\\bash.exe'),
-          # TODO(pcloudy): Remove this after no longer need to debug
-          # https://github.com/bazelbuild/bazel/issues/3273
-          'CC_CONFIGURE_DEBUG':
-              '1'
+          'JAVA_HOME':
+              TestBase.GetEnv('JAVA_HOME'),
       }
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}

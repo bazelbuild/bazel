@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/main/cpp/util/file_platform.h"
+
 #include <dirent.h>  // DIR, dirent, opendir, closedir
 #include <errno.h>
 #include <fcntl.h>   // O_RDONLY
@@ -29,6 +31,8 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
@@ -178,18 +182,6 @@ IPipe* CreatePipe() {
   return new PosixPipe(fd[0], fd[1]);
 }
 
-pair<string, string> SplitPath(const string &path) {
-  size_t pos = path.rfind('/');
-
-  // Handle the case with no '/' in 'path'.
-  if (pos == string::npos) return std::make_pair("", path);
-
-  // Handle the case with a single leading '/' in 'path'.
-  if (pos == 0) return std::make_pair(string(path, 0, 1), string(path, 1));
-
-  return std::make_pair(string(path, 0, pos), string(path, pos + 1));
-}
-
 int ReadFromHandle(file_handle_type fd, void *data, size_t size, int *error) {
   int result = read(fd, data, size);
   if (error != nullptr) {
@@ -299,10 +291,6 @@ static bool CanAccess(const string &path, bool read, bool write, bool exec) {
   return access(path.c_str(), mode) == 0;
 }
 
-bool IsDevNull(const char *path) {
-  return path != NULL && *path != 0 && strncmp("/dev/null\0", path, 10) == 0;
-}
-
 bool CanReadFile(const std::string &path) {
   return !IsDirectory(path) && CanAccess(path, true, false, false);
 }
@@ -319,12 +307,6 @@ bool IsDirectory(const string& path) {
   struct stat buf;
   return stat(path.c_str(), &buf) == 0 && S_ISDIR(buf.st_mode);
 }
-
-bool IsRootDirectory(const string &path) {
-  return path.size() == 1 && path[0] == '/';
-}
-
-bool IsAbsolute(const string &path) { return !path.empty() && path[0] == '/'; }
 
 void SyncFile(const string& path) {
   const char* file_path = path.c_str();

@@ -152,11 +152,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     skyframeExecutor.setDeletedPackages(deletedPackages);
   }
 
-  private TargetPatternEvaluator shiftOffset() {
-    parser.updateOffset(fooOffset);
-    return parser;
-  }
-
   private Set<Label> parseList(String... patterns)
       throws TargetParsingException, InterruptedException {
     return targetsToLabels(
@@ -176,13 +171,25 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
       FilteringPolicy policy, String... patterns)
       throws TargetParsingException, InterruptedException {
     return targetsToLabels(getFailFast(
-        parseTargetPatternList(parser, parsingListener, Arrays.asList(patterns), policy, false)));
+        parseTargetPatternList(
+            PathFragment.EMPTY_FRAGMENT,
+            parser,
+            parsingListener,
+            Arrays.asList(patterns),
+            policy,
+            false)));
+  }
+
+  private Set<Label> parseListRelative(PathFragment offset, String... patterns)
+      throws TargetParsingException, InterruptedException {
+    return targetsToLabels(getFailFast(parseTargetPatternList(
+        offset, parser, parsingListener, Arrays.asList(patterns), false)));
   }
 
   private Set<Label> parseListRelative(String... patterns)
       throws TargetParsingException, InterruptedException {
     return targetsToLabels(getFailFast(parseTargetPatternList(
-        shiftOffset(), parsingListener, Arrays.asList(patterns), false)));
+        fooOffset, parser, parsingListener, Arrays.asList(patterns), false)));
   }
 
   private static Set<Target> getFailFast(ResolvedTargets<Target> result) {
@@ -190,10 +197,14 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     return result.getTargets();
   }
 
-  private void expectError(TargetPatternEvaluator parser, String expectedError,
-      String target) throws InterruptedException {
+  private void expectError(
+      PathFragment offset,
+      TargetPatternEvaluator parser,
+      String expectedError,
+      String target)
+          throws InterruptedException {
     try {
-      parser.parseTargetPattern(parsingListener, target, false);
+      parseTargetPatternList(offset, parser, parsingListener, ImmutableList.of(target), false);
       fail("target='" + target + "', expected error: " + expectedError);
     } catch (TargetParsingException e) {
       assertThat(e).hasMessageThat().contains(expectedError);
@@ -201,23 +212,27 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   }
 
   private void expectError(String expectedError, String target) throws InterruptedException {
-    expectError(parser, expectedError, target);
+    expectError(PathFragment.EMPTY_FRAGMENT, parser, expectedError, target);
   }
 
   private void expectErrorRelative(String expectedError, String target)
       throws InterruptedException {
-    expectError(shiftOffset(), expectedError, target);
+    expectError(fooOffset, parser, expectedError, target);
   }
 
   private Label parseIndividualTarget(String targetLabel) throws Exception {
     return Iterables.getOnlyElement(
-        getFailFast(parser.parseTargetPattern(parsingListener, targetLabel, false))).getLabel();
+        getFailFast(
+            parseTargetPatternList(parser, parsingListener, ImmutableList.of(targetLabel), false)))
+        .getLabel();
   }
 
   private Label parseIndividualTargetRelative(String targetLabel) throws Exception {
     return Iterables.getOnlyElement(
         getFailFast(
-            shiftOffset().parseTargetPattern(parsingListener, targetLabel, false))).getLabel();
+            parseTargetPatternList(
+                fooOffset, parser, parsingListener, ImmutableList.of(targetLabel), false)))
+        .getLabel();
   }
 
   @Test
@@ -336,14 +351,10 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file("nest/nest/BUILD",
         "cc_library(name = 'nested2', srcs = [ ])");
 
-    updateOffset(PathFragment.create("nest"));
-    assertThat(parseList(":all")).containsExactlyElementsIn(labels("//nest:nested1"));
-    updateOffset(PathFragment.create("nest/nest"));
-    assertThat(parseList(":all")).containsExactlyElementsIn(labels("//nest/nest:nested2"));
-  }
-
-  protected void updateOffset(PathFragment rel) {
-    parser.updateOffset(rel);
+    assertThat(parseListRelative(PathFragment.create("nest"), ":all"))
+        .containsExactlyElementsIn(labels("//nest:nested1"));
+    assertThat(parseListRelative(PathFragment.create("nest/nest"), ":all"))
+        .containsExactlyElementsIn(labels("//nest/nest:nested2"));
   }
 
   private void runFindTargetsInPackage(String suffix) throws Exception {
@@ -517,9 +528,14 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file("x/z/BUILD", "cc_library(name='z')");
     setDeletedPackages(Sets.newHashSet(PackageIdentifier.createInMainRepo("x/y")));
 
-    parser.updateOffset(PathFragment.create("x"));
     assertThat(
-            targetsToLabels(getFailFast(parser.parseTargetPattern(parsingListener, "...", false))))
+            targetsToLabels(getFailFast(
+                parseTargetPatternList(
+                    PathFragment.create("x"),
+                    parser,
+                    parsingListener,
+                    ImmutableList.of("..."),
+                    false))))
         .isEqualTo(Sets.newHashSet(Label.parseAbsolute("//x/z")));
   }
 
@@ -597,27 +613,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertThat(parseListRelative("//foo/bar:*")).containsExactlyElementsIn(targetsInFooBar);
     assertThat(parseListRelative("...:*")).containsExactlyElementsIn(targetsBeneathFoo);
     assertThat(parseListRelative("//foo/...:*")).containsExactlyElementsIn(targetsBeneathFoo);
-  }
-
-  @Test
-  public void testFactoryMethod() throws Exception {
-    Path workspace = scratch.dir("/client/workspace");
-    Path underWorkspace = scratch.dir("/client/workspace/foo");
-    Path notUnderWorkspace = scratch.dir("/client/otherclient");
-
-    updateOffset(workspace, underWorkspace);
-    updateOffset(workspace, workspace);
-
-    // The client must be equal to or underneath the workspace.
-    try {
-      updateOffset(workspace, notUnderWorkspace);
-      fail("Should have failed because client was not underneath the workspace");
-    } catch (IllegalArgumentException expected) {
-    }
-  }
-
-  private void updateOffset(Path workspace, Path workingDir) {
-    parser.updateOffset(workingDir.relativeTo(workspace));
   }
 
   private void setupSubDirectoryCircularSymlink() throws Exception {
@@ -712,8 +707,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   public void testFailingValidations() {
     expectValidationFail("");
     expectValidationFail("\\");
-    expectValidationFail("foo:**");
-    expectValidationFail("//foo/*");
   }
 
   private void expectValidationFail(String target) {
@@ -727,7 +720,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     // Ensure that validateTargetPattern's checking is strictly weaker than
     // that of parseTargetPattern.
     try {
-      parser.parseTargetPattern(parsingListener, target, false);
+      parseTargetPatternList(parser, parsingListener, ImmutableList.of(target), false);
       fail("parseTargetPattern(" + target + ") inconsistent with parseTargetPattern!");
     } catch (TargetParsingException expected) {
       /* ignore */
@@ -747,9 +740,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   @Test
   public void testSetOffset() throws Exception {
     assertThat(parseIndividualTarget("foo:foo1").toString()).isEqualTo("//foo:foo1");
-
-    parser.updateOffset(PathFragment.create("foo"));
-    assertThat(parseIndividualTarget(":foo1").toString()).isEqualTo("//foo:foo1");
+    assertThat(parseIndividualTargetRelative(":foo1").toString()).isEqualTo("//foo:foo1");
   }
 
   @Test

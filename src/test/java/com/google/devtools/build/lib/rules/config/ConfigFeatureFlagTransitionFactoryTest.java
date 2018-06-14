@@ -86,7 +86,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
         new ConfigFeatureFlagTransitionFactory("flag_values").buildTransitionFor(rule);
 
     BuildOptions original = getOptionsWithoutFlagFragment();
-    BuildOptions converted = transition.apply(original);
+    BuildOptions converted = transition.patch(original);
 
     assertThat(converted).isSameAs(original);
     assertThat(original.contains(ConfigFeatureFlagOptions.class)).isFalse();
@@ -109,7 +109,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
         new ConfigFeatureFlagTransitionFactory("flag_values").buildTransitionFor(rule);
 
     BuildOptions original = getOptionsWithoutFlagFragment();
-    BuildOptions converted = transition.apply(original);
+    BuildOptions converted = transition.patch(original);
 
     assertThat(converted).isSameAs(original);
     assertThat(original.contains(ConfigFeatureFlagOptions.class)).isFalse();
@@ -123,7 +123,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     Map<Label, String> originalFlagMap = ImmutableMap.of(Label.parseAbsolute("//a:flag"), "value");
 
     BuildOptions original = getOptionsWithFlagFragment(originalFlagMap);
-    BuildOptions converted = transition.apply(original);
+    BuildOptions converted = transition.patch(original);
 
     assertThat(converted).isNotSameAs(original);
     assertThat(original.get(ConfigFeatureFlagOptions.class).getFlagValues())
@@ -151,7 +151,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     Map<Label, String> expectedFlagMap = ImmutableMap.of(Label.parseAbsolute("//a:flag"), "a");
 
     BuildOptions original = getOptionsWithFlagFragment(originalFlagMap);
-    BuildOptions converted = transition.apply(original);
+    BuildOptions converted = transition.patch(original);
 
     assertThat(converted).isNotSameAs(original);
     assertThat(original.get(ConfigFeatureFlagOptions.class).getFlagValues())

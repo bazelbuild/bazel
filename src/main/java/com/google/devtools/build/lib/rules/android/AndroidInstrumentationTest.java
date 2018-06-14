@@ -256,7 +256,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
   }
 
   private static ImmutableList<Artifact> getDataDeps(RuleContext ruleContext) {
-    return ruleContext.getPrerequisiteArtifacts("data", Mode.DATA).list();
+    return ruleContext.getPrerequisiteArtifacts("data", Mode.DONT_CHECK).list();
   }
 
   /**

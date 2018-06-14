@@ -1059,7 +1059,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget foo = getConfiguredTarget(target);
     SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
         getFilesToBuild(foo), "r.srcjar");
-    assertThat(action.getArguments().contains("--debug")).isEqualTo(isDebug);
+
+    assertThat(ImmutableList.copyOf(paramFileArgsOrActionArgs(action)).contains("--debug"))
+        .isEqualTo(isDebug);
   }
 
   @Test
@@ -1076,17 +1078,17 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    srcs = ['foo.java'])");
 
     ConfiguredTarget target = getConfiguredTarget("//java/android:l");
-    Artifact manifest = getBinArtifact("l_generated/l/AndroidManifest.xml", target);
+    Artifact manifest = getBinArtifact("_generated/l/AndroidManifest.xml", target);
     FileWriteAction action = (FileWriteAction) getGeneratingAction(manifest);
     assertThat(action.getFileContents()).contains("package=\"android\"");
 
     target = getConfiguredTarget("//java/android:l2");
-    manifest = getBinArtifact("l2_generated/l2/AndroidManifest.xml", target);
+    manifest = getBinArtifact("_generated/l2/AndroidManifest.xml", target);
     action = (FileWriteAction) getGeneratingAction(manifest);
     assertThat(action.getFileContents()).contains("package=\"foo\"");
 
     target = getConfiguredTarget("//third_party/android:l");
-    manifest = getBinArtifact("l_generated/l/AndroidManifest.xml", target);
+    manifest = getBinArtifact("_generated/l/AndroidManifest.xml", target);
     action = (FileWriteAction) getGeneratingAction(manifest);
     assertThat(action.getFileContents()).contains("package=\"third_party.android\"");
   }
@@ -1864,6 +1866,8 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "                manifest = 'AndroidManifest.xml',",
         "                resource_files = ['res/values/strings.xml'])");
     ConfiguredTarget target = getConfiguredTarget("//java/android:test");
+    ConfiguredTarget t1Target = getConfiguredTarget("//java/android:t1");
+    ConfiguredTarget t2Target = getConfiguredTarget("//java/android:t2");
     final AndroidLibraryAarInfo provider = target.get(AndroidLibraryAarInfo.PROVIDER);
 
     final Aar test =
@@ -1872,12 +1876,12 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             getBinArtifact("test_processed_manifest/AndroidManifest.xml", target));
     final Aar t1 =
         Aar.create(
-            getBinArtifact("t1.aar", target),
-            getBinArtifact("t1_processed_manifest/AndroidManifest.xml", target));
+            getBinArtifact("t1.aar", t1Target),
+            getBinArtifact("t1_processed_manifest/AndroidManifest.xml", t1Target));
     final Aar t2 =
         Aar.create(
-            getBinArtifact("t2.aar", target),
-            getBinArtifact("t2_processed_manifest/AndroidManifest.xml", target));
+            getBinArtifact("t2.aar", t2Target),
+            getBinArtifact("t2_processed_manifest/AndroidManifest.xml", t2Target));
 
     assertThat(provider.getAar()).isEqualTo(test);
     assertThat(provider.getTransitiveAars()).containsExactly(test, t1, t2);
@@ -1893,11 +1897,12 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "                resource_files = ['res/values/strings.xml'])");
     ConfiguredTarget target = getConfiguredTarget("//java/android:test");
     final AndroidLibraryAarInfo provider = target.get(AndroidLibraryAarInfo.PROVIDER);
+    ConfiguredTarget transitiveTarget = getConfiguredTarget("//java/android:transitive");
 
     final Aar transitive =
         Aar.create(
-            getBinArtifact("transitive.aar", target),
-            getBinArtifact("transitive_processed_manifest/AndroidManifest.xml", target));
+            getBinArtifact("transitive.aar", transitiveTarget),
+            getBinArtifact("transitive_processed_manifest/AndroidManifest.xml", transitiveTarget));
 
     assertThat(provider.getAar()).isNull();
     assertThat(provider.getTransitiveAars()).containsExactly(transitive);
@@ -1979,5 +1984,36 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "libjl_bottom_for_exports-src.jar",
         "libal_bottom_for_deps-src.jar",
         "liblib_foo-src.jar");
+  }
+
+  @Test
+  public void testLocalResourcesFirstInJavaCompilationClasspath() throws Exception {
+    scratch.file(
+        "java/foo/BUILD",
+        "android_library(",
+        "  name='dep',",
+        "  srcs=['dep.java'], ",
+        "  resource_files=['res/values/dep.xml'],",
+        "  manifest='AndroidManifest.xml')",
+        "android_library(",
+        "  name='lib',",
+        "  srcs=['lib.java'],",
+        "  resource_files=['res/values/lib.xml'],",
+        "  manifest='AndroidManifest.xml',",
+        "  deps=[':dep'])");
+
+    JavaCompileAction javacAction =
+        (JavaCompileAction)
+            getGeneratingAction(getFileConfiguredTarget("//java/foo:liblib.jar").getArtifact());
+
+    assertThat(ActionsTestUtil.prettyArtifactNames(javacAction.getDirectJars()))
+        .containsExactly(
+            "java/foo/lib_resources.jar", "java/foo/dep_resources.jar", "java/foo/libdep-hjar.jar")
+        .inOrder();
+
+    assertThat(ActionsTestUtil.prettyArtifactNames(javacAction.getClasspath()))
+        .containsExactly(
+            "java/foo/lib_resources.jar", "java/foo/dep_resources.jar", "java/foo/libdep-hjar.jar")
+        .inOrder();
   }
 }

@@ -235,7 +235,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<EOF > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     timeout = "short",
     srcs = [ "test.sh" ],
@@ -297,7 +297,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     srcs = [ "test.sh" ],
   )
@@ -328,7 +328,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     srcs = [ "test.sh" ],
   )
@@ -360,7 +360,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     timeout = "short",
     srcs = [ "test.sh" ],
@@ -538,7 +538,7 @@ EOF
 
   # We do not use sandboxing so we can trick to be deterministically flaky
   # TODO(b/37617303): make test UI-independent
-  bazel --nomaster_bazelrc test --noexperimental_ui --noexperimental_skyframe_target_pattern_evaluator --spawn_strategy=standalone //:flaky &> $TEST_log \
+  bazel --nomaster_bazelrc test --noexperimental_ui --spawn_strategy=standalone //:flaky &> $TEST_log \
       || fail "//:flaky should have passed with flaky support"
   [ -f "${FLAKE_FILE}" ] || fail "Flaky test should have created the flake-file!"
 
@@ -552,7 +552,7 @@ EOF
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
   # TODO(b/37617303): make test UI-independent
-  bazel --nomaster_bazelrc test --noexperimental_ui --noexperimental_skyframe_target_pattern_evaluator //:pass &> $TEST_log \
+  bazel --nomaster_bazelrc test --noexperimental_ui //:pass &> $TEST_log \
       || fail "//:pass should have passed"
   expect_log_once "PASS: //:pass"
   expect_log_once PASSED
@@ -562,7 +562,7 @@ EOF
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
   # TODO(b/37617303): make test UI-independent
-  bazel --nomaster_bazelrc test --noexperimental_ui --noexperimental_skyframe_target_pattern_evaluator //:fail &> $TEST_log \
+  bazel --nomaster_bazelrc test --noexperimental_ui //:fail &> $TEST_log \
       && fail "//:fail should have failed" \
       || true
   expect_log_n "FAIL: //:fail (.*/fail/test_attempts/attempt_..log)" 2
@@ -589,7 +589,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     srcs = [ "test.sh" ],
   )
@@ -640,7 +640,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     srcs = [ "test.sh" ],
   )
@@ -674,7 +674,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
-  sh_test(
+sh_test(
     name = "test",
     srcs = [ "test.sh" ],
   )

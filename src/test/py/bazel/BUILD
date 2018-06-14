@@ -64,7 +64,7 @@ py_test(
     name = "bazel_external_repository_test",
     size = "medium",
     srcs = ["bazel_external_repository_test.py"],
-    tags = ["requires_internet"],
+    data = glob(["testdata/bazel_external_repository_test/**"]),
     deps = [":test_base"],
 )
 
@@ -136,6 +136,13 @@ py_test(
         "//src/conditions:windows": [":test_base"],
         "//conditions:default": [],
     }),
+)
+
+py_test(
+    name = "query_test",
+    size = "medium",
+    srcs = ["query_test.py"],
+    deps = [":test_base"],
 )
 
 test_suite(

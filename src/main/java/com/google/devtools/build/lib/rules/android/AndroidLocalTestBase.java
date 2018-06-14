@@ -79,23 +79,30 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     ruleContext.checkSrcsSamePackage(true);
 
     JavaSemantics javaSemantics = createJavaSemantics();
+    AndroidSemantics androidSemantics = createAndroidSemantics();
     createAndroidMigrationSemantics().validateRuleContext(ruleContext);
     AndroidLocalTestConfiguration androidLocalTestConfiguration =
         ruleContext.getFragment(AndroidLocalTestConfiguration.class);
 
     final JavaCommon javaCommon = new JavaCommon(ruleContext, javaSemantics);
+    if (androidLocalTestConfiguration.androidLocalTestUsesJavaRuleValidation()) {
+      javaSemantics.checkRule(ruleContext, javaCommon);
+    }
+
     // Use the regular Java javacopts. Enforcing android-compatible Java
     // (-source 7 -target 7 and no TWR) is unnecessary for robolectric tests
     // since they run on a JVM, not an android device.
     JavaTargetAttributes.Builder attributesBuilder = javaCommon.initCommon();
 
+    final AndroidDataContext dataContext = androidSemantics.makeContextForNative(ruleContext);
     final ResourceApk resourceApk;
 
-    if (AndroidResources.decoupleDataProcessing(ruleContext)) {
+    if (AndroidResources.decoupleDataProcessing(dataContext)) {
       resourceApk =
           buildResourceApk(
-              ruleContext,
-              AndroidManifest.fromAttributes(ruleContext),
+              dataContext,
+              androidSemantics,
+              AndroidManifest.fromAttributes(ruleContext, dataContext),
               AndroidResources.from(ruleContext, "resource_files"),
               AndroidAssets.from(ruleContext),
               ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
@@ -108,12 +115,13 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
           ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink= */ false);
 
       ApplicationManifest applicationManifest =
-          getApplicationManifest(ruleContext, resourceDependencies);
+          getApplicationManifest(ruleContext, dataContext, resourceDependencies);
 
       // Create the final merged R class
       resourceApk =
           applicationManifest.packBinaryWithDataAndResources(
               ruleContext,
+              dataContext,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
               resourceDependencies,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
@@ -408,18 +416,25 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
    * @throws RuleErrorException
    */
   private ApplicationManifest getApplicationManifest(
-      RuleContext ruleContext, ResourceDependencies resourceDependencies)
+      RuleContext ruleContext,
+      AndroidDataContext dataContext,
+      ResourceDependencies resourceDependencies)
       throws InterruptedException, RuleErrorException {
     ApplicationManifest applicationManifest;
 
     if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {
       AndroidResources.validateRuleContext(ruleContext);
-      ApplicationManifest ruleManifest = ApplicationManifest.renamedFromRule(ruleContext);
-      applicationManifest = ruleManifest.mergeWith(ruleContext, resourceDependencies);
+      ApplicationManifest ruleManifest =
+          ApplicationManifest.renamedFromRule(ruleContext, dataContext);
+      applicationManifest =
+          ruleManifest.mergeWith(
+              ruleContext, dataContext, createAndroidSemantics(), resourceDependencies);
     } else {
       // we don't have a manifest, merge like android_library with a stub manifest
       ApplicationManifest dummyManifest = ApplicationManifest.generatedManifest(ruleContext);
-      applicationManifest = dummyManifest.mergeWith(ruleContext, resourceDependencies);
+      applicationManifest =
+          dummyManifest.mergeWith(
+              ruleContext, dataContext, createAndroidSemantics(), resourceDependencies);
     }
     return applicationManifest;
   }
@@ -539,7 +554,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   }
 
   static ResourceApk buildResourceApk(
-      RuleContext ruleContext,
+      AndroidDataContext dataContext,
+      AndroidSemantics androidSemantics,
       AndroidManifest manifest,
       AndroidResources resources,
       AndroidAssets assets,
@@ -551,10 +567,14 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     StampedAndroidManifest stamped =
         manifest.mergeWithDeps(
-            ruleContext, resourceDeps, manifestValues, /* useLegacyMerger = */ false);
+            dataContext,
+            androidSemantics,
+            resourceDeps,
+            manifestValues,
+            /* useLegacyMerger = */ false);
 
     return ProcessedAndroidData.processLocalTestDataFrom(
-            ruleContext,
+            dataContext,
             stamped,
             manifestValues,
             aaptVersion,
@@ -562,7 +582,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             assets,
             resourceDeps,
             assetDeps)
-        .generateRClass(ruleContext, aaptVersion);
+        .generateRClass(dataContext, aaptVersion);
   }
 
   private static NestedSet<Artifact> getLibraryResourceJars(RuleContext ruleContext) {
@@ -579,6 +599,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
   /** Get JavaSemantics */
   protected abstract JavaSemantics createJavaSemantics();
+
+  protected abstract AndroidSemantics createAndroidSemantics();
 
   /** Get AndroidMigrationSemantics */
   protected abstract AndroidMigrationSemantics createAndroidMigrationSemantics();

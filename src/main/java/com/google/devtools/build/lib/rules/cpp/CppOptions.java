@@ -37,6 +37,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -127,6 +128,15 @@ public class CppOptions extends FragmentOptions {
   }
 
   @Option(
+      name = "experimental_allow_lipo",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "Flag to roll out the removal of LIPO.")
+  public boolean allowLipo;
+
+  @Option(
     name = "crosstool_top",
     defaultValue = "@bazel_tools//tools/cpp:toolchain",
     converter = LabelConverter.class,
@@ -160,17 +170,6 @@ public class CppOptions extends FragmentOptions {
     help = "Specifies a suffix to be added to the configuration directory."
   )
   public String outputDirectoryTag;
-
-  @Option(
-    name = "glibc",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "The version of glibc the target should be linked against. "
-            + "By default, a suitable version is chosen based on --cpu."
-  )
-  public String glibc;
 
   // O intrepid reaper of unused options: Be warned that the [no]start_end_lib
   // option, however tempting to remove, has a use case. Look in our telemetry data.
@@ -384,18 +383,17 @@ public class CppOptions extends FragmentOptions {
   public Label customMalloc;
 
   @Option(
-    name = "experimental_shortened_obj_file_path",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "When off, object files are generated at _objs/<target_name>/<source_package_path>/"
-            + "<source_base_name>.o, otherwise they are shortened to _objs/<target_name>/"
-            + "<source_base_name>.o. If there are multiple source files with the same base name, "
-            + "to avoid conflict, the object file path is _objs/<target_name>/<N>"
-            + "/<source_base_name>.o, where N = the source file's order among all source files "
-            + "with the same base name, N starts with 0."
-  )
+      name = "experimental_shortened_obj_file_path",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "When off, object files are generated at _objs/<target_name>/<source_package_path>/"
+              + "<source_base_name>.o, otherwise they are shortened to _objs/<target_name>/"
+              + "<source_base_name>.o. If there are multiple source files with the same base name, "
+              + "to avoid conflict, the object file path is _objs/<target_name>/<N>"
+              + "/<source_base_name>.o, where N = the source file's order among all source files "
+              + "with the same base name, N starts with 0.")
   public boolean shortenObjFilePath;
 
   @Option(
@@ -453,14 +451,19 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
     name = "fdo_optimize",
+    allowMultiple = true,
     defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
         "Use FDO profile information to optimize compilation. Specify the name "
-            + "of the zip file containing the .gcda file tree or an afdo file containing "
-            + "an auto profile. This flag also accepts files specified as labels, for "
-            + "example //foo/bar:file.afdo. Such labels must refer to input files; you may "
+            + "of the zip file containing the .gcda file tree, an afdo file containing "
+            + "an auto profile or an xfdo file containing a default cross binary profile. "
+            + "If the multiple profiles passed through the option include xfdo file and "
+            + "other types of profiles, the last profile other than xfdo file will prevail. "
+            + "If the multiple profiles include only xfdo files or don't include any xfdo file, "
+            + "the last profile will prevail. This flag also accepts files specified as labels, "
+            + "for example //foo/bar:file.afdo. Such labels must refer to input files; you may "
             + "need to add an exports_files directive to the corresponding package to make "
             + "the file visible to Bazel. It also accepts a raw or an indexed LLVM profile file. "
             + "This flag will be superseded by fdo_profile rule."
@@ -470,14 +473,56 @@ public class CppOptions extends FragmentOptions {
    * determines whether these options are actually "active" for this configuration. Instead, use the
    * equivalent getter method, which takes that into account.
    */
-  public String fdoOptimizeForBuild;
+  public List<String> fdoProfiles;
 
   /**
-   * Returns the --fdo_optimize value if FDO is specified and active for this configuration,
-   * the default value otherwise.
+   * Select profile from the list of profiles passed through multiple -fdo_optimize options.
+   */
+  private String selectProfile() {
+    if (fdoProfiles == null) {
+      return null;
+    }
+
+    // Return the last profile in the list that is not a crossbinary profile.
+    String lastXBinaryProfile = null;
+    ListIterator<String> iter = fdoProfiles.listIterator(fdoProfiles.size());
+    while (iter.hasPrevious()) {
+      String profile = iter.previous();
+      if (CppFileTypes.XBINARY_PROFILE.matches(profile)) {
+        lastXBinaryProfile = profile;
+        continue;
+      }
+      return profile;
+    }
+
+    // If crossbinary profile is the only kind of profile in the list, return the last one.
+    return lastXBinaryProfile;
+  }
+
+  /**
+   * Returns the --fdo_optimize value if FDO is specified and active for this
+   * configuration, the default value otherwise.
    */
   public String getFdoOptimize() {
-    return enableLipoSettings() ? fdoOptimizeForBuild : null;
+    return enableLipoSettings() ? selectProfile() : null;
+  }
+
+  @Option(
+    name = "fdo_prefetch_hints",
+    defaultValue = "null",
+    converter = LabelConverter.class,
+    category = "flags",
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    help = "Use cache prefetch hints."
+  )
+  public Label fdoPrefetchHintsLabel;
+
+  /**
+   * Returns the --fdo_prefetch_hints value.
+   */
+  public Label getFdoPrefetchHintsLabel() {
+    return fdoPrefetchHintsLabel;
   }
 
   /**
@@ -489,9 +534,10 @@ public class CppOptions extends FragmentOptions {
       return false;
     }
 
+    String fdoProfile = selectProfile();
     return lipoModeForBuild != LipoMode.OFF
-        && fdoOptimizeForBuild != null
-        && FdoSupport.isAutoFdo(fdoOptimizeForBuild);
+        && fdoProfile != null
+        && FdoSupport.isAutoFdo(fdoProfile);
   }
 
   @Option(
@@ -837,6 +883,16 @@ public class CppOptions extends FragmentOptions {
   public boolean pruneCppModules;
 
   @Option(
+    name = "experimental_prune_cpp_input_discovery",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+    effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.CHANGES_INPUTS},
+    help = "If enabled, stop C++ input discovery at modular headers."
+  )
+  public boolean pruneCppInputDiscovery;
+
+
+  @Option(
     name = "parse_headers_verifies_modules",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
@@ -909,6 +965,15 @@ public class CppOptions extends FragmentOptions {
   )
   public boolean useLLVMCoverageMapFormat;
 
+  @Option(
+      name = "experimental_expand_linkopts_labels",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, entries in linkopts that are not preceded by - or $ will be expanded.")
+  public boolean expandLinkoptsLabels;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -917,7 +982,6 @@ public class CppOptions extends FragmentOptions {
     if (hostCrosstoolTop == null) {
       host.cppCompiler = cppCompiler;
       host.crosstoolTop = crosstoolTop;
-      host.glibc = glibc;
     } else {
       host.crosstoolTop = hostCrosstoolTop;
     }
@@ -947,10 +1011,11 @@ public class CppOptions extends FragmentOptions {
 
     host.useStartEndLib = useStartEndLib;
     host.stripBinaries = StripMode.ALWAYS;
-    host.fdoOptimizeForBuild = null;
+    host.fdoProfiles = null;
     host.fdoProfileLabel = null;
     host.lipoModeForBuild = LipoMode.OFF;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
+    host.pruneCppInputDiscovery = pruneCppInputDiscovery;
 
     return host;
   }
@@ -985,7 +1050,7 @@ public class CppOptions extends FragmentOptions {
    * not necessarily active).
    */
   private boolean hasLipoOptimizationState() {
-    return lipoModeForBuild == LipoMode.BINARY && fdoOptimizeForBuild != null
+    return lipoModeForBuild == LipoMode.BINARY && selectProfile() != null
         && lipoContextForBuild != null;
   }
 

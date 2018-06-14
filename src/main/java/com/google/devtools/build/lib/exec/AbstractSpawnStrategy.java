@@ -20,11 +20,11 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -111,7 +111,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       try {
         spawnLogContext.logSpawn(
             spawn,
-            actionExecutionContext.getActionInputFileCache(),
+            actionExecutionContext.getMetadataProvider(),
             context.getInputMapping(),
             context.getTimeout(),
             spawnResult);
@@ -180,8 +180,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     }
 
     @Override
-    public ActionInputFileCache getActionInputFileCache() {
-      return actionExecutionContext.getActionInputFileCache();
+    public MetadataProvider getMetadataProvider() {
+      return actionExecutionContext.getMetadataProvider();
     }
 
     @Override
@@ -221,7 +221,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
             spawnInputExpander.getInputMapping(
                 spawn,
                 actionExecutionContext.getArtifactExpander(),
-                actionExecutionContext.getActionInputFileCache());
+                actionExecutionContext.getMetadataProvider());
       }
       return lazyInputMapping;
     }

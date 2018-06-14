@@ -26,7 +26,6 @@ public enum TokenKind {
   CLASS("class"),
   COLON(":"),
   COMMA(","),
-  COMMENT("comment"),
   CONTINUE("continue"),
   DEF("def"),
   DEL("del"),

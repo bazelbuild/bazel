@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -48,7 +49,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -578,13 +578,7 @@ public final class PackageFactory {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
 
-    GlobList<String> globList = GlobList.captureResults(includes, excludes, matches);
-    if (env.getSemantics().incompatibleDisableGlobTracking()) {
-      // Converting to ImmutableList will remove glob information from the list.
-      return MutableList.copyOf(env, ImmutableList.copyOf(globList));
-    } else {
-      return MutableList.copyOf(env, globList);
-    }
+    return MutableList.copyOf(env, matches);
   }
 
   /**
@@ -1252,11 +1246,17 @@ public final class PackageFactory {
     // Run the lexer and parser with a local reporter, so that errors from other threads do not
     // show up below.
     BuildFileAST buildFileAST =
-        parseBuildFile(packageId, input, preludeStatements, localReporterForParsing);
+        parseBuildFile(
+            packageId,
+            input,
+            preludeStatements,
+            /* repositoryMapping= */ ImmutableMap.of(),
+            localReporterForParsing);
     AstParseResult astParseResult =
         new AstParseResult(buildFileAST, localReporterForParsing);
     return createPackageFromAst(
         workspaceName,
+        /* repositoryMapping= */ ImmutableMap.of(),
         packageId,
         buildFile,
         astParseResult,
@@ -1271,16 +1271,19 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       ParserInputSource in,
       List<Statement> preludeStatements,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       ExtendedEventHandler eventHandler) {
     // Logged messages are used as a testability hook tracing the parsing progress
     logger.fine("Starting to parse " + packageId);
-    BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(in, preludeStatements, eventHandler);
+    BuildFileAST buildFileAST =
+        BuildFileAST.parseBuildFile(in, preludeStatements, repositoryMapping, eventHandler);
     logger.fine("Finished parsing of " + packageId);
     return buildFileAST;
   }
 
   public Package.Builder createPackageFromAst(
       String workspaceName,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       PackageIdentifier packageId,
       Path buildFile,
       AstParseResult astParseResult,
@@ -1304,7 +1307,8 @@ public final class PackageFactory {
           defaultVisibility,
           skylarkSemantics,
           imports,
-          skylarkFileDependencies);
+          skylarkFileDependencies,
+          repositoryMapping);
     } catch (InterruptedException e) {
       globber.onInterrupt();
       throw e;
@@ -1376,10 +1380,10 @@ public final class PackageFactory {
                 packageId,
                 buildFile,
                 input,
-                /*preludeStatements=*/ ImmutableList.<Statement>of(),
-                /*imports=*/ ImmutableMap.<String, Extension>of(),
-                /*skylarkFileDependencies=*/ ImmutableList.<Label>of(),
-                /*defaultVisibility=*/ ConstantRuleVisibility.PUBLIC,
+                /* preludeStatements= */ ImmutableList.<Statement>of(),
+                /* imports= */ ImmutableMap.<String, Extension>of(),
+                /* skylarkFileDependencies= */ ImmutableList.<Label>of(),
+                /* defaultVisibility= */ ConstantRuleVisibility.PUBLIC,
                 semantics,
                 globber)
             .build();
@@ -1521,7 +1525,7 @@ public final class PackageFactory {
         builder.put(function.getName(), function);
       }
     }
-    return NativeProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
+    return StructProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
   }
 
   private void buildPkgEnv(
@@ -1606,7 +1610,8 @@ public final class PackageFactory {
       RuleVisibility defaultVisibility,
       SkylarkSemantics skylarkSemantics,
       Map<String, Extension> imports,
-      ImmutableList<Label> skylarkFileDependencies)
+      ImmutableList<Label> skylarkFileDependencies,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws InterruptedException {
     Package.Builder pkgBuilder = new Package.Builder(packageBuilderHelper.createFreshPackage(
         packageId, ruleClassProvider.getRunfilesPrefix()));
@@ -1629,7 +1634,8 @@ public final class PackageFactory {
           // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
           .setDefaultVisibilitySet(false)
           .setSkylarkFileDependencies(skylarkFileDependencies)
-          .setWorkspaceName(workspaceName);
+          .setWorkspaceName(workspaceName)
+          .setRepositoryMapping(repositoryMapping);
 
       Event.replayEventsOn(eventHandler, pastEvents);
       for (Postable post : pastPosts) {

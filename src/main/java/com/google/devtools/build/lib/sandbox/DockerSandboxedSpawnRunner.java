@@ -66,6 +66,10 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private static final String CONTAINER_IMAGE_ENTRY_NAME = "container-image";
   private static final String DOCKER_IMAGE_PREFIX = "docker://";
 
+  /**
+   * Returns whether the darwin sandbox is supported on the local machine by running docker info.
+   * This is expensive, and we have also reports of docker hanging for a long time!
+   */
   public static boolean isSupported(CommandEnvironment cmdEnv, Path dockerClient) {
     boolean verbose = cmdEnv.getOptions().getOptions(SandboxOptions.class).dockerVerbose;
 
@@ -289,6 +293,12 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // If we're running as root, we can skip this step, as it's safe to assume that every image
     // already has a built-in root user and group.
     if (uid == 0 && gid == 0) {
+      return baseImage;
+    }
+
+    // We only need to create a customized image, if we're running on Linux, as Docker on macOS
+    // and Windows doesn't map users from the host into the container anyway.
+    if (OS.getCurrent() != OS.LINUX) {
       return baseImage;
     }
 

@@ -13,7 +13,6 @@
 # limitations under the License.
 """Methods for serializing objects."""
 
-
 def dict_to_associative_list(dict_value):
-  """Serializes a dict to an associative list."""
-  return ",".join(["%s=%s" % (k, dict_value[k]) for k in dict_value])
+    """Serializes a dict to an associative list."""
+    return ",".join(["%s=%s" % (k, dict_value[k]) for k in dict_value])

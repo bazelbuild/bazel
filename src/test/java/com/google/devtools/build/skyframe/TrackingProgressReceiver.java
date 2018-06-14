@@ -14,9 +14,9 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.Sets;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A testing utility to keep track of evaluation.
@@ -50,9 +50,12 @@ public class TrackingProgressReceiver
   }
 
   @Override
-  public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {
+  public void evaluated(
+      SkyKey skyKey,
+      Supplier<EvaluationSuccessState> evaluationSuccessState,
+      EvaluationState state) {
     evaluated.add(skyKey);
-    if (skyValueSupplier.get() != null) {
+    if (evaluationSuccessState.get().succeeded()) {
       deleted.remove(skyKey);
       if (state.equals(EvaluationState.CLEAN)) {
         dirty.remove(skyKey);

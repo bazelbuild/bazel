@@ -48,41 +48,54 @@ final class DepsFunction implements QueryFunction {
     return ImmutableList.of(ArgumentType.EXPRESSION, ArgumentType.INTEGER);
   }
 
-  /**
-   * Breadth-first search from the arguments.
-   */
+  /** Breadth-first search from the arguments. */
   @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       final QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) {
+    QueryExpression queryExpression = args.get(0).getExpression();
+    if (env instanceof StreamableQueryEnvironment && args.size() == 1) {
+      StreamableQueryEnvironment<T> streamableEnv = (StreamableQueryEnvironment<T>) env;
+      return streamableEnv.getDepsUnboundedParallel(
+          queryExpression,
+          context,
+          callback,
+          targets -> {
+            ThreadSafeMutableSet<T> set = env.createThreadSafeMutableSet();
+            Iterables.addAll(set, targets);
+            env.buildTransitiveClosure(expression, set, /*maxDepth=*/ 1);
+          });
+    }
+
     final int depthBound = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
     final MinDepthUniquifier<T> minDepthUniquifier = env.createMinDepthUniquifier();
-    return env.eval(args.get(0).getExpression(), context, new Callback<T>() {
-      @Override
-      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
-        ThreadSafeMutableSet<T> current = env.createThreadSafeMutableSet();
-        Iterables.addAll(current, partialResult);
-        env.buildTransitiveClosure(expression, current, depthBound);
+    return env.eval(
+        queryExpression,
+        context,
+        partialResult -> {
+          ThreadSafeMutableSet<T> current = env.createThreadSafeMutableSet();
+          Iterables.addAll(current, partialResult);
+          env.buildTransitiveClosure(expression, current, depthBound);
 
-        // We need to iterate depthBound + 1 times.
-        for (int i = 0; i <= depthBound; i++) {
-          // Filter already visited nodes: if we see a node in a later round, then we don't need to
-          // visit it again, because the depth at which we see it at must be greater than or equal
-          // to the last visit.
-          ImmutableList<T> toProcess =
-              minDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(current, i);
-          callback.process(toProcess);
-          current = env.createThreadSafeMutableSet();
-          Iterables.addAll(current, env.getFwdDeps(toProcess));
-          if (current.isEmpty()) {
-            // Exit when there are no more nodes to visit.
-            break;
+          // We need to iterate depthBound + 1 times.
+          for (int i = 0; i <= depthBound; i++) {
+            // Filter already visited nodes: if we see a node in a later round, then we don't need
+            // to
+            // visit it again, because the depth at which we see it at must be greater than or equal
+            // to the last visit.
+            ImmutableList<T> toProcess =
+                minDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(current, i);
+            callback.process(toProcess);
+            current = env.createThreadSafeMutableSet();
+            Iterables.addAll(current, env.getFwdDeps(toProcess, context));
+            if (current.isEmpty()) {
+              // Exit when there are no more nodes to visit.
+              break;
+            }
           }
-        }
-      }
-    });
+        });
   }
 }

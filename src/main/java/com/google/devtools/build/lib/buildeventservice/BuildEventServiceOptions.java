@@ -51,14 +51,16 @@ public class BuildEventServiceOptions extends OptionsBase {
   public Duration besTimeout;
 
   @Option(
-    name = "bes_best_effort",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "Specifies whether a failure to upload the BES protocol should also result in a build "
-            + "failure. If 'false', bazel exits with ExitCode.PUBLISH_ERROR. (defaults to 'true')."
-  )
+      name = "bes_best_effort",
+      defaultValue = "false",
+      deprecationWarning =
+          "BES best effort upload has been removed. The flag has no more "
+              + "functionality attached to it and will be removed in a future release.",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "BES best effort upload has been removed. The flag has no more "
+              + "functionality attached to it and will be removed in a future release.")
   public boolean besBestEffort;
 
   @Option(

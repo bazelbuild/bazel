@@ -34,4 +34,12 @@ public interface LibraryInterface {
   interface Two {
     void callTwo();
   }
+
+  interface InterfaceFoo {
+    default void foo() {}
+  }
+
+  interface InterfaceBar {
+    default void bar() {}
+  }
 }

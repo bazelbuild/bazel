@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.EnumConverter;
@@ -218,8 +217,8 @@ public final class TestActionBuilder {
       // exec paths of all source files that should be included into the code coverage output.
       NestedSet<Artifact> metadataFiles = instrumentedFiles.getInstrumentationMetadataFiles();
       inputsBuilder.addTransitive(metadataFiles);
-      inputsBuilder.addTransitive(PrerequisiteArtifacts.nestedSet(
-          ruleContext, "$coverage_support", Mode.DONT_CHECK));
+      inputsBuilder.addTransitive(
+          PrerequisiteArtifacts.nestedSet(ruleContext, ":coverage_support", Mode.DONT_CHECK));
       // We don't add this attribute to non-supported test target
       if (ruleContext.isAttrDefined("$lcov_merger", LABEL)) {
         TransitiveInfoCollection lcovMerger =
@@ -275,11 +274,6 @@ public final class TestActionBuilder {
     List<Artifact> results = Lists.newArrayListWithCapacity(runsPerTest * shardRuns);
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
 
-    boolean useTestRunner = false;
-    if (ruleContext.attributes().has("use_testrunner", Type.BOOLEAN)) {
-      useTestRunner = ruleContext.attributes().get("use_testrunner", Type.BOOLEAN);
-    }
-
     for (int run = 0; run < runsPerTest; run++) {
       // Use a 1-based index for user friendliness.
       String testRunDir =
@@ -324,8 +318,7 @@ public final class TestActionBuilder {
                 run,
                 config,
                 ruleContext.getWorkspaceName(),
-                shExecutable,
-                useTestRunner));
+                shExecutable));
         results.add(cacheStatus);
       }
     }
@@ -336,7 +329,7 @@ public final class TestActionBuilder {
       // contain rules with baseline coverage but no test rules that have coverage enabled, and in
       // that case, we still need the report generator.
       reportGenerator = ruleContext.getPrerequisiteArtifact(
-          "$coverage_report_generator", Mode.HOST);
+          ":coverage_report_generator", Mode.HOST);
     }
 
     return new TestParams(runsPerTest, shards, TestTimeout.getTestTimeout(ruleContext.getRule()),

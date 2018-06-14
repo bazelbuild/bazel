@@ -27,7 +27,7 @@ filegroup(
         "testing_server.py",
         ":langtools-copy",
         "//examples:srcs",
-        "//src:bazel",
+        "//src:bazel_with_jdk",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/main/tools:linux-sandbox",
@@ -390,6 +390,7 @@ sh_test(
     size = "medium",
     srcs = ["workspace_resolved_test.sh"],
     data = [":test-deps"],
+    shard_count = 3,
 )
 
 sh_test(
@@ -497,10 +498,14 @@ sh_test(
     name = "bazel_bootstrap_distfile_test",
     timeout = "eternal",
     srcs = ["bazel_bootstrap_distfile_test.sh"],
-    args = ["$(location //:bazel-distfile)"],
+    args = [
+        "$(location //:bazel-distfile)",
+        "$(location //src:embedded_jdk)",
+    ],
     data = [
         ":test-deps",
         "//:bazel-distfile",
+        "//src:embedded_jdk",
     ],
     tags = ["jdk8"],
 )
@@ -532,7 +537,10 @@ sh_test(
     name = "help_test",
     size = "small",
     srcs = ["help_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
@@ -579,6 +587,7 @@ test_suite(
     tests = [
         ":bazel_bootstrap_distfile_test",
         ":bazel_windows_example_test",
+        ":help_test",
     ],
     visibility = ["//src/test/shell:__pkg__"],
 )

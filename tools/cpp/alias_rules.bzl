@@ -13,8 +13,9 @@
 # limitations under the License.
 
 """Skylark rules that stub out C++-related alias rules."""
+
 def cc_toolchain_alias(name):
-  if hasattr(native, "cc_toolchain_alias"):
-    native.cc_toolchain_alias(name=name)
-  else:
-    pass
+    if hasattr(native, "cc_toolchain_alias"):
+        native.cc_toolchain_alias(name = name)
+    else:
+        pass

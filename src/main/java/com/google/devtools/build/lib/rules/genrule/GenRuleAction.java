@@ -77,7 +77,7 @@ public class GenRuleAction extends SpawnAction {
   protected List<SpawnResult> internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     EventHandler reporter = actionExecutionContext.getEventHandler();
-    checkInputsForDirectories(reporter, actionExecutionContext.getActionInputFileCache());
+    checkInputsForDirectories(reporter, actionExecutionContext.getMetadataProvider());
     List<SpawnResult> spawnResults = ImmutableList.of();
     try {
       spawnResults = super.internalExecute(actionExecutionContext);

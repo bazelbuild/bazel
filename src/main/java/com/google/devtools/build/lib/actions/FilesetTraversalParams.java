@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -111,9 +112,7 @@ public interface FilesetTraversalParams {
       if (o instanceof FilesetTraversalParams.DirectTraversalRoot) {
         FilesetTraversalParams.DirectTraversalRoot that =
             (FilesetTraversalParams.DirectTraversalRoot) o;
-        // Careful! We must compare the artifact owners, which the default {@link Artifact#equals()}
-        // method does not do. See the comments on {@link ArtifactSkyKey} and http://b/73738481.
-        return Artifact.equalWithOwner(this.getOutputArtifact(), that.getOutputArtifact())
+        return Objects.equals(this.getOutputArtifact(), that.getOutputArtifact())
             && (this.getRootPart().equals(that.getRootPart()))
             && (this.getRelativePart().equals(that.getRelativePart()));
       }

@@ -118,7 +118,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(Artifact.toRootRelativePaths(compileA.getPossibleInputsForTesting()))
         .containsAllOf("objc/a.m", "objc/hdr.h", "objc/private.h");
     assertThat(Artifact.toRootRelativePaths(compileA.getOutputs()))
-        .containsExactly("objc/_objs/x/objc/a.o", "objc/_objs/x/objc/a.d");
+        .containsExactly("objc/_objs/x/arc/a.o", "objc/_objs/x/arc/a.d");
   }
 
   @Test
@@ -131,10 +131,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     getConfiguredTarget("//foo:lib");
 
-    Artifact a0 = getBinArtifact("_objs/lib/arc/0/a.o", "//foo:lib");
-    Artifact a1 = getBinArtifact("_objs/lib/arc/1/a.o", "//foo:lib");
-    Artifact a2 = getBinArtifact("_objs/lib/non_arc/a.o", "//foo:lib");
-    Artifact b = getBinArtifact("_objs/lib/arc/b.o", "//foo:lib");
+    Artifact a0 = getBinArtifact("_objs/lib/arc/0/a.o", getConfiguredTarget("//foo:lib"));
+    Artifact a1 = getBinArtifact("_objs/lib/arc/1/a.o", getConfiguredTarget("//foo:lib"));
+    Artifact a2 = getBinArtifact("_objs/lib/non_arc/a.o", getConfiguredTarget("//foo:lib"));
+    Artifact b = getBinArtifact("_objs/lib/arc/b.o", getConfiguredTarget("//foo:lib"));
 
     assertThat(getGeneratingAction(a0)).isNotNull();
     assertThat(getGeneratingAction(a1)).isNotNull();
@@ -157,10 +157,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     getConfiguredTarget("//foo:lib");
 
-    Artifact a0 = getBinArtifact("_objs/lib/foo/a.o", "//foo:lib");
-    Artifact a1 = getBinArtifact("_objs/lib/foo/pkg1/a.o", "//foo:lib");
-    Artifact a2 = getBinArtifact("_objs/lib/foo/pkg2/a.o", "//foo:lib");
-    Artifact b = getBinArtifact("_objs/lib/foo/b.o", "//foo:lib");
+    Artifact a0 = getBinArtifact("_objs/lib/foo/a.o", getConfiguredTarget("//foo:lib"));
+    Artifact a1 = getBinArtifact("_objs/lib/foo/pkg1/a.o", getConfiguredTarget("//foo:lib"));
+    Artifact a2 = getBinArtifact("_objs/lib/foo/pkg2/a.o", getConfiguredTarget("//foo:lib"));
+    Artifact b = getBinArtifact("_objs/lib/foo/b.o", getConfiguredTarget("//foo:lib"));
 
     assertThat(getGeneratingAction(a0)).isNotNull();
     assertThat(getGeneratingAction(a1)).isNotNull();
@@ -384,31 +384,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testNonPropagatedDepsProvider() throws Exception {
-    ConfiguredTarget target =
-        createLibraryTargetWriter("//objc:lib")
-            .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-            .setAndCreateFiles("hdrs", "a.h", "b.h")
-            .write();
-    createLibraryTargetWriter("//objc2:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h", "d.h")
-        .setList("non_propagated_deps", "//objc:lib")
-        .write();
-    ConfiguredTarget transitiveDepender =
-        createLibraryTargetWriter("//objc3:lib")
-            .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-            .setAndCreateFiles("hdrs", "e.h", "f.h")
-            .setList("non_propagated_deps", "//objc2:lib")
-            .write();
-
-    assertThat(getArifactPaths(target, HEADER))
-        .containsExactly("objc/a.h", "objc/b.h");
-    assertThat(getArifactPaths(transitiveDepender, HEADER))
-        .containsExactly("objc2/c.h", "objc2/d.h", "objc3/e.h", "objc3/f.h");
-  }
-
-  @Test
   public void testMultiPlatformLibrary() throws Exception {
     useConfiguration("--ios_multi_cpus=i386,x86_64,armv7,arm64", "--ios_cpu=armv7");
 
@@ -418,36 +393,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
 
     assertThat(view.hasErrors(getConfiguredTarget("//objc:lib"))).isFalse();
-  }
-
-  @Test
-  public void testNonPropagatedDepsDiamond() throws Exception {
-    // Non-propagated.
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "a.h")
-        .write();
-    // Conflicts with non-propagated.
-    createLibraryTargetWriter("//objc2:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "a.h")
-        .write();
-
-    createLibraryTargetWriter("//objc3:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "b.h")
-        .setList("non_propagated_deps", "//objc:lib")
-        .write();
-
-    createLibraryTargetWriter("//objc4:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .setList("deps", "//objc2:lib", "//objc3:lib")
-        .write();
-
-    CommandAction action = compileAction("//objc4:lib", "a.o");
-    assertThat(Artifact.toRootRelativePaths(action.getPossibleInputsForTesting()))
-        .containsAllOf("objc2/a.h", "objc3/b.h", "objc4/c.h", "objc4/a.m", "objc4/private.h");
   }
 
   static Iterable<String> iquoteArgs(ObjcProvider provider, BuildConfiguration configuration) {
@@ -793,7 +738,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 "tools/osx/crosstool/iossim/libtool",
                 "-static",
                 "-filelist",
-                getBinArtifact("lib-archive.objlist", "//objc:lib").getExecPathString(),
+                getBinArtifact("lib-archive.objlist", getConfiguredTarget("//objc:lib"))
+                    .getExecPathString(),
                 "-arch_only",
                 "i386",
                 "-syslibroot",
@@ -823,7 +769,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 "tools/osx/crosstool/ios/libtool",
                 "-static",
                 "-filelist",
-                getBinArtifact("lib-archive.objlist", "//objc:lib").getExecPathString(),
+                getBinArtifact("lib-archive.objlist", getConfiguredTarget("//objc:lib"))
+                    .getExecPathString(),
                 "-arch_only",
                 "armv7",
                 "-syslibroot",
@@ -864,8 +811,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 AppleToolchain.sdkDir(),
                 "-o",
                 Iterables.getOnlyElement(linkAction.getOutputs()).getExecPathString(),
-                getBinArtifact("liblib.a", "//objc2:lib").getExecPathString(),
-                getBinArtifact("liblib_dep.a", "//objc:lib_dep").getExecPathString()));
+                getBinArtifact("liblib.a", getConfiguredTarget("//objc2:lib")).getExecPathString(),
+                getBinArtifact("liblib_dep.a", getConfiguredTarget("//objc:lib_dep"))
+                    .getExecPathString()));
     // TODO(hlopko): make containsExactly once crosstools are updated so
     // link_dynamic_library.sh is not needed anymore
     assertThat(baseArtifactNames(linkAction.getInputs())).containsAllOf(
@@ -902,8 +850,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 AppleToolchain.sdkDir(),
                 "-o",
                 Iterables.getOnlyElement(linkAction.getOutputs()).getExecPathString(),
-                getBinArtifact("liblib.a", "//objc2:lib").getExecPathString(),
-                getBinArtifact("liblib_dep.a", "//objc:lib_dep").getExecPathString()));
+                getBinArtifact("liblib.a", getConfiguredTarget("//objc2:lib")).getExecPathString(),
+                getBinArtifact("liblib_dep.a", getConfiguredTarget("//objc:lib_dep"))
+                    .getExecPathString()));
     // TODO(hlopko): make containsExactly once crosstools are updated so
     // link_dynamic_library.sh is not needed anymore
     assertThat(baseArtifactNames(linkAction.getInputs())).containsAllOf(
@@ -1529,7 +1478,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 .add("-static")
                 .add("-filelist")
                 .add(
-                    getBinArtifact("lib-archive.objlist", "//depender_lib:lib").getExecPathString())
+                    getBinArtifact("lib-archive.objlist", getConfiguredTarget("//depender_lib:lib"))
+                        .getExecPathString())
                 .add("-arch_only", "x86_64")
                 .add("-syslibroot")
                 .add(AppleToolchain.sdkDir())
@@ -1766,7 +1716,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ActionsTestUtil.getFirstArtifactEndingWith(cppLibLinkAction.getInputs(), ".o");
 
     CppCompileAction action = (CppCompileAction) getGeneratingAction(cppLibArtifact);
-    assertAppleSdkVersionEnv(action.getEnvironment());
+    assertAppleSdkVersionEnv(action.getIncompleteEnvironmentForTesting());
   }
 
   @Test

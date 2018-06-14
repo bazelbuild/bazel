@@ -133,6 +133,10 @@ class StartupOptions {
       const char *arg, const char *next_arg, const std::string &rcfile,
       const char **value, bool *is_processed, std::string *error) = 0;
 
+  // Once startup options have been parsed, warn the user if certain options
+  // might combine in surprising ways.
+  virtual void MaybeLogStartupOptionWarnings() const = 0;
+
   // Returns the absolute path to the user's local JDK install, to be used as
   // the default target javabase and as a fall-back host_javabase. This is not
   // the embedded JDK.
@@ -213,6 +217,9 @@ class StartupOptions {
   // output_base.
   std::string output_user_root;
 
+  // Override more finegrained rc file flags and ignore them all.
+  bool ignore_all_rc_files;
+
   // Whether to put the execroot at $OUTPUT_BASE/$WORKSPACE_NAME (if false) or
   // $OUTPUT_BASE/execroot/$WORKSPACE_NAME (if true).
   bool deep_execroot;
@@ -258,6 +265,9 @@ class StartupOptions {
   // value is empty, it was on the command line, if it is a string, it comes
   // from a blazerc file, if a key is not present, it is the default.
   std::map<std::string, std::string> option_sources;
+
+  // Returns the embedded JDK, or an empty string.
+  std::string GetEmbeddedJavabase();
 
   // Returns the GetHostJavabase. This should be called after parsing
   // the --host_javabase option.
@@ -305,7 +315,7 @@ class StartupOptions {
   // Contains the collection of startup flags that Bazel accepts.
   std::set<std::unique_ptr<StartupFlag>> valid_startup_flags;
 
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
   static std::string WindowsUnixRoot(const std::string &bazel_sh);
 #endif
 };

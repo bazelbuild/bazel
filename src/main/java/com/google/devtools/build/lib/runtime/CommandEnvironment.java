@@ -14,16 +14,17 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
-
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -31,9 +32,10 @@ import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
-import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.OutputService;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -47,7 +49,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -67,12 +68,12 @@ public final class CommandEnvironment {
   private final BlazeWorkspace workspace;
   private final BlazeDirectories directories;
 
-  private UUID commandId;  // Unique identifier for the command being run
-  private String buildRequestId;  // Unique identifier for the build being run
+  private final UUID commandId;  // Unique identifier for the command being run
+  private final String buildRequestId;  // Unique identifier for the build being run
   private final Reporter reporter;
   private final EventBus eventBus;
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
-  private final Map<String, String> clientEnv = new TreeMap<>();
+  private final Map<String, String> clientEnv;
   private final Set<String> visibleActionEnv = new TreeSet<>();
   private final Set<String> visibleTestEnv = new TreeSet<>();
   private final Map<String, String> actionClientEnv = new TreeMap<>();
@@ -145,7 +146,7 @@ public final class CommandEnvironment {
 
     // TODO(ulfjack): We don't call beforeCommand() in tests, but rely on workingDirectory being set
     // in setupPackageCache(). This leads to NPE if we don't set it here.
-    this.workingDirectory = directories.getWorkspace();
+    this.setWorkingDirectory(directories.getWorkspace());
     this.workspaceName = null;
 
     workspace.getSkyframeExecutor().setEventBus(eventBus);
@@ -159,9 +160,10 @@ public final class CommandEnvironment {
         Preconditions.checkNotNull(
             options.getOptions(CommonCommandOptions.class),
             "CommandEnvironment needs its options provider to have CommonCommandOptions loaded.");
-    this.commandId = commandOptions.invocationId;
-    this.buildRequestId = commandOptions.buildRequestId;
-    updateClientEnv(clientOptions.clientEnv, warnings);
+    this.clientEnv = computeClientEnv(clientOptions.clientEnv);
+    this.commandId = computeCommandId(commandOptions.invocationId, warnings);
+    this.buildRequestId = computeBuildRequestId(commandOptions.buildRequestId, warnings);
+    this.crashData = new String[] { commandId + " (build id)" };
 
     // actionClientEnv contains the environment where values from actionEnvironment are overridden.
     actionClientEnv.putAll(clientEnv);
@@ -219,7 +221,7 @@ public final class CommandEnvironment {
    * command.
    */
   public Map<String, String> getClientEnv() {
-    return Collections.unmodifiableMap(clientEnv);
+    return clientEnv;
   }
 
   public Command getCommand() {
@@ -261,17 +263,18 @@ public final class CommandEnvironment {
     return Collections.unmodifiableMap(result);
   }
 
-  private void updateClientEnv(
-      List<Map.Entry<String, String>> clientEnvList, List<String> warnings) {
-    Preconditions.checkState(clientEnv.isEmpty());
-
-    Collection<Map.Entry<String, String>> env = clientEnvList;
-    for (Map.Entry<String, String> entry : env) {
+  private Map<String, String> computeClientEnv(List<Map.Entry<String, String>> clientEnvList) {
+    Map<String, String> clientEnv = new TreeMap<>();
+    for (Map.Entry<String, String> entry : clientEnvList) {
       clientEnv.put(entry.getKey(), entry.getValue());
     }
+    return Collections.unmodifiableMap(clientEnv);
+  }
 
+  private UUID computeCommandId(UUID idFromOptions, List<String> warnings) {
     // TODO(b/67895628): Stop reading ids from the environment after the compatibility window has
     // passed.
+    UUID commandId = idFromOptions;
     if (commandId == null) { // Try to set the clientId from the client environment.
       String uuidString = clientEnv.getOrDefault("BAZEL_INTERNAL_INVOCATION_ID", "");
       if (!uuidString.isEmpty()) {
@@ -288,6 +291,11 @@ public final class CommandEnvironment {
         commandId = UUID.randomUUID();
       }
     }
+    return commandId;
+  }
+
+  private String computeBuildRequestId(String idFromOptions, List<String> warnings) {
+    String buildRequestId = idFromOptions;
     if (buildRequestId == null) {
       String uuidString = clientEnv.getOrDefault("BAZEL_INTERNAL_BUILD_REQUEST_ID", "");
       if (!uuidString.isEmpty()) {
@@ -299,7 +307,7 @@ public final class CommandEnvironment {
         buildRequestId = UUID.randomUUID().toString();
       }
     }
-    setCommandIdInCrashData();
+    return buildRequestId;
   }
 
   public TimestampGranularityMonitor getTimestampGranularityMonitor() {
@@ -315,12 +323,10 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Creates and returns a new target pattern parser.
+   * Creates and returns a new target pattern preloader.
    */
-  public TargetPatternEvaluator newTargetPatternEvaluator() {
-    TargetPatternEvaluator result = getPackageManager().newTargetPatternEvaluator();
-    result.updateOffset(relativeWorkingDirectory);
-    return result;
+  public TargetPatternPreloader newTargetPatternPreloader() {
+    return getPackageManager().newTargetPatternPreloader();
   }
 
   public PackageRootResolver getPackageRootResolver() {
@@ -333,7 +339,7 @@ public final class CommandEnvironment {
    * the build info.
    */
   public UUID getCommandId() {
-    return Preconditions.checkNotNull(commandId);
+    return commandId;
   }
 
   /**
@@ -342,7 +348,7 @@ public final class CommandEnvironment {
    * strings, so we accept these when passed by environment variable for compatibility.
    */
   public String getBuildRequestId() {
-    return Preconditions.checkNotNull(buildRequestId);
+    return buildRequestId;
   }
 
   public SkyframeExecutor getSkyframeExecutor() {
@@ -433,23 +439,7 @@ public final class CommandEnvironment {
    * as it is determined.
    */
   String[] getCrashData() {
-    if (crashData == null) {
-      String buildId;
-      if (commandId == null) {
-        buildId = " (build id not set yet)";
-      } else {
-        buildId = commandId + " (build id)";
-      }
-      crashData = new String[] {buildId};
-    }
     return crashData;
-  }
-
-  private void setCommandIdInCrashData() {
-    // Update the command id in the crash data, if it is already generated
-    if (crashData != null && crashData.length >= 2) {
-      crashData[1] = getCommandId() + " (build id)";
-    }
   }
 
   /**
@@ -462,7 +452,7 @@ public final class CommandEnvironment {
   private ExitCode finalizeExitCode() {
     // Set the pending exception so that further calls to exit(AbruptExitException) don't lead to
     // unwanted thread interrupts.
-    if (pendingException.compareAndSet(null, new AbruptExitException(null))) {
+    if (pendingException.compareAndSet(null, new AbruptExitException("", null))) {
       return null;
     }
     if (Thread.currentThread() == commandThread) {
@@ -555,8 +545,16 @@ public final class CommandEnvironment {
     return commandStartTime;
   }
 
-  void setWorkingDirectory(Path workingDirectory) {
+  @VisibleForTesting
+  public void setWorkingDirectoryForTesting(Path workingDirectory) {
+    setWorkingDirectory(workingDirectory);
+  }
+
+  private void setWorkingDirectory(Path workingDirectory) {
     this.workingDirectory = workingDirectory;
+    if (getWorkspace() != null) {
+      this.relativeWorkingDirectory = workingDirectory.relativeTo(getWorkspace());
+    }
   }
 
   /**
@@ -609,15 +607,18 @@ public final class CommandEnvironment {
       workspace = FileSystemUtils.getWorkingDirectory(getRuntime().getFileSystem());
       workingDirectory = workspace;
     }
-    this.relativeWorkingDirectory = workingDirectory.relativeTo(workspace);
-    this.workingDirectory = workingDirectory;
+    this.setWorkingDirectory(workingDirectory);
 
     // Fail fast in the case where a Blaze command forgets to install the package path correctly.
     skyframeExecutor.setActive(false);
     // Let skyframe figure out how much incremental state it will be keeping.
+    AnalysisOptions viewOptions = options.getOptions(AnalysisOptions.class);
+    BuildRequestOptions requestOptions = options.getOptions(BuildRequestOptions.class);
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
-        options,
+        commonOptions.keepStateAfterBuild, commonOptions.trackIncrementalState,
+        viewOptions != null && viewOptions.discardAnalysisCache,
+        requestOptions != null && requestOptions.discardActionsAfterExecution,
         reporter);
 
     // Start the performance and memory profilers.
@@ -634,7 +635,8 @@ public final class CommandEnvironment {
     // and so we need to compute it freshly. Otherwise, we can used the immutable value that's
     // precomputed by our BlazeWorkspace.
     if (getOutputService() != null) {
-      try (AutoProfiler p = profiled("Finding output file system", ProfilerTask.INFO)) {
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.INFO, "Finding output file system")) {
         return getOutputService().getFilesSystemName();
       }
     }

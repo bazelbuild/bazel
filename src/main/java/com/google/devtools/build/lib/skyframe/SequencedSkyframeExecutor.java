@@ -29,15 +29,15 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
+import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
@@ -90,7 +91,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsClassProvider;
-import com.google.devtools.common.options.OptionsProvider;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -170,6 +170,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         buildFilesByPriority,
         actionOnIOExceptionReadingBuildFile,
         /*shouldUnblockCpuWorkWhenFetchingDeps=*/ false,
+        GraphInconsistencyReceiver.THROWING,
         defaultBuildOptions,
         new PackageProgressReceiver(),
         mutableArtifactFactorySupplier,
@@ -314,8 +315,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private static final ImmutableSet<SkyFunctionName> PACKAGE_LOCATOR_DEPENDENT_VALUES =
       ImmutableSet.of(
           SkyFunctions.AST_FILE_LOOKUP,
-          SkyFunctions.FILE_STATE,
-          SkyFunctions.FILE,
+          FileStateValue.FILE_STATE,
+          FileValue.FILE,
           SkyFunctions.DIRECTORY_LISTING_STATE,
           SkyFunctions.TARGET_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
@@ -562,8 +563,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
     // We are searching only for changed files, DirectoryListingValues don't depend on
     // child values, that's why they are invalidated separately
-    return Iterables.size(Iterables.filter(modifiedValues,
-        SkyFunctionName.functionIs(SkyFunctions.FILE_STATE)));
+    return Iterables.size(
+        Iterables.filter(modifiedValues, SkyFunctionName.functionIs(FileStateValue.FILE_STATE)));
   }
 
   /**
@@ -579,22 +580,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    */
   @Override
   public void decideKeepIncrementalState(
-      boolean batch, OptionsProvider options, EventHandler eventHandler) {
+      boolean batch, boolean keepStateAfterBuild, boolean shouldTrackIncrementalState,
+      boolean discardAnalysisCache, boolean discardActionsAfterExecution,
+      EventHandler eventHandler) {
     Preconditions.checkState(!active);
-    BuildView.Options viewOptions = options.getOptions(BuildView.Options.class);
-    BuildRequestOptions requestOptions = options.getOptions(BuildRequestOptions.class);
     boolean oldValueOfTrackIncrementalState = trackIncrementalState;
 
     // First check if the incrementality state should be kept around during the build.
-    boolean explicitlyRequestedNoIncrementalData =
-        requestOptions != null && !requestOptions.trackIncrementalState;
-    boolean implicitlyRequestedNoIncrementalData =
-        batch && viewOptions != null && viewOptions.discardAnalysisCache;
+    boolean explicitlyRequestedNoIncrementalData = !shouldTrackIncrementalState;
+    boolean implicitlyRequestedNoIncrementalData = (batch && discardAnalysisCache);
     trackIncrementalState =
         !explicitlyRequestedNoIncrementalData && !implicitlyRequestedNoIncrementalData;
-    boolean keepStateAfterBuild = requestOptions != null && requestOptions.keepStateAfterBuild;
     if (explicitlyRequestedNoIncrementalData != implicitlyRequestedNoIncrementalData) {
-      if (requestOptions != null && !explicitlyRequestedNoIncrementalData) {
+      if (!explicitlyRequestedNoIncrementalData) {
         eventHandler.handle(
             Event.warn(
                 "--batch and --discard_analysis_cache specified, but --notrack_incremental_state "
@@ -612,12 +610,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
 
+    removeActionsAfterEvaluation.set(!trackIncrementalState && discardActionsAfterExecution);
     // Now check if it is necessary to wipe the previous state. We do this if either the previous
     // or current incrementalStateRetentionStrategy requires the build to have been isolated.
     if (oldValueOfTrackIncrementalState != trackIncrementalState) {
       logger.info("Set incremental state to " + trackIncrementalState);
       evaluatorNeedsReset = true;
-      removeActionsAfterEvaluation.set(!trackIncrementalState);
     } else if (!trackIncrementalState) {
       evaluatorNeedsReset = true;
     }

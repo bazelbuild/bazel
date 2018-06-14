@@ -26,7 +26,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
-import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -610,7 +609,7 @@ public class AspectTest extends AnalysisTestCase {
 
     // Sanity check: //x:d injects an aspect which produces some extra-action.
     {
-      BuildView.AnalysisResult analysisResult = update("//x:d");
+      AnalysisResult analysisResult = update("//x:d");
 
       // Get owners of all extra-action artifacts.
       List<Label> extraArtifactOwners = new ArrayList<>();
@@ -624,7 +623,7 @@ public class AspectTest extends AnalysisTestCase {
 
     // Actual test: //x:a reports actions registered by the aspect it injects.
     {
-      BuildView.AnalysisResult analysisResult = update("//x:a");
+      AnalysisResult analysisResult = update("//x:a");
 
       // Get owners of all extra-action artifacts.
       List<Label> extraArtifactOwners = new ArrayList<>();

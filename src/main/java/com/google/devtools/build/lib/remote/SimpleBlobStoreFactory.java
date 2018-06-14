@@ -40,6 +40,7 @@ public final class SimpleBlobStoreFactory {
       return new HttpBlobStore(
           URI.create(options.remoteHttpCache),
           (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout),
+          options.remoteMaxConnections,
           creds);
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -74,10 +75,10 @@ public final class SimpleBlobStoreFactory {
   }
 
   public static boolean isDiskCache(RemoteOptions options) {
-    return options.diskCache != null;
+    return options.diskCache != null && !options.diskCache.isEmpty();
   }
 
-  private static boolean isRestUrlOptions(RemoteOptions options) {
+  static boolean isRestUrlOptions(RemoteOptions options) {
     return options.remoteHttpCache != null;
   }
 }

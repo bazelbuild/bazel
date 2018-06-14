@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
@@ -24,11 +23,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -131,69 +128,6 @@ public class SerializationContextTest {
   }
 
   @Test
-  public void memoizingStringPrefixes_EndtoEnd() throws Exception {
-    ObjectCodec<String> codec = StringCodecs.simple();
-    Memoizer.Serializer serializer = new Memoizer.Serializer();
-    SerializationContext serializationContext = Mockito.mock(SerializationContext.class);
-    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-    CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(byteArrayOutputStream);
-
-    // Serialize all the things.
-    serializer.serialize(serializationContext, "string", codec, codedOutputStream);
-    serializer.serialize(serializationContext, "string2", codec, codedOutputStream);
-    serializer.serialize(serializationContext, "string2", codec, codedOutputStream);
-    serializer.serialize(serializationContext, "strip", codec, codedOutputStream);
-    serializer.serialize(serializationContext, "banana", codec, codedOutputStream);
-    serializer.serialize(serializationContext, "", codec, codedOutputStream);
-    serializer.serialize(serializationContext, "peach", codec, codedOutputStream);
-
-    // SerializationContext not used for simple string serialization.
-    Mockito.verifyZeroInteractions(serializationContext);
-
-    // Flush outputs and assert not too much data was written.
-    codedOutputStream.flush();
-    byteArrayOutputStream.flush();
-    byte[] bytes = byteArrayOutputStream.toByteArray();
-    int stringOverhead = 1;
-    int prefixOverhead = 1;
-    // Every string but the first has prefixOverhead, every string has stringOverhead.
-    assertThat(bytes.length)
-        .isEqualTo(
-            "string".length()
-                + "2".length()
-                + "p".length()
-                + "banana".length()
-                + "peach".length()
-                + 7 * stringOverhead
-                + 6 * prefixOverhead);
-
-    // Prepare inputs.
-    CodedInputStream codedInputStream = CodedInputStream.newInstance(bytes);
-    Memoizer.Deserializer deserializer = new Memoizer.Deserializer();
-    DeserializationContext deserializationContext = Mockito.mock(DeserializationContext.class);
-
-    // Deserialize and assert fidelity.
-    assertThat(deserializer.deserialize(deserializationContext, codec, codedInputStream))
-        .isEqualTo("string");
-    String returnedString =
-        deserializer.deserialize(deserializationContext, codec, codedInputStream);
-    assertThat(returnedString).isEqualTo("string2");
-    String newReturnedString =
-        deserializer.deserialize(deserializationContext, codec, codedInputStream);
-    assertThat(newReturnedString).isEqualTo("string2");
-    assertWithMessage("Same string twice in a row should be the same object")
-        .that(newReturnedString)
-        .isSameAs(returnedString);
-    assertThat(deserializer.deserialize(deserializationContext, codec, codedInputStream))
-        .isEqualTo("strip");
-    assertThat(deserializer.deserialize(deserializationContext, codec, codedInputStream))
-        .isEqualTo("banana");
-    assertThat(deserializer.deserialize(deserializationContext, codec, codedInputStream)).isEmpty();
-    assertThat(deserializer.deserialize(deserializationContext, codec, codedInputStream))
-        .isEqualTo("peach");
-  }
-
-  @Test
   public void startMemoizingIsIdempotent() throws IOException, SerializationException {
     ObjectCodecRegistry registry =
         ObjectCodecRegistry.newBuilder()
@@ -204,6 +138,28 @@ public class SerializationContextTest {
     String repeated = "repeated string";
     ImmutableList<Object> obj = ImmutableList.of(ImmutableList.of(repeated, repeated), repeated);
     assertThat(TestUtils.roundTrip(obj, registry)).isEqualTo(obj);
+  }
+
+  @Test
+  public void explicitlyAllowedClassCheck() {
+    SerializationContext underTest =
+        new SerializationContext(ObjectCodecRegistry.newBuilder().build(), ImmutableMap.of())
+            .getMemoizingContext();
+    underTest.addExplicitlyAllowedClass(String.class);
+    underTest.checkClassExplicitlyAllowed(String.class);
+    assertThrows(
+        RuntimeException.class, () -> underTest.checkClassExplicitlyAllowed(Integer.class));
+    // Explicitly registered classes do not carry over to a new context.
+    assertThrows(
+        RuntimeException.class,
+        () -> underTest.getNewMemoizingContext().checkClassExplicitlyAllowed(String.class));
+  }
+
+  @Test
+  public void explicitlyAllowedClassCheckFailsIfNotMemoizing() {
+    SerializationContext underTest =
+        new SerializationContext(ObjectCodecRegistry.newBuilder().build(), ImmutableMap.of());
+    assertThrows(RuntimeException.class, () -> underTest.addExplicitlyAllowedClass(String.class));
   }
 
   private static class CodecMemoizing implements ObjectCodec<ImmutableList<Object>> {

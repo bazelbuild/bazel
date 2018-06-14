@@ -46,6 +46,10 @@ import javax.annotation.Nullable;
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
 final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
+  /**
+   * Returns whether the linux sandbox is supported on the local machine by running a small command
+   * in it. This is expensive!
+   */
   public static boolean isSupported(CommandEnvironment cmdEnv) {
     if (OS.getCurrent() != OS.LINUX) {
       return false;

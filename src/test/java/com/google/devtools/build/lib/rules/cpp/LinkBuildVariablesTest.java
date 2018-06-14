@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.util.OsUtils;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -106,7 +105,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
     String variableValue =
         getVariableValue(variables, LinkBuildVariables.LINKER_PARAM_FILE.getVariableName());
-    assertThat(variableValue).matches(".*bin/x/bin" + OsUtils.executableExtension() + "-2.params$");
+    assertThat(variableValue).matches(".*bin/x/bin" + "-2.params$");
   }
 
   @Test
@@ -164,13 +163,13 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/x/a.pic.o");
+            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
     CppLinkAction indexAction =
         (CppLinkAction)
             getPredecessorByInputName(
-                backendAction, "x/libfoo.so.lto/x/_objs/foo/x/a.pic.o.thinlto.bc");
+                backendAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o.thinlto.bc");
     CcToolchainVariables variables = indexAction.getLinkCommandLine().getBuildVariables();
 
     String interfaceLibraryBuilder =
@@ -257,13 +256,13 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/x/a.pic.o");
+            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
     CppLinkAction indexAction =
         (CppLinkAction)
             getPredecessorByInputName(
-                backendAction, "x/libfoo.so.lto/x/_objs/foo/x/a.pic.o.thinlto.bc");
+                backendAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o.thinlto.bc");
     CcToolchainVariables variables = indexAction.getLinkCommandLine().getBuildVariables();
 
     assertThat(variables.isAvailable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName()))

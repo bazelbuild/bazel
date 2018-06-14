@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.lib.rules.config;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -24,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
@@ -44,8 +48,25 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
   public static final class Loader implements ConfigurationFragmentFactory {
     @Override
     public BuildConfiguration.Fragment create(
-        ConfigurationEnvironment env, BuildOptions buildOptions) {
-      return new ConfigFeatureFlagConfiguration(buildOptions.get(ConfigFeatureFlagOptions.class));
+        ConfigurationEnvironment env, BuildOptions buildOptions)
+        throws InvalidConfigurationException {
+      ConfigFeatureFlagOptions options = buildOptions.get(ConfigFeatureFlagOptions.class);
+      if (!options.unknownFlags.isEmpty()) {
+        ImmutableList.Builder<String> errorMessage = new ImmutableList.Builder<>();
+        for (Label missingLabel : options.unknownFlags) {
+          errorMessage.add(
+              String.format(
+                  "Feature flag %1$s was accessed in a configuration it is not present in. All "
+                      + "targets which depend on %1$s directly or indirectly must name it in their "
+                      + "transitive_configs attribute.",
+                  missingLabel));
+        }
+        throw new InvalidConfigurationException(
+            "Some feature flags were incorrectly specified:\n"
+                + Joiner.on("\n").join(errorMessage.build()));
+      }
+
+      return new ConfigFeatureFlagConfiguration(options);
     }
 
     @Override
@@ -59,18 +80,46 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
     }
   }
 
+  /** Exception thrown when a flag is accessed in a configuration it is not present in. */
+  public static final class MissingFlagException extends RuntimeException {
+    public MissingFlagException(Label label) {
+      super(
+          String.format(
+              "Feature flag %1$s was accessed in a configuration it was trimmed from.", label));
+    }
+  }
+
   private final ImmutableSortedMap<Label, String> flagValues;
+  private final ImmutableSortedSet<Label> knownDefaultFlags;
+  private final boolean isTrimmed;
   @Nullable private final String flagHash;
 
   /** Creates a new configuration fragment from the given {@link ConfigFeatureFlagOptions}. */
   public ConfigFeatureFlagConfiguration(ConfigFeatureFlagOptions options) {
-    this(options.getFlagValues());
+    // TODO(mstaib): we'd love to only construct these when we're trimmed, but this is still what
+    // the top level looks like - make constructing an untrimmed configuration an error when no
+    // configurations are constructed untrimmed.
+    this(
+        options.getFlagValues(),
+        options.getKnownDefaultFlags().orElse(ImmutableSortedSet.of()),
+        options.enforceTransitiveConfigsForConfigFeatureFlag && options.isTrimmed());
   }
 
   @AutoCodec.Instantiator
-  ConfigFeatureFlagConfiguration(ImmutableSortedMap<Label, String> flagValues) {
+  ConfigFeatureFlagConfiguration(
+      ImmutableSortedMap<Label, String> flagValues,
+      ImmutableSortedSet<Label> knownDefaultFlags,
+      boolean isTrimmed) {
     this.flagValues = flagValues;
-    this.flagHash = this.flagValues.isEmpty() ? null : hashFlags(this.flagValues);
+    this.knownDefaultFlags = knownDefaultFlags;
+    this.isTrimmed = isTrimmed;
+    // We don't hash flags set to their default values; all valid configurations of a target have
+    // the same set of known flags, so the set of flags set to something other than their default
+    // values is enough to disambiguate configurations. Similarly, isTrimmed need not be hashed;
+    // enforceTransitiveConfigsForConfigFeatureFlag should not change within a build, and when it's
+    // enabled, the only configuration which is untrimmed (the top-level configuration) shouldn't
+    // be used for any actual targets.
+    this.flagHash = flagValues.isEmpty() ? null : hashFlags(flagValues);
   }
 
   /** Converts the given flag values into a string hash for use as an output directory fragment. */
@@ -92,13 +141,24 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
    *
    * <p>If the flag is not set in the current configuration, then the returned value will be absent.
    *
+   * <p>If the flag has been trimmed from the current configuration, a RuntimeException
+   * (MissingFlagException) will be thrown. Because the configuration should fail to construct if a
+   * required flag is missing, and because config_feature_flag (the only intended user of this
+   * method) automatically requires itself, this should not come to pass.
+   *
    * <p>This method should only be used by the rule whose label is passed here. Other rules should
    * depend on that rule and read a provider exported by it. To encourage callers of this method to
    * do the right thing, this class takes {@link ArtifactOwner} instead of {@link Label}; to get the
    * ArtifactOwner for a rule, call {@code ruleContext.getOwner()}.
    */
   public Optional<String> getFeatureFlagValue(ArtifactOwner owner) {
-    return Optional.ofNullable(flagValues.get(owner.getLabel()));
+    if (flagValues.containsKey(owner.getLabel())) {
+      return Optional.of(flagValues.get(owner.getLabel()));
+    } else if (!isTrimmed || knownDefaultFlags.contains(owner.getLabel())) {
+      return Optional.empty();
+    } else {
+      throw new MissingFlagException(owner.getLabel());
+    }
   }
 
   /**

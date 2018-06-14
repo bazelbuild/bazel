@@ -30,7 +30,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class LabelTest {
 
-  private static final String BAD_PACKAGE_CHARS = "package names may contain only";
   private static final String INVALID_TARGET_NAME = "invalid target name";
   private static final String INVALID_PACKAGE_NAME = "invalid package name";
 
@@ -56,6 +55,18 @@ public class LabelTest {
       assertThat(l.getPackageIdentifier().getRepository().getName()).isEqualTo("@foo");
       assertThat(l.getPackageName()).isEmpty();
       assertThat(l.getName()).isEqualTo("foo");
+    }
+    {
+      Label l = Label.parseAbsolute("//@foo");
+      assertThat(l.getPackageIdentifier().getRepository().getName()).isEqualTo("@");
+      assertThat(l.getPackageName()).isEqualTo("@foo");
+      assertThat(l.getName()).isEqualTo("@foo");
+    }
+    {
+      Label l = Label.parseAbsolute("//xyz/@foo:abc");
+      assertThat(l.getPackageIdentifier().getRepository().getName()).isEqualTo("@");
+      assertThat(l.getPackageName()).isEqualTo("xyz/@foo");
+      assertThat(l.getName()).isEqualTo("abc");
     }
   }
 
@@ -89,7 +100,7 @@ public class LabelTest {
   @Test
   public void testLabelResolutionBadSyntax() throws Exception {
     try {
-      parseCommandLine("//absolute:A+bad%syntax", "");
+      parseCommandLine("//absolute:A+bad:syntax", "");
       fail();
     } catch (LabelSyntaxException e) {
       // Expected exception
@@ -303,12 +314,6 @@ public class LabelTest {
                       "//foo:bar:");
     assertSyntaxError("target names may not contain ':'",
                       "//foo/bar::");
-    assertSyntaxError("target names may not contain '&'",
-                      "//foo:bar&");
-    // Warning: if these assertions are false, tools that assume that they can safely quote labels
-    // may need to be fixed. Please consult with bazel-dev before loosening these restrictions.
-    assertSyntaxError("target names may not contain '''", "//foo/bar:baz'foo");
-    assertSyntaxError("target names may not contain '\"'", "//foo/bar:baz\"foo");
   }
 
   @Test
@@ -366,16 +371,6 @@ public class LabelTest {
     Label.parseAbsolute("//package:foo@bar");
     Label.parseAbsolute("//package:foo~bar");
     Label.parseAbsolute("//$( ):$( )");
-  }
-
-  /**
-   * Regression test: we previously expanded the set of characters which are considered label chars
-   * to include "@" (see test above). An unexpected side-effect is that "@D" in genrule(cmd) was
-   * considered to be a valid relative label! The fix is to forbid "@x" in package names.
-   */
-  @Test
-  public void testAtVersionIsIllegal() throws Exception {
-    assertSyntaxError(BAD_PACKAGE_CHARS, "//foo/bar@123:baz");
   }
 
   @Test
@@ -447,8 +442,21 @@ public class LabelTest {
       Label.parseAbsolute("foo//bar/baz:bat/boo");
       fail();
     } catch (LabelSyntaxException e) {
-      assertThat(e).hasMessage(
-          "invalid repository name 'foo': workspace names must start with '@'");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("invalid repository name 'foo': workspace names must start with '@'");
+    }
+  }
+
+  @Test
+  public void testInvalidRepoWithColon() throws Exception {
+    try {
+      Label.parseAbsolute("@foo:xyz");
+      fail();
+    } catch (LabelSyntaxException e) {
+      assertThat(e)
+          .hasMessageThat()
+          .containsMatch("invalid repository name '@foo:xyz': workspace names may contain only");
     }
   }
 

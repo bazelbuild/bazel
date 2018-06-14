@@ -24,6 +24,8 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/util.h"
@@ -40,11 +42,7 @@ using bazel::windows::GetLongPath;
 using bazel::windows::HasUncPrefix;
 using bazel::windows::OpenDirectory;
 
-// Returns the current working directory as a Windows path.
-// The result may have a UNC prefix.
-static unique_ptr<WCHAR[]> GetCwdW();
 
-static char GetCurrentDrive();
 
 // Returns true if `path` refers to a directory or (non-dangling) junction.
 // `path` must be a normalized Windows path, with UNC prefix (and absolute) if
@@ -57,62 +55,13 @@ static bool IsDirectoryW(const wstring& path);
 // necessary.
 static bool UnlinkPathW(const wstring& path);
 
-static bool IsRootDirectoryW(const wstring& path);
-
 static bool MakeDirectoriesW(const wstring& path);
 
 static bool CanReadFileW(const wstring& path);
 
-// Returns a normalized form of the input `path`.
-//
-// `path` must be a relative or absolute Windows path, it may use "/" instead of
-// "\" but must not be a Unix-style (MSYS) path.
-// The result won't have a UNC prefix, even if `path` did.
-//
-// Normalization means removing "." references, resolving ".." references, and
-// deduplicating "/" characters while converting them to "\".
-// For example if `path` is "foo/../bar/.//qux", the result is "bar\qux".
-//
-// Uplevel references that cannot go any higher in the directory tree are simply
-// ignored, e.g. "c:/.." is normalized to "c:\" and "../../foo" is normalized to
-// "foo".
-//
-// Visible for testing, would be static otherwise.
-string NormalizeWindowsPath(string path);
-
-template <typename char_type>
-struct CharTraits {
-  static bool IsAlpha(char_type ch);
-};
-
-template <>
-struct CharTraits<char> {
-  static bool IsAlpha(char ch) { return isalpha(ch); }
-};
-
-template <>
-struct CharTraits<wchar_t> {
-  static bool IsAlpha(wchar_t ch) { return iswalpha(ch); }
-};
-
 template <typename char_type>
 static bool IsPathSeparator(char_type ch) {
   return ch == '/' || ch == '\\';
-}
-
-template <typename char_type>
-static bool HasDriveSpecifierPrefix(const char_type* ch) {
-  return CharTraits<char_type>::IsAlpha(ch[0]) && ch[1] == ':';
-}
-
-static void AddUncPrefixMaybe(wstring* path, size_t max_path = MAX_PATH) {
-  if (path->size() >= max_path && !HasUncPrefix(path->c_str())) {
-    *path = wstring(L"\\\\?\\") + *path;
-  }
-}
-
-const wchar_t* RemoveUncPrefixMaybe(const wchar_t* ptr) {
-  return ptr + (HasUncPrefix(ptr) ? 4 : 0);
 }
 
 class WindowsPipe : public IPipe {
@@ -165,15 +114,58 @@ class WindowsFileMtime : public IFileMtime {
   bool SetToDistantFuture(const string& path) override;
 
  private:
+  // 1 year in FILETIME.
+  static const ULARGE_INTEGER kOneYear;
   // 9 years in the future.
   const FILETIME near_future_;
   // 10 years in the future.
   const FILETIME distant_future_;
 
-  static FILETIME GetNow();
-  static FILETIME GetFuture(WORD years);
+  static ULARGE_INTEGER&& OneYearDelay();
+  static const FILETIME GetNow();
+  static const FILETIME GetFuture(WORD years);
   static bool Set(const string& path, const FILETIME& time);
 };
+
+const ULARGE_INTEGER WindowsFileMtime::kOneYear =
+    std::move(WindowsFileMtime::OneYearDelay());
+
+ULARGE_INTEGER&& WindowsFileMtime::OneYearDelay() {
+  SYSTEMTIME now;
+  GetSystemTime(&now);
+  now.wMonth = 1;
+  now.wDayOfWeek = 0;
+  now.wDay = 1;
+  now.wHour = 0;
+  now.wMinute = 0;
+  now.wSecond = 0;
+  now.wMilliseconds = 0;
+
+  FILETIME now_ft;
+  if (!::SystemTimeToFileTime(&now, &now_ft)) {
+    string err = GetLastErrorString();
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "WindowsFileMtime::OneYearDelay: SystemTimeToFileTime 1 failed: "
+        << err;
+  }
+  ULARGE_INTEGER t1;
+  t1.LowPart = now_ft.dwLowDateTime;
+  t1.HighPart = now_ft.dwHighDateTime;
+
+  now.wYear++;
+  if (!::SystemTimeToFileTime(&now, &now_ft)) {
+    string err = GetLastErrorString();
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "WindowsFileMtime::OneYearDelay: SystemTimeToFileTime 2 failed: "
+        << err;
+  }
+  ULARGE_INTEGER t2;
+  t2.LowPart = now_ft.dwLowDateTime;
+  t2.HighPart = now_ft.dwHighDateTime;
+
+  t2.QuadPart -= t1.QuadPart;
+  return std::move(t2);
+}
 
 bool WindowsFileMtime::GetIfInDistantFuture(const string& path, bool* result) {
   if (path.empty()) {
@@ -266,272 +258,26 @@ bool WindowsFileMtime::Set(const string& path, const FILETIME& time) {
              /* lpLastWriteTime */ &time) == TRUE;
 }
 
-FILETIME WindowsFileMtime::GetNow() {
-  SYSTEMTIME sys_time;
-  ::GetSystemTime(&sys_time);
-  FILETIME file_time;
-  if (!::SystemTimeToFileTime(&sys_time, &file_time)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WindowsFileMtime::GetNow: SystemTimeToFileTime failed: "
-        << GetLastErrorString();
-  }
-  return file_time;
+const FILETIME WindowsFileMtime::GetNow() {
+  FILETIME now;
+  GetSystemTimeAsFileTime(&now);
+  return now;
 }
 
-FILETIME WindowsFileMtime::GetFuture(WORD years) {
-  SYSTEMTIME future_time;
-  GetSystemTime(&future_time);
-  future_time.wYear += years;
-  future_time.wMonth = 1;
-  future_time.wDayOfWeek = 0;
-  future_time.wDay = 1;
-  future_time.wHour = 0;
-  future_time.wMinute = 0;
-  future_time.wSecond = 0;
-  future_time.wMilliseconds = 0;
-  FILETIME file_time;
-  if (!::SystemTimeToFileTime(&future_time, &file_time)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WindowsFileMtime::GetFuture: SystemTimeToFileTime failed: "
-        << GetLastErrorString();
-  }
-  return file_time;
+const FILETIME WindowsFileMtime::GetFuture(WORD years) {
+  FILETIME result;
+  GetSystemTimeAsFileTime(&result);
+
+  ULARGE_INTEGER result_value;
+  result_value.LowPart = result.dwLowDateTime;
+  result_value.HighPart = result.dwHighDateTime;
+  result_value.QuadPart += kOneYear.QuadPart * years;
+  result.dwLowDateTime = result_value.LowPart;
+  result.dwHighDateTime = result_value.HighPart;
+  return result;
 }
 
 IFileMtime* CreateFileMtime() { return new WindowsFileMtime(); }
-
-// Checks if the path is absolute and/or is a root path.
-//
-// If `must_be_root` is true, then in addition to being absolute, the path must
-// also be just the root part, no other components, e.g. "c:\" is both absolute
-// and root, but "c:\foo" is just absolute.
-template <typename char_type>
-static bool IsRootOrAbsolute(const basic_string<char_type>& path,
-                             bool must_be_root) {
-  // An absolute path is one that starts with "/", "\", "c:/", "c:\",
-  // "\\?\c:\", or rarely "\??\c:\" or "\\.\c:\".
-  //
-  // It is unclear whether the UNC prefix is just "\\?\" or is "\??\" also
-  // valid (in some cases it seems to be, though MSDN doesn't mention it).
-  return
-      // path is (or starts with) "/" or "\"
-      ((must_be_root ? path.size() == 1 : !path.empty()) &&
-       IsPathSeparator(path[0])) ||
-      // path is (or starts with) "c:/" or "c:\" or similar
-      ((must_be_root ? path.size() == 3 : path.size() >= 3) &&
-       HasDriveSpecifierPrefix(path.c_str()) && IsPathSeparator(path[2])) ||
-      // path is (or starts with) "\\?\c:\" or "\??\c:\" or similar
-      ((must_be_root ? path.size() == 7 : path.size() >= 7) &&
-       HasUncPrefix(path.c_str()) &&
-       HasDriveSpecifierPrefix(path.c_str() + 4) && IsPathSeparator(path[6]));
-}
-
-template <typename char_type>
-static pair<basic_string<char_type>, basic_string<char_type> > SplitPathImpl(
-    const basic_string<char_type>& path) {
-  if (path.empty()) {
-    return std::make_pair(basic_string<char_type>(), basic_string<char_type>());
-  }
-
-  size_t pos = path.size() - 1;
-  for (auto it = path.crbegin(); it != path.crend(); ++it, --pos) {
-    if (IsPathSeparator(*it)) {
-      if ((pos == 2 || pos == 6) &&
-          IsRootOrAbsolute(path.substr(0, pos + 1), /* must_be_root */ true)) {
-        // Windows path, top-level directory, e.g. "c:\foo",
-        // result is ("c:\", "foo").
-        // Or UNC path, top-level directory, e.g. "\\?\c:\foo"
-        // result is ("\\?\c:\", "foo").
-        return std::make_pair(
-            // Include the "/" or "\" in the drive specifier.
-            path.substr(0, pos + 1), path.substr(pos + 1));
-      } else {
-        // Windows path (neither top-level nor drive root), Unix path, or
-        // relative path.
-        return std::make_pair(
-            // If the only "/" is the leading one, then that shall be the first
-            // pair element, otherwise the substring up to the rightmost "/".
-            pos == 0 ? path.substr(0, 1) : path.substr(0, pos),
-            // If the rightmost "/" is the tail, then the second pair element
-            // should be empty.
-            pos == path.size() - 1 ? basic_string<char_type>()
-                                   : path.substr(pos + 1));
-      }
-    }
-  }
-  // Handle the case with no '/' or '\' in `path`.
-  return std::make_pair(basic_string<char_type>(), path);
-}
-
-pair<string, string> SplitPath(const string& path) {
-  return SplitPathImpl(path);
-}
-
-pair<wstring, wstring> SplitPathW(const wstring& path) {
-  return SplitPathImpl(path);
-}
-
-bool AsWindowsPath(const string& path, string* result, string* error) {
-  if (path.empty()) {
-    result->clear();
-    return true;
-  }
-  if (IsDevNull(path.c_str())) {
-    result->assign("NUL");
-    return true;
-  }
-  if (HasUncPrefix(path.c_str())) {
-    // Path has "\\?\" prefix --> assume it's already Windows-style.
-    *result = path.c_str();
-    return true;
-  }
-  if (IsPathSeparator(path[0]) && path.size() > 1 && IsPathSeparator(path[1])) {
-    // Unsupported path: "\\" or "\\server\path", or some degenerate form of
-    // these, such as "//foo".
-    if (error) {
-      *error = "network paths are unsupported";
-    }
-    return false;
-  }
-  if (HasDriveSpecifierPrefix(path.c_str()) &&
-      (path.size() < 3 || !IsPathSeparator(path[2]))) {
-    // Unsupported path: "c:" or "c:foo"
-    if (error) {
-      *error = "working-directory relative paths are unsupported";
-    }
-    return false;
-  }
-
-  string mutable_path = path;
-  if (path[0] == '/') {
-    if (error) {
-      *error = "Unix-style paths are unsupported";
-    }
-    return false;
-  }
-
-  if (path[0] == '\\') {
-    // This is an absolute Windows path on the current drive, e.g. "\foo\bar".
-    mutable_path = string(1, GetCurrentDrive()) + ":" + path;
-  }  // otherwise this is a relative path, or absolute Windows path.
-
-  result->assign(NormalizeWindowsPath(mutable_path));
-  return true;
-}
-
-// Converts a UTF8-encoded `path` to a normalized, widechar Windows path.
-//
-// Returns true if conversion succeeded and sets the contents of `result` to it.
-//
-// The input `path` may be an absolute or relative Windows path.
-//
-// The returned path is normalized (see NormalizeWindowsPath).
-//
-// If `path` had a "\\?\" prefix then the function assumes it's already Windows
-// style and converts it to wstring without any alterations.
-// Otherwise `path` is normalized and converted to a Windows path and the result
-// won't have a "\\?\" prefix even if it's longer than MAX_PATH (adding the
-// prefix is the caller's responsibility).
-//
-// The method recognizes current-drive-relative Windows paths ("\foo") turning
-// them into absolute paths ("c:\foo").
-bool AsWindowsPath(const string& path, wstring* result, string* error) {
-  string normalized_win_path;
-  if (!AsWindowsPath(path, &normalized_win_path, error)) {
-    return false;
-  }
-
-  result->assign(CstringToWstring(normalized_win_path.c_str()).get());
-  return true;
-}
-
-bool AsAbsoluteWindowsPath(const string& path, wstring* result, string* error) {
-  if (path.empty()) {
-    result->clear();
-    return true;
-  }
-  if (IsDevNull(path.c_str())) {
-    result->assign(L"NUL");
-    return true;
-  }
-  if (!AsWindowsPath(path, result, error)) {
-    return false;
-  }
-  if (!IsRootOrAbsolute(*result, /* must_be_root */ false)) {
-    *result = wstring(GetCwdW().get()) + L"\\" + *result;
-  }
-  if (!HasUncPrefix(result->c_str())) {
-    *result = wstring(L"\\\\?\\") + *result;
-  }
-  return true;
-}
-
-bool AsShortWindowsPath(const string& path, string* result, string* error) {
-  if (IsDevNull(path.c_str())) {
-    result->assign("NUL");
-    return true;
-  }
-
-  result->clear();
-  wstring wpath;
-  wstring wsuffix;
-  if (!AsAbsoluteWindowsPath(path, &wpath, error)) {
-    return false;
-  }
-  DWORD size = ::GetShortPathNameW(wpath.c_str(), nullptr, 0);
-  if (size == 0) {
-    // GetShortPathNameW can fail if `wpath` does not exist. This is expected
-    // when we are about to create a file at that path, so instead of failing,
-    // walk up in the path until we find a prefix that exists and can be
-    // shortened, or is a root directory. Save the non-existent tail in
-    // `wsuffix`, we'll add it back later.
-    std::vector<wstring> segments;
-    while (size == 0 && !IsRootDirectoryW(wpath)) {
-      pair<wstring, wstring> split = SplitPathW(wpath);
-      wpath = split.first;
-      segments.push_back(split.second);
-      size = ::GetShortPathNameW(wpath.c_str(), nullptr, 0);
-    }
-
-    // Join all segments.
-    std::wostringstream builder;
-    bool first = true;
-    for (auto it = segments.crbegin(); it != segments.crend(); ++it) {
-      if (!first || !IsRootDirectoryW(wpath)) {
-        builder << L'\\' << *it;
-      } else {
-        builder << *it;
-      }
-      first = false;
-    }
-    wsuffix = builder.str();
-  }
-
-  wstring wresult;
-  if (IsRootDirectoryW(wpath)) {
-    // Strip the UNC prefix from `wpath`, and the leading "\" from `wsuffix`.
-    wresult = wstring(RemoveUncPrefixMaybe(wpath.c_str())) + wsuffix;
-  } else {
-    unique_ptr<WCHAR[]> wshort(
-        new WCHAR[size]);  // size includes null-terminator
-    if (size - 1 != ::GetShortPathNameW(wpath.c_str(), wshort.get(), size)) {
-      if (error) {
-        string last_error = GetLastErrorString();
-        std::stringstream msg;
-        msg << "AsShortWindowsPath(" << path << "): GetShortPathNameW("
-            << blaze_util::WstringToString(wpath) << ") failed: " << last_error;
-        *error = msg.str();
-      }
-      return false;
-    }
-    // GetShortPathNameW may preserve the UNC prefix in the result, so strip it.
-    wresult = wstring(RemoveUncPrefixMaybe(wshort.get())) + wsuffix;
-  }
-
-  result->assign(WstringToCstring(wresult.c_str()).get());
-  ToLower(result);
-  return true;
-}
 
 static bool OpenFileForReading(const string& filename, HANDLE* result) {
   if (filename.empty()) {
@@ -1067,14 +813,6 @@ bool CanAccessDirectory(const std::string& path) {
   return true;
 }
 
-bool IsDevNull(const char* path) {
-  return path != NULL && *path != 0 &&
-         (strncmp("/dev/null\0", path, 10) == 0 ||
-          ((path[0] == 'N' || path[0] == 'n') &&
-           (path[1] == 'U' || path[1] == 'u') &&
-           (path[2] == 'L' || path[2] == 'l') && path[3] == 0));
-}
-
 static bool IsDirectoryW(const wstring& path) {
   DWORD attrs = ::GetFileAttributesW(path.c_str());
   return (attrs != INVALID_FILE_ATTRIBUTES) &&
@@ -1097,19 +835,9 @@ bool IsDirectory(const string& path) {
   return IsDirectoryW(wpath);
 }
 
-bool IsRootDirectory(const string& path) {
-  return IsRootOrAbsolute(path, true);
-}
-
-bool IsAbsolute(const string& path) { return IsRootOrAbsolute(path, false); }
-
 void SyncFile(const string& path) {
   // No-op on Windows native; unsupported by Cygwin.
   // fsync always fails on Cygwin with "Permission denied" for some reason.
-}
-
-static bool IsRootDirectoryW(const wstring& path) {
-  return IsRootOrAbsolute(path, true);
 }
 
 static bool MakeDirectoriesW(const wstring& path) {
@@ -1150,7 +878,7 @@ bool MakeDirectories(const string& path, unsigned int mode) {
   return MakeDirectoriesW(wpath);
 }
 
-static unique_ptr<WCHAR[]> GetCwdW() {
+std::wstring GetCwdW() {
   DWORD len = ::GetCurrentDirectoryW(0, nullptr);
   unique_ptr<WCHAR[]> cwd(new WCHAR[len]);
   if (!::GetCurrentDirectoryW(len, cwd.get())) {
@@ -1160,18 +888,12 @@ static unique_ptr<WCHAR[]> GetCwdW() {
   for (WCHAR* p = cwd.get(); *p != 0; ++p) {
     *p = towlower(*p);
   }
-  return std::move(cwd);
+  return std::wstring(cwd.get());
 }
 
 string GetCwd() {
-  return string(WstringToCstring(RemoveUncPrefixMaybe(GetCwdW().get())).get());
-}
-
-static char GetCurrentDrive() {
-  unique_ptr<wchar_t[]> cwd = GetCwdW();
-  wchar_t wdrive = RemoveUncPrefixMaybe(cwd.get())[0];
-  wchar_t offset = wdrive >= L'A' && wdrive <= L'Z' ? L'A' : L'a';
-  return 'a' + wdrive - offset;
+  return string(
+      WstringToCstring(RemoveUncPrefixMaybe(GetCwdW().c_str())).get());
 }
 
 bool ChangeDirectory(const string& path) {
@@ -1225,71 +947,6 @@ void ForEachDirectoryEntry(const string &path,
     }
   } while (::FindNextFileW(handle, &metadata));
   ::FindClose(handle);
-}
-
-string NormalizeWindowsPath(string path) {
-  if (path.empty()) {
-    return "";
-  }
-  if (path[0] == '/') {
-    // This is an absolute MSYS path, error out.
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "NormalizeWindowsPath(" << path << "): expected a Windows path";
-  }
-  if (path.size() >= 4 && HasUncPrefix(path.c_str())) {
-    path = path.substr(4);
-  }
-
-  static const string dot(".");
-  static const string dotdot("..");
-
-  std::vector<string> segments;
-  int segment_start = -1;
-  // Find the path segments in `path` (separated by "/").
-  for (int i = 0;; ++i) {
-    if (!IsPathSeparator(path[i]) && path[i] != '\0') {
-      // The current character does not end a segment, so start one unless it's
-      // already started.
-      if (segment_start < 0) {
-        segment_start = i;
-      }
-    } else if (segment_start >= 0 && i > segment_start) {
-      // The current character is "/" or "\0", so this ends a segment.
-      // Add that to `segments` if there's anything to add; handle "." and "..".
-      string segment(path, segment_start, i - segment_start);
-      segment_start = -1;
-      if (segment == dotdot) {
-        if (!segments.empty() &&
-            !HasDriveSpecifierPrefix(segments[0].c_str())) {
-          segments.pop_back();
-        }
-      } else if (segment != dot) {
-        segments.push_back(segment);
-      }
-    }
-    if (path[i] == '\0') {
-      break;
-    }
-  }
-
-  // Handle the case when `path` is just a drive specifier (or some degenerate
-  // form of it, e.g. "c:\..").
-  if (segments.size() == 1 && segments[0].size() == 2 &&
-      HasDriveSpecifierPrefix(segments[0].c_str())) {
-    return segments[0] + '\\';
-  }
-
-  // Join all segments.
-  bool first = true;
-  std::ostringstream result;
-  for (const auto& s : segments) {
-    if (!first) {
-      result << '\\';
-    }
-    first = false;
-    result << s;
-  }
-  return result.str();
 }
 
 }  // namespace blaze_util

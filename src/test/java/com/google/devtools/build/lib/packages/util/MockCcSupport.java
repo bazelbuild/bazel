@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
+import com.google.devtools.build.lib.rules.cpp.CppActionNames;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -56,17 +56,6 @@ public abstract class MockCcSupport {
     /** Adds a default toolchain in the order of the calls. */
     public CrosstoolBuilder addDefaultToolchain(String cpu, String toolchainIdentifier) {
       builder.addDefaultToolchainBuilder().setCpu(cpu).setToolchainIdentifier(toolchainIdentifier);
-      return this;
-    }
-
-    /** Adds a default toolchain in the order of the calls. */
-    public CrosstoolBuilder addDefaultToolchain(
-        String cpu, String toolchainIdentifier, boolean supportsLipo) {
-      builder
-          .addDefaultToolchainBuilder()
-          .setCpu(cpu)
-          .setToolchainIdentifier(toolchainIdentifier)
-          .setSupportsLipo(supportsLipo);
       return this;
     }
 
@@ -379,6 +368,17 @@ public abstract class MockCcSupport {
   public static final String AUTOFDO_IMPLICIT_THINLTO_CONFIGURATION =
       "" + "feature {  name: 'autofdo_implicit_thinlto'}";
 
+  public static final String ENABLE_FDO_THINLTO_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'enable_fdo_thinlto'"
+          + "  requires { feature: 'fdo_implicit_thinlto' }"
+          + "  implies: 'thin_lto'"
+          + "}";
+
+  public static final String FDO_IMPLICIT_THINLTO_CONFIGURATION =
+      "" + "feature {  name: 'fdo_implicit_thinlto'}";
+
   public static final String AUTO_FDO_CONFIGURATION =
       ""
           + "feature {"
@@ -391,6 +391,42 @@ public abstract class MockCcSupport {
           + "    expand_if_all_available: 'fdo_profile_path'"
           + "    flag_group {"
           + "      flag: '-fauto-profile=%{fdo_profile_path}'"
+          + "      flag: '-fprofile-correction'"
+          + "    }"
+          + "  }"
+          + "}";
+
+  public static final String XBINARY_FDO_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'xbinaryfdo'"
+          + "  provides: 'profile'"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'lto-backend'"
+          + "    expand_if_all_available: 'fdo_profile_path'"
+          + "    flag_group {"
+          + "      flag: '-fauto-profile=%{fdo_profile_path}'"
+          + "      flag: '-fprofile-correction'"
+          + "    }"
+          + "  }"
+          + "}";
+
+  public static final String FDO_OPTIMIZE_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'fdo_optimize'"
+          + "  provides: 'profile'"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    expand_if_all_available: 'fdo_profile_path'"
+          + "    flag_group {"
+          + "      flag: '-fprofile-use=%{fdo_profile_path}'"
+          + "      flag: '-Xclang-only=-Wno-profile-instr-unprofiled'"
+          + "      flag: '-Xclang-only=-Wno-profile-instr-out-of-date'"
+          + "      flag: '-Xclang-only=-Wno-backend-plugin'"
           + "      flag: '-fprofile-correction'"
           + "    }"
           + "  }"
@@ -447,31 +483,26 @@ public abstract class MockCcSupport {
       ""
           + "artifact_name_pattern {"
           + "   category_name: 'static_library'"
-          + "   pattern: 'lib%{base_name}.tweaked.a'"
+          + "   prefix: 'lib'"
+          + "   extension: '.lib'"
           + "}";
 
   public static final String STATIC_LINK_AS_DOT_A_CONFIGURATION =
       ""
           + "artifact_name_pattern {"
           + "   category_name: 'static_library'"
-          + "   pattern: 'lib%{base_name}.a'"
-          + "}";
-
-  public static final String STATIC_LINK_BAD_TEMPLATE_CONFIGURATION =
-      ""
-          + "artifact_name_pattern {"
-          + "   category_name: 'static_library'"
-          + "   pattern: 'foo%{bad_variable}bar'"
+          + "   prefix: 'lib'"
+          + "   extension: '.a'"
           + "}";
 
   public static final String EMPTY_COMPILE_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.CPP_COMPILE);
+      emptyActionConfigFor(CppActionNames.CPP_COMPILE);
 
   public static final String EMPTY_MODULE_CODEGEN_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.CPP_MODULE_CODEGEN);
+      emptyActionConfigFor(CppActionNames.CPP_MODULE_CODEGEN);
 
   public static final String EMPTY_MODULE_COMPILE_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.CPP_MODULE_COMPILE);
+      emptyActionConfigFor(CppActionNames.CPP_MODULE_COMPILE);
 
   public static final String EMPTY_EXECUTABLE_ACTION_CONFIG =
       emptyActionConfigFor(LinkTargetType.EXECUTABLE.getActionName());
@@ -486,10 +517,9 @@ public abstract class MockCcSupport {
       emptyActionConfigFor(LinkTargetType.STATIC_LIBRARY.getActionName());
 
   public static final String EMPTY_CLIF_MATCH_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.CLIF_MATCH);
+      emptyActionConfigFor(CppActionNames.CLIF_MATCH);
 
-  public static final String EMPTY_STRIP_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.STRIP_ACTION_NAME);
+  public static final String EMPTY_STRIP_ACTION_CONFIG = emptyActionConfigFor(CppActionNames.STRIP);
 
   /**
    * Creates action_config for {@code actionName} action using DUMMY_TOOL that doesn't imply any
@@ -685,10 +715,12 @@ public abstract class MockCcSupport {
       config.linkTool("tools/cpp/link_dynamic_library.sh");
       config.linkTool("tools/cpp/build_interface_so");
       config.linkTool("tools/cpp/grep-includes");
+      config.linkTool("tools/build_defs/cc/action_names.bzl");
     } else {
       config.create("tools/cpp/link_dynamic_library.sh", "");
       config.create("tools/cpp/build_interface_so", "");
       config.create("tools/cpp/grep-includes", "");
+      config.linkTool("tools/build_defs/cc/action_names.bzl", "");
     }
   }
 

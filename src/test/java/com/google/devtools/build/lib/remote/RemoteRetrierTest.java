@@ -19,6 +19,8 @@ import static org.junit.Assert.fail;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.Range;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
@@ -27,9 +29,12 @@ import com.google.devtools.common.options.Options;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.time.Duration;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -46,10 +51,21 @@ public class RemoteRetrierTest {
   }
 
   private RemoteRetrierTest.Foo fooMock;
+  private static ListeningScheduledExecutorService retryService;
+
+  @BeforeClass
+  public static void beforeEverything() {
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+  }
 
   @Before
   public void setUp() {
     fooMock = Mockito.mock(RemoteRetrierTest.Foo.class);
+  }
+
+  @AfterClass
+  public static void afterEverything() {
+    retryService.shutdownNow();
   }
 
   @Test
@@ -93,7 +109,7 @@ public class RemoteRetrierTest {
     options.experimentalRemoteRetry = false;
 
     RemoteRetrier retrier =
-        Mockito.spy(new RemoteRetrier(options, (e) -> true, Retrier.ALLOW_ALL_CALLS));
+        Mockito.spy(new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS));
     when(fooMock.foo())
         .thenReturn("bla")
         .thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
@@ -106,8 +122,14 @@ public class RemoteRetrierTest {
   public void testNonRetriableError() throws Exception {
     Supplier<Backoff> s =
         () -> new ExponentialBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10), 2.0, 0.0, 2);
-    RemoteRetrier retrier = Mockito.spy(new RemoteRetrier(s, (e) -> false,
-        Retrier.ALLOW_ALL_CALLS, Mockito.mock(Sleeper.class)));
+    RemoteRetrier retrier =
+        Mockito.spy(
+            new RemoteRetrier(
+                s,
+                (e) -> false,
+                retryService,
+                Retrier.ALLOW_ALL_CALLS,
+                Mockito.mock(Sleeper.class)));
     when(fooMock.foo()).thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
     assertThrows(retrier, 1);
     Mockito.verify(fooMock, Mockito.times(1)).foo();
@@ -118,8 +140,9 @@ public class RemoteRetrierTest {
     Supplier<Backoff> s =
         () -> new ExponentialBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10), 2.0, 0.0, 2);
     Sleeper sleeper = Mockito.mock(Sleeper.class);
-    RemoteRetrier retrier = Mockito.spy(new RemoteRetrier(s, (e) -> true,
-        Retrier.ALLOW_ALL_CALLS, sleeper));
+    RemoteRetrier retrier =
+        Mockito.spy(
+            new RemoteRetrier(s, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS, sleeper));
 
     when(fooMock.foo()).thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
     assertThrows(retrier, 3);
@@ -135,7 +158,8 @@ public class RemoteRetrierTest {
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.experimentalRemoteRetry = false;
-    RemoteRetrier retrier = new RemoteRetrier(options, (e) -> true, Retrier.ALLOW_ALL_CALLS);
+    RemoteRetrier retrier =
+        new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
     try {
       retrier.execute(() -> {
         throw thrown;
@@ -151,7 +175,8 @@ public class RemoteRetrierTest {
     StatusRuntimeException thrown = Status.Code.UNKNOWN.toStatus().asRuntimeException();
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    RemoteRetrier retrier = new RemoteRetrier(options, (e) -> true, Retrier.ALLOW_ALL_CALLS);
+    RemoteRetrier retrier =
+        new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
 
     AtomicInteger numCalls = new AtomicInteger();
     try {

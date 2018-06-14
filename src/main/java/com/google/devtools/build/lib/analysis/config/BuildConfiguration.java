@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -630,38 +631,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     )
     public boolean experimentalJavaCoverage;
 
-    @Option(
-      name = "coverage_support",
-      converter = LabelConverter.class,
-      defaultValue = "@bazel_tools//tools/test:coverage_support",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {
-        OptionEffectTag.CHANGES_INPUTS,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      help =
-          "Location of support files that are required on the inputs of every test action "
-              + "that collects code coverage. Defaults to '//tools/test:coverage_support'."
-    )
-    public Label coverageSupport;
 
-    @Option(
-      name = "coverage_report_generator",
-      converter = LabelConverter.class,
-      defaultValue = "@bazel_tools//tools/test:coverage_report_generator",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {
-        OptionEffectTag.CHANGES_INPUTS,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      help =
-          "Location of the binary that is used to generate coverage reports. This must "
-              + "currently be a filegroup that contains a single file, the binary. Defaults to "
-              + "'//tools/test:coverage_report_generator'."
-    )
-    public Label coverageReportGenerator;
 
     @Option(
       name = "build_runfile_manifests",
@@ -994,12 +964,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       return host;
     }
 
-    @Override
-    public Map<String, Set<Label>> getDefaultsLabels() {
-      return ImmutableMap.<String, Set<Label>>of(
-          "coverage_support", ImmutableSet.of(coverageSupport),
-          "coverage_report_generator", ImmutableSet.of(coverageReportGenerator));
-    }
+
   }
 
   private final String checksum;
@@ -1008,7 +973,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
   private final FragmentClassSet fragmentClassSet;
 
   private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
-  private final String repositoryName;
   private final RepositoryName mainRepositoryName;
   private final ImmutableSet<String> reservedActionMnemonics;
   private CommandLineLimits commandLineLimits;
@@ -1018,42 +982,38 @@ public class BuildConfiguration implements BuildConfigurationApi {
    *
    * <p>The computation of the output directory should be a non-injective mapping from
    * BuildConfiguration instances to strings. The result should identify the aspects of the
-   * configuration that should be reflected in the output file names.  Furthermore the
-   * returned string must not contain shell metacharacters.
+   * configuration that should be reflected in the output file names. Furthermore the returned
+   * string must not contain shell metacharacters.
    *
-   * <p>For configuration settings which are NOT part of the output directory name,
-   * rebuilding with a different value of such a setting will build in
-   * the same output directory.  This means that any actions whose
-   * keys (see Action.getKey()) have changed will be rerun.  That
-   * may result in a lot of recompilation.
+   * <p>For configuration settings which are NOT part of the output directory name, rebuilding with
+   * a different value of such a setting will build in the same output directory. This means that
+   * any actions whose keys (see Action.getKey()) have changed will be rerun. That may result in a
+   * lot of recompilation.
    *
-   * <p>For configuration settings which ARE part of the output directory name,
-   * rebuilding with a different value of such a setting will rebuild
-   * in a different output directory; this will result in higher disk
-   * usage and more work the <i>first</i> time you rebuild with a different
-   * setting, but will result in less work if you regularly switch
-   * back and forth between different settings.
+   * <p>For configuration settings which ARE part of the output directory name, rebuilding with a
+   * different value of such a setting will rebuild in a different output directory; this will
+   * result in higher disk usage and more work the <i>first</i> time you rebuild with a different
+   * setting, but will result in less work if you regularly switch back and forth between different
+   * settings.
    *
-   * <p>With one important exception, it's sound to choose any subset of the
-   * config's components for this string, it just alters the dimensionality
-   * of the cache.  In other words, it's a trade-off on the "injectiveness"
-   * scale: at one extreme (output directory name contains all data in the config, and is
-   * thus injective) you get extremely precise caching (no competition for the
-   * same output-file locations) but you have to rebuild for even the
-   * slightest change in configuration.  At the other extreme (the output
-   * (directory name is a constant) you have very high competition for
-   * output-file locations, but if a slight change in configuration doesn't
-   * affect a particular build step, you're guaranteed not to have to
-   * rebuild it. The important exception has to do with multiple configurations: every
-   * configuration in the build must have a different output directory name so that
-   * their artifacts do not conflict.
+   * <p>With one important exception, it's sound to choose any subset of the config's components for
+   * this string, it just alters the dimensionality of the cache. In other words, it's a trade-off
+   * on the "injectiveness" scale: at one extreme (output directory name contains all data in the
+   * config, and is thus injective) you get extremely precise caching (no competition for the same
+   * output-file locations) but you have to rebuild for even the slightest change in configuration.
+   * At the other extreme (the output (directory name is a constant) you have very high competition
+   * for output-file locations, but if a slight change in configuration doesn't affect a particular
+   * build step, you're guaranteed not to have to rebuild it. The important exception has to do with
+   * multiple configurations: every configuration in the build must have a different output
+   * directory name so that their artifacts do not conflict.
    *
-   * <p>The host configuration is special-cased: in order to guarantee that its output directory
-   * is always separate from that of the target configuration, we simply pin it to "host". We do
-   * this so that the build works even if the two configurations are too close (which is common)
-   * and so that the path of artifacts in the host configuration is a bit more readable.
+   * <p>The host configuration is special-cased: in order to guarantee that its output directory is
+   * always separate from that of the target configuration, we simply pin it to "host". We do this
+   * so that the build works even if the two configurations are too close (which is common) and so
+   * that the path of artifacts in the host configuration is a bit more readable.
    */
-  private enum OutputDirectory {
+  @AutoCodec.VisibleForSerialization
+  public enum OutputDirectory {
     BIN("bin"),
     GENFILES("genfiles"),
     MIDDLEMAN(true),
@@ -1080,11 +1040,9 @@ public class BuildConfiguration implements BuildConfigurationApi {
       this.middleman = false;
     }
 
-    ArtifactRoot getRoot(
-        RepositoryName repositoryName,
-        String outputDirName,
-        BlazeDirectories directories,
-        RepositoryName mainRepositoryName) {
+    @AutoCodec.VisibleForSerialization
+    public ArtifactRoot getRoot(
+        String outputDirName, BlazeDirectories directories, RepositoryName mainRepositoryName) {
       // e.g., execroot/repo1
       Path execRoot = directories.getExecRoot(mainRepositoryName.strippedName());
       // e.g., execroot/repo1/bazel-out/config/bin
@@ -1258,18 +1216,37 @@ public class BuildConfiguration implements BuildConfigurationApi {
       ImmutableSet<String> reservedActionMnemonics,
       ActionEnvironment actionEnvironment,
       String repositoryName) {
+    this(
+        directories,
+        fragmentsMap,
+        buildOptions,
+        buildOptionsDiff,
+        reservedActionMnemonics,
+        actionEnvironment,
+        RepositoryName.createFromValidStrippedName(repositoryName));
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
+  BuildConfiguration(
+      BlazeDirectories directories,
+      Map<Class<? extends Fragment>, Fragment> fragmentsMap,
+      BuildOptions buildOptions,
+      BuildOptions.OptionsDiffForReconstruction buildOptionsDiff,
+      ImmutableSet<String> reservedActionMnemonics,
+      ActionEnvironment actionEnvironment,
+      RepositoryName mainRepositoryName) {
     this.directories = directories;
     this.fragments = makeFragmentsMap(fragmentsMap);
     this.fragmentClassSet = FragmentClassSet.of(this.fragments.keySet());
 
     this.skylarkVisibleFragments = buildIndexOfSkylarkVisibleFragments();
-    this.repositoryName = repositoryName;
     this.buildOptions = buildOptions.clone();
     this.buildOptionsDiff = buildOptionsDiff;
     this.actionsEnabled = buildOptions.enableActions();
     this.options = buildOptions.get(Options.class);
     this.separateGenfilesDirectory = options.separateGenfilesDirectory;
-    this.mainRepositoryName = RepositoryName.createFromValidStrippedName(repositoryName);
+    this.mainRepositoryName = mainRepositoryName;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
@@ -1285,26 +1262,19 @@ public class BuildConfiguration implements BuildConfigurationApi {
         ? options.outputDirectoryName : mnemonic;
 
     this.outputDirectoryForMainRepository =
-        OutputDirectory.OUTPUT.getRoot(
-            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+        OutputDirectory.OUTPUT.getRoot(outputDirName, directories, mainRepositoryName);
     this.binDirectoryForMainRepository =
-        OutputDirectory.BIN.getRoot(
-            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+        OutputDirectory.BIN.getRoot(outputDirName, directories, mainRepositoryName);
     this.includeDirectoryForMainRepository =
-        OutputDirectory.INCLUDE.getRoot(
-            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+        OutputDirectory.INCLUDE.getRoot(outputDirName, directories, mainRepositoryName);
     this.genfilesDirectoryForMainRepository =
-        OutputDirectory.GENFILES.getRoot(
-            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+        OutputDirectory.GENFILES.getRoot(outputDirName, directories, mainRepositoryName);
     this.coverageDirectoryForMainRepository =
-        OutputDirectory.COVERAGE.getRoot(
-            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+        OutputDirectory.COVERAGE.getRoot(outputDirName, directories, mainRepositoryName);
     this.testlogsDirectoryForMainRepository =
-        OutputDirectory.TESTLOGS.getRoot(
-            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+        OutputDirectory.TESTLOGS.getRoot(outputDirName, directories, mainRepositoryName);
     this.middlemanDirectoryForMainRepository =
-        OutputDirectory.MIDDLEMAN.getRoot(
-            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+        OutputDirectory.MIDDLEMAN.getRoot(outputDirName, directories, mainRepositoryName);
 
     this.actionEnv = actionEnvironment;
 
@@ -1320,7 +1290,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
       fragment.addGlobalMakeVariables(globalMakeEnvBuilder);
     }
 
+    // TODO(configurability-team): Deprecate TARGET_CPU in favor of platforms.
+    globalMakeEnvBuilder.put("TARGET_CPU", options.cpu);
+
     globalMakeEnvBuilder.put("COMPILATION_MODE", options.compilationMode.toString());
+
     /*
      * Attention! Document these in the build-encyclopedia
      */
@@ -1440,12 +1414,15 @@ public class BuildConfiguration implements BuildConfigurationApi {
   public ArtifactRoot getOutputDirectory(RepositoryName repositoryName) {
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? outputDirectoryForMainRepository
-        : OutputDirectory.OUTPUT.getRoot(
-            repositoryName, outputDirName, directories, mainRepositoryName);
+        : OutputDirectory.OUTPUT.getRoot(outputDirName, directories, mainRepositoryName);
+  }
+
+  @Override
+  public ArtifactRoot getBinDir() {
+    return getBinDirectory(RepositoryName.MAIN);
   }
 
   /** Returns the bin directory for this build configuration. */
-  @Override
   public ArtifactRoot getBinDirectory() {
     return getBinDirectory(RepositoryName.MAIN);
   }
@@ -1459,8 +1436,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
   public ArtifactRoot getBinDirectory(RepositoryName repositoryName) {
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? binDirectoryForMainRepository
-        : OutputDirectory.BIN.getRoot(
-            repositoryName, outputDirName, directories, mainRepositoryName);
+        : OutputDirectory.BIN.getRoot(outputDirName, directories, mainRepositoryName);
   }
 
   /**
@@ -1474,12 +1450,15 @@ public class BuildConfiguration implements BuildConfigurationApi {
   public ArtifactRoot getIncludeDirectory(RepositoryName repositoryName) {
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? includeDirectoryForMainRepository
-        : OutputDirectory.INCLUDE.getRoot(
-            repositoryName, outputDirName, directories, mainRepositoryName);
+        : OutputDirectory.INCLUDE.getRoot(outputDirName, directories, mainRepositoryName);
+  }
+
+  @Override
+  public ArtifactRoot getGenfilesDir() {
+    return getGenfilesDirectory(RepositoryName.MAIN);
   }
 
   /** Returns the genfiles directory for this build configuration. */
-  @Override
   public ArtifactRoot getGenfilesDirectory() {
     return getGenfilesDirectory(RepositoryName.MAIN);
   }
@@ -1491,8 +1470,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? genfilesDirectoryForMainRepository
-        : OutputDirectory.GENFILES.getRoot(
-            repositoryName, outputDirName, directories, mainRepositoryName);
+        : OutputDirectory.GENFILES.getRoot(outputDirName, directories, mainRepositoryName);
   }
 
   /**
@@ -1503,16 +1481,14 @@ public class BuildConfiguration implements BuildConfigurationApi {
   public ArtifactRoot getCoverageMetadataDirectory(RepositoryName repositoryName) {
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? coverageDirectoryForMainRepository
-        : OutputDirectory.COVERAGE.getRoot(
-            repositoryName, outputDirName, directories, mainRepositoryName);
+        : OutputDirectory.COVERAGE.getRoot(outputDirName, directories, mainRepositoryName);
   }
 
   /** Returns the testlogs directory for this build configuration. */
   public ArtifactRoot getTestLogsDirectory(RepositoryName repositoryName) {
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? testlogsDirectoryForMainRepository
-        : OutputDirectory.TESTLOGS.getRoot(
-            repositoryName, outputDirName, directories, mainRepositoryName);
+        : OutputDirectory.TESTLOGS.getRoot(outputDirName, directories, mainRepositoryName);
   }
 
   /**
@@ -1538,8 +1514,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
   public ArtifactRoot getMiddlemanDirectory(RepositoryName repositoryName) {
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? middlemanDirectoryForMainRepository
-        : OutputDirectory.MIDDLEMAN.getRoot(
-            repositoryName, outputDirName, directories, mainRepositoryName);
+        : OutputDirectory.MIDDLEMAN.getRoot(outputDirName, directories, mainRepositoryName);
   }
 
   public boolean isStrictFilesets() {
@@ -1935,8 +1910,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * configuration. Returns null if no transition is needed.
    */
   @Nullable
-  public PatchTransition topLevelConfigurationHook(Target toTarget) {
-    PatchTransition currentTransition = null;
+  public ConfigurationTransition topLevelConfigurationHook(Target toTarget) {
+    ConfigurationTransition currentTransition = null;
     for (Fragment fragment : fragments.values()) {
       PatchTransition fragmentTransition = fragment.topLevelConfigurationHook(toTarget);
       if (fragmentTransition == null) {
@@ -1945,7 +1920,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
         currentTransition = fragmentTransition;
       } else {
         currentTransition =
-            TransitionResolver.composePatchTransitions(currentTransition, fragmentTransition);
+            TransitionResolver.composeTransitions(currentTransition, fragmentTransition);
       }
     }
     return currentTransition;

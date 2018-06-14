@@ -15,20 +15,6 @@ title: Concepts and Terminology
   <li><a href="#packages_targets">Workspace, Packages and Targets</a>
     <ul>
       <li><a href="#workspace">Workspace</a></li>
-      <li><a href="#packages">Packages</a></li>
-      <li><a href="#targets">Targets</a></li>
-      <li><a href="#labels">Labels</a></li>
-      <li><a href="#lexi">Lexical Specifications of a Label</a></li>
-      <li><a href="#rules">Rules</a></li>
-    </ul>
-  </li>
-  <li><a href="#BUILD_files">BUILD Files</a>
-    <ul>
-      <li><a href="#declaring_build_rules">Declaring Build Rules</a></li>
-    </ul>
-  </li>
-  <li><a href="#funcs">Types of Build Rules</a></li>
-
   <li><a href="#dependencies">Dependencies</a>
     <ul>
       <li><a href="#actual_and_declared_dependencies">Actual and Declared Dependencies</a></li>
@@ -372,7 +358,7 @@ testdata/input.txt
   the <a href='be/overview.html'>Build
   Encyclopedia</a> for the full list of supported rules and their
   corresponding attributes.  Each attribute has a name and a
-  type.  The full set of types that an attribute can have is: integer,
+  type.  Some of the common types an attribute can have are integer,
   label, list of labels, string, list of strings, output label,
   list of output labels.  Not all attributes need to be specified in
   every rule.  Attributes thus form a dictionary from keys (names) to

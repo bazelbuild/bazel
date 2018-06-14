@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -40,13 +39,14 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
 import com.google.devtools.build.lib.analysis.util.ExpectedTrimmedConfigurationErrors;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -73,11 +73,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BuildViewTest extends BuildViewTestBase {
   private static final Function<AnalysisFailureEvent, Pair<String, String>>
-      ANALYSIS_EVENT_TO_STRING_PAIR = new Function<AnalysisFailureEvent, Pair<String, String>>() {
+      ANALYSIS_EVENT_TO_STRING_PAIR =
+          new Function<AnalysisFailureEvent, Pair<String, String>>() {
     @Override
     public Pair<String, String> apply(AnalysisFailureEvent event) {
       return Pair.of(
-          event.getFailedTarget().getLabel().toString(), event.getFailureReason().toString());
+          event.getFailedTarget().getLabel().toString(), event.getLegacyFailureReason().toString());
     }
   };
 
@@ -130,10 +131,7 @@ public class BuildViewTest extends BuildViewTestBase {
     targets =
         Lists.<ConfiguredTarget>newArrayList(
             BuildView.filterTestsByTargets(
-                targets,
-                Sets.newHashSet(test1.getTarget(), suite.getTarget()),
-                NullEventHandler.INSTANCE,
-                skyframeExecutor.getPackageManager()));
+                targets, Sets.newHashSet(test1.getTarget(), suite.getTarget())));
     assertThat(targets).containsExactlyElementsIn(Sets.newHashSet(test1CT, suiteCT));
   }
 
@@ -218,7 +216,7 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(result.hasError()).isTrue();
     assertThat(recorder.events).hasSize(1);
     AnalysisFailureEvent event = recorder.events.get(0);
-    assertThat(event.getFailureReason().toString()).isEqualTo("//foo:bar");
+    assertThat(event.getLegacyFailureReason().toString()).isEqualTo("//foo:bar");
     assertThat(event.getFailedTarget().getLabel().toString()).isEqualTo("//foo:foo");
   }
 
@@ -241,14 +239,17 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(result.hasError()).isTrue();
     assertThat(recorder.events)
         .contains(
-            Pair.of(Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//nopackage:missing")));
+            new LoadingFailureEvent(
+                Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//nopackage:missing")));
     assertContainsEvent("missing value for mandatory attribute 'outs'");
     assertContainsEvent("no such package 'nopackage'");
     // Skyframe correctly reports the other root cause as the genrule itself (since it is
     // missing attributes).
     assertThat(recorder.events).hasSize(2);
     assertThat(recorder.events)
-        .contains(Pair.of(Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//pkg:foo")));
+        .contains(
+            new LoadingFailureEvent(
+                Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//pkg:foo")));
   }
 
   @Test
@@ -277,12 +278,12 @@ public class BuildViewTest extends BuildViewTestBase {
     assertWithMessage(recorder.events.toString())
         .that(
             recorder.events.contains(
-                Pair.of(
+                new LoadingFailureEvent(
                     Label.parseAbsolute("//third_party/first"),
                     Label.parseAbsolute("//third_party/fourth"))))
         .isTrue();
     assertThat(recorder.events)
-        .contains(Pair.of(
+        .contains(new LoadingFailureEvent(
             Label.parseAbsolute("//third_party/third"),
             Label.parseAbsolute("//third_party/fourth")));
   }
@@ -302,13 +303,12 @@ public class BuildViewTest extends BuildViewTestBase {
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
     assertThat(result.hasError()).isTrue();
     assertThat(recorder.events).hasSize(2);
-    assertWithMessage(recorder.events.toString())
-        .that(
-            recorder.events.contains(
-                Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//c1:not"))))
-        .isTrue();
     assertThat(recorder.events)
-        .contains(Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//c2:not")));
+        .contains(
+            new LoadingFailureEvent(Label.parseAbsolute("//gp"), Label.parseAbsolute("//c1:not")));
+    assertThat(recorder.events)
+        .contains(
+            new LoadingFailureEvent(Label.parseAbsolute("//gp"), Label.parseAbsolute("//c2:not")));
   }
 
   /**
@@ -387,12 +387,20 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testGetDirectPrerequisiteDependencies() throws Exception {
+    // Override the trimming transition to not distort the results.
+    ConfiguredRuleClassProvider.Builder builder =
+        new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.overrideTrimmingTransitionFactoryForTesting((rule) -> NoTransition.INSTANCE);
+    useRuleClassProvider(builder.build());
+
+    update();
+
     scratch.file(
         "package/BUILD",
         "filegroup(name='top', srcs=[':inner', 'file'])",
         "sh_binary(name='inner', srcs=['script.sh'])");
-    update("//package:top");
-    ConfiguredTarget top = getConfiguredTarget("//package:top", getTargetConfiguration());
+    ConfiguredTarget top = Iterables.getOnlyElement(update("//package:top").getTargetsToBuild());
     Iterable<Dependency> targets = getView().getDirectPrerequisiteDependenciesForTesting(
         reporter, top, getBuildConfigurationCollection(), /*toolchainContext=*/ null).values();
 
@@ -617,9 +625,8 @@ public class BuildViewTest extends BuildViewTestBase {
         "genrule(name='a', ",
         "        cmd='',",
         "        outs=['a.out'])");
-    update("//pkg:a.out");
     OutputFileConfiguredTarget outputCT = (OutputFileConfiguredTarget)
-        getConfiguredTarget("//pkg:a.out");
+        Iterables.getOnlyElement(update("//pkg:a.out").getTargetsToBuild());
     Artifact outputArtifact = outputCT.getArtifact();
     Action action = getGeneratingAction(outputArtifact);
     assertThat(action).isNotNull();
@@ -656,8 +663,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "          srcs = glob(['A*.java']))",
         "java_test(name = 'B',",
         "          srcs = ['B.java'])");
-    update("//java/a:A");
-    ConfiguredTarget ct = getConfiguredTarget("//java/a:A");
+    ConfiguredTarget ct = Iterables.getOnlyElement(update("//java/a:A").getTargetsToBuild());
     scratch.deleteFile("java/a/C.java");
     update("//java/a:B");
     update("//java/a:A");
@@ -772,10 +778,10 @@ public class BuildViewTest extends BuildViewTestBase {
     // Then update the BUILD file and re-analyze.
     scratch.file("actions_not_registered/BUILD",
         "cc_binary(name = 'foo', srcs = ['foo.cc'])");
-    update("//actions_not_registered:foo");
-    Artifact fooOut = Iterables.getOnlyElement(
-        getConfiguredTarget("//actions_not_registered:foo")
-            .getProvider(FileProvider.class).getFilesToBuild());
+    ConfiguredTarget foo =
+        Iterables.getOnlyElement(update("//actions_not_registered:foo").getTargetsToBuild());
+    Artifact fooOut =
+        Iterables.getOnlyElement(foo.getProvider(FileProvider.class).getFilesToBuild());
     assertThat(getActionGraph().getGeneratingAction(fooOut)).isNotNull();
     clearAnalysisResult();
 
@@ -857,17 +863,10 @@ public class BuildViewTest extends BuildViewTestBase {
     eventBus.register(recorder);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
     assertThat(result.hasError()).isTrue();
-    assertThat(recorder.events).hasSize(2);
-    assertWithMessage(recorder.events.toString())
-        .that(
-            recorder.events.contains(
-                Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles1"))))
-        .isTrue();
-    assertWithMessage(recorder.events.toString())
-        .that(
-            recorder.events.contains(
-                Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles2"))))
-        .isTrue();
+    assertThat(recorder.events)
+        .containsExactly(
+            new LoadingFailureEvent(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles1")),
+            new LoadingFailureEvent(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles2")));
   }
 
   /**
@@ -928,18 +927,18 @@ public class BuildViewTest extends BuildViewTestBase {
     }
     useConfiguration("--cpu=k8");
     reporter.removeHandler(failFastHandler); // Expect errors from action conflicts.
-    scratch.file("conflict/BUILD",
+    scratch.file(
+        "conflict/BUILD",
         "config_setting(name = 'a', values = {'test_arg': 'a'})",
         "cc_library(name='x', srcs=select({':a': ['a.cc'], '//conditions:default': ['foo.cc']}))",
-        "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
-    AnalysisResult result = update(
-        defaultFlags().with(Flag.KEEP_GOING),
-        "//conflict:_objs/x/conflict/foo.pic.o",
-        "//conflict:x");
+        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])");
+    AnalysisResult result =
+        update(
+            defaultFlags().with(Flag.KEEP_GOING), "//conflict:_objs/x/foo.pic.o", "//conflict:x");
     assertThat(result.hasError()).isTrue();
     // Expect to reach this line without a Precondition-triggered NullPointerException.
     assertContainsEvent(
-        "file 'conflict/_objs/x/conflict/foo.pic.o' is generated by these conflicting actions");
+        "file 'conflict/_objs/x/foo.pic.o' is generated by these conflicting actions");
   }
 
   @Test
@@ -1283,7 +1282,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "extra_action(name='xa', cmd='echo dont-care')",
         "action_listener(name='listener', mnemonics=['Mnemonic'], extra_actions=[':xa'])");
 
-    BuildView.AnalysisResult analysisResult = update("//x:a");
+    AnalysisResult analysisResult = update("//x:a");
 
     List<String> owners = new ArrayList<>();
     for (Artifact artifact : analysisResult.getAdditionalArtifactsToBuild()) {
@@ -1357,16 +1356,6 @@ public class BuildViewTest extends BuildViewTestBase {
     update("//foo");
     assertContainsEvent("WARNING /workspace/foo/BUILD:8:12: in deps attribute of custom_rule rule "
         + "//foo:foo: genrule rule '//foo:genlib' is unexpected here; continuing anyway");
-  }
-
-  /** Runs the same test with the reduced loading phase. */
-  @TestSpec(size = Suite.SMALL_TESTS)
-  @RunWith(JUnit4.class)
-  public static class WithSkyframeLoadingPhase extends BuildViewTest {
-    @Override
-    protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.SKYFRAME_LOADING_PHASE);
-    }
   }
 
   /** Runs the same test with trimmed configurations. */

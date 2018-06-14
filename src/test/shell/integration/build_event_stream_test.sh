@@ -673,7 +673,6 @@ function test_loading_failure() {
   # reason for the target expansion event not resulting in targets
   # being expanded.
   (bazel build --build_event_text_file=$TEST_log \
-         --noexperimental_skyframe_target_pattern_evaluator \
          //does/not/exist && fail "build failure expected") || true
   expect_log_once 'aborted'
   expect_log_once 'reason: LOADING_FAILURE'
@@ -723,13 +722,23 @@ function test_independent_visibility_failures() {
      > aborted_events
   [ `grep '^aborted' aborted_events | wc -l` \
         -eq `grep ANALYSIS_FAILURE aborted_events | wc -l` ] \
-      || fail "events should only be aborted due to analysis failre"
+      || fail "events should only be aborted due to analysis failure"
 }
 
 function test_loading_failure_keep_going() {
   (bazel build --build_event_text_file=$TEST_log \
-         --noexperimental_skyframe_target_pattern_evaluator \
          -k //does/not/exist && fail "build failure expected") || true
+  expect_log_once 'aborted'
+  expect_log_once 'reason: LOADING_FAILURE'
+  # We don't expect an expanded message in this case, since all patterns failed.
+  expect_log 'description.*BUILD file not found on package path'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
+}
+
+function test_loading_failure_keep_going_two_targets() {
+  (bazel build --build_event_text_file=$TEST_log \
+         -k //does/not/exist //pkg:somesourcefile && fail "build failure expected") || true
   expect_log_once 'aborted'
   expect_log_once 'reason: LOADING_FAILURE'
   expect_log_once '^expanded'

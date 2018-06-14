@@ -17,7 +17,7 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])  # Apache 2.0
 
 # The toolchain type used to distinguish cc toolchains.
-cc_toolchain_type(name = "toolchain_type")
+toolchain_type(name = "toolchain_type")
 
 # It is frequently necessary to constrain platforms based on the cc compiler type.
 constraint_setting(name = "cc_compiler")
@@ -392,3 +392,7 @@ filegroup(
     name = "crosstool_lib",
     srcs = ["crosstool_lib.bzl"],
 )
+
+load(":compiler_flag.bzl", "compiler_flag")
+
+compiler_flag(name = "compiler")

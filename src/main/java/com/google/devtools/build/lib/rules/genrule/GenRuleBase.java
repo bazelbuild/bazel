@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -104,7 +105,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
    * Updates the {@link RuleConfiguredTargetBuilder} that is used for this rule.
    *
    * <p>GenRule implementations can override this method to enhance and update the builder without
-   * needing to entirely override the {@link ConfiguredTargetFactory#create} method.
+   * needing to entirely override the {@link com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory#create} method.
    */
   protected RuleConfiguredTargetBuilder updateBuilder(
       RuleConfiguredTargetBuilder builder,
@@ -195,8 +196,17 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     FilesToRunProvider genruleSetup =
         ruleContext.getPrerequisite("$genrule_setup", Mode.HOST, FilesToRunProvider.class);
     inputs.addTransitive(genruleSetup.getFilesToRun());
-    List<String> argv = commandHelper.buildCommandLine(command, inputs, ".genrule_script.sh",
-          ImmutableMap.copyOf(executionInfo));
+    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+    List<String> argv =
+        commandHelper.buildCommandLine(
+            shExecutable,
+            command,
+            inputs,
+            ".genrule_script.sh",
+            ImmutableMap.copyOf(executionInfo));
 
     // TODO(bazel-team): Make the make variable expander pass back a list of these.
     if (requiresCrosstool(baseCommand)) {

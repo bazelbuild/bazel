@@ -74,7 +74,7 @@ public final class TestTargetExecutionSettings {
 
   private static Artifact getRunUnderExecutable(RuleContext ruleContext) {
     TransitiveInfoCollection runUnderTarget = ruleContext
-        .getPrerequisite(":run_under", Mode.DATA);
+        .getPrerequisite(":run_under", Mode.DONT_CHECK);
     return runUnderTarget == null
         ? null
         : runUnderTarget.getProvider(FilesToRunProvider.class).getExecutable();

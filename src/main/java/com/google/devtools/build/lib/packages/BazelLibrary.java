@@ -235,10 +235,17 @@ public class BazelLibrary {
 
   private static GlobalFrame createGlobals() {
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
-    Runtime.addConstantsToBuilder(builder);
-    MethodLibrary.addBindingsToBuilder(builder);
-    BazelLibrary.addBindingsToBuilder(builder);
+    addSkylarkGlobalsToBuilder(builder);
     return GlobalFrame.createForBuiltins(builder.build());
+  }
+
+  /**
+   * Adds bindings for skylark built-ins to the given environment map builder.
+   */
+  public static void addSkylarkGlobalsToBuilder(ImmutableMap.Builder<String, Object> envBuilder) {
+    Runtime.addConstantsToBuilder(envBuilder);
+    MethodLibrary.addBindingsToBuilder(envBuilder);
+    BazelLibrary.addBindingsToBuilder(envBuilder);
   }
 
   static {

@@ -18,20 +18,20 @@ import com.google.common.base.Function;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsStoreImpl;
 
 /** A target that provides C++ libraries to be linked into Android targets. */
 @AutoValue
 @Immutable
 public abstract class AndroidCcLinkParamsProvider implements TransitiveInfoProvider {
-  public static AndroidCcLinkParamsProvider create(CcLinkParamsStore store) {
-    return new AutoValue_AndroidCcLinkParamsProvider(new CcLinkParamsStoreImpl(store));
+  public static AndroidCcLinkParamsProvider create(AbstractCcLinkParamsStore store) {
+    return new AutoValue_AndroidCcLinkParamsProvider(new CcLinkParamsStore(store));
   }
 
-  public abstract CcLinkParamsStore getLinkParams();
+  public abstract AbstractCcLinkParamsStore getLinkParams();
 
-  public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
+  public static final Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> TO_LINK_PARAMS =
       (TransitiveInfoCollection input) -> {
         AndroidCcLinkParamsProvider provider = input.getProvider(AndroidCcLinkParamsProvider.class);
         return provider == null ? null : provider.getLinkParams();

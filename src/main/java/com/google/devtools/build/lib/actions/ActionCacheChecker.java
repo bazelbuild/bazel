@@ -22,12 +22,12 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
-import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -51,27 +51,7 @@ import javax.annotation.Nullable;
  */
 public class ActionCacheChecker {
   private static final byte[] EMPTY_DIGEST = new byte[0];
-  private static final Metadata CONSTANT_METADATA = new Metadata() {
-    @Override
-    public FileStateType getType() {
-      return FileStateType.REGULAR_FILE;
-    }
-
-    @Override
-    public byte[] getDigest() {
-      return EMPTY_DIGEST;
-    }
-
-    @Override
-    public long getSize() {
-      return 0;
-    }
-
-    @Override
-    public long getModifiedTime() {
-      return -1;
-    }
-  };
+  private static final FileArtifactValue CONSTANT_METADATA = new ConstantMetadataValue();
 
   private final ActionCache actionCache;
   private final ActionKeyContext actionKeyContext;
@@ -164,7 +144,7 @@ public class ActionCacheChecker {
     Iterable<Artifact> artifacts = checkOutput
         ? Iterables.concat(action.getOutputs(), actionInputs)
         : actionInputs;
-    Map<String, Metadata> mdMap = new HashMap<>();
+    Map<String, FileArtifactValue> mdMap = new HashMap<>();
     for (Artifact artifact : artifacts) {
       mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
     }
@@ -324,8 +304,8 @@ public class ActionCacheChecker {
     return false;
   }
 
-  private static Metadata getMetadataOrConstant(MetadataHandler metadataHandler, Artifact artifact)
-      throws IOException {
+  private static FileArtifactValue getMetadataOrConstant(
+      MetadataHandler metadataHandler, Artifact artifact) throws IOException {
     if (artifact.isConstantMetadata()) {
       return CONSTANT_METADATA;
     } else {
@@ -337,7 +317,8 @@ public class ActionCacheChecker {
   // to trigger a re-execution, so we should catch the IOException explicitly there. In others, we
   // should propagate the exception, because it is unexpected (e.g., bad file system state).
   @Nullable
-  private static Metadata getMetadataMaybe(MetadataHandler metadataHandler, Artifact artifact) {
+  private static FileArtifactValue getMetadataMaybe(
+      MetadataHandler metadataHandler, Artifact artifact) {
     try {
       return getMetadataOrConstant(metadataHandler, artifact);
     } catch (IOException e) {
@@ -373,7 +354,7 @@ public class ActionCacheChecker {
         // 'constant' metadata for the volatile workspace status output. The volatile output
         // contains information such as timestamps, and even when --stamp is enabled, we don't want
         // to rebuild everything if only that file changes.
-        Metadata metadata = getMetadataOrConstant(metadataHandler, output);
+        FileArtifactValue metadata = getMetadataOrConstant(metadataHandler, output);
         Preconditions.checkState(metadata != null);
         entry.addFile(output.getExecPath(), metadata);
       }
@@ -552,6 +533,35 @@ public class ActionCacheChecker {
 
     private Token(String cacheKey) {
       this.cacheKey = Preconditions.checkNotNull(cacheKey);
+    }
+  }
+
+  private static final class ConstantMetadataValue extends FileArtifactValue
+      implements FileArtifactValue.Singleton {
+    @Override
+    public FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return EMPTY_DIGEST;
+    }
+
+    @Override
+    public long getSize() {
+      return 0;
+    }
+
+    @Override
+    public long getModifiedTime() {
+      return -1;
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) {
+      throw new UnsupportedOperationException(
+          "ConstantMetadataValue doesn't support wasModifiedSinceDigest " + path.toString());
     }
   }
 }

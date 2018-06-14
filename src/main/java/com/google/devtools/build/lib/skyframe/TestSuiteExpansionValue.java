@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.serialization.NotSerializableRuntimeException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -39,15 +38,16 @@ import java.util.Collection;
 @ThreadSafe
 @VisibleForTesting
 public final class TestSuiteExpansionValue implements SkyValue {
-  private ResolvedTargets<Target> targets;
+  private ResolvedTargets<Label> labels;
 
-  TestSuiteExpansionValue(ResolvedTargets<Target> targets) {
-    this.targets = Preconditions.checkNotNull(targets);
+  TestSuiteExpansionValue(ResolvedTargets<Label> labels) {
+    this.labels = Preconditions.checkNotNull(labels);
   }
 
-  public ResolvedTargets<Target> getTargets() {
-    return targets;
+  public ResolvedTargets<Label> getLabels() {
+    return labels;
   }
+
 
   @SuppressWarnings("unused")
   private void writeObject(ObjectOutputStream out) {

@@ -89,8 +89,9 @@ message StartDebuggingRequest {
 message PauseThreadRequest {
   // The identifier of the thread to be paused.
   //
-  // If not set (i.e. zero), all current and future Skylark threads will be
-  // paused until resumed via a ContinueExecutionRequest.
+  // If not set (i.e. zero), all current Skylark threads will be paused, and
+  // until a ContinueExecutionRequest is sent, any future Skylark threads will
+  // also start off paused.
   int64 thread_id = 1;
 }
 
@@ -191,16 +192,13 @@ message ThreadContinuedEvent {
   Thread thread = 1;
 }
 
-// A location or condition where the debug server will pause execution.
+// A location where the debug server will pause execution.
 message Breakpoint {
   oneof condition {
     // A breakpoint that is triggered when a particular line is reached.
+    // Column index will be ignored for breakpoints.
     Location location = 1;
   }
-  // An optional condition for the breakpoint. When present, the breakpoint will
-  // be triggered iff both the primary condition holds and this expression
-  // evaluates to True.
-  string expression = 2;
 }
 
 // A single frame in a thread's stack trace.
@@ -211,7 +209,8 @@ message Frame {
   // The scopes that contain value bindings accessible in this frame.
   repeated Scope scope = 2;
 
-  // The source location where the frame is currently paused.
+  // The source location where the frame is currently paused. May not be set in
+  // some situations.
   Location location = 3;
 }
 
@@ -220,11 +219,12 @@ message Location {
   // The path of the Skylark source file.
   string path = 1;
 
-  // A 0-based line index in the file denoted by path.
-  uint32 line_index = 2;
+  // A 1-indexed line number in the file denoted by path.
+  uint32 line_number = 2;
 
-  // A 0-based column index in the file denoted by path.
-  uint32 column_index = 3;
+  // A 1-indexed column number in the file denoted by path. 0 (/unset) indicates
+  // column number is unknown or irrelevant.
+  uint32 column_number = 3;
 }
 
 // A scope that contains value bindings accessible in a frame.
@@ -260,16 +260,40 @@ message Thread {
   // The identifier of the thread.
   int64 id = 1;
 
-  // Indicates whether the thread is paused (if true) or running (if false).
-  bool is_paused = 2;
-
-  // If the thread is paused, this field contains the location in Skylark code
-  // of the next statement or expression that will be executed.
-  Location location = 3;
+  // Present if the thread is paused, providing details such as the thread's
+  // location. Not set if the thread is running.
+  ThreadPausedState thread_paused_state = 2;
 
   // A descriptive name for the thread that can be displayed in the debugger's
   // UI.
-  string name = 4;
+  string name = 3;
+}
+
+// Information about a paused thread.
+message ThreadPausedState {
+  PauseReason pause_reason = 1;
+
+  // The location in Skylark code of the next statement or expression that will
+  // be executed.
+  Location location = 2;
+}
+
+// The reason why a thread was paused
+enum PauseReason {
+  // The debug server hasn't set a reason for pausing a thread.
+  UNSET = 0;
+
+  // The stepping condition in a ContinueExecutionRequest was hit.
+  STEPPING = 4;
+
+  // All threads are paused (e.g. prior to the initial StartDebuggingRequest).
+  ALL_THREADS_PAUSED = 1;
+
+  // Thread paused in response to a PauseThreadRequest.
+  PAUSE_THREAD_REQUEST = 2;
+
+  // A breakpoint was hit.
+  HIT_BREAKPOINT = 3;
 }
 
 // The debugger representation of a Skylark value.

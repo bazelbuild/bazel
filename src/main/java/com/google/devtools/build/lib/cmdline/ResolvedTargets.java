@@ -16,16 +16,15 @@ package com.google.devtools.build.lib.cmdline;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Set;
-
 import javax.annotation.concurrent.Immutable;
 
 /**
  * Contains the result of the target pattern evaluation. This is a specialized container class for
  * the result of target pattern resolution. There is no restriction on the element type, but it will
- * usually be {@code Target}.
+ * usually be {@code Target} or {@code Label}.
  */
 @Immutable
 public final class ResolvedTargets<T> {
@@ -102,7 +101,7 @@ public final class ResolvedTargets<T> {
     private volatile boolean hasError = false;
 
     private Builder() {
-      this(Sets.<T>newLinkedHashSet(), Sets.<T>newLinkedHashSet());
+      this(new LinkedHashSet<>(), new LinkedHashSet<>());
     }
 
     private Builder(Set<T> targets, Set<T> filteredTargets) {

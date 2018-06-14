@@ -16,12 +16,15 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,11 +43,37 @@ public final class ConfigFeatureFlagConfigurationTest {
   }
 
   @Test
-  public void getFeatureFlagValue_returnsEmptyOptionalWhenRequestingUnsetFlag() throws Exception {
+  public void
+      getFeatureFlagValue_returnsEmptyOptionalWhenRequestingUnknownFlagFromUntrimmedOptions()
+          throws Exception {
     Optional<String> flagValue =
-        getConfigurationWithFlags(ImmutableMap.of(Label.parseAbsoluteUnchecked("//a:a"), "valued"))
+        getUntrimmedConfigurationWithFlags(
+                ImmutableMap.of(Label.parseAbsoluteUnchecked("//a:a"), "valued"))
             .getFeatureFlagValue(new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//b:b")));
     assertThat(flagValue).isEmpty();
+  }
+
+  @Test
+  public void getFeatureFlagValue_returnsEmptyOptionalWhenRequestingKnownDefaultFlag()
+      throws Exception {
+    Optional<String> flagValue =
+        getConfigurationWithFlags(
+                ImmutableMap.of(Label.parseAbsoluteUnchecked("//a:a"), "valued"),
+                ImmutableSet.of(
+                    Label.parseAbsoluteUnchecked("//a:a"), Label.parseAbsoluteUnchecked("//b:b")))
+            .getFeatureFlagValue(new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//b:b")));
+    assertThat(flagValue).isEmpty();
+  }
+
+  @Test
+  public void getFeatureFlagValue_throwsExceptionWhenRequestingUnknownFlag() throws Exception {
+    try {
+      getConfigurationWithFlags(ImmutableMap.of(Label.parseAbsoluteUnchecked("//a:a"), "valued"))
+          .getFeatureFlagValue(new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//b:b")));
+      fail("no exception was thrown");
+    } catch (ConfigFeatureFlagConfiguration.MissingFlagException expected) {
+      assertThat(expected).hasMessageThat().contains("//b:b");
+    }
   }
 
   @Test
@@ -133,7 +162,22 @@ public final class ConfigFeatureFlagConfigurationTest {
   /** Generates a configuration fragment with the given set of flag-value pairs. */
   private static ConfigFeatureFlagConfiguration getConfigurationWithFlags(
       Map<Label, String> flags) {
+    return getConfigurationWithFlags(flags, flags.keySet());
+  }
+
+  private static ConfigFeatureFlagConfiguration getConfigurationWithFlags(
+      Map<Label, String> flags, Set<Label> availableFlags) {
     ConfigFeatureFlagOptions options = new ConfigFeatureFlagOptions();
+    options.enforceTransitiveConfigsForConfigFeatureFlag = true;
+    options.replaceFlagValues(flags);
+    options.trimFlagValues(availableFlags);
+    return new ConfigFeatureFlagConfiguration(options);
+  }
+
+  private static ConfigFeatureFlagConfiguration getUntrimmedConfigurationWithFlags(
+      Map<Label, String> flags) {
+    ConfigFeatureFlagOptions options = new ConfigFeatureFlagOptions();
+    options.enforceTransitiveConfigsForConfigFeatureFlag = false;
     options.replaceFlagValues(flags);
     return new ConfigFeatureFlagConfiguration(options);
   }

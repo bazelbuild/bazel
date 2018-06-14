@@ -22,11 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.DottedVersionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -72,16 +69,9 @@ import javax.annotation.Nullable;
  *
  * <p>This class is immutable and can safely be shared among threads.
  */
-@SkylarkModule(
-  name = "DottedVersion",
-  category = SkylarkModuleCategory.NONE,
-  doc =
-      "A value representing a version with multiple components, separated by periods, such as "
-          + "1.2.3.4."
-)
 @Immutable
 @AutoCodec
-public final class DottedVersion implements Comparable<DottedVersion>, SkylarkValue {
+public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
   private static final Pattern COMPONENT_PATTERN = Pattern.compile("(\\d+)(?:([a-z]+)(\\d*))?");
   private static final String ILLEGAL_VERSION =
@@ -160,12 +150,6 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
   }
 
   @Override
-  @SkylarkCallable(
-    name = "compare_to",
-    doc =
-        "Compares based on most signifigant (first) not-matching version component. "
-            + "So, for example, 1.2.3 < 1.2.4"
-  )
   public int compareTo(DottedVersion other) {
     int maxComponents = Math.max(components.size(), other.components.size());
     for (int componentIndex = 0; componentIndex < maxComponents; componentIndex++) {
@@ -177,6 +161,11 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
       }
     }
     return 0;
+  }
+
+  @Override
+  public int compareTo_skylark(DottedVersion other) {
+    return compareTo(other);
   }
 
   /**

@@ -17,28 +17,22 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
 import java.util.Iterator;
 
 /**
  * A class that exposes the java_toolchain providers to Skylark. It is intended to provide a simple
  * and stable interface for Skylark users.
  */
-@SkylarkModule(
-  name = "JavaToolchainSkylarkApiProvider",
-  doc =
-      "Provides access to information about the Java toolchain rule. "
-          + "Accessible as a 'java_toolchain' field on a Target struct."
-)
 @AutoCodec
-public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider {
+public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider
+    implements JavaToolchainSkylarkApiProviderApi {
   /** The name of the field in Skylark used to access this class. */
   public static final String NAME = "java_toolchain";
 
   /** @return the input Java language level */
   // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
-  @SkylarkCallable(name = "source_version", doc = "The java source version.", structField = true)
+  @Override
   public String getSourceVersion() {
     JavaToolchainProvider javaToolchainProvider =
         JavaToolchainProvider.from(getInfo());
@@ -53,7 +47,7 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider {
 
   /** @return the target Java language level */
   // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
-  @SkylarkCallable(name = "target_version", doc = "The java target version.", structField = true)
+  @Override
   public String getTargetVersion() {
     JavaToolchainProvider javaToolchainProvider =
         JavaToolchainProvider.from(getInfo());
@@ -67,11 +61,7 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider {
   }
 
   /** @return The {@link Artifact} of the javac jar */
-  @SkylarkCallable(
-      name = "javac_jar",
-      doc = "The javac jar.",
-      structField = true
-  )
+  @Override
   public Artifact getJavacJar() {
     JavaToolchainProvider javaToolchainProvider =
         JavaToolchainProvider.from(getInfo());

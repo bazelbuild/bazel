@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
+import com.google.devtools.build.lib.bazel.commands.SyncCommand;
 import com.google.devtools.build.lib.bazel.repository.GitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpFileFunction;
@@ -75,6 +76,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
+import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -181,6 +183,7 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
     builder.addCommands(new FetchCommand());
+    builder.addCommands(new SyncCommand());
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
   }
 
@@ -217,7 +220,7 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       builder.addRuleDefinition(ruleDefinition);
     }
-    builder.addSkylarkModule(SkylarkRepositoryModule.class);
+    builder.addSkylarkBootstrap(new RepositoryBootstrap(SkylarkRepositoryModule.class));
   }
 
   @Override
@@ -290,12 +293,17 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public ImmutableList<Injected> getPrecomputedValues() {
     return ImmutableList.of(
-        PrecomputedValue.injected(RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides));
+        PrecomputedValue.injected(RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides),
+        // That key will be reinjected by the sync command with a universally unique identifier.
+        // Nevertheless, we need to provide a default value for other commands.
+        PrecomputedValue.injected(
+            RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+            RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY));
   }
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return ImmutableSet.of("fetch", "build", "query").contains(command.name())
+    return ImmutableSet.of("sync", "fetch", "build", "query").contains(command.name())
         ? ImmutableList.<Class<? extends OptionsBase>>of(RepositoryOptions.class)
         : ImmutableList.<Class<? extends OptionsBase>>of();
   }

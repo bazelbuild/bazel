@@ -16,21 +16,12 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
 
 /** A module that contains Skylark utilities for C++ support. */
-@SkylarkModule(name = "cc_common", doc = "Utilities related to C++ support.")
-public class CcModule {
-  public static final CcModule INSTANCE = new CcModule();
+public class CcModule implements CcModuleApi {
 
-  @SkylarkCallable(
-    name = CcToolchainProvider.SKYLARK_NAME,
-    doc =
-        "The key used to retrieve the provider that contains information about the C++ "
-            + "toolchain being used",
-    structField = true
-  )
+  @Override
   public Provider getCcToolchainProvider() {
     return ToolchainInfo.PROVIDER;
   }

@@ -23,7 +23,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -33,10 +32,12 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
@@ -57,10 +57,12 @@ import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
+import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
@@ -237,16 +239,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         new ArrayList<>();
     @Nullable private RuleTransitionFactory trimmingTransitionFactory;
     private PrerequisiteValidator prerequisiteValidator;
+    private ImmutableList.Builder<Bootstrap> skylarkBootstraps =
+        ImmutableList.<Bootstrap>builder();
     private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
         ImmutableMap.builder();
-    private ImmutableList.Builder<Class<?>> skylarkModules =
-        ImmutableList.<Class<?>>builder().addAll(SkylarkModules.MODULES);
-    private ImmutableList.Builder<NativeProvider> nativeProviders = ImmutableList.builder();
     private Set<String> reservedActionMnemonics = new TreeSet<>();
     private BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
-    private ImmutableBiMap.Builder<String, Class<? extends TransitiveInfoProvider>>
-        registeredSkylarkProviders = ImmutableBiMap.builder();
+    private ConstraintSemantics constraintSemantics = new ConstraintSemantics();
 
     // TODO(pcloudy): Remove this field after Bazel rule definitions are not used internally.
     private String nativeLauncherLabel;
@@ -359,18 +359,13 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
+    public Builder addSkylarkBootstrap(Bootstrap bootstrap) {
+      this.skylarkBootstraps.add(bootstrap);
+      return this;
+    }
+
     public Builder addSkylarkAccessibleTopLevels(String name, Object object) {
       this.skylarkAccessibleTopLevels.put(name, object);
-      return this;
-    }
-
-    public Builder addSkylarkModule(Class<?>... modules) {
-      this.skylarkModules.add(modules);
-      return this;
-    }
-
-    public Builder addNativeProvider(NativeProvider provider) {
-      this.nativeProviders.add(provider);
       return this;
     }
 
@@ -382,6 +377,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     public Builder setActionEnvironmentProvider(
         BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider) {
       this.actionEnvironmentProvider = actionEnvironmentProvider;
+      return this;
+    }
+
+    /**
+     * Sets the logic that lets rules declare which environments they support and validates rules
+     * don't depend on rules that aren't compatible with the same environments. Defaults to
+     * {@ConstraintSemantics}. See {@ConstraintSemantics} for more details.
+     */
+    public Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
+      this.constraintSemantics = constraintSemantics;
       return this;
     }
 
@@ -401,17 +406,22 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
 
     /**
-     * Sets the transition factory that produces a trimming transition to be run over all targets
+     * Adds a transition factory that produces a trimming transition to be run over all targets
      * after other transitions.
      *
-     * <p>This is a temporary measure for supporting manual trimming of feature flags, and support
-     * for this transition factory will likely be removed at some point in the future (whenever
-     * automatic trimming is sufficiently workable).
+     * <p>Transitions are run in the order they're added.
+     *
+     * <p>This is a temporary measure for supporting trimming of test rules and manual trimming of
+     * feature flags, and support for this transition factory will likely be removed at some point
+     * in the future (whenever automatic trimming is sufficiently workable).
      */
-    public Builder setTrimmingTransitionFactory(RuleTransitionFactory factory) {
-      Preconditions.checkState(
-          trimmingTransitionFactory == null, "Trimming transition factory already set");
-      trimmingTransitionFactory = Preconditions.checkNotNull(factory);
+    public Builder addTrimmingTransitionFactory(RuleTransitionFactory factory) {
+      if (trimmingTransitionFactory == null) {
+        trimmingTransitionFactory = Preconditions.checkNotNull(factory);
+      } else {
+        trimmingTransitionFactory = new ComposingRuleTransitionFactory(
+            trimmingTransitionFactory, Preconditions.checkNotNull(factory));
+      }
       return this;
     }
 
@@ -423,7 +433,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     @VisibleForTesting(/* for testing trimming transition factories without relying on prod use */)
     public Builder overrideTrimmingTransitionFactoryForTesting(RuleTransitionFactory factory) {
       trimmingTransitionFactory = null;
-      return this.setTrimmingTransitionFactory(factory);
+      return this.addTrimmingTransitionFactory(factory);
     }
 
     @Override
@@ -510,10 +520,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           trimmingTransitionFactory,
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
-          skylarkModules.build(),
+          skylarkBootstraps.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
-          nativeProviders.build());
+          constraintSemantics);
     }
 
     @Override
@@ -626,9 +636,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider;
 
-  private final ImmutableList<NativeProvider> nativeProviders;
-
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
+
+  private final ConstraintSemantics constraintSemantics;
 
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
@@ -647,10 +657,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       @Nullable RuleTransitionFactory trimmingTransitionFactory,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
-      ImmutableList<Class<?>> skylarkModules,
+      ImmutableList<Bootstrap> skylarkBootstraps,
       ImmutableSet<String> reservedActionMnemonics,
       BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
-      ImmutableList<NativeProvider> nativeProviders) {
+      ConstraintSemantics constraintSemantics) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -666,11 +676,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.universalFragments = universalFragments;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
+    this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkBootstraps);
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
-    this.nativeProviders = nativeProviders;
     this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
+    this.constraintSemantics = constraintSemantics;
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -790,21 +800,17 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   private Environment.GlobalFrame createGlobals(
-      ImmutableMap<String, Object> skylarkAccessibleToplLevels,
-      ImmutableList<Class<?>> modules) {
-    try (Mutability mutability = Mutability.create("ConfiguredRuleClassProvider globals")) {
-      Environment env = createSkylarkRuleClassEnvironment(
-          mutability,
-          SkylarkModules.getGlobals(modules),
-          SkylarkSemantics.DEFAULT_SEMANTICS,
-          /*eventHandler=*/ null,
-          /*astFileContentHashCode=*/ null,
-          /*importMap=*/ null);
-      for (Map.Entry<String, Object> entry : skylarkAccessibleToplLevels.entrySet()) {
-        env.setup(entry.getKey(), entry.getValue());
-      }
-      return env.getGlobals();
+      ImmutableMap<String, Object> skylarkAccessibleTopLevels,
+      ImmutableList<Bootstrap> bootstraps) {
+    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
+
+    SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
+    envBuilder.putAll(skylarkAccessibleTopLevels.entrySet());
+    for (Bootstrap bootstrap : bootstraps) {
+      bootstrap.addBindingsToBuilder(envBuilder);
     }
+
+    return GlobalFrame.createForBuiltins(envBuilder.build());
   }
 
   private static ImmutableMap<String, Class<?>> createFragmentMap(
@@ -874,6 +880,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return configurationFragmentMap;
   }
 
+  public ConstraintSemantics getConstraintSemantics() {
+    return constraintSemantics;
+  }
+
   /** Returns all skylark objects in global scope for this RuleClassProvider. */
   public Map<String, Object> getTransitiveGlobalBindings() {
     return globals.getTransitiveBindings();
@@ -897,13 +907,5 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   public BuildConfiguration.ActionEnvironmentProvider getActionEnvironmentProvider() {
     return actionEnvironmentProvider;
-  }
-
-  /**
-   * Returns all registered {@link NativeProvider} instances, i.e. all built-in provider types that
-   * are based on {@link Provider} rather than {@link TransitiveInfoProvider}.
-   */
-  public ImmutableList<NativeProvider> getNativeProviders() {
-    return nativeProviders;
   }
 }

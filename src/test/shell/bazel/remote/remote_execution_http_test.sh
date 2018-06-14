@@ -78,7 +78,6 @@ EOF
 
   bazel clean --expunge >& $TEST_log
   bazel build \
-      --experimental_remote_spawn_cache=true  \
       --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache service"
@@ -112,7 +111,6 @@ EOF
 
   bazel clean --expunge >& $TEST_log
   bazel build \
-      --experimental_remote_spawn_cache=true \
       --remote_http_cache=http://bad.hostname/bad/cache \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache service"
@@ -136,15 +134,6 @@ genrule(
 )
 EOF
     bazel build \
-          --genrule_strategy=remote \
-          --noremote_allow_symlink_upload \
-          --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
-          //:make-link &> $TEST_log \
-          && fail "should have failed" || true
-    expect_log "/l is a symbolic link"
-
-    bazel build \
-          --experimental_remote_spawn_cache \
           --noremote_allow_symlink_upload \
           --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
           //:make-link &> $TEST_log \
@@ -161,15 +150,6 @@ genrule(
 )
 EOF
     bazel build \
-          --genrule_strategy=remote \
-          --noremote_allow_symlink_upload \
-          --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
-          //:make-link &> $TEST_log \
-          && fail "should have failed" || true
-    expect_log "dir/l is a symbolic link"
-
-    bazel build \
-          --experimental_remote_spawn_cache \
           --noremote_allow_symlink_upload \
           --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
           //:make-link &> $TEST_log \
@@ -224,7 +204,6 @@ function test_directory_artifact() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
@@ -235,7 +214,6 @@ function test_directory_artifact_grpc_cache() {
   set_directory_artifact_testfixtures
 
   bazel build \
-      --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache"
@@ -247,7 +225,6 @@ function test_directory_artifact_rest_cache() {
   set_directory_artifact_testfixtures
 
   bazel build \
-      --spawn_strategy=remote \
       --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache"
@@ -272,7 +249,10 @@ def _gen_output_dir_impl(ctx):
       arguments = [output_dir.path],
   )
   return [
-      DefaultInfo(files=depset(direct=[output_dir])),
+      DefaultInfo(
+          files=depset(direct=[output_dir]),
+          data_runfiles=ctx.runfiles(files=[output_dir]),
+      ),
   ]
 
 gen_output_dir = rule(
@@ -297,7 +277,26 @@ genrule(
     outs = ["qux"],
     cmd = "mkdir $@ && paste -d\"\n\" $(location :output_dir)/foo.txt $(location :output_dir)/sub1/bar.txt > $@/out.txt",
 )
+
+sh_binary(
+    name = "a-tool",
+    srcs = ["a-tool.sh"],
+    data = [":output_dir"],
+)
+
+genrule(
+    name = "test2",
+    outs = ["test2-out.txt"],
+    cmd = "$(location :a-tool) > $@",
+    tools = [":a-tool"],
+)
 EOF
+
+  cat > a/a-tool.sh <<'EOF'
+#!/bin/sh -eu
+cat "$0".runfiles/main/a/dir/foo.txt "$0".runfiles/main/a/dir/sub1/bar.txt
+EOF
+  chmod u+x a/a-tool.sh
 
   cat > a/test_expected <<EOF
 Hello, world!
@@ -320,7 +319,6 @@ function test_directory_artifact_skylark() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
@@ -331,7 +329,6 @@ function test_directory_artifact_skylark_grpc_cache() {
   set_directory_artifact_skylark_testfixtures
 
   bazel build \
-      --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache"
@@ -343,11 +340,21 @@ function test_directory_artifact_skylark_rest_cache() {
   set_directory_artifact_skylark_testfixtures
 
   bazel build \
-      --spawn_strategy=remote \
       --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
+      || fail "Remote cache generated different result"
+}
+
+function test_directory_artifact_in_runfiles_skylark_rest_cache() {
+  set_directory_artifact_skylark_testfixtures
+
+  bazel build \
+      --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
+      //a:test2 >& $TEST_log \
+      || fail "Failed to build //a:test2 with remote REST cache"
+  diff bazel-genfiles/a/test2-out.txt a/test_expected \
       || fail "Remote cache generated different result"
 }
 

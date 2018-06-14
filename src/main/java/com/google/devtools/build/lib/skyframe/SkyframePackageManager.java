@@ -17,13 +17,14 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.vfs.Path;
@@ -39,7 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>This is essentially a compatibility shim between the native Skyframe and non-Skyframe
  * parts of Blaze and should not be long-lived.
  */
-class SkyframePackageManager implements PackageManager {
+class SkyframePackageManager implements PackageManager, CachingPackageLocator {
 
   private final SkyframePackageLoader packageLoader;
   private final SkyframeExecutor.SkyframeTransitivePackageLoader transitiveLoader;
@@ -124,7 +125,7 @@ class SkyframePackageManager implements PackageManager {
   }
 
   @Override
-  public TargetPatternEvaluator newTargetPatternEvaluator() {
+  public TargetPatternPreloader newTargetPatternPreloader() {
     return new SkyframeTargetPatternEvaluator(skyframeExecutor);
   }
 }

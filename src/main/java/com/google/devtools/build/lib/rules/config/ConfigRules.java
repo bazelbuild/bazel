@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.rules.config;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
 
 /**
  * Set of rules to specify or manipulate configuration settings.
@@ -30,12 +32,15 @@ public final class ConfigRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
+    builder.addTrimmingTransitionFactory(
+        new ConfigFeatureFlagTaggedTrimmingTransitionFactory(BaseRuleClasses.TAGGED_TRIMMING_ATTR));
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigBaseRule());
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigSettingRule());
-    builder.addConfig(ConfigFeatureFlagOptions.class, new ConfigFeatureFlagConfiguration.Loader());
+    builder.addConfig(ConfigFeatureFlagOptions.class,
+        new ConfigFeatureFlagConfiguration.Loader());
 
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigFeatureFlagRule());
-    builder.addSkylarkAccessibleTopLevels("config_common", new ConfigSkylarkCommon());
+    builder.addSkylarkBootstrap(new ConfigBootstrap(new ConfigSkylarkCommon()));
   }
 
   @Override

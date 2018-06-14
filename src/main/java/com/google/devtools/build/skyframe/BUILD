@@ -5,10 +5,11 @@ package(
 )
 
 SKYFRAME_OBJECT_SRCS = [
-    "SkyValue.java",
-    "SkyKey.java",
     "AbstractSkyKey.java",
+    "ShareabilityOfValue.java",
     "SkyFunctionName.java",
+    "SkyKey.java",
+    "SkyValue.java",
 ]
 
 java_library(
@@ -16,7 +17,6 @@ java_library(
     srcs = SKYFRAME_OBJECT_SRCS,
     visibility = ["//visibility:public"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/collect",
         "//third_party:guava",
     ],
 )

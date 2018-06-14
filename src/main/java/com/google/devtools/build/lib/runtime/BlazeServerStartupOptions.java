@@ -210,9 +210,11 @@ public class BlazeServerStartupOptions extends OptionsBase {
       OptionEffectTag.LOSES_INCREMENTAL_STATE,
       OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
     },
+    metadataTags = {OptionMetadataTag.DEPRECATED},
     help =
         "If set, Blaze will be run as just a client process without a server, instead of in "
-            + "the standard client/server mode."
+            + "the standard client/server mode. This is deprecated and will be removed, please "
+            + "prefer shutting down the server explicitly if you wish to avoid lingering servers."
   )
   public boolean batch;
 
@@ -290,28 +292,14 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean batchCpuScheduling;
 
   @Option(
-    name = "blazerc",
-    defaultValue = "null", // NOTE: purely decorative, rc files are read by the client.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    valueHelp = "<path>",
-    help =
-        "The location of the .%{product}rc file containing default values of "
-            + "Blaze command options. By default, Blaze first checks the current directory, then "
-            + "the user's home directory, and then looks for a file named .$(basename $0)rc "
-            + "(i.e. .%{product}rc). Use /dev/null to disable the search for a %{product}rc file, "
-            + "e.g. in release builds."
-  )
-  public String blazerc;
-
-  @Option(
-    name = "master_blazerc",
-    defaultValue = "true", // NOTE: purely decorative, rc files are read by the client.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    help = "If this option is false, the master %{product}rc next to the binary is not read."
-  )
-  public boolean masterBlazerc;
+      name = "ignore_all_rc_files",
+      defaultValue = "false", // NOTE: purely decorative, rc files are read by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Disables all rc files, regardless of the values of other rc-modifying flags, even if "
+              + "these flags come later in the list of startup options.")
+  public boolean ignoreAllRcFiles;
 
   @Option(
     name = "fatal_event_bus_exceptions",

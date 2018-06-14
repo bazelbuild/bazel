@@ -13,42 +13,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Finds the c++ toolchain if it is enabled.
+"""
+Finds the c++ toolchain.
 
-Otherwise, falls back to a toolchain constructed from the CppConfiguration.
+Returns the toolchain if enabled, and falls back to a toolchain constructed from
+the CppConfiguration.
 """
 
-def _get_cpp_toolchain_attr(ctx, attr):
-  if hasattr(ctx.attr._cc_toolchain[cc_common.CcToolchainInfo], attr):
-    return getattr(ctx.attr._cc_toolchain[cc_common.CcToolchainInfo], attr)
-  else:
-    return getattr(ctx.fragments.cpp, attr)
-
-def _make_legacy_toolchain(ctx):
-    return struct(
-        objcopy_executable = _get_cpp_toolchain_attr(ctx, "objcopy_executable"),
-        compiler_executable = _get_cpp_toolchain_attr(ctx, "compiler_executable"),
-        preprocessor_executable = _get_cpp_toolchain_attr(ctx, "preprocessor_executable"),
-        nm_executable = _get_cpp_toolchain_attr(ctx, "nm_executable"),
-        objdump_executable = _get_cpp_toolchain_attr(ctx, "objdump_executable"),
-        ar_executable = _get_cpp_toolchain_attr(ctx, "ar_executable"),
-        strip_executable = _get_cpp_toolchain_attr(ctx, "strip_executable"),
-        ld_executable = _get_cpp_toolchain_attr(ctx, "ld_executable"),
-    )
-
 def find_cpp_toolchain(ctx):
-  """If the c++ toolchain is in use, returns it.
+    """
+    Finds the c++ toolchain.
 
-  Otherwise, returns a c++ toolchain derived from legacy toolchain selection.
+    If the c++ toolchain is in use, returns it.  Otherwise, returns a c++
+    toolchain derived from legacy toolchain selection.
 
-  Args:
-    ctx: The rule context for which to find a toolchain.
+    Args:
+      ctx: The rule context for which to find a toolchain.
 
-  Returns:
-    A CcToolchainProvider.
-  """
+    Returns:
+      A CcToolchainProvider.
+    """
 
-  if Label("@bazel_tools//tools/cpp:toolchain_type") in ctx.fragments.platform.enabled_toolchain_types:
-    return ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"]
-  else:
-    return _make_legacy_toolchain(ctx)
+    if Label("@bazel_tools//tools/cpp:toolchain_type") in ctx.fragments.platform.enabled_toolchain_types:
+        return ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"]
+    else:
+        return ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]

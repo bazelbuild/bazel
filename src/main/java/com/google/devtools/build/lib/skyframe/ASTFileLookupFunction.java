@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -56,9 +58,7 @@ public class ASTFileLookupFunction implements SkyFunction {
     Label fileLabel = (Label) skyKey.argument();
     PathFragment filePathFragment = fileLabel.toPathFragment();
 
-    //
     // Determine whether the package designated by fileLabel exists.
-    //
     SkyKey pkgSkyKey = PackageLookupValue.key(fileLabel.getPackageIdentifier());
     PackageLookupValue pkgLookupValue = null;
     try {
@@ -77,9 +77,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       return ASTFileLookupValue.forBadPackage(fileLabel, pkgLookupValue.getErrorMsg());
     }
 
-    //
     // Determine whether the file designated by fileLabel exists.
-    //
     Root packageRoot = pkgLookupValue.getRoot();
     RootedPath rootedPath = RootedPath.toRootedPath(packageRoot, filePathFragment);
     SkyKey fileSkyKey = FileValue.key(rootedPath);
@@ -103,9 +101,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       return null;
     }
 
-    //
     // Both the package and the file exist; load the file and parse it as an AST.
-    //
     BuildFileAST ast = null;
     Path path = rootedPath.asPath();
     try {

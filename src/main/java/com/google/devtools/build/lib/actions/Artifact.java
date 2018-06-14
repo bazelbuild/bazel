@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Comparator.comparing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -45,6 +44,8 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -107,7 +108,8 @@ public class Artifact
         ActionInput,
         FileApi,
         Comparable<Object>,
-        CommandLineItem {
+        CommandLineItem,
+        SkyKey {
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
   @SuppressWarnings("ReferenceEquality")  // "a == b" is an optimization
@@ -124,9 +126,7 @@ public class Artifact
         }
       };
 
-  /** Compares artifacts according to their root relative paths. */
-  public static final Comparator<Artifact> ROOT_RELATIVE_PATH_COMPARATOR =
-      comparing(Artifact::getRootRelativePath);
+  public static final SkyFunctionName ARTIFACT = SkyFunctionName.create("ARTIFACT");
 
   @Override
   public int compareTo(Object o) {
@@ -228,7 +228,10 @@ public class Artifact
       throw new IllegalArgumentException(
           "it is illegal to create an artifact with an empty execPath");
     }
-    this.hashCode = execPath.hashCode();
+    // The ArtifactOwner is not part of this computation because it is very rare that two Artifacts
+    // have the same execPath and different owners, so a collision is fine there. If this is
+    // changed, OwnerlessArtifactWrapper must also be changed.
+    this.hashCode = execPath.hashCode() + this.getClass().hashCode() * 13;
     this.root = root;
     this.execPath = execPath;
     this.rootRelativePath = rootRelativePath;
@@ -455,6 +458,15 @@ public class Artifact
     public SourceArtifact asSourceArtifact() {
       return this;
     }
+
+    /**
+     * SourceArtifacts are compared without their owners, since owners do not affect behavior,
+     * unlike with derived artifacts, whose owners determine their generating actions.
+     */
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof SourceArtifact && equalsWithoutOwner((SourceArtifact) other);
+    }
   }
 
   /**
@@ -637,33 +649,26 @@ public class Artifact
   }
 
   @Override
-  public final boolean equals(Object other) {
+  public boolean equals(Object other) {
     if (!(other instanceof Artifact)) {
       return false;
     }
-    // We don't bother to check root in the equivalence relation, because we
-    // assume that no root is an ancestor of another one.
+    if (!getClass().equals(other.getClass())) {
+      return false;
+    }
     Artifact that = (Artifact) other;
-    return Objects.equals(this.execPath, that.execPath) && Objects.equals(this.root, that.root);
+    return equalsWithoutOwner(that) && owner.equals(that.getArtifactOwner());
   }
 
-  /**
-   * Compare equality including Artifact owner equality, a notable difference compared to the
-   * {@link #equals(Object)} method of {@link Artifact}.
-   */
-  public static boolean equalWithOwner(@Nullable Artifact first, @Nullable Artifact second) {
-    if (first != null) {
-      return first.equals(second) && first.getArtifactOwner().equals(second.getArtifactOwner());
-    } else {
-      return second == null;
-    }
+  public boolean equalsWithoutOwner(Artifact other) {
+    return Objects.equals(this.execPath, other.execPath) && Objects.equals(this.root, other.root);
   }
 
   @Override
   public final int hashCode() {
-    // This is just path.hashCode().  We cache a copy in the Artifact object to reduce LLC misses
-    // during operations which build a HashSet out of many Artifacts.  This is a slight loss for
-    // memory but saves ~1% overall CPU in some real builds.
+    // This is just execPath.hashCode() (along with the class). We cache a copy in the Artifact
+    // object to reduce LLC misses during operations which build a HashSet out of many Artifacts.
+    // This is a slight loss for memory but saves ~1% overall CPU in some real builds.
     return hashCode;
   }
 
@@ -970,5 +975,34 @@ public class Artifact
     } else {
       printer.append("<generated file " + rootRelativePath + ">");
     }
+  }
+
+  /**
+   * A utility class that compares {@link Artifact}s without taking their owners into account.
+   * Should only be used for detecting action conflicts and merging shared action data.
+   */
+  public static class OwnerlessArtifactWrapper {
+    private final Artifact artifact;
+
+    public OwnerlessArtifactWrapper(Artifact artifact) {
+      this.artifact = artifact;
+    }
+
+    @Override
+    public int hashCode() {
+      // Depends on the fact that Artifact#hashCode does not use ArtifactOwner.
+      return artifact.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof OwnerlessArtifactWrapper
+          && this.artifact.equalsWithoutOwner(((OwnerlessArtifactWrapper) obj).artifact);
+    }
+  }
+
+  @Override
+  public SkyFunctionName functionName() {
+    return ARTIFACT;
   }
 }

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -34,7 +33,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -43,10 +41,7 @@ import javax.annotation.Nullable;
  */
 public class TargetPatternFunction implements SkyFunction {
 
-  private final AtomicReference<PathPackageLocator> pkgPath;
-
-  public TargetPatternFunction(AtomicReference<PathPackageLocator> pkgPath) {
-    this.pkgPath = pkgPath;
+  public TargetPatternFunction() {
   }
 
   @Override
@@ -57,7 +52,7 @@ public class TargetPatternFunction implements SkyFunction {
     ResolvedTargets<Target> resolvedTargets;
     try {
       EnvironmentBackedRecursivePackageProvider provider =
-          new EnvironmentBackedRecursivePackageProvider(env, pkgPath.get());
+          new EnvironmentBackedRecursivePackageProvider(env);
       RecursivePackageProviderBackedTargetPatternResolver resolver =
           new RecursivePackageProviderBackedTargetPatternResolver(
               provider,
@@ -79,6 +74,8 @@ public class TargetPatternFunction implements SkyFunction {
           /*blacklistedSubdirectories=*/ ImmutableSet.of(),
           excludedSubdirectories,
           callback,
+          // The exception type here has to match the one on the BatchCallback. Since the callback
+          // defined above never throws, the exact type here is not really relevant.
           RuntimeException.class);
       resolvedTargets = ResolvedTargets.<Target>builder().addAll(results).build();
     } catch (TargetParsingException e) {

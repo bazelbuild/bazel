@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
@@ -102,7 +103,7 @@ public class AndroidAssets {
       }
     }
 
-    return new AndroidAssets(assets.build(), assetRoots.build());
+    return new AndroidAssets(assets.build(), assetRoots.build(), assetsDir.getPathString());
   }
 
   @Nullable
@@ -135,24 +136,31 @@ public class AndroidAssets {
   static AndroidAssets forAarImport(SpecialArtifact assetsDir) {
     Preconditions.checkArgument(assetsDir.isTreeArtifact());
     return new AndroidAssets(
-        ImmutableList.of(assetsDir), ImmutableList.of(assetsDir.getExecPath().getChild("assets")));
+        ImmutableList.of(assetsDir),
+        ImmutableList.of(assetsDir.getExecPath().getChild("assets")),
+        assetsDir.getExecPathString());
   }
 
   public static AndroidAssets empty() {
-    return new AndroidAssets(ImmutableList.of(), ImmutableList.of());
+    return new AndroidAssets(ImmutableList.of(), ImmutableList.of(), /* assetDir = */ null);
   }
 
   private final ImmutableList<Artifact> assets;
   private final ImmutableList<PathFragment> assetRoots;
+  private final @Nullable String assetDir;
 
   AndroidAssets(AndroidAssets other) {
-    this(other.assets, other.assetRoots);
+    this(other.assets, other.assetRoots, other.assetDir);
   }
 
   @VisibleForTesting
-  AndroidAssets(ImmutableList<Artifact> assets, ImmutableList<PathFragment> assetRoots) {
+  AndroidAssets(
+      ImmutableList<Artifact> assets,
+      ImmutableList<PathFragment> assetRoots,
+      @Nullable String assetDir) {
     this.assets = assets;
     this.assetRoots = assetRoots;
+    this.assetDir = assetDir;
   }
 
   public ImmutableList<Artifact> getAssets() {
@@ -163,19 +171,20 @@ public class AndroidAssets {
     return assetRoots;
   }
 
-  public ParsedAndroidAssets parse(RuleContext ruleContext) throws InterruptedException {
-    return ParsedAndroidAssets.parseFrom(ruleContext, this);
+  public @Nullable String getAssetDirAsString() {
+    return assetDir;
+  }
+
+  public ParsedAndroidAssets parse(AndroidDataContext dataContext, AndroidAaptVersion aaptVersion)
+      throws InterruptedException {
+    return ParsedAndroidAssets.parseFrom(dataContext, aaptVersion, this);
   }
 
   /** Convenience method to do all of asset processing - parsing and merging. */
-  public MergedAndroidAssets process(RuleContext ruleContext, boolean neverlink)
+  public MergedAndroidAssets process(
+      AndroidDataContext dataContext, AssetDependencies assetDeps, AndroidAaptVersion aaptVersion)
       throws InterruptedException {
-    return process(ruleContext, AssetDependencies.fromRuleDeps(ruleContext, neverlink));
-  }
-
-  MergedAndroidAssets process(RuleContext ruleContext, AssetDependencies assetDeps)
-      throws InterruptedException {
-    return parse(ruleContext).merge(ruleContext, assetDeps);
+    return parse(dataContext, aaptVersion).merge(dataContext, assetDeps);
   }
 
   @Override

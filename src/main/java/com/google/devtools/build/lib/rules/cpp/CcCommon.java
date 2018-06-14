@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
@@ -41,7 +42,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
@@ -64,6 +68,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -100,31 +105,34 @@ public final class CcCommon {
     }
   };
 
+  private static final ImmutableList<PathFragment> WHITELISTED_PACKAGES =
+      ImmutableList.of(PathFragment.create("tools/build_defs"));
+
   public static final ImmutableSet<String> ALL_COMPILE_ACTIONS =
       ImmutableSet.of(
-          CppCompileAction.C_COMPILE,
-          CppCompileAction.CPP_COMPILE,
-          CppCompileAction.CPP_HEADER_PARSING,
-          CppCompileAction.CPP_HEADER_PREPROCESSING,
-          CppCompileAction.CPP_MODULE_COMPILE,
-          CppCompileAction.CPP_MODULE_CODEGEN,
-          CppCompileAction.ASSEMBLE,
-          CppCompileAction.PREPROCESS_ASSEMBLE,
-          CppCompileAction.CLIF_MATCH,
-          CppCompileAction.LINKSTAMP_COMPILE,
-          CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME);
+          CppActionNames.C_COMPILE,
+          CppActionNames.CPP_COMPILE,
+          CppActionNames.CPP_HEADER_PARSING,
+          CppActionNames.CPP_HEADER_PREPROCESSING,
+          CppActionNames.CPP_MODULE_COMPILE,
+          CppActionNames.CPP_MODULE_CODEGEN,
+          CppActionNames.ASSEMBLE,
+          CppActionNames.PREPROCESS_ASSEMBLE,
+          CppActionNames.CLIF_MATCH,
+          CppActionNames.LINKSTAMP_COMPILE,
+          CppActionNames.CC_FLAGS_MAKE_VARIABLE);
 
   public static final ImmutableSet<String> ALL_LINK_ACTIONS =
       ImmutableSet.of(
+          LinkTargetType.EXECUTABLE.getActionName(),
           Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
-          Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName(),
-          LinkTargetType.EXECUTABLE.getActionName());
+          Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName());
 
   public static final ImmutableSet<String> ALL_ARCHIVE_ACTIONS =
       ImmutableSet.of(Link.LinkTargetType.STATIC_LIBRARY.getActionName());
 
   public static final ImmutableSet<String> ALL_OTHER_ACTIONS =
-      ImmutableSet.of(CppCompileAction.STRIP_ACTION_NAME);
+      ImmutableSet.of(CppActionNames.STRIP);
 
   /** Action configs we request to enable. */
   public static final ImmutableSet<String> DEFAULT_ACTION_CONFIGS =
@@ -192,6 +200,39 @@ public final class CcCommon {
           entryOutputGroupBuilder.getKey(), entryOutputGroupBuilder.getValue().build());
     }
     return mergedOutputGroups;
+  }
+
+  public static void checkRuleWhitelisted(SkylarkRuleContext skylarkRuleContext)
+      throws EvalException {
+    RuleContext context = skylarkRuleContext.getRuleContext();
+    Rule rule = context.getRule();
+    RuleClass ruleClass = rule.getRuleClassObject();
+    Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
+    if (label != null
+        && WHITELISTED_PACKAGES
+            .stream()
+            .noneMatch(path -> label.getPackageFragment().startsWith(path))) {
+      throwWhiteListError(rule.getLocation(), label.getPackageFragment().toString());
+    }
+  }
+
+  public static void checkLocationWhitelisted(Location location) throws EvalException {
+    String bzlPath = location.getPath().toString();
+    if (WHITELISTED_PACKAGES.stream().noneMatch(path -> bzlPath.contains(path.toString()))) {
+      throwWhiteListError(location, bzlPath);
+    }
+  }
+
+  private static void throwWhiteListError(Location location, String bzlPath) throws EvalException {
+    String whitelistedPackages =
+        WHITELISTED_PACKAGES.stream().map(p -> p.toString()).collect(Collectors.joining(", "));
+    throw new EvalException(
+        location,
+        String.format(
+            "the C++ Skylark API is for the time being only allowed for rules in in '//%s/...'; "
+                + "but this is defined in '//%s'. Contact blaze-rules@google.com for more "
+                + "information.",
+            whitelistedPackages, bzlPath));
   }
 
   /**
@@ -282,11 +323,11 @@ public final class CcCommon {
   }
 
   /**
-   * Returns a list of ({@link Artifact}, {@link Label}) pairs. Each pair represents an input
-   * source file and the label of the rule that generates it (or the label of the source file
-   * itself if it is an input file).
+   * Returns a list of ({@link Artifact}, {@link Label}) pairs. Each pair represents an input source
+   * file and the label of the rule that generates it (or the label of the source file itself if it
+   * is an input file).
    */
-  List<Pair<Artifact, Label>> getSources() {
+  List<Pair<Artifact, Label>> getPrivateHeaders() {
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
     Iterable<? extends TransitiveInfoCollection> providers =
         ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class);
@@ -296,19 +337,43 @@ public final class CcCommon {
         // non-source artifacts with different labels, as that would require cleaning up the code
         // base without significant benefit; we should eventually make this consistent one way or
         // the other.
-        Label oldLabel = map.put(artifact, provider.getLabel());
-        boolean isHeader = CppFileTypes.CPP_HEADER.matches(artifact.getExecPath());
-        if (!isHeader
-            && SourceCategory.CC_AND_OBJC.getSourceTypes().matches(artifact.getExecPathString())
-            && oldLabel != null
-            && !oldLabel.equals(provider.getLabel())) {
-          ruleContext.attributeError("srcs", String.format(
-              "Artifact '%s' is duplicated (through '%s' and '%s')",
-              artifact.getExecPathString(), oldLabel, provider.getLabel()));
+        if (CppFileTypes.CPP_HEADER.matches(artifact.getExecPath())) {
+          map.put(artifact, provider.getLabel());
         }
       }
     }
+    return mapToListOfPairs(map);
+  }
 
+  /**
+   * Returns a list of ({@link Artifact}, {@link Label}) pairs. Each pair represents an input source
+   * file and the label of the rule that generates it (or the label of the source file itself if it
+   * is an input file).
+   */
+  List<Pair<Artifact, Label>> getSources() {
+    Map<Artifact, Label> map = Maps.newLinkedHashMap();
+    Iterable<? extends TransitiveInfoCollection> providers =
+        ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class);
+    for (TransitiveInfoCollection provider : providers) {
+      for (Artifact artifact : provider.getProvider(FileProvider.class).getFilesToBuild()) {
+        if (!CppFileTypes.CPP_HEADER.matches(artifact.getExecPath())) {
+          Label oldLabel = map.put(artifact, provider.getLabel());
+          if (SourceCategory.CC_AND_OBJC.getSourceTypes().matches(artifact.getExecPathString())
+              && oldLabel != null
+              && !oldLabel.equals(provider.getLabel())) {
+            ruleContext.attributeError(
+                "srcs",
+                String.format(
+                    "Artifact '%s' is duplicated (through '%s' and '%s')",
+                    artifact.getExecPathString(), oldLabel, provider.getLabel()));
+          }
+        }
+      }
+    }
+    return mapToListOfPairs(map);
+  }
+
+  private List<Pair<Artifact, Label>> mapToListOfPairs(Map<Artifact, Label> map) {
     ImmutableList.Builder<Pair<Artifact, Label>> result = ImmutableList.builder();
     for (Map.Entry<Artifact, Label> entry : map.entrySet()) {
       result.add(Pair.of(entry.getKey(), entry.getValue()));
@@ -776,7 +841,7 @@ public final class CcCommon {
       unsupportedFeaturesBuilder.add(CppRuleClasses.PARSE_HEADERS);
       unsupportedFeaturesBuilder.add(CppRuleClasses.PREPROCESS_HEADERS);
     }
-    if (toolchain.getCcCompilationContext().getCppModuleMap() == null) {
+    if (toolchain.getCcCompilationInfo().getCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
     if (enableStaticLinkCppRuntimesFeature(requestedFeatures, unsupportedFeatures, toolchain)) {
@@ -832,8 +897,14 @@ public final class CcCommon {
     boolean isFdo = fdoMode != FdoMode.OFF && toolchain.getCompilationMode() == CompilationMode.OPT;
     if (isFdo
         && fdoMode != FdoMode.AUTO_FDO
+        && fdoMode != FdoMode.XBINARY_FDO
         && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
       allFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
+      // For LLVM, support implicit enabling of ThinLTO for FDO unless it has been
+      // explicitly disabled.
+      if (toolchain.isLLVMCompiler() && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+        allFeatures.add(CppRuleClasses.ENABLE_FDO_THINLTO);
+      }
     }
     if (isFdo && fdoMode == FdoMode.AUTO_FDO) {
       allFeatures.add(CppRuleClasses.AUTOFDO);
@@ -842,6 +913,12 @@ public final class CcCommon {
       if (toolchain.isLLVMCompiler() && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
         allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
       }
+    }
+    if (isFdo && fdoMode == FdoMode.XBINARY_FDO) {
+      allFeatures.add(CppRuleClasses.XBINARYFDO);
+    }
+    if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.FDO_PREFETCH_HINTS);
     }
     if (cppConfiguration.isLipoOptimizationOrInstrumentation()) {
       // Map LIPO to ThinLTO for LLVM builds.
@@ -894,8 +971,7 @@ public final class CcCommon {
         (CcToolchainProvider) toolchain.get(ToolchainInfo.PROVIDER);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, toolchainProvider);
-    if (!featureConfiguration.actionIsConfigured(
-        CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME)) {
+    if (!featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
       return null;
     }
 
@@ -904,7 +980,7 @@ public final class CcCommon {
         Joiner.on(" ")
             .join(
                 featureConfiguration.getCommandLine(
-                    CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME, buildVariables));
+                    CppActionNames.CC_FLAGS_MAKE_VARIABLE, buildVariables));
     String oldCcFlags = "";
     TemplateVariableInfo templateVariableInfo =
         toolchain.get(TemplateVariableInfo.PROVIDER);

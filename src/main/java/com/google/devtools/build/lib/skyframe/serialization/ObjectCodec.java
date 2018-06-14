@@ -30,6 +30,11 @@ public interface ObjectCodec<T> {
    *
    * <p>This is useful for automatically dispatching to the correct codec, e.g. in {@link
    * ObjectCodecs}.
+   *
+   * <p>If {@link T} is an interface, then this codec will never be used by the auto-registration
+   * framework in {@link ObjectCodecRegistry} unless it is explicitly invoked or {@link
+   * #additionalEncodedClasses} is non-empty, since the {@link ObjectCodecRegistry} traverses the
+   * concrete class hierarchy looking for matches, and will never come to an interface.
    */
   Class<? extends T> getEncodedClass();
 

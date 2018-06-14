@@ -45,8 +45,8 @@ import java.io.Serializable;
  *       {@link SkylarkSemanticsCodec#deserialize}.
  *
  *   <li>Add a line to set the new field in both {@link
- *       SkylarkSemanticsOptionsTest#buildRandomOptions} and {@link
- *       SkylarkSemanticsOptions#buildRandomSemantics}.
+ *       SkylarkSemanticsConsistencyTest#buildRandomOptions} and {@link
+ *       SkylarkSemanticsConsistencyTest#buildRandomSemantics}.
  *
  *   <li>Update manual documentation in site/docs/skylark/backward-compatibility.md. Also remember
  *       to update this when flipping a flag's default value.
@@ -58,6 +58,15 @@ import java.io.Serializable;
 public class SkylarkSemanticsOptions extends OptionsBase implements Serializable {
 
   // <== Add new options here in alphabetic order ==>
+
+  @Option(
+      name = "experimental_enable_repo_mapping",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
+      help = "If set to true, enables the use of the `repo_mapping` attribute in WORKSPACE files."
+  )
+  public boolean experimentalEnableRepoMapping;
 
   @Option(
     name = "incompatible_bzl_disallow_load_after_statement",
@@ -104,19 +113,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
             + "convert to a list."
   )
   public boolean incompatibleDepsetIsNotIterable;
-
-  @Option(
-    name = "incompatible_disable_glob_tracking",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help = "If set to true, do not track the values of globs (this is used by rare specific cases"
-  )
-  public boolean incompatibleDisableGlobTracking;
 
   @Option(
     name = "incompatible_disable_objc_provider_resources",
@@ -213,6 +209,22 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleNewActionsApi;
 
   @Option(
+      name = "incompatible_no_support_tools_in_action_inputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, tools should be passed to `ctx.actions.run()` and "
+              + "`ctx.actions.run_shell()` using the `tools` parameter instead of the `inputs` "
+              + "parameter. Furthermore, if this flag is set and a `tools` parameter is not "
+              + "passed to the action, it is an error for any tools to appear in the `inputs`.")
+  public boolean incompatibleNoSupportToolsInActionInputs;
+
+  @Option(
     name = "incompatible_package_name_is_a_function",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -285,10 +297,10 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public SkylarkSemantics toSkylarkSemantics() {
     return SkylarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
+        .experimentalEnableRepoMapping(experimentalEnableRepoMapping)
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
         .incompatibleDepsetUnion(incompatibleDepsetUnion)
-        .incompatibleDisableGlobTracking(incompatibleDisableGlobTracking)
         .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowFileType(incompatibleDisallowFileType)
@@ -296,6 +308,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
         .incompatibleDisallowSlashOperator(incompatibleDisallowSlashOperator)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
+        .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
         .incompatiblePackageNameIsAFunction(incompatiblePackageNameIsAFunction)
         .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)
         .incompatibleRemoveNativeHttpArchive(incompatibleRemoveNativeHttpArchive)

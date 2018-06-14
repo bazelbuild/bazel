@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
+import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -81,7 +82,8 @@ public final class AspectResolver {
                   "Evaluation of aspect %s on %s failed: %s",
                   depAspect.getAspect().getAspectClass().getName(),
                   dep.getLabel(),
-                  e.toString()));
+                  e.toString()),
+              new LabelCause(dep.getLabel(), e.getMessage()));
         }
 
         if (aspectValue == null) {

@@ -32,8 +32,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.ToolchainContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -42,17 +41,13 @@ import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 
 /** Contains toolchain-related information needed for a {@link RuleContext}. */
 @Immutable
 @ThreadSafe
-@SkylarkModule(
-  name = "ToolchainContext",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc = "Stores toolchains available to a given rule."
-)
-public class ToolchainContext {
+public class ToolchainContext implements ToolchainContextApi {
   public static ToolchainContext create(
       String targetDescription,
       PlatformInfo executionPlatform,
@@ -130,9 +125,8 @@ public class ToolchainContext {
   }
 
   /** Returns the {@link Label}s from the {@link NestedSet} that refer to toolchain dependencies. */
-  public Set<Label> filterToolchainLabels(Set<Label> labels) {
-    return labels
-        .stream()
+  public Set<Label> filterToolchainLabels(Iterable<Label> labels) {
+    return StreamSupport.stream(labels.spliterator(), false)
         .filter(label -> resolvedToolchainLabels.isToolchainDependency(label))
         .collect(ImmutableSet.toImmutableSet());
   }

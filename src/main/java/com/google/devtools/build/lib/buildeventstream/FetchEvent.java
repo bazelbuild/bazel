@@ -45,7 +45,7 @@ public final class FetchEvent implements BuildEvent, ExtendedEventHandler.Progre
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     BuildEventStreamProtos.Fetch fetch =
         BuildEventStreamProtos.Fetch.newBuilder().setSuccess(success).build();
     return GenericBuildEvent.protoChaining(this).setFetch(fetch).build();

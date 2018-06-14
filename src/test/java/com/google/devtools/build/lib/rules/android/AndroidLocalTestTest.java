@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.rules.java.JavaPrimaryClassProvider;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.List;
 import org.junit.Test;
@@ -148,6 +149,7 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
 
   @Test
   public void testNoBinaryResources() throws Exception {
+    useConfiguration("--noexperimental_android_local_test_binary_resources");
     scratch.file(
         "java/test/BUILD",
         "load('//java/bar:foo.bzl', 'extra_deps')",
@@ -159,6 +161,25 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
     Artifact resourceApk =
         ActionsTestUtil.getFirstArtifactEndingWith(runfilesArtifacts, "dummyTest.ap_");
     assertThat(resourceApk).isNull();
+  }
+
+  /**
+   * Tests that the Java package can be correctly inferred from the path to a target, not just the
+   * path to the corresponding BUILD file.
+   */
+  @Test
+  public void testInferredJavaPackageFromPackageName() throws Exception {
+    useConfiguration("--android_decouple_data_processing");
+
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "java-src/test",
+            "test/java/foo/bar",
+            "android_local_test(name ='test/java/foo/bar',",
+            "  manifest = 'AndroidManifest.xml')");
+
+    assertThat(target.getProvider(JavaPrimaryClassProvider.class).getPrimaryClass())
+        .isEqualTo("foo.bar");
   }
 
   @Override

@@ -62,12 +62,6 @@ public class BazelJavaProtoAspect extends JavaProtoAspect {
     }
 
     @Override
-    public void mutateProtoCompileAction(RuleContext ruleContext, Artifact sourceJar,
-        ProtoCompileActionBuilder actionBuilder) {
-      // Intentionally left empty.
-    }
-
-    @Override
     public ImmutableList<TransitiveInfoCollection> getRuntimes(RuleContext ruleContext) {
       return ImmutableList.of();
     }

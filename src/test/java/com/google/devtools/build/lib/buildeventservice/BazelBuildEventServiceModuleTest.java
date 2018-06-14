@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
@@ -112,6 +113,8 @@ public class BazelBuildEventServiceModuleTest {
     when(optionsProvider.getOptions(BuildEventServiceOptions.class)).thenReturn(besOptions);
     when(optionsProvider.getOptions(AuthAndTLSOptions.class))
         .thenReturn(Options.getDefaults(AuthAndTLSOptions.class));
+    when(optionsProvider.getOptions(BuildEventProtocolOptions.class))
+        .thenReturn(Options.getDefaults(BuildEventProtocolOptions.class));
   }
 
   @After
@@ -122,13 +125,13 @@ public class BazelBuildEventServiceModuleTest {
   @Test
   public void testReturnsBuildEventStreamerOptions() throws Exception {
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
-    Iterable<Class<? extends OptionsBase>> commandOptions = module.getCommandOptions(command);
+    Iterable<Class<? extends OptionsBase>> commandOptions = module.getCommonCommandOptions();
     assertThat(commandOptions).isNotEmpty();
     OptionsParser optionsParser = OptionsParser.newOptionsParser(commandOptions);
     optionsParser.parse(
-        "--experimental_build_event_text_file", "/tmp/foo.txt",
-        "--experimental_build_event_binary_file", "/tmp/foo.bin",
-        "--experimental_build_event_json_file", "/tmp/foo.json");
+        "--build_event_text_file", "/tmp/foo.txt",
+        "--build_event_binary_file", "/tmp/foo.bin",
+        "--build_event_json_file", "/tmp/foo.json");
     BuildEventStreamOptions options = optionsParser.getOptions(BuildEventStreamOptions.class);
     assertThat(options.getBuildEventTextFile()).isEqualTo("/tmp/foo.txt");
     assertThat(options.getBuildEventBinaryFile()).isEqualTo("/tmp/foo.bin");

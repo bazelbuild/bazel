@@ -24,8 +24,14 @@ import javax.annotation.Nullable;
  */
 public final class LabelValidator {
 
+  // Target names allow all 7-bit ASCII characters except
+  // 0-31 (control characters)
+  // 58 ':' (colon)
+  // 92 '\' (backslash) - directory separator (on Windows); may be allowed in the future
+  // 127 (delete)
   /** Matches punctuation in target names which requires quoting in a blaze query. */
-  private static final CharMatcher PUNCTUATION_REQUIRING_QUOTING = CharMatcher.anyOf("+,=~# ()$");
+  private static final CharMatcher PUNCTUATION_REQUIRING_QUOTING =
+      CharMatcher.anyOf(" \"#$&'()*+,;<=>?[]{|}~");
 
   /**
    * Matches punctuation in target names which doesn't require quoting in a blaze query.
@@ -33,16 +39,20 @@ public final class LabelValidator {
    * Note that . is also allowed in target names, and doesn't require quoting, but has restrictions
    * on its surrounding characters; see {@link #validateTargetName(String)}.
    */
-  private static final CharMatcher PUNCTUATION_NOT_REQUIRING_QUOTING = CharMatcher.anyOf("_@-");
+  private static final CharMatcher PUNCTUATION_NOT_REQUIRING_QUOTING =
+      CharMatcher.anyOf("!%-@^_`");
 
-  /**
-   * Matches characters allowed in package name.
-   */
+  // Package names allow all 7-bit ASCII characters except
+  // 0-31 (control characters)
+  // 58 ':' (colon) - target name separator
+  // 92 '\' (backslash) - directory separator (on Windows); may be allowed in the future
+  // 127 (delete)
+  /** Matches characters allowed in package name. */
   private static final CharMatcher ALLOWED_CHARACTERS_IN_PACKAGE_NAME =
       CharMatcher.inRange('0', '9')
           .or(CharMatcher.inRange('a', 'z'))
           .or(CharMatcher.inRange('A', 'Z'))
-          .or(CharMatcher.anyOf("/-._ $()"))
+          .or(CharMatcher.anyOf(" !\"#$%&'()*+,-./;<=>?@[]^_`{|}~"))
           .precomputed();
 
   /**
@@ -59,7 +69,8 @@ public final class LabelValidator {
 
   @VisibleForTesting
   static final String PACKAGE_NAME_ERROR =
-      "package names may contain only A-Z, a-z, 0-9, '/', '-', '.', ' ', '$', '(', ')' and '_'";
+      "package names may contain A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~'"
+          + " (most 127-bit ascii characters except 0-31, 127, ':', or '\\')";
 
   @VisibleForTesting
   static final String PACKAGE_NAME_DOT_ERROR =

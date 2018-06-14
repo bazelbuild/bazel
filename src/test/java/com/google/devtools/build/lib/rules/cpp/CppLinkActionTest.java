@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -179,8 +178,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     scratch.file("x/some-other-dir/qux.so");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:foo");
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/foo"
-        + OsUtils.executableExtension());
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/foo");
 
     List<String> arguments = linkAction.getLinkCommandLine().arguments();
 
@@ -206,7 +204,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:foo");
     CppLinkAction linkAction =
         (CppLinkAction)
-            getGeneratingAction(configuredTarget, "x/foo" + OsUtils.executableExtension());
+            getGeneratingAction(configuredTarget, "x/foo");
 
     Iterable<? extends VariableValue> runtimeLibrarySearchDirectories =
         linkAction
@@ -238,9 +236,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
     String cpu = CrosstoolConfigurationHelper.defaultCpu();
-    String extension = OsUtils.executableExtension();
     CppLinkAction linkAction =
-        (CppLinkAction) getGeneratingAction(configuredTarget, "x/a" + extension);
+        (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
     assertThat(artifactsToStrings(linkAction.getInputs()))
         .contains("bin _solib_" + cpu + "/libx_Sliba.ifso");
     assertThat(linkAction.getArguments())
@@ -251,8 +248,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
         .contains("bin _solib_" + cpu + "/libx_Sliba.so");
 
     configuredTarget = getConfiguredTarget("//x:b");
-    linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/b" + extension);
-    assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/b/x/a.pic.o");
+    linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/b");
+    assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/b/a.pic.o");
     runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
     assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
         .containsExactly("bin x/b");
@@ -281,7 +278,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 ImmutableList.<LibraryToLink>of(),
                 featureConfiguration)
             .build();
-    assertThat(linkAction.getEnvironment()).containsEntry("foo", "bar");
+    assertThat(linkAction.getIncompleteEnvironmentForTesting()).containsEntry("foo", "bar");
   }
 
   private enum NonStaticAttributes {
@@ -809,7 +806,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     for (LinkTargetType linkType : targetTypesToTest) {
 
       scratch.deleteFile("dummyRuleContext/BUILD");
-      Artifact output = scratchArtifact("output." + linkType.getExtension());
+      Artifact output = scratchArtifact("output." + linkType.getDefaultExtension());
 
       CppLinkActionBuilder builder =
           createLinkBuilder(

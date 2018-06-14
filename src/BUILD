@@ -173,7 +173,18 @@ py_binary(
         "//conditions:default": [
             "//src/tools/singlejar:singlejar",
         ],
-    }) + (select({
+    }) + ([":embedded_jdk"] if (suffix == "_with_jdk") else []),
+    visibility = [
+        "//src/test:__subpackages__",  # For integration tests
+    ],
+) for suffix in [
+    "",
+    "_with_jdk",
+]]
+
+filegroup(
+    name = "embedded_jdk",
+    srcs = select({
         "//src/conditions:darwin": [
             "@openjdk_macos//file",
         ],
@@ -186,14 +197,9 @@ py_binary(
         "//conditions:default": [
             "@openjdk_linux//file",
         ],
-    }) if (suffix == "_with_jdk") else []),
-    visibility = [
-        "//src/test:__subpackages__",  # For integration tests
-    ],
-) for suffix in [
-    "",
-    "_with_jdk",
-]]
+    }),
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
 
 [srcsfile(
     name = "embedded_tools" + suffix + "_params",
@@ -351,6 +357,7 @@ genrule(
     srcs = [
         "//src/main/protobuf:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:dist_jars",
+        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:dist_jars",
         "@googleapis//:dist_jars",
     ],
     outs = ["derived_java_srcs.zip"],

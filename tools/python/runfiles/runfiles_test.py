@@ -167,6 +167,93 @@ class RunfilesTest(unittest.TestCase):
     else:
       self.assertEqual(r.Rlocation("/foo"), "/foo")
 
+  def testPathsFromEnvvars(self):
+    # Both envvars have a valid value.
+    mf, dr = runfiles._PathsFrom("argv0", "mock1/MANIFEST", "mock2",
+                                 lambda path: path == "mock1/MANIFEST",
+                                 lambda path: path == "mock2")
+    self.assertEqual(mf, "mock1/MANIFEST")
+    self.assertEqual(dr, "mock2")
+
+    # RUNFILES_MANIFEST_FILE is invalid but RUNFILES_DIR is good and there's a
+    # runfiles manifest in the runfiles directory.
+    mf, dr = runfiles._PathsFrom("argv0", "mock1/MANIFEST", "mock2",
+                                 lambda path: path == "mock2/MANIFEST",
+                                 lambda path: path == "mock2")
+    self.assertEqual(mf, "mock2/MANIFEST")
+    self.assertEqual(dr, "mock2")
+
+    # RUNFILES_MANIFEST_FILE is invalid but RUNFILES_DIR is good, but there's no
+    # runfiles manifest in the runfiles directory.
+    mf, dr = runfiles._PathsFrom("argv0", "mock1/MANIFEST", "mock2",
+                                 lambda path: False,
+                                 lambda path: path == "mock2")
+    self.assertEqual(mf, "")
+    self.assertEqual(dr, "mock2")
+
+    # RUNFILES_DIR is invalid but RUNFILES_MANIFEST_FILE is good, and it is in
+    # a valid-looking runfiles directory.
+    mf, dr = runfiles._PathsFrom("argv0", "mock1/MANIFEST", "mock2",
+                                 lambda path: path == "mock1/MANIFEST",
+                                 lambda path: path == "mock1")
+    self.assertEqual(mf, "mock1/MANIFEST")
+    self.assertEqual(dr, "mock1")
+
+    # RUNFILES_DIR is invalid but RUNFILES_MANIFEST_FILE is good, but it is not
+    # in any valid-looking runfiles directory.
+    mf, dr = runfiles._PathsFrom("argv0", "mock1/MANIFEST", "mock2",
+                                 lambda path: path == "mock1/MANIFEST",
+                                 lambda path: False)
+    self.assertEqual(mf, "mock1/MANIFEST")
+    self.assertEqual(dr, "")
+
+    # Both envvars are invalid, but there's a manifest in a runfiles directory
+    # next to argv0, however there's no other content in the runfiles directory.
+    mf, dr = runfiles._PathsFrom("argv0", "mock1/MANIFEST", "mock2",
+                                 lambda path: path == "argv0.runfiles/MANIFEST",
+                                 lambda path: False)
+    self.assertEqual(mf, "argv0.runfiles/MANIFEST")
+    self.assertEqual(dr, "")
+
+    # Both envvars are invalid, but there's a manifest next to argv0. There's
+    # no runfiles tree anywhere.
+    mf, dr = runfiles._PathsFrom("argv0", "mock1/MANIFEST", "mock2",
+                                 lambda path: path == "argv0.runfiles_manifest",
+                                 lambda path: False)
+    self.assertEqual(mf, "argv0.runfiles_manifest")
+    self.assertEqual(dr, "")
+
+    # Both envvars are invalid, but there's a valid manifest next to argv0, and
+    # a valid runfiles directory (without a manifest in it).
+    mf, dr = runfiles._PathsFrom("argv0", "mock1/MANIFEST", "mock2",
+                                 lambda path: path == "argv0.runfiles_manifest",
+                                 lambda path: path == "argv0.runfiles")
+    self.assertEqual(mf, "argv0.runfiles_manifest")
+    self.assertEqual(dr, "argv0.runfiles")
+
+    # Both envvars are invalid, but there's a valid runfiles directory next to
+    # argv0, though no manifest in it.
+    mf, dr = runfiles._PathsFrom("argv0", "mock1/MANIFEST", "mock2",
+                                 lambda path: False,
+                                 lambda path: path == "argv0.runfiles")
+    self.assertEqual(mf, "")
+    self.assertEqual(dr, "argv0.runfiles")
+
+    # Both envvars are invalid, but there's a valid runfiles directory next to
+    # argv0 with a valid manifest in it.
+    mf, dr = runfiles._PathsFrom("argv0", "mock1/MANIFEST", "mock2",
+                                 lambda path: path == "argv0.runfiles/MANIFEST",
+                                 lambda path: path == "argv0.runfiles")
+    self.assertEqual(mf, "argv0.runfiles/MANIFEST")
+    self.assertEqual(dr, "argv0.runfiles")
+
+    # Both envvars are invalid and there's no runfiles directory or manifest
+    # next to the argv0.
+    mf, dr = runfiles._PathsFrom("argv0", "mock1/MANIFEST", "mock2",
+                                 lambda path: False, lambda path: False)
+    self.assertEqual(mf, "")
+    self.assertEqual(dr, "")
+
   @staticmethod
   def IsWindows():
     return os.name == "nt"

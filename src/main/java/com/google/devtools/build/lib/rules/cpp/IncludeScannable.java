@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -106,6 +107,13 @@ public interface IncludeScannable {
    * should just map to null.
    */
   Map<Artifact, Artifact> getLegalGeneratedScannerFileMap();
+
+  /**
+   * Returns a set of headers that are modular, i.e. are going to be read as a serialized AST rather
+   * than from the textual source file. Depending on the implementation, it is likely that further
+   * input discovery through such headers is unnecessary as the serialized AST is self-contained.
+   */
+  Set<Artifact> getModularHeaders();
 
   /**
    * Returns an artifact that is the executable for {@link ExtractInclusionAction}.

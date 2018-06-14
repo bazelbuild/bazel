@@ -17,23 +17,24 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidResourcesInfoApi;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 
 /** A provider that supplies ResourceContainers from its transitive closure. */
-@SkylarkModule(
-    name = "AndroidResourcesInfo",
-    doc = "Android resources provided by a rule",
-    category = SkylarkModuleCategory.PROVIDER)
 @Immutable
-public class AndroidResourcesInfo extends NativeInfo {
+public class AndroidResourcesInfo extends NativeInfo implements AndroidResourcesInfoApi {
 
   private static final String SKYLARK_NAME = "AndroidResourcesInfo";
-  public static final NativeProvider<AndroidResourcesInfo> PROVIDER =
-      new NativeProvider<AndroidResourcesInfo>(AndroidResourcesInfo.class, SKYLARK_NAME) {};
+
+  /**
+   * Provider instance for {@link AndroidResourcesInfo}.
+   */
+  public static final AndroidResourcesInfoProvider PROVIDER =
+      new AndroidResourcesInfoProvider();
 
   /*
    * Local information about the target that produced this provider, for tooling. These values will
@@ -97,7 +98,6 @@ public class AndroidResourcesInfo extends NativeInfo {
   }
 
   /** Returns the label that is associated with this piece of information. */
-  @SkylarkCallable(name = "label", doc = "Returns the label for this target.", structField = true)
   public Label getLabel() {
     return label;
   }
@@ -106,24 +106,17 @@ public class AndroidResourcesInfo extends NativeInfo {
     return manifest;
   }
 
+  @Override
   public Artifact getRTxt() {
     return rTxt;
   }
 
   /** Returns the transitive ResourceContainers for the label. */
-  @SkylarkCallable(
-      name = "transitive_android_resources",
-      doc = "Returns the transitive android resources for the label.",
-      structField = true)
   public NestedSet<ValidatedAndroidData> getTransitiveAndroidResources() {
     return transitiveAndroidResources;
   }
 
   /** Returns the immediate ResourceContainers for the label. */
-  @SkylarkCallable(
-      name = "direct_android_resources",
-      doc = "Returns the immediate android resources for the label.",
-      structField = true)
   public NestedSet<ValidatedAndroidData> getDirectAndroidResources() {
     return directAndroidResources;
   }
@@ -160,5 +153,20 @@ public class AndroidResourcesInfo extends NativeInfo {
 
   public NestedSet<Artifact> getTransitiveRTxt() {
     return transitiveRTxt;
+  }
+
+  /** Provider for {@link AndroidResourcesInfo}. */
+  public static class AndroidResourcesInfoProvider extends BuiltinProvider<AndroidResourcesInfo>
+      implements AndroidResourcesInfoApiProvider {
+
+    private AndroidResourcesInfoProvider() {
+      super(SKYLARK_NAME, AndroidResourcesInfo.class);
+    }
+
+    @Override
+    public AndroidResourcesInfo createInfo(SkylarkDict<?, ?> kwargs, Location loc)
+        throws EvalException {
+      return throwUnsupportedConstructorException(loc);
+    }
   }
 }

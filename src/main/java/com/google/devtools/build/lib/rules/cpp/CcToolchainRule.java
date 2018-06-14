@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
@@ -40,6 +41,11 @@ import com.google.devtools.build.lib.syntax.Type;
  * Rule definition for compiler definition.
  */
 public final class CcToolchainRule implements RuleDefinition {
+
+  public static final String LIBC_TOP_ATTR = ":libc_top";
+  public static final String FDO_OPTIMIZE_ATTR = ":fdo_optimize";
+  public static final String FDO_PROFILE_ATTR = ":fdo_profile";
+
   /**
    * Determines if the given target is a cc_toolchain or one of its subclasses. New subclasses
    * should be added to this method.
@@ -49,23 +55,51 @@ public final class CcToolchainRule implements RuleDefinition {
     return ruleClass.endsWith("cc_toolchain");
   }
 
-  private static final LabelLateBoundDefault<?> LIBC_TOP =
+  private static Label getLabel(AttributeMap attributes, String attrName, Label defaultValue) {
+    if (attributes.has(attrName, LABEL)) {
+      Label value = attributes.get(attrName, LABEL);
+      if (value != null) {
+        return value;
+      }
+    }
+    return defaultValue;
+  }
+
+  private static final LabelLateBoundDefault<?> LIBC_TOP_VALUE =
       LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
           null,
-          (rule, attributes, cppConfig) -> cppConfig.getSysrootLabel());
+          (rule, attributes, cppConfig) ->
+              // This avoids analyzing the label from the CROSSTOOL if the attribute is set.
+              getLabel(attributes, "libc_top", cppConfig.getSysrootLabel()));
 
-  private static final LabelLateBoundDefault<?> FDO_OPTIMIZE_LABEL =
+  private static final LabelLateBoundDefault<?> FDO_OPTIMIZE_VALUE =
       LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
           null,
           (rule, attributes, cppConfig) -> cppConfig.getFdoOptimizeLabel());
 
-  private static final LabelLateBoundDefault<?> FDO_PROFILE_LABEL =
+  private static final LabelLateBoundDefault<?> FDO_PROFILE_VALUE =
       LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
           null,
           (rule, attributes, cppConfig) -> cppConfig.getFdoProfileLabel());
+
+  private static final LabelLateBoundDefault<?> FDO_PREFETCH_HINTS =
+      LabelLateBoundDefault.fromTargetConfiguration(
+      CppConfiguration.class,
+      null,
+      (rule, attributes, cppConfig) -> cppConfig.getFdoPrefetchHintsLabel());
+
+  /**
+   * Returns true if zipper should be loaded. We load the zipper executable if FDO optimization is
+   * enabled through --fdo_optimize or --fdo_profile
+   */
+  private static boolean shouldIncludeZipperInToolchain(CppConfiguration cppConfiguration) {
+    return cppConfiguration.getFdoOptimizeLabel() != null
+        || cppConfiguration.getFdoProfileLabel() != null
+        || cppConfiguration.getFdoPath() != null;
+  }
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -77,7 +111,6 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("output_licenses", LICENSE))
         .add(attr("cpu", STRING).mandatory())
         .add(attr("compiler", STRING))
-        .add(attr("libc", STRING))
         .add(
             attr("all_files", LABEL)
                 .legacyAllowAnyFileType()
@@ -137,22 +170,33 @@ public final class CcToolchainRule implements RuleDefinition {
                     LabelLateBoundDefault.fromTargetConfiguration(
                         CppConfiguration.class,
                         null,
-                        // TODO(b/69547565): Remove call to shouldIncludeZipperInToolchain
                         (rule, attributes, cppConfig) ->
-                            cppConfig.shouldIncludeZipperInToolchain() ? zipper : null)))
-        .add(attr(":libc_top", LABEL).value(LIBC_TOP))
-        .add(attr(":fdo_optimize", LABEL).singleArtifact().value(FDO_OPTIMIZE_LABEL))
+                            shouldIncludeZipperInToolchain(cppConfig) ? zipper : null)))
+
+        // TODO(b/78578234): Make this the default and remove the late-bound versions.
+        .add(attr("libc_top", LABEL).allowedFileTypes())
+        .add(attr(LIBC_TOP_ATTR, LABEL).value(LIBC_TOP_VALUE))
+        .add(attr(FDO_OPTIMIZE_ATTR, LABEL).singleArtifact().value(FDO_OPTIMIZE_VALUE))
         .add(
-            attr(":fdo_profile", LABEL)
+            attr(FDO_PROFILE_ATTR, LABEL)
                 .allowedRuleClasses("fdo_profile")
                 .mandatoryProviders(ImmutableList.of(FdoProfileProvider.PROVIDER.id()))
-                .value(FDO_PROFILE_LABEL))
+                .value(FDO_PROFILE_VALUE))
+        .add(
+            attr(":fdo_prefetch_hints", LABEL)
+                .allowedRuleClasses("fdo_prefetch_hints")
+                .mandatoryProviders(ImmutableList.of(FdoPrefetchHintsProvider.PROVIDER.id()))
+                .value(FDO_PREFETCH_HINTS))
         .add(
             attr(TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, LABEL)
                 .cfg(LipoContextCollectorTransition.INSTANCE)
                 .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
                 .skipPrereqValidatorCheck())
         .add(attr("proto", Type.STRING))
+        .add(
+            attr("toolchain_identifier", Type.STRING)
+                .nonconfigurable("Used in configuration creation")
+                .value(""))
         .build();
   }
 

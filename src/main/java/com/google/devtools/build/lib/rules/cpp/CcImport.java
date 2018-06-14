@@ -119,53 +119,53 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     // Now we are going to have some platform dependent behaviors
     boolean targetWindows = featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS);
 
-    Iterable<LibraryToLink> dynamicLibraryList = null;
-    Iterable<LibraryToLink> executionDynamicLibraryList = null;
+    Iterable<LibraryToLink> dynamicLibraryForLinkingList = null;
+    Iterable<LibraryToLink> dynamicLibrariesForRuntimeList = null;
     if (sharedLibrary != null) {
       if (targetWindows) {
-        executionDynamicLibraryList =
+        dynamicLibrariesForRuntimeList =
             ImmutableList.of(
                 LinkerInputs.opaqueLibraryToLink(
                     sharedLibrary, ArtifactCategory.DYNAMIC_LIBRARY, libraryIdentifier));
       } else {
-        executionDynamicLibraryList =
-                ImmutableList.of(
-                    LinkerInputs.solibLibraryToLink(
-                        common.getDynamicLibrarySymlink(sharedLibrary, true),
-                        sharedLibrary,
-                        libraryIdentifier));
+        dynamicLibrariesForRuntimeList =
+            ImmutableList.of(
+                LinkerInputs.solibLibraryToLink(
+                    common.getDynamicLibrarySymlink(sharedLibrary, true),
+                    sharedLibrary,
+                    libraryIdentifier));
       }
-      linkingHelper.addExecutionDynamicLibraries(executionDynamicLibraryList);
+      linkingHelper.addDynamicLibrariesForRuntime(dynamicLibrariesForRuntimeList);
     }
 
     if (interfaceLibrary != null) {
       if (targetWindows) {
-        dynamicLibraryList =
+        dynamicLibraryForLinkingList =
             ImmutableList.of(
                 LinkerInputs.opaqueLibraryToLink(
                     interfaceLibrary, ArtifactCategory.INTERFACE_LIBRARY, libraryIdentifier));
       } else {
-        dynamicLibraryList =
-                ImmutableList.of(
-                    LinkerInputs.solibLibraryToLink(
-                        common.getDynamicLibrarySymlink(interfaceLibrary, true),
-                        interfaceLibrary,
-                        libraryIdentifier));
+        dynamicLibraryForLinkingList =
+            ImmutableList.of(
+                LinkerInputs.solibLibraryToLink(
+                    common.getDynamicLibrarySymlink(interfaceLibrary, true),
+                    interfaceLibrary,
+                    libraryIdentifier));
       }
     } else {
       // If interface_library is not specified and we are not building for Windows, then the dynamic
       // library required at linking time is the same as the one required at execution time.
       if (!targetWindows) {
-        dynamicLibraryList = executionDynamicLibraryList;
-      } else if (staticLibrary == null) {
+        dynamicLibraryForLinkingList = dynamicLibrariesForRuntimeList;
+      } else if (sharedLibrary != null) {
         ruleContext.ruleError(
           "'interface library' must be specified when using cc_import for shared library on"
         + " Windows");
       }
     }
 
-    if (dynamicLibraryList != null) {
-      linkingHelper.addDynamicLibraries(dynamicLibraryList);
+    if (dynamicLibraryForLinkingList != null) {
+      linkingHelper.addDynamicLibrariesForLinking(dynamicLibraryForLinkingList);
     }
 
     LinkingInfo linkingInfo =
