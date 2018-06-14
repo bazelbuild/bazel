@@ -157,7 +157,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
       // library required at linking time is the same as the one required at execution time.
       if (!targetWindows) {
         dynamicLibraryForLinkingList = dynamicLibrariesForRuntimeList;
-      } else if (staticLibrary == null) {
+      } else if (sharedLibrary != null) {
         ruleContext.ruleError(
           "'interface library' must be specified when using cc_import for shared library on"
         + " Windows");
