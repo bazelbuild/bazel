@@ -215,9 +215,15 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         ImmutableMap.<String, String>of(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
-    skyframeExecutor.injectExtraPrecomputedValues(ImmutableList.of(PrecomputedValue.injected(
-        RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
-        ImmutableMap.<RepositoryName, PathFragment>of())));
+    skyframeExecutor.injectExtraPrecomputedValues(
+        ImmutableList.of(
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
+                ImmutableMap.<RepositoryName, PathFragment>of()),
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
+
     packageManager = skyframeExecutor.getPackageManager();
     buildView = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
 

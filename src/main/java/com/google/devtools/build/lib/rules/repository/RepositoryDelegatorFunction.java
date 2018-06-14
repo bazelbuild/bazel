@@ -56,6 +56,12 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public static final Precomputed<Map<RepositoryName, PathFragment>> REPOSITORY_OVERRIDES =
       new Precomputed<>(PrecomputedValue.Key.create("repository_overrides"));
 
+  public static final Precomputed<String> DEPENDENCY_FOR_UNCONDITIONAL_FETCHING =
+      new Precomputed<>(
+          PrecomputedValue.Key.create("dependency_for_unconditional_repository_fetching"));
+
+  public static final String DONT_FETCH_UNCONDITIONALLY = "";
+
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
   private static final int MARKER_FILE_VERSION = 3;
@@ -104,6 +110,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       throws SkyFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
     Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    String fetchUnconditionally = DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.get(env);
     if (env.valuesMissing()) {
       return null;
     }
@@ -170,9 +180,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    if (markerHash != null && repoRoot.exists()) {
-      // Now that we know that it exists, we can declare a Skyframe dependency on the repository
-      // root.
+    if (DONT_FETCH_UNCONDITIONALLY.equals(fetchUnconditionally)
+        && markerHash != null
+        && repoRoot.exists()) {
+      // Now that we know that it exists and that we should not fetch unconditionally, we can
+      // declare a Skyframe dependency on the repository root.
       RepositoryFunction.getRepositoryDirectory(repoRoot, env);
       if (env.valuesMissing()) {
         return null;

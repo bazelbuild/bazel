@@ -167,6 +167,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     PrecomputedValue.SKYLARK_SEMANTICS.set(differencer, SkylarkSemantics.DEFAULT_SEMANTICS);
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
         differencer, ImmutableMap.<RepositoryName, PathFragment>of());
+    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(
+        differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
   }
 
   protected PackageLookupValue lookupPackage(String packageName) throws InterruptedException {

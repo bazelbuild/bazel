@@ -20,6 +20,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 test_result_recorded() {
+  mkdir result_recorded && cd result_recorded
   rm -rf fetchrepo
   mkdir fetchrepo
   cd fetchrepo
@@ -53,6 +54,9 @@ EOF
   bazel clean --expunge
   bazel build --experimental_repository_resolved_file=../repo.bzl @ext//... \
       || fail "Expected success"
+  # some of the file systems on our test machines are really slow to
+  # notice the creation of a file---even after the call to sync(1).
+  bazel shutdown; sync; sleep 10
 
   # Verify that bazel can read the generated repo.bzl file and that it contains
   # the expected information
@@ -87,6 +91,7 @@ EOF
 }
 
 test_sync_calls_all() {
+  mkdir sync_calls_all && cd sync_calls_all
   rm -rf fetchrepo
   mkdir fetchrepo
   rm -f repo.bzl
@@ -118,6 +123,9 @@ EOF
 
   bazel clean --expunge
   bazel sync --experimental_repository_resolved_file=../repo.bzl
+  # some of the file systems on our test machines are really slow to
+  # notice the creation of a file---even after the call to sync(1).
+  bazel shutdown; sync; sleep 10
 
   cd ..
   echo; cat repo.bzl; echo
@@ -136,6 +144,61 @@ names = [entry["original_attributes"]["name"] for entry in resolved]
 ]
 EOF
   bazel build :a :b :c :d || fail "Expected all 4 repositories to be present"
+}
+
+test_sync_call_invalidates() {
+  mkdir sync_call_invalidates && cd sync_call_invalidates
+  rm -rf fetchrepo
+  mkdir fetchrepo
+  rm -f repo.bzl
+  touch BUILD
+  cat > rule.bzl <<'EOF'
+def _rule_impl(ctx):
+  ctx.file("BUILD", """
+genrule(
+  name = "it",
+  outs = ["it.txt"],
+  cmd = "echo hello world > $@",
+)
+""")
+  ctx.file("WORKSPACE", "")
+
+trivial_rule = repository_rule(
+  implementation = _rule_impl,
+  attrs = {},
+)
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "trivial_rule")
+
+trivial_rule(name = "a")
+trivial_rule(name = "b")
+EOF
+
+  bazel build @a//... @b//...
+  echo; echo sync run; echo
+  bazel sync --experimental_repository_resolved_file=../repo.bzl
+  # some of the file systems on our test machines are really slow to
+  # notice the creation of a file---even after the call to sync(1).
+  bazel shutdown; sync; sleep 10
+
+  cd ..
+  echo; cat repo.bzl; echo
+  touch WORKSPACE
+  cat > BUILD <<'EOF'
+load("//:repo.bzl", "resolved")
+
+names = [entry["original_attributes"]["name"] for entry in resolved]
+
+[
+  genrule(
+   name = name,
+   outs = [ "%s.txt" % (name,) ],
+   cmd = "echo %s > $@" % (name,),
+  ) for name in names
+]
+EOF
+  bazel build :a :b || fail "Expected both repositories to be present"
 }
 
 run_suite "workspace_resolved_test tests"

@@ -137,6 +137,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         ImmutableMap.<RepositoryName, PathFragment>builder()
             .put(RepositoryName.createFromValidStrippedName("foo"), overrideDirectory.asFragment())
             .build());
+    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(
+        differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.SKYLARK_SEMANTICS.set(differencer, SkylarkSemantics.DEFAULT_SEMANTICS);
   }
