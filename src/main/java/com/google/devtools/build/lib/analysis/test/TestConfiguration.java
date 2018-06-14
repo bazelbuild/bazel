@@ -86,6 +86,20 @@ public class TestConfiguration extends Fragment {
     public int testResultExpiration;
 
     @Option(
+      name = "trim_test_configuration",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+      },
+      help = "When enabled, test-related options will be cleared below the top level of the build. "
+          + "When this flag is active, tests cannot be built as dependencies of non-test rules, "
+          + "but changes to test-related options will not cause non-test rules to be re-analyzed."
+    )
+    public boolean trimTestConfiguration;
+
+    @Option(
       name = "test_arg",
       allowMultiple = true,
       defaultValue = "",
@@ -193,6 +207,9 @@ public class TestConfiguration extends Fragment {
     @Override
     public Fragment create(BuildOptions buildOptions)
         throws InvalidConfigurationException {
+      if (!buildOptions.contains(TestOptions.class)) {
+        return null;
+      }
       return new TestConfiguration(buildOptions.get(TestOptions.class));
     }
 
