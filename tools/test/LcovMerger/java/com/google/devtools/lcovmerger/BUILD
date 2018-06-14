@@ -6,6 +6,22 @@ package(
 
 licenses(["notice"])  # Apache 2.0
 
+java_binary(
+    name = "all_lcov_merger_tools",
+    visibility = ["//visibility:public"],
+    runtime_deps = [":lcov_merger_lib"],
+)
+
+java_library(
+    name = "lcov_merger_lib",
+    srcs = glob(["*.java"]),
+    deps = [
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
 java_library(
     name = "BranchCoverage",
     srcs = ["BranchCoverage.java"],
@@ -83,24 +99,17 @@ java_library(
     ],
 )
 
-java_binary(
-    name = "Main",
-    srcs = ["Main.java"],
-    main_class = "com.google.devtools.lcovmerger.Main",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":Coverage",
-        ":LcovConstants",
-        ":LcovParser",
-        ":LcovPrinter",
-        ":MainLibrary",
-        ":SourceFileCoverage",
-        "//third_party:guava",
-    ],
-)
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        ":all_lcov_merger_tools_deploy.jar",
+    ],
     visibility = ["//visibility:public"],
 )

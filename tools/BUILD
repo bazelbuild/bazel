@@ -67,12 +67,11 @@ filegroup(
         "//tools/python:embedded_tools",
         "//tools/runfiles:embedded_tools",
         "//tools/test:srcs",
-        "//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:srcs",
+        "//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:embedded_tools",
         "//tools/osx/crosstool:srcs",
         "//tools/osx:srcs",
         "//tools/sh:embedded_tools",
         "//tools/whitelists:srcs",
         "//tools/zip:srcs",
-        "//third_party:srcs",
     ],
 )
