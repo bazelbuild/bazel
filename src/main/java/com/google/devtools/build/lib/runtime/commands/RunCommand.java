@@ -100,9 +100,7 @@ import javax.annotation.Nullable;
          help = "resource:run.txt",
          allowResidue = true,
          hasSensitiveResidue = true,
-         binaryStdOut = true,
-         completion = "label-bin",
-         binaryStdErr = true)
+         completion = "label-bin")
 public class RunCommand implements BlazeCommand  {
   /** Options for the "run" command. */
   public static class RunOptions extends OptionsBase {
