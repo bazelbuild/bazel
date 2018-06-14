@@ -109,7 +109,7 @@ This method executes Bazel and all of its build actions directly on the local
 machine and is a reliable way to confirm whether your build will succeed when
 executed remotely.
 
-However, with this method, locally installed tools, binaries,and data may leak
+However, with this method, locally installed tools, binaries, and data may leak
 into into your build, especially if it uses [configure-style WORKSPACE rules](https://docs.bazel.build/versions/master/remote-execution-rules.html#managing-configure-style-workspace-rules).
 Such leaks will cause problems with remote execution; to detect them, [troubleshoot in a Docker container](#troubleshooting-in-a-docker-container)
 in addition to troubleshooting natively.
