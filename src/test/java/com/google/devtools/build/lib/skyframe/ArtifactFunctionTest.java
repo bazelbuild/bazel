@@ -426,8 +426,12 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
-      return new ActionExecutionValue(
-          artifactData, treeArtifactData, additionalOutputData, /*outputSymlinks=*/ null);
+      return ActionExecutionValue.create(
+          artifactData,
+          treeArtifactData,
+          additionalOutputData,
+          /*outputSymlinks=*/ null,
+          /*notifyOnActionCacheHitAction=*/ false);
     }
 
     @Override
