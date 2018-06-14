@@ -318,6 +318,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<String> toolchains,
       String doc,
       SkylarkList<?> providesArg,
+      Boolean executionPlatformConstraintsAllowed,
+      SkylarkList<?> execCompatibleWith,
       FuncallExpression ast,
       Environment funcallEnv)
       throws EvalException, ConversionException {
@@ -399,6 +401,16 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       builder.advertiseSkylarkProvider(skylarkProvider);
     }
 
+    if (!execCompatibleWith.isEmpty()) {
+      builder.addExecutionPlatformConstraints(
+          collectConstraintLabels(
+              execCompatibleWith.getContents(String.class, "exec_compatile_with"),
+              ast.getLocation()));
+    }
+    if (executionPlatformConstraintsAllowed) {
+      builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET);
+    }
+
     return new SkylarkRuleFunction(builder, type, attributes, ast.getLocation());
   }
 
@@ -443,6 +455,22 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     return requiredToolchains.build();
+  }
+
+  private static ImmutableList<Label> collectConstraintLabels(
+      Iterable<String> rawLabels, Location loc) throws EvalException {
+    ImmutableList.Builder<Label> constraintLabels = new ImmutableList.Builder<>();
+    for (String rawLabel : rawLabels) {
+      try {
+        Label constraintLabel = Label.parseAbsolute(rawLabel);
+        constraintLabels.add(constraintLabel);
+      } catch (LabelSyntaxException e) {
+        throw new EvalException(
+            loc, String.format("Unable to parse constraint %s: %s", rawLabel, e.getMessage()), e);
+      }
+    }
+
+    return constraintLabels.build();
   }
 
   @Override
@@ -657,7 +685,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         addAttribute(definitionLocation, builder,
             descriptor.build(attribute.getFirst()));
       }
-      this.ruleClass = builder.build(ruleClassName, skylarkLabel + "%" + ruleClassName);
+      try {
+        this.ruleClass = builder.build(ruleClassName, skylarkLabel + "%" + ruleClassName);
+      } catch (IllegalArgumentException | IllegalStateException ex) {
+        throw new EvalException(location, ex);
+      }
 
       this.builder = null;
       this.attributes = null;
