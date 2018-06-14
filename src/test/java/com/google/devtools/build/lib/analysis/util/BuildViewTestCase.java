@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -180,7 +179,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected AnalysisMock analysisMock;
   protected ConfiguredRuleClassProvider ruleClassProvider;
-  protected BuildView view;
+  protected BuildViewForTesting view;
 
   protected SequencedSkyframeExecutor skyframeExecutor;
 
@@ -512,7 +511,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.setupDefaultPackage(defaultsPackageContent);
     skyframeExecutor.handleConfiguredTargetChange();
 
-    view = new BuildView(directories, ruleClassProvider, skyframeExecutor, null);
+    view = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
     view.setConfigurationsForTesting(event -> {}, masterConfig);
 
     view.setArtifactRoots(new PackageRootsNoSymlinkCreation(Root.fromPath(rootDirectory)));
