@@ -45,6 +45,7 @@ public final class LabelValidator {
   // Package names allow all 7-bit ASCII characters except
   // 0-31 (control characters)
   // 58 ':' (colon) - target name separator
+  // 64 '@' (at-sign) - workspace name prefix
   // 92 '\' (backslash) - directory separator (on Windows); may be allowed in the future
   // 127 (delete)
   /** Matches characters allowed in package name. */
@@ -52,7 +53,7 @@ public final class LabelValidator {
       CharMatcher.inRange('0', '9')
           .or(CharMatcher.inRange('a', 'z'))
           .or(CharMatcher.inRange('A', 'Z'))
-          .or(CharMatcher.anyOf(" !\"#$%&'()*+,-./;<=>?@[]^_`{|}~"))
+          .or(CharMatcher.anyOf(" !\"#$%&'()*+,-./;<=>?[]^_`{|}~"))
           .precomputed();
 
   /**
@@ -70,7 +71,7 @@ public final class LabelValidator {
   @VisibleForTesting
   static final String PACKAGE_NAME_ERROR =
       "package names may contain A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~'"
-          + " (most 127-bit ascii characters except 0-31, 127, ':', or '\\')";
+          + " (most 127-bit ascii characters except 0-31, 127, ':', '@', or '\\')";
 
   @VisibleForTesting
   static final String PACKAGE_NAME_DOT_ERROR =
