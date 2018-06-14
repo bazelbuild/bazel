@@ -408,15 +408,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
   )
   public int connectTimeoutSecs;
 
+  @Deprecated
   @Option(
-    name = "expand_configs_in_place",
-    defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION, OptionEffectTag.CHANGES_INPUTS},
-    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-    help =
-        "Changes the expansion of --config flags to be done in-place, as opposed to in a fixed "
-            + "point expansion between normal rc options and command-line specified options."
-  )
+      name = "expand_configs_in_place",
+      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      deprecationWarning = "This option is now a no-op and will soon be deleted.",
+      help =
+          "Changed the expansion of --config flags to be done in-place, as opposed to in a fixed "
+              + "point expansion between normal rc options and command-line specified options.")
   public boolean expandConfigsInPlace;
 }
