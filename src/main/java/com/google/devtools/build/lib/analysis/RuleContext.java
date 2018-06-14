@@ -1423,6 +1423,7 @@ public final class RuleContext extends TargetContext
   /**
    * Builder class for a RuleContext.
    */
+  @VisibleForTesting
   public static final class Builder implements RuleErrorConsumer  {
     private final AnalysisEnvironment env;
     private final Rule rule;
@@ -1441,7 +1442,8 @@ public final class RuleContext extends TargetContext
     private ToolchainContext toolchainContext;
     private ConstraintSemantics constraintSemantics;
 
-    Builder(
+    @VisibleForTesting
+    public Builder(
         AnalysisEnvironment env,
         Rule rule,
         ImmutableList<Aspect> aspects,
@@ -1461,7 +1463,8 @@ public final class RuleContext extends TargetContext
       reporter = new ErrorReporter(env, rule, getRuleClassNameForLogging());
     }
 
-    RuleContext build() {
+    @VisibleForTesting
+    public RuleContext build() {
       Preconditions.checkNotNull(prerequisiteMap);
       Preconditions.checkNotNull(configConditions);
       Preconditions.checkNotNull(visibility);
@@ -1488,7 +1491,7 @@ public final class RuleContext extends TargetContext
       rule.getRuleClassObject().checkAttributesNonEmpty(rule, reporter, attributes);
     }
 
-    Builder setVisibility(NestedSet<PackageGroupContents> visibility) {
+    public Builder setVisibility(NestedSet<PackageGroupContents> visibility) {
       this.visibility = visibility;
       return this;
     }
@@ -1497,7 +1500,7 @@ public final class RuleContext extends TargetContext
      * Sets the prerequisites and checks their visibility. It also generates appropriate error or
      * warning messages and sets the error flag as appropriate.
      */
-    Builder setPrerequisites(
+    public Builder setPrerequisites(
         OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap) {
       this.prerequisiteMap = Preconditions.checkNotNull(prerequisiteMap);
       return this;
@@ -1506,7 +1509,7 @@ public final class RuleContext extends TargetContext
     /**
      * Adds attributes which are defined by an Aspect (and not by RuleClass).
      */
-    Builder setAspectAttributes(Map<String, Attribute> aspectAttributes) {
+    public Builder setAspectAttributes(Map<String, Attribute> aspectAttributes) {
       this.aspectAttributes = ImmutableMap.copyOf(aspectAttributes);
       return this;
     }
@@ -1515,7 +1518,8 @@ public final class RuleContext extends TargetContext
      * Sets the configuration conditions needed to determine which paths to follow for this
      * rule's configurable attributes.
      */
-    Builder setConfigConditions(ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
+    public Builder setConfigConditions(
+        ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
       this.configConditions = Preconditions.checkNotNull(configConditions);
       return this;
     }
@@ -1523,7 +1527,7 @@ public final class RuleContext extends TargetContext
     /**
      * Sets the fragment that can be legally accessed even when not explicitly declared.
      */
-    Builder setUniversalFragments(
+    public Builder setUniversalFragments(
         ImmutableList<Class<? extends BuildConfiguration.Fragment>> fragments) {
       // TODO(bazel-team): Add this directly to ConfigurationFragmentPolicy, so we
       // don't need separate logic specifically for checking this fragment. The challenge is
@@ -1534,12 +1538,12 @@ public final class RuleContext extends TargetContext
     }
 
     /** Sets the {@link ToolchainContext} used to access toolchains used by this rule. */
-    Builder setToolchainContext(ToolchainContext toolchainContext) {
+    public Builder setToolchainContext(ToolchainContext toolchainContext) {
       this.toolchainContext = toolchainContext;
       return this;
     }
 
-    Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
+    public Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
       this.constraintSemantics = constraintSemantics;
       return this;
     }

@@ -130,7 +130,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected BuildOptions buildOptions;
   private OptionsParser optionsParser;
   protected PackageManager packageManager;
-  private BuildView buildView;
+  private BuildViewForTesting buildView;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   // Note that these configurations are virtual (they use only VFS)
@@ -219,7 +219,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
         ImmutableMap.<RepositoryName, PathFragment>of())));
     packageManager = skyframeExecutor.getPackageManager();
-    buildView = new BuildView(directories, ruleClassProvider, skyframeExecutor, null);
+    buildView = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
 
   }
 
@@ -496,7 +496,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return analysisResult.getError();
   }
 
-  protected BuildView getView() {
+  protected BuildViewForTesting getView() {
     return buildView;
   }
 
