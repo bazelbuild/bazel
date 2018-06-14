@@ -24,12 +24,6 @@ public class SerializationConstants {
   /** Number of threads in deserialization pools. */
   public static final int DESERIALIZATION_POOL_SIZE = 2 * ResourceUsage.getAvailableProcessors();
 
-  /**
-   * If true, we attempt to to serialize ConfiguredTargetValue in testing.
-   */
-  public static final boolean VALIDATE_CONFIGURED_TARGET_VALUE =
-      System.getenv("DONT_VALIDATE_CONFIGURED_TARGET_VALUE") == null;
-
   private static final boolean IN_TEST = System.getenv("TEST_TMPDIR") != null;
   private static final boolean CHECK_SERIALIZATION =
       System.getenv("DONT_SANITY_CHECK_SERIALIZATION") == null;
