@@ -370,7 +370,7 @@ public class ExecutionTool {
       env.getEventBus()
           .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
 
-      try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "Show results")) {
+      try (SilentCloseable c = Profiler.instance().profile("Show results")) {
         buildResult.setSuccessfulTargets(
             determineSuccessfulTargets(configuredTargets, builtTargets));
         buildResult.setSuccessfulAspects(determineSuccessfulAspects(aspects, builtAspects));
@@ -380,7 +380,7 @@ public class ExecutionTool {
             analysisResult.getTargetsToSkip(), analysisResult.getAspects());
       }
 
-      try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "Show artifacts")) {
+      try (SilentCloseable c = Profiler.instance().profile("Show artifacts")) {
         if (request.getBuildOptions().showArtifacts) {
           BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
           buildResultPrinter.showArtifacts(
@@ -445,8 +445,7 @@ public class ExecutionTool {
    * Prepare for a local output build.
    */
   private void startLocalOutputBuild() throws ExecutorInitException {
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.INFO, "Starting local output build")) {
+    try (SilentCloseable c = Profiler.instance().profile("Starting local output build")) {
       Path outputPath = env.getDirectories().getOutputPath(env.getWorkspaceName());
       Path localOutputPath = env.getDirectories().getLocalOutputPath();
 
