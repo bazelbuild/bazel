@@ -238,18 +238,14 @@ public class BlazeCommandDispatcher {
 
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     BlazeOptionHandler optionHandler =
-        BlazeOptionHandler.getHandler(
+        new BlazeOptionHandler(
             runtime,
             workspace,
             command,
             commandAnnotation,
             // Provide the options parser so that we can cache OptionsData here.
             createOptionsParser(command),
-            invocationPolicy,
-            runtime
-                .getStartupOptionsProvider()
-                .getOptions(BlazeServerStartupOptions.class)
-                .expandConfigsInPlace);
+            invocationPolicy);
     ExitCode earlyExitCode = optionHandler.parseOptions(args, storedEventHandler);
     OptionsProvider options = optionHandler.getOptionsResult();
 

@@ -262,16 +262,9 @@ title: User Manual
   with an underscore ('_') to avoid unintentional name sharing.
 </p>
 <p>
-  The expansion behavior for these <code>--config=foo</code> options has
-  changed. The legacy behavior, still the default, is to expand these in a
-  fixed point expansion after all default rc options are loaded. This is
-  unintuitive and has caused debugging difficulties in the past. The new
-  behavior is to expand <code>--config=foo</code> to the options it expands to
+  <code>--config=foo</code> expands to the options defined in the rc files
   "in-place" so that the options specified for the config have the same
-  precedence that the <code>--config=foo</code> option had. This is more
-  intuitive, and can be enabled using the startup flag
-  <code>--expand_configs_in_place</code>, which can be included in a bazelrc
-  file on a <code>startup</code> line.
+  precedence that the <code>--config=foo</code> option had.
 </p>
 
 <h5>Example</h5>
