@@ -96,6 +96,12 @@ final class ThreadHandler {
   private volatile ImmutableSet<SkylarkDebuggingProtos.Location> breakpoints = ImmutableSet.of();
 
   /**
+   * True if the thread is currently performing a debugger-requested evaluation. If so, we don't
+   * check for breakpoints during the evaluation.
+   */
+  private final ThreadLocal<Boolean> servicingEvalRequest = ThreadLocal.withInitial(() -> false);
+
+  /**
    * Threads which are set to be paused in the next checked execution step.
    *
    * <p>Invariant: Every thread id in this set is also in {@link #threads}, provided that we are not
@@ -198,6 +204,9 @@ final class ThreadHandler {
   }
 
   void pauseIfNecessary(Environment env, Location location, DebugServerTransport transport) {
+    if (servicingEvalRequest.get()) {
+      return;
+    }
     PauseReason pauseReason = shouldPauseCurrentThread(env, location);
     if (pauseReason != null) {
       pauseCurrentThread(env, pauseReason, location, transport);
@@ -252,13 +261,17 @@ final class ThreadHandler {
       }
       debuggable = thread.debuggable;
     }
-    // no need to evaluate within the synchronize block: threads can only be resumed in response
-    // to a client request, and requests are handled serially
+    // no need to evaluate within the synchronize block: for paused threads, debuggable is only
+    // accessed in response to a client request, and requests are handled serially
+    // TODO(bazel-team): support asynchronous replies, and use finer-grained locks
     try {
+      servicingEvalRequest.set(true);
       Object result = debuggable.evaluate(expression);
       return DebuggerSerialization.getValueProto("Evaluation result", result);
     } catch (EvalException | InterruptedException e) {
       throw new DebugRequestException(e.getMessage());
+    } finally {
+      servicingEvalRequest.set(false);
     }
   }
 
@@ -344,8 +357,7 @@ final class ThreadHandler {
       builder.setThreadPausedState(
           ThreadPausedState.newBuilder()
               .setPauseReason(pausedState.pauseReason)
-              .setLocation(DebugEventHelper.getLocationProto(pausedState.location))
-              .addAllFrame(listFrames(thread.debuggable, pausedState)));
+              .setLocation(DebugEventHelper.getLocationProto(pausedState.location)));
     }
     return builder.build();
   }
