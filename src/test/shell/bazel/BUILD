@@ -537,7 +537,10 @@ sh_test(
     name = "help_test",
     size = "small",
     srcs = ["help_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
@@ -584,6 +587,7 @@ test_suite(
     tests = [
         ":bazel_bootstrap_distfile_test",
         ":bazel_windows_example_test",
+        ":help_test",
     ],
     visibility = ["//src/test/shell:__pkg__"],
 )

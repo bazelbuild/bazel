@@ -19,13 +19,26 @@ function print_message_and_exit() {
   echo $1 >&2; exit 1;
 }
 
-CURRENT_SCRIPT=${BASH_SOURCE[0]}
-# Go to the directory where the script is running
-cd "$(dirname ${CURRENT_SCRIPT})" \
-  || print_message_and_exit "Unable to access $(dirname ${CURRENT_SCRIPT})"
+if type rlocation >&/dev/null; then
+  # If rlocation is defined, use it to look up data-dependencies.
+  # Load the unit test framework
+  source "$(rlocation io_bazel/src/test/shell/unittest.bash)" \
+    || print_message_and_exit "unittest.bash not found!"
+  # Load the test environment
+  source "$(rlocation io_bazel/src/test/shell/testenv.sh)" \
+    || print_message_and_exit "testenv.sh not found!"
+else
+  # If rlocation is undefined, we are probably running under Blaze.
+  # Assume the existence of a runfiles tree.
 
-DIR=$(pwd)
-# Load the unit test framework
-source "$DIR/unittest.bash" || print_message_and_exit "unittest.bash not found!"
-# Load the test environment
-source "$DIR/testenv.sh" || print_message_and_exit "testenv.sh not found!"
+  CURRENT_SCRIPT=${BASH_SOURCE[0]}
+  # Go to the directory where the script is running
+  cd "$(dirname ${CURRENT_SCRIPT})" \
+    || print_message_and_exit "Unable to access $(dirname ${CURRENT_SCRIPT})"
+
+  DIR=$(pwd)
+  # Load the unit test framework
+  source "$DIR/unittest.bash" || print_message_and_exit "unittest.bash not found!"
+  # Load the test environment
+  source "$DIR/testenv.sh" || print_message_and_exit "testenv.sh not found!"
+fi
