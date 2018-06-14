@@ -82,10 +82,6 @@ BAZEL_RUNFILES="$TEST_SRCDIR/io_bazel"
 workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
 distdir_bzl_file="${BAZEL_RUNFILES}/distdir.bzl"
 
-# Bazel
-bazel_tree="$(rlocation io_bazel/src/test/shell/bazel/doc-srcs.zip)"
-bazel_data="${BAZEL_RUNFILES}"
-
 # Java
 if is_windows; then
   jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
