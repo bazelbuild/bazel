@@ -270,7 +270,7 @@ public final class BlazeRuntime {
     OutputStream out = null;
     boolean recordFullProfilerData = false;
     ProfiledTaskKinds profiledTasks = ProfiledTaskKinds.NONE;
-
+    Profiler.Format format = Profiler.Format.BINARY_BAZEL_FORMAT;
     try {
       if (options.enableTracer) {
         Path profilePath = options.profilePath != null
@@ -280,6 +280,7 @@ public final class BlazeRuntime {
         out = profilePath.getOutputStream();
         env.getReporter().handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
         profiledTasks = ProfiledTaskKinds.ALL_FOR_TRACE;
+        format = Profiler.Format.JSON_TRACE_FILE_FORMAT;
       } else if (options.profilePath != null) {
         Path profilePath = env.getWorkspace().getRelative(options.profilePath);
 
@@ -296,7 +297,7 @@ public final class BlazeRuntime {
         Profiler.instance().start(
             profiledTasks,
             out,
-            Profiler.Format.BINARY_BAZEL_FORMAT,
+            format,
             String.format(
                 "%s profile for %s at %s, build ID: %s",
                 getProductName(),
