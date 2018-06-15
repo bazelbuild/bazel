@@ -207,27 +207,6 @@ sh_test(
     ],
 )
 
-# TODO(bazel-team): zip is non-deterministic because of file timestamp,
-# we should use a custom zip version (SingleJar?).
-genrule(
-    name = "doc-srcs",
-    testonly = 1,
-    srcs = [
-        "//src/java_tools/singlejar:srcs",
-        "//src/main/java/com/google/devtools/build/lib/actions:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
-        "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
-        "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
-        "//src/main/java/com/google/devtools/build/lib/worker:srcs",
-        "//src/main/java/com/google/devtools/build/lib:srcs",
-        "//src/main/protobuf:srcs",
-        "//src/tools/xcode-common:srcs",
-        "//third_party:srcs",
-    ],
-    outs = ["doc-srcs.zip"],
-    cmd = "echo $(SRCS) | tr ' ' '\n' | zip -q@ $@",
-)
-
 sh_test(
     name = "bazel_docgen_test",
     size = "large",

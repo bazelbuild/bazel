@@ -30,7 +30,7 @@ function set_up() {
   while [ $attempts -le 5 ]; do
     (( attempts++ ))
     worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
-    "${bazel_data}/src/tools/remote/worker" \
+    "${BAZEL_RUNFILES}/src/tools/remote/worker" \
         --work_path="${work_path}" \
         --listen_port=${worker_port} \
         --cas_path=${cas_path} \
