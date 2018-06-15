@@ -18,7 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
-import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableCollection;
@@ -162,21 +161,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
      */
     public Map<String, Object> lateBoundOptionDefaults() {
       return ImmutableMap.of();
-    }
-
-    /**
-     * Returns the transition that produces the "artifact owner" for this configuration, or null
-     * if this configuration is its own owner.
-     *
-     * <p>If multiple fragments return the same transition, that transition is only applied
-     * once. Multiple fragments may not return different non-null transitions.
-     *
-     * <p>Deprecated. The only known use of this is LIPO, which is on its deathbed.
-     */
-    @Nullable
-    @Deprecated
-    public PatchTransition getArtifactOwnerTransition() {
-      return null;
     }
 
     /**
@@ -1837,28 +1821,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public boolean enableWindowsExeLauncher() {
     return options.windowsExeLauncher;
-  }
-
-  /**
-   * Returns the transition that produces the "artifact owner" for this configuration, or null
-   * if this configuration is its own owner.
-   */
-  @Nullable
-  public PatchTransition getArtifactOwnerTransition() {
-    PatchTransition ownerTransition = null;
-    for (Fragment fragment : fragments.values()) {
-      PatchTransition fragmentTransition = fragment.getArtifactOwnerTransition();
-      if (fragmentTransition != null) {
-        if (ownerTransition != null) {
-          Verify.verify(ownerTransition == fragmentTransition,
-              String.format(
-                  "cannot determine owner transition: fragments returning both %s and %s",
-                  ownerTransition.toString(), fragmentTransition.toString()));
-        }
-        ownerTransition = fragmentTransition;
-      }
-    }
-    return ownerTransition;
   }
 
   /**
