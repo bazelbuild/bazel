@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProviderImpl;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -246,7 +245,7 @@ public final class CcCommon {
     if (ourLinkopts != null) {
       boolean allowDashStatic =
           !cppConfiguration.forceIgnoreDashStatic()
-              && (CppHelper.getDynamicMode(cppConfiguration, ccToolchain) != DynamicMode.FULLY);
+              && (cppConfiguration.getDynamicModeFlag() != DynamicMode.FULLY);
       if (!allowDashStatic) {
         ourLinkopts = Iterables.filter(ourLinkopts, (v) -> !"-static".equals(v));
       }
@@ -301,25 +300,12 @@ public final class CcCommon {
       deps.add(CppHelper.mallocForTarget(ruleContext));
     }
 
-    return compilationOutputs == null // Possible in LIPO collection mode (see initializationHook).
-        ? DwoArtifactsCollector.emptyCollector()
-        : DwoArtifactsCollector.transitiveCollector(
-            compilationOutputs,
-            deps.build(),
-            generateDwo,
-            ltoBackendArtifactsUsePic,
-            ltoBackendArtifacts);
-  }
-
-  public TransitiveLipoInfoProvider collectTransitiveLipoLabels(CcCompilationOutputs outputs) {
-    if (fdoSupport.getFdoSupport().getFdoRoot() == null
-        || !cppConfiguration.isLipoContextCollector()) {
-      return TransitiveLipoInfoProvider.EMPTY;
-    }
-
-    NestedSetBuilder<IncludeScannable> scannableBuilder = NestedSetBuilder.stableOrder();
-    CppHelper.addTransitiveLipoInfoForCommonAttributes(ruleContext, outputs, scannableBuilder);
-    return new TransitiveLipoInfoProvider(scannableBuilder.build());
+    return DwoArtifactsCollector.transitiveCollector(
+        compilationOutputs,
+        deps.build(),
+        generateDwo,
+        ltoBackendArtifactsUsePic,
+        ltoBackendArtifacts);
   }
 
   /**
@@ -729,13 +715,14 @@ public final class CcCommon {
    */
   public InstrumentedFilesProvider getInstrumentedFilesProvider(Iterable<Artifact> files,
       boolean withBaselineCoverage) {
-    return cppConfiguration.isLipoContextCollector()
-        ? InstrumentedFilesProviderImpl.EMPTY
-        : InstrumentedFilesCollector.collect(
-            ruleContext, CppRuleClasses.INSTRUMENTATION_SPEC, CC_METADATA_COLLECTOR, files,
-            CppHelper.getGcovFilesIfNeeded(ruleContext, ccToolchain),
-            CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, ccToolchain),
-            withBaselineCoverage);
+    return InstrumentedFilesCollector.collect(
+        ruleContext,
+        CppRuleClasses.INSTRUMENTATION_SPEC,
+        CC_METADATA_COLLECTOR,
+        files,
+        CppHelper.getGcovFilesIfNeeded(ruleContext, ccToolchain),
+        CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, ccToolchain),
+        withBaselineCoverage);
   }
 
   public static ImmutableList<String> getCoverageFeatures(CcToolchainProvider toolchain) {
@@ -919,16 +906,6 @@ public final class CcCommon {
     }
     if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {
       allRequestedFeaturesBuilder.add(CppRuleClasses.FDO_PREFETCH_HINTS);
-    }
-    if (cppConfiguration.isLipoOptimizationOrInstrumentation()) {
-      // Map LIPO to ThinLTO for LLVM builds.
-      if (toolchain.isLLVMCompiler() && fdoMode != FdoMode.OFF) {
-        if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
-          allFeatures.add(CppRuleClasses.THIN_LTO);
-        }
-      } else {
-        allFeatures.add(CppRuleClasses.LIPO);
-      }
     }
 
     for (String feature : allFeatures.build()) {

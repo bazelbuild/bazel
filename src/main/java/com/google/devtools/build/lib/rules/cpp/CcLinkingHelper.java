@@ -65,8 +65,8 @@ import javax.annotation.Nullable;
  * lower-level APIs in CppHelper and CppLinkActionBuilder.
  *
  * <p>Rules that want to use this class are required to have implicit dependencies on the toolchain,
- * the STL, the lipo context, and so on. Optionally, they can also have copts, and malloc
- * attributes, but note that these require explicit calls to the corresponding setter methods.
+ * the STL, and so on. Optionally, they can also have copts, and malloc attributes, but note that
+ * these require explicit calls to the corresponding setter methods.
  */
 public final class CcLinkingHelper {
 
@@ -710,11 +710,6 @@ public final class CcLinkingHelper {
         linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER, "can only handle static links");
 
     CcLinkingOutputs.Builder result = new CcLinkingOutputs.Builder();
-    if (cppConfiguration.isLipoContextCollector()) {
-      // Don't try to create LIPO link actions in collector mode,
-      // because it needs some data that's not available at this point.
-      return result.build();
-    }
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     boolean usePicForBinaries = CppHelper.usePicForBinaries(ruleContext, ccToolchain);
     boolean usePicForDynamicLibs = CppHelper.usePicForDynamicLibraries(ruleContext, ccToolchain);

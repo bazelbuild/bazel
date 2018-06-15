@@ -52,8 +52,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.cpp.TransitiveLipoInfoProvider;
-import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
@@ -122,12 +120,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                     .value(PROTO_TOOLCHAIN_LABEL))
             .add(
                 attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
-                    .value(ccToolchainAttrValue))
-            .add(
-                attr(TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, LABEL)
-                    .cfg(LipoContextCollectorTransition.INSTANCE)
-                    .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
-                    .skipPrereqValidatorCheck());
+                    .value(ccToolchainAttrValue));
 
     return result.build();
   }

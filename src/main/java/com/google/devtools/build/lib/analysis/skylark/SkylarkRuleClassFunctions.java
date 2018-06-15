@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -138,8 +137,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           .build();
 
   /** Parent rule class for test Skylark rules. */
-  public static final RuleClass getTestBaseRule(String toolsRepository,
-      PatchTransition lipoDataTransition) {
+  public static final RuleClass getTestBaseRule(String toolsRepository) {
     return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
         .requiresConfigurationFragments(TestConfiguration.class)
         .add(
@@ -200,7 +198,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                             toolsRepository
                                 + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE)))
                 .singleArtifact())
-        .add(attr(":run_under", LABEL).cfg(lipoDataTransition).value(RUN_UNDER))
+        .add(attr(":run_under", LABEL).value(RUN_UNDER))
         .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
         .build();
   }
@@ -327,9 +325,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
     RuleClass parent =
         test
-            ? getTestBaseRule(
-                SkylarkUtils.getToolsRepository(funcallEnv),
-                (PatchTransition) SkylarkUtils.getLipoDataTransition(funcallEnv))
+            ? getTestBaseRule(SkylarkUtils.getToolsRepository(funcallEnv))
             : (executable ? binaryBaseRule : baseRule);
 
     // We'll set the name later, pass the empty string for now.

@@ -463,8 +463,7 @@ public class BuildViewForTesting {
             /*isSystemEnv=*/ false,
             targetConfig.extendedSanityChecks(),
             eventHandler,
-            /*env=*/ null,
-            targetConfig.isActionsEnabled());
+            /*env=*/ null);
     return getRuleContextForTesting(eventHandler, target, env, configurations);
   }
 
@@ -507,7 +506,6 @@ public class BuildViewForTesting {
             ImmutableList.of(),
             targetConfig,
             configurations.getHostConfiguration(),
-            ruleClassProvider.getLipoDataTransition(),
             ruleClassProvider.getPrerequisiteValidator(),
             ((Rule) target).getRuleClassObject().getConfigurationFragmentPolicy())
         .setVisibility(

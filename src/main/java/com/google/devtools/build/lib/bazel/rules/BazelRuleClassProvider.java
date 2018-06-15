@@ -80,7 +80,6 @@ import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
-import com.google.devtools.build.lib.rules.cpp.transitions.LipoDataTransitionRuleSet;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
@@ -381,10 +380,6 @@ public class BazelRuleClassProvider {
 
   private static final ImmutableSet<RuleSet> RULE_SETS =
       ImmutableSet.of(
-          // Rules defined before LipoDataTransitionRuleSet will fail when trying to declare a data
-          // transition.
-          // TODO(b/73071922): remove this when LIPO support is phased out
-          LipoDataTransitionRuleSet.INSTANCE,
           BAZEL_SETUP,
           CoreRules.INSTANCE,
           CoreWorkspaceRules.INSTANCE,

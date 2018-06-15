@@ -122,9 +122,8 @@ public class CppCompileAction extends AbstractAction
   private final IncludeProcessing includeProcessing;
 
   private final CcCompilationContext ccCompilationContext;
-  private final Iterable<IncludeScannable> lipoScannables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
-  // A list of files to include scan that are not source files, pcm files, lipo scannables, or
+  // A list of files to include scan that are not source files, pcm files, or
   // included via a command-line "-include file.h". Actions that use non C++ files as source
   // files--such as Clif--may use this mechanism.
   private final ImmutableList<Artifact> additionalIncludeScanningRoots;
@@ -186,7 +185,6 @@ public class CppCompileAction extends AbstractAction
    *     if Fission mode is disabled)
    * @param ccCompilationContext the {@code CcCompilationContext}
    * @param coptsFilter regular expression to remove options from {@code copts}
-   * @param lipoScannables List of artifacts to include-scan when this action is a lipo action
    * @param additionalIncludeScanningRoots list of additional artifacts to include-scan
    * @param actionClassId TODO(bazel-team): Add parameter description
    * @param actionName a string giving the name of this action for the purpose of toolchain
@@ -218,7 +216,6 @@ public class CppCompileAction extends AbstractAction
       ActionEnvironment env,
       CcCompilationContext ccCompilationContext,
       CoptsFilter coptsFilter,
-      Iterable<IncludeScannable> lipoScannables,
       ImmutableList<Artifact> additionalIncludeScanningRoots,
       UUID actionClassId,
       ImmutableMap<String, String> executionInfo,
@@ -254,7 +251,6 @@ public class CppCompileAction extends AbstractAction
         useHeaderModules,
         isStrictSystemIncludes,
         ccCompilationContext,
-        lipoScannables,
         builtinIncludeFiles,
         ImmutableList.copyOf(additionalIncludeScanningRoots),
         CompileCommandLine.builder(sourceFile, coptsFilter, actionName, dotdFile)
@@ -296,7 +292,6 @@ public class CppCompileAction extends AbstractAction
       boolean useHeaderModules,
       boolean isStrictSystemIncludes,
       CcCompilationContext ccCompilationContext,
-      Iterable<IncludeScannable> lipoScannables,
       ImmutableList<Artifact> builtinIncludeFiles,
       ImmutableList<Artifact> additionalIncludeScanningRoots,
       CompileCommandLine compileCommandLine,
@@ -327,7 +322,6 @@ public class CppCompileAction extends AbstractAction
     this.useHeaderModules = useHeaderModules;
     this.isStrictSystemIncludes = isStrictSystemIncludes;
     this.ccCompilationContext = ccCompilationContext;
-    this.lipoScannables = lipoScannables;
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.additionalIncludeScanningRoots = additionalIncludeScanningRoots;
     this.compileCommandLine = compileCommandLine;
@@ -659,11 +653,6 @@ public class CppCompileAction extends AbstractAction
       builder.addAll(additionalIncludeScanningRoots);
     }
     return builder.build().toCollection();
-  }
-
-  @Override
-  public Iterable<IncludeScannable> getAuxiliaryScannables() {
-    return lipoScannables;
   }
 
   /**
@@ -1009,14 +998,6 @@ public class CppCompileAction extends AbstractAction
   /** Return explicitly listed header files. */
   @Override
   public NestedSet<Artifact> getDeclaredIncludeSrcs() {
-    if (lipoScannables != null && lipoScannables.iterator().hasNext()) {
-      NestedSetBuilder<Artifact> srcs = NestedSetBuilder.stableOrder();
-      srcs.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
-      for (IncludeScannable lipoScannable : lipoScannables) {
-        srcs.addTransitive(lipoScannable.getDeclaredIncludeSrcs());
-      }
-      return srcs.build();
-    }
     return ccCompilationContext.getDeclaredIncludeSrcs();
   }
 

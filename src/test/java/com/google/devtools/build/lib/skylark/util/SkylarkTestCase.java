@@ -83,7 +83,6 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                     // create rules. Creating actual rules is tested in SkylarkIntegrationTest.
                     new PackageContext(null, null, getEventHandler(), null));
         SkylarkUtils.setToolsRepository(env, TestConstants.TOOLS_REPOSITORY);
-        SkylarkUtils.setLipoDataTransition(env, ruleClassProvider.getLipoDataTransition());
         return env;
       }
     };

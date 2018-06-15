@@ -325,15 +325,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    TransitiveInfoCollection lipoContextCollector =
-        ruleContext.getPrerequisite(
-            TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, Mode.DONT_CHECK);
-    if (lipoContextCollector != null
-        && lipoContextCollector.getProvider(LipoContextProvider.class) == null) {
-      ruleContext.ruleError("--lipo_context must point to a cc_binary or a cc_test rule");
-      return null;
-    }
-
     BuildConfiguration configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
     CppConfiguration cppConfiguration =
         Preconditions.checkNotNull(configuration.getFragment(CppConfiguration.class));
@@ -407,7 +398,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     SkyKey fdoKey =
         FdoSupportValue.key(
-            cppConfiguration.getLipoMode(),
             fdoZip,
             prefetchHints,
             cppConfiguration.getFdoInstrument(),
