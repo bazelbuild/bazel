@@ -109,10 +109,7 @@ sh_test(
     size = "large",
     srcs = ["bazel_random_characters_test.sh"],
     data = [":test-deps"],
-    tags = [
-        "no_windows",
-        "nowindows",
-    ],
+    tags = ["no_windows"],
 )
 
 sh_test(
