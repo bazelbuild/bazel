@@ -316,6 +316,9 @@ Examples:
 
   Targets would specify <code>@my_ssl//jar</code> as a dependency to depend on this jar.
 
+  You may also reference files on the localhost, using "file:///path/to/file" (on Unixes) or
+  "file:///c:/path/to/file" (on Windows; mind the 3 "/" characters!).
+
 
 Args:
   name: A unique name for this rule.
