@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressRecei
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
@@ -116,8 +118,12 @@ public class SkyframeBuilder implements Builder {
       @Nullable Range<Long> lastExecutionTimeRange,
       TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
-    skyframeExecutor.detectModifiedOutputFiles(modifiedOutputFiles, lastExecutionTimeRange);
-    skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
+    try (SilentCloseable c = Profiler.instance().profile("detectModifiedOutputFiles")) {
+      skyframeExecutor.detectModifiedOutputFiles(modifiedOutputFiles, lastExecutionTimeRange);
+    }
+    try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
+      skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
+    }
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
     ExecutionProgressReceiver executionProgressReceiver =

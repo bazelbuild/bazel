@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.Profiler.ProfiledTaskKinds;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -481,7 +482,9 @@ public final class BlazeRuntime {
     notifyCommandComplete(exitCode);
 
     for (BlazeModule module : blazeModules) {
-      module.afterCommand();
+      try (SilentCloseable c = Profiler.instance().profile(module + ".afterCommand")) {
+        module.afterCommand();
+      }
     }
 
     // Wipe the dependency graph if requested. Note that this method always runs at the end of
