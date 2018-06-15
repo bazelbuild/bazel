@@ -824,29 +824,34 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
 
   BlazeServerStartup *server_startup;
   server_pid = StartServer(workspace_layout, &server_startup);
-
   BAZEL_LOG(USER) << "Starting local " << globals->options->product_name
                   << " server and connecting to it...";
 
   // Give the server two minutes to start up. That's enough to connect with a
   // debugger.
-  auto try_until_time(std::chrono::system_clock::now() +
-                      std::chrono::seconds(120));
+  const auto start_time = std::chrono::system_clock::now();
+  const auto try_until_time = start_time + std::chrono::seconds(120);
+  // Print an update at most once every 10 seconds if we are still trying to
+  // connect.
+  const auto min_message_interval = std::chrono::seconds(10);
+  auto last_message_time = start_time;
   while (std::chrono::system_clock::now() < try_until_time) {
-    auto next_attempt_time(std::chrono::system_clock::now() +
-                           std::chrono::milliseconds(100));
+    const auto attempt_time = std::chrono::system_clock::now();
+    const auto next_attempt_time =
+        attempt_time + std::chrono::milliseconds(100);
+
     if (server->Connect()) {
-      fputc('\n', stderr);
-      fflush(stderr);
       delete server_startup;
       return;
     }
 
-    if (!globals->options->client_debug) {
-      // TODO(ccalvarin) Do we really need the dots? They're 10 years old, and
-      // there's something to be said about tradition, but in this case...
-      fputc('.', stderr);
-      fflush(stderr);
+    if (attempt_time >= (last_message_time + min_message_interval)) {
+      auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(
+          attempt_time - start_time);
+      BAZEL_LOG(USER) << "... still trying to connect to local "
+                      << globals->options->product_name << " server after "
+                      << elapsed_time.count() << " seconds ...";
+      last_message_time = attempt_time;
     }
 
     std::this_thread::sleep_until(next_attempt_time);
