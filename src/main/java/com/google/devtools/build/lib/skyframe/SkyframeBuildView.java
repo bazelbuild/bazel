@@ -507,7 +507,6 @@ public final class SkyframeBuildView {
       return null;
     }
     boolean extendedSanityChecks = config != null && config.extendedSanityChecks();
-    boolean allowRegisteringActions = config == null || config.isActionsEnabled();
     return new CachingAnalysisEnvironment(
         artifactFactory,
         skyframeExecutor.getActionKeyContext(),
@@ -515,8 +514,7 @@ public final class SkyframeBuildView {
         isSystemEnv,
         extendedSanityChecks,
         eventHandler,
-        env,
-        allowRegisteringActions);
+        env);
   }
 
   /**

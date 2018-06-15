@@ -236,7 +236,7 @@ public final class LtoBackendArtifacts {
             fdoSupport
                 .getFdoSupport()
                 .buildProfileForLtoBackend(
-                    fdoSupport, featureConfiguration, buildVariablesBuilder, ruleContext));
+                    fdoSupport, featureConfiguration, buildVariablesBuilder));
 
     if (profileArtifacts.getProfileArtifact() != null) {
       builder.addInput(profileArtifacts.getProfileArtifact());

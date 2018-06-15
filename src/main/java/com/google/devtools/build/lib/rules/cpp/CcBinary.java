@@ -63,9 +63,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * A ConfiguredTarget for <code>cc_binary</code> rules.
@@ -216,8 +214,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     List<String> linkopts = common.getLinkopts();
-    LinkingMode linkingMode =
-        getLinkStaticness(ruleContext, linkopts, cppConfiguration, ccToolchain);
+    LinkingMode linkingMode = getLinkStaticness(ruleContext, linkopts, cppConfiguration);
     FdoSupportProvider fdoSupport = common.getFdoSupport();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(
@@ -491,13 +488,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     RunfilesSupport runfilesSupport = RunfilesSupport.withExecutable(
         ruleContext, runfiles, executable);
 
-    TransitiveLipoInfoProvider transitiveLipoInfo;
-    if (cppConfiguration.isLipoContextCollector()) {
-      transitiveLipoInfo = common.collectTransitiveLipoLabels(ccCompilationOutputs);
-    } else {
-      transitiveLipoInfo = TransitiveLipoInfoProvider.EMPTY;
-    }
-
     RuleConfiguredTargetBuilder ruleBuilder = new RuleConfiguredTargetBuilder(ruleContext);
     addTransitiveInfoProviders(
         ruleContext,
@@ -510,21 +500,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         ccCompilationContext,
         linkingOutputs,
         dwoArtifacts,
-        transitiveLipoInfo,
         fake);
-
-    Map<Artifact, IncludeScannable> scannableMap = new LinkedHashMap<>();
-    Map<PathFragment, Artifact> sourceFileMap = new LinkedHashMap<>();
-    if (cppConfiguration.isLipoContextCollector()) {
-      for (IncludeScannable scannable : transitiveLipoInfo.getTransitiveIncludeScannables()) {
-        // These should all be CppCompileActions, which should have only one source file.
-        // This is also checked when they are put into the nested set.
-        Artifact source =
-            Iterables.getOnlyElement(scannable.getIncludeScannerSources());
-        scannableMap.put(source, scannable);
-        sourceFileMap.put(source.getExecPath(), source);
-      }
-    }
 
     // Support test execution on darwin.
     if (ApplePlatform.isApplePlatform(ccToolchain.getTargetCpu())
@@ -553,12 +529,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             new DebugPackageProvider(
                 ruleContext.getLabel(), strippedFile, executable, explicitDwpFile))
         .setRunfilesSupport(runfilesSupport, executable)
-        .addProvider(
-            LipoContextProvider.class,
-            new LipoContextProvider(
-                ccCompilationContext,
-                ImmutableMap.copyOf(scannableMap),
-                ImmutableMap.copyOf(sourceFileMap)))
         .addProvider(CppLinkAction.Context.class, linkContext)
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
         .build();
@@ -653,15 +623,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   }
 
   private static final LinkingMode getLinkStaticness(
-      RuleContext context,
-      List<String> linkopts,
-      CppConfiguration cppConfiguration,
-      CcToolchainProvider toolchain) {
-    if (CppHelper.getDynamicMode(cppConfiguration, toolchain) == DynamicMode.FULLY) {
+      RuleContext context, List<String> linkopts, CppConfiguration cppConfiguration) {
+    if (cppConfiguration.getDynamicModeFlag() == DynamicMode.FULLY) {
       return LinkingMode.DYNAMIC;
     } else if (dashStaticInLinkopts(linkopts, cppConfiguration)) {
       return Link.LinkingMode.LEGACY_FULLY_STATIC;
-    } else if (CppHelper.getDynamicMode(cppConfiguration, toolchain) == DynamicMode.OFF
+    } else if (cppConfiguration.getDynamicModeFlag() == DynamicMode.OFF
         || context.attributes().get("linkstatic", Type.BOOLEAN)) {
       return LinkingMode.STATIC;
     } else {
@@ -889,7 +856,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CcCompilationContext ccCompilationContext,
       CcLinkingOutputs linkingOutputs,
       DwoArtifactsCollector dwoArtifacts,
-      TransitiveLipoInfoProvider transitiveLipoInfo,
       boolean fake) {
     List<Artifact> instrumentedObjectFiles = new ArrayList<>();
     instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
@@ -901,7 +867,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         CcCompilationHelper.collectHeaderTokens(ruleContext, ccCompilationOutputs);
     NestedSet<Artifact> filesToCompile =
         ccCompilationOutputs.getFilesToCompile(
-            cppConfiguration.isLipoContextCollector(),
             cppConfiguration.processHeadersInDependencies(),
             CppHelper.usePicForDynamicLibraries(ruleContext, toolchain));
 
@@ -917,7 +882,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     builder
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(ccCompilationInfoBuilder.build())
-        .addProvider(TransitiveLipoInfoProvider.class, transitiveLipoInfo)
         .addNativeDeclaredProvider(ccLinkingInfoBuilder.build())
         .addProvider(
             CcNativeLibraryProvider.class,
@@ -929,8 +893,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             CppDebugFileProvider.class,
             new CppDebugFileProvider(
                 dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()))
-        .addOutputGroup(
-            OutputGroupInfo.TEMP_FILES, getTemps(cppConfiguration, ccCompilationOutputs))
+        .addOutputGroup(OutputGroupInfo.TEMP_FILES, ccCompilationOutputs.getTemps())
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, filesToCompile)
         // For CcBinary targets, we only want to ensure that we process headers in dependencies and
         // thus only add header tokens to HIDDEN_TOP_LEVEL. If we add all HIDDEN_TOP_LEVEL artifacts
@@ -974,13 +937,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       builder.addTransitive(dep.getTransitiveCcNativeLibraries());
     }
     return builder.build();
-  }
-
-  private static NestedSet<Artifact> getTemps(CppConfiguration cppConfiguration,
-      CcCompilationOutputs compilationOutputs) {
-    return cppConfiguration.isLipoContextCollector()
-        ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
-        : compilationOutputs.getTemps();
   }
 
   private static boolean usePic(RuleContext ruleContext, CcToolchainProvider ccToolchainProvider) {

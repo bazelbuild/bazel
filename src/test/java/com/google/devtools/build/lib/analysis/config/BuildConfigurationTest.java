@@ -486,7 +486,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
    */
   private static void verifyDeserialized(
       BuildConfiguration subject, BuildConfiguration deserialized) {
-    assertThat(deserialized.isActionsEnabled()).isEqualTo(subject.isActionsEnabled());
     assertThat(deserialized.getOptions()).isEqualTo(subject.getOptions());
   }
 }

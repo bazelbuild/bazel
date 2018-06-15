@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFact
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -234,7 +233,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
-    private PatchTransition lipoDataTransition;
     private List<Class<? extends BuildConfiguration.Fragment>> universalFragments =
         new ArrayList<>();
     @Nullable private RuleTransitionFactory trimmingTransitionFactory;
@@ -391,21 +389,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
 
     /**
-     * Sets the C++ LIPO data transition, as defined in {@link
-     * com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition}.
-     *
-     * <p>This is language-specific, so doesn't really belong here. But since non-C++ rules declare
-     * this transition, we need universal access to it. The need for this interface should go away
-     * on the deprecation of LIPO for
-     * <a href="https://clang.llvm.org/docs/ThinLTO.html">ThinLTO</a>.
-     */
-    public Builder setLipoDataTransition(PatchTransition transition) {
-      Preconditions.checkState(lipoDataTransition == null, "LIPO data transition already set");
-      lipoDataTransition = Preconditions.checkNotNull(transition);
-      return this;
-    }
-
-    /**
      * Adds a transition factory that produces a trimming transition to be run over all targets
      * after other transitions.
      *
@@ -428,18 +411,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     /**
      * Overrides the transition factory run over all targets.
      *
-     * @see #setTrimmingTransitionFactory(RuleTransitionFactory)
+     * @see {@link #addTrimmingTransitionFactory(RuleTransitionFactory)}
      */
-    @VisibleForTesting(/* for testing trimming transition factories without relying on prod use */)
+    @VisibleForTesting(/* for testing trimming transition factories without relying on prod use */ )
     public Builder overrideTrimmingTransitionFactoryForTesting(RuleTransitionFactory factory) {
       trimmingTransitionFactory = null;
       return this.addTrimmingTransitionFactory(factory);
-    }
-
-    @Override
-    public PatchTransition getLipoDataTransition() {
-      Preconditions.checkState(lipoDataTransition != null);
-      return lipoDataTransition;
     }
 
     private RuleConfiguredTargetFactory createFactory(
@@ -515,7 +492,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           ImmutableList.copyOf(buildInfoFactories),
           ImmutableList.copyOf(configurationOptions),
           ImmutableList.copyOf(configurationFragmentFactories),
-          lipoDataTransition,
           ImmutableList.copyOf(universalFragments),
           trimmingTransitionFactory,
           prerequisiteValidator,
@@ -615,8 +591,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /** The set of configuration fragment factories. */
   private final ImmutableList<ConfigurationFragmentFactory> configurationFragmentFactories;
 
-  private final PatchTransition lipoDataTransition;
-
   /** The transition factory used to produce the transition that will trim targets. */
   @Nullable private final RuleTransitionFactory trimmingTransitionFactory;
 
@@ -652,7 +626,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
-      PatchTransition lipoDataTransition,
       ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments,
       @Nullable RuleTransitionFactory trimmingTransitionFactory,
       PrerequisiteValidator prerequisiteValidator,
@@ -672,7 +645,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.buildInfoFactories = buildInfoFactories;
     this.configurationOptions = configurationOptions;
     this.configurationFragmentFactories = configurationFragments;
-    this.lipoDataTransition = lipoDataTransition;
     this.universalFragments = universalFragments;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.prerequisiteValidator = prerequisiteValidator;
@@ -729,18 +701,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    */
   public ImmutableList<ConfigurationFragmentFactory> getConfigurationFragments() {
     return configurationFragmentFactories;
-  }
-
-  /**
-   * Returns the C++ LIPO data transition, as defined in {@link
-   * com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition}.
-   *
-   * <p>This is language-specific, so doesn't really belong here. But since non-C++ rules declare
-   * this transition, we need universal access to it. The need for this interface should go away on
-   * the deprecation of LIPO for <a href="https://clang.llvm.org/docs/ThinLTO.html">ThinLTO</a>.
-   */
-  public PatchTransition getLipoDataTransition() {
-    return lipoDataTransition;
   }
 
   /**
@@ -844,7 +804,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
             .build();
     SkylarkUtils.setToolsRepository(env, toolsRepository);
     SkylarkUtils.setFragmentMap(env, configurationFragmentMap);
-    SkylarkUtils.setLipoDataTransition(env, getLipoDataTransition());
     return env;
   }
 

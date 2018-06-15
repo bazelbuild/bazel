@@ -93,12 +93,6 @@ public interface IncludeScannable {
   NestedSet<Artifact> getDeclaredIncludeSrcs();
 
   /**
-   * Returns additional scannables that need also be scanned when scanning this
-   * scannable. May be empty but not null. This is not evaluated recursively.
-   */
-  Iterable<IncludeScannable> getAuxiliaryScannables();
-
-  /**
    * Returns a map of (generated header:.includes file listing the header's includes) which may be
    * reached during include scanning. Generated files which are reached, but not in the key set,
    * must be ignored.

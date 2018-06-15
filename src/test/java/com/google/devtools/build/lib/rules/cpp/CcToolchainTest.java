@@ -281,7 +281,8 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testBadDynamicRuntimeLib() throws Exception {
-    scratch.file("a/BUILD",
+    scratch.file(
+        "a/BUILD",
         "filegroup(name='dynamic', srcs=['not-an-so', 'so.so'])",
         "filegroup(name='static', srcs=['not-an-a', 'a.a'])",
         "cc_toolchain(",
@@ -300,56 +301,17 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    dynamic_runtime_libs = [':dynamic'],",
         "    static_runtime_libs = [':static'])");
 
-    getAnalysisMock().ccSupport().setupCrosstool(mockToolsConfig,
-        CrosstoolConfig.CToolchain.newBuilder()
-            .setSupportsEmbeddedRuntimes(true)
-            .buildPartial());
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder()
+                .setSupportsEmbeddedRuntimes(true)
+                .buildPartial());
 
     useConfiguration();
 
     getConfiguredTarget("//a:a");
-  }
-
-  @Test
-  public void testTurnOffDynamicLinkWhenLipoBinary() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "filegroup(",
-        "   name='empty')",
-        "filegroup(",
-        "    name = 'banana',",
-        "    srcs = ['banana1', 'banana2'])",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    cpu = 'banana',",
-        "    all_files = ':banana',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])");
-    scratch.file("foo/BUILD", "cc_binary(name='foo')");
-
-    useConfiguration("--lipo=binary", "--lipo_context=//foo", "--compilation_mode=opt");
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.getDynamicMode(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isEqualTo(DynamicMode.OFF);
-
-    useConfiguration("--lipo=off", "--lipo_context=//foo");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.getDynamicMode(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isEqualTo(DynamicMode.DEFAULT);
   }
 
   @Test
@@ -378,33 +340,24 @@ public class CcToolchainTest extends BuildViewTestCase {
     // Check defaults.
     useConfiguration();
     ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    CppConfiguration cppConfiguration =
+        getConfiguration(target).getFragment(CppConfiguration.class);
 
-    assertThat(
-            CppHelper.getDynamicMode(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isEqualTo(DynamicMode.DEFAULT);
+    assertThat(cppConfiguration.getDynamicModeFlag()).isEqualTo(DynamicMode.DEFAULT);
 
     // Test "off"
     useConfiguration("--dynamic_mode=off");
     target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    cppConfiguration = getConfiguration(target).getFragment(CppConfiguration.class);
 
-    assertThat(
-            CppHelper.getDynamicMode(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isEqualTo(DynamicMode.OFF);
+    assertThat(cppConfiguration.getDynamicModeFlag()).isEqualTo(DynamicMode.OFF);
 
     // Test "fully"
     useConfiguration("--dynamic_mode=fully");
     target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    cppConfiguration = getConfiguration(target).getFragment(CppConfiguration.class);
 
-    assertThat(
-            CppHelper.getDynamicMode(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isEqualTo(DynamicMode.FULLY);
+    assertThat(cppConfiguration.getDynamicModeFlag()).isEqualTo(DynamicMode.FULLY);
 
     // Check an invalid value for disable_dynamic.
     try {

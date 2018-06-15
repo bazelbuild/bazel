@@ -209,16 +209,19 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
       BuildConfigurationCollection configCollection) throws Exception {
     Map<ArtifactRoot, BuildConfiguration> outputPaths = new HashMap<>();
     for (BuildConfiguration config : configCollection.getTargetConfigurations()) {
-      if (config.isActionsEnabled()) {
-        BuildConfiguration otherConfig = outputPaths.get(
-            config.getOutputDirectory(RepositoryName.MAIN));
-        if (otherConfig != null) {
-          throw new IllegalStateException("The output path '"
-              + config.getOutputDirectory(RepositoryName.MAIN)
-              + "' is the same for configurations '" + config + "' and '" + otherConfig + "'");
-        } else {
-          outputPaths.put(config.getOutputDirectory(RepositoryName.MAIN), config);
-        }
+      BuildConfiguration otherConfig =
+          outputPaths.get(config.getOutputDirectory(RepositoryName.MAIN));
+      if (otherConfig != null) {
+        throw new IllegalStateException(
+            "The output path '"
+                + config.getOutputDirectory(RepositoryName.MAIN)
+                + "' is the same for configurations '"
+                + config
+                + "' and '"
+                + otherConfig
+                + "'");
+      } else {
+        outputPaths.put(config.getOutputDirectory(RepositoryName.MAIN), config);
       }
     }
   }

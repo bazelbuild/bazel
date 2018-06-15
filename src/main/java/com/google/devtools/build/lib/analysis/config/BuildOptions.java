@@ -176,20 +176,6 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /**
-   * Returns true if actions should be enabled for this configuration.
-   */
-  public boolean enableActions() {
-    // It's not necessarily safe to cache this value. This is because BuildOptions is not immutable.
-    // So caching the value correctly would require keeping it updated after relevant changes.
-    for (FragmentOptions fragment : fragmentOptionsMap.values()) {
-      if (!fragment.enableActions()) {
-        return false;
-      }
-    }
-    return true;
-   }
-
-  /**
    * The cache key for the options collection. Recomputes cache key every time it's called.
    */
   public String computeCacheKey() {

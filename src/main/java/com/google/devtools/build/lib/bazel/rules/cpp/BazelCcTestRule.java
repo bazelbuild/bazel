@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
@@ -43,10 +42,6 @@ public final class BazelCcTestRule implements RuleDefinition {
         // to decorate data symbols imported from DLL.
         .override(attr("linkstatic", BOOLEAN).value(OS.getCurrent() == OS.WINDOWS))
         .override(attr("stamp", TRISTATE).value(TriState.NO))
-        // Oh weary adventurer, endeavour not to remove this attribute, enticing as that may be,
-        // given that no code referenceth it. Should ye be on the verge of yielding to the
-        // temptation, lay your eyes on the Javadoc of {@link FdoSupport} to find out why.
-        .add(attr(":lipo_context", LABEL).value(BazelCppRuleClasses.LIPO_CONTEXT))
         .build();
   }
 

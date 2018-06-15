@@ -529,8 +529,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         /*isSystemEnv=*/ true, /*extendedSanityChecks*/
         false,
         reporter,
-        /* env= */ null,
-        /* allowRegisteringActions= */ true);
+        /* env= */ null);
   }
 
   /**
@@ -1644,11 +1643,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected BuildConfiguration getTargetConfiguration() {
     return Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
-  }
-
-  protected BuildConfiguration getDataConfiguration() throws InterruptedException {
-    return getConfiguration(getTargetConfiguration(),
-        getRuleClassProvider().getLipoDataTransition());
   }
 
   protected BuildConfiguration getHostConfiguration() {

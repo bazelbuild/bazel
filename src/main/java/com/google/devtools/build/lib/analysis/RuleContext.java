@@ -181,7 +181,6 @@ public final class RuleContext extends TargetContext
   private final ImmutableSet<String> disabledFeatures;
   private final String ruleClassNameForLogging;
   private final BuildConfiguration hostConfiguration;
-  private final PatchTransition disableLipoTransition;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
   private final ErrorReporter reporter;
@@ -227,7 +226,6 @@ public final class RuleContext extends TargetContext
     this.disabledFeatures = ImmutableSortedSet.copyOf(allDisabledFeatures);
     this.ruleClassNameForLogging = ruleClassNameForLogging;
     this.hostConfiguration = builder.hostConfiguration;
-    this.disableLipoTransition = builder.disableLipoTransition;
     reporter = builder.reporter;
     this.toolchainContext = toolchainContext;
     this.constraintSemantics = constraintSemantics;
@@ -1431,7 +1429,6 @@ public final class RuleContext extends TargetContext
     private ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
     private final BuildConfiguration configuration;
     private final BuildConfiguration hostConfiguration;
-    private PatchTransition disableLipoTransition;
     private final PrerequisiteValidator prerequisiteValidator;
     private final ErrorReporter reporter;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
@@ -1449,7 +1446,6 @@ public final class RuleContext extends TargetContext
         ImmutableList<Aspect> aspects,
         BuildConfiguration configuration,
         BuildConfiguration hostConfiguration,
-        PatchTransition disableLipoTransition,
         PrerequisiteValidator prerequisiteValidator,
         ConfigurationFragmentPolicy configurationFragmentPolicy) {
       this.env = Preconditions.checkNotNull(env);
@@ -1458,7 +1454,6 @@ public final class RuleContext extends TargetContext
       this.configurationFragmentPolicy = Preconditions.checkNotNull(configurationFragmentPolicy);
       this.configuration = Preconditions.checkNotNull(configuration);
       this.hostConfiguration = Preconditions.checkNotNull(hostConfiguration);
-      this.disableLipoTransition = disableLipoTransition;
       this.prerequisiteValidator = prerequisiteValidator;
       reporter = new ErrorReporter(env, rule, getRuleClassNameForLogging());
     }

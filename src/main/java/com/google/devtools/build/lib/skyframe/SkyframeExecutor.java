@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1214,19 +1213,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     List<BuildConfiguration> topLevelTargetConfigs =
         getConfigurations(eventHandler, getTopLevelBuildOptions(buildOptions, multiCpu), keepGoing);
 
-    // The host configuration inherits the data, not target options. This is so host tools don't
-    // apply LIPO.
     BuildConfiguration firstTargetConfig = topLevelTargetConfigs.get(0);
-    ConfigurationTransition dataTransition =
-        ((ConfiguredRuleClassProvider) ruleClassProvider).getLipoDataTransition();
-    BuildOptions dataOptions = dataTransition != NoTransition.INSTANCE
-        ? ((PatchTransition) dataTransition).patch(firstTargetConfig.getOptions())
-        : firstTargetConfig.getOptions();
 
+    BuildOptions targetOptions = firstTargetConfig.getOptions();
     BuildOptions hostOptions =
-        dataOptions.get(BuildConfiguration.Options.class).useDistinctHostConfiguration
-            ? HostTransition.INSTANCE.patch(dataOptions)
-            : dataOptions;
+        targetOptions.get(BuildConfiguration.Options.class).useDistinctHostConfiguration
+            ? HostTransition.INSTANCE.patch(targetOptions)
+            : targetOptions;
     BuildConfiguration hostConfig = getConfiguration(eventHandler, hostOptions, keepGoing);
 
     // TODO(gregce): cache invalid option errors in BuildConfigurationFunction, then use a dedicated

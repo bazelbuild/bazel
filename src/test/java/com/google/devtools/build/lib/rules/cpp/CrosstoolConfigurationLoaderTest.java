@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
@@ -412,18 +411,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "    mode: COVERAGE\n"
                 + "  }\n"
                 + "  # skip mode OPT to test handling its absence\n"
-                + "  lipo_mode_flags {"
-                + "    mode: OFF"
-                + "    compiler_flag: \"lipo_off\""
-                + "    cxx_flag: \"cxx-lipo_off\""
-                + "    linker_flag: \"linker-lipo_off\""
-                + "  }"
-                + "  lipo_mode_flags {"
-                + "    mode: BINARY"
-                + "    compiler_flag: \"lipo_binary\""
-                + "    cxx_flag: \"cxx-lipo_binary\""
-                + "    linker_flag: \"linker-lipo_binary\""
-                + "  }"
                 + "  linking_mode_flags {\n"
                 + "    mode: FULLY_STATIC\n"
                 + "    linker_flag: \"fully-static-flag-B-1\"\n"
@@ -529,11 +516,11 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             "solinker-flag-A-2")
         .inOrder();
 
-    // Only test a couple of compilation/lipo/linking mode combinations
+    // Only test a couple of compilation/linking mode combinations
     // (but test each mode at least once.)
     assertThat(
             ccProviderA.configureAllLegacyLinkOptions(
-                CompilationMode.FASTBUILD, LipoMode.OFF, LinkingMode.LEGACY_FULLY_STATIC))
+                CompilationMode.FASTBUILD, LinkingMode.LEGACY_FULLY_STATIC))
         .containsExactly(
             "linker-flag-A-1",
             "linker-flag-A-2",
@@ -542,22 +529,20 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             "fully-static-flag-A-1",
             "fully-static-flag-A-2")
         .inOrder();
-    assertThat(
-            ccProviderA.configureAllLegacyLinkOptions(
-                CompilationMode.DBG, LipoMode.OFF, LinkingMode.DYNAMIC))
+    assertThat(ccProviderA.configureAllLegacyLinkOptions(CompilationMode.DBG, LinkingMode.DYNAMIC))
         .containsExactly(
             "linker-flag-A-1", "linker-flag-A-2", "linker-dbg-flag-A-1", "linker-dbg-flag-A-2")
         .inOrder();
     assertThat(
             ccProviderA.configureAllLegacyLinkOptions(
-                CompilationMode.OPT, LipoMode.OFF, LinkingMode.LEGACY_FULLY_STATIC))
+                CompilationMode.OPT, LinkingMode.LEGACY_FULLY_STATIC))
         .containsExactly(
             "linker-flag-A-1", "linker-flag-A-2", "fully-static-flag-A-1", "fully-static-flag-A-2")
         .inOrder();
 
     assertThat(
             ccProviderA.configureAllLegacyLinkOptions(
-                CompilationMode.OPT, LipoMode.BINARY, LinkingMode.LEGACY_FULLY_STATIC))
+                CompilationMode.OPT, LinkingMode.LEGACY_FULLY_STATIC))
         .containsExactly(
             "linker-flag-A-1", "linker-flag-A-2", "fully-static-flag-A-1", "fully-static-flag-A-2")
         .inOrder();
@@ -587,8 +572,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     // Cursory testing of the "B" toolchain only; assume that if none of
     // toolchain B bled through into toolchain A, the reverse also didn't occur. And
     // we test more of it with the "C" toolchain below.
-    checkToolchainB(loader, LipoMode.OFF, "--cpu=k8", "--lipo=off");
-    checkToolchainB(loader, LipoMode.BINARY, "--cpu=k8", "--lipo=binary", "--compilation_mode=opt");
+    checkToolchainB(loader, "--cpu=k8");
+    checkToolchainB(loader, "--cpu=k8", "--compilation_mode=opt");
 
     // Make sure nothing bled through to the nearly-empty "C" toolchain. This is also testing for
     // all the defaults.
@@ -625,15 +610,13 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(CppHelper.getDynamicLinkOptions(toolchainC, ccProviderC, true)).isEmpty();
     assertThat(
             ccProviderC.configureAllLegacyLinkOptions(
-                CompilationMode.FASTBUILD, LipoMode.OFF, LinkingMode.LEGACY_FULLY_STATIC))
+                CompilationMode.FASTBUILD, LinkingMode.LEGACY_FULLY_STATIC))
+        .isEmpty();
+    assertThat(ccProviderC.configureAllLegacyLinkOptions(CompilationMode.DBG, LinkingMode.DYNAMIC))
         .isEmpty();
     assertThat(
             ccProviderC.configureAllLegacyLinkOptions(
-                CompilationMode.DBG, LipoMode.OFF, LinkingMode.DYNAMIC))
-        .isEmpty();
-    assertThat(
-            ccProviderC.configureAllLegacyLinkOptions(
-                CompilationMode.OPT, LipoMode.OFF, LinkingMode.LEGACY_FULLY_STATIC))
+                CompilationMode.OPT, LinkingMode.LEGACY_FULLY_STATIC))
         .isEmpty();
     assertThat(ccProviderC.getObjCopyOptionsForEmbedding()).isEmpty();
     assertThat(ccProviderC.getLdOptionsForEmbedding()).isEmpty();
@@ -653,24 +636,16 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     return packageIdentifier.getPathUnderExecRoot();
   }
 
-  private void checkToolchainB(CppConfigurationLoader loader, LipoMode lipoMode, String... args)
-      throws Exception {
-    String lipoSuffix = lipoMode.toString().toLowerCase();
+  private void checkToolchainB(CppConfigurationLoader loader, String... args) throws Exception {
     CppConfiguration toolchainB = create(loader, args);
     CcToolchainProvider ccProviderB = getCcToolchainProvider(toolchainB);
     assertThat(toolchainB.getToolchainIdentifier()).isEqualTo("toolchain-identifier-B");
-    assertThat(
-            ccProviderB.configureAllLegacyLinkOptions(
-                CompilationMode.DBG, lipoMode, LinkingMode.DYNAMIC))
+    assertThat(ccProviderB.configureAllLegacyLinkOptions(CompilationMode.DBG, LinkingMode.DYNAMIC))
         .containsExactly(
-            "linker-flag-B-1",
-            "linker-flag-B-2",
-            "linker-dbg-flag-B-1",
-            "linker-dbg-flag-B-2",
-            "linker-lipo_" + lipoSuffix)
+            "linker-flag-B-1", "linker-flag-B-2", "linker-dbg-flag-B-1", "linker-dbg-flag-B-2")
         .inOrder();
     assertThat(ccProviderB.getLegacyCompileOptionsWithCopts())
-        .containsAllOf("compiler-flag-B-1", "compiler-flag-B-2", "lipo_" + lipoSuffix)
+        .containsAllOf("compiler-flag-B-1", "compiler-flag-B-2")
         .inOrder();
   }
 

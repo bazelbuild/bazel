@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -772,49 +771,32 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
     return toolchainInfo.getCxxFlagsByCompilationMode();
   }
 
-  /** Returns compiler flags arising from the {@link CToolchain} for C compilation by lipo mode. */
-  ImmutableListMultimap<LipoMode, String> getLipoCFlags() {
-    return toolchainInfo.getLipoCFlags();
-  }
-
-  /**
-   * Returns compiler flags arising from the {@link CToolchain} for C++ compilation by lipo mode.
-   */
-  ImmutableListMultimap<LipoMode, String> getLipoCxxFlags() {
-    return toolchainInfo.getLipoCxxFlags();
-  }
-
   /** Returns linker flags for fully statically linked outputs. */
-  ImmutableList<String> getLegacyFullyStaticLinkFlags(
-      CompilationMode compilationMode, LipoMode lipoMode) {
-    return configureAllLegacyLinkOptions(
-        compilationMode, lipoMode, LinkingMode.LEGACY_FULLY_STATIC);
+  ImmutableList<String> getLegacyFullyStaticLinkFlags(CompilationMode compilationMode) {
+    return configureAllLegacyLinkOptions(compilationMode, LinkingMode.LEGACY_FULLY_STATIC);
   }
 
   /** Returns linker flags for mostly static linked outputs. */
-  ImmutableList<String> getLegacyMostlyStaticLinkFlags(
-      CompilationMode compilationMode, LipoMode lipoMode) {
-    return configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.STATIC);
+  ImmutableList<String> getLegacyMostlyStaticLinkFlags(CompilationMode compilationMode) {
+    return configureAllLegacyLinkOptions(compilationMode, LinkingMode.STATIC);
   }
 
   /** Returns linker flags for mostly static shared linked outputs. */
-  ImmutableList<String> getLegacyMostlyStaticSharedLinkFlags(
-      CompilationMode compilationMode, LipoMode lipoMode) {
+  ImmutableList<String> getLegacyMostlyStaticSharedLinkFlags(CompilationMode compilationMode) {
     return configureAllLegacyLinkOptions(
-        compilationMode, lipoMode, LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES);
+        compilationMode, LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES);
   }
 
   /** Returns linker flags for artifacts that are not fully or mostly statically linked. */
-  ImmutableList<String> getLegacyDynamicLinkFlags(
-      CompilationMode compilationMode, LipoMode lipoMode) {
-    return configureAllLegacyLinkOptions(compilationMode, lipoMode, LinkingMode.DYNAMIC);
+  ImmutableList<String> getLegacyDynamicLinkFlags(CompilationMode compilationMode) {
+    return configureAllLegacyLinkOptions(compilationMode, LinkingMode.DYNAMIC);
   }
 
   /**
    * Return all flags coming from naked {@code linker_flag} fields in the crosstool. {@code
    * linker_flag}s coming from linking_mode_flags and compilation_mode_flags are not included. If
    * you need all possible linker flags, use {@link #configureAllLegacyLinkOptions(CompilationMode,
-   * LipoMode, LinkingMode)}.
+   * LinkingMode)}.
    */
   public ImmutableList<String> getLegacyLinkOptions() {
     return toolchainInfo.getLegacyLinkOptions();
@@ -828,8 +810,7 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
     ImmutableList.Builder<String> coptsBuilder =
         ImmutableList.<String>builder()
             .addAll(getToolchainCompilerFlags())
-            .addAll(getCFlagsByCompilationMode().get(cppConfiguration.getCompilationMode()))
-            .addAll(getLipoCFlags().get(cppConfiguration.getLipoMode()));
+            .addAll(getCFlagsByCompilationMode().get(cppConfiguration.getCompilationMode()));
 
     if (cppConfiguration.isOmitfp()) {
       coptsBuilder.add("-fomit-frame-pointer");
@@ -849,8 +830,8 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
 
   /** Return all possible {@code linker_flag} flags from the crosstool. */
   ImmutableList<String> configureAllLegacyLinkOptions(
-      CompilationMode compilationMode, LipoMode lipoMode, LinkingMode linkingMode) {
-    return toolchainInfo.configureAllLegacyLinkOptions(compilationMode, lipoMode, linkingMode);
+      CompilationMode compilationMode, LinkingMode linkingMode) {
+    return toolchainInfo.configureAllLegacyLinkOptions(compilationMode, linkingMode);
   }
 
   /** Returns the GNU System Name */
@@ -914,7 +895,6 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
     return ImmutableList.<String>builder()
         .addAll(getToolchainCxxFlags())
         .addAll(getCxxFlagsByCompilationMode().get(cppConfiguration.getCompilationMode()))
-        .addAll(getLipoCxxFlags().get(cppConfiguration.getLipoMode()))
         .build();
   }
 
