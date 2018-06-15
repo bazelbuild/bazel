@@ -293,6 +293,9 @@ public final class ImportDepsChecker implements Closeable {
         .collect(ImmutableList.toImmutableList());
   }
 
+  static final Attributes.Name TARGET_LABEL = new Attributes.Name("Target-Label");
+  static final Attributes.Name INJECTING_RULE_KIND = new Attributes.Name("Injecting-Rule-Kind");
+
   @Nullable
   private static String extractLabel(Path jarPath) {
     try (JarFile jar = new JarFile(jarPath.toFile())) {
@@ -304,7 +307,13 @@ public final class ImportDepsChecker implements Closeable {
       if (attributes == null) {
         return null;
       }
-      return attributes.getValue("Target-Label");
+      String targetLabel = (String) attributes.get(TARGET_LABEL);
+      String injectingRuleKind = (String) attributes.get(INJECTING_RULE_KIND);
+      if (injectingRuleKind == null) {
+        return targetLabel;
+      } else {
+        return String.format("\"%s %s\"", targetLabel, injectingRuleKind);
+      }
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
