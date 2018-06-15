@@ -437,12 +437,20 @@ public class BlazeCommandDispatcher {
         }
       }
 
+      // Profiler setup and shutdown _must_ always happen in pairs. Shutdown is currently performed
+      // in the finally block (in the afterCommand call), so this call must not be moved outside
+      // this try-finally block.
+      env.getRuntime().initProfiler(
+          env.getReporter(),
+          env.getBlazeWorkspace(),
+          commonOptions,
+          env.getCommandId(),
+          execStartTimeNanos);
       try {
         // Notify the BlazeRuntime, so it can do some initial setup.
         env.beforeCommand(
             options,
             commonOptions,
-            execStartTimeNanos,
             waitTimeInMs,
             invocationPolicy);
       } catch (AbruptExitException e) {

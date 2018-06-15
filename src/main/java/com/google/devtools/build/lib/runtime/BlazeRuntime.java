@@ -260,10 +260,8 @@ public final class BlazeRuntime {
     return moduleInvocationPolicy;
   }
 
-  /**
-   * Conditionally enable profiling.
-   */
-  private void initProfiler(
+  /** Configure profiling based on the provided options. */
+  void initProfiler(
       EventHandler eventHandler,
       BlazeWorkspace workspace,
       CommonCommandOptions options,
@@ -439,14 +437,8 @@ public final class BlazeRuntime {
    * @param options The CommonCommandOptions used by every command.
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
-  void beforeCommand(CommandEnvironment env, CommonCommandOptions options, long execStartTimeNanos)
+  void beforeCommand(CommandEnvironment env, CommonCommandOptions options)
       throws AbruptExitException {
-    initProfiler(
-        env.getReporter(),
-        env.getBlazeWorkspace(),
-        options,
-        env.getCommandId(),
-        execStartTimeNanos);
     if (options.memoryProfilePath != null) {
       Path memoryProfilePath = env.getWorkingDirectory().getRelative(options.memoryProfilePath);
       MemoryProfiler.instance()
