@@ -96,4 +96,7 @@ public class HttpFileRule implements RuleDefinition {
 
  <p>Targets would specify <code>@my_deb//file</code> as a dependency to depend on this file.</p>
 
+ <p>You may also reference files on the localhost, using "file:///path/to/file" (on Unixes) or
+ "file:///c:/path/to/file" (on Windows; mind the 3 "/" characters!).</p>
+
  <!-- #END_BLAZE_RULE -->*/
