@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildeventstream.transports;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -76,7 +77,8 @@ public class JsonFormatFileTransportTest {
             .build();
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     JsonFormatFileTransport transport =
-        new JsonFormatFileTransport(output.getAbsolutePath(), defaultOpts, pathConverter);
+        new JsonFormatFileTransport(
+            output.getAbsolutePath(), defaultOpts, LOCAL_FILES_UPLOADER, (e) -> {});
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     transport.close().get();

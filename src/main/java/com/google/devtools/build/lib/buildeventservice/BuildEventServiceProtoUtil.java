@@ -107,6 +107,11 @@ public final class BuildEventServiceProtoUtil {
     return streamSequenceNumber.getAndIncrement();
   }
 
+  /** Creates a PublishBuildToolEventStreamRequest from a packed bazel event. */
+  public PublishBuildToolEventStreamRequest bazelEvent(Any packedEvent, int sequenceNumber) {
+    return bazelEvent(sequenceNumber, packedEvent);
+  }
+
   @VisibleForTesting
   public PublishBuildToolEventStreamRequest bazelEvent(int sequenceNumber, Any packedEvent) {
     return publishBuildToolEventStreamRequest(
@@ -114,7 +119,6 @@ public final class BuildEventServiceProtoUtil {
         com.google.devtools.build.v1.BuildEvent.newBuilder().setBazelEvent(packedEvent));
   }
 
-  @VisibleForTesting
   public PublishBuildToolEventStreamRequest streamFinished(int sequenceNumber) {
     return publishBuildToolEventStreamRequest(
         sequenceNumber,

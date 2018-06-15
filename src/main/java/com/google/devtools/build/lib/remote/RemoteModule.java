@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
@@ -42,6 +43,7 @@ import com.google.devtools.remoteexecution.v1test.Digest;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
@@ -60,11 +62,12 @@ public final class RemoteModule extends BlazeModule {
     // the PathConverter.
     RemoteOptions options;
     DigestUtil digestUtil;
+    PathConverter fallbackConverter = new FileUriPathConverter();
 
     @Override
     public String apply(Path path) {
       if (options == null || digestUtil == null || !remoteEnabled(options)) {
-        return null;
+        return fallbackConverter.apply(path);
       }
       String server = options.remoteCache;
       String remoteInstanceName = options.remoteInstanceName;
@@ -84,7 +87,7 @@ public final class RemoteModule extends BlazeModule {
                 digest.getSizeBytes());
       } catch (IOException e) {
         // TODO(ulfjack): Don't fail silently!
-        return null;
+        return fallbackConverter.apply(path);
       }
     }
   }
@@ -95,9 +98,14 @@ public final class RemoteModule extends BlazeModule {
   private RemoteActionContextProvider actionContextProvider;
 
   @Override
-  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder)
-      throws AbruptExitException {
-    builder.addPathToUriConverter(converter);
+  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
+    builder.addBuildEventArtifactUploader(new BuildEventArtifactUploader() {
+      @Override
+      public PathConverter upload(Set<Path> files) {
+        // TODO(ulfjack): Actually hook up upload here.
+        return converter;
+      }
+    }, "remote");
   }
 
   @Override

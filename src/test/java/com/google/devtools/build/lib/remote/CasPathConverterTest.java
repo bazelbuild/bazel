@@ -37,20 +37,20 @@ public class CasPathConverterTest {
   @Test
   public void noOptionsShouldntCrash() {
     converter.digestUtil = new DigestUtil(HashFunction.SHA256);
-    assertThat(converter.apply(fs.getPath("/foo"))).isNull();
+    assertThat(converter.apply(fs.getPath("/foo"))).isEqualTo("file:///foo");
   }
 
   @Test
   public void noDigestUtilShouldntCrash() {
     converter.options = Options.getDefaults(RemoteOptions.class);
-    assertThat(converter.apply(fs.getPath("/foo"))).isNull();
+    assertThat(converter.apply(fs.getPath("/foo"))).isEqualTo("file:///foo");
   }
 
   @Test
   public void disabledRemote() {
     converter.options = Options.getDefaults(RemoteOptions.class);
     converter.digestUtil = new DigestUtil(HashFunction.SHA256);
-    assertThat(converter.apply(fs.getPath("/foo"))).isNull();
+    assertThat(converter.apply(fs.getPath("/foo"))).isEqualTo("file:///foo");
   }
 
   @Test

@@ -14,7 +14,10 @@
 
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.vfs.Path;
+import java.util.Set;
 
 /**
  * Interface for objects that can be posted on the public event stream.
@@ -23,11 +26,29 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
  * pass-through of events, as well as proper chaining of events.
  */
 public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postable {
+
+  /**
+   * Returns a list of files that are referenced in the protobuf representation returned by {@link
+   * #asStreamProto(BuildEventContext)}.
+   *
+   * <p>This method is different from {@code EventReportingArtifacts#reportedArtifacts()} in that it
+   * only returns files directly referenced in the protobuf returned by {@link
+   * #asStreamProto(BuildEventContext)}.
+   *
+   * <p>Note the consistency requirement - you must not attempt to pass Path objects to the
+   * {@link PathConverter} unless you have returned the Path object here.
+   */
+  // TODO(ulfjack): Consider moving the upload call to the BuildEventContext and returning a map
+  // from Path to URI, rather than a callback.
+  default Set<Path> referencedLocalFiles() {
+    return ImmutableSet.of();
+  }
+
   /**
    * Provide a binary representation of the event.
    *
    * <p>Provide a presentation of the event according to the specified binary format, as appropriate
    * protocol buffer.
    */
-  BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters);
+  BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext context);
 }

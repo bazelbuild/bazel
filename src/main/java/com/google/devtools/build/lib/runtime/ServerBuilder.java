@@ -18,7 +18,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderMap;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.runtime.commands.InfoItem;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import com.google.devtools.build.lib.vfs.Path;
 
 /**
  * Builder class to create a {@link BlazeRuntime} instance. This class is part of the module API,
@@ -45,8 +45,8 @@ public final class ServerBuilder {
       ImmutableList.builder();
   private final ImmutableList.Builder<PackageFactory.EnvironmentExtension> environmentExtensions =
       ImmutableList.builder();
-  private final ImmutableList.Builder<PathConverter> pathToUriConverters
-      = ImmutableList.builder();
+  private final BuildEventArtifactUploaderMap.Builder buildEventArtifactUploaders =
+      new BuildEventArtifactUploaderMap.Builder();
 
   @VisibleForTesting
   public ServerBuilder() {}
@@ -87,25 +87,8 @@ public final class ServerBuilder {
     return commands.build();
   }
 
-  /**
-   * Return the derived total converter from Paths to URIs. It returns the answer of the first
-   * registered converter that can convert the given path, if any. If no registered converter can
-   * convert the given path, the "file" URI scheme is used.
-   */
-  public PathConverter getPathToUriConverter() {
-    final ImmutableList<PathConverter> converters = this.pathToUriConverters.build();
-    return new PathConverter(){
-      @Override
-      public String apply(Path path) {
-        for (PathConverter converter : converters) {
-          String value = converter.apply(path);
-          if (value != null) {
-            return value;
-          }
-        }
-        return "file://" + path.getPathString();
-      }
-    };
+  public BuildEventArtifactUploaderMap getBuildEventArtifactUploaderMap() {
+    return buildEventArtifactUploaders.build();
   }
 
   /**
@@ -195,11 +178,9 @@ public final class ServerBuilder {
     return this;
   }
 
-  /**
-   * Register a new {@link PathConverter}. Contervers are tried in the order they are registered.
-   */
-  public ServerBuilder addPathToUriConverter(PathConverter converter) {
-    this.pathToUriConverters.add(converter);
+  public ServerBuilder addBuildEventArtifactUploader(
+      BuildEventArtifactUploader uploader, String name) {
+    buildEventArtifactUploaders.add(name, uploader);
     return this;
   }
 }

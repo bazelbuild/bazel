@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
@@ -38,6 +39,15 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     return ImmutableList.<BuildEventId>of();
+  }
+
+  @Override
+  public ImmutableSet<Path> referencedLocalFiles() {
+    ImmutableSet.Builder<Path> artifacts = ImmutableSet.builder();
+    for (Pair<String, Path> logFile : logFiles) {
+      artifacts.add(logFile.getSecond());
+    }
+    return artifacts.build();
   }
 
   @Override

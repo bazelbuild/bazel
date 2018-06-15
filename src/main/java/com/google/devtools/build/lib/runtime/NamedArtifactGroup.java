@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
 
 /**
@@ -52,6 +53,19 @@ class NamedArtifactGroup implements BuildEvent {
   }
 
   @Override
+  public ImmutableSet<Path> referencedLocalFiles() {
+    // This has to be consistent with the code below.
+    ImmutableSet.Builder<Path> artifacts = ImmutableSet.builder();
+    for (Artifact artifact : view.directs()) {
+      if (artifact.isMiddlemanArtifact()) {
+        continue;
+      }
+      artifacts.add(artifact.getPath());
+    }
+    return artifacts.build();
+  }
+
+  @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     PathConverter pathConverter = converters.pathConverter();
     ArtifactGroupNamer namer = converters.artifactGroupNamer();
@@ -59,6 +73,7 @@ class NamedArtifactGroup implements BuildEvent {
     BuildEventStreamProtos.NamedSetOfFiles.Builder builder =
         BuildEventStreamProtos.NamedSetOfFiles.newBuilder();
     for (Artifact artifact : view.directs()) {
+      // We never want to report middleman artifacts. They are for internal use only.
       if (artifact.isMiddlemanArtifact()) {
         continue;
       }
