@@ -369,7 +369,7 @@ sh_test(
     size = "medium",
     srcs = ["workspace_resolved_test.sh"],
     data = [":test-deps"],
-    shard_count = 3,
+    shard_count = 4,
 )
 
 sh_test(
