@@ -54,6 +54,9 @@ class DependencyAndroidData extends SerializedAndroidData {
 
   @VisibleForTesting
   static DependencyAndroidData valueOf(String text, FileSystem fileSystem) {
+
+
+
     if (!VALID_REGEX.matcher(text).find()) {
       throw new IllegalArgumentException(text + " is not in the format '" + EXPECTED_FORMAT + "'");
     }

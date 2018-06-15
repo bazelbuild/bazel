@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.android.resources.JavaIdentifierValidator.InvalidJavaIdentifier;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -45,15 +46,12 @@ import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link RClassGenerator}.
- */
+/** Tests for {@link RClassGenerator}. */
 @RunWith(JUnit4.class)
 public class RClassGeneratorTest {
 
   private Path temp;
-  @Rule
-  public final ExpectedException thrown = ExpectedException.none();
+  @Rule public final ExpectedException thrown = ExpectedException.none();
 
   @Before
   public void setUp() throws Exception {
@@ -94,32 +92,29 @@ public class RClassGeneratorTest {
 
     Path packageDir = out.resolve("com/bar");
     checkFilesInPackage(packageDir, "R.class", "R$attr.class", "R$id.class", "R$string.class");
-    Class<?> outerClass = checkTopLevelClass(out,
-        "com.bar.R",
-        "com.bar.R$attr",
-        "com.bar.R$id",
-        "com.bar.R$string");
-    checkInnerClass(out,
+    Class<?> outerClass =
+        checkTopLevelClass(out, "com.bar.R", "com.bar.R$attr", "com.bar.R$id", "com.bar.R$string");
+    checkInnerClass(
+        out,
         "com.bar.R$attr",
         outerClass,
         ImmutableMap.of("agility", 0x7f010000),
         ImmutableMap.<String, List<Integer>>of(),
-        finalFields
-    );
-    checkInnerClass(out,
+        finalFields);
+    checkInnerClass(
+        out,
         "com.bar.R$id",
         outerClass,
         ImmutableMap.of("someTextView", 0x7f080000),
         ImmutableMap.<String, List<Integer>>of(),
-        finalFields
-    );
-    checkInnerClass(out,
+        finalFields);
+    checkInnerClass(
+        out,
         "com.bar.R$string",
         outerClass,
         ImmutableMap.of("ok", 0x7f100001),
         ImmutableMap.<String, List<Integer>>of(),
-        finalFields
-    );
+        finalFields);
   }
 
   @Test
@@ -133,10 +128,8 @@ public class RClassGeneratorTest {
   }
 
   private void checkFileWriteThrowsOnExisting(String existingFile) throws Exception {
-    ResourceSymbols symbolValues =
-        createSymbolFile("R.txt", "int string ok 0x7f100001");
-    ResourceSymbols symbolsInLibrary =
-        createSymbolFile("lib.R.txt", "int string ok 0x1");
+    ResourceSymbols symbolValues = createSymbolFile("R.txt", "int string ok 0x7f100001");
+    ResourceSymbols symbolsInLibrary = createSymbolFile("lib.R.txt", "int string ok 0x1");
 
     Path out = temp.resolve("classes");
     String packageName = "com";
@@ -167,18 +160,15 @@ public class RClassGeneratorTest {
 
     Path packageDir = out.resolve("com/testEmptyIntArray");
     checkFilesInPackage(packageDir, "R.class", "R$styleable.class");
-    Class<?> outerClass = checkTopLevelClass(out,
-        "com.testEmptyIntArray.R",
-        "com.testEmptyIntArray.R$styleable");
-    checkInnerClass(out,
+    Class<?> outerClass =
+        checkTopLevelClass(out, "com.testEmptyIntArray.R", "com.testEmptyIntArray.R$styleable");
+    checkInnerClass(
+        out,
         "com.testEmptyIntArray.R$styleable",
         outerClass,
         ImmutableMap.<String, Integer>of(),
-        ImmutableMap.<String, List<Integer>>of(
-            "ActionMenuView", ImmutableList.<Integer>of()
-        ),
-        finalFields
-    );
+        ImmutableMap.<String, List<Integer>>of("ActionMenuView", ImmutableList.<Integer>of()),
+        finalFields);
   }
 
   static final Matcher<Throwable> NUMBER_FORMAT_EXCEPTION =
@@ -197,6 +187,19 @@ public class RClassGeneratorTest {
         }
       };
 
+  static final Matcher<Throwable> INVALID_JAVA_IDENTIFIER =
+      new BaseMatcher<Throwable>() {
+        @Override
+        public boolean matches(Object item) {
+          return item instanceof InvalidJavaIdentifier;
+        }
+
+        @Override
+        public void describeTo(Description description) {
+          description.appendText(InvalidJavaIdentifier.class.getName());
+        }
+      };
+
   @Test
   public void corruptIntArraysTrailingComma() throws Exception {
     // Test a few cases of what happens if the R.txt is corrupted. It shouldn't happen unless there
@@ -211,6 +214,36 @@ public class RClassGeneratorTest {
     Path path = createFile("R.txt", "int[] styleable ActionMenuView { 1, , 2 }");
     thrown.expectCause(NUMBER_FORMAT_EXCEPTION);
     ResourceSymbols.load(path, MoreExecutors.newDirectExecutorService()).get();
+  }
+
+  @Test
+  public void invalidJavaIdentifierNumber() throws Exception {
+    Path path = createFile("R.txt", "int id 42ActionMenuView 0x7f020000");
+    final ResourceSymbols resourceSymbols =
+        ResourceSymbols.load(path, MoreExecutors.newDirectExecutorService()).get();
+    Path out = Files.createDirectories(temp.resolve("classes"));
+    thrown.expect(INVALID_JAVA_IDENTIFIER);
+    RClassGenerator.with(out, resourceSymbols.asInitializers(), true).write("somepackage");
+  }
+
+  @Test
+  public void invalidJavaIdentifierColon() throws Exception {
+    Path path = createFile("R.txt", "int id Action:MenuView 0x7f020000");
+    final ResourceSymbols resourceSymbols =
+        ResourceSymbols.load(path, MoreExecutors.newDirectExecutorService()).get();
+    Path out = Files.createDirectories(temp.resolve("classes"));
+    thrown.expect(INVALID_JAVA_IDENTIFIER);
+    RClassGenerator.with(out, resourceSymbols.asInitializers(), true).write("somepackage");
+  }
+
+  @Test
+  public void reservedJavaIdentifier() throws Exception {
+    Path path = createFile("R.txt", "int id package 0x7f020000");
+    final ResourceSymbols resourceSymbols =
+        ResourceSymbols.load(path, MoreExecutors.newDirectExecutorService()).get();
+    Path out = Files.createDirectories(temp.resolve("classes"));
+    thrown.expect(INVALID_JAVA_IDENTIFIER);
+    RClassGenerator.with(out, resourceSymbols.asInitializers(), true).write("somepackage");
   }
 
   @Test
@@ -233,18 +266,16 @@ public class RClassGeneratorTest {
 
     Path packageDir = out.resolve("com/foo");
     checkFilesInPackage(packageDir, "R.class", "R$layout.class");
-    Class<?> outerClass = checkTopLevelClass(out,
-        "com.foo.R",
-        "com.foo.R$layout");
-    checkInnerClass(out,
+    Class<?> outerClass = checkTopLevelClass(out, "com.foo.R", "com.foo.R$layout");
+    checkInnerClass(
+        out,
         "com.foo.R$layout",
         outerClass,
         ImmutableMap.of("stubbable_activity", 0x7f020000),
         ImmutableMap.<String, List<Integer>>of(),
-        finalFields
-    );
+        finalFields);
   }
-  
+
   @Test
   public void writeNothingWithNoResources() throws Exception {
     boolean finalFields = true;
@@ -258,7 +289,7 @@ public class RClassGeneratorTest {
     writer.write("com.foo", symbolsInLibrary.asInitializers());
 
     Path packageDir = out.resolve("com/foo");
-   
+
     checkFilesInPackage(packageDir);
   }
 
@@ -302,11 +333,11 @@ public class RClassGeneratorTest {
 
     Path packageDir = out.resolve("com/intArray");
     checkFilesInPackage(packageDir, "R.class", "R$attr.class", "R$styleable.class");
-    Class<?> outerClass = checkTopLevelClass(out,
-        "com.intArray.R",
-        "com.intArray.R$attr",
-        "com.intArray.R$styleable");
-    checkInnerClass(out,
+    Class<?> outerClass =
+        checkTopLevelClass(
+            out, "com.intArray.R", "com.intArray.R$attr", "com.intArray.R$styleable");
+    checkInnerClass(
+        out,
         "com.intArray.R$attr",
         outerClass,
         ImmutableMap.<String, Integer>builder()
@@ -319,9 +350,9 @@ public class RClassGeneratorTest {
             .put("zoo", 0x7f010006)
             .build(),
         ImmutableMap.<String, List<Integer>>of(),
-        finalFields
-    );
-    checkInnerClass(out,
+        finalFields);
+    checkInnerClass(
+        out,
         "com.intArray.R$styleable",
         outerClass,
         ImmutableMap.<String, Integer>builder()
@@ -335,11 +366,15 @@ public class RClassGeneratorTest {
             .build(),
         ImmutableMap.<String, List<Integer>>of(
             "ActionButton",
-            ImmutableList.of(0x010100f2, 0x7f010001, 0x7f010002,
-                0x7f010003, 0x7f010004, 0x7f010005, 0x7f010006)
-        ),
-        finalFields
-    );
+            ImmutableList.of(
+                0x010100f2,
+                0x7f010001,
+                0x7f010002,
+                0x7f010003,
+                0x7f010004,
+                0x7f010005,
+                0x7f010006)),
+        finalFields);
   }
 
   @Test
@@ -370,8 +405,8 @@ public class RClassGeneratorTest {
   private Path createFile(String name, String... contents) throws IOException {
     Path path = temp.resolve(name);
     Files.createDirectories(path.getParent());
-    Files.newOutputStream(path).write(
-        Joiner.on("\n").join(contents).getBytes(StandardCharsets.UTF_8));
+    Files.newOutputStream(path)
+        .write(Joiner.on("\n").join(contents).getBytes(StandardCharsets.UTF_8));
     return path;
   }
 
@@ -460,5 +495,4 @@ public class RClassGeneratorTest {
       assertThat(actualIntArrayFields.build()).containsExactlyEntriesIn(intArrayFields);
     }
   }
-
 }
