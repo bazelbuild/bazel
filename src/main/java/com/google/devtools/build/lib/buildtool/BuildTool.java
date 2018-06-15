@@ -229,14 +229,13 @@ public class BuildTool {
                   AbortReason.SKIPPED,
                   String.format("Target %s build was skipped.", label), label));
         }
-        postProcessAnalysisResult(request, analysisResult, configurations);
+        postProcessAnalysisResult(request, analysisResult);
         // Execution phase.
         if (needsExecutionPhase(request.getBuildOptions())) {
           executionTool.executeBuild(
               request.getId(),
               analysisResult,
               result,
-              configurations,
               analysisResult.getPackageRoots(),
               request.getTopLevelArtifactContext());
         } else {
@@ -303,10 +302,10 @@ public class BuildTool {
    */
   protected void postProcessAnalysisResult(
       BuildRequest request,
-      AnalysisResult analysisResult,
-      BuildConfigurationCollection configurations)
+      AnalysisResult analysisResult)
       throws InterruptedException, ViewCreationFailedException,
-          PostAnalysisQueryCommandLineException {}
+          PostAnalysisQueryCommandLineException {
+  }
 
   private void reportExceptionError(Exception e) {
     if (e.getMessage() != null) {

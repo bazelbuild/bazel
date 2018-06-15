@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.CqueryThreadsafeCallback;
@@ -48,8 +47,7 @@ public abstract class PostAnalysisQueryBuildTool extends BuildTool {
   @Override
   protected void postProcessAnalysisResult(
       BuildRequest request,
-      AnalysisResult analysisResult,
-      BuildConfigurationCollection configurations)
+      AnalysisResult analysisResult)
       throws InterruptedException, ViewCreationFailedException,
           PostAnalysisQueryCommandLineException {
     // TODO: b/71905538 - this query will operate over the graph as constructed by analysis, but
@@ -66,7 +64,7 @@ public abstract class PostAnalysisQueryBuildTool extends BuildTool {
       try {
         doPostAnalysisQuery(
             request,
-            configurations.getHostConfiguration(),
+            analysisResult.getConfigurationCollection().getHostConfiguration(),
             analysisResult.getTopLevelTargetsWithConfigs(),
             queryExpression);
       } catch (QueryException | IOException e) {
