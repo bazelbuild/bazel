@@ -4,18 +4,6 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
-filegroup(
-    name = "package-srcs",
-    srcs = [
-        "platforms.BUILD",
-    ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
-)
-
 # These match values in //src/main/java/com/google/devtools/build/lib/util:CPU.java
 constraint_setting(name = "cpu")
 
