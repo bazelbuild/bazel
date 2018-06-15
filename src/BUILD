@@ -334,6 +334,7 @@ filegroup(
         "//src/test/py/bazel:srcs",
         "//src/test/shell:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
+        "//src/tools/execlog:srcs",
         "//src/tools/launcher:srcs",
         "//src/tools/runfiles:srcs",
         "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:srcs",
