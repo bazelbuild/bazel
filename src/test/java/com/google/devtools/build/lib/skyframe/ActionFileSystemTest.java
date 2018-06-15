@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import org.junit.Before;
 import org.junit.Test;
@@ -61,6 +62,26 @@ public class ActionFileSystemTest {
     assertThat(file.exists()).isTrue();
     assertThat(file.stat().isFile()).isTrue();
     assertThat(file.stat().isDirectory()).isFalse();
+  }
+
+  @Test
+  public void testAppendLocalFile() throws Exception {
+    String testData = "abc";
+
+    Path file = outputPath.getRelative("foo/bar");
+    FileSystemUtils.writeContentAsLatin1(file, testData);
+    assertThat(new String(FileSystemUtils.readContentAsLatin1(file))).isEqualTo(testData);
+
+    try (OutputStream out = file.getOutputStream(true)) {
+      PrintStream printStream = new PrintStream(out);
+      printStream.append("defg");
+      printStream.flush();
+    }
+    assertThat(new String(FileSystemUtils.readContentAsLatin1(file))).isEqualTo("abcdefg");
+
+    // Now make sure we can still overwrite the file in non-append mode.
+    FileSystemUtils.writeContentAsLatin1(file, "cheesy");
+    assertThat(new String(FileSystemUtils.readContentAsLatin1(file))).isEqualTo("cheesy");
   }
 
   @Test
