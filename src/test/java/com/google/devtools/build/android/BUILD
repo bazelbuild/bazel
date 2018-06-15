@@ -117,6 +117,7 @@ java_test(
     deps = [
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//src/tools/android/java/com/google/devtools/build/android/resources",
         "//third_party:guava",
         "//third_party:jimfs",
         "//third_party:junit4",
