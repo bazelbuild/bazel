@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.analysis.AliasProvider;
@@ -487,6 +488,14 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
         BuildEventId.targetCompleted(
             AliasProvider.getDependencyLabel(target),
             BuildEventId.configurationId(target.getConfigurationChecksum())));
+  }
+
+  @Override
+  public ImmutableSet<Path> referencedLocalFiles() {
+    ImmutableSet.Builder<Path> artifacts = ImmutableSet.builder();
+    artifacts.addAll(getFailedLogs());
+    artifacts.addAll(getPassedLogs());
+    return artifacts.build();
   }
 
   @Override

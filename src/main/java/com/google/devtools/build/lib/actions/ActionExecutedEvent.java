@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
@@ -114,6 +115,21 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
     } else {
       return ImmutableList.<BuildEvent>of();
     }
+  }
+
+  @Override
+  public ImmutableSet<Path> referencedLocalFiles() {
+    ImmutableSet.Builder<Path> artifacts = ImmutableSet.builder();
+    if (stdout != null) {
+      artifacts.add(stdout);
+    }
+    if (stderr != null) {
+      artifacts.add(stderr);
+    }
+    if (exception == null) {
+      artifacts.add(action.getPrimaryOutput().getPath());
+    }
+    return artifacts.build();
   }
 
   @Override

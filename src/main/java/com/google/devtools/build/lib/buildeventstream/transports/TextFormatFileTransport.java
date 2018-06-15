@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
-import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
+import java.util.function.Consumer;
 
 /**
  * A simple {@link BuildEventTransport} that writes the text representation of the protocol-buffer
@@ -30,15 +32,13 @@ import java.io.IOException;
  * <p>This class is used for debugging.
  */
 public final class TextFormatFileTransport extends FileTransport {
-  private final BuildEventProtocolOptions options;
-  private final PathConverter pathConverter;
-
   TextFormatFileTransport(
-      String path, BuildEventProtocolOptions options, PathConverter pathConverter)
-          throws IOException {
-    super(path);
-    this.options = options;
-    this.pathConverter = pathConverter;
+      String path,
+      BuildEventProtocolOptions options,
+      BuildEventArtifactUploader uploader,
+      Consumer<AbruptExitException> exitFunc)
+      throws IOException {
+    super(path, options, uploader, exitFunc);
   }
 
   @Override
@@ -48,24 +48,11 @@ public final class TextFormatFileTransport extends FileTransport {
 
   @Override
   public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
-    BuildEventContext converters =
-        new BuildEventContext() {
-          @Override
-          public PathConverter pathConverter() {
-            return pathConverter;
-          }
-
-          @Override
-          public ArtifactGroupNamer artifactGroupNamer() {
-            return namer;
-          }
-
-          @Override
-          public BuildEventProtocolOptions getOptions() {
-            return options;
-          }
-        };
-    String protoTextRepresentation = TextFormat.printToString(event.asStreamProto(converters));
+    BuildEventStreamProtos.BuildEvent protoEvent = asStreamProto(event, namer);
+    if (protoEvent == null) {
+      return;
+    }
+    String protoTextRepresentation = TextFormat.printToString(protoEvent);
     write("event {\n" + protoTextRepresentation + "}\n\n");
   }
 }

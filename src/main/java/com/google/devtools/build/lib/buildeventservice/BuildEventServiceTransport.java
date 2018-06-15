@@ -27,6 +27,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceC
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -48,12 +50,14 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.v1.BuildStatus.Result;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import com.google.protobuf.Any;
 import io.grpc.Status;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.Deque;
 import java.util.Set;
@@ -95,7 +99,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   private final ModuleEnvironment moduleEnvironment;
   private final EventHandler commandLineReporter;
   private final BuildEventProtocolOptions protocolOptions;
-  private final PathConverter pathConverter;
+  private final BuildEventArtifactUploader artifactUploader;
   private final Sleeper sleeper;
   /** Contains all pendingAck events that might be retried in case of failures. */
   private ConcurrentLinkedDeque<InternalOrderedBuildEvent> pendingAck;
@@ -131,11 +135,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       ModuleEnvironment moduleEnvironment,
       Clock clock,
       BuildEventProtocolOptions protocolOptions,
-      PathConverter pathConverter,
       EventHandler commandLineReporter,
       @Nullable String projectId,
       Set<String> keywords,
-      @Nullable String besResultsUrl) {
+      @Nullable String besResultsUrl,
+      BuildEventArtifactUploader artifactUploader) {
     this(
         besClient,
         uploadTimeout,
@@ -146,12 +150,12 @@ public class BuildEventServiceTransport implements BuildEventTransport {
         moduleEnvironment,
         clock,
         protocolOptions,
-        pathConverter,
         commandLineReporter,
         projectId,
         keywords,
-        new JavaSleeper(),
-        besResultsUrl);
+        besResultsUrl,
+        artifactUploader,
+        new JavaSleeper());
   }
 
   @VisibleForTesting
@@ -165,12 +169,12 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       ModuleEnvironment moduleEnvironment,
       Clock clock,
       BuildEventProtocolOptions protocolOptions,
-      PathConverter pathConverter,
       EventHandler commandLineReporter,
       @Nullable String projectId,
       Set<String> keywords,
-      Sleeper sleeper,
-      @Nullable String besResultsUrl) {
+      @Nullable String besResultsUrl,
+      BuildEventArtifactUploader artifactUploader,
+      Sleeper sleeper) {
     this.besClient = besClient;
     this.besProtoUtil =
         new BuildEventServiceProtoUtil(
@@ -187,9 +191,9 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     // TODO(buchgr): Fix it.
     this.uploaderExecutorService = listeningDecorator(Executors.newFixedThreadPool(2));
     this.protocolOptions = protocolOptions;
-    this.pathConverter = pathConverter;
     this.invocationResult = UNKNOWN_STATUS;
     this.uploadTimeout = uploadTimeout;
+    this.artifactUploader = artifactUploader;
     this.sleeper = sleeper;
     this.besResultsUrl = besResultsUrl;
   }
@@ -480,6 +484,27 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       do {
         orderedBuildEvent = pendingSend.pollFirst(STREAMING_RPC_POLL_IN_SECS, TimeUnit.SECONDS);
         if (orderedBuildEvent != null) {
+          final PathConverter pathConverter;
+          try {
+            pathConverter = artifactUploader.upload(orderedBuildEvent.referencedLocalFiles());
+          } catch (IOException e) {
+            logger.log(
+                Level.WARNING,
+                String.format(
+                    "Aborting publishBuildToolEventStream RPC because of a failure to "
+                        + "upload referenced artifacts: %s",
+                    e.getMessage()),
+                e);
+            besClient.abortStream(Status.INTERNAL.augmentDescription(e.getMessage()));
+            throw e;
+          } catch (InterruptedException e) {
+            // By convention the interrupted flag should have been cleared,
+            // but just to be sure clear it.
+            Thread.interrupted();
+            String additionalDetails = "Uploading referenced artifacts";
+            besClient.abortStream(Status.CANCELLED.augmentDescription(additionalDetails));
+            throw e;
+          }
           pendingAck.add(orderedBuildEvent);
           besClient.sendOverStream(orderedBuildEvent.serialize(pathConverter));
         }
@@ -621,6 +646,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
 
     int getSequenceNumber();
 
+    Set<Path> referencedLocalFiles();
+
     PublishBuildToolEventStreamRequest serialize(PathConverter pathConverter);
   }
 
@@ -647,6 +674,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     }
 
     @Override
+    public Set<Path> referencedLocalFiles() {
+      return event.referencedLocalFiles();
+    }
+
+    @Override
     public PublishBuildToolEventStreamRequest serialize(PathConverter pathConverter) {
       BuildEventStreamProtos.BuildEvent eventProto =
           event.asStreamProto(
@@ -666,7 +698,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                   return protocolOptions;
                 }
               });
-      return besProtoUtil.bazelEvent(sequenceNumber, Any.pack(eventProto));
+      return besProtoUtil.bazelEvent(Any.pack(eventProto), sequenceNumber);
     }
   }
 
@@ -685,6 +717,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     @Override
     public int getSequenceNumber() {
       return sequenceNumber;
+    }
+
+    @Override
+    public Set<Path> referencedLocalFiles() {
+      return ImmutableSet.of();
     }
 
     @Override

@@ -113,12 +113,15 @@ public final class GoogleAuthUtils {
   }
 
   /**
-   * Create a new {@link Credentials} object.
+   * Create a new {@link Credentials} object, or {@code null} if no options are provided.
    *
    * @throws IOException in case the credentials can't be constructed.
    */
-  public static Credentials newCredentials(AuthAndTLSOptions options) throws IOException {
-    if (options.googleCredentials != null) {
+  @Nullable
+  public static Credentials newCredentials(@Nullable AuthAndTLSOptions options) throws IOException {
+    if (options == null) {
+      return null;
+    } else if (options.googleCredentials != null) {
       // Credentials from file
       try (InputStream authFile = new FileInputStream(options.googleCredentials)) {
         return newCredentials(authFile, options.googleAuthScopes);

@@ -278,6 +278,19 @@ public final class TargetCompleteEvent
   }
 
   @Override
+  public ImmutableSet<Path> referencedLocalFiles() {
+    ImmutableSet.Builder<Path> builder = ImmutableSet.builder();
+    for (ArtifactsInOutputGroup group : outputs) {
+      if (group.areImportant()) {
+        for (Artifact artifact : group.getArtifacts()) {
+          builder.add(artifact.getPath());
+        }
+      }
+    }
+    return builder.build();
+  }
+
+  @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     BuildEventStreamProtos.TargetComplete.Builder builder =
         BuildEventStreamProtos.TargetComplete.newBuilder();

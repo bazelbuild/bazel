@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildeventstream.transports;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;
 import static org.mockito.Mockito.when;
 
 import com.google.common.base.Joiner;
@@ -77,7 +78,8 @@ public class TextFormatFileTransportTest {
             .build();
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     TextFormatFileTransport transport =
-        new TextFormatFileTransport(output.getAbsolutePath(), defaultOpts, pathConverter);
+        new TextFormatFileTransport(
+            output.getAbsolutePath(), defaultOpts, LOCAL_FILES_UPLOADER, (e) -> {});
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     BuildEventStreamProtos.BuildEvent progress =
