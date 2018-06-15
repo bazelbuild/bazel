@@ -36,9 +36,8 @@ function strip_lines_from_bazel_cc() {
     -e "/^INFO: Reading 'startup' options from /d" \
     -e '/^\$TEST_TMPDIR defined: output root default is/d' \
     -e '/^OpenJDK 64-Bit Server VM warning: ignoring option UseSeparateVSpacesInYoungGen; support was removed in 8.0/d' \
-    -e '/^Starting local Bazel server and connecting to it\.\.\.\.*$/d' \
-    -e '/^Starting local Blaze server and connecting to it\.\.\.\.*$/d' \
-    -e '/^\.*$/d' \
+    -e '/^Starting local B[azel]* server and connecting to it\.\.\.\.*$/d' \
+    -e '/^\.\.\. still trying to connect to local B[azel]* server after \d+ seconds \.\.\.\.*$/d' \
     -e '/^Killed non-responsive server process/d' \
     -e '/server needs to be killed, because the startup options are different/d' \
     -e '/^WARNING: Waiting for server process to terminate (waited 5 seconds, waiting at most 60)$/d' \
