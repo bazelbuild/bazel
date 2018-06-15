@@ -16,6 +16,10 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hashing;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -40,12 +44,13 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ActionFileSystemTest {
   private ActionFileSystem actionFS;
+  private PathFragment execRootFragment;
   private Path outputPath;
 
   @Before
   public void freshFS() {
     FileSystem delegateFS = new InMemoryFileSystem();
-    PathFragment execRootFragment = PathFragment.create("/path/to/execroot");
+    execRootFragment = PathFragment.create("/path/to/execroot");
     String relativeOutputPath = "goog-out";
     actionFS = new ActionFileSystem(delegateFS, execRootFragment, relativeOutputPath,
         ImmutableList.of(), new ActionInputMap(0), ImmutableList.of(), ImmutableList.of());
@@ -62,6 +67,33 @@ public class ActionFileSystemTest {
     assertThat(file.exists()).isTrue();
     assertThat(file.stat().isFile()).isTrue();
     assertThat(file.stat().isDirectory()).isFalse();
+
+    assertThat(file.delete()).isTrue();
+    assertThat(file.exists()).isFalse();
+    assertThat(file.delete()).isFalse();
+  }
+
+  @Test
+  public void testInjectUndeclaredOutput() throws Exception {
+    String testData = "abc19";
+    byte[] fileContent = testData.getBytes();
+    HashCode digest = Hashing.md5().hashBytes(fileContent);
+    Path file = outputPath.getRelative("foo/bar");
+    assertThat(file.exists()).isFalse();
+    actionFS.onInsert(asActionInput(file), digest.asBytes(), fileContent.length, 83);
+
+    assertThat(file.exists()).isTrue();
+    assertThat(file.stat().getSize()).isEqualTo(fileContent.length);
+    assertThat(file.getDigest()).isEqualTo(digest.asBytes());
+    assertThat(file.getFastDigest()).isEqualTo(digest.asBytes());
+
+    assertThat(file.delete()).isTrue();
+    assertThat(file.exists()).isFalse();
+    assertThat(file.delete()).isFalse();
+  }
+
+  private ActionInput asActionInput(Path path) {
+    return ActionInputHelper.fromPath(path.asFragment().relativeTo(execRootFragment));
   }
 
   @Test
