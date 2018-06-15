@@ -342,6 +342,7 @@ public class BuildView {
         createResult(
             eventHandler,
             loadingResult,
+            configurations,
             topLevelOptions,
             viewOptions,
             skyframeAnalysisResult,
@@ -354,6 +355,7 @@ public class BuildView {
   private AnalysisResult createResult(
       ExtendedEventHandler eventHandler,
       LoadingResult loadingResult,
+      BuildConfigurationCollection configurations,
       TopLevelArtifactContext topLevelOptions,
       AnalysisOptions viewOptions,
       SkyframeAnalysisResult skyframeAnalysisResult,
@@ -438,6 +440,7 @@ public class BuildView {
           }
         };
     return new AnalysisResult(
+        configurations,
         configuredTargets,
         aspects,
         allTargetsToTest,

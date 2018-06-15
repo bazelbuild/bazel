@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PackageRoots;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import java.util.Collection;
 import java.util.List;
@@ -28,6 +29,7 @@ import javax.annotation.Nullable;
  * Return value for {@link com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner}.
  */
 public final class AnalysisResult {
+  private final BuildConfigurationCollection configurations;
   private final ImmutableSet<ConfiguredTarget> targetsToBuild;
   @Nullable private final ImmutableList<ConfiguredTarget> targetsToTest;
   private final ImmutableSet<ConfiguredTarget> targetsToSkip;
@@ -43,6 +45,7 @@ public final class AnalysisResult {
   private final List<TargetAndConfiguration> topLevelTargetsWithConfigs;
 
   AnalysisResult(
+      BuildConfigurationCollection configurations,
       Collection<ConfiguredTarget> targetsToBuild,
       ImmutableSet<AspectValue> aspects,
       Collection<ConfiguredTarget> targetsToTest,
@@ -56,6 +59,7 @@ public final class AnalysisResult {
       PackageRoots packageRoots,
       String workspaceName,
       List<TargetAndConfiguration> topLevelTargetsWithConfigs) {
+    this.configurations = configurations;
     this.targetsToBuild = ImmutableSet.copyOf(targetsToBuild);
     this.aspects = aspects;
     this.targetsToTest = targetsToTest == null ? null : ImmutableList.copyOf(targetsToTest);
@@ -69,6 +73,10 @@ public final class AnalysisResult {
     this.packageRoots = packageRoots;
     this.workspaceName = workspaceName;
     this.topLevelTargetsWithConfigs = topLevelTargetsWithConfigs;
+  }
+
+  public BuildConfigurationCollection getConfigurationCollection() {
+    return configurations;
   }
 
   /**
