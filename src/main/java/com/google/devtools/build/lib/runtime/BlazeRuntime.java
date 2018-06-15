@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.Package;
@@ -262,8 +263,9 @@ public final class BlazeRuntime {
   /**
    * Conditionally enable profiling.
    */
-  private final boolean initProfiler(
-      CommandEnvironment env,
+  private void initProfiler(
+      EventHandler eventHandler,
+      BlazeWorkspace workspace,
       CommonCommandOptions options,
       UUID buildID,
       long execStartTimeNanos) {
@@ -274,19 +276,19 @@ public final class BlazeRuntime {
     try {
       if (options.enableTracer) {
         Path profilePath = options.profilePath != null
-            ? env.getWorkspace().getRelative(options.profilePath)
-            : env.getOutputBase().getRelative("command.profile");
+            ? workspace.getWorkspace().getRelative(options.profilePath)
+            : workspace.getOutputBase().getRelative("command.profile");
         recordFullProfilerData = false;
         out = profilePath.getOutputStream();
-        env.getReporter().handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
+        eventHandler.handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
         profiledTasks = ProfiledTaskKinds.ALL_FOR_TRACE;
         format = Profiler.Format.JSON_TRACE_FILE_FORMAT;
       } else if (options.profilePath != null) {
-        Path profilePath = env.getWorkspace().getRelative(options.profilePath);
+        Path profilePath = workspace.getWorkspace().getRelative(options.profilePath);
 
         recordFullProfilerData = options.recordFullProfilerData;
         out = profilePath.getOutputStream();
-        env.getReporter().handle(Event.info("Writing profile data to '" + profilePath + "'"));
+        eventHandler.handle(Event.info("Writing profile data to '" + profilePath + "'"));
         profiledTasks = ProfiledTaskKinds.ALL;
       } else if (options.alwaysProfileSlowOperations) {
         recordFullProfilerData = false;
@@ -294,25 +296,35 @@ public final class BlazeRuntime {
         profiledTasks = ProfiledTaskKinds.SLOWEST;
       }
       if (profiledTasks != ProfiledTaskKinds.NONE) {
-        Profiler.instance().start(
+        Profiler profiler = Profiler.instance();
+        profiler.start(
             profiledTasks,
             out,
             format,
             String.format(
                 "%s profile for %s at %s, build ID: %s",
                 getProductName(),
-                env.getOutputBase(),
+                workspace.getOutputBase(),
                 new Date(),
                 buildID),
             recordFullProfilerData,
             clock,
             execStartTimeNanos);
-        return true;
+        // Instead of logEvent() we're calling the low level function to pass the timings we took in
+        // the launcher. We're setting the INIT phase marker so that it follows immediately the
+        // LAUNCH phase.
+        long startupTimeNanos = options.startupTime * 1000000L;
+        profiler.logSimpleTaskDuration(
+            execStartTimeNanos - startupTimeNanos,
+            Duration.ZERO,
+            ProfilerTask.PHASE,
+            ProfilePhase.LAUNCH.description);
+        profiler.logSimpleTaskDuration(
+            execStartTimeNanos, Duration.ZERO, ProfilerTask.PHASE, ProfilePhase.INIT.description);
       }
     } catch (IOException e) {
-      env.getReporter().handle(Event.error("Error while creating profile file: " + e.getMessage()));
+      eventHandler.handle(Event.error("Error while creating profile file: " + e.getMessage()));
     }
-    return false;
   }
 
   public FileSystem getFileSystem() {
@@ -429,24 +441,12 @@ public final class BlazeRuntime {
    */
   void beforeCommand(CommandEnvironment env, CommonCommandOptions options, long execStartTimeNanos)
       throws AbruptExitException {
-    // Conditionally enable profiling
-    // We need to compensate for launchTimeNanos (measurements taken outside of the jvm).
-    long startupTimeNanos = options.startupTime * 1000000L;
-    if (initProfiler(env, options, env.getCommandId(), execStartTimeNanos - startupTimeNanos)) {
-      Profiler profiler = Profiler.instance();
-
-      // Instead of logEvent() we're calling the low level function to pass the timings we took in
-      // the launcher. We're setting the INIT phase marker so that it follows immediately the LAUNCH
-      // phase.
-      profiler.logSimpleTaskDuration(
-          execStartTimeNanos - startupTimeNanos,
-          Duration.ZERO,
-          ProfilerTask.PHASE,
-          ProfilePhase.LAUNCH.description);
-      profiler.logSimpleTaskDuration(
-          execStartTimeNanos, Duration.ZERO, ProfilerTask.PHASE, ProfilePhase.INIT.description);
-    }
-
+    initProfiler(
+        env.getReporter(),
+        env.getBlazeWorkspace(),
+        options,
+        env.getCommandId(),
+        execStartTimeNanos);
     if (options.memoryProfilePath != null) {
       Path memoryProfilePath = env.getWorkingDirectory().getRelative(options.memoryProfilePath);
       MemoryProfiler.instance()
