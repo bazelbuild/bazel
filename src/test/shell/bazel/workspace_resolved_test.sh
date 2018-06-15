@@ -278,4 +278,29 @@ EOF
   bazel build :a :b || fail "Expected both repositories to be present"
 }
 
+test_sync_debug_and_errors_printed() {
+  rm -rf fetchrepo
+  mkdir fetchrepo
+  cd fetchrepo
+  cat > rule.bzl <<'EOF'
+def _broken_rule_impl(ctx):
+  print("DEBUG-message")
+  fail("Failure-message")
+
+broken_rule = repository_rule(
+  implementation = _broken_rule_impl,
+  attrs = {},
+)
+EOF
+  touch BUILD
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "broken_rule")
+
+broken_rule(name = "broken")
+EOF
+  bazel sync > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  expect_log "DEBUG-message"
+  expect_log "Failure-message"
+}
+
 run_suite "workspace_resolved_test tests"

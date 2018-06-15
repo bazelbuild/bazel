@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -114,11 +115,17 @@ public final class SyncCommand implements BlazeCommand {
               SkyframeExecutor.DEFAULT_THREAD_COUNT,
               env.getReporter());
       if (fetchValue.hasError()) {
+        if (fetchValue.getError().getException() != null) {
+          env.getReporter().handle(Event.error(fetchValue.getError().getException().getMessage()));
+        } else {
+          env.getReporter().handle(Event.error(fetchValue.getError().toString()));
+        }
         return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
       }
     } catch (InterruptedException e) {
       return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
     } catch (AbruptExitException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
       return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     }
 
