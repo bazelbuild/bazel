@@ -1,7 +1,7 @@
 # Packaging
 
 load(":embedded_tools.bzl", "srcsfile")
-load(":assert_size.bzl", "assert_size")
+load(":assert_size_test.bzl", "assert_size_test")
 
 md5_cmd = "set -e -o pipefail && cat $(SRCS) | sort | %s | awk '{ print $$1; }' > $@"
 
@@ -183,8 +183,8 @@ py_binary(
     "_with_jdk",
 ]]
 
-assert_size(
-    name = "assert_embedded_tools_size",
+assert_size_test(
+    name = "embedded_tools_size_test",
     src = ":embedded_tools_srcs",
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
@@ -192,12 +192,6 @@ assert_size(
     expect = 503,
     margin = 5,  # percentage
     visibility = ["//visibility:private"],
-)
-
-sh_test(
-    name = "embedded_tools_size_test",
-    srcs = ["dummy.sh"],
-    data = [":assert_embedded_tools_size"],
 )
 
 filegroup(
