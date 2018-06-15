@@ -29,8 +29,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.FilesetOutputConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
@@ -66,12 +64,10 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -167,21 +163,13 @@ public final class ConfiguredTargetFactory {
    * Returns the output artifact for the given file, or null if Skyframe deps are missing.
    */
   private Artifact getOutputArtifact(AnalysisEnvironment analysisEnvironment, OutputFile outputFile,
-      BuildConfiguration configuration, boolean isFileset, ArtifactFactory artifactFactory)
-      throws InterruptedException {
+      BuildConfiguration configuration, boolean isFileset, ArtifactFactory artifactFactory) {
     Rule rule = outputFile.getAssociatedRule();
     ArtifactRoot root =
         rule.hasBinaryOutput()
             ? configuration.getBinDirectory(rule.getRepository())
             : configuration.getGenfilesDirectory(rule.getRepository());
-    ArtifactOwner owner =
-        ConfiguredTargetKey.of(
-            rule.getLabel(),
-            getArtifactOwnerConfiguration(
-                analysisEnvironment.getSkyframeEnv(), configuration, defaultBuildOptions));
-    if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
-      return null;
-    }
+    ArtifactOwner owner = ConfiguredTargetKey.of(rule.getLabel(), configuration);
     PathFragment rootRelativePath =
         outputFile.getLabel().getPackageIdentifier().getSourceRoot().getRelative(
             outputFile.getLabel().getName());
@@ -191,39 +179,6 @@ public final class ConfiguredTargetFactory {
     // The associated rule should have created the artifact.
     Preconditions.checkNotNull(result, "no artifact for %s", rootRelativePath);
     return result;
-  }
-
-  /**
-   * Returns the configuration's artifact owner (which may be null). Also returns null if the owning
-   * configuration isn't yet available from Skyframe.
-   */
-  public static BuildConfiguration getArtifactOwnerConfiguration(
-      SkyFunction.Environment env, BuildConfiguration fromConfig, BuildOptions defaultBuildOptions)
-      throws InterruptedException {
-    if (fromConfig == null) {
-      return null;
-    }
-    PatchTransition ownerTransition = fromConfig.getArtifactOwnerTransition();
-    if (ownerTransition == null) {
-      return fromConfig;
-    }
-    try {
-      BuildConfigurationValue ownerConfig =
-          (BuildConfigurationValue)
-              env.getValueOrThrow(
-                  BuildConfigurationValue.key(
-                      fromConfig.fragmentClasses(),
-                      BuildOptions.diffForReconstruction(
-                          defaultBuildOptions, ownerTransition.patch(fromConfig.getOptions()))),
-                  InvalidConfigurationException.class);
-      return ownerConfig == null ? null : ownerConfig.getConfiguration();
-    } catch (InvalidConfigurationException e) {
-      // We don't expect to have to handle an invalid configuration because in practice the owning
-      // configuration should already exist. For example, the main user of this feature, the LIPO
-      // context collector, expects the owning configuration to be the top-level target config.
-      throw new IllegalStateException(
-          "this method should only return a pre-existing valid configuration");
-    }
   }
 
   /**
