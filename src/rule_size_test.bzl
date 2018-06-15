@@ -42,7 +42,7 @@ The "resources_size_test" test fails if the number of files in
         ],
     )
 
-    assert_size_test(
+    rule_size_test(
         name = "resources_size_test",
         src = ":resources",
 
@@ -56,16 +56,16 @@ The "resources_size_test" test fails if the number of files in
 
 def _impl(ctx):
     if ctx.attr.expect < 0:
-        fail("ERROR: assert_size_test.expect must be positive")
+        fail("ERROR: rule_size_test.expect must be positive")
 
     if ctx.attr.margin < 0 or ctx.attr.margin > 100:
         # Do not allow more than 100% change in size.
-        fail("ERROR: assert_size_test.margin must be in range [0..100]")
+        fail("ERROR: rule_size_test.margin must be in range [0..100]")
 
     if ctx.attr.expect == 0 and ctx.attr.margin != 0:
         # Allow no margin when expecting 0 files, to avoid division by zero.
-        fail("ERROR: assert_size_test.margin must be 0 when " +
-             "assert_size_test.expect is 0")
+        fail("ERROR: rule_size_test.margin must be 0 when " +
+             "rule_size_test.expect is 0")
 
     amount = len(ctx.attr.src[DefaultInfo].files)
 
@@ -76,7 +76,7 @@ def _impl(ctx):
             diff = ctx.attr.expect - amount
 
         if ((diff * 100) / ctx.attr.expect) > ctx.attr.margin:
-            fail(("ERROR: assert_size_test: expected %d file(s) within %d%% " +
+            fail(("ERROR: rule_size_test: expected %d file(s) within %d%% " +
                   "error margin, got %d file(s) (%d%% difference)") % (
                 ctx.attr.expect,
                 ctx.attr.margin,
@@ -84,7 +84,7 @@ def _impl(ctx):
                 (diff * 100) / ctx.attr.expect,
             ))
     elif amount != ctx.attr.expect:
-        fail(("ERROR: assert_size_test: expected exactly %d file(s), got %d " +
+        fail(("ERROR: rule_size_test: expected exactly %d file(s), got %d " +
               "file(s)") % (ctx.attr.expect, amount))
 
     if ctx.attr.is_windows:
@@ -100,7 +100,7 @@ def _impl(ctx):
 
     return [DefaultInfo(executable = test_bin)]
 
-_assert_size_test = rule(
+_rule_size_test = rule(
     implementation = _impl,
     attrs = {
         # The target whose number of output files this rule asserts. The number
@@ -120,8 +120,8 @@ _assert_size_test = rule(
     test = True,
 )
 
-def assert_size_test(name, **kwargs):
-    _assert_size_test(
+def rule_size_test(name, **kwargs):
+    _rule_size_test(
         name = name,
         is_windows = select({
             "@bazel_tools//src/conditions:windows": True,

@@ -1,7 +1,7 @@
 # Packaging
 
 load(":embedded_tools.bzl", "srcsfile")
-load(":assert_size_test.bzl", "assert_size_test")
+load(":rule_size_test.bzl", "rule_size_test")
 
 md5_cmd = "set -e -o pipefail && cat $(SRCS) | sort | %s | awk '{ print $$1; }' > $@"
 
@@ -183,7 +183,7 @@ py_binary(
     "_with_jdk",
 ]]
 
-assert_size_test(
+rule_size_test(
     name = "embedded_tools_size_test",
     src = ":embedded_tools_srcs",
     # WARNING: Only adjust the number in `expect` if you are intentionally
