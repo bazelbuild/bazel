@@ -119,6 +119,8 @@ import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -1309,9 +1311,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     checkActive();
     Preconditions.checkState(actionLogBufferPathGenerator != null);
 
-    skyframeActionExecutor.prepareForExecution(
-        reporter, executor, keepGoing, explain, actionCacheChecker,
-        finalizeActionsToOutputService ? outputService : null);
+    try (SilentCloseable c =
+        Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
+      skyframeActionExecutor.prepareForExecution(
+          reporter, executor, keepGoing, explain, actionCacheChecker,
+          finalizeActionsToOutputService ? outputService : null);
+    }
 
     resourceManager.resetResourceUsage();
     try {

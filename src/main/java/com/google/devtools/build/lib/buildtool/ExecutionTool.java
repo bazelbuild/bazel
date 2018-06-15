@@ -128,11 +128,15 @@ public class ExecutionTool {
 
     // Create tools before getting the strategies from the modules as some of them need tools to
     // determine whether the host actually supports certain strategies (e.g. sandboxing).
-    createToolsSymlinks();
+    try (SilentCloseable closeable = Profiler.instance().profile("createToolsSymlinks")) {
+      createToolsSymlinks();
+    }
 
     ExecutorBuilder builder = new ExecutorBuilder();
     for (BlazeModule module : runtime.getBlazeModules()) {
-      module.executorInit(env, request, builder);
+      try (SilentCloseable closeable = Profiler.instance().profile(module + ".executorInit")) {
+        module.executorInit(env, request, builder);
+      }
     }
     builder.addActionContext(new SymlinkTreeStrategy(
                 env.getOutputService(), env.getBlazeWorkspace().getBinTools()));
@@ -151,7 +155,9 @@ public class ExecutionTool {
 
     this.actionContextProviders = builder.getActionContextProviders();
     for (ActionContextProvider provider : actionContextProviders) {
-      provider.init(fileCache);
+      try (SilentCloseable closeable = Profiler.instance().profile(provider + ".init")) {
+        provider.init(fileCache);
+      }
     }
 
     // There are many different SpawnActions, and we want to control the action context they use
@@ -226,12 +232,16 @@ public class ExecutionTool {
     OutputService outputService = env.getOutputService();
     ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
     if (outputService != null) {
-      modifiedOutputFiles =
-          outputService.startBuild(
-              env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
+      try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
+        modifiedOutputFiles =
+            outputService.startBuild(
+                env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
+      }
     } else {
       // TODO(bazel-team): this could be just another OutputService
-      startLocalOutputBuild();
+      try (SilentCloseable c = Profiler.instance().profile("startLocalOutputBuild")) {
+        startLocalOutputBuild();
+      }
     }
 
     // Must be created after the output path is created above.
@@ -255,16 +265,22 @@ public class ExecutionTool {
                 analysisResult.getConfigurationCollection().getTargetConfigurations());
     String productName = runtime.getProductName();
     String workspaceName = env.getWorkspaceName();
-    OutputDirectoryLinksUtils.createOutputDirectoryLinks(
-        workspaceName, env.getWorkspace(), env.getDirectories().getExecRoot(workspaceName),
-        env.getDirectories().getOutputPath(workspaceName), getReporter(), targetConfigurations,
-        request.getBuildOptions().getSymlinkPrefix(productName), productName);
+    try (SilentCloseable c =
+        Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
+      OutputDirectoryLinksUtils.createOutputDirectoryLinks(
+          workspaceName, env.getWorkspace(), env.getDirectories().getExecRoot(workspaceName),
+          env.getDirectories().getOutputPath(workspaceName), getReporter(), targetConfigurations,
+          request.getBuildOptions().getSymlinkPrefix(productName), productName);
+    }
 
     ActionCache actionCache = getActionCache();
     actionCache.resetStatistics();
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-    Builder builder = createBuilder(
-        request, actionCache, skyframeExecutor, modifiedOutputFiles);
+    Builder builder;
+    try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
+      builder = createBuilder(
+          request, actionCache, skyframeExecutor, modifiedOutputFiles);
+    }
 
     //
     // Execution proper.  All statements below are logically nested in
@@ -272,7 +288,9 @@ public class ExecutionTool {
     //
 
     Collection<ConfiguredTarget> configuredTargets = buildResult.getActualTargets();
-    env.getEventBus().post(new ExecutionStartingEvent(configuredTargets));
+    try (SilentCloseable c = Profiler.instance().profile("ExecutionStartingEvent")) {
+      env.getEventBus().post(new ExecutionStartingEvent(configuredTargets));
+    }
 
     getReporter().handle(Event.progress("Building..."));
 
@@ -307,7 +325,10 @@ public class ExecutionTool {
     boolean buildCompleted = false;
     try {
       for (ActionContextProvider actionContextProvider : actionContextProviders) {
-        actionContextProvider.executionPhaseStarting(actionGraph, allArtifactsForProviders);
+        try (SilentCloseable c =
+            Profiler.instance().profile(actionContextProvider + ".executionPhaseStarting")) {
+          actionContextProvider.executionPhaseStarting(actionGraph, allArtifactsForProviders);
+        }
       }
       executor.executionPhaseStarting();
       skyframeExecutor.drainChangedFiles();
@@ -315,11 +336,15 @@ public class ExecutionTool {
       if (request.getViewOptions().discardAnalysisCache
           || !skyframeExecutor.tracksStateForIncrementality()) {
         // Free memory by removing cache entries that aren't going to be needed.
-        env.getSkyframeBuildView()
-            .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
+        try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
+          env.getSkyframeBuildView()
+              .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
+        }
       }
 
-      configureResourceManager(request);
+      try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
+        configureResourceManager(request);
+      }
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
 
@@ -411,7 +436,7 @@ public class ExecutionTool {
     Profiler.instance().markPhase(ProfilePhase.PREPARE);
 
     // Plant the symlink forest.
-    try {
+    try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
       new SymlinkForest(
               packageRootMap.get(), getExecRoot(), runtime.getProductName(), env.getWorkspaceName())
           .plantSymlinkForest();

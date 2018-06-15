@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
@@ -466,7 +468,10 @@ public class BlazeCommandDispatcher {
       env.getEventBus().post(commonOptions.toolCommandLine);
 
       for (BlazeModule module : runtime.getBlazeModules()) {
-        env.getSkyframeExecutor().injectExtraPrecomputedValues(module.getPrecomputedValues());
+        try (SilentCloseable closeable =
+            Profiler.instance().profile(module + ".injectExtraPrecomputedValues")) {
+          env.getSkyframeExecutor().injectExtraPrecomputedValues(module.getPrecomputedValues());
+        }
       }
 
       result = command.exec(env, options);
