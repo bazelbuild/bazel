@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.times;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
@@ -24,11 +25,17 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.InMemoryNe
 import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.NestedSetCache;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.NestedSetStorageEndpoint;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
 import com.google.protobuf.ByteString;
+import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -222,6 +229,8 @@ public class NestedSetCodecTest {
     Mockito.doReturn(subset2Future)
         .when(nestedSetStorageEndpoint)
         .get(fingerprintCaptor.getAllValues().get(1));
+    Mockito.when(emptyNestedSetCache.putIfAbsent(Mockito.any(), Mockito.any()))
+        .thenAnswer(invocation -> null);
 
     ListenableFuture<Object[]> deserializationFuture =
         nestedSetStore.getContentsAndDeserialize(
@@ -235,5 +244,97 @@ public class NestedSetCodecTest {
     subset1Future.set(ByteString.copyFrom("mock bytes", Charset.defaultCharset()).toByteArray());
     subset2Future.set(ByteString.copyFrom("mock bytes", Charset.defaultCharset()).toByteArray());
     assertThat(deserializationFuture.isDone()).isTrue();
+  }
+
+  @Test
+  public void racingDeserialization() throws Exception {
+    NestedSetStorageEndpoint nestedSetStorageEndpoint =
+        Mockito.mock(NestedSetStorageEndpoint.class);
+    NestedSetCache nestedSetCache = Mockito.spy(new NestedSetCache());
+    NestedSetStore nestedSetStore =
+        new NestedSetStore(
+            nestedSetStorageEndpoint, nestedSetCache, MoreExecutors.directExecutor());
+    DeserializationContext deserializationContext = Mockito.mock(DeserializationContext.class);
+    ByteString fingerprint = ByteString.copyFromUtf8("fingerprint");
+    // Future never completes, so we don't have to exercise that code in NestedSetStore.
+    SettableFuture<byte[]> storageFuture = SettableFuture.create();
+    Mockito.when(nestedSetStorageEndpoint.get(fingerprint)).thenReturn(storageFuture);
+    CountDownLatch fingerprintRequested = new CountDownLatch(2);
+    Mockito.doAnswer(
+            invocation -> {
+              fingerprintRequested.countDown();
+              @SuppressWarnings("unchecked")
+              ListenableFuture<Object[]> result =
+                  (ListenableFuture<Object[]>) invocation.callRealMethod();
+              fingerprintRequested.await();
+              return result;
+            })
+        .when(nestedSetCache)
+        .putIfAbsent(Mockito.eq(fingerprint), Mockito.any());
+    AtomicReference<ListenableFuture<Object[]>> asyncResult = new AtomicReference<>();
+    Thread asyncThread =
+        new Thread(
+            () -> {
+              try {
+                asyncResult.set(
+                    nestedSetStore.getContentsAndDeserialize(fingerprint, deserializationContext));
+              } catch (IOException e) {
+                throw new IllegalStateException(e);
+              }
+            });
+    asyncThread.start();
+    ListenableFuture<Object[]> result =
+        nestedSetStore.getContentsAndDeserialize(fingerprint, deserializationContext);
+    asyncThread.join();
+    Mockito.verify(nestedSetStorageEndpoint, times(1)).get(Mockito.eq(fingerprint));
+    assertThat(result).isSameAs(asyncResult.get());
+    assertThat(result.isDone()).isFalse();
+  }
+
+  @Test
+  public void bugInRacingSerialization() throws Exception {
+    NestedSetStorageEndpoint nestedSetStorageEndpoint =
+        Mockito.mock(NestedSetStorageEndpoint.class);
+    NestedSetCache nestedSetCache = Mockito.spy(new NestedSetCache());
+    NestedSetStore nestedSetStore =
+        new NestedSetStore(
+            nestedSetStorageEndpoint, nestedSetCache, MoreExecutors.directExecutor());
+    SerializationContext serializationContext = Mockito.mock(SerializationContext.class);
+    Object[] contents = {new Object()};
+    Mockito.when(serializationContext.getNewMemoizingContext()).thenReturn(serializationContext);
+    Mockito.when(nestedSetStorageEndpoint.put(Mockito.any(), Mockito.any()))
+        .thenAnswer(invocation -> SettableFuture.create());
+    CountDownLatch fingerprintRequested = new CountDownLatch(2);
+    Mockito.doAnswer(
+            invocation -> {
+              fingerprintRequested.countDown();
+              NestedSetStore.FingerprintComputationResult result =
+                  (NestedSetStore.FingerprintComputationResult) invocation.callRealMethod();
+              assertThat(result).isNull();
+              fingerprintRequested.await();
+              return null;
+            })
+        .when(nestedSetCache)
+        .fingerprintForContents(contents);
+    AtomicReference<NestedSetStore.FingerprintComputationResult> asyncResult =
+        new AtomicReference<>();
+    Thread asyncThread =
+        new Thread(
+            () -> {
+              try {
+                asyncResult.set(
+                    nestedSetStore.computeFingerprintAndStore(contents, serializationContext));
+              } catch (IOException | SerializationException e) {
+                throw new IllegalStateException(e);
+              }
+            });
+    asyncThread.start();
+    NestedSetStore.FingerprintComputationResult result =
+        nestedSetStore.computeFingerprintAndStore(contents, serializationContext);
+    asyncThread.join();
+    // TODO(janakr): This should be one fetch, but we currently do two.
+    Mockito.verify(nestedSetStorageEndpoint, times(2)).put(Mockito.any(), Mockito.any());
+    // TODO(janakr): These should be the same element.
+    assertThat(result).isNotEqualTo(asyncResult.get());
   }
 }
