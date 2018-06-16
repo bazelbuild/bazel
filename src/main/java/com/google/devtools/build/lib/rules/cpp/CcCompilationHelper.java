@@ -231,6 +231,7 @@ public final class CcCompilationHelper {
   private String purpose = null;
   private boolean generateNoPicAction;
   private boolean generatePicAction;
+  private boolean allowCoverageInstrumentation = true;
 
   // TODO(plf): Pull out of class.
   private CcCompilationContext ccCompilationContext;
@@ -708,6 +709,10 @@ public final class CcCompilationHelper {
       Collection<Artifact> additionalIncludeScanningRoots) {
     this.additionalIncludeScanningRoots.addAll(additionalIncludeScanningRoots);
     return this;
+  }
+
+  public void setAllowCoverageInstrumentation(boolean allowCoverageInstrumentation) {
+    this.allowCoverageInstrumentation = allowCoverageInstrumentation;
   }
 
   /**
@@ -1935,7 +1940,10 @@ public final class CcCompilationHelper {
   }
 
   /** Returns true iff code coverage is enabled for the given target. */
-  private boolean isCodeCoverageEnabled() {
+  public boolean isCodeCoverageEnabled() {
+    if (!allowCoverageInstrumentation) {
+      return false;
+    }
     if (configuration.isCodeCoverageEnabled()) {
       // If rule is matched by the instrumentation filter, enable instrumentation
       if (InstrumentedFilesCollector.shouldIncludeLocalSources(ruleContext)) {
