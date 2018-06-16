@@ -112,7 +112,7 @@ platform(
         ":x86_64",
         ":ppc",
         ":arm",
-	":aarch64",
+        ":aarch64",
         ":s390x",
     ],
     host_platform = True,
@@ -134,7 +134,7 @@ platform(
         ":x86_64",
         ":ppc",
         ":arm",
-	":aarch64",
+        ":aarch64",
         ":s390x",
     ],
     os_constraints = [
