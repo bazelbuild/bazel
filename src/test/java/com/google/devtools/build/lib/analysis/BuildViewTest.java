@@ -336,32 +336,6 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void topLevelConfigurationHook() throws Exception {
-    setConfigFragmentsAvailableInTests(TestConfigFragments.FragmentWithTopLevelConfigHook1Factory);
-    scratch.file(
-        "package/BUILD",
-        "sh_binary(name = 'binary', srcs = ['binary.sh'])");
-    ConfiguredTarget ct = Iterables.getOnlyElement(update("//package:binary").getTargetsToBuild());
-    BuildConfiguration.Options options =
-        getConfiguration(ct).getOptions().get(BuildConfiguration.Options.class);
-    assertThat(options.hostCpu).isEqualTo("$CONFIG HOOK 1");
-  }
-
-  @Test
-  public void topLevelComposedConfigurationHooks() throws Exception {
-    setConfigFragmentsAvailableInTests(
-        TestConfigFragments.FragmentWithTopLevelConfigHook1Factory,
-        TestConfigFragments.FragmentWithTopLevelConfigHook2Factory);
-    scratch.file(
-        "package/BUILD",
-        "sh_binary(name = 'binary', srcs = ['binary.sh'])");
-    ConfiguredTarget ct = Iterables.getOnlyElement(update("//package:binary").getTargetsToBuild());
-    BuildConfiguration.Options options =
-        getConfiguration(ct).getOptions().get(BuildConfiguration.Options.class);
-    assertThat(options.hostCpu).isEqualTo("$CONFIG HOOK 1$CONFIG HOOK 2");
-  }
-
-  @Test
   public void testGetDirectPrerequisites() throws Exception {
     scratch.file(
         "package/BUILD",
@@ -371,15 +345,7 @@ public class BuildViewTest extends BuildViewTestBase {
     ConfiguredTarget top = getConfiguredTarget("//package:top", getTargetConfiguration());
     Iterable<ConfiguredTarget> targets = getView().getDirectPrerequisitesForTesting(
         reporter, top, getBuildConfigurationCollection());
-    Iterable<Label> labels =
-        Iterables.transform(
-            targets,
-            new Function<ConfiguredTarget, Label>() {
-              @Override
-              public Label apply(ConfiguredTarget target) {
-                return target.getLabel();
-              }
-            });
+    Iterable<Label> labels = Iterables.transform(targets, target -> target.getLabel());
     assertThat(labels)
         .containsExactly(
             Label.parseAbsolute("//package:inner"), Label.parseAbsolute("//package:file"));
