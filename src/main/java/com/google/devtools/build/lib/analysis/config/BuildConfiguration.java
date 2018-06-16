@@ -37,8 +37,6 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -48,7 +46,6 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.BuildConfigurationApi;
@@ -161,23 +158,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
      */
     public Map<String, Object> lateBoundOptionDefaults() {
       return ImmutableMap.of();
-    }
-
-    /**
-     * Returns an extra transition that should apply to top-level targets in this
-     * configuration. Returns null if no transition is needed.
-     *
-     * <p>Overriders should not change {@link FragmentOptions} not associated with their fragment.
-     *
-     * <p>If multiple fragments specify a transition, they're composed together in a
-     * deterministic but undocumented order (so don't write code expecting a specific order).
-     *
-     * <p>Deprecated. The only known use of this is LIPO, which is on its deathbed.
-     */
-    @Nullable
-    @Deprecated
-    public PatchTransition topLevelConfigurationHook(Target toTarget) {
-      return null;
     }
   }
 
@@ -1852,27 +1832,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public ImmutableCollection<String> getSkylarkFragmentNames() {
     return skylarkVisibleFragments.keySet();
-  }
-
-  /**
-   * Returns an extra transition that should apply to top-level targets in this
-   * configuration. Returns null if no transition is needed.
-   */
-  @Nullable
-  public ConfigurationTransition topLevelConfigurationHook(Target toTarget) {
-    ConfigurationTransition currentTransition = null;
-    for (Fragment fragment : fragments.values()) {
-      PatchTransition fragmentTransition = fragment.topLevelConfigurationHook(toTarget);
-      if (fragmentTransition == null) {
-        continue;
-      } else if (currentTransition == null) {
-        currentTransition = fragmentTransition;
-      } else {
-        currentTransition =
-            TransitionResolver.composeTransitions(currentTransition, fragmentTransition);
-      }
-    }
-    return currentTransition;
   }
 
   public BuildEventId getEventId() {
