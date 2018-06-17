@@ -187,6 +187,7 @@ public final class RuleContext extends TargetContext
   private final ErrorReporter reporter;
   @Nullable private final ToolchainContext toolchainContext;
   private final ConstraintSemantics constraintSemantics;
+  private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
 
   private ActionOwner actionOwner;
 
@@ -194,7 +195,7 @@ public final class RuleContext extends TargetContext
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
 
   private RuleContext(
-      Builder builder,
+      RuleContext.Builder builder,
       AttributeMap attributes,
       ListMultimap<String, ConfiguredTargetAndData> targetMap,
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
@@ -231,6 +232,7 @@ public final class RuleContext extends TargetContext
     reporter = builder.reporter;
     this.toolchainContext = toolchainContext;
     this.constraintSemantics = constraintSemantics;
+    this.repositoryMapping = builder.repositoryMapping;
   }
 
   private void getAllFeatures(Set<String> allEnabledFeatures, Set<String> allDisabledFeatures) {
@@ -273,6 +275,10 @@ public final class RuleContext extends TargetContext
 
   public RepositoryName getRepository() {
     return rule.getRepository();
+  }
+
+  public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+    return repositoryMapping;
   }
 
   @Override
@@ -1440,6 +1446,7 @@ public final class RuleContext extends TargetContext
     private ImmutableList<Aspect> aspects;
     private ToolchainContext toolchainContext;
     private ConstraintSemantics constraintSemantics;
+    private ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
 
     Builder(
         AnalysisEnvironment env,
@@ -1458,7 +1465,8 @@ public final class RuleContext extends TargetContext
       this.hostConfiguration = Preconditions.checkNotNull(hostConfiguration);
       this.disableLipoTransition = disableLipoTransition;
       this.prerequisiteValidator = prerequisiteValidator;
-      reporter = new ErrorReporter(env, rule, getRuleClassNameForLogging());
+      this.repositoryMapping = rule.getPackage().getRepositoryMapping();
+      this.reporter = new ErrorReporter(env, rule, getRuleClassNameForLogging());
     }
 
     RuleContext build() {

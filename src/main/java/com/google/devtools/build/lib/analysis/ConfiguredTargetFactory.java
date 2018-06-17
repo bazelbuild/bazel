@@ -323,7 +323,6 @@ public final class ConfiguredTargetFactory {
     if (toolchainContext != null) {
       toolchainContext.resolveToolchains(prerequisiteMap);
     }
-
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
         new RuleContext.Builder(
