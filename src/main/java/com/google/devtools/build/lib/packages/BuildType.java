@@ -559,23 +559,6 @@ public final class BuildType {
     }
 
     /**
-     * This class provides more precise error messaging for type failures on select()s by
-     * highlighting which select() branch has the failure.
-     */
-    private static class CustomToString {
-      private final String str;
-
-      CustomToString(String str) {
-        this.str = str;
-      }
-
-      @Override
-      public String toString() {
-        return str;
-      }
-    }
-
-    /**
      * Creates a new Selector with a custom error message for when no conditions match.
      */
     Selector(ImmutableMap<?, ?> x, Object what, @Nullable Label context, Type<T> originalType,
@@ -594,11 +577,7 @@ public final class BuildType {
           result.put(key, originalType.getDefaultValue());
           defaultValuesBuilder.add(key);
         } else {
-<<<<<<< HEAD
           String selectBranch = what == null ? null :
-=======
-          CustomToString selectBranch = what == null ? null : new CustomToString(
->>>>>>> 61a4a88f83f614e21a2bf8c14043c0def97ad2f9
               String.format("%s over select() branch '%s'", what.toString(), key.toString()));
           result.put(key, originalType.convert(entry.getValue(), selectBranch, context));
         }
