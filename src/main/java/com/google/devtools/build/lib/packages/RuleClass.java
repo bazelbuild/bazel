@@ -36,11 +36,13 @@ import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
+import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -1777,7 +1779,8 @@ public class RuleClass {
       EventHandler eventHandler)
       throws InterruptedException, CannotPrecomputeDefaultsException {
     BitSet definedAttrIndices =
-        populateDefinedRuleAttributeValues(rule, attributeValues, eventHandler);
+        populateDefinedRuleAttributeValues(
+            rule, pkgBuilder.getRepositoryMapping(), attributeValues, eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
     populateConfigDependenciesAttribute(rule);
@@ -1790,12 +1793,15 @@ public class RuleClass {
    * <p>Handles the special cases of the attribute named {@code "name"} and attributes with value
    * {@link Runtime#NONE}.
    *
-   * <p>Returns a bitset {@code b} where {@code b.get(i)} is {@code true} if this method set a
-   * value for the attribute with index {@code i} in this {@link RuleClass}. Errors are reported
-   * on {@code eventHandler}.
+   * <p>Returns a bitset {@code b} where {@code b.get(i)} is {@code true} if this method set a value
+   * for the attribute with index {@code i} in this {@link RuleClass}. Errors are reported on {@code
+   * eventHandler}.
    */
   private <T> BitSet populateDefinedRuleAttributeValues(
-      Rule rule, AttributeValues<T> attributeValues, EventHandler eventHandler) {
+      Rule rule,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      AttributeValues<T> attributeValues,
+      EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
       String attributeName = attributeValues.getName(attributeAccessor);
@@ -1820,7 +1826,8 @@ public class RuleClass {
       Object nativeAttributeValue;
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
-          nativeAttributeValue = convertFromBuildLangType(rule, attr, attributeValue);
+          nativeAttributeValue =
+              convertFromBuildLangType(rule, attr, attributeValue, repositoryMapping);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -2116,13 +2123,19 @@ public class RuleClass {
    * <p>Throws {@link ConversionException} if the conversion fails, or if {@code buildLangValue} is
    * a selector expression but {@code attr.isConfigurable()} is {@code false}.
    */
-  private static Object convertFromBuildLangType(Rule rule, Attribute attr, Object buildLangValue)
+  private static Object convertFromBuildLangType(
+      Rule rule,
+      Attribute attr,
+      Object buildLangValue,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws ConversionException {
-    Object converted = BuildType.selectableConvert(
+    LabelConversionContext context = new LabelConversionContext(rule.getLabel(), repositoryMapping);
+    Object converted =
+        BuildType.selectableConvert(
         attr.getType(),
         buildLangValue,
         new AttributeConversionContext(attr.getName(), rule.getRuleClass()),
-        rule.getLabel());
+            context);
 
     if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
       throw new ConversionException(

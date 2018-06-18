@@ -518,12 +518,32 @@ public final class Label
     }
   )
   public Label getRelative(String relName) throws LabelSyntaxException {
+    return getRelativeWithRemapping(relName, /* repositoryMapping= */ ImmutableMap.of());
+  }
+
+  /**
+   * Resolves a relative or absolute label name. If given name is absolute, then this method calls
+   * {@link #parseAbsolute}. Otherwise, it calls {@link #getLocalTargetLabel}.
+   *
+   * <p>For example: {@code :quux} relative to {@code //foo/bar:baz} is {@code //foo/bar:quux};
+   * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux};
+   * {@code @repo//foo:bar} relative to anything will be {@code @repo//foo:bar} if {@code @repo} is
+   * not in {@code repositoryMapping} but will be {@code @other_repo//foo:bar} if there is an entry
+   * {@code @repo -> @other_repo} in {@code repositoryMapping}
+   *
+   * @param relName the relative label name; must be non-empty
+   * @param repositoryMapping the map of local repository names in external repository to global
+   *     repository names in main repo; can be empty, but not null
+   */
+  public Label getRelativeWithRemapping(
+      String relName, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      throws LabelSyntaxException {
     if (relName.length() == 0) {
       throw new LabelSyntaxException("empty package-relative label");
     }
 
     if (LabelValidator.isAbsolute(relName)) {
-      return resolveRepositoryRelative(parseAbsolute(relName, false));
+      return resolveRepositoryRelative(parseAbsolute(relName, false, repositoryMapping));
     } else if (relName.equals(":")) {
       throw new LabelSyntaxException("':' is not a valid package-relative label");
     } else if (relName.charAt(0) == ':') {

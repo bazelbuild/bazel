@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
@@ -68,23 +69,28 @@ public final class LocationExpander {
 
   private final RuleErrorConsumer ruleErrorConsumer;
   private final ImmutableMap<String, LocationFunction> functions;
+  private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
 
   @VisibleForTesting
   LocationExpander(
       RuleErrorConsumer ruleErrorConsumer,
-      Map<String, LocationFunction> functions) {
+      Map<String, LocationFunction> functions,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
     this.ruleErrorConsumer = ruleErrorConsumer;
     this.functions = ImmutableMap.copyOf(functions);
+    this.repositoryMapping = repositoryMapping;
   }
 
   private LocationExpander(
       RuleErrorConsumer ruleErrorConsumer,
       Label root,
       Supplier<Map<Label, Collection<Artifact>>> locationMap,
-      boolean execPaths) {
+      boolean execPaths,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
     this(
         ruleErrorConsumer,
-        allLocationFunctions(root, locationMap, execPaths));
+        allLocationFunctions(root, locationMap, execPaths),
+        repositoryMapping);
   }
 
   /**
@@ -108,7 +114,8 @@ public final class LocationExpander {
         // Use a memoizing supplier to avoid eagerly building the location map.
         Suppliers.memoize(
             () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData)),
-        execPaths);
+        execPaths,
+        ruleContext.getRepositoryMapping());
   }
 
   /**
@@ -209,7 +216,7 @@ public final class LocationExpander {
       // (2) Call appropriate function to obtain string replacement.
       String functionValue = value.substring(nextWhitespace + 1, end).trim();
       try {
-        String replacement = functions.get(fname).apply(functionValue);
+        String replacement = functions.get(fname).apply(functionValue, repositoryMapping);
         result.append(replacement);
       } catch (IllegalStateException ise) {
         reporter.report(ise.getMessage());
@@ -248,10 +255,10 @@ public final class LocationExpander {
      * @param arg The label-like string to be expanded, e.g. ":foo" or "//foo:bar"
      * @return The expanded value
      */
-    public String apply(String arg) {
+    public String apply(String arg, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
       Label label;
       try {
-        label = root.getRelative(arg);
+        label = root.getRelativeWithRemapping(arg, repositoryMapping);
       } catch (LabelSyntaxException e) {
         throw new IllegalStateException(
             String.format(

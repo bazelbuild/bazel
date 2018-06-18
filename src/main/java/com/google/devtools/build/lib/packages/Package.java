@@ -255,14 +255,20 @@ public class Package {
   }
 
   /**
-   * Returns the workspace mappings for the repository with the given absolute name.
+   * Returns the repository mapping for the requested external repository.
    *
    * @throws LabelSyntaxException if repository is not a valid {@link RepositoryName}
+   * @throws UnsupportedOperationException if called from a package other than
+   *     the //external package
    */
   public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
       String repository) throws LabelSyntaxException {
     RepositoryName repositoryName = RepositoryName.create(repository);
     return getRepositoryMapping(repositoryName);
+  }
+
+  public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+    return repositoryMapping;
   }
 
   /**
@@ -924,6 +930,11 @@ public class Package {
     Builder setRepositoryMapping(ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
       this.repositoryMapping = repositoryMapping;
       return this;
+    }
+
+    /** Get the repository mapping for this package */
+    ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+      return this.repositoryMapping;
     }
 
     /**
