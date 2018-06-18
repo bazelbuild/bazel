@@ -72,17 +72,20 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
 
   @Nullable private final String jacocoLabel;
   private final String defaultProtoToolchainLabel;
-  private final LabelLateBoundDefault<?> hostJdkAttribute;
+  private final LabelLateBoundDefault<JavaConfiguration> hostJdkAttribute;
+  private final LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute;
 
   public JavaLiteProtoAspect(
       JavaSemantics javaSemantics,
       @Nullable String jacocoLabel,
       String defaultProtoToolchainLabel,
-      LabelLateBoundDefault<?> hostJdkAttribute) {
+      LabelLateBoundDefault<JavaConfiguration> hostJdkAttribute,
+      LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute) {
     this.javaSemantics = javaSemantics;
     this.jacocoLabel = jacocoLabel;
     this.defaultProtoToolchainLabel = defaultProtoToolchainLabel;
     this.hostJdkAttribute = hostJdkAttribute;
+    this.javaToolchainAttribute = javaToolchainAttribute;
   }
 
   @Override
@@ -119,15 +122,16 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                         ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                             ProtoLangToolchainProvider.class))
                     .value(getProtoToolchainLabel(defaultProtoToolchainLabel)))
-            .add(attr(":host_jdk", LABEL)
-                .cfg(HostTransition.INSTANCE)
-                .value(hostJdkAttribute)
-                .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id()))
+            .add(
+                attr(":host_jdk", LABEL)
+                    .cfg(HostTransition.INSTANCE)
+                    .value(hostJdkAttribute)
+                    .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id()))
             .add(
                 attr(":java_toolchain", LABEL)
                     .useOutputLicenses()
                     .allowedRuleClasses("java_toolchain")
-                    .value(JavaSemantics.JAVA_TOOLCHAIN));
+                    .value(javaToolchainAttribute));
 
     Attribute.Builder<Label> jacocoAttr =
         attr("$jacoco_instrumentation", LABEL).cfg(HostTransition.INSTANCE);

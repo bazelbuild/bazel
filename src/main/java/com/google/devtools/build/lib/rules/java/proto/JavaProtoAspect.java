@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkParamsStore;
 import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.createNonStrictCompilationArgsProvider;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -60,7 +61,8 @@ import javax.annotation.Nullable;
 /** An Aspect which JavaProtoLibrary injects to build Java SPEED protos. */
 public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
 
-  private final LabelLateBoundDefault<?> hostJdkAttribute;
+  private final LabelLateBoundDefault<JavaConfiguration> hostJdkAttribute;
+  private final LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute;
 
   private static LabelLateBoundDefault<?> getSpeedProtoToolchainLabel(String defaultValue) {
     return LabelLateBoundDefault.fromTargetConfiguration(
@@ -80,12 +82,15 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       @Nullable String jacocoLabel,
       RpcSupport rpcSupport,
       String defaultSpeedProtoToolchainLabel,
-      LabelLateBoundDefault<?> hostJdkAttribute) {
-    this.javaSemantics = javaSemantics;
+      LabelLateBoundDefault<JavaConfiguration> hostJdkAttribute,
+      LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute) {
+    this.javaSemantics = Preconditions.checkNotNull(javaSemantics);
     this.jacocoLabel = jacocoLabel;
-    this.rpcSupport = rpcSupport;
-    this.defaultSpeedProtoToolchainLabel = defaultSpeedProtoToolchainLabel;
-    this.hostJdkAttribute = hostJdkAttribute;
+    this.rpcSupport = Preconditions.checkNotNull(rpcSupport);
+    this.defaultSpeedProtoToolchainLabel =
+        Preconditions.checkNotNull(defaultSpeedProtoToolchainLabel);
+    this.hostJdkAttribute = Preconditions.checkNotNull(hostJdkAttribute);
+    this.javaToolchainAttribute = Preconditions.checkNotNull(javaToolchainAttribute);
   }
 
   @Override
@@ -130,7 +135,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                 attr(":java_toolchain", LABEL)
                     .useOutputLicenses()
                     .allowedRuleClasses("java_toolchain")
-                    .value(JavaSemantics.JAVA_TOOLCHAIN));
+                    .value(javaToolchainAttribute));
 
     rpcSupport.mutateAspectDefinition(result, aspectParameters);
 
