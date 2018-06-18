@@ -313,7 +313,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<?> fragments,
       SkylarkList<?> hostFragments,
       Boolean skylarkTestable,
-      SkylarkList<String> toolchains,
+      SkylarkList<?> toolchains,
       String doc,
       SkylarkList<?> providesArg,
       Boolean executionPlatformConstraintsAllowed,
@@ -380,7 +380,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
         funcallEnv.getGlobals().getTransitiveLabel(),
         funcallEnv.getTransitiveContentHashCode());
-    builder.addRequiredToolchains(collectToolchainLabels(toolchains, ast));
+    builder.addRequiredToolchains(
+        collectToolchainLabels(
+            toolchains.getContents(String.class, "toolchains"), ast.getLocation()));
 
     for (Object o : providesArg) {
       if (!SkylarkAttr.isProvider(o)) {
@@ -436,7 +438,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   }
 
   private static ImmutableList<Label> collectToolchainLabels(
-      Iterable<String> rawLabels, FuncallExpression ast) throws EvalException {
+      Iterable<String> rawLabels, Location loc) throws EvalException {
     ImmutableList.Builder<Label> requiredToolchains = new ImmutableList.Builder<>();
     for (String rawLabel : rawLabels) {
       try {
@@ -444,9 +446,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         requiredToolchains.add(toolchainLabel);
       } catch (LabelSyntaxException e) {
         throw new EvalException(
-            ast.getLocation(),
-            String.format("Unable to parse toolchain %s: %s", rawLabel, e.getMessage()),
-            e);
+            loc, String.format("Unable to parse toolchain %s: %s", rawLabel, e.getMessage()), e);
       }
     }
 
@@ -478,7 +478,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList providesArg,
       SkylarkList fragments,
       SkylarkList hostFragments,
-      SkylarkList<String> toolchains,
+      SkylarkList<?> toolchains,
       String doc,
       FuncallExpression ast,
       Environment funcallEnv)
@@ -569,7 +569,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
-        collectToolchainLabels(toolchains, ast));
+        collectToolchainLabels(
+            toolchains.getContents(String.class, "toolchains"), ast.getLocation()));
   }
 
   /**
