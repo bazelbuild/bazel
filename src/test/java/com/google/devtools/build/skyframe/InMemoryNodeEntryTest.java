@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.ThinNodeEntry.MarkedDirtyResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -183,7 +184,9 @@ public class InMemoryNodeEntryTest {
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     assertThat(entry.isDirty()).isFalse();
     assertThat(entry.isDone()).isTrue();
-    entry.markDirty(/*isChanged=*/false);
+    MarkedDirtyResult markedDirtyResult = entry.markDirty(/*isChanged=*/false);
+    assertThat(markedDirtyResult.wasCallRedundant()).isFalse();
+    assertThat(markedDirtyResult.wasClean()).isTrue();
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isFalse();
     assertThat(entry.isDone()).isFalse();
@@ -215,7 +218,9 @@ public class InMemoryNodeEntryTest {
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     assertThat(entry.isDirty()).isFalse();
     assertThat(entry.isDone()).isTrue();
-    entry.markDirty(/*isChanged=*/true);
+    MarkedDirtyResult markedDirtyResult = entry.markDirty(/*isChanged=*/true);
+    assertThat(markedDirtyResult.wasCallRedundant()).isFalse();
+    assertThat(markedDirtyResult.wasClean()).isTrue();
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.isDone()).isFalse();
@@ -243,11 +248,15 @@ public class InMemoryNodeEntryTest {
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     assertThat(entry.isDirty()).isFalse();
     assertThat(entry.isDone()).isTrue();
-    entry.markDirty(/*isChanged=*/false);
+    MarkedDirtyResult firstResult = entry.markDirty(/*isChanged=*/false);
+    assertThat(firstResult.wasCallRedundant()).isFalse();
+    assertThat(firstResult.wasClean()).isTrue();
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isFalse();
     assertThat(entry.isDone()).isFalse();
-    entry.markDirty(/*isChanged=*/true);
+    MarkedDirtyResult secondResult = entry.markDirty(/*isChanged=*/true);
+    assertThat(secondResult.wasCallRedundant()).isFalse();
+    assertThat(secondResult.wasClean()).isFalse();
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.isDone()).isFalse();
@@ -267,11 +276,15 @@ public class InMemoryNodeEntryTest {
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     assertThat(entry.isDirty()).isFalse();
     assertThat(entry.isDone()).isTrue();
-    entry.markDirty(/*isChanged=*/true);
+    MarkedDirtyResult firstResult = entry.markDirty(/*isChanged=*/true);
+    assertThat(firstResult.wasCallRedundant()).isFalse();
+    assertThat(firstResult.wasClean()).isTrue();
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.isDone()).isFalse();
-    entry.markDirty(/*isChanged=*/false);
+    MarkedDirtyResult secondResult = entry.markDirty(/*isChanged=*/false);
+    assertThat(secondResult.wasCallRedundant()).isFalse();
+    assertThat(secondResult.wasClean()).isFalse();
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.isDone()).isFalse();
@@ -282,35 +295,60 @@ public class InMemoryNodeEntryTest {
   }
 
   @Test
-  public void crashOnTwiceMarkedChanged() throws InterruptedException {
+  public void markChangedTwice() throws InterruptedException {
     NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
+
+    setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 0L);
     assertThat(entry.isDirty()).isFalse();
+    assertThat(entry.isChanged()).isFalse();
     assertThat(entry.isDone()).isTrue();
-    entry.markDirty(/*isChanged=*/true);
-    try {
-      entry.markDirty(/*isChanged=*/true);
-      fail("Cannot mark entry changed twice");
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+
+    MarkedDirtyResult firstResult = entry.markDirty(/*isChanged=*/ true);
+    assertThat(firstResult.getReverseDepsUnsafeIfWasClean()).isNotNull();
+    assertThat(firstResult.wasCallRedundant()).isFalse();
+    assertThat(firstResult.wasClean()).isTrue();
+    assertThat(entry.isDirty()).isTrue();
+    assertThat(entry.isChanged()).isTrue();
+    assertThat(entry.isDone()).isFalse();
+
+    MarkedDirtyResult secondResult = entry.markDirty(/*isChanged=*/ true);
+    assertThat(secondResult.wasClean()).isFalse();
+    assertThat(secondResult.wasCallRedundant()).isTrue();
+    assertThat(entry.isDirty()).isTrue();
+    assertThat(entry.isChanged()).isTrue();
+    assertThat(entry.isDone()).isFalse();
   }
 
   @Test
-  public void crashOnTwiceMarkedDirty() throws InterruptedException {
+  public void markDirtyTwice() throws InterruptedException {
     NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
+
+    // To successfully mark a node dirty (but not changed), that node must have at least one
+    // dependency. The node sanity-checks its deps while being marked dirty.
     addTemporaryDirectDep(entry, key("dep"));
     entry.signalDep();
-    setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
-    entry.markDirty(/*isChanged=*/false);
-    try {
-      entry.markDirty(/*isChanged=*/false);
-      fail("Cannot mark entry dirty twice");
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+
+    setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 0L);
+    assertThat(entry.isDirty()).isFalse();
+    assertThat(entry.isChanged()).isFalse();
+    assertThat(entry.isDone()).isTrue();
+
+    MarkedDirtyResult firstResult = entry.markDirty(/*isChanged=*/ false);
+    assertThat(firstResult.getReverseDepsUnsafeIfWasClean()).isNotNull();
+    assertThat(firstResult.wasCallRedundant()).isFalse();
+    assertThat(firstResult.wasClean()).isTrue();
+    assertThat(entry.isDirty()).isTrue();
+    assertThat(entry.isChanged()).isFalse();
+    assertThat(entry.isDone()).isFalse();
+
+    MarkedDirtyResult secondResult = entry.markDirty(/*isChanged=*/ false);
+    assertThat(secondResult.wasClean()).isFalse();
+    assertThat(secondResult.wasCallRedundant()).isTrue();
+    assertThat(entry.isDirty()).isTrue();
+    assertThat(entry.isChanged()).isFalse();
+    assertThat(entry.isDone()).isFalse();
   }
 
   @Test
@@ -373,7 +411,9 @@ public class InMemoryNodeEntryTest {
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     assertThat(entry.isDirty()).isFalse();
     assertThat(entry.isDone()).isTrue();
-    entry.markDirty(/*isChanged=*/false);
+    MarkedDirtyResult markedDirtyResult = entry.markDirty(/*isChanged=*/false);
+    assertThat(markedDirtyResult.wasCallRedundant()).isFalse();
+    assertThat(markedDirtyResult.wasClean()).isTrue();
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isFalse();
     assertThat(entry.isDone()).isFalse();
@@ -419,7 +459,9 @@ public class InMemoryNodeEntryTest {
     addTemporaryDirectDep(entry, dep);
     entry.signalDep();
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/0L);
-    entry.markDirty(/*isChanged=*/false);
+    MarkedDirtyResult markedDirtyResult = entry.markDirty(/*isChanged=*/false);
+    assertThat(markedDirtyResult.wasCallRedundant()).isFalse();
+    assertThat(markedDirtyResult.wasClean()).isTrue();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
@@ -444,7 +486,9 @@ public class InMemoryNodeEntryTest {
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/0L);
     assertThat(entry.isDirty()).isFalse();
     assertThat(entry.isDone()).isTrue();
-    entry.markDirty(/*isChanged=*/false);
+    MarkedDirtyResult markedDirtyResult = entry.markDirty(/*isChanged=*/false);
+    assertThat(markedDirtyResult.wasCallRedundant()).isFalse();
+    assertThat(markedDirtyResult.wasClean()).isTrue();
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isFalse();
     assertThat(entry.isDone()).isFalse();
@@ -487,7 +531,9 @@ public class InMemoryNodeEntryTest {
     setValue(entry, new IntegerValue(5), /*errorInfo=*/ null, /*graphVersion=*/ 0L);
     assertThat(entry.isDirty()).isFalse();
     assertThat(entry.isDone()).isTrue();
-    entry.markDirty(/*isChanged=*/ false);
+    MarkedDirtyResult markedDirtyResult = entry.markDirty(/*isChanged=*/ false);
+    assertThat(markedDirtyResult.wasCallRedundant()).isFalse();
+    assertThat(markedDirtyResult.wasClean()).isTrue();
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isFalse();
     assertThat(entry.isDone()).isFalse();
@@ -525,7 +571,9 @@ public class InMemoryNodeEntryTest {
         key("cause"));
     ErrorInfo errorInfo = ErrorInfo.fromException(exception, false);
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/0L);
-    entry.markDirty(/*isChanged=*/false);
+    MarkedDirtyResult markedDirtyResult = entry.markDirty(/*isChanged=*/false);
+    assertThat(markedDirtyResult.wasCallRedundant()).isFalse();
+    assertThat(markedDirtyResult.wasClean()).isTrue();
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
     assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
@@ -553,7 +601,9 @@ public class InMemoryNodeEntryTest {
     entry.signalDep();
     entry.signalDep();
     setValue(entry, /*value=*/new IntegerValue(5), null, 0L);
-    entry.markDirty(/*isChanged=*/false);
+    MarkedDirtyResult markedDirtyResult = entry.markDirty(/*isChanged=*/false);
+    assertThat(markedDirtyResult.wasCallRedundant()).isFalse();
+    assertThat(markedDirtyResult.wasClean()).isTrue();
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
     assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep, dep2);
@@ -584,7 +634,9 @@ public class InMemoryNodeEntryTest {
         new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
         key("key"));
     setValue(entry, null, ErrorInfo.fromException(exception, false), 0L);
-    entry.markDirty(/*isChanged=*/false);
+    MarkedDirtyResult markedDirtyResult = entry.markDirty(/*isChanged=*/false);
+    assertThat(markedDirtyResult.wasCallRedundant()).isFalse();
+    assertThat(markedDirtyResult.wasClean()).isTrue();
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
     assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
@@ -602,7 +654,9 @@ public class InMemoryNodeEntryTest {
     addTemporaryDirectDep(entry, dep);
     entry.signalDep();
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/0L);
-    entry.markDirty(/*isChanged=*/false);
+    MarkedDirtyResult markedDirtyResult = entry.markDirty(/*isChanged=*/false);
+    assertThat(markedDirtyResult.wasCallRedundant()).isFalse();
+    assertThat(markedDirtyResult.wasClean()).isTrue();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
@@ -630,7 +684,9 @@ public class InMemoryNodeEntryTest {
       entry.signalDep();
     }
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/0L);
-    entry.markDirty(/*isChanged=*/false);
+    MarkedDirtyResult markedDirtyResult = entry.markDirty(/*isChanged=*/false);
+    assertThat(markedDirtyResult.wasCallRedundant()).isFalse();
+    assertThat(markedDirtyResult.wasClean()).isTrue();
     entry.addReverseDepAndCheckIfDone(null); // Start new evaluation.
     assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
     for (int ii = 0; ii < 10; ii++) {
@@ -650,7 +706,9 @@ public class InMemoryNodeEntryTest {
     NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(key("parent"));
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
-    entry.markDirty(/*isChanged=*/true);
+    MarkedDirtyResult markedDirtyResult = entry.markDirty(/*isChanged=*/true);
+    assertThat(markedDirtyResult.wasCallRedundant()).isFalse();
+    assertThat(markedDirtyResult.wasClean()).isTrue();
     SkyKey newParent = key("new parent");
     entry.addReverseDepAndCheckIfDone(newParent);
     assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.NEEDS_REBUILDING);
@@ -678,7 +736,9 @@ public class InMemoryNodeEntryTest {
     entry.removeReverseDep(key("parent1"));
     entry.removeReverseDep(key("parent2"));
     IntegerValue updatedValue = new IntegerValue(52);
-    clone2.markDirty(true);
+    MarkedDirtyResult markedDirtyResult = clone2.markDirty(true);
+    assertThat(markedDirtyResult.wasCallRedundant()).isFalse();
+    assertThat(markedDirtyResult.wasClean()).isTrue();
     clone2.addReverseDepAndCheckIfDone(null);
     SkyKey newChild = key("newchild");
     addTemporaryDirectDep(clone2, newChild);
