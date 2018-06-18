@@ -43,12 +43,15 @@ usage() {
   echo "  --base= set the base install path (default=%prefix%/lib/bazel)." >&2
   echo "  --user configure for user install, expands to:" >&2
   echo '      --bin=$HOME/bin --base=$HOME/.bazel' >&2
+  echo "  --skip-uncompress skip uncompressing the base image until the" >&2
+  echo "      first bazel invocation" >&2
   exit 1
 }
 
 prefix="/usr/local"
 bin="%prefix%/bin"
 base="%prefix%/lib/bazel"
+should_uncompress=true
 
 for opt in "${@}"; do
   case $opt in
@@ -64,6 +67,9 @@ for opt in "${@}"; do
     --user)
       bin="$HOME/bin"
       base="$HOME/.bazel"
+      ;;
+    --skip-uncompress)
+      should_uncompress=false
       ;;
     *)
       usage
@@ -158,7 +164,7 @@ echo -n .
 ln -s "${base}/bin/bazel" "${bin}/bazel"
 echo -n .
 
-if [ "${UID}" -ne 0 ]; then
+if [ "${should_uncompress}" = true ] && [ "${UID}" -ne 0 ]; then
   # Uncompress the bazel base install for faster startup time
   "${bin}/bazel" help >/dev/null
 fi
