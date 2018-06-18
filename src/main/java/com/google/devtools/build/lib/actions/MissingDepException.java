@@ -11,16 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-package com.google.devtools.build.lib.skyframe;
-
-import com.google.devtools.build.lib.actions.ActionInput;
-import java.io.IOException;
+package com.google.devtools.build.lib.actions;
 
 /**
- * An {@link InjectionListener} is notified when a remote file metadata is inserted into its
- * associated storage.
+ * Exception to be thrown if an action is missing Skyframe dependencies that it finds are missing
+ * during execution/input discovery.
  */
-public interface InjectionListener {
-  void onInsert(ActionInput dest, byte[] digest, long size, int backendIndex) throws IOException;
-}
+public final class MissingDepException extends RuntimeException {}

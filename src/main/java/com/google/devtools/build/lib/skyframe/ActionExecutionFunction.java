@@ -32,8 +32,10 @@ import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.MissingDepException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
@@ -48,6 +50,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -210,11 +213,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           optionalInputs = ImmutableList.of();
         }
         state.actionFileSystem =
-            new ActionFileSystem(
-                skyframeActionExecutor.getExecutorFileSystem(),
-                skyframeActionExecutor.getExecRoot().asFragment(),
+            skyframeActionExecutor.createActionFileSystem(
                 directories.getRelativeOutputPath(),
-                skyframeActionExecutor.getSourceRoots(),
                 checkedInputs.first,
                 optionalInputs,
                 action.getOutputs());
@@ -429,7 +429,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     if (action.discoversInputs()) {
       if (state.discoveredInputs == null) {
         try {
-          state.updateFileSystemContext(env, metadataHandler);
+          state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler);
           state.discoveredInputs =
               skyframeActionExecutor.discoverInputs(
                   action, perActionFileCache, metadataHandler, env, state.actionFileSystem);
@@ -495,7 +495,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       filesetMappings.put(actionInput.getExecPath(), filesetValue.getOutputSymlinks());
     }
 
-    state.updateFileSystemContext(env, metadataHandler);
+    state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler);
     try (ActionExecutionContext actionExecutionContext =
         skyframeActionExecutor.getContext(
             perActionFileCache,
@@ -550,12 +550,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     return state.value;
   }
 
-  private ArtifactPathResolver pathResolver(ActionFileSystem actionFileSystem) {
-    if (actionFileSystem != null) {
-      return ArtifactPathResolver.withTransformedFileSystem(
-          actionFileSystem.getPath(skyframeActionExecutor.getExecRoot().asFragment()));
-    }
-    return ArtifactPathResolver.forExecRoot(skyframeActionExecutor.getExecRoot());
+  private ArtifactPathResolver pathResolver(@Nullable FileSystem actionFileSystem) {
+    return ArtifactPathResolver.createPathResolver(
+        actionFileSystem, skyframeActionExecutor.getExecRoot());
   }
 
   private static final Function<Artifact, SkyKey> TO_NONMANDATORY_SKYKEY =
@@ -774,12 +771,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   }
 
   /**
-   * Exception to be thrown if an action is missing Skyframe dependencies that it finds are missing
-   * during execution/input discovery.
-   */
-  public static class MissingDepException extends RuntimeException {}
-
-  /**
    * Should be called once execution is over, and the intra-build cache of in-progress computations
    * should be discarded. If the cache is non-empty (due to an interrupted/failed build), failure to
    * call complete() can both cause a memory leak and incorrect results on the subsequent build.
@@ -824,7 +815,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     Iterable<Artifact> discoveredInputs = null;
     Iterable<Artifact> discoveredInputsStage2 = null;
     ActionExecutionValue value = null;
-    ActionFileSystem actionFileSystem = null;
+    FileSystem actionFileSystem = null;
 
     boolean hasCollectedInputs() {
       return allInputs != null;
@@ -848,9 +839,12 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     /** Must be called to assign values to the given variables as they change. */
     void updateFileSystemContext(
-        SkyFunction.Environment env, ActionMetadataHandler metadataHandler) {
+        SkyframeActionExecutor executor,
+        SkyFunction.Environment env,
+        ActionMetadataHandler metadataHandler) {
       if (actionFileSystem != null) {
-        actionFileSystem.updateContext(env, metadataHandler::injectOutputData);
+        executor.updateActionFileSystemContext(
+            actionFileSystem, env, metadataHandler::injectOutputData);
       }
     }
 

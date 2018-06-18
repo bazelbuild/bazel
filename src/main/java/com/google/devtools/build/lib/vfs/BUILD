@@ -14,6 +14,10 @@ PATH_FRAGMENT_SOURCES = [
     "WindowsOsPathPolicy.java",
 ]
 
+OUTPUT_SERVICE_SOURCES = [
+    "OutputService.java",
+]
+
 java_library(
     name = "pathfragment",
     srcs = PATH_FRAGMENT_SOURCES,
@@ -38,7 +42,7 @@ java_library(
         [
             "*.java",
         ],
-        exclude = PATH_FRAGMENT_SOURCES,
+        exclude = PATH_FRAGMENT_SOURCES + OUTPUT_SERVICE_SOURCES,
     ),
     visibility = ["//visibility:public"],
     exports = [
@@ -54,6 +58,21 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "output_service",
+    srcs = OUTPUT_SERVICE_SOURCES,
+    deps = [
+        ":pathfragment",
+        ":vfs",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

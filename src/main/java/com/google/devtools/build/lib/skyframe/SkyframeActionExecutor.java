@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
+import com.google.devtools.build.lib.actions.MetadataConsumer;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -82,6 +84,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -106,7 +109,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
-import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -163,17 +165,14 @@ public final class SkyframeActionExecutor {
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
   private OutputService outputService;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
-  private final BooleanSupplier usesActionFileSystem;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
-      Supplier<ImmutableList<Root>> sourceRootSupplier,
-      BooleanSupplier usesActionFileSystem) {
+      Supplier<ImmutableList<Root>> sourceRootSupplier) {
     this.actionKeyContext = actionKeyContext;
     this.statusReporterRef = statusReporterRef;
     this.sourceRootSupplier = sourceRootSupplier;
-    this.usesActionFileSystem = usesActionFileSystem;
   }
 
   /**
@@ -367,20 +366,33 @@ public final class SkyframeActionExecutor {
     this.clientEnv = clientEnv;
   }
 
-  public FileSystem getExecutorFileSystem() {
-    return executorEngine.getFileSystem();
+  boolean usesActionFileSystem() {
+    return outputService != null && outputService.supportsActionFileSystem();
   }
 
-  public Path getExecRoot() {
+  Path getExecRoot() {
     return executorEngine.getExecRoot();
   }
 
-  public ImmutableList<Root> getSourceRoots() {
-    return sourceRootSupplier.get();
+  /** REQUIRES: {@link usesActionFileSystem} is true */
+  FileSystem createActionFileSystem(
+      String relativeOutputPath,
+      ActionInputMap inputArtifactData,
+      Iterable<Artifact> allowedInputs,
+      Iterable<Artifact> outputArtifacts) {
+    return outputService.createActionFileSystem(
+        executorEngine.getFileSystem(),
+        executorEngine.getExecRoot().asFragment(),
+        relativeOutputPath,
+        sourceRootSupplier.get(),
+        inputArtifactData,
+        allowedInputs,
+        outputArtifacts);
   }
 
-  public boolean usesActionFileSystem() {
-    return usesActionFileSystem.getAsBoolean();
+  void updateActionFileSystemContext(
+      FileSystem actionFileSystem, Environment env, MetadataConsumer consumer) {
+    outputService.updateActionFileSystemContext(actionFileSystem, env, consumer);
   }
 
   void executionOver() {
@@ -520,7 +532,7 @@ public final class SkyframeActionExecutor {
       MetadataHandler metadataHandler,
       Map<Artifact, Collection<Artifact>> expandedInputs,
       ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings,
-      @Nullable ActionFileSystem actionFileSystem) {
+      @Nullable FileSystem actionFileSystem) {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot()));
     return new ActionExecutionContext(
@@ -648,7 +660,7 @@ public final class SkyframeActionExecutor {
       PerActionFileCache graphFileCache,
       MetadataHandler metadataHandler,
       Environment env,
-      @Nullable ActionFileSystem actionFileSystem)
+      @Nullable FileSystem actionFileSystem)
       throws ActionExecutionException, InterruptedException {
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
@@ -676,9 +688,9 @@ public final class SkyframeActionExecutor {
   }
 
   private MetadataProvider createFileCache(
-      MetadataProvider graphFileCache, @Nullable ActionFileSystem actionFileSystem) {
-    if (actionFileSystem != null) {
-      return actionFileSystem;
+      MetadataProvider graphFileCache, @Nullable FileSystem actionFileSystem) {
+    if (actionFileSystem instanceof MetadataProvider) {
+      return (MetadataProvider) actionFileSystem;
     }
     return new DelegatingPairFileCache(graphFileCache, perBuildFileCache);
   }
