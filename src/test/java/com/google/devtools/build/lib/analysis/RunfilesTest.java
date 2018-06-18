@@ -432,4 +432,24 @@ public class RunfilesTest extends FoundationTestCase {
     assertThat(runfilesMerged.getExtraMiddlemen())
         .containsExactlyElementsIn(ImmutableList.of(mm1, mm2));
   }
+
+  @Test
+  public void testGetEmptyFilenames() {
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
+    Artifact artifact = new Artifact(PathFragment.create("my-artifact"), root);
+    Runfiles runfiles =
+        new Runfiles.Builder("TESTING")
+            .addArtifact(artifact)
+            .addSymlink(PathFragment.create("my-symlink"), artifact)
+            .addRootSymlink(PathFragment.create("my-root-symlink"), artifact)
+            .setEmptyFilesSupplier(
+                (manifestPaths) ->
+                    manifestPaths
+                        .stream()
+                        .map((f) -> f.replaceName(f.getBaseName() + "-empty"))
+                        .collect(ImmutableList.toImmutableList()))
+            .build();
+    assertThat(runfiles.getEmptyFilenames())
+        .containsExactly("my-artifact-empty", "my-symlink-empty");
+  }
 }
