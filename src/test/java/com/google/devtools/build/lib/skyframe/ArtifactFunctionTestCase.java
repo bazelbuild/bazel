@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -122,8 +121,7 @@ abstract class ArtifactFunctionTestCase {
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-                    new ActionTemplateExpansionFunction(
-                        actionKeyContext, Suppliers.ofInstance(false)))
+                    new ActionTemplateExpansionFunction(actionKeyContext))
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);

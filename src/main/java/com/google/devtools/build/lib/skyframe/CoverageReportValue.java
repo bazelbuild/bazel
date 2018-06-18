@@ -27,8 +27,8 @@ public class CoverageReportValue extends BasicActionLookupValue {
   // There should only ever be one CoverageReportValue value in the graph.
   @AutoCodec public static final CoverageReportKey COVERAGE_REPORT_KEY = new CoverageReportKey();
 
-  CoverageReportValue(GeneratingActions generatingActions, boolean removeActionsAfterEvaluation) {
-    super(generatingActions, removeActionsAfterEvaluation);
+  CoverageReportValue(GeneratingActions generatingActions) {
+    super(generatingActions);
   }
 
   static class CoverageReportKey extends ActionLookupKey {

@@ -574,8 +574,10 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    */
   @Override
   public void decideKeepIncrementalState(
-      boolean batch, boolean keepStateAfterBuild, boolean shouldTrackIncrementalState,
-      boolean discardAnalysisCache, boolean discardActionsAfterExecution,
+      boolean batch,
+      boolean keepStateAfterBuild,
+      boolean shouldTrackIncrementalState,
+      boolean discardAnalysisCache,
       EventHandler eventHandler) {
     Preconditions.checkState(!active);
     boolean oldValueOfTrackIncrementalState = trackIncrementalState;
@@ -604,7 +606,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
 
-    removeActionsAfterEvaluation.set(!trackIncrementalState && discardActionsAfterExecution);
     // Now check if it is necessary to wipe the previous state. We do this if either the previous
     // or current incrementalStateRetentionStrategy requires the build to have been isolated.
     if (oldValueOfTrackIncrementalState != trackIncrementalState) {

@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -92,8 +91,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
                 .put(Artifact.ARTIFACT, new DummyArtifactFunction(artifactValueMap))
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-                    new ActionTemplateExpansionFunction(
-                        new ActionKeyContext(), Suppliers.ofInstance(false)))
+                    new ActionTemplateExpansionFunction(new ActionKeyContext()))
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);
@@ -223,8 +221,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     return new NonRuleConfiguredTargetValue(
         Mockito.mock(ConfiguredTarget.class),
         Actions.GeneratingActions.fromSingleAction(actionTemplate),
-        NestedSetBuilder.<Package>stableOrder().build(),
-        /*removeActionsAfterEvaluation=*/ false);
+        NestedSetBuilder.<Package>stableOrder().build());
   }
 
   private SpecialArtifact createTreeArtifact(String path) {

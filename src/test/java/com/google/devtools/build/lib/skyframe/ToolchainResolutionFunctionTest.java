@@ -47,10 +47,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   private static ConfiguredTargetValue createConfiguredTargetValue(
       ConfiguredTarget configuredTarget) {
     return new NonRuleConfiguredTargetValue(
-        configuredTarget,
-        GeneratingActions.EMPTY,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /*removeActionsAfterEvaluation=*/ false);
+        configuredTarget, GeneratingActions.EMPTY, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   private EvaluationResult<ToolchainResolutionValue> invokeToolchainResolution(SkyKey key)
