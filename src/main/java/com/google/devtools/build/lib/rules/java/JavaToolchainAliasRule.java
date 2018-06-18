@@ -21,6 +21,6 @@ import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
  */
 public class JavaToolchainAliasRule extends CommonAliasRule{
   public JavaToolchainAliasRule() {
-    super("java_toolchain_alias", env -> JavaSemantics.JAVA_TOOLCHAIN, JavaConfiguration.class);
+    super("java_toolchain_alias", JavaSemantics::javaToolchainAttribute, JavaConfiguration.class);
   }
 }

@@ -114,11 +114,15 @@ public interface JavaSemantics {
   /** The java_toolchain.compatible_javacopts key for testonly compilations. */
   public static final String TESTONLY_JAVACOPTS_KEY = "testonly";
 
-  LabelLateBoundDefault<JavaConfiguration> JAVA_TOOLCHAIN =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          JavaConfiguration.class,
-          Label.parseAbsoluteUnchecked(JAVA_TOOLCHAIN_LABEL),
-          (rule, attributes, javaConfig) -> javaConfig.getToolchainLabel());
+  static LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute(
+      RuleDefinitionEnvironment environment) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        JavaConfiguration.class,
+        // TODO(b/79239052): replace by //environment.getToolsLabel(JAVA_TOOLCHAIN_LABEL)
+        // @bazel_tools//tools/defaults can not be resolved while DefaultPackage exists.
+        Label.parseAbsoluteUnchecked(JAVA_TOOLCHAIN_LABEL),
+        (rule, attributes, javaConfig) -> javaConfig.getToolchainLabel());
+  }
 
   /**
    * Name of the output group used for source jars.
