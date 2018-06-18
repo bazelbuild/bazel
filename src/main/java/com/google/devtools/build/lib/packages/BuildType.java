@@ -594,7 +594,11 @@ public final class BuildType {
           result.put(key, originalType.getDefaultValue());
           defaultValuesBuilder.add(key);
         } else {
+<<<<<<< HEAD
+          String selectBranch = what == null ? null :
+=======
           CustomToString selectBranch = what == null ? null : new CustomToString(
+>>>>>>> 61a4a88f83f614e21a2bf8c14043c0def97ad2f9
               String.format("%s over select() branch '%s'", what.toString(), key.toString()));
           result.put(key, originalType.convert(entry.getValue(), selectBranch, context));
         }
