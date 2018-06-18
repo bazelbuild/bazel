@@ -29,6 +29,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.ProviderNotFoundException;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
@@ -227,7 +228,12 @@ public class SimpleJavaLibraryBuilder implements Closeable {
   private FileSystem getJarFileSystem(Path sourceJar) throws IOException {
     FileSystem fs = filesystems.get(sourceJar);
     if (fs == null) {
-      filesystems.put(sourceJar, fs = FileSystems.newFileSystem(sourceJar, null));
+      try {
+        fs = FileSystems.newFileSystem(sourceJar, null);
+      } catch (ProviderNotFoundException e) {
+        throw new IOException(String.format("unable to open %s as a jar file", sourceJar), e);
+      }
+      filesystems.put(sourceJar, fs);
     }
     return fs;
   }
