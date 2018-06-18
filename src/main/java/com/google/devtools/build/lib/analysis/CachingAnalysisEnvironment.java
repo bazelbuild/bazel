@@ -295,8 +295,8 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public List<ActionAnalysisMetadata> getRegisteredActions() {
-    return Collections.unmodifiableList(actions);
+  public ImmutableList<ActionAnalysisMetadata> getRegisteredActions() {
+    return ImmutableList.copyOf(actions);
   }
 
   @Override

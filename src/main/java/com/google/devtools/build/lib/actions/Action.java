@@ -182,8 +182,6 @@ public interface Action extends ActionExecutionMetadata {
    */
   boolean showsOutputUnconditionally();
 
-  boolean canRemoveAfterExecution();
-
   /**
    * Called by {@link com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time to
    * extract information from this action into a protocol buffer to be used by extra_action rules.

@@ -243,7 +243,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     // Remove action from state map in case it's there (won't be unless it discovers inputs).
     stateMap.remove(action);
-    actionLookupValue.actionEvaluated(actionIndex, action);
     return result;
   }
 

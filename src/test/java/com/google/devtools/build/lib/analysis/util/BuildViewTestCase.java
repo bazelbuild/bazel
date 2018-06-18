@@ -1896,7 +1896,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public List<ActionAnalysisMetadata> getRegisteredActions() {
+    public ImmutableList<ActionAnalysisMetadata> getRegisteredActions() {
       throw new UnsupportedOperationException();
     }
 

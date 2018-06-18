@@ -446,11 +446,6 @@ public abstract class AbstractAction implements Action, ActionApi {
     return MiddlemanType.NORMAL;
   }
 
-  @Override
-  public boolean canRemoveAfterExecution() {
-    return true;
-  }
-
   /** If the action might create directories as outputs this method must be called. */
   protected void checkOutputsForDirectories(ActionExecutionContext actionExecutionContext) {
     for (Artifact output : getOutputs()) {

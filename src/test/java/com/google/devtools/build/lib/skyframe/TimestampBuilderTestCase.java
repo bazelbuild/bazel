@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.actions.util.ActionCacheTestHelper.A
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -137,8 +136,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     tsgm = new TimestampGranularityMonitor(clock);
     ResourceManager.instance().setAvailableResources(ResourceSet.createWithRamCpuIo(100, 1, 1));
     actions = new HashSet<>();
-    actionTemplateExpansionFunction =
-        new ActionTemplateExpansionFunction(actionKeyContext, Suppliers.ofInstance(false));
+    actionTemplateExpansionFunction = new ActionTemplateExpansionFunction(actionKeyContext);
   }
 
   protected void clearActions() {
@@ -252,8 +250,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                   ACTION_LOOKUP_KEY,
                   new BasicActionLookupValue(
                       Actions.filterSharedActionsAndThrowActionConflict(
-                          actionKeyContext, ImmutableList.copyOf(actions)),
-                      false)));
+                          actionKeyContext, ImmutableList.copyOf(actions)))));
         }
       }
 

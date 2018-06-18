@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -610,12 +609,10 @@ public final class CommandEnvironment {
     skyframeExecutor.setActive(false);
     // Let skyframe figure out how much incremental state it will be keeping.
     AnalysisOptions viewOptions = options.getOptions(AnalysisOptions.class);
-    BuildRequestOptions requestOptions = options.getOptions(BuildRequestOptions.class);
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
         commonOptions.keepStateAfterBuild, commonOptions.trackIncrementalState,
         viewOptions != null && viewOptions.discardAnalysisCache,
-        requestOptions != null && requestOptions.discardActionsAfterExecution,
         reporter);
 
     // Start the performance and memory profilers.

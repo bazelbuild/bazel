@@ -27,6 +27,7 @@ import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -1227,9 +1228,10 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   /** A dummy action template expansion function that just returns the injected actions */
   private static class DummyActionTemplateExpansionFunction implements SkyFunction {
     private final ActionKeyContext actionKeyContext;
-    private final List<Action> actions;
+    private final ImmutableList<ActionAnalysisMetadata> actions;
 
-    DummyActionTemplateExpansionFunction(ActionKeyContext actionKeyContext, List<Action> actions) {
+    DummyActionTemplateExpansionFunction(
+        ActionKeyContext actionKeyContext, ImmutableList<ActionAnalysisMetadata> actions) {
       this.actionKeyContext = actionKeyContext;
       this.actions = actions;
     }
@@ -1238,7 +1240,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env) {
       try {
         return new ActionTemplateExpansionValue(
-            Actions.filterSharedActionsAndThrowActionConflict(actionKeyContext, actions), false);
+            Actions.filterSharedActionsAndThrowActionConflict(actionKeyContext, actions));
       } catch (ActionConflictException e) {
         throw new IllegalStateException(e);
       }

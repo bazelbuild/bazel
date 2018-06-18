@@ -690,13 +690,6 @@ public class CppCompileAction extends AbstractAction
   }
 
   @Override
-  public boolean canRemoveAfterExecution() {
-    // Module-generating actions are needed because the action may be retrieved in
-    // #discoverInputsStage2.
-    return !getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE);
-  }
-
-  @Override
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext) {
     CppCompileInfo.Builder info = CppCompileInfo.newBuilder();
     info.setTool(compileCommandLine.getToolPath());
