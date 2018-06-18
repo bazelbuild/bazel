@@ -404,6 +404,7 @@ sh_test(
     size = "large",
     srcs = ["workspace_test.sh"],
     data = [":test-deps"],
+    shard_count = 5,
     tags = ["no_windows"],
 )
 
