@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.skyframe.OutputService;
+import com.google.devtools.build.lib.vfs.OutputService;
 import java.util.logging.Logger;
 
 /**

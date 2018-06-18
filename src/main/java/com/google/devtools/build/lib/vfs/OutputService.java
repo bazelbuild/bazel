@@ -12,22 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.vfs;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.MetadataConsumer;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.vfs.BatchStat;
-import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.util.UUID;
+import javax.annotation.Nullable;
 
 /**
  * An OutputService retains control over the Blaze output tree, and provides a higher level of
@@ -42,11 +43,6 @@ public interface OutputService {
    * @return the name of filesystem, akin to what you might see in /proc/mounts
    */
   String getFilesSystemName();
-
-  /**
-   * @return a human-readable, one word name for the service
-   */
-  String getName();
 
   /**
    * Start the build.
@@ -73,19 +69,6 @@ public interface OutputService {
   /** Notify the output service of a completed action. */
   void finalizeAction(Action action, MetadataHandler metadataHandler)
       throws IOException, EnvironmentalExecException;
-
-  /**
-   * Stages the given tool from the package path, possibly copying it to local disk.
-   *
-   * @param tool target representing the tool to stage
-   * @return a Path pointing to the staged target
-   */
-  Path stageTool(Target tool) throws IOException;
-
-  /**
-   * @return the name of the workspace this output service controls.
-   */
-  String getWorkspace();
 
   /**
    * @return the BatchStat instance or null.
@@ -118,15 +101,43 @@ public interface OutputService {
    */
   void clean() throws ExecException, InterruptedException;
 
-  /**
-   * @param file the File
-   * @return true iff the file actually lives on a remote server
-   */
-  boolean isRemoteFile(Path file);
+  /** @return true iff the file actually lives on a remote server */
+  boolean isRemoteFile(Artifact file);
+
+  default boolean supportsActionFileSystem() {
+    return false;
+  }
 
   /**
-   * @param path a fully-resolved path
-   * @return true iff path is under this output service's control
+   * @param sourceDelegate filesystem for reading source files (excludes output files)
+   * @param execRootFragment absolute path fragment pointing to the execution root
+   * @param relativeOutputPath execution root relative path to output
+   * @param sourceRoots list of directories on the package path (from {@link
+   *     com.google.devtools.build.lib.pkgcache.PathPackageLocator})
+   * @param inputArtifactData information about required inputs to the action
+   * @param allowedInputs optional inputs that might be added during input discovery
+   * @param outputArtifacts required outputs of the action
+   * @return an action-scoped filesystem if {@link supportsActionFileSystem} is true
    */
-  boolean resolvedPathUnderTree(Path path);
+  @Nullable
+  default FileSystem createActionFileSystem(
+      FileSystem sourceDelegate,
+      PathFragment execRootFragment,
+      String relativeOutputPath,
+      ImmutableList<Root> sourceRoots,
+      ActionInputMap inputArtifactData,
+      Iterable<Artifact> allowedInputs,
+      Iterable<Artifact> outputArtifacts) {
+    return null;
+  }
+
+  /**
+   * Updates the context used by the filesystem returned by {@link createActionFileSystem}.
+   *
+   * <p>Should be called as context changes throughout action execution.
+   *
+   * @param actionFileSystem must be a filesystem returned by {@link createActionFileSystem}.
+   */
+  default void updateActionFileSystemContext(
+      FileSystem actionFileSystem, SkyFunction.Environment env, MetadataConsumer consumer) {}
 }

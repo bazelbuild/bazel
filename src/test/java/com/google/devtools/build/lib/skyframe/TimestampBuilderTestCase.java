@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -192,8 +193,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         new SkyframeActionExecutor(
             actionKeyContext,
             new AtomicReference<>(statusReporter),
-            /*sourceRootSupplier=*/ () -> ImmutableList.of(),
-            /*usesActionFileSystem=*/ () -> false);
+            /*sourceRootSupplier=*/ () -> ImmutableList.of());
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(

@@ -19,6 +19,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;

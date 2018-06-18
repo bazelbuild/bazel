@@ -37,13 +37,13 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import com.google.devtools.build.lib.skyframe.OutputService;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsClassProvider;
@@ -97,9 +97,7 @@ public final class CommandEnvironment {
     public Path getFileFromWorkspace(Label label)
         throws NoSuchThingException, InterruptedException, IOException {
       Target target = getPackageManager().getTarget(reporter, label);
-      return (outputService != null)
-          ? outputService.stageTool(target)
-          : target.getPackage().getPackageDirectory().getRelative(target.getName());
+      return target.getPackage().getPackageDirectory().getRelative(target.getName());
     }
 
     @Override
