@@ -27,7 +27,7 @@ filegroup(
         "testing_server.py",
         ":langtools-copy",
         "//examples:srcs",
-        "//src:bazel_with_jdk",
+        "//src:bazel",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/main/tools:linux-sandbox",
@@ -520,7 +520,7 @@ sh_test(
     srcs = ["bazel_with_jdk_test.sh"],
     data = [
         ":test-deps",
-        "//src:bazel_with_jdk",
+        "//src:bazel",
     ],
     tags = ["no_windows"],
 )
