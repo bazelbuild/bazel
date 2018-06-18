@@ -92,11 +92,11 @@ display "."
 log "Building output/bazel"
 # We set host and target platform directly since the defaults in @bazel_tools
 # have not yet been generated.
-bazel_build "src:bazel${EXE_EXT}" \
+bazel_build "src:bazel_nojdk${EXE_EXT}" \
   --host_platform=@bazel_tools//platforms:host_platform \
   --platforms=@bazel_tools//platforms:target_platform \
   || fail "Could not build Bazel"
-bazel_bin_path="$(get_bazel_bin_path)/src/bazel${EXE_EXT}"
+bazel_bin_path="$(get_bazel_bin_path)/src/bazel_nojdk${EXE_EXT}"
 [ -e "$bazel_bin_path" ] \
   || fail "Could not find freshly built Bazel binary at '$bazel_bin_path'"
 cp -f "$bazel_bin_path" "output/bazel${EXE_EXT}" \

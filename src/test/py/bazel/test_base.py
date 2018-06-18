@@ -235,7 +235,7 @@ class TestBase(unittest.TestCase):
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
     return self.RunProgram([
-        self.Rlocation('io_bazel/src/bazel_with_jdk'),
+        self.Rlocation('io_bazel/src/bazel'),
         '--bazelrc=/dev/null',
         '--nomaster_bazelrc',
     ] + args, env_remove, env_add)

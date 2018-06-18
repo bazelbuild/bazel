@@ -9,7 +9,7 @@ filegroup(
 filegroup(
     name = "test-deps",
     testonly = 1,
-    srcs = ["//src:bazel_with_jdk"],
+    srcs = ["//src:bazel"],
     data = ["//src/tools/remote:worker"],
 )
 
