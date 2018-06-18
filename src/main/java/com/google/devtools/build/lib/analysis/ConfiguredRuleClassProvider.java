@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
@@ -86,6 +87,17 @@ import javax.annotation.Nullable;
  * and configuration options is guaranteed not to change over the life time of the Blaze server.
  */
 public class ConfiguredRuleClassProvider implements RuleClassProvider {
+
+  /**
+   * Predicate for determining whether the analysis cache should be cleared, given the new set of
+   * build options and the diff from the old set.
+   */
+  @FunctionalInterface
+  public interface OptionsDiffPredicate {
+    public static final OptionsDiffPredicate ALWAYS_INVALIDATE = (diff, options) -> true;
+
+    public boolean apply(OptionsDiff diff, BuildOptions newOptions);
+  }
 
   /**
    * Custom dependency validation logic.
@@ -236,6 +248,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private List<Class<? extends BuildConfiguration.Fragment>> universalFragments =
         new ArrayList<>();
     @Nullable private RuleTransitionFactory trimmingTransitionFactory;
+    private OptionsDiffPredicate shouldInvalidateCacheForDiff =
+        OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
     private ImmutableList.Builder<Bootstrap> skylarkBootstraps =
         ImmutableList.<Bootstrap>builder();
@@ -419,6 +433,30 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this.addTrimmingTransitionFactory(factory);
     }
 
+    /**
+     * Sets the predicate which determines whether the analysis cache should be invalidated for the
+     * given options diff.
+     */
+    public Builder setShouldInvalidateCacheForDiff(
+        OptionsDiffPredicate shouldInvalidateCacheForDiff) {
+      Preconditions.checkState(
+          this.shouldInvalidateCacheForDiff.equals(OptionsDiffPredicate.ALWAYS_INVALIDATE),
+          "Cache invalidation function was already set");
+      this.shouldInvalidateCacheForDiff = shouldInvalidateCacheForDiff;
+      return this;
+    }
+
+    /**
+     * Overrides the predicate which determines whether the analysis cache should be invalidated for
+     * the given options diff.
+     */
+    @VisibleForTesting(/* for testing cache invalidation without relying on prod use */ )
+    public Builder overrideShouldInvalidateCacheForDiffForTesting(
+        OptionsDiffPredicate shouldInvalidateCacheForDiff) {
+      this.shouldInvalidateCacheForDiff = OptionsDiffPredicate.ALWAYS_INVALIDATE;
+      return this.setShouldInvalidateCacheForDiff(shouldInvalidateCacheForDiff);
+    }
+
     private RuleConfiguredTargetFactory createFactory(
         Class<? extends RuleConfiguredTargetFactory> factoryClass) {
       try {
@@ -494,6 +532,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           ImmutableList.copyOf(configurationFragmentFactories),
           ImmutableList.copyOf(universalFragments),
           trimmingTransitionFactory,
+          shouldInvalidateCacheForDiff,
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
           skylarkBootstraps.build(),
@@ -594,6 +633,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /** The transition factory used to produce the transition that will trim targets. */
   @Nullable private final RuleTransitionFactory trimmingTransitionFactory;
 
+  /** The predicate used to determine whether a diff requires the cache to be invalidated. */
+  private final OptionsDiffPredicate shouldInvalidateCacheForDiff;
+
   /**
    * Configuration fragments that should be available to all rules even when they don't
    * explicitly require it.
@@ -628,6 +670,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
       ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments,
       @Nullable RuleTransitionFactory trimmingTransitionFactory,
+      OptionsDiffPredicate shouldInvalidateCacheForDiff,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
       ImmutableList<Bootstrap> skylarkBootstraps,
@@ -647,6 +690,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.configurationFragmentFactories = configurationFragments;
     this.universalFragments = universalFragments;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
+    this.shouldInvalidateCacheForDiff = shouldInvalidateCacheForDiff;
     this.prerequisiteValidator = prerequisiteValidator;
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkBootstraps);
     this.reservedActionMnemonics = reservedActionMnemonics;
@@ -713,6 +757,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Nullable
   public RuleTransitionFactory getTrimmingTransitionFactory() {
     return trimmingTransitionFactory;
+  }
+
+  /** Returns whether the analysis cache should be invalidated for the given options diff. */
+  public boolean shouldInvalidateCacheForDiff(OptionsDiff diff, BuildOptions newOptions) {
+    return shouldInvalidateCacheForDiff.apply(diff, newOptions);
   }
 
   /**
