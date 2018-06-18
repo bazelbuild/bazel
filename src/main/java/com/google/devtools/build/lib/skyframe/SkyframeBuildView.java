@@ -43,6 +43,8 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
@@ -146,6 +148,40 @@ public final class SkyframeBuildView {
     return factory;
   }
 
+  private boolean areConfigurationsDifferent(BuildConfigurationCollection configurations) {
+    if (this.configurations == null) {
+      // no configurations currently, no need to drop anything
+      return false;
+    }
+    if (configurations.equals(this.configurations)) {
+      // exact same configurations, no need to drop anything
+      return false;
+    }
+    if (configurations.getTargetConfigurations().size()
+        != this.configurations.getTargetConfigurations().size()) {
+      // some option that changes the number of configurations has changed, that's definitely not
+      // any of the options that are okay to change
+      return true;
+    }
+    // Here we assume that the configurations will appear in the same order between invocations -
+    // which is the case today, because the only way to have multiple configurations is to use
+    // --experimental_multi_cpu, which creates configurations in sorted order of cpu value.
+    // Those configurations are all identical except for their cpu values, so the configuration we
+    // compare against only matters for making sure the cpu matches. Which we do care about.
+    for (int configIndex = 0;
+        configIndex < configurations.getTargetConfigurations().size();
+        configIndex += 1) {
+      BuildConfiguration oldConfig = this.configurations.getTargetConfigurations().get(configIndex);
+      BuildConfiguration newConfig = configurations.getTargetConfigurations().get(configIndex);
+      OptionsDiff diff = BuildOptions.diff(oldConfig.getOptions(), newConfig.getOptions());
+      if (ruleClassProvider.shouldInvalidateCacheForDiff(diff, newConfig.getOptions())) {
+        return true;
+      }
+    }
+    // We don't need to check the host configuration because it's derived from the target options.
+    return false;
+  }
+
   /** Sets the configurations. Not thread-safe. DO NOT CALL except from tests! */
   @VisibleForTesting
   public void setConfigurations(
@@ -153,8 +189,7 @@ public final class SkyframeBuildView {
     // Clear all cached ConfiguredTargets on configuration change of if --discard_analysis_cache
     // was set on the previous build. In the former case, it's not required for correctness, but
     // prevents unbounded memory usage.
-    if ((this.configurations != null && !configurations.equals(this.configurations))
-        || skyframeAnalysisWasDiscarded) {
+    if (this.areConfigurationsDifferent(configurations) || skyframeAnalysisWasDiscarded) {
       eventHandler.handle(Event.info("Build options have changed, discarding analysis cache."));
       skyframeExecutor.handleConfiguredTargetChange();
     }
