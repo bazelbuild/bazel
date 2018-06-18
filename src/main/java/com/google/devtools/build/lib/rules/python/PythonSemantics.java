@@ -17,10 +17,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
@@ -37,13 +36,10 @@ public interface PythonSemantics {
    */
   void validate(RuleContext ruleContext, PyCommon common);
 
-  /** Extends for the default and data runfiles of {@code py_binary} rules with custom elements. */
-  void collectRunfilesForBinary(
-      RuleContext ruleContext,
-      Runfiles.Builder builder,
-      PyCommon common,
-      CcLinkingInfo ccLinkingInfo)
-      throws InterruptedException;
+  /**
+   * Extends for the default and data runfiles of {@code py_binary} rules with custom elements.
+   */
+  void collectRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder, PyCommon common);
 
   /** Extends the default runfiles of {@code py_binary} rules with custom elements. */
   void collectDefaultRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder)
@@ -76,7 +72,7 @@ public interface PythonSemantics {
   Artifact createExecutable(
       RuleContext ruleContext,
       PyCommon common,
-      CcLinkingInfo ccLinkingInfo,
+      AbstractCcLinkParamsStore ccLinkParamsStore,
       NestedSet<PathFragment> imports)
       throws InterruptedException;
 
@@ -86,6 +82,4 @@ public interface PythonSemantics {
    */
   void postInitBinary(RuleContext ruleContext, RunfilesSupport runfilesSupport,
       PyCommon common) throws InterruptedException;
-
-  CcLinkingInfo buildCcLinkingInfoProvider(Iterable<? extends TransitiveInfoCollection> deps);
 }
