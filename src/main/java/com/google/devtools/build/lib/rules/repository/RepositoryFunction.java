@@ -523,6 +523,8 @@ public abstract class RepositoryFunction {
       // first.
       Rule rule = ExternalPackageUtil.getRuleByName(repositoryName, env);
       if (rule == null) {
+        // Still an override might change the content of the repository.
+        RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.get(env);
         return;
       }
 
@@ -549,7 +551,11 @@ public abstract class RepositoryFunction {
       // WORKSPACE file. In that case, the call to RepositoryFunction#getRuleByName(String,
       // Environment)
       // already requested all repository functions from the WORKSPACE file from Skyframe as part
-      // of the resolution. Therefore we are safe to ignore that Exception.
+      // of the resolution.
+      //
+      // Alternatively, the repository might still be provided by an override. Therefore, in
+      // any case, register the dependency on the repository overrides.
+      RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.get(env);
       return;
     } catch (ExternalPackageException ex) {
       // This should never happen.

@@ -418,4 +418,74 @@ EOF
       || fail "expected 'y_symbol' in $(cat bazel-genfiles/external/a/result.txt)"
 }
 
+function test_workspace_addition_change_aspect() {
+  mkdir -p repo_one
+  mkdir -p repo_two
+
+
+  touch foo.c
+  cat > BUILD <<EOF
+cc_library(
+    name = "lib",
+    srcs = ["foo.c"],
+)
+EOF
+
+  touch WORKSPACE
+  touch repo_one/BUILD
+  touch repo_two/BUILD
+
+  cat > repo_one/WORKSPACE <<EOF
+workspace(name = "new_repo")
+EOF
+  cat > repo_two/WORKSPACE <<EOF
+workspace(name = "new_repo")
+EOF
+
+
+  cat > repo_one/aspects.bzl <<EOF
+def _print_aspect_impl(target, ctx):
+  # Make sure the rule has a srcs attribute.
+  if hasattr(ctx.rule.attr, 'srcs'):
+    # Output '1' for each file in srcs.
+    for src in ctx.rule.attr.srcs:
+      for f in src.files:
+        print(1)
+  return []
+
+print_aspect = aspect(
+    implementation = _print_aspect_impl,
+    attr_aspects = ['deps'],
+)
+EOF
+  cat > repo_two/aspects.bzl <<EOF
+def _print_aspect_impl(target, ctx):
+  # Make sure the rule has a srcs attribute.
+  if hasattr(ctx.rule.attr, 'srcs'):
+    print(ctx.rule.attr.srcs)
+  return []
+
+print_aspect = aspect(
+    implementation = _print_aspect_impl,
+    attr_aspects = ['deps'],
+)
+EOF
+
+  bazel clean --expunge
+
+  echo; echo "no repo"; echo
+  bazel build //:lib --aspects @new_repo//:aspects.bzl%print_aspect \
+      && fail "Failure expected" || true
+
+  echo; echo "repo_one"; echo
+  bazel build //:lib --override_repository="new_repo=$PWD/repo_one" \
+      --aspects @new_repo//:aspects.bzl%print_aspect \
+      || fail "Expected build to succeed"
+
+  echo; echo "repo_two"; echo
+  bazel build //:lib --override_repository="new_repo=$PWD/repo_two" \
+      --aspects @new_repo//:aspects.bzl%print_aspect \
+      || fail "Expected build to succeed"
+}
+
 run_suite "workspace tests"
