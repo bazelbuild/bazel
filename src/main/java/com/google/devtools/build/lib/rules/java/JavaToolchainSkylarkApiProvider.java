@@ -18,6 +18,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Iterator;
 
 /**
@@ -68,4 +70,24 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider
     return javaToolchainProvider.getJavac();
   }
 
+  /** @return The {@link Artifact} of the SingleJar deploy jar */
+  @SkylarkCallable(
+      name = "single_jar",
+      doc = "The SingleJar deploy jar.",
+      structField = true
+  )
+  public Artifact getSingleJar() {
+    return JavaToolchainProvider.from(getInfo()).getSingleJar();
+  }
+
+  /** @return The bootclass path entries */
+  @SkylarkCallable(
+      name = "bootclasspath",
+      doc = "The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.",
+      structField = true
+  )
+  public SkylarkNestedSet getBootclasspath() {
+    return SkylarkNestedSet.of(
+        Artifact.class, JavaToolchainProvider.from(getInfo()).getBootclasspath());
+  }
 }
