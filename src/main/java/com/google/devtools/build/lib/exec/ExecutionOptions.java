@@ -49,6 +49,16 @@ public class ExecutionOptions extends OptionsBase {
   public static final ExecutionOptions DEFAULTS = Options.getDefaults(ExecutionOptions.class);
 
   @Option(
+      name = "materialize_param_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Writes intermediate parameter files to output tree even when using "
+              + "remote action execution. Useful when debugging actions. ")
+  public boolean materializeParamFiles;
+
+  @Option(
     name = "verbose_failures",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
