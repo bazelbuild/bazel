@@ -153,16 +153,19 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       // retrieve them, but top-level nodes are presumably of more interest.
       // If valueVersion is not equal to graphVersion, it must be less than it (by the
       // Preconditions check above), and so the node is clean.
+      EvaluationState evaluationState =
+          valueVersion.equals(evaluatorContext.getGraphVersion())
+              ? EvaluationState.BUILT
+              : EvaluationState.CLEAN;
       evaluatorContext
           .getProgressReceiver()
           .evaluated(
               key,
+              evaluationState == EvaluationState.BUILT ? value : null,
               value != null
                   ? EvaluationSuccessState.SUCCESS.supplier()
                   : EvaluationSuccessState.FAILURE.supplier(),
-              valueVersion.equals(evaluatorContext.getGraphVersion())
-                  ? EvaluationState.BUILT
-                  : EvaluationState.CLEAN);
+              evaluationState);
     }
   }
 

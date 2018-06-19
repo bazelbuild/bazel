@@ -160,6 +160,10 @@ public class BuildView {
     return skyframeBuildView.getEvaluatedTargetKeys().size();
   }
 
+  public int getActionsConstructed() {
+    return skyframeBuildView.getEvaluatedActionCount();
+  }
+
   public PackageManagerStatistics getAndClearPkgManagerStatistics() {
     return skyframeExecutor.getPackageManager().getAndClearStatistics();
   }
@@ -196,6 +200,7 @@ public class BuildView {
     pollInterruptedStatus();
 
     skyframeBuildView.resetEvaluatedConfiguredTargetKeysSet();
+    skyframeBuildView.resetEvaluationActionCount();
 
     Collection<Target> targets = loadingResult.getTargets();
     eventBus.post(new AnalysisPhaseStartedEvent(targets));

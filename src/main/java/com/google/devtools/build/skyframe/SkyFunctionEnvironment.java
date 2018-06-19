@@ -558,14 +558,17 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     // above, its version stayed below this update's version, so its value remains the same.
     // We use a SkyValueSupplier here because it keeps a reference to the entry, allowing for
     // the receiver to be confident that the entry is readily accessible in memory.
+    EvaluationState evaluationState =
+        valueVersion.equals(evaluatorContext.getGraphVersion())
+            ? EvaluationState.BUILT
+            : EvaluationState.CLEAN;
     evaluatorContext
         .getProgressReceiver()
         .evaluated(
             skyKey,
+            evaluationState == EvaluationState.BUILT ? value : null,
             new EvaluationSuccessStateSupplier(primaryEntry),
-            valueVersion.equals(evaluatorContext.getGraphVersion())
-                ? EvaluationState.BUILT
-                : EvaluationState.CLEAN);
+            evaluationState);
 
     evaluatorContext.signalValuesAndEnqueueIfReady(
         skyKey, reverseDeps, valueVersion, enqueueParents);
