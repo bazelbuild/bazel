@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -45,6 +46,8 @@ final class DebugServerTransport {
         clientSocket.getInputStream(),
         clientSocket.getOutputStream());
   }
+
+  private static final Logger logger = Logger.getLogger(DebugServerTransport.class.getName());
 
   private final EventHandler eventHandler;
   private final ServerSocket serverSocket;
@@ -74,7 +77,7 @@ final class DebugServerTransport {
     synchronized (requestStream) {
       try {
         DebugRequest request = DebugRequest.parseDelimitedFrom(requestStream);
-        eventHandler.handle(Event.debug("Received debug client request:\n" + request));
+        logger.fine("Received debug client request:\n" + request);
         return request;
       } catch (IOException e) {
         handleParsingError(e);
@@ -95,7 +98,7 @@ final class DebugServerTransport {
 
   /** Posts a debug event. */
   void postEvent(DebugEvent event) {
-    eventHandler.handle(Event.debug("Sending debug event:\n" + event));
+    logger.fine("Sending debug event:\n" + event);
     synchronized (eventStream) {
       try {
         event.writeDelimitedTo(eventStream);
