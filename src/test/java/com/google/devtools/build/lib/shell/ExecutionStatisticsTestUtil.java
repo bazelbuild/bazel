@@ -44,9 +44,9 @@ public class ExecutionStatisticsTestUtil {
       Path statisticsFilePath)
       throws CommandException, IOException {
     Duration userTimeLowerBound = userTimeToSpend;
-    Duration userTimeUpperBound = userTimeToSpend.plusSeconds(2);
+    Duration userTimeUpperBound = userTimeToSpend.plusSeconds(5);
     Duration systemTimeLowerBound = systemTimeToSpend;
-    Duration systemTimeUpperBound = systemTimeToSpend.plusSeconds(2);
+    Duration systemTimeUpperBound = systemTimeToSpend.plusSeconds(5);
 
     Command command = new Command(fullCommandLine.toArray(new String[0]));
     CommandResult commandResult = command.execute();

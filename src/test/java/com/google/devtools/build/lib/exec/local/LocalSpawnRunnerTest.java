@@ -815,14 +815,12 @@ public class LocalSpawnRunnerTest {
     options.collectLocalExecutionStatistics = true;
 
     Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
-    // Because of e.g. interference, wall time taken may be much larger than CPU time used.
-    Duration maximumWallTimeToSpend = Duration.ofSeconds(40);
 
     Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
-    Duration maximumUserTimeToSpend = minimumUserTimeToSpend.plus(Duration.ofSeconds(2));
+    Duration maximumUserTimeToSpend = minimumUserTimeToSpend.plus(Duration.ofSeconds(5));
 
     Duration minimumSystemTimeToSpend = Duration.ZERO;
-    Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plus(Duration.ofSeconds(2));
+    Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plus(Duration.ofSeconds(5));
 
     Path execRoot = getTemporaryExecRoot(fs);
     copyProcessWrapperIntoExecRoot(execRoot);
@@ -856,7 +854,7 @@ public class LocalSpawnRunnerTest {
 
     assertThat(spawnResult.getWallTime()).isPresent();
     assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime().get()).isAtMost(maximumWallTimeToSpend);
+    // Under heavy starvation, max wall time could be anything, so don't check it here.
     assertThat(spawnResult.getUserTime()).isPresent();
     assertThat(spawnResult.getUserTime().get()).isAtLeast(minimumUserTimeToSpend);
     assertThat(spawnResult.getUserTime().get()).isAtMost(maximumUserTimeToSpend);
@@ -878,9 +876,7 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = false;
 
-    Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
-    // Because of e.g. interference, wall time taken may be much larger than CPU time used.
-    Duration maximumWallTimeToSpend = Duration.ofSeconds(40);
+    Duration minimumWallTimeToSpend = Duration.ofSeconds(1);
 
     Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
     Duration minimumSystemTimeToSpend = Duration.ZERO;
@@ -917,7 +913,7 @@ public class LocalSpawnRunnerTest {
 
     assertThat(spawnResult.getWallTime()).isPresent();
     assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime().get()).isAtMost(maximumWallTimeToSpend);
+    // Under heavy starvation, max wall time could be anything, so don't check it here.
     assertThat(spawnResult.getUserTime()).isEmpty();
     assertThat(spawnResult.getSystemTime()).isEmpty();
     assertThat(spawnResult.getNumBlockOutputOperations()).isEmpty();

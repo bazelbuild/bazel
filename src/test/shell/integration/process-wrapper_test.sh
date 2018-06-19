@@ -150,15 +150,15 @@ function assert_process_wrapper_exec_time() {
 }
 
 function test_stats_high_user_time() {
-  assert_process_wrapper_exec_time 10 12 0 2
+  assert_process_wrapper_exec_time 6 11 0 5
 }
 
 function test_stats_high_system_time() {
-  assert_process_wrapper_exec_time 0 2 10 12
+  assert_process_wrapper_exec_time 0 5 6 11
 }
 
 function test_stats_high_user_time_and_high_system_time() {
-  assert_process_wrapper_exec_time 10 12 10 12
+  assert_process_wrapper_exec_time 6 11 6 11
 }
 
 run_suite "process-wrapper"
