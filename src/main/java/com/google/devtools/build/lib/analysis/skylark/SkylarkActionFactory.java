@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.CommandLineItemSimpleFormatter;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
@@ -63,6 +65,7 @@ import com.google.devtools.build.lib.syntax.SkylarkMutable;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.GeneratedMessage;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -143,10 +146,14 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
             inputSet,
             ImmutableList.of(PseudoAction.getDummyOutput(ruleContext)),
             mnemonic,
-            SpawnInfo.spawnInfo,
+            SPAWN_INFO,
             SpawnInfo.newBuilder().build());
     ruleContext.registerAction(action);
   }
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final GeneratedMessage.GeneratedExtension<ExtraActionInfo, SpawnInfo> SPAWN_INFO =
+      SpawnInfo.spawnInfo;
 
   @Override
   public void write(FileApi output, Object content, Boolean isExecutable) throws EvalException {
