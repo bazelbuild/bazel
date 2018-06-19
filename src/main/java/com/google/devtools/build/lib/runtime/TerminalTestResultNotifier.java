@@ -46,6 +46,10 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     int noStatusCount;
     int numberOfExecutedTargets;
     boolean wasUnreportedWrongSize;
+    /*In case we want to expose test case resolution in statistics - enable:
+      int totalTestCases;
+      int totalFailedTestCases;
+      */
   }
 
   /**
@@ -175,6 +179,10 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       if (summary.wasUnreportedWrongSize()) {
         stats.wasUnreportedWrongSize = true;
       }
+
+     /* In case we want to expose test case resolution in statistics - enable:
+      stats.totalFailedTestCases += summary.getFailedTestCases().size();
+      stats.totalTestCases += summary.getTotalTestCases(); */
     }
 
     stats.failedCount = summaries.size() - stats.passCount;

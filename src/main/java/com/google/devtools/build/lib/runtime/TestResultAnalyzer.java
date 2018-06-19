@@ -267,6 +267,7 @@ public class TestResultAnalyzer {
         .addFailedLogs(failed)
         .addWarnings(result.getData().getWarningList())
         .collectFailedTests(result.getData().getTestCase())
+        .countTotalTestCases(result.getData().getTestCase())
         .setRanRemotely(result.getData().getIsRemoteStrategy());
 
     List<String> warnings = new ArrayList<>();
