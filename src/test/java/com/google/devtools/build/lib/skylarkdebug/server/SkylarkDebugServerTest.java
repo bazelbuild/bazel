@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Thr
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.DebugServerUtils;
 import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.FailFastException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -52,7 +51,6 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.time.Duration;
-import java.util.EnumSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -87,24 +85,6 @@ public class SkylarkDebugServerTest {
     server = future.get(10, TimeUnit.SECONDS);
     assertThat(server).isNotNull();
     DebugServerUtils.initializeDebugServer(server);
-  }
-
-  @Before
-  public void setupEventHandler() {
-    // fail-fast treats 'debug' messages as errors. Replace with something that doesn't
-    events.setFailFast(false);
-
-    EnumSet<EventKind> failOnEvents = EnumSet.copyOf(EventKind.ERRORS_AND_WARNINGS);
-    failOnEvents.remove(EventKind.DEBUG);
-
-    events
-        .reporter()
-        .addHandler(
-            event -> {
-              if (failOnEvents.contains(event.getKind())) {
-                throw new FailFastException(event.toString());
-              }
-            });
   }
 
   @After
