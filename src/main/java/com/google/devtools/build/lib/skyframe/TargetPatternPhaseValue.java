@@ -27,14 +27,11 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
-import com.google.devtools.build.lib.skyframe.serialization.NotSerializableRuntimeException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -176,19 +173,32 @@ public final class TargetPatternPhaseValue implements SkyValue {
         hasError(), hasPostExpansionError(), targets, testsToRun, getWorkspaceName());
   }
 
-  @SuppressWarnings("unused")
-  private void writeObject(ObjectOutputStream out) {
-    throw new NotSerializableRuntimeException();
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof TargetPatternPhaseValue)) {
+      return false;
+    }
+    TargetPatternPhaseValue that = (TargetPatternPhaseValue) obj;
+    return Objects.equals(this.targetLabels, that.targetLabels)
+        && Objects.equals(this.testsToRunLabels, that.testsToRunLabels)
+        && Objects.equals(this.removedTargetLabels, that.removedTargetLabels)
+        && Objects.equals(this.workspaceName, that.workspaceName)
+        && this.hasError == that.hasError
+        && this.hasPostExpansionError == that.hasPostExpansionError;
   }
 
-  @SuppressWarnings("unused")
-  private void readObject(ObjectInputStream in) {
-    throw new NotSerializableRuntimeException();
-  }
-
-  @SuppressWarnings("unused")
-  private void readObjectNoData() {
-    throw new IllegalStateException();
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        this.targetLabels,
+        this.testsToRunLabels,
+        this.removedTargetLabels,
+        this.workspaceName,
+        this.hasError,
+        this.hasPostExpansionError);
   }
 
   /** Create a target pattern phase value key. */
