@@ -20,23 +20,16 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.FingerprintComputationResult;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
-/**
- * Codec for {@link NestedSet} that uses the {@link NestedSetStore}.
- *
- * <p>Currently not used in favor of an @{@link AutoCodec}-ed NestedSet. Disabled by just not ending
- * in "Codec".
- */
-public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
+/** Codec for {@link NestedSet} that uses the {@link NestedSetStore}. */
+public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
 
   private enum NestedSetSize {
     EMPTY, SINGLETON, GROUP
@@ -56,7 +49,7 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
    * <p>If A and B are created, then B is serialized and deserialized while A remains in memory, the
    * first serialization will put N into this interner, and so the deserialization will reuse it.
    */
-  private final Cache<EqualsWrapper<T>, NestedSet<T>> interner =
+  private final Cache<EqualsWrapper, NestedSet<?>> interner =
       CacheBuilder.newBuilder().weakValues().build();
 
   /** Creates a NestedSetCodecWithStore that will use the given {@link NestedSetStore}. */
@@ -66,20 +59,15 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
 
   @SuppressWarnings("unchecked")
   @Override
-  public Class<NestedSet<T>> getEncodedClass() {
+  public Class<NestedSet<?>> getEncodedClass() {
     // Compiler doesn't like cast from Class<NestedSet> -> Class<NestedSet<T>>, but it
     // does allow what we see below. Type is lost at runtime anyway, so while gross this works.
-    return (Class<NestedSet<T>>) ((Class<?>) NestedSet.class);
+    return (Class<NestedSet<?>>) ((Class<?>) NestedSet.class);
   }
 
   @Override
-  public void serialize(SerializationContext context, NestedSet<T> obj, CodedOutputStream codedOut)
+  public void serialize(SerializationContext context, NestedSet<?> obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    if (!SerializationConstants.shouldSerializeNestedSet) {
-      // Don't perform NestedSet serialization in testing
-      return;
-    }
-
     context.serialize(obj.getOrder(), codedOut);
     if (obj.isEmpty()) {
       // If the NestedSet is empty, it needs to be assigned to the EMPTY_CHILDREN constant on
@@ -96,24 +84,19 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
       context.addFutureToBlockWritingOn(fingerprintComputationResult.writeStatus());
       codedOut.writeByteArrayNoTag(fingerprintComputationResult.fingerprint().toByteArray());
     }
-    interner.put(new EqualsWrapper<>(obj), obj);
+    interner.put(new EqualsWrapper(obj), obj);
   }
 
   @Override
-  public NestedSet<T> deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public NestedSet<?> deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    if (!SerializationConstants.shouldSerializeNestedSet) {
-      // Don't perform NestedSet deserialization in testing
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-
     Order order = context.deserialize(codedIn);
     NestedSetSize nestedSetSize = NestedSetSize.values()[codedIn.readEnum()];
     switch (nestedSetSize) {
       case EMPTY:
         return NestedSetBuilder.emptySet(order);
       case SINGLETON:
-        T contents = context.deserialize(codedIn);
+        Object contents = context.deserialize(codedIn);
         return intern(order, contents);
       case GROUP:
         ByteString fingerprint = ByteString.copyFrom(codedIn.readByteArray());
@@ -146,24 +129,24 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
    * not before. This should be ok as long as the contained object properly implements equality.
    */
   @SuppressWarnings("unchecked")
-  private NestedSet<T> intern(Order order, Object contents) {
-    NestedSet<T> result;
+  private NestedSet<?> intern(Order order, Object contents) {
+    NestedSet<?> result;
     if (contents instanceof ListenableFuture) {
       result = NestedSet.withFuture(order, (ListenableFuture<Object[]>) contents);
     } else {
       result = NestedSet.forDeserialization(order, contents);
     }
     try {
-      return interner.get(new EqualsWrapper<>(result), () -> result);
+      return interner.get(new EqualsWrapper(result), () -> result);
     } catch (ExecutionException e) {
       throw new IllegalStateException(e);
     }
   }
 
-  private static final class EqualsWrapper<T> {
-    private final NestedSet<T> nestedSet;
+  private static final class EqualsWrapper {
+    private final NestedSet<?> nestedSet;
 
-    private EqualsWrapper(NestedSet<T> nestedSet) {
+    private EqualsWrapper(NestedSet<?> nestedSet) {
       this.nestedSet = nestedSet;
     }
 
@@ -209,7 +192,7 @@ public class NestedSetCodecWithStore<T> implements ObjectCodec<NestedSet<T>> {
       }
 
       // Both sets contain Object[] or both sets contain ListenableFuture<Object[]>
-      NestedSet<?> thatSet = ((EqualsWrapper<?>) obj).nestedSet;
+      NestedSet<?> thatSet = ((EqualsWrapper) obj).nestedSet;
       if (this.nestedSet.getOrder().equals(thatSet.getOrder())
           && this.nestedSet.rawChildren().equals(thatSet.rawChildren())) {
         return true;

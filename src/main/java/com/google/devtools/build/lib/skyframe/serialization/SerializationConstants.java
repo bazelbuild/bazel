@@ -28,18 +28,6 @@ public class SerializationConstants {
   private static final boolean CHECK_SERIALIZATION =
       System.getenv("DONT_SANITY_CHECK_SERIALIZATION") == null;
 
-  private static final boolean TEST_NESTED_SET_SERIALIZATION =
-      System.getenv("TEST_NESTED_SET_SERIALIZATION") != null;
-
-  public static final boolean CHECK_FOR_ALL_CODECS =
-      System.getenv("TEST_CHECK_FOR_ALL_CODECS") != null;
-
-   /**
-   * If true, serialization should include NestedSet. Non-final so tests can opt-in to NestedSet
-   * serialization.
-   */
-  public static boolean shouldSerializeNestedSet = TEST_NESTED_SET_SERIALIZATION || !IN_TEST;
-
   /**
    * Returns true if serialization should be validated on all Skyframe writes.
    */

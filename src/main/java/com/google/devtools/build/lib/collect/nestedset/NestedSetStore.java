@@ -86,7 +86,7 @@ public class NestedSetStore {
 
   /** An in-memory {@link NestedSetStorageEndpoint} */
   @VisibleForTesting
-  static class InMemoryNestedSetStorageEndpoint implements NestedSetStorageEndpoint {
+  public static class InMemoryNestedSetStorageEndpoint implements NestedSetStorageEndpoint {
     private final ConcurrentHashMap<ByteString, byte[]> fingerprintToContents =
         new ConcurrentHashMap<>();
 
@@ -104,7 +104,7 @@ public class NestedSetStore {
 
   /** An in-memory cache for fingerprint <-> NestedSet associations. */
   @VisibleForTesting
-  static class NestedSetCache {
+  public static class NestedSetCache {
     private final Cache<ByteString, ListenableFuture<Object[]>> fingerprintToContents =
         CacheBuilder.newBuilder()
             .concurrencyLevel(SerializationConstants.DESERIALIZATION_POOL_SIZE)
@@ -225,7 +225,7 @@ public class NestedSetStore {
   }
 
   @VisibleForTesting
-  NestedSetStore(
+  public NestedSetStore(
       NestedSetStorageEndpoint nestedSetStorageEndpoint,
       NestedSetCache nestedSetCache,
       Executor executor) {
