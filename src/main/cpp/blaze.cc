@@ -1523,6 +1523,13 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   globals->jvm_path = globals->options->GetJvm();
 
   blaze_server->Connect();
+
+  if (!globals->options->batch &&
+      "shutdown" == globals->option_processor->GetCommand() &&
+      !blaze_server->Connected()) {
+    return 0;
+  }
+
   EnsureCorrectRunningVersion(blaze_server);
   KillRunningServerIfDifferentStartupOptions(workspace_layout, blaze_server);
 
