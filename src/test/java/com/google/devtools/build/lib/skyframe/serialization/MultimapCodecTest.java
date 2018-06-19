@@ -19,21 +19,25 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester.VerificationFunction;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link ImmutableMultimapCodec}. */
+/** Tests for {@link MultimapCodec}. */
 @RunWith(JUnit4.class)
-public class ImmutableMultimapCodecTest {
+public class MultimapCodecTest {
   @Test
-  public void testImmutableMultimap() throws Exception {
+  public void testMultimap() throws Exception {
+    LinkedHashMultimap<String, String> linkedHashMultimap = LinkedHashMultimap.create();
+    linkedHashMultimap.put("A", "//foo:B");
     new SerializationTester(
             ImmutableMultimap.of(),
             ImmutableMultimap.of("A", "//foo:A"),
-            ImmutableMultimap.builder().putAll("B", "//foo:B1", "//foo:B2").build())
+            ImmutableMultimap.builder().putAll("B", "//foo:B1", "//foo:B2").build(),
+            linkedHashMultimap)
         .runTests();
   }
 
