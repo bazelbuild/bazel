@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Co
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -42,11 +43,13 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathTyp
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
+import java.io.Serializable;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -121,7 +124,8 @@ public interface JavaSemantics {
         // TODO(b/79239052): replace by //environment.getToolsLabel(JAVA_TOOLCHAIN_LABEL)
         // @bazel_tools//tools/defaults can not be resolved while DefaultPackage exists.
         Label.parseAbsoluteUnchecked(JAVA_TOOLCHAIN_LABEL),
-        (rule, attributes, javaConfig) -> javaConfig.getToolchainLabel());
+        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
+            (rule, attributes, javaConfig) -> javaConfig.getToolchainLabel());
   }
 
   /**
@@ -142,7 +146,8 @@ public interface JavaSemantics {
     return LabelLateBoundDefault.fromTargetConfiguration(
         JavaConfiguration.class,
         env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL),
-        (rule, attributes, configuration) -> configuration.getRuntimeLabel());
+        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
+            (rule, attributes, configuration) -> configuration.getRuntimeLabel());
   }
 
   /** Implementation for the :host_jdk attribute. */
@@ -150,13 +155,15 @@ public interface JavaSemantics {
     return LabelLateBoundDefault.fromHostConfiguration(
         JavaConfiguration.class,
         env.getToolsLabel(JavaImplicitAttributes.HOST_JDK_LABEL),
-        (rule, attributes, configuration) -> configuration.getRuntimeLabel());
+        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
+            (rule, attributes, configuration) -> configuration.getRuntimeLabel());
   }
 
   /**
    * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
    * default, so it returns null for the configuration-independent default value.
    */
+  @AutoCodec
   LabelLateBoundDefault<JavaConfiguration> JAVA_LAUNCHER =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
@@ -180,24 +187,28 @@ public interface JavaSemantics {
             return javaConfig.getJavaLauncherLabel();
           });
 
+  @AutoCodec
   LabelListLateBoundDefault<JavaConfiguration> JAVA_PLUGINS =
       LabelListLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           (rule, attributes, javaConfig) -> ImmutableList.copyOf(javaConfig.getPlugins()));
 
   /** Implementation for the :proguard attribute. */
+  @AutoCodec
   LabelLateBoundDefault<JavaConfiguration> PROGUARD =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           null,
           (rule, attributes, javaConfig) -> javaConfig.getProguardBinary());
 
+  @AutoCodec
   LabelListLateBoundDefault<JavaConfiguration> EXTRA_PROGUARD_SPECS =
       LabelListLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           (rule, attributes, javaConfig) ->
               ImmutableList.copyOf(javaConfig.getExtraProguardSpecs()));
 
+  @AutoCodec
   LabelListLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZERS =
       LabelListLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
