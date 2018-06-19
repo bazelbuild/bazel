@@ -577,7 +577,10 @@ public final class BuildType {
           result.put(key, originalType.getDefaultValue());
           defaultValuesBuilder.add(key);
         } else {
-          result.put(key, originalType.convert(entry.getValue(), what, context));
+          String selectBranch = what == null ? null :
+              String.format("each branch in select expression of %s (including '%s')",
+                  what.toString(), key.toString());
+          result.put(key, originalType.convert(entry.getValue(), selectBranch, context));
         }
       }
       this.map = Collections.unmodifiableMap(result);
