@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
@@ -59,6 +61,7 @@ import com.google.protobuf.TextFormat.ParseException;
 import io.grpc.Context;
 import io.grpc.Status.Code;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -77,7 +80,8 @@ class RemoteSpawnRunner implements SpawnRunner {
   private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
 
   private final Path execRoot;
-  private final RemoteOptions options;
+  private final RemoteOptions remoteOptions;
+  private final ExecutionOptions executionOptions;
   private final SpawnRunner fallbackRunner;
   private final boolean verboseFailures;
 
@@ -94,7 +98,8 @@ class RemoteSpawnRunner implements SpawnRunner {
 
   RemoteSpawnRunner(
       Path execRoot,
-      RemoteOptions options,
+      RemoteOptions remoteOptions,
+      ExecutionOptions executionOptions,
       SpawnRunner fallbackRunner,
       boolean verboseFailures,
       @Nullable Reporter cmdlineReporter,
@@ -105,7 +110,8 @@ class RemoteSpawnRunner implements SpawnRunner {
       DigestUtil digestUtil,
       Path logDir) {
     this.execRoot = execRoot;
-    this.options = options;
+    this.remoteOptions = remoteOptions;
+    this.executionOptions = executionOptions;
     this.fallbackRunner = fallbackRunner;
     this.remoteCache = remoteCache;
     this.remoteExecutor = remoteExecutor;
@@ -136,6 +142,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
     TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
     repository.computeMerkleDigests(inputRoot);
+    maybeWriteParamFilesLocally(spawn);
     Command command = buildCommand(spawn.getArguments(), spawn.getEnvironment());
     Action action =
         buildAction(
@@ -152,8 +159,8 @@ class RemoteSpawnRunner implements SpawnRunner {
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
     Context previous = withMetadata.attach();
     try {
-      boolean acceptCachedResult = options.remoteAcceptCached && Spawns.mayBeCached(spawn);
-      boolean uploadLocalResults = options.remoteUploadLocalResults;
+      boolean acceptCachedResult = remoteOptions.remoteAcceptCached && Spawns.mayBeCached(spawn);
+      boolean uploadLocalResults = remoteOptions.remoteUploadLocalResults;
 
       try {
         // Try to lookup the action in the action cache.
@@ -199,7 +206,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       try {
         ExecuteRequest.Builder request =
             ExecuteRequest.newBuilder()
-                .setInstanceName(options.remoteInstanceName)
+                .setInstanceName(remoteOptions.remoteInstanceName)
                 .setAction(action)
                 .setSkipCacheLookup(!acceptCachedResult);
         ExecuteResponse reply = remoteExecutor.executeRemotely(request.build());
@@ -220,6 +227,25 @@ class RemoteSpawnRunner implements SpawnRunner {
       }
     } finally {
       withMetadata.detach(previous);
+    }
+  }
+
+  private void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
+    if (!executionOptions.materializeParamFiles) {
+      return;
+    }
+    for (ActionInput actionInput : spawn.getInputFiles()) {
+      if (actionInput instanceof ParamFileActionInput) {
+        ParamFileActionInput paramFileActionInput = (ParamFileActionInput) actionInput;
+        Path outputPath = execRoot.getRelative(paramFileActionInput.getExecPath());
+        if (outputPath.exists()) {
+          outputPath.delete();
+        }
+        outputPath.getParentDirectory().createDirectoryAndParents();
+        try (OutputStream out = outputPath.getOutputStream()) {
+          paramFileActionInput.writeTo(out);
+        }
+      }
     }
   }
 
@@ -271,7 +297,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     if (Thread.currentThread().isInterrupted()) {
       throw new InterruptedException();
     }
-    if (options.remoteLocalFallback
+    if (remoteOptions.remoteLocalFallback
         && !(cause instanceof RetryException
             && RemoteRetrierUtils.causedByExecTimeout((RetryException) cause))) {
       return execLocally(spawn, context, inputMap, uploadLocalResults, remoteCache, actionKey);

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
@@ -28,12 +29,15 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
+import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -44,6 +48,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner;
@@ -69,6 +74,8 @@ import com.google.devtools.remoteexecution.v1test.LogFile;
 import com.google.protobuf.ByteString;
 import com.google.rpc.Code;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.SortedMap;
@@ -139,6 +146,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             options,
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -198,6 +206,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             options,
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -251,6 +260,7 @@ public class RemoteSpawnRunnerTest {
             new RemoteSpawnRunner(
                 execRoot,
                 options,
+                Options.getDefaults(ExecutionOptions.class),
                 localRunner,
                 true,
                 /*cmdlineReporter=*/ null,
@@ -300,6 +310,7 @@ public class RemoteSpawnRunnerTest {
             new RemoteSpawnRunner(
                 execRoot,
                 options,
+                Options.getDefaults(ExecutionOptions.class),
                 localRunner,
                 true,
                 /*cmdlineReporter=*/ null,
@@ -335,6 +346,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             options,
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             false,
             reporter,
@@ -392,6 +404,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             options,
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -432,6 +445,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             options,
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -469,6 +483,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             options,
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -504,6 +519,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             Options.getDefaults(RemoteOptions.class),
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -544,6 +560,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             Options.getDefaults(RemoteOptions.class),
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -587,6 +604,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             Options.getDefaults(RemoteOptions.class),
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -625,6 +643,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             Options.getDefaults(RemoteOptions.class),
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -667,6 +686,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             options,
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -709,6 +729,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             options,
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -757,6 +778,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             options,
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -803,6 +825,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             options,
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -844,6 +867,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             options,
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -881,6 +905,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(
             execRoot,
             options,
+            Options.getDefaults(ExecutionOptions.class),
             localRunner,
             true,
             /*cmdlineReporter=*/ null,
@@ -902,6 +927,58 @@ public class RemoteSpawnRunnerTest {
     } catch (SpawnExecException e) {
       assertThat(e.getSpawnResult().exitCode())
           .isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
+    }
+  }
+
+  @Test
+  public void testMaterializeParamFiles() throws Exception {
+    ExecutionOptions executionOptions =
+        Options.parse(ExecutionOptions.class, "--materialize_param_files").getOptions();
+    executionOptions.materializeParamFiles = true;
+    RemoteSpawnRunner runner =
+        new RemoteSpawnRunner(
+            execRoot,
+            Options.getDefaults(RemoteOptions.class),
+            executionOptions,
+            localRunner,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor,
+            digestUtil,
+            logDir);
+
+    ExecuteResponse succeeded =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(0).build())
+            .build();
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenReturn(succeeded);
+
+    ImmutableList<String> args = ImmutableList.of("--foo", "--bar");
+    ParamFileActionInput input =
+        new ParamFileActionInput(
+            PathFragment.create("out/param_file"), args, ParameterFileType.UNQUOTED, ISO_8859_1);
+    Spawn spawn =
+        new SimpleSpawn(
+            new FakeOwner("foo", "bar"),
+            /*arguments=*/ ImmutableList.of(),
+            /*environment=*/ ImmutableMap.of(),
+            /*executionInfo=*/ ImmutableMap.of(),
+            ImmutableList.of(input),
+            /*outputs=*/ ImmutableList.<ActionInput>of(),
+            ResourceSet.ZERO);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.SUCCESS);
+    Path paramFile = execRoot.getRelative("out/param_file");
+    assertThat(paramFile.exists()).isTrue();
+    try (InputStream inputStream = paramFile.getInputStream()) {
+      assertThat(
+              new String(ByteStreams.toByteArray(inputStream), StandardCharsets.UTF_8).split("\n"))
+          .asList()
+          .containsExactly("--foo", "--bar");
     }
   }
 

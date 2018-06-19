@@ -80,6 +80,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
           new RemoteSpawnRunner(
               env.getExecRoot(),
               remoteOptions,
+              env.getOptions().getOptions(ExecutionOptions.class),
               createFallbackRunner(env),
               executionOptions.verboseFailures,
               env.getReporter(),
