@@ -60,6 +60,7 @@ cc_test(
     ] + select({
         "//src/conditions:windows": [
             ":windows_test_util",
+            "//src/main/cpp:blaze_util",
             "//src/main/native/windows:lib-file",
         ],
         "//conditions:default": [],

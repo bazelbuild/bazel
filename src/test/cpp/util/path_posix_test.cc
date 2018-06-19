@@ -159,4 +159,15 @@ TEST(PathPosixTest, MakeAbsolute) {
   EXPECT_EQ(MakeAbsolute(""), "");
 }
 
+TEST(PathPosixTest, MakeAbsoluteAndResolveWindowsEnvvars) {
+  // Check that Unix-style envvars are not resolved.
+  EXPECT_EQ(MakeAbsoluteAndResolveWindowsEnvvars("$PATH"),
+            JoinPath(GetCwd(), "$PATH"));
+  EXPECT_EQ(MakeAbsoluteAndResolveWindowsEnvvars("${PATH}"),
+            JoinPath(GetCwd(), "${PATH}"));
+  // Check that Windows-style envvars are not resolved when not on Windows.
+  EXPECT_EQ(MakeAbsoluteAndResolveWindowsEnvvars("%PATH%"),
+            JoinPath(GetCwd(), "%PATH%"));
+}
+
 }  // namespace blaze_util

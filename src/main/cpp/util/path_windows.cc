@@ -14,6 +14,7 @@
 
 #include "src/main/cpp/util/path_platform.h"
 
+#include <assert.h>
 #include <wchar.h>  // wcslen
 #include <windows.h>
 
@@ -85,6 +86,32 @@ std::string MakeAbsolute(const std::string& path) {
   std::transform(wpath.begin(), wpath.end(), wpath.begin(), ::towlower);
   return std::string(
       WstringToCstring(RemoveUncPrefixMaybe(wpath.c_str())).get());
+}
+
+std::string MakeAbsoluteAndResolveWindowsEnvvars(const std::string& path) {
+  // Get the size of the expanded string, so we know how big of a buffer to
+  // provide. The returned size includes the null terminator.
+  std::unique_ptr<CHAR[]> resolved(new CHAR[MAX_PATH]);
+  DWORD size =
+      ::ExpandEnvironmentStrings(path.c_str(), resolved.get(), MAX_PATH);
+  if (size == 0) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "MakeAbsoluteAndResolveWindowsEnvvars(" << path
+        << "): ExpandEnvironmentStrings failed: " << GetLastErrorString();
+  } else if (size > MAX_PATH) {
+    // Try again with a buffer bigger than MAX_PATH.
+    resolved.reset(new CHAR[size]);
+    DWORD second_size =
+        ::ExpandEnvironmentStrings(path.c_str(), resolved.get(), size);
+    if (second_size == 0) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "MakeAbsoluteAndResolveWindowsEnvvars(" << path
+          << "): ExpandEnvironmentStrings failed with second buffer: "
+          << GetLastErrorString();
+    }
+    assert(second_size <= size);
+  }
+  return MakeAbsolute(std::string(resolved.get()));
 }
 
 bool CompareAbsolutePaths(const std::string& a, const std::string& b) {
