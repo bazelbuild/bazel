@@ -1667,7 +1667,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "  toolchains=['//test:my_toolchain_type'],",
         "  execution_platform_constraints_allowed=True,",
         ")");
-    ev.assertContainsError("Rule should not already define the attribute \"exec_compatible_with\"");
+    ev.assertContainsError(
+        "Rule //fake/label.bzl:label.bzl%r1 should not already"
+            + " define the attribute \"exec_compatible_with\"");
   }
 
   @Test

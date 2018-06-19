@@ -766,8 +766,9 @@ public class RuleClass {
         // Only rules that allow per target execution constraints need this attribute.
         Preconditions.checkState(
             !this.attributes.containsKey("exec_compatible_with"),
-            "Rule should not already define the attribute \"exec_compatible_with\""
-                + " if executionPlatformConstraintsAllowed is set to PER_TARGET");
+            "Rule %s should not already define the attribute \"exec_compatible_with\""
+                + " because executionPlatformConstraintsAllowed is set to PER_TARGET",
+            key);
         this.add(
             attr("exec_compatible_with", BuildType.LABEL_LIST)
                 .allowedFileTypes()
