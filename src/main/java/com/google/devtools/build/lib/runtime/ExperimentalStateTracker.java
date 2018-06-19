@@ -108,6 +108,9 @@ class ExperimentalStateTracker {
   private int failedTests;
   private boolean ok;
   private boolean buildComplete;
+  private int totalTestCasesExecuted;
+  private int totalTestCasesFailed;
+
 
   private ExecutionProgressReceiver executionProgressReceiver;
   private PackageProgressReceiver packageProgressReceiver;
@@ -192,6 +195,10 @@ class ExperimentalStateTracker {
     executionProgressReceiver = event.getExecutionProgressReceiver();
   }
 
+  private String toRegularPluralizedString(int val, String msg) {
+    return String.format("%d %s%s", val, msg, ((val==1) ?"" : "s"));
+  }
+
   void buildComplete(BuildCompleteEvent event, String additionalInfo) {
     buildComplete = true;
     // Build event protocol transports are closed right after the build complete event.
@@ -206,9 +213,15 @@ class ExperimentalStateTracker {
       } else {
         additionalMessage =
             additionalInfo + "Build completed, "
-            + failedTests + " test" + (failedTests == 1 ? "" : "s") + " FAILED, "
-            + actionsCompleted + " total action" + (actionsCompleted == 1 ? "" : "s");
+                + failedTests + " test" + (failedTests == 1 ? "" : "s") + " FAILED, "
+                + actionsCompleted + " total action" + (actionsCompleted == 1 ? "" : "s");
       }
+
+       additionalMessage += System.lineSeparator()+ "["
+        + ((totalTestCasesFailed > 0) ?
+           toRegularPluralizedString(totalTestCasesFailed, "test case") + " FAILED, "
+           : "")
+            + toRegularPluralizedString(totalTestCasesExecuted, "total test case") + "]";
     } else {
       ok = false;
       status = "FAILED";
@@ -565,9 +578,12 @@ class ExperimentalStateTracker {
 
   public synchronized void testSummary(TestSummary summary) {
     completedTests++;
+    totalTestCasesExecuted += summary.getTotalTestCases();
+
     mostRecentTest = summary;
     if (summary.getStatus() != BlazeTestStatus.PASSED) {
       failedTests++;
+      totalTestCasesFailed += summary.getFailedTestCases().size();
     }
   }
 
