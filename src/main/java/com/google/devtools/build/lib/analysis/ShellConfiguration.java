@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import java.io.Serializable;
 import javax.annotation.Nullable;
 
 /** A configuration fragment that tells where the shell is. */
@@ -83,7 +84,7 @@ public class ShellConfiguration extends BuildConfiguration.Fragment {
 
   /** A shell executable whose path is hard-coded. */
   public static ShellExecutableProvider hardcodedShellExecutable(String shell) {
-    return (BuildOptions options) -> PathFragment.create(shell);
+    return (ShellExecutableProvider & Serializable) (options) -> PathFragment.create(shell);
   }
 
   /** The loader for {@link ShellConfiguration}. */

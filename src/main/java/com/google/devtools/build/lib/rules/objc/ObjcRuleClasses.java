@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -56,9 +57,11 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import java.io.Serializable;
 
 /**
  * Shared rule classes and associated utility code for Objective-C rules.
@@ -158,6 +161,7 @@ public class ObjcRuleClasses {
    *
    * <p>TODO(cpeyser): Use AppleCcToolchain instead of CcToolchain once released.
    */
+  @AutoCodec
   public static final LabelLateBoundDefault<?> APPLE_TOOLCHAIN =
       LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
@@ -613,6 +617,15 @@ public class ObjcRuleClasses {
     static final ImmutableSet<String> ALLOWED_CC_DEPS_RULE_CLASSES =
         ImmutableSet.of("cc_library", "cc_inc_library");
 
+    @AutoCodec @AutoCodec.VisibleForSerialization
+    static final Attribute.LateBoundDefault<ObjcConfiguration, Label> SDK_LATE_BOUND_DEFAULT =
+        LabelLateBoundDefault.fromTargetConfiguration(
+            ObjcConfiguration.class,
+            null,
+            // Apple SDKs are currently only used by ObjC header thinning feature
+            (rule, attributes, objcConfig) ->
+                objcConfig.useExperimentalHeaderThinning() ? objcConfig.getAppleSdk() : null);
+
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -704,18 +717,11 @@ public class ObjcRuleClasses {
                       LabelLateBoundDefault.fromTargetConfiguration(
                           ObjcConfiguration.class,
                           env.getToolsLabel("//tools/objc:header_scanner"),
-                          (rule, attributes, objcConfig) -> objcConfig.getObjcHeaderScannerTool())))
-          .add(
-              attr(APPLE_SDK_ATTRIBUTE, LABEL)
-                  .value(
-                      LabelLateBoundDefault.fromTargetConfiguration(
-                          ObjcConfiguration.class,
-                          null,
-                          // Apple SDKs are currently only used by ObjC header thinning feature
-                          (rule, attributes, objcConfig) ->
-                              objcConfig.useExperimentalHeaderThinning()
-                                  ? objcConfig.getAppleSdk()
-                                  : null)))
+                          (Attribute.LateBoundDefault.Resolver<ObjcConfiguration, Label>
+                                  & Serializable)
+                              (rule, attributes, objcConfig) ->
+                                  objcConfig.getObjcHeaderScannerTool())))
+          .add(attr(APPLE_SDK_ATTRIBUTE, LABEL).value(SDK_LATE_BOUND_DEFAULT))
           .build();
     }
     @Override
