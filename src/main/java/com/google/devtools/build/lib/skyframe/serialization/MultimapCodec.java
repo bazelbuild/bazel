@@ -13,34 +13,46 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 /**
- * A codec for {@link ImmutableMultimap}. Handles both {@link ImmutableListMultimap} and {@link
- * ImmutableSetMultimap}.
+ * A codec for {@link Multimap}. Handles {@link ImmutableListMultimap}, {@link ImmutableSetMultimap}
+ * and {@link LinkedHashMultimap}. Makes all multimaps immutable, since serialized state shouldn't
+ * be mutable.
  */
-public class ImmutableMultimapCodec<K, V> implements ObjectCodec<ImmutableMultimap<K, V>> {
-
+public class MultimapCodec<K, V> implements ObjectCodec<Multimap<K, V>> {
   @SuppressWarnings("unchecked")
   @Override
   public Class<? extends ImmutableMultimap<K, V>> getEncodedClass() {
     return (Class<ImmutableMultimap<K, V>>) ((Class<?>) ImmutableMultimap.class);
   }
 
+  @SuppressWarnings("unchecked")
+  @Override
+  public List<Class<? extends Multimap<K, V>>> additionalEncodedClasses() {
+    return ImmutableList.of((Class<? extends Multimap<K, V>>) (Class<?>) LinkedHashMultimap.class);
+  }
+
   @Override
   public void serialize(
-      SerializationContext context, ImmutableMultimap<K, V> obj, CodedOutputStream codedOut)
+      SerializationContext context, Multimap<K, V> obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    if (obj instanceof ImmutableListMultimap) {
+    if (obj instanceof ListMultimap) {
       codedOut.writeBoolNoTag(true);
-    } else if (obj instanceof ImmutableSetMultimap) {
+    } else if (obj instanceof SetMultimap) {
       codedOut.writeBoolNoTag(false);
     } else {
       throw new SerializationException("Unexpected multimap type: " + obj.getClass());
