@@ -126,7 +126,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           .add(
               attr("toolchains", LABEL_LIST)
                   .allowedFileTypes(FileTypeSet.NO_FILE)
-                  .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id())))
+                  .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
+                  .dontCheckConstraints())
           .build();
 
   /** Parent rule class for executable non-test Skylark rules. */
