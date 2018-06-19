@@ -1655,24 +1655,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testTargetsCanAddExecutionPlatformConstraints_attrAlreadyDefined() throws Exception {
-    registerDummyUserDefinedFunction();
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
-    ev.setFailFast(false);
-    evalAndExport(
-        "r1 = rule(impl, ",
-        "  attrs = {",
-        "    'exec_compatible_with': attr.label_list(),",
-        "  },",
-        "  toolchains=['//test:my_toolchain_type'],",
-        "  execution_platform_constraints_allowed=True,",
-        ")");
-    ev.assertContainsError(
-        "Rule //fake/label.bzl:label.bzl%r1 should not already"
-            + " define the attribute \"exec_compatible_with\"");
-  }
-
-  @Test
   public void testRuleFunctionReturnsNone() throws Exception {
     scratch.file("test/rule.bzl",
         "def _impl(ctx):",
