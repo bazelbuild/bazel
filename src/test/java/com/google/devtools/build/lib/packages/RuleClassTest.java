@@ -25,7 +25,6 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -1191,7 +1190,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     assertThat(childRuleClass.executionPlatformConstraintsAllowed())
         .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_RULE);
-    assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isFalse();
   }
 
   @Test
@@ -1212,20 +1210,5 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertThat(childRuleClass.executionPlatformConstraintsAllowed())
         .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
     assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isTrue();
-  }
-
-  @Test
-  public void testExecutionPlatformConstraints_extraExecCompatibleWithAttribute() {
-    RuleClass.Builder ruleClassBuilder =
-        new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
-            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .add(attr("tags", STRING_LIST));
-
-    ruleClassBuilder.add(
-        attr("exec_compatible_with", LABEL_LIST).allowedFileTypes().value(ImmutableList.of()));
-    ruleClassBuilder.executionPlatformConstraintsAllowed(
-        ExecutionPlatformConstraintsAllowed.PER_TARGET);
-
-    assertThrows(IllegalStateException.class, () -> ruleClassBuilder.build());
   }
 }
