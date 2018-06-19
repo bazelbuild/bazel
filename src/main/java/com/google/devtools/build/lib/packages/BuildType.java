@@ -578,7 +578,8 @@ public final class BuildType {
           defaultValuesBuilder.add(key);
         } else {
           String selectBranch = what == null ? null :
-              String.format("%s over select() branch '%s'", what.toString(), key.toString());
+              String.format("each branch in select expression of %s (including '%s')",
+                  what.toString(), key.toString());
           result.put(key, originalType.convert(entry.getValue(), selectBranch, context));
         }
       }
