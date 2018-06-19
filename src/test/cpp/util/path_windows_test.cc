@@ -20,6 +20,7 @@
 #include <string>
 
 #include "gtest/gtest.h"
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
@@ -298,7 +299,7 @@ TEST(PathWindowsTest, ConvertPathTest) {
   EXPECT_EQ("c:\\foo\\bar", ConvertPath("c:/../foo\\BAR\\.\\"));
 }
 
-TEST(PathWindowsTest, TestMakeAbsolute) {
+TEST(PathWindowsTest, MakeAbsolute) {
   EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:\\foo\\BAR"));
   EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:/foo/bar"));
   EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:\\foo\\bar\\"));
@@ -312,6 +313,32 @@ TEST(PathWindowsTest, TestMakeAbsolute) {
   EXPECT_EQ("nul", MakeAbsolute("/dev/null"));
 
   EXPECT_EQ("", MakeAbsolute(""));
+}
+
+TEST(PathWindowsTest, MakeAbsoluteAndResolveWindowsEnvvars_WithTmpdir) {
+  // We cannot test the system-default paths like %ProgramData% because these
+  // are wiped from the test environment. TestTmpdir is set by Bazel though,
+  // so serves as a fine substitute.
+  char buf[MAX_PATH] = {0};
+  DWORD len = ::GetEnvironmentVariableA("TEST_TMPDIR", buf, MAX_PATH);
+  const std::string tmpdir = buf;
+  const std::string expected_tmpdir_bar = ConvertPath(tmpdir + "\\bar");
+
+  EXPECT_EQ(expected_tmpdir_bar,
+            MakeAbsoluteAndResolveWindowsEnvvars("%TEST_TMPDIR%\\bar"));
+  EXPECT_EQ(expected_tmpdir_bar,
+            MakeAbsoluteAndResolveWindowsEnvvars("%Test_Tmpdir%\\bar"));
+  EXPECT_EQ(expected_tmpdir_bar,
+            MakeAbsoluteAndResolveWindowsEnvvars("%test_tmpdir%\\bar"));
+  EXPECT_EQ(expected_tmpdir_bar,
+            MakeAbsoluteAndResolveWindowsEnvvars("%test_tmpdir%/bar"));
+}
+
+TEST(PathWindowsTest, MakeAbsoluteAndResolveWindowsEnvvars_LongPaths) {
+  const std::string long_path = "c:\\" + std::string(MAX_PATH, 'a');
+  blaze::SetEnv("long", long_path);
+
+  EXPECT_EQ(long_path, MakeAbsoluteAndResolveWindowsEnvvars("%long%"));
 }
 
 }  // namespace blaze_util
