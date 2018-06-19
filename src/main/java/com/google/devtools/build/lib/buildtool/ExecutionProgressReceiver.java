@@ -29,12 +29,14 @@ import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.text.NumberFormat;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * Listener for executed actions and built artifacts. We use a listener so that we have an
@@ -100,6 +102,7 @@ public final class ExecutionProgressReceiver
   @Override
   public void evaluated(
       SkyKey skyKey,
+      @Nullable SkyValue value,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
       EvaluationState state) {
     SkyFunctionName type = skyKey.functionName();

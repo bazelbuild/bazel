@@ -4337,6 +4337,7 @@ public class MemoizingEvaluatorTest {
           @Override
           public void evaluated(
               SkyKey skyKey,
+              @Nullable SkyValue value,
               Supplier<EvaluationSuccessState> evaluationSuccessState,
               EvaluationState state) {
             evaluated.add(skyKey);
@@ -4475,6 +4476,7 @@ public class MemoizingEvaluatorTest {
           @Override
           public void evaluated(
               SkyKey skyKey,
+              @Nullable SkyValue value,
               Supplier<EvaluationSuccessState> evaluationSuccessState,
               EvaluationState state) {
             evaluated.add(skyKey);

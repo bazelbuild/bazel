@@ -517,9 +517,14 @@ public class BuildTool {
             env.getEventBus());
 
     // TODO(bazel-team): Merge these into one event.
-    env.getEventBus().post(new AnalysisPhaseCompleteEvent(analysisResult.getTargetsToBuild(),
-        view.getTargetsVisited(), timer.stop().elapsed(TimeUnit.MILLISECONDS),
-        view.getAndClearPkgManagerStatistics()));
+    env.getEventBus()
+        .post(
+            new AnalysisPhaseCompleteEvent(
+                analysisResult.getTargetsToBuild(),
+                view.getTargetsVisited(),
+                timer.stop().elapsed(TimeUnit.MILLISECONDS),
+                view.getAndClearPkgManagerStatistics(),
+                view.getActionsConstructed()));
     ImmutableSet<BuildConfigurationValue.Key> configurationKeys =
         Stream.concat(
                 analysisResult
@@ -575,7 +580,10 @@ public class BuildTool {
     // The stop time has to be captured before we send the BuildCompleteEvent.
     result.setStopTime(runtime.getClock().currentTimeMillis());
     env.getEventBus()
-        .post(new BuildCompleteEvent(result, ImmutableList.of(BuildEventId.buildToolLogs())));
+        .post(
+            new BuildCompleteEvent(
+                result,
+                ImmutableList.of(BuildEventId.buildToolLogs(), BuildEventId.buildMetrics())));
     if (ie != null) {
       if (exitCondition.equals(ExitCode.SUCCESS)) {
         result.setExitCondition(ExitCode.INTERRUPTED);
