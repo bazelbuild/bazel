@@ -313,7 +313,7 @@ function create_and_run_classpath_jar() {
   # A space prefix indicates the line is still the content of the last attribute.
   for i in `seq 0 71 ${#CLASSPATH_LINE}`; do
     PREFIX=" "
-    if (($i == 0)); then
+    if [[ "$i" = "0" ]]; then
       PREFIX=""
     fi
     echo "$PREFIX${CLASSPATH_LINE:$i:71}" >>$MANIFEST_FILE
