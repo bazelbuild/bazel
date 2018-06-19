@@ -687,7 +687,11 @@ public class CcToolchainFeatures implements Serializable {
     private final String name;
     private final ImmutableList<FlagSet> flagSets;
     private final ImmutableList<EnvSet> envSets;
-    
+    private final boolean enabled;
+    private final ImmutableList<ImmutableSet<String>> requires;
+    private final ImmutableList<String> implies;
+    private final ImmutableList<String> provides;
+
     private Feature(CToolchain.Feature feature) throws InvalidConfigurationException {
       this.name = feature.getName();
       ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
@@ -701,14 +705,35 @@ public class CcToolchainFeatures implements Serializable {
         envSetBuilder.add(new EnvSet(flagSet));
       }
       this.envSets = envSetBuilder.build();
+      this.enabled = feature.getEnabled();
+
+      ImmutableList.Builder<ImmutableSet<String>> requiresBuilder = ImmutableList.builder();
+      for (CToolchain.FeatureSet requiresFeatureSet : feature.getRequiresList()) {
+        ImmutableSet<String> featureSet = ImmutableSet.copyOf(requiresFeatureSet.getFeatureList());
+        requiresBuilder.add(featureSet);
+      }
+      this.requires = requiresBuilder.build();
+      this.implies = ImmutableList.copyOf(feature.getImpliesList());
+      this.provides = ImmutableList.copyOf(feature.getProvidesList());
     }
 
     @AutoCodec.Instantiator
     @VisibleForSerialization
-    Feature(String name, ImmutableList<FlagSet> flagSets, ImmutableList<EnvSet> envSets) {
+    Feature(
+        String name,
+        ImmutableList<FlagSet> flagSets,
+        ImmutableList<EnvSet> envSets,
+        boolean enabled,
+        ImmutableList<ImmutableSet<String>> requires,
+        ImmutableList<String> implies,
+        ImmutableList<String> provides) {
       this.name = name;
       this.flagSets = flagSets;
       this.envSets = envSets;
+      this.enabled = enabled;
+      this.requires = requires;
+      this.implies = implies;
+      this.provides = provides;
     }
 
     @Override
@@ -748,14 +773,34 @@ public class CcToolchainFeatures implements Serializable {
         Feature that = (Feature) object;
         return name.equals(that.name)
             && Iterables.elementsEqual(flagSets, that.flagSets)
-            && Iterables.elementsEqual(envSets, that.envSets);
+            && Iterables.elementsEqual(envSets, that.envSets)
+            && Iterables.elementsEqual(requires, that.requires)
+            && Iterables.elementsEqual(implies, that.implies)
+            && Iterables.elementsEqual(provides, that.provides)
+            && enabled == that.enabled;
       }
       return false;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(name, flagSets, envSets);
+      return Objects.hash(name, flagSets, envSets, requires, implies, provides, enabled);
+    }
+
+    boolean isEnabled() {
+      return enabled;
+    }
+
+    public ImmutableList<ImmutableSet<String>> getRequires() {
+      return requires;
+    }
+
+    public ImmutableList<String> getImplies() {
+      return implies;
+    }
+
+    public ImmutableList<String> getProvides() {
+      return provides;
     }
   }
 
@@ -840,6 +885,8 @@ public class CcToolchainFeatures implements Serializable {
     private final String actionName;
     private final ImmutableList<Tool> tools;
     private final ImmutableList<FlagSet> flagSets;
+    private final boolean enabled;
+    private final ImmutableList<String> implies;
 
     private ActionConfig(CToolchain.ActionConfig actionConfig, PathFragment crosstoolTop)
         throws InvalidConfigurationException {
@@ -870,6 +917,9 @@ public class CcToolchainFeatures implements Serializable {
         flagSetBuilder.add(new FlagSet(flagSet, ImmutableSet.of(actionName)));
       }
       this.flagSets = flagSetBuilder.build();
+
+      this.enabled = actionConfig.getEnabled();
+      this.implies = ImmutableList.copyOf(actionConfig.getImpliesList());
     }
 
     @AutoCodec.Instantiator
@@ -878,11 +928,15 @@ public class CcToolchainFeatures implements Serializable {
         String configName,
         String actionName,
         ImmutableList<Tool> tools,
-        ImmutableList<FlagSet> flagSets) {
+        ImmutableList<FlagSet> flagSets,
+        boolean enabled,
+        ImmutableList<String> implies) {
       this.configName = configName;
       this.actionName = actionName;
       this.tools = tools;
       this.flagSets = flagSets;
+      this.enabled = enabled;
+      this.implies = implies;
     }
 
     @Override
@@ -928,6 +982,14 @@ public class CcToolchainFeatures implements Serializable {
         flagSet.expandCommandLine(
             actionName, variables, enabledFeatureNames, expander, commandLine);
       }
+    }
+
+    boolean isEnabled() {
+      return enabled;
+    }
+
+    public ImmutableList<String> getImplies() {
+      return implies;
     }
   }
 
@@ -1045,7 +1107,7 @@ public class CcToolchainFeatures implements Serializable {
 
     /** @return the command line for the given {@code action}. */
     public List<String> getCommandLine(String action, CcToolchainVariables variables) {
-      return getCommandLine(action, variables, null);
+      return getCommandLine(action, variables, /* expander= */ null);
     }
 
     public List<String> getCommandLine(
@@ -1230,7 +1292,7 @@ public class CcToolchainFeatures implements Serializable {
       Feature feature = new Feature(toolchainFeature);
       selectablesBuilder.add(feature);
       selectablesByName.put(feature.getName(), feature);
-      if (toolchainFeature.getEnabled()) {
+      if (feature.isEnabled()) {
         defaultSelectablesBuilder.add(feature.getName());
       }
     }
@@ -1240,7 +1302,7 @@ public class CcToolchainFeatures implements Serializable {
       selectablesBuilder.add(actionConfig);
       selectablesByName.put(actionConfig.getName(), actionConfig);
       actionConfigsByActionName.put(actionConfig.getActionName(), actionConfig);
-      if (toolchainActionConfig.getEnabled()) {
+      if (actionConfig.isEnabled()) {
         defaultSelectablesBuilder.add(actionConfig.getName());
       }
     }
