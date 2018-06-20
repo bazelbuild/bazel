@@ -249,6 +249,9 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       }
 
       helper.addDeps(ruleContext.getPrerequisites("deps", TARGET));
+
+      // Don't instrument the generated C++ files even when --collect_code_coverage is set.
+      helper.setAllowCoverageInstrumentation(false);
       return helper;
     }
 
