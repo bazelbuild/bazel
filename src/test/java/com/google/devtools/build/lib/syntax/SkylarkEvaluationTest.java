@@ -137,6 +137,15 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     public String structField() {
       return "a";
     }
+    @SkylarkCallable(name = "struct_field_with_extra",
+        documented = false,
+        structField = true,
+        useSkylarkSemantics = true)
+    public String structFieldWithExtra(SkylarkSemantics sem) {
+      return "struct_field_with_extra("
+        + (sem != null)
+        + ")";
+    }
     @SkylarkCallable(name = "struct_field_callable", documented = false, structField = true)
     public BuiltinFunction structFieldCallable() {
       return foobar;
@@ -1249,6 +1258,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testStructFieldWithExtraInterpreterParams() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("v = mock.struct_field_with_extra")
+        .testLookup("v", "struct_field_with_extra(true)");
+  }
+
+  @Test
   public void testJavaFunctionWithParamsAndExtraInterpreterParams() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
@@ -1851,6 +1868,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "string_list_dict",
             "struct_field",
             "struct_field_callable",
+            "struct_field_with_extra",
             "value_of",
             "voidfunc",
             "with_args_and_env",
@@ -2064,7 +2082,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("val", new SkylarkClassObjectWithSkylarkCallables())
         .setUp("v = val.collision_field")
-        .testLookup("v", "fromValues");
+        .testLookup("v", "fromSkylarkCallable");
   }
 
   @Test

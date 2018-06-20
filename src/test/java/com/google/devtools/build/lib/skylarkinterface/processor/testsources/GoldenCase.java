@@ -211,4 +211,18 @@ public class GoldenCase {
   public Integer selfCallMethod(String one, Integer two) {
     return 0;
   }
+
+  @SkylarkCallable(
+      name = "struct_field_method_with_extra_args",
+      documented = false,
+      structField = true,
+      useLocation = true,
+      useEnvironment = true,
+      useSkylarkSemantics = true
+  )
+  public String structFieldMethodWithInfo(Location location,
+      Environment environment,
+      SkylarkSemantics skylarkSemantics) {
+    return "dragon";
+  }
 }

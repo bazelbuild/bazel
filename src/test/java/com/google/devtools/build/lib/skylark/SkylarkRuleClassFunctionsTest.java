@@ -820,6 +820,17 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testStructRestrictedOverrides() throws Exception {
+    checkErrorContains(
+        "cannot override built-in struct function 'to_json'",
+        "struct(to_json='foo')");
+
+    checkErrorContains(
+        "cannot override built-in struct function 'to_proto'",
+        "struct(to_proto='foo')");
+  }
+
+  @Test
   public void testSimpleTextMessages() throws Exception {
     checkTextMessage("struct(name='value').to_proto()", "name: \"value\"");
     checkTextMessage("struct(name=['a', 'b']).to_proto()", "name: \"a\"", "name: \"b\"");
