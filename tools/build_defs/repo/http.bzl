@@ -316,8 +316,10 @@ Examples:
 
   Targets would specify <code>@my_ssl//jar</code> as a dependency to depend on this jar.
 
-  You may also reference files on the localhost, using "file:///path/to/file" (on Unixes) or
-  "file:///c:/path/to/file" (on Windows; mind the 3 "/" characters!).
+  You may also reference files on the current system (localhost) by using "file:///path/to/file"
+  if you are on Unix-based systems. If you're on Windows, use "file:///c:/path/to/file". In both
+  examples, note the three slashes (`/`) -- the first two slashes belong to `file://` and the third
+  one belongs to the absolute path to the file.
 
 
 Args:

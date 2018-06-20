@@ -96,7 +96,9 @@ public class HttpFileRule implements RuleDefinition {
 
  <p>Targets would specify <code>@my_deb//file</code> as a dependency to depend on this file.</p>
 
- <p>You may also reference files on the localhost, using "file:///path/to/file" (on Unixes) or
- "file:///c:/path/to/file" (on Windows; mind the 3 "/" characters!).</p>
+ <p>You may also reference files on the current system (localhost) by using "file:///path/to/file"
+ if you are on Unix-based systems. If you're on Windows, use "file:///c:/path/to/file". In both
+ examples, note the three slashes (<code>/</code>) -- the first two slashes belong to
+ <code>file://</code> and the third one belongs to the absolute path to the file.
 
  <!-- #END_BLAZE_RULE -->*/
