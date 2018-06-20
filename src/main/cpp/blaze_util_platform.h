@@ -61,9 +61,6 @@ std::string GetOutputRoot();
 // On Linux/macOS, this is $HOME. On Windows this is %USERPROFILE%.
 std::string GetHomeDir();
 
-// Returns the location of the global bazelrc file if it exists, otherwise "".
-std::string FindSystemWideBlazerc();
-
 // Warn about dubious filesystem types, such as NFS, case-insensitive (?).
 void WarnFilesystemType(const std::string& output_base);
 

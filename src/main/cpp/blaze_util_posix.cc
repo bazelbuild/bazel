@@ -142,14 +142,6 @@ string GetProcessIdAsString() {
 
 string GetHomeDir() { return GetEnv("HOME"); }
 
-string FindSystemWideBlazerc() {
-  string path = "/etc/bazel.bazelrc";
-  if (blaze_util::CanReadFile(path)) {
-    return path;
-  }
-  return "";
-}
-
 string GetJavaBinaryUnderJavabase() { return "bin/java"; }
 
 // NB: execve() requires pointers to non-const char arrays but .c_str() returns

@@ -30,6 +30,8 @@ namespace internal {
 std::vector<std::string> DedupeBlazercPaths(
     const std::vector<std::string>& paths);
 
+std::string FindSystemWideRc();
+
 std::string FindRcAlongsideBinary(const std::string& cwd,
                                   const std::string& path_to_binary);
 

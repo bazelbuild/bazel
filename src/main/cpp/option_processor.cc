@@ -47,6 +47,10 @@ using std::vector;
 constexpr char WorkspaceLayout::WorkspacePrefix[];
 static std::vector<std::string> GetProcessedEnv();
 
+// Path to the system-wide bazelrc configuration file.
+// This is a mutable global for testing purposes only.
+const char* system_bazelrc_path = BAZEL_SYSTEM_BAZELRC_PATH;
+
 OptionProcessor::OptionProcessor(
     const WorkspaceLayout* workspace_layout,
     std::unique_ptr<StartupOptions> default_startup_options)
@@ -187,6 +191,20 @@ vector<string> DedupeBlazercPaths(const vector<string>& paths) {
   return result;
 }
 
+string FindSystemWideRc() {
+  // MakeAbsoluteAndResolveWindowsEnvvars will standardize the form of the
+  // provided path. This also means we accept relative paths, which is
+  // is convenient for testing.
+  const string path = blaze_util::MakeAbsoluteAndResolveWindowsEnvvars(
+      system_bazelrc_path);
+  if (blaze_util::CanReadFile(path)) {
+    return path;
+  }
+  BAZEL_LOG(INFO) << "Looked for a system bazelrc at path '" << path
+                  << "', but none was found.";
+  return "";
+}
+
 string FindRcAlongsideBinary(const string& cwd, const string& path_to_binary) {
   const string path = blaze_util::IsAbsolute(path_to_binary)
                           ? path_to_binary
@@ -231,9 +249,13 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   if (SearchNullaryOption(cmd_line->startup_args, "master_bazelrc", true)) {
     const string workspace_rc =
         workspace_layout->GetWorkspaceRcPath(workspace, cmd_line->startup_args);
+    // TODO(b/36168162): Remove the alongside-binary rc file. (Part of GitHub
+    // issue #4502)
     const string binary_rc =
         internal::FindRcAlongsideBinary(cwd, cmd_line->path_to_binary);
-    const string system_rc = FindSystemWideBlazerc();
+    // TODO(b/36168162): This is not the desired order, see
+    // https://github.com/bazelbuild/bazel/issues/4502#issuecomment-372697374.
+    const string system_rc = internal::FindSystemWideRc();
     BAZEL_LOG(INFO)
         << "Looking for master bazelrcs in the following three paths: "
         << workspace_rc << ", " << binary_rc << ", " << system_rc;
