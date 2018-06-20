@@ -98,7 +98,7 @@ public final class CommandUsingProcessWrapperTest {
   @Test
   public void testProcessWrappedCommand_WithStatistics_SpendUserTime()
       throws CommandException, IOException {
-    Duration userTimeToSpend = Duration.ofSeconds(6);
+    Duration userTimeToSpend = Duration.ofSeconds(10);
     Duration systemTimeToSpend = Duration.ZERO;
 
     checkProcessWrapperStatistics(userTimeToSpend, systemTimeToSpend);
@@ -108,7 +108,7 @@ public final class CommandUsingProcessWrapperTest {
   public void testProcessWrappedCommand_WithStatistics_SpendSystemTime()
       throws CommandException, IOException {
     Duration userTimeToSpend = Duration.ZERO;
-    Duration systemTimeToSpend = Duration.ofSeconds(6);
+    Duration systemTimeToSpend = Duration.ofSeconds(10);
 
     checkProcessWrapperStatistics(userTimeToSpend, systemTimeToSpend);
   }
@@ -116,8 +116,8 @@ public final class CommandUsingProcessWrapperTest {
   @Test
   public void testProcessWrappedCommand_WithStatistics_SpendUserAndSystemTime()
       throws CommandException, IOException {
-    Duration userTimeToSpend = Duration.ofSeconds(6);
-    Duration systemTimeToSpend = Duration.ofSeconds(6);
+    Duration userTimeToSpend = Duration.ofSeconds(10);
+    Duration systemTimeToSpend = Duration.ofSeconds(10);
 
     checkProcessWrapperStatistics(userTimeToSpend, systemTimeToSpend);
   }

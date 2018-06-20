@@ -817,10 +817,14 @@ public class LocalSpawnRunnerTest {
     Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
 
     Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
-    Duration maximumUserTimeToSpend = minimumUserTimeToSpend.plus(Duration.ofSeconds(5));
+    // Under normal loads we should be able to use a much lower bound for maxUserTime, but be
+    // generous here in case of hardware issues.
+    Duration maximumUserTimeToSpend = minimumUserTimeToSpend.plus(Duration.ofSeconds(20));
 
     Duration minimumSystemTimeToSpend = Duration.ZERO;
-    Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plus(Duration.ofSeconds(5));
+    // Under normal loads we should be able to use a much lower bound for maxSysTime, but be
+    // generous here in case of hardware issues.
+    Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plus(Duration.ofSeconds(20));
 
     Path execRoot = getTemporaryExecRoot(fs);
     copyProcessWrapperIntoExecRoot(execRoot);

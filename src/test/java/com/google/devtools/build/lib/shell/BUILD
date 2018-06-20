@@ -92,7 +92,7 @@ java_test(
 
 java_test(
     name = "CommandUsingLinuxSandboxTest",
-    size = "small",
+    timeout = "moderate",
     srcs = [
         "CommandUsingLinuxSandboxTest.java",
         "ExecutionStatisticsTestUtil.java",
