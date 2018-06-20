@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAsp
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.ToolchainContextBuilder;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -490,16 +491,17 @@ public class BuildViewForTesting {
     }
     Set<Label> requiredToolchains =
         target.getAssociatedRule().getRuleClassObject().getRequiredToolchains();
-    ToolchainContext toolchainContext =
-        skyframeExecutor.getToolchainContextForTesting(
+    ToolchainContextBuilder toolchainContextBuilder =
+        skyframeExecutor.getToolchainContextBuilderForTesting(
             requiredToolchains, targetConfig, eventHandler);
     OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
             eventHandler,
             configuredTarget,
             configurations,
-            toolchainContext.resolvedToolchainLabels());
-    toolchainContext.resolveToolchains(prerequisiteMap);
+            toolchainContextBuilder.resolvedToolchainLabels());
+    ToolchainContext toolchainContext =
+        toolchainContextBuilder.loadToolchainProviders(prerequisiteMap);
 
     return new RuleContext.Builder(
             env,
@@ -518,7 +520,7 @@ public class BuildViewForTesting {
                 eventHandler,
                 configuredTarget,
                 configurations,
-                toolchainContext.resolvedToolchainLabels()))
+                toolchainContextBuilder.resolvedToolchainLabels()))
         .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
         .setUniversalFragments(ruleClassProvider.getUniversalFragments())
         .setToolchainContext(toolchainContext)

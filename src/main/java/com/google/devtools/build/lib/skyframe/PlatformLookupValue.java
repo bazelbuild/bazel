@@ -24,7 +24,7 @@ public abstract class PlatformLookupValue implements SkyValue {
 
   /** A {@link SkyKey} for {@code PlatformLookupValue}. */
   @AutoCodec
-  static class Key implements SkyKey {
+  public static class Key implements SkyKey {
     private static final Interner<Key> interners = BlazeInterners.newWeakInterner();
 
     private final ImmutableList<ConfiguredTargetKey> platformKeys;

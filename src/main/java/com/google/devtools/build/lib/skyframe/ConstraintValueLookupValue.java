@@ -10,7 +10,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /** A value which allows lookup of {@link ConstraintValueInfo} data. */
@@ -25,7 +24,7 @@ public abstract class ConstraintValueLookupValue implements SkyValue {
 
   /** A {@link SkyKey} for {@code ConstraintLookupValue}. */
   @AutoCodec
-  static class Key implements SkyKey {
+  public static class Key implements SkyKey {
     private static final Interner<Key> interners = BlazeInterners.newWeakInterner();
 
     private final ImmutableList<ConfiguredTargetKey> constraintValueKeys;

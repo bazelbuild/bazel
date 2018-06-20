@@ -1,180 +1,84 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package com.google.devtools.build.lib.analysis;
 
 import static java.util.stream.Collectors.joining;
 
-import com.google.common.base.Preconditions;
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skylarkbuildapi.ToolchainContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.StreamSupport;
 
-/** Contains toolchain-related information needed for a {@link RuleContext}. */
+/** Represents the data needed for a specific target's use of toolchains and platforms. */
+@AutoValue
 @Immutable
 @ThreadSafe
-public class ToolchainContext implements ToolchainContextApi {
+public abstract class ToolchainContext implements ToolchainContextApi {
 
-  public static ToolchainContext create(
+  /**
+   * Create a new {@link ToolchainContext} using the supplied data about required toolchain types
+   * and the resolved toolchain providers.
+   *
+   * @param targetDescription a context description of the target, used for error messaging
+   * @param executionPlatform the selected execution platform that these toolchains use
+   * @param targetPlatform the target platform that these toolchains generate output for
+   * @param requiredToolchainTypes the toolchain types that were requested
+   * @param toolchainLabels the labels of the specific toolchains being used
+   * @param toolchains the actual {@link ToolchainInfo toolchain providers} to be used
+   * @return information about the toolchains to be used by the requesting configured target
+   */
+  protected static ToolchainContext create(
       String targetDescription,
       PlatformInfo executionPlatform,
       PlatformInfo targetPlatform,
-      Set<Label> requiredToolchains,
-      ImmutableBiMap<Label, Label> resolvedLabels) {
-    return new ToolchainContext(
+      ImmutableSet<Label> requiredToolchainTypes,
+      ImmutableBiMap<Label, Label> toolchainLabels,
+      ImmutableMap<Label, ToolchainInfo> toolchains) {
+
+    return new AutoValue_ToolchainContext(
         targetDescription,
         executionPlatform,
         targetPlatform,
-        requiredToolchains,
-        new ResolvedToolchainLabels(resolvedLabels));
+        requiredToolchainTypes,
+        toolchainLabels,
+        toolchains);
   }
 
-  /** The {@link PlatformInfo} describing where these toolchains can be executed. */
-  private final PlatformInfo executionPlatform;
+  /** Returns a description of the target being used, for error messaging. */
+  abstract String targetDescription();
 
-  /** The {@link PlatformInfo} describing the outputs of these toolchains. */
-  private final PlatformInfo targetPlatform;
+  /** Returns the selected execution platform that these toolchains use. */
+  public abstract PlatformInfo executionPlatform();
 
-  /** Description of the target the toolchain context applies to, for use in error messages. */
-  private final String targetDescription;
+  /** Returns the target platform that these toolchains generate output for. */
+  public abstract PlatformInfo targetPlatform();
 
-  /** The toolchain types that are required by the target. */
-  private final ImmutableList<Label> requiredToolchains;
+  /** Returns the toolchain types that were requested. */
+  public abstract ImmutableSet<Label> requiredToolchainTypes();
 
-  /** Map from toolchain type labels to actual resolved toolchain labels. */
-  private final ResolvedToolchainLabels resolvedToolchainLabels;
+  // DO NOT USE: Internal only.
+  abstract ImmutableBiMap<Label, Label> toolchainTypeToResolved();
 
-  /** Stores the actual ToolchainInfo provider for each toolchain type. */
-  private ImmutableMap<Label, ToolchainInfo> toolchainProviders;
+  // DO NOT USE: Internal only.
+  abstract ImmutableMap<Label, ToolchainInfo> toolchains();
 
-  private ToolchainContext(
-      String targetDescription,
-      PlatformInfo executionPlatform,
-      PlatformInfo targetPlatform,
-      Set<Label> requiredToolchains,
-      ResolvedToolchainLabels resolvedToolchainLabels) {
-    this.targetDescription = targetDescription;
-    this.executionPlatform = executionPlatform;
-    this.targetPlatform = targetPlatform;
-    this.requiredToolchains = ImmutableList.copyOf(requiredToolchains);
-    this.resolvedToolchainLabels = resolvedToolchainLabels;
-    this.toolchainProviders = ImmutableMap.of();
-  }
-
-  public PlatformInfo executionPlatform() {
-    return executionPlatform;
-  }
-
-  public PlatformInfo targetPlatform() {
-    return targetPlatform;
-  }
-
-  public ImmutableList<Label> requiredToolchainTypes() {
-    return requiredToolchains;
-  }
-
-  public void resolveToolchains(
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap) {
-    if (!this.requiredToolchains.isEmpty()) {
-      this.toolchainProviders = findToolchains(resolvedToolchainLabels, prerequisiteMap);
-    }
-  }
-
+  /** Returns the labels of the specific toolchains being used. */
   public ImmutableSet<Label> resolvedToolchainLabels() {
-    return resolvedToolchainLabels.getToolchainLabels();
+    return ImmutableSet.copyOf(toolchainTypeToResolved().values());
   }
 
-  /** Returns the {@link Label}s from the {@link NestedSet} that refer to toolchain dependencies. */
-  public Set<Label> filterToolchainLabels(Iterable<Label> labels) {
-    return StreamSupport.stream(labels.spliterator(), false)
-        .filter(label -> resolvedToolchainLabels.isToolchainDependency(label))
-        .collect(ImmutableSet.toImmutableSet());
-  }
-
-  /** Tracks the mapping from toolchain type label to the label of the actual resolved toolchain. */
-  private static class ResolvedToolchainLabels {
-
-    private final ImmutableBiMap<Label, Label> toolchainLabels;
-
-    private ResolvedToolchainLabels(ImmutableBiMap<Label, Label> toolchainLabels) {
-      this.toolchainLabels = toolchainLabels;
-    }
-
-    public Label getType(Label toolchainLabel) {
-      return toolchainLabels.inverse().get(toolchainLabel);
-    }
-
-    public Label getResolvedToolchainLabel(Label toolchainType) {
-      return toolchainLabels.get(toolchainType);
-    }
-
-    public ImmutableSet<Label> getToolchainLabels() {
-      return toolchainLabels.values();
-    }
-
-    public boolean isToolchainDependency(Label label) {
-      return toolchainLabels.containsValue(label);
-    }
-  }
-
-  private static ImmutableMap<Label, ToolchainInfo> findToolchains(
-      ResolvedToolchainLabels resolvedToolchainLabels,
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap) {
-    // Find the prerequisites associated with PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR.
-    Optional<Attribute> toolchainAttribute =
-        prerequisiteMap
-            .keys()
-            .stream()
-            .filter(attribute -> attribute != null)
-            .filter(
-                attribute -> attribute.getName().equals(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR))
-            .findFirst();
-    Preconditions.checkState(
-        toolchainAttribute.isPresent(),
-        "No toolchains attribute found while loading resolved toolchains");
-
-    ImmutableMap.Builder<Label, ToolchainInfo> toolchains = new ImmutableMap.Builder<>();
-    for (ConfiguredTargetAndData target : prerequisiteMap.get(toolchainAttribute.get())) {
-      Label discoveredLabel = target.getTarget().getLabel();
-      Label toolchainType = resolvedToolchainLabels.getType(discoveredLabel);
-      if (toolchainType != null) {
-        ToolchainInfo toolchainInfo = PlatformProviderUtils.toolchain(target.getConfiguredTarget());
-        toolchains.put(toolchainType, toolchainInfo);
-      }
-    }
-
-    return toolchains.build();
+  /** Returns the toolchain for the given type */
+  public ToolchainInfo forToolchainType(Label toolchainType) {
+    return toolchains().get(toolchainType);
   }
 
   // Implement SkylarkValue and SkylarkIndexable.
@@ -188,16 +92,15 @@ public class ToolchainContext implements ToolchainContextApi {
   public void repr(SkylarkPrinter printer) {
     printer.append("<toolchain_context.resolved_labels: ");
     printer.append(
-        toolchainProviders.keySet().stream().map(key -> key.toString()).collect(joining(", ")));
+        toolchains().keySet().stream().map(Label::toString).collect(joining(", ")));
     printer.append(">");
   }
 
   private Label transformKey(Object key, Location loc) throws EvalException {
     if (key instanceof Label) {
-      Label toolchainType = (Label) key;
-      return toolchainType;
+      return (Label) key;
     } else if (key instanceof String) {
-      Label toolchainType = null;
+      Label toolchainType;
       String rawLabel = (String) key;
       try {
         toolchainType = Label.parseAbsolute(rawLabel, ImmutableMap.of());
@@ -219,29 +122,24 @@ public class ToolchainContext implements ToolchainContextApi {
   public ToolchainInfo getIndex(Object key, Location loc) throws EvalException {
     Label toolchainType = transformKey(key, loc);
 
-    if (!requiredToolchains.contains(toolchainType)) {
+    if (!requiredToolchainTypes().contains(toolchainType)) {
       throw new EvalException(
           loc,
           String.format(
               "In %s, toolchain type %s was requested but only types [%s] are configured",
-              targetDescription,
+              targetDescription(),
               toolchainType,
-              requiredToolchains
+              requiredToolchainTypes()
                   .stream()
-                  .map(toolchain -> toolchain.toString())
+                  .map(Label::toString)
                   .collect(joining())));
     }
-    return toolchainProviders.get(toolchainType);
-  }
-
-  /** Returns the toolchain for the given type */
-  public ToolchainInfo forToolchainType(Label toolchainType) {
-    return toolchainProviders.get(toolchainType);
+    return forToolchainType(toolchainType);
   }
 
   @Override
   public boolean containsKey(Object key, Location loc) throws EvalException {
     Label toolchainType = transformKey(key, loc);
-    return toolchainProviders.containsKey(toolchainType);
+    return toolchains().containsKey(toolchainType);
   }
 }

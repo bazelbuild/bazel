@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAsp
 import com.google.devtools.build.lib.analysis.PlatformSemantics;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.ToolchainContextBuilder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -229,7 +230,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     SkyframeDependencyResolver resolver = view.createDependencyResolver(env);
 
-    ToolchainContext toolchainContext = null;
+    ToolchainContextBuilder toolchainContextBuilder = null;
 
     // TODO(janakr): this acquire() call may tie up this thread indefinitely, reducing the
     // parallelism of Skyframe. This is a strict improvement over the prior state of the code, in
@@ -272,8 +273,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
           // Collect local (target, rule) constraints for filtering out execution platforms.
           ImmutableSet<Label> execConstraintLabels = getExecutionPlatformConstraints(rule);
-          toolchainContext =
-              ToolchainUtil.createToolchainContext(
+          toolchainContextBuilder =
+              ToolchainContextBuilder.create(
                   env,
                   rule.toString(),
                   requiredToolchains,
@@ -293,9 +294,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               ctgValue,
               ImmutableList.<Aspect>of(),
               configConditions,
-              toolchainContext == null
+              toolchainContextBuilder == null
                   ? ImmutableSet.of()
-                  : toolchainContext.resolvedToolchainLabels(),
+                  : toolchainContextBuilder.resolvedToolchainLabels(),
               ruleClassProvider,
               view.getHostConfiguration(configuration),
               transitivePackagesForPackageRootResolution,
@@ -312,8 +313,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Preconditions.checkNotNull(depValueMap);
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
-      if (toolchainContext != null) {
-        toolchainContext.resolveToolchains(depValueMap);
+      ToolchainContext toolchainContext = null;
+      if (toolchainContextBuilder != null) {
+        toolchainContext = toolchainContextBuilder.loadToolchainProviders(depValueMap);
       }
 
       ConfiguredTargetValue ans =
@@ -332,9 +334,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         ConfiguredValueCreationException cvce = (ConfiguredValueCreationException) e.getCause();
 
         // Check if this is caused by an unresolved toolchain, and report it as such.
-        if (toolchainContext != null) {
+        if (toolchainContextBuilder != null) {
           Set<Label> toolchainDependencyErrors =
-              toolchainContext.filterToolchainLabels(
+              toolchainContextBuilder.filterToolchainLabels(
                   Iterables.transform(cvce.getRootCauses(), Cause::getLabel));
           if (!toolchainDependencyErrors.isEmpty()) {
             env.getListener()
