@@ -1,6 +1,7 @@
 # Packaging
 
 load(":embedded_tools.bzl", "srcsfile")
+load(":rule_size_test.bzl", "rule_size_test")
 
 md5_cmd = "set -e -o pipefail && cat $(SRCS) | sort | %s | awk '{ print $$1; }' > $@"
 
@@ -181,6 +182,16 @@ py_binary(
     "",
     "_nojdk",
 ]]
+
+rule_size_test(
+    name = "embedded_tools_size_test",
+    src = ":embedded_tools_srcs",
+    # WARNING: Only adjust the number in `expect` if you are intentionally
+    # adding or removing embedded tools. Know that the more embedded tools there
+    # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
+    expect = 503,
+    margin = 5,  # percentage
+)
 
 filegroup(
     name = "embedded_jdk",
