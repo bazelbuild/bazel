@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
-import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
@@ -283,37 +282,23 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     private final RuleContext ruleContext;
     private final NestedSet<Artifact> resolvedSrcs;
     private final NestedSet<Artifact> filesToBuild;
-    private final Iterable<TemplateVariableInfo> toolchains;
 
     public CommandResolverContext(
         RuleContext ruleContext,
         NestedSet<Artifact> resolvedSrcs,
         NestedSet<Artifact> filesToBuild) {
       super(
-          ruleContext.getMakeVariables(ImmutableList.of(":cc_toolchain")),
+          ruleContext,
           ruleContext.getRule().getPackage(),
           ruleContext.getConfiguration(),
           ImmutableList.of(new CcFlagsSupplier(ruleContext)));
       this.ruleContext = ruleContext;
       this.resolvedSrcs = resolvedSrcs;
       this.filesToBuild = filesToBuild;
-      this.toolchains = ruleContext.getPrerequisites(
-          "toolchains", Mode.TARGET, TemplateVariableInfo.PROVIDER);
     }
 
     public RuleContext getRuleContext() {
       return ruleContext;
-    }
-
-    private String resolveVariableFromToolchains(String variableName) {
-      for (TemplateVariableInfo info : toolchains) {
-        String result = info.getVariables().get(variableName);
-        if (result != null) {
-          return result;
-        }
-      }
-
-      return null;
     }
 
     @Override
@@ -360,15 +345,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
           PathFragment relPath =
               ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
           return dir.getRelative(relPath).getPathString();
-        }
-      }
-
-      // Make variables provided by the :cc_toolchain attributes should not be overridden by
-      // those provided by the toolchains attribute.
-      if (!CROSSTOOL_MAKE_VARIABLES.contains(variableName)) {
-        String valueFromToolchains = resolveVariableFromToolchains(variableName);
-        if (valueFromToolchains != null) {
-          return valueFromToolchains;
         }
       }
 

@@ -98,11 +98,9 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -1061,26 +1059,6 @@ public final class RuleContext extends TargetContext
 
   public Expander getExpander() {
     return new Expander(this, getConfigurationMakeVariableContext());
-  }
-
-  public ImmutableMap<String, String> getMakeVariables(Iterable<String> attributeNames) {
-    ArrayList<TemplateVariableInfo> templateVariableInfos = new ArrayList<>();
-
-    for (String attributeName : attributeNames) {
-      // TODO(b/37567440): Remove this continue statement.
-      if (!attributes().has(attributeName)) {
-        continue;
-      }
-      Iterables.addAll(templateVariableInfos, getPrerequisites(
-          attributeName, Mode.DONT_CHECK, TemplateVariableInfo.PROVIDER));
-    }
-
-    LinkedHashMap<String, String> makeVariables = new LinkedHashMap<>();
-    for (TemplateVariableInfo templateVariableInfo : templateVariableInfos) {
-      makeVariables.putAll(templateVariableInfo.getVariables());
-    }
-
-    return ImmutableMap.copyOf(makeVariables);
   }
 
   /**
