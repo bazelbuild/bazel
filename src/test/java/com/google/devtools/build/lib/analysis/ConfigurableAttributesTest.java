@@ -142,13 +142,14 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
               .allowedValues(new Attribute.AllowedValueSet("one", "two")));
 
   private static final MockRule RULE_WITH_LABEL_DEFAULT =
-      () -> MockRule.define(
-          "rule_with_label_default",
-          (builder, env) ->
-              builder.add(
-                  attr("dep", BuildType.LABEL)
-                      .value(env.getLabel("//foo:default"))
-                      .allowedFileTypes(FileTypeSet.ANY_FILE)));
+      () ->
+          MockRule.define(
+              "rule_with_label_default",
+              (builder, env) ->
+                  builder.add(
+                      attr("dep", BuildType.LABEL)
+                          .value(Label.parseAbsoluteUnchecked("//foo:default"))
+                          .allowedFileTypes(FileTypeSet.ANY_FILE)));
 
   @Override
   protected ConfiguredRuleClassProvider getRuleClassProvider() {

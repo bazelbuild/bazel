@@ -23,14 +23,8 @@ import javax.annotation.Nullable;
  */
 public interface RuleDefinitionEnvironment {
   /**
-   * Parses the given string as a label and returns the label, by calling {@link
-   * Label#parseAbsolute}. Throws a {@link IllegalArgumentException} if the parsing fails.
-   */
-  Label getLabel(String labelValue);
-
-  /**
-   * Prepends the tools repository path to the given string and parses the result
-   * using {@link RuleDefinitionEnvironment#getLabel}
+   * Prepends the tools repository path to the given string and parses the result using {@link
+   * Label#parseAbsoluteUnchecked}.
    */
   Label getToolsLabel(String labelValue);
 

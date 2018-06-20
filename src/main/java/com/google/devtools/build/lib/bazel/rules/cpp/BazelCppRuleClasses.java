@@ -280,7 +280,7 @@ public class BazelCppRuleClasses {
                                 // thus a dependency of def_parser.
                                 || label.startsWith(toolsRepository + "//tools/cpp")
                             ? null
-                            : env.getLabel(defParserLabel);
+                            : Label.parseAbsoluteUnchecked(defParserLabel);
                       }
                     }));
       }

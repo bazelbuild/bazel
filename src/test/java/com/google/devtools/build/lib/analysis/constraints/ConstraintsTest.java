@@ -58,8 +58,8 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .setUndocumented()
-          .compatibleWith(env.getLabel("//buildenv/rule_class_compat:b"))
-          .restrictedTo(env.getLabel("//buildenv/rule_class_restrict:d"))
+          .compatibleWith(Label.parseAbsoluteUnchecked("//buildenv/rule_class_compat:b"))
+          .restrictedTo(Label.parseAbsoluteUnchecked("//buildenv/rule_class_restrict:d"))
           .build();
     }
 
@@ -77,15 +77,19 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * Dummy rule class for testing rule class defaults. This class applies invalid defaults. Note
    * that the specified environments must be independently created.
    */
-  private static final MockRule BAD_RULE_CLASS_DEFAULT_RULE = () -> MockRule.define(
-      "bad_rule_class_default",
-      (builder, env) ->
-          builder
-              .setUndocumented()
-              // These defaults are invalid since compatibleWith and restrictedTo can't mix
-              // environments from the same group.
-              .compatibleWith(env.getLabel("//buildenv/rule_class_compat:a"))
-              .restrictedTo(env.getLabel("//buildenv/rule_class_compat:b")));
+  private static final MockRule BAD_RULE_CLASS_DEFAULT_RULE =
+      () ->
+          MockRule.define(
+              "bad_rule_class_default",
+              (builder, env) ->
+                  builder
+                      .setUndocumented()
+                      // These defaults are invalid since compatibleWith and restrictedTo can't mix
+                      // environments from the same group.
+                      .compatibleWith(
+                          Label.parseAbsoluteUnchecked("//buildenv/rule_class_compat:a"))
+                      .restrictedTo(
+                          Label.parseAbsoluteUnchecked("//buildenv/rule_class_compat:b")));
 
   private static final MockRule RULE_WITH_IMPLICIT_AND_LATEBOUND_DEFAULTS =
       () ->
