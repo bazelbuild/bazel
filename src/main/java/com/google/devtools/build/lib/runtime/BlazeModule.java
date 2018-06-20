@@ -310,4 +310,9 @@ public abstract class BlazeModule {
   public ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
     return ImmutableList.of();
   }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
 }
