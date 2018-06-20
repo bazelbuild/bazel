@@ -107,12 +107,12 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
         linkingHelper.addPicStaticLibraries(
             ImmutableList.of(
                 LinkerInputs.opaqueLibraryToLink(
-                    staticLibrary, staticLibraryCategory, libraryIdentifier, alwayslink)));
+                    staticLibrary, staticLibraryCategory, libraryIdentifier)));
       } else {
         linkingHelper.addStaticLibraries(
             ImmutableList.of(
                 LinkerInputs.opaqueLibraryToLink(
-                    staticLibrary, staticLibraryCategory, libraryIdentifier, alwayslink)));
+                    staticLibrary, staticLibraryCategory, libraryIdentifier)));
       }
     }
 

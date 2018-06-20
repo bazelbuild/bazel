@@ -26,7 +26,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingInfoApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import javax.annotation.Nullable;
 
 /** Wrapper for every C++ linking provider. */
 @Immutable
@@ -38,12 +40,24 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
           FunctionSignature.of(
               /* numMandatoryPositionals= */ 0,
               /* numOptionalPositionals= */ 0,
-              /* numMandatoryNamedOnly= */ 1,
+              /* numMandatoryNamedOnly= */ 0,
               /* starArg= */ false,
               /* kwArg= */ false,
+              "cc_link_params_store",
               "cc_runfiles"),
-          /* defaultValues= */ ImmutableList.of(),
-          /* types= */ ImmutableList.of(SkylarkType.of(CcRunfiles.class)));
+          /* defaultValues= */ ImmutableList.of(Runtime.NONE, Runtime.NONE),
+          /* types= */ ImmutableList.of(
+              SkylarkType.of(CcLinkParamsStore.class), SkylarkType.of(CcRunfiles.class)));
+
+  @Nullable
+  private static Object nullIfNone(Object object) {
+    return nullIfNone(object, Object.class);
+  }
+
+  @Nullable
+  private static <T> T nullIfNone(Object object, Class<T> type) {
+    return object != Runtime.NONE ? type.cast(object) : null;
+  }
 
   public static final NativeProvider<CcLinkingInfo> PROVIDER =
       new NativeProvider<CcLinkingInfo>(CcLinkingInfo.class, "CcLinkingInfo", SIGNATURE) {
@@ -52,8 +66,16 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
         protected CcLinkingInfo createInstanceFromSkylark(
             Object[] args, Environment env, Location loc) throws EvalException {
           CcCommon.checkLocationWhitelisted(loc);
+          int i = 0;
+          CcLinkParamsStore ccLinkParamsStore = (CcLinkParamsStore) nullIfNone(args[i++]);
+          CcRunfiles ccRunfiles = (CcRunfiles) nullIfNone(args[i++]);
           CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-          ccLinkingInfoBuilder.setCcRunfiles((CcRunfiles) args[0]);
+          ccLinkingInfoBuilder.setCcLinkParamsStore(ccLinkParamsStore);
+          // TODO(plf): The CcDynamicLibrariesForRuntime provider can be removed perhaps. Do not
+          // add to the API until we know for sure. The CcRunfiles provider is already in the API
+          // at the time of this comment (cl/200184914). Perhaps it can be removed but Skylark rules
+          // using it will have to be migrated.
+          ccLinkingInfoBuilder.setCcRunfiles(ccRunfiles);
           return ccLinkingInfoBuilder.build();
         }
       };
