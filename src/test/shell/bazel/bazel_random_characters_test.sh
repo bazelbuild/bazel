@@ -42,6 +42,12 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# Disable MSYS path conversions, so that
+# "bazel build //foo" won't become "bazel build /foo", nor will
+# "bazel build foo/bar" become "bazel build foo\bar".
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL="*"
+
 function basic_glob_scenario_test_template() {
   local chars="$1"
   local pkg="pkg${chars}"
