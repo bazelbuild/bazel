@@ -41,9 +41,6 @@ using std::string;
 using std::unique_ptr;
 using std::wstring;
 
-// Methods defined in path_windows.cc that are only visible for testing.
-string NormalizeWindowsPath(string path);
-
 TEST(PathWindowsTest, TestNormalizeWindowsPath) {
   ASSERT_EQ(string(""), NormalizeWindowsPath(""));
   ASSERT_EQ(string(""), NormalizeWindowsPath("."));
@@ -56,6 +53,19 @@ TEST(PathWindowsTest, TestNormalizeWindowsPath) {
   ASSERT_EQ(string("c:\\"), NormalizeWindowsPath("c:/"));
   ASSERT_EQ(string("c:\\"), NormalizeWindowsPath("c:\\"));
   ASSERT_EQ(string("c:\\foo\\bar"), NormalizeWindowsPath("c:\\..//foo/./bar/"));
+
+  ASSERT_EQ(wstring(L""), NormalizeWindowsPath(L""));
+  ASSERT_EQ(wstring(L""), NormalizeWindowsPath(L"."));
+  ASSERT_EQ(wstring(L"foo"), NormalizeWindowsPath(L"foo"));
+  ASSERT_EQ(wstring(L"foo"), NormalizeWindowsPath(L"foo/"));
+  ASSERT_EQ(wstring(L"foo\\bar"), NormalizeWindowsPath(L"foo//bar"));
+  ASSERT_EQ(wstring(L"foo\\bar"), NormalizeWindowsPath(L"../..//foo/./bar"));
+  ASSERT_EQ(wstring(L"foo\\bar"), NormalizeWindowsPath(L"../foo/baz/../bar"));
+  ASSERT_EQ(wstring(L"c:\\"), NormalizeWindowsPath(L"c:"));
+  ASSERT_EQ(wstring(L"c:\\"), NormalizeWindowsPath(L"c:/"));
+  ASSERT_EQ(wstring(L"c:\\"), NormalizeWindowsPath(L"c:\\"));
+  ASSERT_EQ(wstring(L"c:\\foo\\bar"),
+            NormalizeWindowsPath(L"c:\\..//foo/./bar/"));
 }
 
 TEST(PathWindowsTest, TestDirname) {
@@ -201,7 +211,14 @@ TEST(PathWindowsTest, TestAsAbsoluteWindowsPath) {
   ASSERT_TRUE(AsAbsoluteWindowsPath("c:/", &actual, nullptr));
   ASSERT_EQ(L"\\\\?\\c:\\", actual);
 
+  ASSERT_TRUE(AsAbsoluteWindowsPath(L"c:/", &actual, nullptr));
+  ASSERT_EQ(L"\\\\?\\c:\\", actual);
+
   ASSERT_TRUE(AsAbsoluteWindowsPath("c:/..\\non-existent//", &actual, nullptr));
+  ASSERT_EQ(L"\\\\?\\c:\\non-existent", actual);
+
+  ASSERT_TRUE(
+      AsAbsoluteWindowsPath(L"c:/..\\non-existent//", &actual, nullptr));
   ASSERT_EQ(L"\\\\?\\c:\\non-existent", actual);
 
   WCHAR cwd[MAX_PATH];
@@ -210,6 +227,9 @@ TEST(PathWindowsTest, TestAsAbsoluteWindowsPath) {
       wstring(L"\\\\?\\") + cwdw +
       ((cwdw.back() == L'\\') ? L"non-existent" : L"\\non-existent");
   ASSERT_TRUE(AsAbsoluteWindowsPath("non-existent", &actual, nullptr));
+  ASSERT_EQ(actual, expected);
+
+  ASSERT_TRUE(AsAbsoluteWindowsPath(L"non-existent", &actual, nullptr));
   ASSERT_EQ(actual, expected);
 }
 

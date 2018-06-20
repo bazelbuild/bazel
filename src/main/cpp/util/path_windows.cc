@@ -215,14 +215,19 @@ std::pair<std::wstring, std::wstring> SplitPathW(const std::wstring& path) {
   return SplitPathImpl(path);
 }
 
-bool AsWindowsPath(const std::string& path, std::string* result,
-                   std::string* error) {
+void assignNUL(std::string* s) { s->assign("NUL"); }
+
+void assignNUL(std::wstring* s) { s->assign(L"NUL"); }
+
+template <typename char_type>
+bool AsWindowsPath(const std::basic_string<char_type>& path,
+                   std::basic_string<char_type>* result, std::string* error) {
   if (path.empty()) {
     result->clear();
     return true;
   }
   if (IsDevNull(path.c_str())) {
-    result->assign("NUL");
+    assignNUL(result);
     return true;
   }
   if (HasUncPrefix(path.c_str())) {
@@ -247,7 +252,7 @@ bool AsWindowsPath(const std::string& path, std::string* result,
     return false;
   }
 
-  std::string mutable_path = path;
+  std::basic_string<char_type> mutable_path = path;
   if (path[0] == '/') {
     if (error) {
       *error = "Unix-style paths are unsupported";
@@ -257,9 +262,10 @@ bool AsWindowsPath(const std::string& path, std::string* result,
 
   if (path[0] == '\\') {
     // This is an absolute Windows path on the current drive, e.g. "\foo\bar".
-    mutable_path = std::string(1, GetCurrentDrive()) + ":" + path;
+    std::basic_string<char_type> drive(1, GetCurrentDrive());
+    drive.push_back(':');
+    mutable_path = drive + path;
   }  // otherwise this is a relative path, or absolute Windows path.
-
   result->assign(NormalizeWindowsPath(mutable_path));
   return true;
 }
@@ -275,8 +281,9 @@ bool AsWindowsPath(const std::string& path, std::wstring* result,
   return true;
 }
 
-bool AsAbsoluteWindowsPath(const std::string& path, std::wstring* result,
-                           std::string* error) {
+template <typename char_type>
+bool AsAbsoluteWindowsPath(const std::basic_string<char_type>& path,
+                           std::wstring* result, std::string* error) {
   if (path.empty()) {
     result->clear();
     return true;
@@ -373,6 +380,14 @@ bool IsDevNull(const char* path) {
            (path[2] == 'L' || path[2] == 'l') && path[3] == 0));
 }
 
+bool IsDevNull(const wchar_t* path) {
+  return path != NULL && *path != 0 &&
+         (wcsncmp(L"/dev/null\0", path, 10) == 0 ||
+          ((path[0] == L'N' || path[0] == L'n') &&
+           (path[1] == L'U' || path[1] == L'u') &&
+           (path[2] == L'L' || path[2] == L'l') && path[3] == 0));
+}
+
 bool IsRootDirectory(const std::string& path) {
   return IsRootOrAbsolute(path, true);
 }
@@ -392,9 +407,11 @@ static char GetCurrentDrive() {
   return 'a' + wdrive - offset;
 }
 
-std::string NormalizeWindowsPath(std::string path) {
+template <typename char_type>
+std::basic_string<char_type> NormalizeWindowsPath(
+    std::basic_string<char_type> path) {
   if (path.empty()) {
-    return "";
+    return std::basic_string<char_type>();
   }
   if (path[0] == '/') {
     // This is an absolute MSYS path, error out.
@@ -405,10 +422,10 @@ std::string NormalizeWindowsPath(std::string path) {
     path = path.substr(4);
   }
 
-  static const std::string dot(".");
-  static const std::string dotdot("..");
+  static const std::basic_string<char_type> dot(1, '.');
+  static const std::basic_string<char_type> dotdot(2, '.');
 
-  std::vector<std::string> segments;
+  std::vector<std::basic_string<char_type>> segments;
   int segment_start = -1;
   // Find the path segments in `path` (separated by "/").
   for (int i = 0;; ++i) {
@@ -421,7 +438,8 @@ std::string NormalizeWindowsPath(std::string path) {
     } else if (segment_start >= 0 && i > segment_start) {
       // The current character is "/" or "\0", so this ends a segment.
       // Add that to `segments` if there's anything to add; handle "." and "..".
-      std::string segment(path, segment_start, i - segment_start);
+      std::basic_string<char_type> segment(path, segment_start,
+                                           i - segment_start);
       segment_start = -1;
       if (segment == dotdot) {
         if (!segments.empty() &&
@@ -441,12 +459,13 @@ std::string NormalizeWindowsPath(std::string path) {
   // form of it, e.g. "c:\..").
   if (segments.size() == 1 && segments[0].size() == 2 &&
       HasDriveSpecifierPrefix(segments[0].c_str())) {
-    return segments[0] + '\\';
+    segments[0].push_back('\\');
+    return segments[0];
   }
 
   // Join all segments.
   bool first = true;
-  std::ostringstream result;
+  std::basic_ostringstream<char_type> result;
   for (const auto& s : segments) {
     if (!first) {
       result << '\\';

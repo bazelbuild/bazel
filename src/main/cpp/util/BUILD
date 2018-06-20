@@ -107,7 +107,10 @@ cc_library(
     srcs = ["logging.cc"],
     hdrs = ["logging.h"],
     visibility = ["//visibility:public"],
-    deps = [":blaze_exit_code"],
+    deps = [
+        ":blaze_exit_code",
+        ":strings",
+    ],
 )
 
 cc_library(
