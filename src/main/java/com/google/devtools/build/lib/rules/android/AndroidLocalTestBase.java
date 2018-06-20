@@ -85,9 +85,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         ruleContext.getFragment(AndroidLocalTestConfiguration.class);
 
     final JavaCommon javaCommon = new JavaCommon(ruleContext, javaSemantics);
-    if (androidLocalTestConfiguration.androidLocalTestUsesJavaRuleValidation()) {
-      javaSemantics.checkRule(ruleContext, javaCommon);
-    }
+    javaSemantics.checkRule(ruleContext, javaCommon);
 
     // Use the regular Java javacopts. Enforcing android-compatible Java
     // (-source 7 -target 7 and no TWR) is unnecessary for robolectric tests
