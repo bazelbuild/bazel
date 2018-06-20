@@ -1631,7 +1631,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     Object provider = evalRuleContextCode(ruleContext, "ruleContext.attr.dep[Actions]");
     assertThat(provider).isInstanceOf(Info.class);
-    assertThat(((Info) provider).getProvider()).isEqualTo(ActionsProvider.SKYLARK_CONSTRUCTOR);
+    assertThat(((Info) provider).getProvider()).isEqualTo(ActionsProvider.INSTANCE);
     update("actions", provider);
 
     Object mapping = eval("actions.by_file");

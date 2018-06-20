@@ -29,6 +29,7 @@ public class TopLevelBootstrap implements Bootstrap {
   private final Class<? extends SkylarkRuleFunctionsApi<?>> skylarkRuleFunctionsApi;
   private final StructApi.StructProviderApi structProvider;
   private final OutputGroupInfoApiProvider outputGroupInfoProvider;
+  private final ActionsInfoProviderApi actionsInfoProviderApi;
 
   public TopLevelBootstrap(
       Class<? extends SkylarkBuildApiGlobals> skylarkBuildApiGlobals,
@@ -37,7 +38,8 @@ public class TopLevelBootstrap implements Bootstrap {
       Class<? extends SkylarkNativeModuleApi> skylarkNativeModuleApi,
       Class<? extends SkylarkRuleFunctionsApi<?>> skylarkRuleFunctionsApi,
       StructApi.StructProviderApi structProvider,
-      OutputGroupInfoApiProvider outputGroupInfoProvider) {
+      OutputGroupInfoApiProvider outputGroupInfoProvider,
+      ActionsInfoProviderApi actionsInfoProviderApi) {
     this.skylarkAttrApi = skylarkAttrApi;
     this.skylarkBuildApiGlobals = skylarkBuildApiGlobals;
     this.skylarkCommandLineApi = skylarkCommandLineApi;
@@ -45,6 +47,7 @@ public class TopLevelBootstrap implements Bootstrap {
     this.skylarkRuleFunctionsApi = skylarkRuleFunctionsApi;
     this.structProvider = structProvider;
     this.outputGroupInfoProvider = outputGroupInfoProvider;
+    this.actionsInfoProviderApi = actionsInfoProviderApi;
   }
 
   @Override
@@ -56,5 +59,6 @@ public class TopLevelBootstrap implements Bootstrap {
     Runtime.setupModuleGlobals(builder, skylarkRuleFunctionsApi);
     builder.put("struct", structProvider);
     builder.put("OutputGroupInfo", outputGroupInfoProvider);
+    builder.put("Actions", actionsInfoProviderApi);
   }
 }

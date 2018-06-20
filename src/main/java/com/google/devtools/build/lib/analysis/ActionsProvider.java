@@ -17,9 +17,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.skylarkbuildapi.ActionsInfoProviderApi;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,11 +28,14 @@ import java.util.Map;
  * This provides a view over the actions that were created during the analysis of a rule
  * (not including actions for its transitive dependencies).
  */
-public final class ActionsProvider {
+public final class ActionsProvider extends BuiltinProvider<Info> implements ActionsInfoProviderApi {
 
-  /** The Actions provider type itself. */
-  public static final NativeProvider<Info> SKYLARK_CONSTRUCTOR =
-      new NativeProvider<Info>(Info.class, "Actions") {};
+  /** The ActionsProvider singleton instance. */
+  public static final ActionsProvider INSTANCE = new ActionsProvider();
+
+  public ActionsProvider() {
+    super("Actions", Info.class);
+  }
 
   /** Factory method for creating instances of the Actions provider. */
   public static Info create(Iterable<ActionAnalysisMetadata> actions) {
@@ -46,6 +50,6 @@ public final class ActionsProvider {
       }
     }
     ImmutableMap<String, Object> fields = ImmutableMap.<String, Object>of("by_file", map);
-    return SkylarkInfo.createSchemaless(SKYLARK_CONSTRUCTOR, fields, Location.BUILTIN);
+    return SkylarkInfo.createSchemaless(INSTANCE, fields, Location.BUILTIN);
   }
 }
