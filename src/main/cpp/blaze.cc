@@ -81,6 +81,7 @@ using std::map;
 using std::set;
 using std::string;
 using std::vector;
+using command_server::CommandServer;
 
 // The following is a treatise on how the interaction between the client and the
 // server works.
@@ -227,7 +228,7 @@ class GrpcBlazeServer : public BlazeServer {
  private:
   enum CancelThreadAction { NOTHING, JOIN, CANCEL, COMMAND_ID_RECEIVED };
 
-  std::unique_ptr<command_server::CommandServer::Stub> client_;
+  std::unique_ptr<CommandServer::Stub> client_;
   std::string request_cookie_;
   std::string response_cookie_;
   std::string command_id_;
@@ -243,7 +244,7 @@ class GrpcBlazeServer : public BlazeServer {
   // actions from.
   blaze_util::IPipe *pipe_;
 
-  bool TryConnect(command_server::CommandServer::Stub *client);
+  bool TryConnect(CommandServer::Stub *client);
   void CancelThread();
   void SendAction(CancelThreadAction action);
   void SendCancelMessage();
@@ -1563,7 +1564,8 @@ GrpcBlazeServer::~GrpcBlazeServer() {
   pipe_ = NULL;
 }
 
-bool GrpcBlazeServer::TryConnect(command_server::CommandServer::Stub *client) {
+bool GrpcBlazeServer::TryConnect(
+    CommandServer::Stub *client) {
   grpc::ClientContext context;
   context.set_deadline(std::chrono::system_clock::now() +
                        std::chrono::seconds(connect_timeout_secs_));
@@ -1628,8 +1630,8 @@ bool GrpcBlazeServer::Connect() {
 
   std::shared_ptr<grpc::Channel> channel(
       grpc::CreateChannel(port, grpc::InsecureChannelCredentials()));
-  std::unique_ptr<command_server::CommandServer::Stub> client(
-      command_server::CommandServer::NewStub(channel));
+  std::unique_ptr<CommandServer::Stub> client(
+      CommandServer::NewStub(channel));
 
   if (!TryConnect(client.get())) {
     return false;
