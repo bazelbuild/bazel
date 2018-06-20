@@ -16,6 +16,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
@@ -38,9 +39,11 @@ public class ProcessRunnerTest {
 
   @Before
   public void setUp() throws Exception {
-    directory = Files.createTempDirectory(getClass().getName());
-    path = Files.createTempFile(directory, "script", OsUtils.executableExtension());
+    directory = Files.createTempDirectory(getClass().getSimpleName());
+    path = Files.createTempFile(directory, "script", isWindows() ? ".bat" : "");
     Assert.assertTrue(path.toFile().setExecutable(true));
+    path.toFile().deleteOnExit();
+    directory.toFile().deleteOnExit();
   }
 
   @AfterClass
@@ -132,7 +135,11 @@ public class ProcessRunnerTest {
     if (error != null) {
       text.add("echo \"" + error + "\" 1>&2");
     }
-    text.add((OS.WINDOWS.equals(OS.getCurrent()) ? "exit /b " : "exit ") + exitCode);
+    text.add((isWindows() ? "exit /b " : "exit ") + exitCode);
     return text;
+  }
+
+  private static boolean isWindows() {
+    return OS.WINDOWS.equals(OS.getCurrent());
   }
 }
