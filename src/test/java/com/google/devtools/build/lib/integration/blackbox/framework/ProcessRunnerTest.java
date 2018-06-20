@@ -81,7 +81,7 @@ public class ProcessRunnerTest {
 
   @Test
   public void testTimeout() throws Exception {
-    Files.write(path, Collections.singleton("read smthg"));
+    Files.write(path, Collections.singleton(isWindows() ? "set /p inp=type" : "read smthg"));
 
     ProcessParameters parameters = createBuilder()
         .setExpectedExitCode(-1)
@@ -130,6 +130,9 @@ public class ProcessRunnerTest {
   private static List<String> createScriptText(final int exitCode,
       @Nullable final String output, @Nullable final String error) {
     List<String> text = Lists.newArrayList();
+    if (isWindows()) {
+      text.add("@echo off");
+    }
     if (output != null) {
       text.add("echo \"" + output + "\"");
     }
