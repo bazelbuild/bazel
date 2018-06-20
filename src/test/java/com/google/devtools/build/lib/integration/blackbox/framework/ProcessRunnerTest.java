@@ -41,6 +41,7 @@ public class ProcessRunnerTest {
   public void setUp() throws Exception {
     directory = Files.createTempDirectory(getClass().getSimpleName());
     path = Files.createTempFile(directory, "script", isWindows() ? ".bat" : "");
+    Assert.assertTrue(Files.exists(path));
     Assert.assertTrue(path.toFile().setExecutable(true));
     path.toFile().deleteOnExit();
     directory.toFile().deleteOnExit();
@@ -123,7 +124,7 @@ public class ProcessRunnerTest {
   private Builder createBuilder() {
     return ProcessParameters.builder()
         .setWorkingDirectory(directory.toFile())
-        .setName(path.getFileName().toString());
+        .setName(path.toAbsolutePath().toString());
   }
 
   private static List<String> createScriptText(final int exitCode,
