@@ -17,8 +17,7 @@ rm -rf .git .gitignore .gitmodules
 ```
 3) Modify protobuf's `BUILD` file to not build java from source, but to use
    the jars instead. To do that, in the BUILD file delete the rules listed
-   under `Java support` and `Well Known Types Proto Library Rules`.
-   Then, from the `third_party/protobuf/<old_proto>/BUILD file`
+   under `Java support`. Then, from the `third_party/protobuf/<old_proto>/BUILD file`
    copy the rules under "Modifications made by bazel" to the new BUILD file.
    The java rules in there should have the same names as the ones you just deleted under "Java support".
    You might need to update the names of the jars in the rules sources to the ones you just build.
@@ -27,16 +26,14 @@ rm -rf .git .gitignore .gitmodules
 5) Copy the `licenses` declaration and the `srcs` filegroup from
    `third_party/protobuf/<old_proto>/util/python/BUILD` to the corresponding
    file in the new directory.
-6) For each file listed in `RELATIVE_WELL_KNOWN_PROTOS` in the `new_proto/BUILD` file
-   copy it from `new_proto/srcs/google/protobuf` to `new_proto/google/protobuf`.
-7) Name the `new\_proto` directory according to the protobuf version number.
-8) In `third\_party/protobuf/BUILD` update `PROTOBUF\_VERSION` to the name of the
+6) Name the `new\_proto` directory according to the protobuf version number.
+7) In `third\_party/protobuf/BUILD` update `PROTOBUF\_VERSION` to the name of the
 directory you just created.
-9) In the root `WORKSPACE` file update relative paths of protobuf to point to
+8) In the root `WORKSPACE` file update relative paths of protobuf to point to
 the new version.
-10) Update version number in `src/main/protobuf/BUILD` and `src/test/shell/testenv.sh`.
-11) Delete the `third_party/protobuf/<old_proto>` directory.
-12) Update this file if you found the :instructions to be wrong or incomplete.
+9) Update version number in `src/main/protobuf/BUILD` and `src/test/shell/testenv.sh`.
+10) Delete the `third_party/protobuf/<old_proto>` directory.
+11) Update this file if you found the :instructions to be wrong or incomplete.
 
 # Current protobuf version
 
