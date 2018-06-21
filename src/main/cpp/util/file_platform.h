@@ -31,9 +31,11 @@ class IFileMtime {
  public:
   virtual ~IFileMtime() {}
 
-  // Queries the mtime of `path` to see whether it's in the distant future.
-  // Returns true if querying succeeded and stores the result in `result`.
-  // Returns false if querying failed.
+  // Checks if `path` is a good "extracted binary", i.e. it is either an
+  // embedded binary that Bazel extracted from a previous run, and it hasn't
+  // been tampered with (its mtime is unchanged), or it's a directory.
+  // Returns false if querying the information failed, either due to I/O error
+  // or due to the `path` missing or it being a broken symlink.
   virtual bool CheckExtractedBinary(const std::string &path, bool *result) = 0;
 
   // Sets the mtime of file under `path` to the current time.

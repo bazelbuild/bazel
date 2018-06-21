@@ -126,8 +126,7 @@ class WindowsFileMtime : public IFileMtime {
 
 bool WindowsFileMtime::CheckExtractedBinary(const string& path, bool* result) {
   if (path.empty() || IsDevNull(path.c_str())) {
-    *result = false;
-    return true;
+    return false;
   }
 
   wstring wpath;
