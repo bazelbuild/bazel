@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -261,7 +262,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) {
-      return Preconditions.checkNotNull(artifactValueMap.get(skyKey));
+      ArtifactSkyKey artifactSkyKey = (ArtifactSkyKey) skyKey.argument();
+      Artifact artifact = artifactSkyKey.getArtifact();
+      return Preconditions.checkNotNull(artifactValueMap.get(artifact));
     }
 
     @Override

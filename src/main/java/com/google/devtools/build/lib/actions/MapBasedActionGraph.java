@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -25,7 +24,7 @@ import javax.annotation.concurrent.ThreadSafe;
 @ThreadSafe
 public final class MapBasedActionGraph implements MutableActionGraph {
   private final ActionKeyContext actionKeyContext;
-  private final ConcurrentMultimapWithHeadElement<OwnerlessArtifactWrapper, ActionAnalysisMetadata>
+  private final ConcurrentMultimapWithHeadElement<Artifact, ActionAnalysisMetadata>
       generatingActionMap = new ConcurrentMultimapWithHeadElement<>();
 
   public MapBasedActionGraph(ActionKeyContext actionKeyContext) {
@@ -35,18 +34,17 @@ public final class MapBasedActionGraph implements MutableActionGraph {
   @Override
   @Nullable
   public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
-    return generatingActionMap.get(new OwnerlessArtifactWrapper(artifact));
+    return generatingActionMap.get(artifact);
   }
 
   @Override
   public void registerAction(ActionAnalysisMetadata action) throws ActionConflictException {
     for (Artifact artifact : action.getOutputs()) {
-      OwnerlessArtifactWrapper wrapper = new OwnerlessArtifactWrapper(artifact);
-      ActionAnalysisMetadata previousAction = generatingActionMap.putAndGet(wrapper, action);
+      ActionAnalysisMetadata previousAction = generatingActionMap.putAndGet(artifact, action);
       if (previousAction != null
           && previousAction != action
           && !Actions.canBeShared(actionKeyContext, action, previousAction)) {
-        generatingActionMap.remove(wrapper, action);
+        generatingActionMap.remove(artifact, action);
         throw new ActionConflictException(actionKeyContext, artifact, previousAction, action);
       }
     }
@@ -55,9 +53,8 @@ public final class MapBasedActionGraph implements MutableActionGraph {
   @Override
   public void unregisterAction(ActionAnalysisMetadata action) {
     for (Artifact artifact : action.getOutputs()) {
-      OwnerlessArtifactWrapper wrapper = new OwnerlessArtifactWrapper(artifact);
-      generatingActionMap.remove(wrapper, action);
-      ActionAnalysisMetadata otherAction = generatingActionMap.get(wrapper);
+      generatingActionMap.remove(artifact, action);
+      ActionAnalysisMetadata otherAction = generatingActionMap.get(artifact);
       Preconditions.checkState(
           otherAction == null
               || (otherAction != action

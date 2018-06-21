@@ -896,8 +896,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
+      ArtifactSkyKey artifactKey = (ArtifactSkyKey) skyKey.argument();
+      Artifact artifact = artifactKey.getArtifact();
       try {
-        return FileArtifactValue.create(((Artifact) skyKey).getPath());
+        return FileArtifactValue.create(artifact.getPath());
       } catch (IOException e) {
         throw new SkyFunctionException(e, Transience.PERSISTENT){};
       }

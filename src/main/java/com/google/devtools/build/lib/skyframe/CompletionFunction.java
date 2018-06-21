@@ -303,7 +303,8 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
 
     Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps =
         env.getValuesOrThrow(
-            completor.getAllArtifactsToBuild(value, topLevelContext).getAllArtifacts(),
+            ArtifactSkyKey.mandatoryKeys(
+                completor.getAllArtifactsToBuild(value, topLevelContext).getAllArtifacts()),
             MissingInputFileException.class,
             ActionExecutionException.class);
 
