@@ -312,21 +312,18 @@ TEST_F(FileWindowsTest, TestMtimeHandling) {
   EXPECT_TRUE(CreateDirectoryW(wtarget.c_str(), NULL));
 
   std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
-  bool actual = false;
   // Assert that a directory is always a good embedded binary. (We do not care
   // about directories' mtimes.)
-  ASSERT_TRUE(mtime.get()->CheckExtractedBinary(target, &actual));
-  ASSERT_TRUE(actual);
+  ASSERT_TRUE(mtime.get()->IsValidEmbeddedBinary(target));
   // Assert that junctions whose target exists are "good" embedded binaries.
   string sym(JoinPath(tempdir, "junc" T(__LINE__)));
   CREATE_JUNCTION(sym, target);
-  ASSERT_TRUE(mtime.get()->CheckExtractedBinary(sym, &actual));
-  ASSERT_TRUE(actual);
+  ASSERT_TRUE(mtime.get()->IsValidEmbeddedBinary(sym));
   // Assert that checking fails for non-existent directories and dangling
   // junctions.
   EXPECT_TRUE(RemoveDirectoryW(wtarget.c_str()));
-  ASSERT_FALSE(mtime.get()->CheckExtractedBinary(target, &actual));
-  ASSERT_FALSE(mtime.get()->CheckExtractedBinary(sym, &actual));
+  ASSERT_FALSE(mtime.get()->IsValidEmbeddedBinary(target));
+  ASSERT_FALSE(mtime.get()->IsValidEmbeddedBinary(sym));
 }
 
 }  // namespace blaze_util

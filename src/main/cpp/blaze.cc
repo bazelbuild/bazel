@@ -1062,8 +1062,7 @@ static void ExtractData(const string &self_path) {
         globals->options->install_base, "_embedded_binaries");
     for (const auto &it : globals->extracted_binaries) {
       string path = blaze_util::JoinPath(real_install_dir, it);
-      bool is_good = false;
-      if (!mtime.get()->CheckExtractedBinary(path, &is_good)) {
+      if (!mtime.get()->IsValidEmbeddedBinary(path)) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
             << "corrupt installation: failed to check '" << path
             << "'. Please remove '" << globals->options->install_base

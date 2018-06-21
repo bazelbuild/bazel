@@ -109,7 +109,7 @@ class WindowsFileMtime : public IFileMtime {
   WindowsFileMtime()
       : near_future_(GetFuture(9)), distant_future_(GetFuture(10)) {}
 
-  bool CheckExtractedBinary(const string& path, bool* result) override;
+  bool IsValidEmbeddedBinary(const string& path) override;
   bool SetToNow(const string& path) override;
   bool SetToDistantFuture(const string& path) override;
 
@@ -124,7 +124,7 @@ class WindowsFileMtime : public IFileMtime {
   static bool Set(const string& path, FILETIME time);
 };
 
-bool WindowsFileMtime::CheckExtractedBinary(const string& path, bool* result) {
+bool WindowsFileMtime::IsValidEmbeddedBinary(const string& path) {
   if (path.empty() || IsDevNull(path.c_str())) {
     return false;
   }
@@ -133,7 +133,7 @@ bool WindowsFileMtime::CheckExtractedBinary(const string& path, bool* result) {
   string error;
   if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WindowsFileMtime::CheckExtractedBinary(" << path
+        << "WindowsFileMtime::IsValidEmbeddedBinary(" << path
         << "): AsAbsoluteWindowsPath failed: " << error;
   }
 
@@ -162,7 +162,7 @@ bool WindowsFileMtime::CheckExtractedBinary(const string& path, bool* result) {
   }
 
   if (is_directory) {
-    *result = true;
+    return true;
   } else {
     BY_HANDLE_FILE_INFORMATION info;
     if (!GetFileInformationByHandle(handle, &info)) {
@@ -175,10 +175,8 @@ bool WindowsFileMtime::CheckExtractedBinary(const string& path, bool* result) {
     // (and thus convert a SYSTEMTIME to FILETIME), and we also don't need to
     // worry about potentially unreliable FILETIME equality check (in case it
     // uses floats or something crazy).
-    *result = CompareFileTime(&near_future_, &info.ftLastWriteTime) == -1;
+    return CompareFileTime(&near_future_, &info.ftLastWriteTime) == -1;
   }
-
-  return true;
 }
 
 bool WindowsFileMtime::SetToNow(const string& path) {

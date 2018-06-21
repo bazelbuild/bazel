@@ -31,12 +31,11 @@ class IFileMtime {
  public:
   virtual ~IFileMtime() {}
 
-  // Checks if `path` is a good "extracted binary", i.e. it is either an
-  // embedded binary that Bazel extracted from a previous run, and it hasn't
+  // Checks if `path` is a valid embedded binary, i.e. it is either an
+  // embedded binary that Bazel extracted from a previous run and it hasn't
   // been tampered with (its mtime is unchanged), or it's a directory.
-  // Returns false if querying the information failed, either due to I/O error
-  // or due to the `path` missing or it being a broken symlink.
-  virtual bool CheckExtractedBinary(const std::string &path, bool *result) = 0;
+  // Returns false otherwise, or if querying the information failed.
+  virtual bool IsValidEmbeddedBinary(const std::string &path) = 0;
 
   // Sets the mtime of file under `path` to the current time.
   // Returns true if the mtime was changed successfully.
