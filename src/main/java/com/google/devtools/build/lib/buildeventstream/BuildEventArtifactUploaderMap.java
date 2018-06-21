@@ -30,7 +30,7 @@ public class BuildEventArtifactUploaderMap {
   }
 
   public BuildEventArtifactUploader select(@Nullable String name) {
-    if (name == null) {
+    if (name == null && !uploaders.values().isEmpty()) {
       // TODO(b/110235226): We currently choose the strategy with alphabetically first strategy,
       // which happens to be backwards-compatible; we need to set
       // experimental_build_event_upload_strategy to appropriate default values instead, and then
