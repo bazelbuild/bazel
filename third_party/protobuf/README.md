@@ -34,7 +34,7 @@ rm -rf .git .gitignore .gitmodules
 directory you just created.
 9) In the root `WORKSPACE` file update relative paths of protobuf to point to
 the new version.
-10) Update `load` statement in `//src/main/protobuf/BUILD` to correct version number.
+10) Update version number in `src/main/protobuf/BUILD` and `src/test/shell/testenv.sh`.
 11) Delete the `third_party/protobuf/<old_proto>` directory.
 12) Update this file if you found the :instructions to be wrong or incomplete.
 
