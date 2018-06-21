@@ -893,9 +893,15 @@ class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
   void Process(const char *filename, const devtools_ijar::u4 attr,
                const devtools_ijar::u1 *data, const size_t size) override {
     string path = blaze_util::JoinPath(embedded_binaries_, filename);
-    if (!blaze_util::MakeDirectories(blaze_util::Dirname(path), 0777)) {
-      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-          << "couldn't create '" << path << "': " << GetLastErrorString();
+    // Performance optimization: memoize the paths we already created a
+    // directory for, to spare a stat in attempting to recreate an already
+    // existing directory. This optimization alone shaves off seconds from the
+    // extraction time on Windows.
+    if (created_directories_.insert(path).second) {
+      if (!blaze_util::MakeDirectories(blaze_util::Dirname(path), 0777)) {
+        BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+            << "couldn't create '" << path << "': " << GetLastErrorString();
+      }
     }
 
     if (!blaze_util::WriteFile(data, size, path, 0755)) {
@@ -907,6 +913,7 @@ class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
 
  private:
   const string embedded_binaries_;
+  set<string> created_directories_;
 };
 
 // Actually extracts the embedded data files into the tree whose root
