@@ -17,7 +17,8 @@ rm -rf .git .gitignore .gitmodules
 ```
 3) Modify protobuf's `BUILD` file to not build java from source, but to use
    the jars instead. To do that, in the BUILD file delete the rules listed
-   under `Java support`. Then, from the `third_party/protobuf/<old_proto>/BUILD file`
+   under `Java support` and `Well Known Types Proto Library Rules`.
+   Then, from the `third_party/protobuf/<old_proto>/BUILD file`
    copy the rules under "Modifications made by bazel" to the new BUILD file.
    The java rules in there should have the same names as the ones you just deleted under "Java support".
    You might need to update the names of the jars in the rules sources to the ones you just build.
@@ -33,9 +34,10 @@ rm -rf .git .gitignore .gitmodules
 directory you just created.
 9) In the root `WORKSPACE` file update relative paths of protobuf to point to
 the new version.
-10) Delete the `third_party/protobuf/<old_proto>` directory.
-11) Update this file if you found the :instructions to be wrong or incomplete.
+10) Update `load` statement in `//src/main/protobuf/BUILD` to correct version number.
+11) Delete the `third_party/protobuf/<old_proto>` directory.
+12) Update this file if you found the :instructions to be wrong or incomplete.
 
 # Current protobuf version
 
-The current version of protobuf is [3.4.0](https://github.com/google/protobuf/releases/tag/v3.4.0).
+The current version of protobuf is [3.6.0](https://github.com/google/protobuf/releases/tag/v3.6.0).
