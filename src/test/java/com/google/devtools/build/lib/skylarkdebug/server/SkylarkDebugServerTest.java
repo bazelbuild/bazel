@@ -28,16 +28,14 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Eva
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Frame;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ListFramesRequest;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ListFramesResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ListThreadsRequest;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ListThreadsResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PauseReason;
+import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PausedThread;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Scope;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.SetBreakpointsRequest;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingRequest;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Stepping;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadPausedState;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.DebugServerUtils;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -114,21 +112,6 @@ public class SkylarkDebugServerTest {
   }
 
   @Test
-  public void testThreadRegisteredEvents() throws Exception {
-    sendStartDebuggingRequest();
-    String threadName = Thread.currentThread().getName();
-    long threadId = Thread.currentThread().getId();
-    DebugServerUtils.runWithDebuggingIfEnabled(newEnvironment(), () -> threadName, () -> true);
-
-    client.waitForEvent(DebugEvent::hasThreadEnded, Duration.ofSeconds(5));
-
-    assertThat(client.unnumberedEvents)
-        .containsExactly(
-            DebugEventHelper.threadStartedEvent(threadId, threadName),
-            DebugEventHelper.threadEndedEvent(threadId, threadName));
-  }
-
-  @Test
   public void testPausedUntilStartDebuggingRequestReceived() throws Exception {
     BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]");
     Environment env = newEnvironment();
@@ -138,33 +121,24 @@ public class SkylarkDebugServerTest {
     long threadId = evaluationThread.getId();
 
     // wait for BUILD evaluation to start
-    client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+    DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
 
     Location expectedLocation =
         DebugEventHelper.getLocationProto(buildFile.getStatements().get(0).getLocation());
 
-    assertThat(listThreads().getThreadList())
-        .containsExactly(
-            SkylarkDebuggingProtos.Thread.newBuilder()
-                .setId(threadId)
-                .setName(threadName)
-                .setThreadPausedState(
-                    ThreadPausedState.newBuilder()
-                        .setPauseReason(PauseReason.ALL_THREADS_PAUSED)
-                        .setLocation(expectedLocation))
-                .build());
+    assertThat(event)
+        .isEqualTo(
+            DebugEventHelper.threadPausedEvent(
+                SkylarkDebuggingProtos.PausedThread.newBuilder()
+                    .setId(threadId)
+                    .setName(threadName)
+                    .setPauseReason(PauseReason.ALL_THREADS_PAUSED)
+                    .setLocation(expectedLocation)
+                    .build()));
 
     sendStartDebuggingRequest();
-    client.waitForEvent(DebugEvent::hasThreadEnded, Duration.ofSeconds(5));
-    assertThat(listThreads().getThreadList()).isEmpty();
-    assertThat(client.unnumberedEvents)
-        .containsAllOf(
-            DebugEventHelper.threadContinuedEvent(
-                SkylarkDebuggingProtos.Thread.newBuilder()
-                    .setName(threadName)
-                    .setId(threadId)
-                    .build()),
-            DebugEventHelper.threadEndedEvent(threadId, threadName));
+    event = client.waitForEvent(DebugEvent::hasThreadContinued, Duration.ofSeconds(5));
+    assertThat(event).isEqualTo(DebugEventHelper.threadContinuedEvent(threadId));
   }
 
   @Test
@@ -174,7 +148,7 @@ public class SkylarkDebugServerTest {
     Environment env = newEnvironment();
 
     Location breakpoint =
-        Location.newBuilder().setLineNumber(1).setPath("/a/build/file/BUILD").build();
+        Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
     Thread evaluationThread = execInWorkerThread(buildFile, env);
@@ -182,22 +156,17 @@ public class SkylarkDebugServerTest {
     long threadId = evaluationThread.getId();
 
     // wait for breakpoint to be hit
-    client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+    DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
 
-    SkylarkDebuggingProtos.Thread expectedThreadState =
-        SkylarkDebuggingProtos.Thread.newBuilder()
+    SkylarkDebuggingProtos.PausedThread expectedThreadState =
+        SkylarkDebuggingProtos.PausedThread.newBuilder()
             .setName(threadName)
             .setId(threadId)
-            .setThreadPausedState(
-                ThreadPausedState.newBuilder()
-                    .setPauseReason(PauseReason.HIT_BREAKPOINT)
-                    .setLocation(breakpoint.toBuilder().setColumnNumber(1)))
+            .setPauseReason(PauseReason.HIT_BREAKPOINT)
+            .setLocation(breakpoint.toBuilder().setColumnNumber(1))
             .build();
 
-    assertThat(client.unnumberedEvents)
-        .contains(DebugEventHelper.threadPausedEvent(expectedThreadState));
-
-    assertThat(listThreads().getThreadList()).containsExactly(expectedThreadState);
+    assertThat(event).isEqualTo(DebugEventHelper.threadPausedEvent(expectedThreadState));
   }
 
   @Test
@@ -210,7 +179,7 @@ public class SkylarkDebugServerTest {
                 .setListFrames(ListFramesRequest.newBuilder().setThreadId(20).build())
                 .build());
     assertThat(event.hasError()).isTrue();
-    assertThat(event.getError().getMessage()).contains("Thread 20 is not running");
+    assertThat(event.getError().getMessage()).contains("Thread 20 is not paused");
   }
 
   @Test
@@ -390,10 +359,9 @@ public class SkylarkDebugServerTest {
     long threadId = evaluationThread.getId();
 
     // wait for breakpoint to be hit
-    client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+    DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
 
-    assertThat(listThreads().getThread(0).getThreadPausedState().getLocation().getLineNumber())
-        .isEqualTo(4);
+    assertThat(event.getThreadPaused().getThread().getLocation().getLineNumber()).isEqualTo(4);
 
     client.unnumberedEvents.clear();
     client.sendRequestAndWaitForResponse(
@@ -405,19 +373,17 @@ public class SkylarkDebugServerTest {
                     .setStepping(Stepping.INTO)
                     .build())
             .build());
-    client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+    event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
 
     // check we're paused inside the function
     assertThat(listFrames(threadId).getFrameCount()).isEqualTo(2);
 
     // and verify the location and pause reason as well
     Location expectedLocation = breakpoint.toBuilder().setLineNumber(2).setColumnNumber(3).build();
-    ListThreadsResponse threads = listThreads();
-    assertThat(threads.getThreadList()).hasSize(1);
 
-    ThreadPausedState pausedState = threads.getThread(0).getThreadPausedState();
-    assertThat(pausedState.getPauseReason()).isEqualTo(PauseReason.STEPPING);
-    assertThat(pausedState.getLocation()).isEqualTo(expectedLocation);
+    SkylarkDebuggingProtos.PausedThread pausedThread = event.getThreadPaused().getThread();
+    assertThat(pausedThread.getPauseReason()).isEqualTo(PauseReason.STEPPING);
+    assertThat(pausedThread.getLocation()).isEqualTo(expectedLocation);
   }
 
   @Test
@@ -441,10 +407,9 @@ public class SkylarkDebugServerTest {
     long threadId = evaluationThread.getId();
 
     // wait for breakpoint to be hit
-    client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+    DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
 
-    assertThat(listThreads().getThread(0).getThreadPausedState().getLocation().getLineNumber())
-        .isEqualTo(4);
+    assertThat(event.getThreadPaused().getThread().getLocation().getLineNumber()).isEqualTo(4);
 
     client.unnumberedEvents.clear();
     client.sendRequestAndWaitForResponse(
@@ -456,15 +421,12 @@ public class SkylarkDebugServerTest {
                     .setStepping(Stepping.OVER)
                     .build())
             .build());
-    client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
-
-    ListThreadsResponse threads = listThreads();
-    assertThat(threads.getThreadList()).hasSize(1);
+    event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
 
     Location expectedLocation = breakpoint.toBuilder().setLineNumber(5).setColumnNumber(1).build();
-    ThreadPausedState pausedState = threads.getThread(0).getThreadPausedState();
-    assertThat(pausedState.getPauseReason()).isEqualTo(PauseReason.STEPPING);
-    assertThat(pausedState.getLocation()).isEqualTo(expectedLocation);
+    PausedThread pausedThread = event.getThreadPaused().getThread();
+    assertThat(pausedThread.getPauseReason()).isEqualTo(PauseReason.STEPPING);
+    assertThat(pausedThread.getLocation()).isEqualTo(expectedLocation);
   }
 
   @Test
@@ -502,15 +464,13 @@ public class SkylarkDebugServerTest {
                     .setStepping(Stepping.OUT)
                     .build())
             .build());
-    client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+    DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
 
-    ListThreadsResponse threads = listThreads();
-    assertThat(threads.getThreadList()).hasSize(1);
-
+    PausedThread pausedThread = event.getThreadPaused().getThread();
     Location expectedLocation = breakpoint.toBuilder().setLineNumber(5).setColumnNumber(1).build();
-    ThreadPausedState pausedState = threads.getThread(0).getThreadPausedState();
-    assertThat(pausedState.getPauseReason()).isEqualTo(PauseReason.STEPPING);
-    assertThat(pausedState.getLocation()).isEqualTo(expectedLocation);
+
+    assertThat(pausedThread.getPauseReason()).isEqualTo(PauseReason.STEPPING);
+    assertThat(pausedThread.getLocation()).isEqualTo(expectedLocation);
   }
 
   private void setBreakpoints(Iterable<Location> locations) throws Exception {
@@ -529,18 +489,6 @@ public class SkylarkDebugServerTest {
             .setSequenceNumber(1)
             .setStartDebugging(StartDebuggingRequest.newBuilder())
             .build());
-  }
-
-  private ListThreadsResponse listThreads() throws Exception {
-    DebugEvent event =
-        client.sendRequestAndWaitForResponse(
-            DebugRequest.newBuilder()
-                .setSequenceNumber(1)
-                .setListThreads(ListThreadsRequest.newBuilder())
-                .build());
-    assertThat(event.hasListThreads()).isTrue();
-    assertThat(event.getSequenceNumber()).isEqualTo(1);
-    return event.getListThreads();
   }
 
   private ListFramesResponse listFrames(long threadId) throws Exception {

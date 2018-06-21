@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.syntax.DebugServer.DebugCallable;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 
 /**
  * A helper class for enabling/disabling skylark debugging.
@@ -49,25 +47,5 @@ public final class DebugServerUtils {
       server.close();
     }
     Eval.removeCustomEval();
-  }
-
-  /**
-   * Tracks the execution of the given callable object in the debug server.
-   *
-   * <p>If the skylark debugger is not enabled, runs {@code callable} directly.
-   *
-   * @param env the Skylark execution environment
-   * @param threadName the descriptive name of the thread
-   * @param callable the callable object whose execution will be tracked
-   * @param <T> the result type of the callable
-   * @return the value returned by the callable
-   */
-  public static <T> T runWithDebuggingIfEnabled(
-      Environment env, Supplier<String> threadName, DebugCallable<T> callable)
-      throws EvalException, InterruptedException {
-    DebugServer server = instance.get();
-    return server != null
-        ? server.runWithDebugging(env, threadName.get(), callable)
-        : callable.call();
   }
 }

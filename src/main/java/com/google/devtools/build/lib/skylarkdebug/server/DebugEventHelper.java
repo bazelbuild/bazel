@@ -24,22 +24,18 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Err
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.EvaluateResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Frame;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ListFramesResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ListThreadsResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PauseThreadResponse;
+import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PausedThread;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Scope;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.SetBreakpointsResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Thread;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadContinuedEvent;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadEndedEvent;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadPausedEvent;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadStartedEvent;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.DebugFrame;
 import com.google.devtools.build.lib.syntax.Debuggable.Stepping;
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -60,13 +56,6 @@ final class DebugEventHelper {
     return DebugEvent.newBuilder()
         .setSequenceNumber(sequenceNumber)
         .setError(Error.newBuilder().setMessage(message))
-        .build();
-  }
-
-  static DebugEvent listThreadsResponse(long sequenceNumber, List<Thread> threads) {
-    return DebugEvent.newBuilder()
-        .setSequenceNumber(sequenceNumber)
-        .setListThreads(ListThreadsResponse.newBuilder().addAllThread(threads).build())
         .build();
   }
 
@@ -112,33 +101,15 @@ final class DebugEventHelper {
         .build();
   }
 
-  static DebugEvent threadStartedEvent(long threadId, String threadName) {
-    return DebugEvent.newBuilder()
-        .setThreadStarted(
-            ThreadStartedEvent.newBuilder()
-                .setThread(Thread.newBuilder().setId(threadId).setName(threadName))
-                .build())
-        .build();
-  }
-
-  static DebugEvent threadEndedEvent(long threadId, String threadName) {
-    return DebugEvent.newBuilder()
-        .setThreadEnded(
-            ThreadEndedEvent.newBuilder()
-                .setThread(Thread.newBuilder().setId(threadId).setName(threadName))
-                .build())
-        .build();
-  }
-
-  static DebugEvent threadPausedEvent(Thread thread) {
+  static DebugEvent threadPausedEvent(PausedThread thread) {
     return DebugEvent.newBuilder()
         .setThreadPaused(ThreadPausedEvent.newBuilder().setThread(thread))
         .build();
   }
 
-  static DebugEvent threadContinuedEvent(Thread thread) {
+  static DebugEvent threadContinuedEvent(long threadId) {
     return DebugEvent.newBuilder()
-        .setThreadContinued(ThreadContinuedEvent.newBuilder().setThread(thread))
+        .setThreadContinued(ThreadContinuedEvent.newBuilder().setThreadId(threadId))
         .build();
   }
 

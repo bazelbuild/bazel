@@ -140,20 +140,6 @@ public final class SkylarkDebugServer implements DebugServer {
     return DebugAwareEval::new;
   }
 
-  @Override
-  public <T> T runWithDebugging(Environment env, String threadName, DebugCallable<T> callable)
-      throws EvalException, InterruptedException {
-    long threadId = Thread.currentThread().getId();
-    threadHandler.registerThread(threadId, threadName, env);
-    transport.postEvent(DebugEventHelper.threadStartedEvent(threadId, threadName));
-    try {
-      return callable.call();
-    } finally {
-      transport.postEvent(DebugEventHelper.threadEndedEvent(threadId, threadName));
-      threadHandler.unregisterThread(threadId);
-    }
-  }
-
   /**
    * Pauses the execution of the current thread if there are conditions that should cause it to be
    * paused, such as a breakpoint being reached.
@@ -177,8 +163,6 @@ public final class SkylarkDebugServer implements DebugServer {
         case START_DEBUGGING:
           threadHandler.resumeAllThreads();
           return DebugEventHelper.startDebuggingResponse(sequenceNumber);
-        case LIST_THREADS:
-          return listThreads(sequenceNumber);
         case LIST_FRAMES:
           return listFrames(sequenceNumber, request.getListFrames());
         case SET_BREAKPOINTS:
@@ -197,11 +181,6 @@ public final class SkylarkDebugServer implements DebugServer {
     } catch (DebugRequestException e) {
       return DebugEventHelper.error(sequenceNumber, e.getMessage());
     }
-  }
-
-  /** Handles a {@code ListThreadsRequest} and returns its response. */
-  private SkylarkDebuggingProtos.DebugEvent listThreads(long sequenceNumber) {
-    return DebugEventHelper.listThreadsResponse(sequenceNumber, threadHandler.listThreads());
   }
 
   /** Handles a {@code ListFramesRequest} and returns its response. */
