@@ -418,6 +418,41 @@ EOF
       || fail "expected 'y_symbol' in $(cat bazel-genfiles/external/a/result.txt)"
 }
 
+function test_repository_reassignment_label_in_build() {
+  # Repository a refers to @x
+  mkdir -p a
+  touch a/WORKSPACE
+  cat > a/BUILD<<EOF
+genrule(name = "a",
+        srcs = ["@x//:x.txt"],
+        outs = ["result.txt"],
+        cmd = "echo hello > \$(location result.txt)"
+)
+EOF
+
+  # Repository b is a substitute for x
+  mkdir -p b
+  touch b/WORKSPACE
+  cat >b/BUILD <<EOF
+exports_files(srcs = ["x.txt"])
+EOF
+  echo "Hello from @b//:x.txt" > b/x.txt
+
+  # Main repo assigns @x to @b within @a
+  mkdir -p main
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+
+local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@b"})
+local_repository(name = "b", path="../b")
+EOF
+  touch main/BUILD
+
+  cd main
+  bazel query --experimental_enable_repo_mapping --output=build @a//:a | grep "@b//:x.txt" \
+      || fail "Expected srcs to contain '@b//:x.txt'"
+}
+
 function test_workspace_addition_change_aspect() {
   mkdir -p repo_one
   mkdir -p repo_two
