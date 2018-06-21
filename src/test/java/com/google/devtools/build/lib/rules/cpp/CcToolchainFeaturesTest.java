@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.Collection;
@@ -93,7 +94,10 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
     return new CcToolchainFeatures(
-        toolchainBuilder.buildPartial(), PathFragment.create("crosstool/"));
+        CrosstoolInfo.fromToolchain(
+            CrosstoolRelease.getDefaultInstance(),
+            toolchainBuilder.buildPartial(),
+            PathFragment.create("crosstool/")));
   }
 
   private Set<String> getEnabledFeatures(CcToolchainFeatures features,
