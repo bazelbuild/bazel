@@ -1065,8 +1065,8 @@ static void ExtractData(const string &self_path) {
       bool is_good = false;
       if (!mtime.get()->CheckExtractedBinary(path, &is_good)) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-            << "corrupt installation: file '" << path
-            << "' missing. Please remove '" << globals->options->install_base
+            << "corrupt installation: failed to check '" << path
+            << "'. Please remove '" << globals->options->install_base
             << "' and try again.";
       }
       if (!is_good) {
