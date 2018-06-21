@@ -58,7 +58,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
     SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
-    Runtime.setupModuleGlobals(envBuilder, PlatformCommon.class);
+    Runtime.setupSkylarkLibrary(envBuilder, new PlatformCommon());
 
     return GlobalFrame.createForBuiltins(envBuilder.build());
   }

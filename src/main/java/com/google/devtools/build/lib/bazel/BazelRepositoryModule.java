@@ -220,7 +220,7 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       builder.addRuleDefinition(ruleDefinition);
     }
-    builder.addSkylarkBootstrap(new RepositoryBootstrap(SkylarkRepositoryModule.class));
+    builder.addSkylarkBootstrap(new RepositoryBootstrap(new SkylarkRepositoryModule()));
   }
 
   @Override

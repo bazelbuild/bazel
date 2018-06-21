@@ -107,7 +107,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     if (ruleProvider == null) {
       ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
       TestRuleClassProvider.addStandardRules(builder);
-      builder.addSkylarkBootstrap(new RepositoryBootstrap(SkylarkRepositoryModule.class));
+      builder.addSkylarkBootstrap(new RepositoryBootstrap(new SkylarkRepositoryModule()));
       ruleProvider = builder.build();
     }
     return ruleProvider;
