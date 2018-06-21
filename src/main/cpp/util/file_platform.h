@@ -34,7 +34,7 @@ class IFileMtime {
   // Queries the mtime of `path` to see whether it's in the distant future.
   // Returns true if querying succeeded and stores the result in `result`.
   // Returns false if querying failed.
-  virtual bool GetIfInDistantFuture(const std::string &path, bool *result) = 0;
+  virtual bool CheckExtractedBinary(const std::string &path, bool *result) = 0;
 
   // Sets the mtime of file under `path` to the current time.
   // Returns true if the mtime was changed successfully.

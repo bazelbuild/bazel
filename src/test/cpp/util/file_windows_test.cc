@@ -34,6 +34,9 @@
 #error("This test should only be run on Windows")
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
 
+#define _T(x) #x
+#define T(x) _T(x)
+
 namespace blaze_util {
 
 using bazel::windows::CreateJunction;
@@ -295,6 +298,28 @@ TEST_F(FileWindowsTest, TestMakeCanonical) {
   ASSERT_NE(symcanon, "");
   ASSERT_EQ(symcanon.find(expected), symcanon.size() - expected.size());
   ASSERT_EQ(dircanon, symcanon);
+}
+
+TEST_F(FileWindowsTest, TestMtimeHandling) {
+  const char* tempdir_cstr = getenv("TEST_TMPDIR");
+  ASSERT_NE(tempdir_cstr, nullptr);
+  ASSERT_NE(tempdir_cstr[0], 0);
+  string tempdir(tempdir_cstr);
+
+  std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
+  bool actual = false;
+  // Assert that a directory is always a good embedded embedded binary. (We do
+  // not care about directories' mtimes.)
+  ASSERT_TRUE(mtime.get()->CheckExtractedBinary(tempdir, &actual));
+  ASSERT_TRUE(actual);
+  // Assert that junctions whose target exists are "good" embedded binaries.
+  string sym1(JoinPath(tempdir, "junc" T(__LINE__)));
+  CREATE_JUNCTION(sym1, tempdir);
+  ASSERT_TRUE(mtime.get()->CheckExtractedBinary(sym1, &actual));
+  ASSERT_TRUE(actual);
+  // Assert that checking fails for dangling junctions.
+  string sym2(JoinPath(tempdir, "junc" T(__LINE__)));
+  ASSERT_FALSE(mtime.get()->CheckExtractedBinary(sym2, &actual));
 }
 
 }  // namespace blaze_util

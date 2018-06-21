@@ -149,36 +149,37 @@ TEST(FileTest, TestMtimeHandling) {
 
   std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
   bool actual = false;
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(tempdir, &actual));
-  ASSERT_FALSE(actual);
-
+  // Assert that a directory is always a good embedded embedded binary. (We do
+  // not care about directories' mtimes.)
+  ASSERT_TRUE(mtime.get()->CheckExtractedBinary(tempdir, &actual));
+  ASSERT_TRUE(actual);
   // Create a new file, assert its mtime is not in the future.
   string file(JoinPath(tempdir, "foo.txt"));
   ASSERT_TRUE(WriteFile("hello", 5, file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
+  ASSERT_TRUE(mtime.get()->CheckExtractedBinary(file, &actual));
   ASSERT_FALSE(actual);
   // Set the file's mtime to the future, assert that it's so.
   ASSERT_TRUE(mtime.get()->SetToDistantFuture(file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
+  ASSERT_TRUE(mtime.get()->CheckExtractedBinary(file, &actual));
   ASSERT_TRUE(actual);
-  // Overwrite the file, resetting its mtime, assert that GetIfInDistantFuture
-  // notices.
+  // Overwrite the file, resetting its mtime, assert that
+  // CheckExtractedBinary notices.
   ASSERT_TRUE(WriteFile("world", 5, file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
+  ASSERT_TRUE(mtime.get()->CheckExtractedBinary(file, &actual));
   ASSERT_FALSE(actual);
   // Set it to the future again so we can reset it using SetToNow.
   ASSERT_TRUE(mtime.get()->SetToDistantFuture(file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
+  ASSERT_TRUE(mtime.get()->CheckExtractedBinary(file, &actual));
   ASSERT_TRUE(actual);
   // Assert that SetToNow resets the timestamp.
   ASSERT_TRUE(mtime.get()->SetToNow(file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
+  ASSERT_TRUE(mtime.get()->CheckExtractedBinary(file, &actual));
   ASSERT_FALSE(actual);
   // Delete the file and assert that we can no longer set or query its mtime.
   ASSERT_TRUE(UnlinkPath(file));
   ASSERT_FALSE(mtime.get()->SetToNow(file));
   ASSERT_FALSE(mtime.get()->SetToDistantFuture(file));
-  ASSERT_FALSE(mtime.get()->GetIfInDistantFuture(file, &actual));
+  ASSERT_FALSE(mtime.get()->CheckExtractedBinary(file, &actual));
 }
 
 TEST(FileTest, TestRenameDirectory) {

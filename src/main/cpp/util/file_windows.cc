@@ -109,7 +109,7 @@ class WindowsFileMtime : public IFileMtime {
   WindowsFileMtime()
       : near_future_(GetFuture(9)), distant_future_(GetFuture(10)) {}
 
-  bool GetIfInDistantFuture(const string& path, bool* result) override;
+  bool CheckExtractedBinary(const string& path, bool* result) override;
   bool SetToNow(const string& path) override;
   bool SetToDistantFuture(const string& path) override;
 
@@ -124,52 +124,61 @@ class WindowsFileMtime : public IFileMtime {
   static bool Set(const string& path, FILETIME time);
 };
 
-bool WindowsFileMtime::GetIfInDistantFuture(const string& path, bool* result) {
-  if (path.empty()) {
-    return false;
-  }
-  if (IsDevNull(path.c_str())) {
+bool WindowsFileMtime::CheckExtractedBinary(const string& path, bool* result) {
+  if (path.empty() || IsDevNull(path.c_str())) {
     *result = false;
     return true;
   }
+
   wstring wpath;
   string error;
   if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WindowsFileMtime::GetIfInDistantFuture(" << path
+        << "WindowsFileMtime::CheckExtractedBinary(" << path
         << "): AsAbsoluteWindowsPath failed: " << error;
   }
 
-  AutoHandle handle(::CreateFileW(
+  // Get attributes, to check if the file exists. (It may still be a dangling
+  // junction.)
+  DWORD attrs = GetFileAttributesW(wpath.c_str());
+  if (attrs == INVALID_FILE_ATTRIBUTES) {
+    return false;
+  }
+
+  bool is_directory = attrs & FILE_ATTRIBUTE_DIRECTORY;
+  AutoHandle handle(CreateFileW(
       /* lpFileName */ wpath.c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
       /* dwShareMode */ FILE_SHARE_READ,
       /* lpSecurityAttributes */ NULL,
       /* dwCreationDisposition */ OPEN_EXISTING,
       /* dwFlagsAndAttributes */
-      IsDirectoryW(wpath)
-          ? (FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
-          : FILE_ATTRIBUTE_NORMAL,
+      // Per CreateFile's documentation on MSDN, opening directories requires
+      // the FILE_FLAG_BACKUP_SEMANTICS flag.
+      is_directory ? FILE_FLAG_BACKUP_SEMANTICS : FILE_ATTRIBUTE_NORMAL,
       /* hTemplateFile */ NULL));
+  
   if (!handle.IsValid()) {
     return false;
   }
-  FILETIME mtime;
-  if (!::GetFileTime(
-          /* hFile */ handle,
-          /* lpCreationTime */ NULL,
-          /* lpLastAccessTime */ NULL,
-          /* lpLastWriteTime */ &mtime)) {
-    return false;
+
+  if (is_directory) {
+    *result = true;
+  } else {
+    BY_HANDLE_FILE_INFORMATION info;
+    if (!GetFileInformationByHandle(handle, &info)) {
+      return false;
+    }
+
+    // Compare the mtime with `near_future_`, not with `GetNow()` or
+    // `distant_future_`.
+    // This way we don't need to call GetNow() every time we want to compare
+    // (and thus convert a SYSTEMTIME to FILETIME), and we also don't need to
+    // worry about potentially unreliable FILETIME equality check (in case it
+    // uses floats or something crazy).
+    *result = CompareFileTime(&near_future_, &info.ftLastWriteTime) == -1;
   }
 
-  // Compare the mtime with `near_future_`, not with `GetNow()` or
-  // `distant_future_`.
-  // This way we don't need to call GetNow() every time we want to compare (and
-  // thus convert a SYSTEMTIME to FILETIME), and we also don't need to worry
-  // about potentially unreliable FILETIME equality check (in case it uses
-  // floats or something crazy).
-  *result = CompareFileTime(&near_future_, &mtime) == -1;
   return true;
 }
 
