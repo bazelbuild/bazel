@@ -159,13 +159,14 @@ public class ToolchainContext implements ToolchainContextApi {
   private static ImmutableMap<Label, ToolchainInfo> findToolchains(
       ResolvedToolchainLabels resolvedToolchainLabels,
       OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap) {
-    // Find the prerequisites associated with the $toolchains attribute.
+    // Find the prerequisites associated with PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR.
     Optional<Attribute> toolchainAttribute =
         prerequisiteMap
             .keys()
             .stream()
             .filter(attribute -> attribute != null)
-            .filter(attribute -> attribute.getName().equals(PlatformSemantics.TOOLCHAINS_ATTR))
+            .filter(
+                attribute -> attribute.getName().equals(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR))
             .findFirst();
     Preconditions.checkState(
         toolchainAttribute.isPresent(),

@@ -235,7 +235,7 @@ public abstract class DependencyResolver {
     resolveLateBoundAttributes(depResolver, ruleConfig, hostConfig, defaultBuildOptions);
 
     Attribute toolchainsAttribute =
-        attributeMap.getAttributeDefinition(PlatformSemantics.TOOLCHAINS_ATTR);
+        attributeMap.getAttributeDefinition(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR);
     resolveToolchainDependencies(outgoingEdges.get(toolchainsAttribute), toolchainLabels);
   }
 
