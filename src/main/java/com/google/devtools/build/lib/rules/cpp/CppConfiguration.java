@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader.Cros
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CppConfigurationApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
@@ -755,6 +756,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public String getLdExecutableForSkylark() {
     PathFragment ldExecutable = getToolPathFragment(CppConfiguration.Tool.LD);
     return ldExecutable != null ? ldExecutable.getPathString() : "";
+  }
+
+  @SkylarkCallable(
+      name = "minimum_os_version",
+      doc = "The minimum OS version for C/C++ compilation.")
+  public String getMinimumOsVersion() {
+    return cppOptions.minimumOsVersion;
   }
 
   /** Returns the value of the --dynamic_mode flag. */

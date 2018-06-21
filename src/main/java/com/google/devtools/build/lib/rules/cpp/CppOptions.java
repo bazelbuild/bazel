@@ -151,6 +151,14 @@ public class CppOptions extends FragmentOptions {
   )
   public String outputDirectoryTag;
 
+  @Option(
+      name = "minimum_os_version",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "The minimum OS version which your compilation targets.")
+  public String minimumOsVersion;
+
   // O intrepid reaper of unused options: Be warned that the [no]start_end_lib
   // option, however tempting to remove, has a use case. Look in our telemetry data.
   @Option(

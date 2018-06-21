@@ -879,6 +879,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       RuleContext ruleContext, PathFragment defaultSysroot) throws RuleErrorException {
     CcToolchainVariables.Builder variables = new CcToolchainVariables.Builder();
 
+    CppConfiguration cppConfiguration =
+        Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
+    String minOsVersion = cppConfiguration.getMinimumOsVersion();
+    if (minOsVersion != null) {
+      variables.addStringVariable(CcCommon.MINIMUM_OS_VERSION_VARIABLE_NAME, minOsVersion);
+    }
+
     PathFragment sysroot = calculateSysroot(ruleContext, defaultSysroot);
     if (sysroot != null) {
       variables.addStringVariable(CcCommon.SYSROOT_VARIABLE_NAME, sysroot.getPathString());

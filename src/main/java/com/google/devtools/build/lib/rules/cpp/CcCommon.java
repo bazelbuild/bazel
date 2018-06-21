@@ -81,6 +81,9 @@ public final class CcCommon {
   /** Name of the build variable for the path to the input file being processed. */
   public static final String INPUT_FILE_VARIABLE_NAME = "input_file";
 
+  /** Name of the build variable for the minimum_os_version being targeted. */
+  public static final String MINIMUM_OS_VERSION_VARIABLE_NAME = "minimum_os_version";
+
   public static final String PIC_CONFIGURATION_ERROR =
       "PIC compilation is requested but the toolchain does not support it";
 
