@@ -329,7 +329,7 @@ class PosixFileMtime : public IFileMtime {
       : near_future_(GetFuture(9)),
         distant_future_({GetFuture(10), GetFuture(10)}) {}
 
-  bool CheckExtractedBinary(const string &path, bool *result) override;
+  bool IsValidEmbeddedBinary(const string &path) override;
   bool SetToNow(const string &path) override;
   bool SetToDistantFuture(const string &path) override;
 
@@ -344,8 +344,7 @@ class PosixFileMtime : public IFileMtime {
   static time_t GetFuture(unsigned int years);
 };
 
-bool PosixFileMtime::CheckExtractedBinary(
-    const string &path, bool *result) {
+bool PosixFileMtime::IsValidEmbeddedBinary(const string &path) {
   struct stat buf;
   if (stat(path.c_str(), &buf)) {
     return false;
@@ -356,8 +355,7 @@ bool PosixFileMtime::CheckExtractedBinary(
   // This way we don't need to call GetNow() every time we want to compare and
   // we also don't need to worry about potentially unreliable time equality
   // check (in case it uses floats or something crazy).
-  *result = S_ISDIR(buf.st_mode) || (buf.st_mtime > near_future_);
-  return true;
+  return S_ISDIR(buf.st_mode) || (buf.st_mtime > near_future_);
 }
 
 bool PosixFileMtime::SetToNow(const string &path) {
