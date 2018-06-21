@@ -1064,12 +1064,6 @@ static void ExtractData(const string &self_path) {
       string path = blaze_util::JoinPath(real_install_dir, it);
       if (!mtime.get()->IsValidEmbeddedBinary(path)) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-            << "corrupt installation: failed to check '" << path
-            << "'. Please remove '" << globals->options->install_base
-            << "' and try again.";
-      }
-      if (!is_good) {
-        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
             << "Error: corrupt installation: file '" << path
             << "' modified.  Please remove '" << globals->options->install_base
             << "' and try again.";
