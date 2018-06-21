@@ -47,8 +47,9 @@ public final class SimpleBlobStoreFactory {
             new DomainSocketAddress(options.remoteCacheProxy.replaceFirst("^unix:", "")),
               uri, timeoutMillis, options.remoteMaxConnections, creds);
         }
-        else
+        else {
           throw new Exception("Remote cache proxy unsupported: " + options.remoteCacheProxy);
+        }
       }
       else {
         return HttpBlobStore.create(uri, timeoutMillis, options.remoteMaxConnections, creds);

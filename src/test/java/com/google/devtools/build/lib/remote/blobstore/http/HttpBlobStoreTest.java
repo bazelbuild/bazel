@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.google.api.client.util.Preconditions;
 import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
 import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType;
@@ -176,95 +177,7 @@ public class HttpBlobStoreTest {
                     protected void initChannel(Channel ch) {
                       ch.pipeline().addLast(new HttpServerCodec());
                       ch.pipeline().addLast(new HttpObjectAggregator(1000));
-                      ch.pipeline().addLast(new ChannelInboundHandler() {
-                        @Override
-                        public void channelRegistered(ChannelHandlerContext ctx)
-                            throws Exception {
-                          if (UnixDomainServer.this.handler != null) {
-                            UnixDomainServer.this.handler.channelRegistered(ctx);
-                          }
-                        }
-
-                        @Override
-                        public void channelUnregistered(ChannelHandlerContext ctx)
-                            throws Exception {
-                          if (UnixDomainServer.this.handler != null) {
-                            UnixDomainServer.this.handler.channelUnregistered(ctx);
-                          }
-                        }
-
-                        @Override
-                        public void channelActive(ChannelHandlerContext ctx)
-                            throws Exception {
-                          if (UnixDomainServer.this.handler != null) {
-                            UnixDomainServer.this.handler.channelActive(ctx);
-                          }
-                        }
-
-                        @Override
-                        public void channelInactive(ChannelHandlerContext ctx)
-                            throws Exception {
-                          if (UnixDomainServer.this.handler != null) {
-                            UnixDomainServer.this.handler.channelInactive(ctx);
-                          }
-                        }
-
-                        @Override
-                        public void channelRead(ChannelHandlerContext ctx,
-                            Object o) throws Exception {
-                          if (UnixDomainServer.this.handler != null) {
-                            UnixDomainServer.this.handler.channelRead(ctx, o);
-                          }
-                        }
-
-                        @Override
-                        public void channelReadComplete(ChannelHandlerContext ctx)
-                            throws Exception {
-                          if (UnixDomainServer.this.handler != null) {
-                            UnixDomainServer.this.handler.channelReadComplete(ctx);
-                          }
-                        }
-
-                        @Override
-                        public void userEventTriggered(ChannelHandlerContext ctx,
-                            Object o) throws Exception {
-                          if (UnixDomainServer.this.handler != null) {
-                            UnixDomainServer.this.handler.userEventTriggered(ctx, o);
-                          }
-                        }
-
-                        @Override
-                        public void channelWritabilityChanged(
-                            ChannelHandlerContext ctx) throws Exception {
-                          if (UnixDomainServer.this.handler != null) {
-                            UnixDomainServer.this.handler.channelWritabilityChanged(ctx);
-                          }
-                        }
-
-                        @Override
-                        public void handlerAdded(ChannelHandlerContext ctx)
-                            throws Exception {
-                          if (UnixDomainServer.this.handler != null) {
-                            UnixDomainServer.this.handler.handlerAdded(ctx);
-                          }
-                        }
-
-                        @Override
-                        public void handlerRemoved(ChannelHandlerContext ctx)
-                            throws Exception {
-                          if (UnixDomainServer.this.handler != null) {
-                            UnixDomainServer.this.handler.handlerRemoved(ctx);
-                          }
-                        }
-
-                        @Override
-                        public void exceptionCaught(ChannelHandlerContext ctx,
-                            Throwable throwable) throws Exception {
-                          if (UnixDomainServer.this.handler != null) {
-                            UnixDomainServer.this.handler.exceptionCaught(ctx, throwable);
-                          }
-                        }
-                      });
+                      ch.pipeline().addLast(Preconditions.checkNotNull(handler));
                     }
                   });
       try {
@@ -283,8 +196,16 @@ public class HttpBlobStoreTest {
     }
 
     public void stop(ServerChannel serverChannel) {
-      // return an invalid path otherwise attempted connections will likely get
-      // read timeouts intead of connection timeouts
+      // Note: In the tests, we expect that connecting to a closed server channel results
+      // in a channel connection error. Netty doesn't seem to handle closing domain socket
+      // addresses very well-- often connecting to a closed domain socket will result in a
+      // read timeout instead of a connection timeout.
+      //
+      // This is a hack to ensure connection timeouts are "received" by the tests for this
+      // dummy domain socket server. In particular, this lets the timeoutShouldWork_connect
+      // test work for both inet and domain sockets.
+      //
+      // This is also part of the workaround for https://github.com/netty/netty/issues/7047.
       when(this.serverChannel.localAddress()).thenReturn(new DomainSocketAddress(""));
       this.handler = null;
     }
@@ -316,7 +237,6 @@ public class HttpBlobStoreTest {
   private final TestServer testServer;
 
   public HttpBlobStoreTest(TestServer testServer) {
-    super();
     this.testServer = testServer;
   }
 
