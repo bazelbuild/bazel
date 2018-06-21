@@ -943,6 +943,8 @@ public final class CcCompilationHelper {
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
     ccCompilationContextBuilder.addQuoteIncludeDir(
         ruleContext.getConfiguration().getGenfilesFragment().getRelative(repositoryPath));
+    ccCompilationContextBuilder.addQuoteIncludeDir(
+        ruleContext.getConfiguration().getBinFragment().getRelative(repositoryPath));
 
     for (PathFragment systemIncludeDir : systemIncludeDirs) {
       ccCompilationContextBuilder.addSystemIncludeDir(systemIncludeDir);
