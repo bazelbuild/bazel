@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import java.util.ArrayList;
@@ -60,7 +61,6 @@ public class LocationExpanderTest {
   }
 
   private LocationExpander makeExpander(RuleErrorConsumer ruleErrorConsumer) throws Exception {
-
     LocationFunction f1 = new LocationFunctionBuilder("//a", false)
         .setExecPaths(false)
         .add("//a", "/exec/src/a")
@@ -75,7 +75,8 @@ public class LocationExpanderTest {
         ruleErrorConsumer,
         ImmutableMap.<String, LocationFunction>of(
             "location", f1,
-            "locations", f2));
+            "locations", f2),
+        ImmutableMap.of());
   }
 
   private String expand(String input) throws Exception {
@@ -122,5 +123,25 @@ public class LocationExpanderTest {
     String value = makeExpander(capture).expand("foo $(location a) $(location a");
     assertThat(value).isEqualTo("foo $(location a) $(location a");
     assertThat(capture.warnsOrErrors).containsExactly("ERROR: unterminated $(location) expression");
+  }
+
+  @Test
+  public void expansionWithRepositoryMapping() throws Exception {
+    LocationFunction f1 = new LocationFunctionBuilder("//a", false)
+        .setExecPaths(false)
+        .add("@bar//a", "/exec/src/a")
+        .build();
+
+    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of(
+        RepositoryName.create("@foo"),
+        RepositoryName.create("@bar"));
+
+    LocationExpander locationExpander = new LocationExpander(
+        new Capture(),
+        ImmutableMap.<String, LocationFunction>of("location", f1),
+        repositoryMapping);
+
+    String value = locationExpander.expand("$(location @foo//a)");
+    assertThat(value).isEqualTo("src/a");
   }
 }

@@ -453,6 +453,43 @@ EOF
       || fail "Expected srcs to contain '@b//:x.txt'"
 }
 
+function test_repository_reassignment_location() {
+  # Repository a refers to @x
+  mkdir -p a
+  touch a/WORKSPACE
+  cat > a/BUILD<<EOF
+genrule(name = "a",
+        srcs = ["@x//:x.txt"],
+        outs = ["result.txt"],
+        cmd = "echo \$(location @x//:x.txt) > \$(location result.txt); \
+            cat \$(location @x//:x.txt)>> \$(location result.txt);"
+)
+EOF
+
+  # Repository b is a substitute for x
+  mkdir -p b
+  touch b/WORKSPACE
+  cat >b/BUILD <<EOF
+exports_files(srcs = ["x.txt"])
+EOF
+  echo "Hello from @b//:x.txt" > b/x.txt
+
+  # Main repo assigns @x to @b within @a
+  mkdir -p main
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+
+local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@b"})
+local_repository(name = "b", path="../b")
+EOF
+  touch main/BUILD
+
+  cd main
+  bazel build --experimental_enable_repo_mapping @a//:a || fail "Expected build to succeed"
+  grep "external/b/x.txt" bazel-genfiles/external/a/result.txt \
+      || fail "expected external/b/x.txt in $(cat bazel-genfiles/external/a/result.txt)"
+}
+
 function test_workspace_addition_change_aspect() {
   mkdir -p repo_one
   mkdir -p repo_two

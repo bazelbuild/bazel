@@ -18,10 +18,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -42,23 +44,23 @@ public class LocationFunctionTest {
   public void absoluteAndRelativeLabels() throws Exception {
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/src/bar").build();
-    assertThat(func.apply("//foo")).isEqualTo("src/bar");
-    assertThat(func.apply(":foo")).isEqualTo("src/bar");
-    assertThat(func.apply("foo")).isEqualTo("src/bar");
+    assertThat(func.apply("//foo", ImmutableMap.of())).isEqualTo("src/bar");
+    assertThat(func.apply(":foo", ImmutableMap.of())).isEqualTo("src/bar");
+    assertThat(func.apply("foo", ImmutableMap.of())).isEqualTo("src/bar");
   }
 
   @Test
   public void pathUnderExecRootUsesDotSlash() throws Exception {
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/bar").build();
-    assertThat(func.apply("//foo")).isEqualTo("./bar");
+    assertThat(func.apply("//foo", ImmutableMap.of())).isEqualTo("./bar");
   }
 
   @Test
   public void noSuchLabel() throws Exception {
     LocationFunction func = new LocationFunctionBuilder("//foo", false).build();
     try {
-      func.apply("//bar");
+      func.apply("//bar", ImmutableMap.of());
       fail();
     } catch (IllegalStateException expected) {
       assertThat(expected).hasMessageThat()
@@ -72,7 +74,7 @@ public class LocationFunctionTest {
   public void emptyList() throws Exception {
     LocationFunction func = new LocationFunctionBuilder("//foo", false).add("//foo").build();
     try {
-      func.apply("//foo");
+      func.apply("//foo", ImmutableMap.of());
       fail();
     } catch (IllegalStateException expected) {
       assertThat(expected).hasMessageThat()
@@ -85,7 +87,7 @@ public class LocationFunctionTest {
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/1", "/exec/2").build();
     try {
-      func.apply("//foo");
+      func.apply("//foo", ImmutableMap.of());
       fail();
     } catch (IllegalStateException expected) {
       assertThat(expected).hasMessageThat()
@@ -100,7 +102,7 @@ public class LocationFunctionTest {
   public void noSuchLabelMultiple() throws Exception {
     LocationFunction func = new LocationFunctionBuilder("//foo", true).build();
     try {
-      func.apply("//bar");
+      func.apply("//bar", ImmutableMap.of());
       fail();
     } catch (IllegalStateException expected) {
       assertThat(expected).hasMessageThat()
@@ -114,7 +116,7 @@ public class LocationFunctionTest {
   public void fileWithSpace() throws Exception {
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/file/with space").build();
-    assertThat(func.apply("//foo")).isEqualTo("'file/with space'");
+    assertThat(func.apply("//foo", ImmutableMap.of())).isEqualTo("'file/with space'");
   }
 
   @Test
@@ -122,7 +124,7 @@ public class LocationFunctionTest {
     LocationFunction func = new LocationFunctionBuilder("//foo", true)
         .add("//foo", "/exec/foo/bar", "/exec/out/foo/foobar")
         .build();
-    assertThat(func.apply("//foo")).isEqualTo("foo/bar foo/foobar");
+    assertThat(func.apply("//foo", ImmutableMap.of())).isEqualTo("foo/bar foo/foobar");
   }
 
   @Test
@@ -130,7 +132,8 @@ public class LocationFunctionTest {
     LocationFunction func = new LocationFunctionBuilder("//foo", true)
         .add("//foo", "/exec/file/with space", "/exec/file/with spaces ")
         .build();
-    assertThat(func.apply("//foo")).isEqualTo("'file/with space' 'file/with spaces '");
+    assertThat(func.apply("//foo", ImmutableMap.of()))
+        .isEqualTo("'file/with space' 'file/with spaces '");
   }
 
   @Test
@@ -139,7 +142,27 @@ public class LocationFunctionTest {
         .setExecPaths(true)
         .add("//foo", "/exec/bar", "/exec/out/foobar")
         .build();
-    assertThat(func.apply("//foo")).isEqualTo("./bar out/foobar");
+    assertThat(func.apply("//foo", ImmutableMap.of())).isEqualTo("./bar out/foobar");
+  }
+
+  @Test
+  public void locationFunctionWithMappingReplace() throws Exception {
+    RepositoryName a = RepositoryName.create("@a");
+    RepositoryName b = RepositoryName.create("@b");
+    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of(a, b);
+    LocationFunction func =
+        new LocationFunctionBuilder("//foo", false).add("@b//foo", "/exec/src/bar").build();
+    assertThat(func.apply("@a//foo", repositoryMapping)).isEqualTo("src/bar");
+  }
+
+  @Test
+  public void locationFunctionWithMappingIgnoreRepo() throws Exception {
+    RepositoryName a = RepositoryName.create("@a");
+    RepositoryName b = RepositoryName.create("@b");
+    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of(a, b);
+    LocationFunction func =
+        new LocationFunctionBuilder("//foo", false).add("@potato//foo", "/exec/src/bar").build();
+    assertThat(func.apply("@potato//foo", repositoryMapping)).isEqualTo("src/bar");
   }
 }
 
