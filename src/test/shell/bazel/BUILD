@@ -108,8 +108,10 @@ sh_test(
     name = "bazel_random_characters_test",
     size = "large",
     srcs = ["bazel_random_characters_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
@@ -133,8 +135,10 @@ sh_test(
     name = "bazel_experimental_ui_test",
     size = "medium",
     srcs = ["bazel_experimental_ui_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
