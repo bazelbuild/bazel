@@ -1,18 +1,16 @@
-/*
- * // Copyright 2018 The Bazel Authors. All rights reserved.
- * //
- * // Licensed under the Apache License, Version 2.0 (the "License");
- * // you may not use this file except in compliance with the License.
- * // You may obtain a copy of the License at
- * //
- * // http://www.apache.org/licenses/LICENSE-2.0
- * //
- * // Unless required by applicable law or agreed to in writing, software
- * // distributed under the License is distributed on an "AS IS" BASIS,
- * // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * // See the License for the specific language governing permissions and
- * // limitations under the License.
- */
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package com.google.devtools.build.lib.integration.blackbox.framework;
 
@@ -42,7 +40,7 @@ import javax.annotation.Nullable;
 /**
  * Helper class for running Bazel process as external process from JUnit tests
  */
-public class ProcessRunner {
+public final class ProcessRunner {
   private static final Logger logger = Logger.getLogger(ProcessRunner.class.getName());
   private final ProcessParameters parameters;
   private final ExecutorService executorService;
@@ -51,7 +49,12 @@ public class ProcessRunner {
    * Creates ProcessRunner
    * @param parameters process parameters like executable name, arguments, timeout etc
    * @param executorService to use for process output/error streams reading; intentionally passed
-   * as a parameter so we can use the thread pool to speed up
+   * as a parameter so we can use the thread pool to speed up.
+   * Should be multi-threaded, as two separate tasks are submitted,
+   * to read from output and error streams.
+   *
+   * SuppressWarnings: WeakerAccess - suppress the warning about constructor being public:
+   * the class is an utility class
    */
   @SuppressWarnings("WeakerAccess")
   public ProcessRunner(ProcessParameters parameters, ExecutorService executorService) {

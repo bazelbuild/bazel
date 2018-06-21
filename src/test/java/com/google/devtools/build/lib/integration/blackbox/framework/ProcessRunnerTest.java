@@ -1,27 +1,25 @@
-/*
- * // Copyright 2018 The Bazel Authors. All rights reserved.
- * //
- * // Licensed under the Apache License, Version 2.0 (the "License");
- * // you may not use this file except in compliance with the License.
- * // You may obtain a copy of the License at
- * //
- * // http://www.apache.org/licenses/LICENSE-2.0
- * //
- * // Unless required by applicable law or agreed to in writing, software
- * // distributed under the License is distributed on an "AS IS" BASIS,
- * // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * // See the License for the specific language governing permissions and
- * // limitations under the License.
- */
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package com.google.devtools.build.lib.integration.blackbox.framework;
+
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.integration.blackbox.framework.ProcessParameters.Builder;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.OsUtils;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -33,9 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import org.junit.After;
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -43,13 +39,14 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class ProcessRunnerTest {
+public final class ProcessRunnerTest {
   private static ExecutorService executorService;
   private Path directory;
   private Path path;
 
   @BeforeClass
   public static void setUpExecutor() {
+    // we need only two threads to schedule reading from output and error streams
     executorService = MoreExecutors.getExitingExecutorService(
             (ThreadPoolExecutor) Executors.newFixedThreadPool(2), 1, TimeUnit.SECONDS);
   }
@@ -58,8 +55,8 @@ public class ProcessRunnerTest {
   public void setUp() throws Exception {
     directory = Files.createTempDirectory(getClass().getSimpleName());
     path = Files.createTempFile(directory, "script", isWindows() ? ".bat" : "");
-    Assert.assertTrue(Files.exists(path));
-    Assert.assertTrue(path.toFile().setExecutable(true));
+    assertThat(Files.exists(path)).isTrue();
+    assertThat(path.toFile().setExecutable(true)).isTrue();
     path.toFile().deleteOnExit();
     directory.toFile().deleteOnExit();
   }
@@ -71,19 +68,20 @@ public class ProcessRunnerTest {
 
   @Test
   public void testSuccess() throws Exception {
-    Files.write(path, createScriptText(0, Collections.singletonList("Hello!"), null));
+    Files.write(path, createScriptText(/* exit code */ 0, /* output */ "Hello!", /* error */ null));
 
     ProcessParameters parameters = createBuilder().build();
     ProcessResult result = new ProcessRunner(parameters, executorService).runSynchronously();
 
-    Assert.assertEquals(0, result.exitCode());
-    Assert.assertEquals("Hello!", result.outString());
-    Assert.assertEquals("", result.errString());
+    assertThat(result.exitCode()).isEqualTo(0);
+    assertThat(result.outString()).isEqualTo("Hello!");
+    assertThat(result.errString()).isEqualTo("");
   }
 
   @Test
   public void testFailure() throws Exception {
-    Files.write(path, createScriptText(124, null, Collections.singletonList("Failure")));
+    Files.write(path, createScriptText(/* exit code */ 124, /* output */ null,
+        /* error */ "Failure"));
 
     ProcessParameters parameters = createBuilder()
         .setExpectedExitCode(124)
@@ -91,18 +89,21 @@ public class ProcessRunnerTest {
         .build();
     ProcessResult result = new ProcessRunner(parameters, executorService).runSynchronously();
 
-    Assert.assertEquals(124, result.exitCode());
-    Assert.assertEquals("", result.outString());
-    Assert.assertEquals("Failure", result.errString());
+    assertThat(result.exitCode()).isEqualTo(124);
+    assertThat(result.outString()).isEqualTo("");
+    assertThat(result.errString()).isEqualTo("Failure");
   }
 
   @Test
   public void testTimeout() throws Exception {
-    Files.write(path, Collections.singleton(isWindows()
-        ? "%systemroot%\\system32\\cmd.exe /C \"start /I /B powershell -Version 3.0 -NoLogo -Sta" +
-        " -NoProfile -InputFormat Text -OutputFormat Text -NonInteractive" +
-        " -Command \"\"&PowerShell Sleep 10\""
-        : "read smthg"));
+    // windows script to sleep 5 seconds, so that we can test timeout
+    // this script finds PowerShell using %systemroot% variable,
+    // passes some standard parameters like input and output formats,
+    // important part is the Command parameter, which actually calls Sleep from PowerShell
+    String windowsScript = "%systemroot%\\system32\\cmd.exe /C \"start /I /B powershell"
+        + " -Version 3.0 -NoLogo -Sta -NoProfile -InputFormat Text -OutputFormat Text"
+        + " -NonInteractive -Command \"\"&PowerShell Sleep 5\"";
+    Files.write(path, Collections.singleton(isWindows() ? windowsScript : "read smthg"));
 
     ProcessParameters parameters = createBuilder()
         .setExpectedExitCode(-1)
@@ -111,7 +112,7 @@ public class ProcessRunnerTest {
         .build();
     try {
       new ProcessRunner(parameters, executorService).runSynchronously();
-      Assert.assertTrue(false);
+      assertThat(false).isTrue();
     } catch (TimeoutException e) {
       // ignore
     }
@@ -119,8 +120,9 @@ public class ProcessRunnerTest {
 
   @Test
   public void testRedirect() throws Exception {
-    Files.write(path, createScriptText(12, Lists.newArrayList("Info", "Multi", "line"),
-        Collections.singletonList("Failure")));
+    Files.write(path, createScriptText(/* exit code */ 12,
+        /* output */ Lists.newArrayList("Info", "Multi", "line"),
+        /* error */ Collections.singletonList("Failure")));
 
     Path out = directory.resolve("out.txt");
     Path err = directory.resolve("err.txt");
@@ -134,9 +136,9 @@ public class ProcessRunnerTest {
           .build();
       ProcessResult result = new ProcessRunner(parameters, executorService).runSynchronously();
 
-      Assert.assertEquals(12, result.exitCode());
-      Assert.assertEquals("Info\nMulti\nline", result.outString());
-      Assert.assertEquals("Failure", result.errString());
+      assertThat(result.exitCode()).isEqualTo(12);
+      assertThat(result.outString()).isEqualTo("Info\nMulti\nline");
+      assertThat(result.errString()).isEqualTo("Failure");
     } finally {
       Files.delete(out);
       Files.delete(err);
@@ -147,6 +149,12 @@ public class ProcessRunnerTest {
     return ProcessParameters.builder()
         .setWorkingDirectory(directory.toFile())
         .setName(path.toAbsolutePath().toString());
+  }
+
+  private static List<String> createScriptText(final int exitCode,
+      @Nullable final String output, @Nullable final String error) {
+    return createScriptText(exitCode, output != null ? Collections.singletonList(output) : null,
+        error != null ? Collections.singletonList(error) : null);
   }
 
   private static List<String> createScriptText(final int exitCode,
