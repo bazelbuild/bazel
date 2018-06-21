@@ -209,11 +209,13 @@ public abstract class AbstractConfiguredTarget
     }
     switch (providerKey) {
       case FILES_FIELD:
+        return getDefaultProvider().getFiles();
       case DEFAULT_RUNFILES_FIELD:
+        return getDefaultProvider().getDefaultRunfiles();
       case DATA_RUNFILES_FIELD:
+        return getDefaultProvider().getDataRunfiles();
       case FilesToRunProvider.SKYLARK_NAME:
-        // Standard fields should be proxied to their default provider object
-        return getDefaultProvider().getValue(providerKey);
+        return getDefaultProvider().getFilesToRun();
       case OutputGroupInfo.SKYLARK_NAME:
         return get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
       default:

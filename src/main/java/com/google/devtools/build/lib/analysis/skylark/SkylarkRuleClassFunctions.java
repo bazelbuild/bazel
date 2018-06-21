@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
@@ -72,7 +70,6 @@ import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -218,43 +215,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           return "illegal";
         }
       };
-
-  @SkylarkSignature(
-    name = "DefaultInfo",
-    returnType = Provider.class,
-    doc =
-        "A provider that gives general information about a target's direct and transitive files. "
-            + "Every rule type has this provider, even if it is not returned explicitly by the "
-            + "rule's implementation function."
-            + "<p>The <code>DefaultInfo</code> constructor accepts the following parameters:"
-            + "<ul>"
-            + "<li><code>executable</code>: If this rule is marked "
-            + "<a href='globals.html#rule.executable'><code>executable</code></a> or "
-            + "<a href='globals.html#rule.test'><code>test</code></a>, this is a "
-            + "<a href='File.html'><code>File</code></a> object representing the file that should "
-            + "be executed to run the target. By default it is the predeclared output "
-            + "<code>ctx.outputs.executable</code>."
-            + "<li><code>files</code>: A <a href='depset.html'><code>depset</code></a> of "
-            + "<a href='File.html'><code>File</code></a> objects representing the default outputs "
-            + "to build when this target is specified on the blaze command line. By default it is "
-            + "all predeclared outputs."
-            + "<li><code>runfiles</code>: set of files acting as both the "
-            + "<code>data_runfiles</code> and <code>default_runfiles</code>."
-            + "<li><code>data_runfiles</code>: are the files that are added to the runfiles of a "
-            + "target that depends on the rule via the <code>data</code> attribute."
-            + "<li><code>default_runfiles</code>: are the files that are added to the runfiles of "
-            + "a target that depends on the rule via anything but the <code>data</code> attribute."
-            + "</ul>"
-            + "Each <code>DefaultInfo</code> instance has the following fields: "
-            + "<ul>"
-            + "<li><code>files</code>"
-            + "<li><code>files_to_run</code>"
-            + "<li><code>data_runfiles</code>"
-            + "<li><code>default_runfiles</code>"
-            + "</ul>"
-            + "See the <a href='../rules.$DOC_EXT'>rules</a> page for more information."
-  )
-  private static final NativeProvider<?> defaultInfo = DefaultInfo.PROVIDER;
 
   @Override
   public Provider provider(String doc, Object fields, Location location) throws EvalException {

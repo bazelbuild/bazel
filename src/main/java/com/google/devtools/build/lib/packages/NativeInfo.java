@@ -75,7 +75,7 @@ public class NativeInfo extends Info {
     this(provider, ImmutableMap.of(), loc);
   }
 
-  // TODO(cparsons): Remove this constructor once DefaultInfo and ToolchainInfo stop using it.
+  // TODO(cparsons): Remove this constructor once ToolchainInfo stops using it.
   @Deprecated
   public NativeInfo(Provider provider, Map<String, Object> values, Location loc) {
     super(provider, loc);

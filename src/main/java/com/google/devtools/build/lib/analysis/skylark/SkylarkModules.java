@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.skylark;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.packages.SkylarkNativeModule;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -40,7 +41,8 @@ public final class SkylarkModules {
           SkylarkRuleClassFunctions.class,
           StructProvider.STRUCT,
           OutputGroupInfo.SKYLARK_CONSTRUCTOR,
-          ActionsProvider.INSTANCE);
+          ActionsProvider.INSTANCE,
+          DefaultInfo.PROVIDER);
 
   /**
    * Adds bindings for skylark built-ins and non-rules-specific globals of the build API to

@@ -397,32 +397,51 @@ public final class SkylarkRuleConfiguredTargetUtil {
 
     Location loc = provider.getCreationLoc();
 
-    for (String field : provider.getFieldNames()) {
-      if (field.equals("files")) {
-        files = cast("files", provider, SkylarkNestedSet.class, Artifact.class, loc);
-      } else if (field.equals("runfiles")) {
-        statelessRunfiles = cast("runfiles", provider, Runfiles.class, loc);
-      } else if (field.equals("data_runfiles")) {
-        dataRunfiles = cast("data_runfiles", provider, Runfiles.class, loc);
-      } else if (field.equals("default_runfiles")) {
-        defaultRunfiles = cast("default_runfiles", provider, Runfiles.class, loc);
-      } else if (field.equals("executable")) {
-        executable = cast("executable", provider, Artifact.class, loc);
-        if (!executable.getArtifactOwner().equals(context.getRuleContext().getOwner())) {
-          throw new EvalException(
-              loc,
-              String.format(
-                  "'executable' provided by an executable rule '%s' should be created "
-                      + "by the same rule.",
-                  context.getRuleContext().getRule().getRuleClass()));
+    if (provider
+        .getProvider()
+        .getKey()
+        .equals(DefaultInfo.PROVIDER.getKey())) {
+      DefaultInfo defaultInfo = (DefaultInfo) provider;
+
+      files = defaultInfo.getFiles();
+      statelessRunfiles = defaultInfo.getStatelessRunfiles();
+      dataRunfiles = defaultInfo.getDataRunfiles();
+      defaultRunfiles = defaultInfo.getDefaultRunfiles();
+      executable = defaultInfo.getExecutable();
+
+    } else {
+      // Rule implementations aren't reqiured to return default-info fields via a DefaultInfo
+      // provider. They can return them as fields on the returned struct. For example,
+      // 'return struct(executable = foo)' instead of 'return DefaultInfo(executable = foo)'.
+      // TODO(cparsons): Look into deprecating this option.
+      for (String field : provider.getFieldNames()) {
+        if (field.equals("files")) {
+          files = cast("files", provider, SkylarkNestedSet.class, Artifact.class, loc);
+        } else if (field.equals("runfiles")) {
+          statelessRunfiles = cast("runfiles", provider, Runfiles.class, loc);
+        } else if (field.equals("data_runfiles")) {
+          dataRunfiles = cast("data_runfiles", provider, Runfiles.class, loc);
+        } else if (field.equals("default_runfiles")) {
+          defaultRunfiles = cast("default_runfiles", provider, Runfiles.class, loc);
+        } else if (field.equals("executable") && provider.getValue("executable") != null) {
+          executable = cast("executable", provider, Artifact.class, loc);
         }
-      } else if (provider
-          .getProvider()
-          .getKey()
-          .equals(DefaultInfo.PROVIDER.getKey())) {
-        // Custom fields are not allowed for default providers
-        throw new EvalException(loc, "Invalid field for default provider: " + field);
       }
+
+      if ((statelessRunfiles != null) && (dataRunfiles != null || defaultRunfiles != null)) {
+        throw new EvalException(loc, "Cannot specify the provider 'runfiles' "
+            + "together with 'data_runfiles' or 'default_runfiles'");
+      }
+    }
+
+    if (executable != null
+        && !executable.getArtifactOwner().equals(context.getRuleContext().getOwner())) {
+      throw new EvalException(
+          loc,
+          String.format(
+              "'executable' provided by an executable rule '%s' should be created "
+                  + "by the same rule.",
+              context.getRuleContext().getRule().getRuleClass()));
     }
 
     if (executable != null && context.isExecutable() && context.isDefaultExecutableCreated()) {
@@ -485,11 +504,6 @@ public final class SkylarkRuleConfiguredTargetUtil {
     if (files != null) {
       // If we specify files_to_build we don't have the executable in it by default.
       builder.setFilesToBuild(files.getSet(Artifact.class));
-    }
-
-    if ((statelessRunfiles != null) && (dataRunfiles != null || defaultRunfiles != null)) {
-      throw new EvalException(loc, "Cannot specify the provider 'runfiles' "
-          + "together with 'data_runfiles' or 'default_runfiles'");
     }
 
     if (statelessRunfiles == null && dataRunfiles == null && defaultRunfiles == null) {
