@@ -171,7 +171,7 @@ java_test(
         ":test_runner",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
     ],
 )
 
