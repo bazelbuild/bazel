@@ -810,6 +810,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   @VisibleForTesting
+  public ArtifactResolverSupplier getArtifactResolverSupplierForTesting() {
+    return artifactFactory;
+  }
+
+  @VisibleForTesting
   @Nullable
   public WorkspaceStatusAction getLastWorkspaceStatusAction() throws InterruptedException {
     WorkspaceStatusValue workspaceStatusValue =
