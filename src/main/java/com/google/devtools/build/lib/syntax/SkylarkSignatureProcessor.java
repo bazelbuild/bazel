@@ -51,7 +51,7 @@ public class SkylarkSignatureProcessor {
     SkylarkCallable annotation = descriptor.getAnnotation();
 
     // TODO(cparsons): Validate these properties with the annotation processor instead.
-    Preconditions.checkArgument(annotation.name().isEmpty() || name.equals(annotation.name()),
+    Preconditions.checkArgument(name.equals(annotation.name()),
         "%s != %s", name, annotation.name());
     boolean documented = annotation.documented();
     if (annotation.doc().isEmpty() && documented) {

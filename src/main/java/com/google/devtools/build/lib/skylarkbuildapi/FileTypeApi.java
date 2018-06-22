@@ -32,7 +32,9 @@ import com.google.devtools.build.lib.syntax.EvalException;
 )
 public interface FileTypeApi<FileApiT extends FileApi> {
 
-  @SkylarkCallable(doc =
+  @SkylarkCallable(
+    name = "filter",
+    doc =
       "Returns a list created from the elements of the parameter containing all the "
           + "<a href=\"File.html\"><code>File</code></a>s that match the FileType. The parameter "
           + "must be a <a href=\"depset.html\"><code>depset</code></a> or a "

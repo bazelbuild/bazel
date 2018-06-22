@@ -119,7 +119,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   /** MockClassA */
   @SkylarkModule(name = "MockClassA", doc = "MockClassA")
   private static class MockClassA {
-    @SkylarkCallable(doc = "MockClassA#get")
+    @SkylarkCallable(name = "get", doc = "MockClassA#get")
     public Integer get() {
       return 0;
     }
@@ -128,7 +128,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   /** MockClassB */
   @SkylarkModule(name = "MockClassB", doc = "MockClassB")
   private static class MockClassB {
-    @SkylarkCallable(doc = "MockClassB#get")
+    @SkylarkCallable(name = "get", doc = "MockClassB#get")
     public MockClassA get() {
       return new MockClassA();
     }
@@ -137,7 +137,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   /** MockClassC */
   @SkylarkModule(name = "MockClassC", doc = "MockClassC")
   private static class MockClassC extends MockClassA {
-    @SkylarkCallable(doc = "MockClassC#get2")
+    @SkylarkCallable(name = "get2", doc = "MockClassC#get2")
     public Integer get2() {
       return 0;
     }
@@ -147,6 +147,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   @SkylarkModule(name = "MockClassD", doc = "MockClassD")
   private static class MockClassD {
     @SkylarkCallable(
+      name = "test",
       doc = "MockClassD#test",
       mandatoryPositionals = 1,
       parameters = {
@@ -173,6 +174,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   @SkylarkModule(name = "MockClassF", doc = "MockClassF")
   private static class MockClassF {
     @SkylarkCallable(
+      name = "test",
       doc = "MockClassF#test",
       parameters = {
         @Param(name = "a", named = false, positional = true),
@@ -191,6 +193,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   @SkylarkModule(name = "MockClassG", doc = "MockClassG")
   private static class MockClassG {
     @SkylarkCallable(
+      name = "test",
       doc = "MockClassG#test",
       parameters = {
         @Param(name = "a", named = false, positional = true),
@@ -209,6 +212,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   @SkylarkModule(name = "MockClassH", doc = "MockClassH")
   private static class MockClassH {
     @SkylarkCallable(
+      name = "test",
       doc = "MockClassH#test",
       parameters = {
         @Param(name = "a", named = false, positional = true),

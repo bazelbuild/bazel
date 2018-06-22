@@ -272,8 +272,7 @@ public final class SkylarkCallableProcessorTest {
         .that(getFile("SelfCallWithNoName.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
-        .withErrorContaining(
-            "@SkylarkCallable-annotated methods with selfCall=true must have a name");
+        .withErrorContaining("@SkylarkCallable.name must be non-empty.");
   }
 
   @Test

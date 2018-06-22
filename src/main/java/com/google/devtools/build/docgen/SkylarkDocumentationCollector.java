@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
-import com.google.devtools.build.lib.util.StringUtilities;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayDeque;
@@ -234,11 +233,8 @@ final class SkylarkDocumentationCollector {
 
   private static String getFullyQualifiedName(
       String objectName, Method method, SkylarkCallable callable) {
-    String objectDotExpressionPrefix =
-      objectName.isEmpty() ? "" : objectName + ".";
-    String methodName = callable.name().isEmpty()
-        ? StringUtilities.toPythonStyleFunctionName(method.getName())
-        : callable.name();
+    String objectDotExpressionPrefix = objectName.isEmpty() ? "" : objectName + ".";
+    String methodName = callable.name();
     return objectDotExpressionPrefix + methodName;
   }
 }

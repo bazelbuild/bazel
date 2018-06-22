@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 public class SelfCallWithNoName {
 
   @SkylarkCallable(
+      name = "",
       selfCall = true,
       documented = false
   )
