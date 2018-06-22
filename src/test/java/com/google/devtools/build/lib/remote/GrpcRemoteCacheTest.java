@@ -185,8 +185,8 @@ public class GrpcRemoteCacheTest {
         new RemoteRetrier(
             remoteOptions,
             RemoteRetrier.RETRIABLE_GRPC_ERRORS,
-            retryService,
             Retrier.ALLOW_ALL_CALLS);
+    AsyncRetrier asyncRetrier = new AsyncRetrier(retrier, retryService);
     return new GrpcRemoteCache(
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(),
@@ -194,6 +194,7 @@ public class GrpcRemoteCacheTest {
         creds,
         remoteOptions,
         retrier,
+        asyncRetrier,
         DIGEST_UTIL);
   }
 

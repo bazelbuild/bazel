@@ -26,6 +26,7 @@ import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.remote.AsyncRetrier;
 import com.google.devtools.build.lib.remote.RemoteOptions;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.Retrier;
@@ -275,8 +276,8 @@ public final class RemoteWorker {
     ListeningScheduledExecutorService retryService =
         MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
-    RemoteRetrier retrier =
-        new RemoteRetrier(
+    AsyncRetrier asyncRetrier =
+        new AsyncRetrier(
             remoteOptions,
             RemoteRetrier.RETRIABLE_GRPC_ERRORS,
             retryService,
@@ -286,7 +287,7 @@ public final class RemoteWorker {
         new RemoteWorker(
             fs,
             remoteWorkerOptions,
-            new SimpleBlobStoreActionCache(remoteOptions, blobStore, retrier, digestUtil),
+            new SimpleBlobStoreActionCache(remoteOptions, blobStore, asyncRetrier, digestUtil),
             sandboxPath,
             digestUtil);
 

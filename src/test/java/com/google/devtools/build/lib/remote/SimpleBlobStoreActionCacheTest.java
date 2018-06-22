@@ -61,7 +61,7 @@ public class SimpleBlobStoreActionCacheTest {
   private FakeActionInputFileCache fakeFileCache;
   private Context withEmptyMetadata;
   private Context prevContext;
-  private Retrier retrier;
+  private AsyncRetrier asyncRetrier;
 
   private static ListeningScheduledExecutorService retryService;
 
@@ -77,8 +77,8 @@ public class SimpleBlobStoreActionCacheTest {
     execRoot = fs.getPath("/exec/root");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
-    retrier =
-        new Retrier(
+    asyncRetrier =
+        new AsyncRetrier(
             () ->
                 new Backoff() {
                   @Override
@@ -122,7 +122,7 @@ public class SimpleBlobStoreActionCacheTest {
     return new SimpleBlobStoreActionCache(
         Options.getDefaults(RemoteOptions.class),
         new ConcurrentMapBlobStore(map),
-        retrier,
+        asyncRetrier,
         DIGEST_UTIL);
   }
 

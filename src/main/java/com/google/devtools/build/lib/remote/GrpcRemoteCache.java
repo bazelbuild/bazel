@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.hash.HashingOutputStream;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -60,6 +62,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
@@ -77,14 +80,34 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       RemoteOptions options,
       RemoteRetrier retrier,
       DigestUtil digestUtil) {
-    super(options, digestUtil, retrier);
+    this(
+        channel,
+        credentials,
+        options,
+        retrier,
+        new AsyncRetrier(retrier, MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1))),
+        digestUtil);
+  }
+
+  @VisibleForTesting
+  public GrpcRemoteCache(
+      Channel channel,
+      CallCredentials credentials,
+      RemoteOptions options,
+      RemoteRetrier retrier,
+      AsyncRetrier asyncRetrier,
+      DigestUtil digestUtil) {
+    super(options, digestUtil, asyncRetrier);
     this.credentials = credentials;
     this.channel = channel;
     this.retrier = retrier;
 
-    uploader =
-        new ByteStreamUploader(
-            options.remoteInstanceName, channel, credentials, options.remoteTimeout, retrier);
+    uploader = new ByteStreamUploader(
+        options.remoteInstanceName,
+        channel,
+        credentials,
+        options.remoteTimeout,
+        asyncRetrier);
   }
 
   private ContentAddressableStorageBlockingStub casBlockingStub() {

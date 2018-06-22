@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -93,8 +92,6 @@ public final class RemoteModule extends BlazeModule {
   }
 
   private final CasPathConverter converter = new CasPathConverter();
-  private final ListeningScheduledExecutorService retryScheduler =
-      MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   private RemoteActionContextProvider actionContextProvider;
 
   @Override
@@ -163,11 +160,11 @@ public final class RemoteModule extends BlazeModule {
 
       final AbstractRemoteActionCache cache;
       if (enableBlobStoreCache) {
-        Retrier retrier =
-            new Retrier(
+        AsyncRetrier asyncRetrier =
+            new AsyncRetrier(
                 () -> Retrier.RETRIES_DISABLED,
                 (e) -> false,
-                retryScheduler,
+                MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1)),
                 Retrier.ALLOW_ALL_CALLS);
         cache =
             new SimpleBlobStoreActionCache(
@@ -176,7 +173,7 @@ public final class RemoteModule extends BlazeModule {
                     remoteOptions,
                     GoogleAuthUtils.newCredentials(authAndTlsOptions),
                     env.getWorkingDirectory()),
-                retrier,
+                asyncRetrier,
                 digestUtil);
       } else if (enableGrpcCache || remoteOptions.remoteExecutor != null) {
         // If a remote executor but no remote cache is specified, assume both at the same target.
@@ -189,7 +186,6 @@ public final class RemoteModule extends BlazeModule {
             new RemoteRetrier(
                 remoteOptions,
                 RemoteRetrier.RETRIABLE_GRPC_ERRORS,
-                retryScheduler,
                 Retrier.ALLOW_ALL_CALLS);
         cache =
             new GrpcRemoteCache(
@@ -209,7 +205,6 @@ public final class RemoteModule extends BlazeModule {
             new RemoteRetrier(
                 remoteOptions,
                 RemoteRetrier.RETRIABLE_GRPC_ERRORS,
-                retryScheduler,
                 Retrier.ALLOW_ALL_CALLS);
         if (logger != null) {
           ch = ClientInterceptors.intercept(ch, logger);

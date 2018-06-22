@@ -15,19 +15,9 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.AsyncCallable;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListenableScheduledFuture;
-import com.google.common.util.concurrent.ListeningScheduledExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
 import java.io.IOException;
 import java.util.concurrent.Callable;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -188,28 +178,35 @@ public class Retrier {
   private final Supplier<Backoff> backoffSupplier;
   private final Predicate<? super Exception> shouldRetry;
   private final CircuitBreaker circuitBreaker;
-  private final ListeningScheduledExecutorService retryService;
   private final Sleeper sleeper;
 
   public Retrier(
       Supplier<Backoff> backoffSupplier,
       Predicate<? super Exception> shouldRetry,
-      ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
     this(
-        backoffSupplier, shouldRetry, retryScheduler, circuitBreaker, TimeUnit.MILLISECONDS::sleep);
+        backoffSupplier,
+        shouldRetry,
+        circuitBreaker,
+        TimeUnit.MILLISECONDS::sleep);
+  }
+
+  public Retrier(Retrier retrier) {
+    this(
+        retrier.backoffSupplier,
+        retrier.shouldRetry,
+        retrier.circuitBreaker,
+        retrier.sleeper);
   }
 
   @VisibleForTesting
   Retrier(
       Supplier<Backoff> backoffSupplier,
       Predicate<? super Exception> shouldRetry,
-      ListeningScheduledExecutorService retryService,
       CircuitBreaker circuitBreaker,
       Sleeper sleeper) {
     this.backoffSupplier = backoffSupplier;
     this.shouldRetry = shouldRetry;
-    this.retryService = retryService;
     this.circuitBreaker = circuitBreaker;
     this.sleeper = sleeper;
   }
@@ -267,90 +264,6 @@ public class Retrier {
         }
         sleeper.sleep(delayMillis);
       }
-    }
-  }
-
-  /**
-   * Executes an {@link AsyncCallable}, retrying execution in case of failure and returning a {@link
-   * ListenableFuture} pointing to the result/error.
-   */
-  public <T> ListenableFuture<T> executeAsync(AsyncCallable<T> call) {
-    SettableFuture<T> f = SettableFuture.create();
-    executeAsync(call, f);
-    return f;
-  }
-
-  /**
-   * Executes an {@link AsyncCallable}, retrying execution in case of failure and uses the provided
-   * {@code promise} to point to the result/error.
-   */
-  public <T> void executeAsync(AsyncCallable<T> call, SettableFuture<T> promise) {
-    Preconditions.checkNotNull(call);
-    Preconditions.checkNotNull(promise);
-    Backoff backoff = newBackoff();
-    executeAsync(call, promise, backoff);
-  }
-
-  private <T> void executeAsync(AsyncCallable<T> call, SettableFuture<T> outerF, Backoff backoff) {
-    Preconditions.checkState(!outerF.isDone(), "outerF completed already.");
-    try {
-      Futures.addCallback(
-          call.call(),
-          new FutureCallback<T>() {
-            @Override
-            public void onSuccess(T t) {
-              outerF.set(t);
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-              onExecuteAsyncFailure(t, call, outerF, backoff);
-            }
-          },
-          MoreExecutors.directExecutor());
-    } catch (Exception e) {
-      onExecuteAsyncFailure(e, call, outerF, backoff);
-    }
-  }
-
-  private <T> void onExecuteAsyncFailure(
-      Throwable t, AsyncCallable<T> call, SettableFuture<T> outerF, Backoff backoff) {
-    long waitMillis = backoff.nextDelayMillis();
-    if (waitMillis >= 0 && t instanceof Exception && isRetriable((Exception) t)) {
-      try {
-        ListenableScheduledFuture<?> sf =
-            retryService.schedule(
-                () -> executeAsync(call, outerF, backoff), waitMillis, TimeUnit.MILLISECONDS);
-        Futures.addCallback(
-            sf,
-            new FutureCallback<Object>() {
-              @Override
-              public void onSuccess(Object o) {
-                // Submitted successfully. Intentionally left empty.
-              }
-
-              @Override
-              public void onFailure(Throwable t) {
-                Exception e = t instanceof Exception ? (Exception) t : new Exception(t);
-                outerF.setException(
-                    new RetryException(
-                        "Scheduled execution errored.", backoff.getRetryAttempts(), e));
-              }
-            },
-            MoreExecutors.directExecutor());
-      } catch (RejectedExecutionException e) {
-        // May be thrown by .schedule(...) if i.e. the executor is shutdown.
-        outerF.setException(
-            new RetryException("Rejected by executor.", backoff.getRetryAttempts(), e));
-      }
-    } else {
-      Exception e = t instanceof Exception ? (Exception) t : new Exception(t);
-      String message =
-          waitMillis >= 0
-              ? "Status not retriable."
-              : "Exhaused retry attempts (" + backoff.getRetryAttempts() + ")";
-      RetryException error = new RetryException(message, backoff.getRetryAttempts(), e);
-      outerF.setException(error);
     }
   }
 

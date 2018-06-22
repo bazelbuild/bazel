@@ -65,13 +65,12 @@ class GrpcRemoteExecutor {
     this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
 
-    ListeningScheduledExecutorService retryScheduler =
+    ListeningScheduledExecutorService retryService =
         MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
     operationRetrier = new RemoteRetrier(
         remoteOptions,
         (e) -> (e instanceof OperationNotFoundException) || retrier.isRetriable(e),
-        retryScheduler,
         Retrier.ALLOW_ALL_CALLS);
   }
 

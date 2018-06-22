@@ -70,12 +70,12 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
-  private final Retrier retrier;
+  private final AsyncRetrier asyncRetrier;
 
-  public AbstractRemoteActionCache(RemoteOptions options, DigestUtil digestUtil, Retrier retrier) {
+  public AbstractRemoteActionCache(RemoteOptions options, DigestUtil digestUtil, AsyncRetrier asyncRetrier) {
     this.options = options;
     this.digestUtil = digestUtil;
-    this.retrier = retrier;
+    this.asyncRetrier = asyncRetrier;
   }
 
   /**
@@ -178,7 +178,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       for (OutputFile file : result.getOutputFilesList()) {
         Path path = execRoot.getRelative(file.getPath());
         ListenableFuture<Void> download =
-            retrier.executeAsync(
+            asyncRetrier.executeAsync(
                 () -> ctx.call(() -> downloadFile(path, file.getDigest(), file.getContent())));
         fileDownloads.add(new FuturePathBooleanTuple(download, path, file.getIsExecutable()));
       }
@@ -188,7 +188,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       for (OutputDirectory dir : result.getOutputDirectoriesList()) {
         SettableFuture<Void> dirDownload = SettableFuture.create();
         ListenableFuture<byte[]> protoDownload =
-            retrier.executeAsync(() -> ctx.call(() -> downloadBlob(dir.getTreeDigest())));
+            asyncRetrier.executeAsync(() -> ctx.call(() -> downloadBlob(dir.getTreeDigest())));
         Futures.addCallback(
             protoDownload,
             new FutureCallback<byte[]>() {
@@ -302,7 +302,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       Path childPath = path.getRelative(child.getName());
       downloads.add(
           new FuturePathBooleanTuple(
-              retrier.executeAsync(
+              asyncRetrier.executeAsync(
                   () -> ctx.call(() -> downloadFile(childPath, child.getDigest(), null))),
               childPath,
               child.getIsExecutable()));
@@ -388,7 +388,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     } else if (result.hasStdoutDigest()) {
       downloads.add(
           new FuturePathBooleanTuple(
-              retrier.executeAsync(
+              asyncRetrier.executeAsync(
                   () ->
                       ctx.call(
                           () -> downloadBlob(result.getStdoutDigest(), outErr.getOutputStream()))),
@@ -401,7 +401,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     } else if (result.hasStderrDigest()) {
       downloads.add(
           new FuturePathBooleanTuple(
-              retrier.executeAsync(
+              asyncRetrier.executeAsync(
                   () ->
                       ctx.call(
                           () -> downloadBlob(result.getStderrDigest(), outErr.getErrorStream()))),
