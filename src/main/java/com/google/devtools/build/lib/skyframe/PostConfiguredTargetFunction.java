@@ -125,7 +125,7 @@ public class PostConfiguredTargetFunction implements SkyFunction {
               hostConfiguration,
               /*aspect=*/ null,
               configConditions,
-              /*toolchainLabels*/ ImmutableSet.of(),
+              /*toolchainLabels=*/ ImmutableSet.of(),
               defaultBuildOptions,
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
       if (configuredTargetAndData.getConfiguration() != null) {
