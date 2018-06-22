@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreakerException;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
+import com.google.devtools.build.lib.remote.Retrier.ZeroBackoff;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -316,30 +317,6 @@ public class RetrierTest {
 
     void trialCall() {
       state = State.TRIAL_CALL;
-    }
-  }
-
-  private static class ZeroBackoff implements Backoff {
-
-    private final int maxRetries;
-    private int retries;
-
-    public ZeroBackoff(int maxRetries) {
-      this.maxRetries = maxRetries;
-    }
-
-    @Override
-    public long nextDelayMillis() {
-      if (retries >= maxRetries) {
-        return -1;
-      }
-      retries++;
-      return 0;
-    }
-
-    @Override
-    public int getRetryAttempts() {
-      return retries;
     }
   }
 }

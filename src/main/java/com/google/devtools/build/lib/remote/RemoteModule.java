@@ -202,7 +202,9 @@ public final class RemoteModule extends BlazeModule {
                 Retrier.ALLOW_ALL_CALLS);
         executeRetrier =
             new RemoteRetrier(
-                remoteOptions,
+                remoteOptions.experimentalRemoteRetry
+                    ? () -> new Retrier.ZeroBackoff(remoteOptions.experimentalRemoteRetryMaxAttempts)
+                    : () -> Retrier.RETRIES_DISABLED,
                 RemoteModule.RETRIABLE_EXEC_ERRORS,
                 retryScheduler,
                 Retrier.ALLOW_ALL_CALLS);
