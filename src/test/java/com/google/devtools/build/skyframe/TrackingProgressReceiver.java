@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import java.util.Set;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * A testing utility to keep track of evaluation.
@@ -52,6 +53,7 @@ public class TrackingProgressReceiver
   @Override
   public void evaluated(
       SkyKey skyKey,
+      @Nullable SkyValue value,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
       EvaluationState state) {
     evaluated.add(skyKey);

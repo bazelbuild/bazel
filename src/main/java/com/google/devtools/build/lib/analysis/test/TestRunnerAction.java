@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
@@ -239,13 +240,15 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
    * file system for existence of these output files, so it must only be used after test execution.
    */
   // TODO(ulfjack): Instead of going to local disk here, use SpawnResult (add list of files there).
-  public ImmutableList<Pair<String, Path>> getTestOutputsMapping(Path execRoot) {
+  public ImmutableList<Pair<String, Path>> getTestOutputsMapping(
+      ArtifactPathResolver resolver, Path execRoot) {
     ImmutableList.Builder<Pair<String, Path>> builder = ImmutableList.builder();
-    if (getTestLog().getPath().exists()) {
-      builder.add(Pair.of(TestFileNameConstants.TEST_LOG, getTestLog().getPath()));
+    if (resolver.toPath(getTestLog()).exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_LOG, resolver.toPath(getTestLog())));
     }
-    if (getCoverageData() != null && getCoverageData().getPath().exists()) {
-      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE, getCoverageData().getPath()));
+    if (getCoverageData() != null && resolver.toPath(getCoverageData()).exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE,
+          resolver.toPath(getCoverageData())));
     }
     if (execRoot != null) {
       ResolvedPaths resolvedPaths = resolve(execRoot);
@@ -335,8 +338,10 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   /** Saves cache status to disk. */
-  public void saveCacheStatus(TestResultData data) throws IOException {
-    try (OutputStream out = cacheStatus.getPath().getOutputStream()) {
+  public void saveCacheStatus(
+      ActionExecutionContext actionExecutionContext,
+      TestResultData data) throws IOException {
+    try (OutputStream out = actionExecutionContext.getInputPath(cacheStatus).getOutputStream()) {
       data.writeTo(out);
     }
   }

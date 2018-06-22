@@ -89,7 +89,10 @@ public @interface SkylarkCallable {
    * value (default is {@code -1}), means that all arguments are mandatory positionals if {@link
    * #parameters()} remains empty. If {@link #parameters()} is non empty, then a negative value for
    * {@link #mandatoryPositionals()} is taken as 0.
+   *
+   * @deprecated specify parameters via the {@link #parameters} field instead
    */
+  @Deprecated
   int mandatoryPositionals() default -1;
 
   /**

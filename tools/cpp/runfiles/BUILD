@@ -35,7 +35,7 @@ cc_test(
     visibility = ["//visibility:public"],
     deps = [
         ":runfiles",
-        "//src/main/cpp/util:file",
+        "//src/main/cpp/util:filesystem",
         "@com_google_googletest//:gtest_main",
     ],
 )

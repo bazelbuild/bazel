@@ -16,16 +16,22 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidDataConverter.JoinerType;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import java.io.Serializable;
 import java.util.function.Function;
 
 /** Builds up the spawn action for $android_rclass_generator. */
 public class RClassGeneratorActionBuilder {
 
-  private static final AndroidDataConverter<ValidatedAndroidData> AAPT_CONVERTER =
+  @AutoCodec @VisibleForSerialization
+  static final AndroidDataConverter<ValidatedAndroidData> AAPT_CONVERTER =
       AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
           .with(chooseDepsToArg(AndroidAaptVersion.AAPT))
           .build();
-  private static final AndroidDataConverter<ValidatedAndroidData> AAPT2_CONVERTER =
+
+  @AutoCodec @VisibleForSerialization
+  static final AndroidDataConverter<ValidatedAndroidData> AAPT2_CONVERTER =
       AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
           .with(chooseDepsToArg(AndroidAaptVersion.AAPT2))
           .build();
@@ -92,12 +98,13 @@ public class RClassGeneratorActionBuilder {
 
   private static Function<ValidatedAndroidData, String> chooseDepsToArg(
       final AndroidAaptVersion version) {
-    return container -> {
-      Artifact rTxt =
-          version == AndroidAaptVersion.AAPT2 ? container.getAapt2RTxt() : container.getRTxt();
-      return (rTxt != null ? rTxt.getExecPath() : "")
-          + ","
-          + (container.getManifest() != null ? container.getManifest().getExecPath() : "");
-    };
+    return (Function<ValidatedAndroidData, String> & Serializable)
+        container -> {
+          Artifact rTxt =
+              version == AndroidAaptVersion.AAPT2 ? container.getAapt2RTxt() : container.getRTxt();
+          return (rTxt != null ? rTxt.getExecPath() : "")
+              + ","
+              + (container.getManifest() != null ? container.getManifest().getExecPath() : "");
+        };
   }
 }

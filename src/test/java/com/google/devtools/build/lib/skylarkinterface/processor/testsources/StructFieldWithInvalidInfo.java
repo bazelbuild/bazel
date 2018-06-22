@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
 
 /** Test case which verifies a struct field method cannot specify useEnvironment. */
 public class StructFieldWithInvalidInfo {
@@ -24,9 +24,9 @@ public class StructFieldWithInvalidInfo {
     name = "struct_field_method_with_info",
     documented = false,
     structField = true,
-    useEnvironment = true
+    useAst = true
   )
-  public String structFieldMethodWithInfo(Environment environment) {
+  public String structFieldMethodWithInfo(FuncallExpression ast) {
     return "dragon";
   }
 }

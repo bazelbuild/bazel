@@ -62,7 +62,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     assertThat(variables.getStringVariable(CompileBuildVariables.SOURCE_FILE.getVariableName()))
         .contains("x/bin.cc");
     assertThat(variables.getStringVariable(CompileBuildVariables.OUTPUT_FILE.getVariableName()))
-        .contains("x/bin");
+        .contains("_objs/bin/bin");
   }
 
   @Test
@@ -164,5 +164,30 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME))
         .isEqualTo("/usr/local/custom-sysroot");
+  }
+
+  @Test
+  public void testPresenceOfMinOsVersionBuildVariable() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            "feature {"
+                + "  name: 'min_os_version_flag'"
+                + "  flag_set {"
+                + "    action: 'c++-compile'"
+                + "    expand_if_all_available: 'minimum_os_version'"
+                + "    flag_group {"
+                + "      flag: '-DMIN_OS=%{minimum_os_version}'"
+                + "    }"
+                + "  }"
+                + "}");
+    useConfiguration("--minimum_os_version=6");
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file("x/bin.cc");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
+    assertThat(variables.getStringVariable(CcCommon.MINIMUM_OS_VERSION_VARIABLE_NAME))
+        .isEqualTo("6");
   }
 }

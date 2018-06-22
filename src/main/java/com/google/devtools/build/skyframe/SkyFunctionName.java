@@ -13,30 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-
 import java.io.Serializable;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 /** An identifier for a {@code SkyFunction}. */
 public final class SkyFunctionName implements Serializable {
-
-  // In practice the number of unique SkyFunctionNames should be reasonably limited, use this cache
-  // to avoid accidentally creating many of the same.
-  private static final LoadingCache<String, SkyFunctionName> skyFunctionNameCache =
-      CacheBuilder.newBuilder()
-        .weakValues()
-        .build(
-            new CacheLoader<String, SkyFunctionName>() {
-              @Override
-              public SkyFunctionName load(String name) {
-                return new SkyFunctionName(name);
-              }
-            });
+  private static final Cache<NameOnlyWrapper, SkyFunctionName> interner =
+      CacheBuilder.newBuilder().build();
 
   /**
    * A well-known key type intended for testing only. The associated SkyKey should have a String
@@ -47,26 +35,45 @@ public final class SkyFunctionName implements Serializable {
 
   /** Create a SkyFunctionName identified by {@code name}. */
   public static SkyFunctionName create(String name) {
+    return create(name, ShareabilityOfValue.ALWAYS);
+  }
+
+  public static SkyFunctionName create(String name, ShareabilityOfValue shareabilityOfValue) {
+    SkyFunctionName result = new SkyFunctionName(name, shareabilityOfValue);
+    SkyFunctionName cached;
     try {
-      return skyFunctionNameCache.get(name);
+      cached = interner.get(new NameOnlyWrapper(result), () -> result);
     } catch (ExecutionException e) {
-      throw new IllegalStateException("Unexpected exception creating SkyFunctionName", e);
+      throw new IllegalStateException(e);
     }
+    Preconditions.checkState(
+        result.equals(cached),
+        "Tried to create SkyFunctionName objects with same name but different properties: %s %s",
+        result,
+        cached);
+    return cached;
   }
 
   private final String name;
+  private final ShareabilityOfValue shareabilityOfValue;
 
-  private SkyFunctionName(String name) {
+  private SkyFunctionName(String name, ShareabilityOfValue shareabilityOfValue) {
     this.name = name;
+    this.shareabilityOfValue = shareabilityOfValue;
   }
 
   public String getName() {
     return name;
   }
 
+  public ShareabilityOfValue getShareabilityOfValue() {
+    return shareabilityOfValue;
+  }
+
   @Override
   public String toString() {
-    return name;
+    return name
+        + (shareabilityOfValue.equals(ShareabilityOfValue.ALWAYS) ? "" : " " + shareabilityOfValue);
   }
 
   @Override
@@ -78,11 +85,12 @@ public final class SkyFunctionName implements Serializable {
       return false;
     }
     SkyFunctionName other = (SkyFunctionName) obj;
-    return name.equals(other.name);
+    return name.equals(other.name) && shareabilityOfValue.equals(other.shareabilityOfValue);
   }
 
   @Override
   public int hashCode() {
+    // Don't bother incorporating serializabilityOfValue into hashCode: should always be the same.
     return name.hashCode();
   }
 
@@ -90,23 +98,35 @@ public final class SkyFunctionName implements Serializable {
    * A predicate that returns true for {@link SkyKey}s that have the given {@link SkyFunctionName}.
    */
   public static Predicate<SkyKey> functionIs(final SkyFunctionName functionName) {
-    return new Predicate<SkyKey>() {
-      @Override
-      public boolean apply(SkyKey skyKey) {
-        return functionName.equals(skyKey.functionName());
-      }
-    };
+    return skyKey -> functionName.equals(skyKey.functionName());
   }
 
   /**
    * A predicate that returns true for {@link SkyKey}s that have the given {@link SkyFunctionName}.
    */
   public static Predicate<SkyKey> functionIsIn(final Set<SkyFunctionName> functionNames) {
-    return new Predicate<SkyKey>() {
-      @Override
-      public boolean apply(SkyKey skyKey) {
-        return functionNames.contains(skyKey.functionName());
+    return skyKey -> functionNames.contains(skyKey.functionName());
+  }
+
+  private static class NameOnlyWrapper {
+    private final SkyFunctionName skyFunctionName;
+
+    private NameOnlyWrapper(SkyFunctionName skyFunctionName) {
+      this.skyFunctionName = skyFunctionName;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof NameOnlyWrapper)) {
+        return false;
       }
-    };
+      SkyFunctionName thatFunctionName = ((NameOnlyWrapper) obj).skyFunctionName;
+      return this.skyFunctionName.getName().equals(thatFunctionName.name);
+    }
+
+    @Override
+    public int hashCode() {
+      return skyFunctionName.getName().hashCode();
+    }
   }
 }

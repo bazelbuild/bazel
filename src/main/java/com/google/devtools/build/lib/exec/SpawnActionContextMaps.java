@@ -54,8 +54,8 @@ import java.util.TreeMap;
 /**
  * Container for looking up the {@link ActionContext} to use for a given action.
  *
- * <p>Holds {@link ActionContext} mappings populated by {@link ActionContextConsumer} modules. These
- * include mappings from mnemonics and from description patterns.
+ * <p>Holds {@link ActionContext} mappings populated by modules. These include mappings from
+ * mnemonics and from description patterns.
  *
  * <p>At startup time, the application provides {@link Builder} to each module to register its
  * contexts and mappings. At runtime, the {@link BlazeExecutor} uses the constructed object to find
@@ -201,9 +201,9 @@ public final class SpawnActionContextMaps {
         strategyByContextMapBuilder = ImmutableListMultimap.builder();
 
     private final ImmutableList.Builder<RegexFilterStrategy> strategyByRegexpBuilder =
-        new ImmutableList.Builder();
+        ImmutableList.builder();
 
-    /*
+    /**
      * Returns a builder modules can use to add mappings from mnemonics to strategy names.
      *
      * <p>If a spawn action is executed whose mnemonic maps to the empty string or is not present in
@@ -217,7 +217,7 @@ public final class SpawnActionContextMaps {
       return strategyByMnemonicMapBuilder;
     }
 
-    /*
+    /**
      * Returns a builder modules can use to associate {@link ActionContext} classes with
      * strategy names.
      */

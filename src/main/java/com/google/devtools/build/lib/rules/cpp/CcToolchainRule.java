@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 import com.google.devtools.build.lib.syntax.Type;
 
 /**
@@ -176,7 +175,6 @@ public final class CcToolchainRule implements RuleDefinition {
         // TODO(b/78578234): Make this the default and remove the late-bound versions.
         .add(attr("libc_top", LABEL).allowedFileTypes())
         .add(attr(LIBC_TOP_ATTR, LABEL).value(LIBC_TOP_VALUE))
-
         .add(attr(FDO_OPTIMIZE_ATTR, LABEL).singleArtifact().value(FDO_OPTIMIZE_VALUE))
         .add(
             attr(FDO_PROFILE_ATTR, LABEL)
@@ -188,12 +186,11 @@ public final class CcToolchainRule implements RuleDefinition {
                 .allowedRuleClasses("fdo_prefetch_hints")
                 .mandatoryProviders(ImmutableList.of(FdoPrefetchHintsProvider.PROVIDER.id()))
                 .value(FDO_PREFETCH_HINTS))
-        .add(
-            attr(TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, LABEL)
-                .cfg(LipoContextCollectorTransition.INSTANCE)
-                .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
-                .skipPrereqValidatorCheck())
         .add(attr("proto", Type.STRING))
+        .add(
+            attr("toolchain_identifier", Type.STRING)
+                .nonconfigurable("Used in configuration creation")
+                .value(""))
         .build();
   }
 

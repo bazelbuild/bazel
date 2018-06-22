@@ -21,6 +21,8 @@
 #include "src/main/cpp/rc_file.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
@@ -29,11 +31,13 @@ namespace blaze {
 using ::testing::HasSubstr;
 using ::testing::MatchesRegex;
 
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
 constexpr const char* kNullDevice = "nul";
 #else  // Assume POSIX if not Windows.
 constexpr const char* kNullDevice = "/dev/null";
 #endif
+
+extern const char* system_bazelrc_path;
 
 class RcFileTest : public ::testing::Test {
  protected:
@@ -44,11 +48,34 @@ class RcFileTest : public ::testing::Test {
         binary_dir_(
             blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "bazeldir")),
         binary_path_(blaze_util::JoinPath(binary_dir_, "bazel")),
-        workspace_layout_(new WorkspaceLayout()) {}
+        workspace_layout_(new WorkspaceLayout()),
+        old_system_bazelrc_path_(system_bazelrc_path) {}
 
   void SetUp() override {
+    // We modify the global system_bazelrc_path to be a relative path.
+    // This test allows us to verify that the global bazelrc is read correctly,
+    // in the right order relative to the other files.
+    //
+    // However, this does not test the default path of this file, nor does it
+    // test that absolute paths are accepted properly. This is an unfortunate
+    // limitation of our testing - within the sandboxed environment of a test,
+    // we cannot place a file in arbitrary locations.
+    system_bazelrc_path = "bazel.bazelrc";
+
     ASSERT_TRUE(blaze_util::MakeDirectories(workspace_, 0755));
     ASSERT_TRUE(blaze_util::MakeDirectories(cwd_, 0755));
+    ASSERT_TRUE(blaze_util::ChangeDirectory(cwd_));
+#if defined(_WIN32) || defined(__CYGWIN__)
+    // GetCwd returns a short path on Windows, so we store this expectation now
+    // to keep assertions sane in the tests.
+    std::string short_cwd;
+    std::string error;
+    ASSERT_TRUE(blaze_util::AsShortWindowsPath(cwd_, &short_cwd, &error))
+        << error;
+    cwd_ = short_cwd;
+
+#endif
+
     ASSERT_TRUE(blaze_util::MakeDirectories(binary_dir_, 0755));
     option_processor_.reset(new OptionProcessor(
         workspace_layout_.get(),
@@ -74,15 +101,21 @@ class RcFileTest : public ::testing::Test {
     for (const std::string& file : files) {
       blaze_util::UnlinkPath(file);
     }
+    system_bazelrc_path = old_system_bazelrc_path_.c_str();
   }
 
-  // We only test 2 of the 3 master bazelrc locations in this test. The third
-  // masterrc that should be loaded is the system wide bazelrc path,
-  // /etc/bazel.bazelrc, which we do not mock within this test because it is not
-  // within the sandbox. It may or may not exist on the system running the test,
-  // so we do not check for it.
-  // TODO(#4502): Make the system-wide master bazelrc location configurable and
-  // add test coverage for it.
+  bool SetUpGlobalRcFile(const std::string& contents,
+                         std::string* rcfile_path) const {
+    const std::string global_rc_path =
+        blaze_util::ConvertPath(blaze_util::JoinPath(cwd_, "bazel.bazelrc"));
+
+    if (blaze_util::WriteFile(contents, global_rc_path, 0755)) {
+      *rcfile_path = global_rc_path;
+      return true;
+    }
+    return false;
+  }
+
   bool SetUpMasterRcFileInWorkspace(const std::string& contents,
                                     std::string* rcfile_path) const {
     const std::string tools_dir = blaze_util::JoinPath(workspace_, "tools");
@@ -120,10 +153,11 @@ class RcFileTest : public ::testing::Test {
   }
 
   const std::string workspace_;
-  const std::string cwd_;
+  std::string cwd_;
   const std::string binary_dir_;
   const std::string binary_path_;
   const std::unique_ptr<WorkspaceLayout> workspace_layout_;
+  const std::string old_system_bazelrc_path_;
   std::unique_ptr<OptionProcessor> option_processor_;
 };
 
@@ -134,6 +168,8 @@ TEST_F(GetRcFileTest, GetRcFilesLoadsAllMasterBazelrcs) {
   ASSERT_TRUE(SetUpMasterRcFileInWorkspace("", &workspace_rc));
   std::string binary_rc;
   ASSERT_TRUE(SetUpMasterRcFileAlongsideBinary("", &binary_rc));
+  std::string global_rc;
+  ASSERT_TRUE(SetUpGlobalRcFile("", &global_rc));
 
   const CommandLine cmd_line =
       CommandLine(binary_path_, {"--bazelrc=/dev/null"}, "build", {});
@@ -145,19 +181,17 @@ TEST_F(GetRcFileTest, GetRcFilesLoadsAllMasterBazelrcs) {
   EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
   EXPECT_EQ("check that this string is not modified", error);
 
-  // There should be 3-4 rc files, "/dev/null" does in some sense count as a
-  // file, and there's an optional /etc/ file the test environment cannot
-  // control. The first 2 rcs parsed should be the two rc files we expect, and
-  // the last file is the user-provided /dev/null.
-  ASSERT_LE(3, parsed_rcs.size());
-  ASSERT_GE(4, parsed_rcs.size());
+  // There should be 4 rc files, since "/dev/null" does count along with the 3
+  // master rcs.
+  ASSERT_EQ(4, parsed_rcs.size());
   const std::deque<std::string> expected_workspace_rc_que = {workspace_rc};
   const std::deque<std::string> expected_binary_rc_que = {binary_rc};
+  const std::deque<std::string> expected_global_rc_que = {global_rc};
   const std::deque<std::string> expected_user_rc_que = {kNullDevice};
   EXPECT_EQ(expected_workspace_rc_que, parsed_rcs[0].get()->sources());
   EXPECT_EQ(expected_binary_rc_que, parsed_rcs[1].get()->sources());
-  EXPECT_EQ(expected_user_rc_que,
-            parsed_rcs[parsed_rcs.size() - 1].get()->sources());
+  EXPECT_EQ(expected_global_rc_que, parsed_rcs[2].get()->sources());
+  EXPECT_EQ(expected_user_rc_que, parsed_rcs[3].get()->sources());
 }
 
 TEST_F(GetRcFileTest, GetRcFilesRespectsNoMasterBazelrc) {
@@ -165,6 +199,8 @@ TEST_F(GetRcFileTest, GetRcFilesRespectsNoMasterBazelrc) {
   ASSERT_TRUE(SetUpMasterRcFileInWorkspace("", &workspace_rc));
   std::string binary_rc;
   ASSERT_TRUE(SetUpMasterRcFileAlongsideBinary("", &binary_rc));
+  std::string global_rc;
+  ASSERT_TRUE(SetUpGlobalRcFile("", &global_rc));
 
   const CommandLine cmd_line = CommandLine(
       binary_path_, {"--nomaster_bazelrc", "--bazelrc=/dev/null"}, "build", {});
@@ -241,6 +277,8 @@ TEST_F(ParseOptionsTest, IgnoreAllRcFilesIgnoresAllMasterAndUserRcFiles) {
   std::string binary_rc;
   ASSERT_TRUE(SetUpMasterRcFileAlongsideBinary("startup --binarymasterfoo",
                                                &binary_rc));
+  std::string global_rc;
+  ASSERT_TRUE(SetUpGlobalRcFile("startup --globalmasterfoo", &global_rc));
 
   const std::vector<std::string> args = {binary_path_, "--ignore_all_rc_files",
                                          "build"};
@@ -294,6 +332,8 @@ TEST_F(ParseOptionsTest, IgnoreAllRcFilesIgnoresCommandLineRcFileToo) {
   std::string binary_rc;
   ASSERT_TRUE(SetUpMasterRcFileAlongsideBinary("startup --binarymasterfoo",
                                                &binary_rc));
+  std::string global_rc;
+  ASSERT_TRUE(SetUpGlobalRcFile("startup --globalmasterfoo", &global_rc));
   const std::string cmdline_rc_path =
       blaze_util::JoinPath(workspace_, "mybazelrc");
   ASSERT_TRUE(
@@ -381,6 +421,8 @@ TEST_F(ParseOptionsTest,
        IncorrectMasterBazelrcIgnoredWhenNoMasterBazelrcIsPresent) {
   std::string workspace_rc;
   ASSERT_TRUE(SetUpMasterRcFileInWorkspace("startup --foo", &workspace_rc));
+  std::string global_rc;
+  ASSERT_TRUE(SetUpGlobalRcFile("startup --globalfoo", &global_rc));
 
   const std::vector<std::string> args = {binary_path_, "--nomaster_bazelrc",
                                          "build"};

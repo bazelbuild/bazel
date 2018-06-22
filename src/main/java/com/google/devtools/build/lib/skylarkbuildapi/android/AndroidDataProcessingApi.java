@@ -54,7 +54,7 @@ public interface AndroidDataProcessingApi<
             generic1 = AndroidAssetsInfoApi.class,
             positional = false,
             named = true,
-            doc = "Dependencies to inherit assets from"),
+            doc = "Dependencies to inherit assets from."),
         @Param(
             name = "neverlink",
             defaultValue = "False",
@@ -75,8 +75,14 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "resources_from_deps",
-      mandatoryPositionals = 1, // context
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."
+        ),
         @Param(
             name = "deps",
             defaultValue = "[]",
@@ -84,7 +90,7 @@ public interface AndroidDataProcessingApi<
             generic1 = AndroidResourcesInfoApi.class,
             positional = false,
             named = true,
-            doc = "Dependencies to inherit resources from"),
+            doc = "Dependencies to inherit resources from."),
         @Param(
             name = "neverlink",
             defaultValue = "False",
@@ -126,8 +132,14 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "stamp_manifest",
-      mandatoryPositionals = 1, // AndroidDataContextApi ctx is mandatory
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."
+        ),
         @Param(
             name = "manifest",
             positional = false,
@@ -135,7 +147,7 @@ public interface AndroidDataProcessingApi<
             type = FileApi.class,
             noneable = true,
             named = true,
-            doc = "The manifest to stamp. If not passed, a dummy manifest will be generated"),
+            doc = "The manifest to stamp. If not passed, a dummy manifest will be generated."),
         @Param(
             name = "custom_package",
             positional = false,
@@ -173,8 +185,14 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "merge_assets",
-      mandatoryPositionals = 1, // context
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."
+        ),
         @Param(
             name = "assets",
             positional = false,
@@ -235,8 +253,22 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "merge_resources",
-      mandatoryPositionals = 2, // context, manifest
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."
+        ),
+        @Param(
+            name = "manifest",
+            positional = true,
+            named = false,
+            type = AndroidManifestInfoApi.class,
+            doc = "The provider of this target's manifest. This provider is produced by, "
+                + "for example, stamp_android_manifest."
+        ),
         @Param(
             name = "resources",
             positional = false,
@@ -244,7 +276,7 @@ public interface AndroidDataProcessingApi<
             type = SkylarkList.class,
             generic1 = FileProviderApi.class,
             named = true,
-            doc = "Providers of this target's resources"),
+            doc = "Providers of this target's resources."),
         @Param(
             name = "deps",
             positional = false,
@@ -298,8 +330,37 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "make_aar",
-      mandatoryPositionals = 4, // context, resource info, asset info, and library class jar
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."
+        ),
+        @Param(
+            name = "resource_info",
+            positional = true,
+            named = false,
+            type = AndroidResourcesInfoApi.class,
+            doc = "The provider containing processed resources for this target, produced, "
+                + "for example, by merge_resources."
+        ),
+        @Param(
+            name = "asset_info",
+            positional = true,
+            named = false,
+            type = AndroidAssetsInfoApi.class,
+            doc = "The provider containing processed assets for this target, produced, "
+                + "for example, by merge_assets."
+        ),
+        @Param(
+            name = "library_class_jar",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The library class jar."
+        ),
         @Param(
             name = "proguard_specs",
             type = SkylarkList.class,
@@ -309,7 +370,7 @@ public interface AndroidDataProcessingApi<
             named = true,
             doc =
                 "Files to be used as Proguard specification for this target, which will be"
-                    + " inherited in the top-level target"),
+                    + " inherited in the top-level target."),
         @Param(
             name = "deps",
             type = SkylarkList.class,
@@ -344,8 +405,21 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "process_library_data",
-      mandatoryPositionals = 2, // ctx and libraryClassJar are required
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."
+        ),
+        @Param(
+            name = "library_class_jar",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The library class jar."
+        ),
         @Param(
             name = "manifest",
             positional = false,
@@ -364,7 +438,7 @@ public interface AndroidDataProcessingApi<
             generic1 = FileProviderApi.class,
             named = true,
             noneable = true,
-            doc = "Providers of this target's resources"),
+            doc = "Providers of this target's resources."),
         @Param(
             name = "assets",
             positional = false,
@@ -436,7 +510,7 @@ public interface AndroidDataProcessingApi<
             named = true,
             doc =
                 "Files to be used as Proguard specification for this target, which will be"
-                    + " inherited in the top-level target"),
+                    + " inherited in the top-level target."),
         @Param(
             name = "deps",
             positional = false,
@@ -472,9 +546,35 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "process_aar_import_data",
-      // context, resource, asset, and manifest are all mandatory
-      mandatoryPositionals = 4,
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."
+        ),
+        @Param(
+            name = "resource",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The resouce file."
+        ),
+        @Param(
+            name = "assets",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The assets file."
+        ),
+        @Param(
+            name = "manifest",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The manifest file."
+        ),
         @Param(
             name = "deps",
             type = SkylarkList.class,
@@ -495,8 +595,14 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "process_local_test_data",
-      mandatoryPositionals = 1, // context is mandatory
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."
+        ),
         @Param(
             name = "manifest",
             positional = false,
@@ -514,7 +620,7 @@ public interface AndroidDataProcessingApi<
             type = SkylarkList.class,
             generic1 = FileProviderApi.class,
             named = true,
-            doc = "Providers of this target's resources"),
+            doc = "Providers of this target's resources."),
         @Param(
             name = "assets",
             positional = false,
@@ -599,8 +705,14 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "make_binary_settings",
-      mandatoryPositionals = 1, // AndroidDataContextApi is mandatory
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."
+        ),
         @Param(
             name = "shrink_resources",
             positional = false,
@@ -670,8 +782,14 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "process_binary_data",
-      mandatoryPositionals = 1, // AndroidDataContextApi is mandatory
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."
+        ),
         @Param(
             name = "resources",
             positional = false,
@@ -679,7 +797,7 @@ public interface AndroidDataProcessingApi<
             type = SkylarkList.class,
             generic1 = FileProviderApi.class,
             named = true,
-            doc = "Providers of this target's resources"),
+            doc = "Providers of this target's resources."),
         @Param(
             name = "assets",
             positional = false,
@@ -761,7 +879,7 @@ public interface AndroidDataProcessingApi<
             named = true,
             doc =
                 "Settings common to various binary processing methods, created with"
-                    + " make_binary_data_settings"),
+                    + " make_binary_data_settings."),
         @Param(
             name = "crunch_png",
             positional = false,
@@ -803,10 +921,31 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "shrink_data_apk",
-      // Required: AndroidDataContextApi, AndroidBinaryDataInfoApi to shrink, and two proguard
-      // outputs
-      mandatoryPositionals = 4,
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."),
+        @Param(
+            name = "binary_data_info",
+            positional = true,
+            named = false,
+            type = AndroidBinaryDataInfoApi.class,
+            doc = "The Info about the binary to shrink, as produced by process_binary_data."),
+        @Param(
+            name = "proguard_output_jar",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The proguard jar output file."),
+        @Param(
+            name = "proguard_mapping",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The proguard mapping output file."),
         @Param(
             name = "binary_settings",
             type = AndroidBinaryDataSettingsApi.class,
@@ -816,7 +955,7 @@ public interface AndroidDataProcessingApi<
             named = true,
             doc =
                 "Settings common to various binary processing methods, created with"
-                    + " make_binary_data_settings"),
+                    + " make_binary_data_settings."),
         @Param(
             name = "deps",
             positional = false,
@@ -836,7 +975,7 @@ public interface AndroidDataProcessingApi<
             named = true,
             doc =
                 "Files to be used as Proguard specification for this target, which will be"
-                    + " inherited in the top-level target"),
+                    + " inherited in the top-level target."),
         @Param(
             name = "extra_proguard_specs,",
             type = SkylarkList.class,
@@ -846,8 +985,8 @@ public interface AndroidDataProcessingApi<
             named = true,
             doc =
                 "Additional proguard specs that should be added for top-level targets. This  value"
-                    + " is controlled by Java configuration."),
-      },
+                    + " is controlled by Java configuration.")
+        },
       useLocation = true,
       useEnvironment = true,
       doc =

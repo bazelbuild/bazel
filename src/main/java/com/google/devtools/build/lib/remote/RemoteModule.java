@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
@@ -34,7 +35,7 @@ import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
@@ -49,8 +50,9 @@ import io.grpc.ClientInterceptors;
 import io.grpc.Status.Code;
 import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
-import java.util.function.Predicate;
+import java.util.Set;
 import java.util.concurrent.Executors;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -68,11 +70,12 @@ public final class RemoteModule extends BlazeModule {
     // the PathConverter.
     RemoteOptions options;
     DigestUtil digestUtil;
+    PathConverter fallbackConverter = new FileUriPathConverter();
 
     @Override
     public String apply(Path path) {
       if (options == null || digestUtil == null || !remoteEnabled(options)) {
-        return null;
+        return fallbackConverter.apply(path);
       }
       String server = options.remoteCache;
       String remoteInstanceName = options.remoteInstanceName;
@@ -92,7 +95,7 @@ public final class RemoteModule extends BlazeModule {
                 digest.getSizeBytes());
       } catch (IOException e) {
         // TODO(ulfjack): Don't fail silently!
-        return null;
+        return fallbackConverter.apply(path);
       }
     }
   }
@@ -103,9 +106,14 @@ public final class RemoteModule extends BlazeModule {
   private RemoteActionContextProvider actionContextProvider;
 
   @Override
-  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder)
-      throws AbruptExitException {
-    builder.addPathToUriConverter(converter);
+  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
+    builder.addBuildEventArtifactUploader(new BuildEventArtifactUploader() {
+      @Override
+      public PathConverter upload(Set<Path> files) {
+        // TODO(ulfjack): Actually hook up upload here.
+        return converter;
+      }
+    }, "remote");
   }
 
   private static String VIOLATION_TYPE_MISSING = "MISSING";
@@ -164,7 +172,7 @@ public final class RemoteModule extends BlazeModule {
     }
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
-    HashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
+    DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
     converter.options = remoteOptions;
     converter.digestUtil = digestUtil;
@@ -228,14 +236,7 @@ public final class RemoteModule extends BlazeModule {
                 RemoteRetrier.RETRIABLE_GRPC_ERRORS,
                 retryScheduler,
                 Retrier.ALLOW_ALL_CALLS);
-        executeRetrier =
-            new RemoteRetrier(
-                remoteOptions.experimentalRemoteRetry
-                    ? () -> new Retrier.ZeroBackoff(remoteOptions.experimentalRemoteRetryMaxAttempts)
-                    : () -> Retrier.RETRIES_DISABLED,
-                RemoteModule.RETRIABLE_EXEC_ERRORS,
-                retryScheduler,
-                Retrier.ALLOW_ALL_CALLS);
+        executeRetrier = createExecuteRetrier(remoteOptions, retryScheduler);
         cache =
             new GrpcRemoteCache(
                 ch,
@@ -309,5 +310,16 @@ public final class RemoteModule extends BlazeModule {
   public static boolean remoteEnabled(RemoteOptions options) {
     return SimpleBlobStoreFactory.isRemoteCacheOptions(options)
         || GrpcRemoteCache.isRemoteCacheOptions(options);
+  }
+
+  public static RemoteRetrier createExecuteRetrier(
+      RemoteOptions options, ListeningScheduledExecutorService retryService) {
+    return new RemoteRetrier(
+        options.experimentalRemoteRetry
+            ? () -> new Retrier.ZeroBackoff(options.experimentalRemoteRetryMaxAttempts)
+            : () -> Retrier.RETRIES_DISABLED,
+        RemoteModule.RETRIABLE_EXEC_ERRORS,
+        retryService,
+        Retrier.ALLOW_ALL_CALLS);
   }
 }

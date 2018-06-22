@@ -14,17 +14,13 @@
 
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 /**
  * A parser for target patterns.  Target patterns are a generalisation of
@@ -50,49 +46,10 @@ public interface TargetPatternEvaluator {
    * computed. Implements the specification described in the class-level comment.
    */
   ResolvedTargets<Target> parseTargetPatternList(
+      PathFragment relativeWorkingDirectory,
       ExtendedEventHandler eventHandler,
       List<String> targetPatterns,
       FilteringPolicy policy,
       boolean keepGoing)
       throws TargetParsingException, InterruptedException;
-
-  /**
-   * Attempts to parse a single target pattern while consulting the package cache to check for the
-   * existence of packages and directories and the build targets in them. Implements the
-   * specification described in the class-level comment. Returns a {@link ResolvedTargets} object.
-   *
-   * <p>If an error is encountered, a {@link TargetParsingException} is thrown, unless {@code
-   * keepGoing} is set to true. In that case, the returned object will have its error bit set.
-   */
-  ResolvedTargets<Target> parseTargetPattern(
-      ExtendedEventHandler eventHandler, String pattern, boolean keepGoing)
-      throws TargetParsingException, InterruptedException;
-
-  /**
-   * Attempts to parse and load the given collection of patterns; the returned map contains the
-   * results for each pattern successfully parsed.
-   *
-   * <p>If an error is encountered, a {@link TargetParsingException} is thrown, unless {@code
-   * keepGoing} is set to true. In that case, the patterns that failed to load have the error flag
-   * set.
-   */
-  Map<String, ResolvedTargets<Target>> preloadTargetPatterns(
-      ExtendedEventHandler eventHandler, Collection<String> patterns, boolean keepGoing)
-      throws TargetParsingException, InterruptedException;
-
-  /**
-   * Update the parser's offset, given the workspace and working directory.
-   *
-   * @param relativeWorkingDirectory the working directory relative to the workspace
-   */
-  @ThreadHostile
-  void updateOffset(PathFragment relativeWorkingDirectory);
-
-  /**
-   * @return the offset of this parser from the root of the workspace.
-   *         Non-absolute package-names will be resolved relative
-   *         to this offset.
-   */
-  @VisibleForTesting
-  String getOffset();
 }

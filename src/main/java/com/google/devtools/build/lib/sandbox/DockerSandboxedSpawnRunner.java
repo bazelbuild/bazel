@@ -66,6 +66,10 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private static final String CONTAINER_IMAGE_ENTRY_NAME = "container-image";
   private static final String DOCKER_IMAGE_PREFIX = "docker://";
 
+  /**
+   * Returns whether the darwin sandbox is supported on the local machine by running docker info.
+   * This is expensive, and we have also reports of docker hanging for a long time!
+   */
   public static boolean isSupported(CommandEnvironment cmdEnv, Path dockerClient) {
     boolean verbose = cmdEnv.getOptions().getOptions(SandboxOptions.class).dockerVerbose;
 

@@ -19,6 +19,7 @@
 
 set -u
 DISTFILE=$(rlocation io_bazel/${1#./})
+EMBEDDED_JDK=$(rlocation io_bazel/${2#./})
 shift 1
 
 # Load the test setup defined in the parent directory
@@ -41,12 +42,23 @@ function test_bootstrap()  {
     export SOURCE_DATE_EPOCH=1501234567
     _log_progress "unzip"
     unzip -q "${DISTFILE}"
+    if [[ $EMBEDDED_JDK == *.tar.gz ]]; then
+      tar xf $EMBEDDED_JDK
+    elif [[ $EMBEDDED_JDK == *.zip ]]; then
+      unzip -q $EMBEDDED_JDK
+    fi
+    JAVABASE=$(echo zulu*)
+
     _log_progress "bootstrap"
     env EXTRA_BAZEL_ARGS="--curses=no --strategy=Javac=standalone" ./compile.sh \
         || fail "Expected to be able to bootstrap bazel"
     _log_progress "run"
-    ./output/bazel version > "${TEST_log}" || fail "Generated bazel not working"
-    ./output/bazel shutdown
+    ./output/bazel \
+      --host_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
+      version > "${TEST_log}" || fail "Generated bazel not working"
+    ./output/bazel \
+      --host_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
+      shutdown
     _log_progress "assert"
     expect_log "${SOURCE_DATE_EPOCH}"
     cd "${olddir}"

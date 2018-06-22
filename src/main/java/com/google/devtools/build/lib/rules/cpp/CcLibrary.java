@@ -299,8 +299,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                     common.getDynamicLibrarySymlink(library, true),
                     library,
                     CcLinkingOutputs.libraryIdentifierOf(library)));
-    linkingHelper.addDynamicLibraries(dynamicLibraries);
-    linkingHelper.addExecutionDynamicLibraries(dynamicLibraries);
+    linkingHelper.addDynamicLibrariesForLinking(dynamicLibraries);
+    linkingHelper.addDynamicLibrariesForRuntime(dynamicLibraries);
 
     CompilationInfo compilationInfo = compilationHelper.compile();
     LinkingInfo linkingInfo =
@@ -391,8 +391,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         (CcLinkingInfo) linkingInfo.getProviders().getProvider(CcLinkingInfo.PROVIDER.getKey());
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
     ccLinkingInfoBuilder.setCcLinkParamsStore(ccLinkingInfo.getCcLinkParamsStore());
-    ccLinkingInfoBuilder.setCcExecutionDynamicLibraries(
-        ccLinkingInfo.getCcExecutionDynamicLibraries());
+    ccLinkingInfoBuilder.setCcDynamicLibrariesForRuntime(
+        ccLinkingInfo.getCcDynamicLibrariesForRuntime());
     ccLinkingInfoBuilder.setCcRunfiles(new CcRunfiles(staticRunfiles, sharedRunfiles));
 
     return ccLinkingInfoBuilder.build();
@@ -405,12 +405,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // Ensure that we build all the dependencies, otherwise users may get confused.
     NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    boolean isLipoCollector = cppConfiguration.isLipoContextCollector();
     boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
     boolean usePic = CppHelper.usePicForDynamicLibraries(ruleContext, toolchain);
     artifactsToForceBuilder.addTransitive(
-        ccCompilationOutputs.getFilesToCompile(
-            isLipoCollector, processHeadersInDependencies, usePic));
+        ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
     for (OutputGroupInfo dep :
         ruleContext.getPrerequisites(
             "deps", Mode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
@@ -423,12 +421,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
   private static void warnAboutEmptyLibraries(RuleContext ruleContext,
       CcCompilationOutputs ccCompilationOutputs,
       boolean linkstaticAttribute) {
-    if (ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector()) {
-      // Do not signal warnings in the lipo context collector configuration. These will be duly
-      // signaled in the target configuration, and there can be spurious warnings since targets in
-      // the LIPO context collector configuration do not compile anything.
-      return;
-    }
     if (ccCompilationOutputs.getObjectFiles(false).isEmpty()
         && ccCompilationOutputs.getObjectFiles(true).isEmpty()) {
       if (!linkstaticAttribute && appearsToHaveObjectFiles(ruleContext.attributes())) {

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.ToArg.Includes;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
 import java.util.Set;
@@ -75,24 +76,36 @@ public class ResourceContainerConverter {
 
       switch (separatorType) {
         case COLON_COMMA:
-          argJoiner = Joiner.on(":");
+          argJoiner = COLON_JOINER;
           // We currently use ":" to separate components of an argument and "," to separate
           // arguments in a list of arguments. Those characters require escaping if used in a label
           // (part of the set of allowed characters in a label).
           if (includes.contains(Includes.Label)) {
-            escaper = (String input) -> input.replace(":", "\\:").replace(",", "\\,");
+            escaper = COLON_COMMA;
           } else {
-            escaper = Functions.identity();
+            escaper = IDENTITY;
           }
           break;
         case SEMICOLON_AMPERSAND:
-          argJoiner = Joiner.on(";");
-          escaper = Functions.identity();
+          argJoiner = SEMICOLON_JOINER;
+          escaper = IDENTITY;
           break;
         default:
           throw new IllegalStateException("Unknown separator type " + separatorType);
       }
     }
+
+    @AutoCodec @AutoCodec.VisibleForSerialization
+    static final Function<String, String> IDENTITY = Functions.identity();
+
+    @AutoCodec @AutoCodec.VisibleForSerialization
+    static final Function<String, String> COLON_COMMA =
+        (input) -> input.replace(":", "\\:").replace(",", "\\,");
+
+    @AutoCodec @AutoCodec.VisibleForSerialization
+    static final Joiner SEMICOLON_JOINER = Joiner.on(";");
+
+    @AutoCodec @AutoCodec.VisibleForSerialization static final Joiner COLON_JOINER = Joiner.on(":");
 
     @Override
     public void expandToCommandLine(ValidatedAndroidData container, Consumer<String> args) {

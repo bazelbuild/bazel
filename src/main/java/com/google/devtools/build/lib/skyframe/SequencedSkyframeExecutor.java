@@ -29,6 +29,8 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -101,7 +103,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-import java.util.function.BooleanSupplier;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -150,8 +151,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions,
-      MutableArtifactFactorySupplier mutableArtifactFactorySupplier,
-      BooleanSupplier usesActionFileSystem) {
+      MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
     super(
         evaluatorSupplier,
         pkgFactory,
@@ -171,8 +171,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         GraphInconsistencyReceiver.THROWING,
         defaultBuildOptions,
         new PackageProgressReceiver(),
-        mutableArtifactFactorySupplier,
-        usesActionFileSystem);
+        mutableArtifactFactorySupplier);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
   }
@@ -209,8 +208,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         buildFilesByPriority,
         actionOnIOExceptionReadingBuildFile,
         defaultBuildOptions,
-        new MutableArtifactFactorySupplier(),
-        /*usesActionFileSystem=*/ () -> false);
+        new MutableArtifactFactorySupplier());
   }
 
   public static SequencedSkyframeExecutor create(
@@ -229,8 +227,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions,
-      MutableArtifactFactorySupplier mutableArtifactFactorySupplier,
-      BooleanSupplier usesActionFileSystem) {
+      MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
     SequencedSkyframeExecutor skyframeExecutor =
         new SequencedSkyframeExecutor(
             InMemoryMemoizingEvaluator.SUPPLIER,
@@ -249,8 +246,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             buildFilesByPriority,
             actionOnIOExceptionReadingBuildFile,
             defaultBuildOptions,
-            mutableArtifactFactorySupplier,
-            usesActionFileSystem);
+            mutableArtifactFactorySupplier);
     skyframeExecutor.init();
     return skyframeExecutor;
   }
@@ -313,8 +309,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private static final ImmutableSet<SkyFunctionName> PACKAGE_LOCATOR_DEPENDENT_VALUES =
       ImmutableSet.of(
           SkyFunctions.AST_FILE_LOOKUP,
-          SkyFunctions.FILE_STATE,
-          SkyFunctions.FILE,
+          FileStateValue.FILE_STATE,
+          FileValue.FILE,
           SkyFunctions.DIRECTORY_LISTING_STATE,
           SkyFunctions.TARGET_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
@@ -561,8 +557,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
     // We are searching only for changed files, DirectoryListingValues don't depend on
     // child values, that's why they are invalidated separately
-    return Iterables.size(Iterables.filter(modifiedValues,
-        SkyFunctionName.functionIs(SkyFunctions.FILE_STATE)));
+    return Iterables.size(
+        Iterables.filter(modifiedValues, SkyFunctionName.functionIs(FileStateValue.FILE_STATE)));
   }
 
   /**
@@ -578,8 +574,10 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    */
   @Override
   public void decideKeepIncrementalState(
-      boolean batch, boolean keepStateAfterBuild, boolean shouldTrackIncrementalState,
-      boolean discardAnalysisCache, boolean discardActionsAfterExecution,
+      boolean batch,
+      boolean keepStateAfterBuild,
+      boolean shouldTrackIncrementalState,
+      boolean discardAnalysisCache,
       EventHandler eventHandler) {
     Preconditions.checkState(!active);
     boolean oldValueOfTrackIncrementalState = trackIncrementalState;
@@ -608,7 +606,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
 
-    removeActionsAfterEvaluation.set(!trackIncrementalState && discardActionsAfterExecution);
     // Now check if it is necessary to wipe the previous state. We do this if either the previous
     // or current incrementalStateRetentionStrategy requires the build to have been isolated.
     if (oldValueOfTrackIncrementalState != trackIncrementalState) {

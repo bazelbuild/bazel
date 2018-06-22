@@ -1061,8 +1061,11 @@ public final class Attribute implements Comparable<Attribute> {
      * dependencies through this attribute.
      */
     public Builder<TYPE> aspect(NativeAspectClass aspect) {
-      return this.aspect(aspect, input -> AspectParameters.EMPTY);
+      return this.aspect(aspect, EMPTY_FUNCTION);
     }
+
+    @AutoCodec @AutoCodec.VisibleForSerialization
+    static final Function<Rule, AspectParameters> EMPTY_FUNCTION = input -> AspectParameters.EMPTY;
 
     public Builder<TYPE> aspect(SkylarkDefinedAspect skylarkAspect, Location location)
         throws EvalException {

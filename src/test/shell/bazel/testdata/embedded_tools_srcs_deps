@@ -30,7 +30,7 @@
 //src/main/cpp/util:util
 //src/main/cpp/util:numbers
 //src/main/cpp/util:md5
-//src/main/cpp/util:file
+//src/main/cpp/util:filesystem
 //src/main/native/windows:lib-file
 //src/main/native/windows:lib-util
 //src/main/cpp/util:strings

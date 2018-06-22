@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.ToolchainType;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.rules.cpp.transitions.LipoDataTransitionRuleSet;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.util.FileType;
@@ -120,8 +119,8 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(
             emptylib
                 .get(CcLinkingInfo.PROVIDER)
-                .getCcExecutionDynamicLibraries()
-                .getExecutionDynamicLibraryArtifacts()
+                .getCcDynamicLibrariesForRuntime()
+                .getDynamicLibrariesForRuntimeArtifacts()
                 .isEmpty())
         .isTrue();
   }
@@ -233,8 +232,8 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(
             statically
                 .get(CcLinkingInfo.PROVIDER)
-                .getCcExecutionDynamicLibraries()
-                .getExecutionDynamicLibraryArtifacts()
+                .getCcDynamicLibrariesForRuntime()
+                .getDynamicLibrariesForRuntimeArtifacts()
                 .isEmpty())
         .isTrue();
     Artifact staticallyDotA = getOnlyElement(getFilesToBuild(statically));
@@ -993,7 +992,6 @@ public class CcCommonTest extends BuildViewTestCase {
         public ConfiguredRuleClassProvider createRuleClassProvider() {
           ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
           builder.setToolsRepository("@bazel_tools");
-          LipoDataTransitionRuleSet.INSTANCE.init(builder);
           BazelRuleClassProvider.BAZEL_SETUP.init(builder);
           CoreRules.INSTANCE.init(builder);
           CoreWorkspaceRules.INSTANCE.init(builder);

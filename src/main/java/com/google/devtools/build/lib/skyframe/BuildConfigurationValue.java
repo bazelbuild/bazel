@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Objects;
@@ -152,21 +152,21 @@ public class BuildConfigurationValue implements SkyValue {
       public void serialize(SerializationContext context, Key obj, CodedOutputStream codedOut)
           throws SerializationException, IOException {
         @SuppressWarnings("unchecked")
-        ConcurrentMap<BuildConfigurationValue.Key, byte[]> cache =
+        ConcurrentMap<BuildConfigurationValue.Key, ByteString> cache =
             context.getDependency(KeyCodecCache.class).map;
-        byte[] bytes = cache.get(obj);
+        ByteString bytes = cache.get(obj);
         if (bytes == null) {
           context = context.getNewNonMemoizingContext();
-          ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-          CodedOutputStream bytesOut = CodedOutputStream.newInstance(byteArrayOutputStream);
+          ByteString.Output byteStringOut = ByteString.newOutput();
+          CodedOutputStream bytesOut = CodedOutputStream.newInstance(byteStringOut);
           context.serialize(obj.optionsDiff, bytesOut);
           bytesOut.flush();
-          byteArrayOutputStream.flush();
-          int optionsDiffSerializedSize = byteArrayOutputStream.toByteArray().length;
+          byteStringOut.flush();
+          int optionsDiffSerializedSize = byteStringOut.size();
           context.serialize(obj.fragments, bytesOut);
           bytesOut.flush();
-          byteArrayOutputStream.flush();
-          bytes = byteArrayOutputStream.toByteArray();
+          byteStringOut.flush();
+          bytes = byteStringOut.toByteString();
           cache.put(obj, bytes);
           logger.info(
               "Serialized "
@@ -174,20 +174,18 @@ public class BuildConfigurationValue implements SkyValue {
                   + " and "
                   + obj.fragments
                   + " to "
-                  + bytes.length
+                  + bytes.size()
                   + " bytes (optionsDiff took "
                   + optionsDiffSerializedSize
                   + " bytes)");
         }
-        codedOut.writeInt32NoTag(bytes.length);
-        codedOut.writeRawBytes(bytes);
+        codedOut.writeBytesNoTag(bytes);
       }
 
       @Override
       public Key deserialize(DeserializationContext context, CodedInputStream codedIn)
           throws SerializationException, IOException {
-        byte[] serializedBytes = codedIn.readRawBytes(codedIn.readInt32());
-        codedIn = CodedInputStream.newInstance(serializedBytes);
+        codedIn = codedIn.readBytes().newCodedInput();
         context = context.getNewNonMemoizingContext();
         BuildOptions.OptionsDiffForReconstruction optionsDiff = context.deserialize(codedIn);
         FragmentClassSet fragmentClassSet = context.deserialize(codedIn);
@@ -205,7 +203,7 @@ public class BuildConfigurationValue implements SkyValue {
    * isolated.
    */
   public static class KeyCodecCache {
-    private final ConcurrentMap<BuildConfigurationValue.Key, byte[]> map =
+    private final ConcurrentMap<BuildConfigurationValue.Key, ByteString> map =
         new ConcurrentHashMap<>();
 
     public KeyCodecCache() {}

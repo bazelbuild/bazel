@@ -79,21 +79,26 @@ public class HttpFileRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = http_file, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
- <p>Downloads a file from a URL and makes it available to be used as a file group.</p>
+<p>Downloads a file from a URL and makes it available to be used as a file group.</p>
 
- <h4 id="http_file_examples">Examples</h4>
+<h4 id="http_file_examples">Examples</h4>
 
- <p>Suppose you need to have a debian package for your custom rules. This package is available from
- <i>http://example.com/package.deb</i>. Then you can add to your WORKSPACE file:</p>
+<p>Suppose you need to have a debian package for your custom rules. This package is available from
+<i>http://example.com/package.deb</i>. Then you can add to your WORKSPACE file:</p>
 
- <pre class="code">
- http_file(
-    name = "my_deb",
-    url = "http://example.com/package.deb",
-    sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
- )
- </pre>
+<pre class="code">
+http_file(
+   name = "my_deb",
+   url = "http://example.com/package.deb",
+   sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
+)
+</pre>
 
- <p>Targets would specify <code>@my_deb//file</code> as a dependency to depend on this file.</p>
+<p>Targets would specify <code>@my_deb//file</code> as a dependency to depend on this file.</p>
 
- <!-- #END_BLAZE_RULE -->*/
+<p>You may also reference files on the current system (localhost) by using "file:///path/to/file"
+if you are on Unix-based systems. If you're on Windows, use "file:///c:/path/to/file". In both
+examples, note the three slashes (<code>/</code>) -- the first two slashes belong to
+<code>file://</code> and the third one belongs to the absolute path to the file.</p>
+
+<!-- #END_BLAZE_RULE -->*/

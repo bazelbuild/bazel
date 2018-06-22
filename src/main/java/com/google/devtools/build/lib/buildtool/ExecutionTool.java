@@ -25,7 +25,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -34,20 +33,20 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
-import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
+import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -55,7 +54,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.ActionContextConsumer;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
@@ -68,6 +66,7 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -75,12 +74,12 @@ import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.OutputService;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -117,7 +116,7 @@ public class ExecutionTool {
   private final BlazeRuntime runtime;
   private final BuildRequest request;
   private BlazeExecutor executor;
-  private final ActionInputFileCache fileCache;
+  private final MetadataProvider fileCache;
   private final ActionInputPrefetcher prefetcher;
   private final ImmutableList<ActionContextProvider> actionContextProviders;
   private SpawnActionContextMaps spawnActionContextMaps;
@@ -129,23 +128,24 @@ public class ExecutionTool {
 
     // Create tools before getting the strategies from the modules as some of them need tools to
     // determine whether the host actually supports certain strategies (e.g. sandboxing).
-    createToolsSymlinks();
+    try (SilentCloseable closeable = Profiler.instance().profile("createToolsSymlinks")) {
+      createToolsSymlinks();
+    }
 
     ExecutorBuilder builder = new ExecutorBuilder();
     for (BlazeModule module : runtime.getBlazeModules()) {
-      module.executorInit(env, request, builder);
+      try (SilentCloseable closeable = Profiler.instance().profile(module + ".executorInit")) {
+        module.executorInit(env, request, builder);
+      }
     }
     builder.addActionContext(new SymlinkTreeStrategy(
                 env.getOutputService(), env.getBlazeWorkspace().getBinTools()));
     // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
     // these dependencies should be added to the ActionContextConsumer of the module that actually
     // depends on them.
-    builder.addActionContextConsumer(
-        b -> {
-          b.strategyByContextMap()
-              .put(WorkspaceStatusAction.Context.class, "")
-              .put(SymlinkTreeActionContext.class, "");
-        });
+    builder
+        .addStrategyByContext(WorkspaceStatusAction.Context.class, "")
+        .addStrategyByContext(SymlinkTreeActionContext.class, "");
 
     // Unfortunately, the exec root cache is not shared with caches in the remote execution client.
     this.fileCache =
@@ -155,20 +155,17 @@ public class ExecutionTool {
 
     this.actionContextProviders = builder.getActionContextProviders();
     for (ActionContextProvider provider : actionContextProviders) {
-      provider.init(fileCache);
+      try (SilentCloseable closeable = Profiler.instance().profile(provider + ".init")) {
+        provider.init(fileCache);
+      }
     }
 
     // There are many different SpawnActions, and we want to control the action context they use
     // independently from each other, for example, to run genrules locally and Java compile action
     // in prod. Thus, for SpawnActions, we decide the action context to use not only based on the
     // context class, but also the mnemonic of the action.
-    SpawnActionContextMaps.Builder spawnActionContextMapsBuilder =
-        new SpawnActionContextMaps.Builder();
-    for (ActionContextConsumer consumer : builder.getActionContextConsumers()) {
-      consumer.populate(spawnActionContextMapsBuilder);
-    }
     spawnActionContextMaps =
-        spawnActionContextMapsBuilder.build(
+        builder.getSpawnActionContextMapsBuilder().build(
             actionContextProviders, request.getOptions(ExecutionOptions.class).testStrategy);
   }
 
@@ -221,7 +218,6 @@ public class ExecutionTool {
       UUID buildId,
       AnalysisResult analysisResult,
       BuildResult buildResult,
-      BuildConfigurationCollection configurations,
       PackageRoots packageRoots,
       TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
@@ -236,12 +232,16 @@ public class ExecutionTool {
     OutputService outputService = env.getOutputService();
     ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
     if (outputService != null) {
-      modifiedOutputFiles =
-          outputService.startBuild(
-              env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
+      try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
+        modifiedOutputFiles =
+            outputService.startBuild(
+                env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
+      }
     } else {
       // TODO(bazel-team): this could be just another OutputService
-      startLocalOutputBuild();
+      try (SilentCloseable c = Profiler.instance().profile("startLocalOutputBuild")) {
+        startLocalOutputBuild();
+      }
     }
 
     // Must be created after the output path is created above.
@@ -261,19 +261,26 @@ public class ExecutionTool {
                 .distinct()
                 .map((key) -> env.getSkyframeExecutor().getConfiguration(env.getReporter(), key))
                 .collect(toImmutableSet())
-            : ImmutableSet.copyOf(configurations.getTargetConfigurations());
+            : ImmutableSet.copyOf(
+                analysisResult.getConfigurationCollection().getTargetConfigurations());
     String productName = runtime.getProductName();
     String workspaceName = env.getWorkspaceName();
-    OutputDirectoryLinksUtils.createOutputDirectoryLinks(
-        workspaceName, env.getWorkspace(), env.getDirectories().getExecRoot(workspaceName),
-        env.getDirectories().getOutputPath(workspaceName), getReporter(), targetConfigurations,
-        request.getBuildOptions().getSymlinkPrefix(productName), productName);
+    try (SilentCloseable c =
+        Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
+      OutputDirectoryLinksUtils.createOutputDirectoryLinks(
+          workspaceName, env.getWorkspace(), env.getDirectories().getExecRoot(workspaceName),
+          env.getDirectories().getOutputPath(workspaceName), getReporter(), targetConfigurations,
+          request.getBuildOptions().getSymlinkPrefix(productName), productName);
+    }
 
     ActionCache actionCache = getActionCache();
     actionCache.resetStatistics();
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-    Builder builder = createBuilder(
-        request, actionCache, skyframeExecutor, modifiedOutputFiles);
+    Builder builder;
+    try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
+      builder = createBuilder(
+          request, actionCache, skyframeExecutor, modifiedOutputFiles);
+    }
 
     //
     // Execution proper.  All statements below are logically nested in
@@ -281,7 +288,9 @@ public class ExecutionTool {
     //
 
     Collection<ConfiguredTarget> configuredTargets = buildResult.getActualTargets();
-    env.getEventBus().post(new ExecutionStartingEvent(configuredTargets));
+    try (SilentCloseable c = Profiler.instance().profile("ExecutionStartingEvent")) {
+      env.getEventBus().post(new ExecutionStartingEvent(configuredTargets));
+    }
 
     getReporter().handle(Event.progress("Building..."));
 
@@ -316,7 +325,10 @@ public class ExecutionTool {
     boolean buildCompleted = false;
     try {
       for (ActionContextProvider actionContextProvider : actionContextProviders) {
-        actionContextProvider.executionPhaseStarting(actionGraph, allArtifactsForProviders);
+        try (SilentCloseable c =
+            Profiler.instance().profile(actionContextProvider + ".executionPhaseStarting")) {
+          actionContextProvider.executionPhaseStarting(actionGraph, allArtifactsForProviders);
+        }
       }
       executor.executionPhaseStarting();
       skyframeExecutor.drainChangedFiles();
@@ -324,11 +336,15 @@ public class ExecutionTool {
       if (request.getViewOptions().discardAnalysisCache
           || !skyframeExecutor.tracksStateForIncrementality()) {
         // Free memory by removing cache entries that aren't going to be needed.
-        env.getSkyframeBuildView()
-            .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
+        try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
+          env.getSkyframeBuildView()
+              .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
+        }
       }
 
-      configureResourceManager(request);
+      try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
+        configureResourceManager(request);
+      }
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
 
@@ -378,7 +394,7 @@ public class ExecutionTool {
       env.getEventBus()
           .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
 
-      try (AutoProfiler p = AutoProfiler.profiled("Show results", ProfilerTask.INFO)) {
+      try (SilentCloseable c = Profiler.instance().profile("Show results")) {
         buildResult.setSuccessfulTargets(
             determineSuccessfulTargets(configuredTargets, builtTargets));
         buildResult.setSuccessfulAspects(determineSuccessfulAspects(aspects, builtAspects));
@@ -388,7 +404,7 @@ public class ExecutionTool {
             analysisResult.getTargetsToSkip(), analysisResult.getAspects());
       }
 
-      try (AutoProfiler p = AutoProfiler.profiled("Show artifacts", ProfilerTask.INFO)) {
+      try (SilentCloseable c = Profiler.instance().profile("Show artifacts")) {
         if (request.getBuildOptions().showArtifacts) {
           BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
           buildResultPrinter.showArtifacts(
@@ -420,7 +436,7 @@ public class ExecutionTool {
     Profiler.instance().markPhase(ProfilePhase.PREPARE);
 
     // Plant the symlink forest.
-    try {
+    try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
       new SymlinkForest(
               packageRootMap.get(), getExecRoot(), runtime.getProductName(), env.getWorkspaceName())
           .plantSymlinkForest();
@@ -453,7 +469,7 @@ public class ExecutionTool {
    * Prepare for a local output build.
    */
   private void startLocalOutputBuild() throws ExecutorInitException {
-    try (AutoProfiler p = AutoProfiler.profiled("Starting local output build", ProfilerTask.INFO)) {
+    try (SilentCloseable c = Profiler.instance().profile("Starting local output build")) {
       Path outputPath = env.getDirectories().getOutputPath(env.getWorkspaceName());
       Path localOutputPath = env.getDirectories().getLocalOutputPath();
 

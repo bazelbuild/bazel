@@ -29,7 +29,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -94,7 +93,7 @@ public final class Actions {
    * @throws ActionConflictException iff there are two actions generate the same output
    */
   public static GeneratingActions findAndThrowActionConflict(
-      ActionKeyContext actionKeyContext, List<ActionAnalysisMetadata> actions)
+      ActionKeyContext actionKeyContext, ImmutableList<ActionAnalysisMetadata> actions)
       throws ActionConflictException {
     return Actions.maybeFilterSharedActionsAndThrowIfConflict(
         actionKeyContext, actions, /*allowSharedAction=*/ false);
@@ -111,7 +110,7 @@ public final class Actions {
    *     output
    */
   public static GeneratingActions filterSharedActionsAndThrowActionConflict(
-      ActionKeyContext actionKeyContext, List<? extends ActionAnalysisMetadata> actions)
+      ActionKeyContext actionKeyContext, ImmutableList<ActionAnalysisMetadata> actions)
       throws ActionConflictException {
     return Actions.maybeFilterSharedActionsAndThrowIfConflict(
         actionKeyContext, actions, /*allowSharedAction=*/ true);
@@ -119,7 +118,7 @@ public final class Actions {
 
   private static GeneratingActions maybeFilterSharedActionsAndThrowIfConflict(
       ActionKeyContext actionKeyContext,
-      List<? extends ActionAnalysisMetadata> actions,
+      ImmutableList<ActionAnalysisMetadata> actions,
       boolean allowSharedAction)
       throws ActionConflictException {
     Map<Artifact, Integer> generatingActions = new HashMap<>();
@@ -314,11 +313,11 @@ public final class Actions {
     public static final GeneratingActions EMPTY =
         new GeneratingActions(ImmutableList.of(), ImmutableMap.of());
 
-    private final List<? extends ActionAnalysisMetadata> actions;
+    private final ImmutableList<ActionAnalysisMetadata> actions;
     private final ImmutableMap<Artifact, Integer> generatingActionIndex;
 
     private GeneratingActions(
-        List<? extends ActionAnalysisMetadata> actions,
+        ImmutableList<ActionAnalysisMetadata> actions,
         ImmutableMap<Artifact, Integer> generatingActionIndex) {
       this.actions = actions;
       this.generatingActionIndex = generatingActionIndex;
@@ -338,7 +337,7 @@ public final class Actions {
       return generatingActionIndex;
     }
 
-    public List<? extends ActionAnalysisMetadata> getActions() {
+    public ImmutableList<ActionAnalysisMetadata> getActions() {
       return actions;
     }
   }

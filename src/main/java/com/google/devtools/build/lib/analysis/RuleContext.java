@@ -98,11 +98,9 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -181,7 +179,6 @@ public final class RuleContext extends TargetContext
   private final ImmutableSet<String> disabledFeatures;
   private final String ruleClassNameForLogging;
   private final BuildConfiguration hostConfiguration;
-  private final PatchTransition disableLipoTransition;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
   private final ErrorReporter reporter;
@@ -227,7 +224,6 @@ public final class RuleContext extends TargetContext
     this.disabledFeatures = ImmutableSortedSet.copyOf(allDisabledFeatures);
     this.ruleClassNameForLogging = ruleClassNameForLogging;
     this.hostConfiguration = builder.hostConfiguration;
-    this.disableLipoTransition = builder.disableLipoTransition;
     reporter = builder.reporter;
     this.toolchainContext = toolchainContext;
     this.constraintSemantics = constraintSemantics;
@@ -975,6 +971,19 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns the declared provider (native and Skylark) for the specified constructor under the
+   * specified attribute of this target in the BUILD file. May return null if there is no
+   * TransitiveInfoCollection under the specified attribute.
+   */
+  @Nullable
+  public <T extends Info> T getPrerequisite(
+      String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
+    TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
+    return prerequisite == null ? null : prerequisite.get(skylarkKey);
+  }
+
+
+  /**
    * Returns all the providers of the specified type that are listed under the specified attribute
    * of this target in the BUILD file, and that contain the specified provider.
    */
@@ -1050,26 +1059,6 @@ public final class RuleContext extends TargetContext
 
   public Expander getExpander() {
     return new Expander(this, getConfigurationMakeVariableContext());
-  }
-
-  public ImmutableMap<String, String> getMakeVariables(Iterable<String> attributeNames) {
-    ArrayList<TemplateVariableInfo> templateVariableInfos = new ArrayList<>();
-
-    for (String attributeName : attributeNames) {
-      // TODO(b/37567440): Remove this continue statement.
-      if (!attributes().has(attributeName)) {
-        continue;
-      }
-      Iterables.addAll(templateVariableInfos, getPrerequisites(
-          attributeName, Mode.DONT_CHECK, TemplateVariableInfo.PROVIDER));
-    }
-
-    LinkedHashMap<String, String> makeVariables = new LinkedHashMap<>();
-    for (TemplateVariableInfo templateVariableInfo : templateVariableInfos) {
-      makeVariables.putAll(templateVariableInfo.getVariables());
-    }
-
-    return ImmutableMap.copyOf(makeVariables);
   }
 
   /**
@@ -1410,6 +1399,7 @@ public final class RuleContext extends TargetContext
   /**
    * Builder class for a RuleContext.
    */
+  @VisibleForTesting
   public static final class Builder implements RuleErrorConsumer  {
     private final AnalysisEnvironment env;
     private final Rule rule;
@@ -1417,7 +1407,6 @@ public final class RuleContext extends TargetContext
     private ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
     private final BuildConfiguration configuration;
     private final BuildConfiguration hostConfiguration;
-    private PatchTransition disableLipoTransition;
     private final PrerequisiteValidator prerequisiteValidator;
     private final ErrorReporter reporter;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
@@ -1428,13 +1417,13 @@ public final class RuleContext extends TargetContext
     private ToolchainContext toolchainContext;
     private ConstraintSemantics constraintSemantics;
 
-    Builder(
+    @VisibleForTesting
+    public Builder(
         AnalysisEnvironment env,
         Rule rule,
         ImmutableList<Aspect> aspects,
         BuildConfiguration configuration,
         BuildConfiguration hostConfiguration,
-        PatchTransition disableLipoTransition,
         PrerequisiteValidator prerequisiteValidator,
         ConfigurationFragmentPolicy configurationFragmentPolicy) {
       this.env = Preconditions.checkNotNull(env);
@@ -1443,12 +1432,12 @@ public final class RuleContext extends TargetContext
       this.configurationFragmentPolicy = Preconditions.checkNotNull(configurationFragmentPolicy);
       this.configuration = Preconditions.checkNotNull(configuration);
       this.hostConfiguration = Preconditions.checkNotNull(hostConfiguration);
-      this.disableLipoTransition = disableLipoTransition;
       this.prerequisiteValidator = prerequisiteValidator;
       reporter = new ErrorReporter(env, rule, getRuleClassNameForLogging());
     }
 
-    RuleContext build() {
+    @VisibleForTesting
+    public RuleContext build() {
       Preconditions.checkNotNull(prerequisiteMap);
       Preconditions.checkNotNull(configConditions);
       Preconditions.checkNotNull(visibility);
@@ -1475,7 +1464,7 @@ public final class RuleContext extends TargetContext
       rule.getRuleClassObject().checkAttributesNonEmpty(rule, reporter, attributes);
     }
 
-    Builder setVisibility(NestedSet<PackageGroupContents> visibility) {
+    public Builder setVisibility(NestedSet<PackageGroupContents> visibility) {
       this.visibility = visibility;
       return this;
     }
@@ -1484,7 +1473,7 @@ public final class RuleContext extends TargetContext
      * Sets the prerequisites and checks their visibility. It also generates appropriate error or
      * warning messages and sets the error flag as appropriate.
      */
-    Builder setPrerequisites(
+    public Builder setPrerequisites(
         OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap) {
       this.prerequisiteMap = Preconditions.checkNotNull(prerequisiteMap);
       return this;
@@ -1493,7 +1482,7 @@ public final class RuleContext extends TargetContext
     /**
      * Adds attributes which are defined by an Aspect (and not by RuleClass).
      */
-    Builder setAspectAttributes(Map<String, Attribute> aspectAttributes) {
+    public Builder setAspectAttributes(Map<String, Attribute> aspectAttributes) {
       this.aspectAttributes = ImmutableMap.copyOf(aspectAttributes);
       return this;
     }
@@ -1502,7 +1491,8 @@ public final class RuleContext extends TargetContext
      * Sets the configuration conditions needed to determine which paths to follow for this
      * rule's configurable attributes.
      */
-    Builder setConfigConditions(ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
+    public Builder setConfigConditions(
+        ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
       this.configConditions = Preconditions.checkNotNull(configConditions);
       return this;
     }
@@ -1510,7 +1500,7 @@ public final class RuleContext extends TargetContext
     /**
      * Sets the fragment that can be legally accessed even when not explicitly declared.
      */
-    Builder setUniversalFragments(
+    public Builder setUniversalFragments(
         ImmutableList<Class<? extends BuildConfiguration.Fragment>> fragments) {
       // TODO(bazel-team): Add this directly to ConfigurationFragmentPolicy, so we
       // don't need separate logic specifically for checking this fragment. The challenge is
@@ -1521,12 +1511,12 @@ public final class RuleContext extends TargetContext
     }
 
     /** Sets the {@link ToolchainContext} used to access toolchains used by this rule. */
-    Builder setToolchainContext(ToolchainContext toolchainContext) {
+    public Builder setToolchainContext(ToolchainContext toolchainContext) {
       this.toolchainContext = toolchainContext;
       return this;
     }
 
-    Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
+    public Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
       this.constraintSemantics = constraintSemantics;
       return this;
     }

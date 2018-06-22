@@ -15,12 +15,10 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.UnsafeProvider;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.util.Arrays;
 
 /**
@@ -31,40 +29,13 @@ import java.util.Arrays;
 public class UnsafeJdk9StringCodec implements ObjectCodec<String> {
   @VisibleForTesting
   public static boolean canUseUnsafeCodec() {
-    return getVersion() > 1.8;
+    return StringUnsafe.canUse();
   }
 
-  private static double getVersion() {
-    String version = System.getProperty("java.version");
-    int pos = version.indexOf('.');
-    pos = version.indexOf('.', pos + 1);
-    return Double.parseDouble(version.substring(0, pos));
-  }
-
-  private final Constructor<String> constructor;
-  private final long valueOffset;
-  private final long coderOffset;
+  private final StringUnsafe stringUnsafe;
 
   public UnsafeJdk9StringCodec() {
-    Field valueField;
-    Field coderField;
-    try {
-      this.constructor = String.class.getDeclaredConstructor(byte[].class, byte.class);
-      valueField = String.class.getDeclaredField("value");
-      coderField = String.class.getDeclaredField("coder");
-    } catch (ReflectiveOperationException e) {
-      throw new IllegalStateException(
-          "Bad fields/constructor: "
-              + Arrays.toString(String.class.getDeclaredConstructors())
-              + ", "
-              + Arrays.toString(String.class.getDeclaredFields()),
-          e);
-    }
-    this.constructor.setAccessible(true);
-    valueField.setAccessible(true);
-    valueOffset = UnsafeProvider.getInstance().objectFieldOffset(valueField);
-    coderField.setAccessible(true);
-    coderOffset = UnsafeProvider.getInstance().objectFieldOffset(coderField);
+    stringUnsafe = StringUnsafe.getInstance();
   }
 
   @Override
@@ -84,8 +55,8 @@ public class UnsafeJdk9StringCodec implements ObjectCodec<String> {
   @Override
   public void serialize(SerializationContext context, String obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    byte coder = UnsafeProvider.getInstance().getByte(obj, coderOffset);
-    byte[] value = (byte[]) UnsafeProvider.getInstance().getObject(obj, valueOffset);
+    byte coder = stringUnsafe.getCoder(obj);
+    byte[] value = stringUnsafe.getByteArray(obj);
     // Optimize for the case that coder == 0, in which case we can just write the length here,
     // potentially using just one byte. If coder != 0, we'll use 4 bytes, but that's vanishingly
     // rare.
@@ -112,7 +83,7 @@ public class UnsafeJdk9StringCodec implements ObjectCodec<String> {
     }
     byte[] value = codedIn.readRawBytes(length);
     try {
-      return constructor.newInstance(value, coder);
+      return stringUnsafe.newInstance(value, coder);
     } catch (ReflectiveOperationException e) {
       throw new SerializationException(
           "Could not instantiate string: " + Arrays.toString(value) + ", " + coder, e);

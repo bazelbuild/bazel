@@ -28,10 +28,10 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFut
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
-import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
@@ -61,7 +61,7 @@ public class ParallelSkyQueryUtils {
   static QueryTaskFuture<Void> getAllRdepsUnboundedParallel(
       SkyQueryEnvironment env,
       QueryExpression expression,
-      VariableContext<Target> context,
+      QueryExpressionContext<Target> context,
       Callback<Target> callback,
       MultisetSemaphore<PackageIdentifier> packageSemaphore) {
     return env.eval(
@@ -79,7 +79,7 @@ public class ParallelSkyQueryUtils {
       SkyQueryEnvironment env,
       QueryExpression expression,
       int depth,
-      VariableContext<Target> context,
+      QueryExpressionContext<Target> context,
       Callback<Target> callback,
       MultisetSemaphore<PackageIdentifier> packageSemaphore) {
     return env.eval(
@@ -98,7 +98,7 @@ public class ParallelSkyQueryUtils {
       SkyQueryEnvironment env,
       QueryExpression expression,
       Predicate<SkyKey> universe,
-      VariableContext<Target> context,
+      QueryExpressionContext<Target> context,
       Callback<Target> callback,
       MultisetSemaphore<PackageIdentifier> packageSemaphore) {
     return env.eval(
@@ -111,7 +111,7 @@ public class ParallelSkyQueryUtils {
   static QueryTaskFuture<Predicate<SkyKey>> getDTCSkyKeyPredicateFuture(
       SkyQueryEnvironment env,
       QueryExpression expression,
-      VariableContext<Target> context,
+      QueryExpressionContext<Target> context,
       int processResultsBatchSize,
       int concurrencyLevel) {
     QueryTaskFuture<ThreadSafeMutableSet<Target>> universeValueFuture =
@@ -144,7 +144,7 @@ public class ParallelSkyQueryUtils {
       QueryExpression expression,
       int depth,
       Predicate<SkyKey> universe,
-      VariableContext<Target> context,
+      QueryExpressionContext<Target> context,
       Callback<Target> callback,
       MultisetSemaphore<PackageIdentifier> packageSemaphore) {
     return env.eval(
@@ -173,7 +173,7 @@ public class ParallelSkyQueryUtils {
   static QueryTaskFuture<Void> getDepsUnboundedParallel(
       SkyQueryEnvironment env,
       QueryExpression expression,
-      VariableContext<Target> context,
+      QueryExpressionContext<Target> context,
       Callback<Target> callback,
       MultisetSemaphore<PackageIdentifier> packageSemaphore,
       boolean depsNeedFiltering,
@@ -183,7 +183,7 @@ public class ParallelSkyQueryUtils {
         context,
         ParallelVisitor.createParallelVisitorCallback(
             new DepsUnboundedVisitor.Factory(
-                env, callback, packageSemaphore, depsNeedFiltering, errorReporter)));
+                env, callback, packageSemaphore, depsNeedFiltering, errorReporter, context)));
   }
 
   static class DepAndRdep {

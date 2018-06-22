@@ -119,6 +119,7 @@ _http_archive_attrs = {
     "build_file_content": attr.string(),
     "patches": attr.label_list(default = []),
     "patch_tool": attr.string(default = "patch"),
+    "patch_args": attr.string_list(default = ["-p0"]),
     "patch_cmds": attr.string_list(default = []),
     "workspace_file": attr.label(),
     "workspace_file_content": attr.string(),
@@ -239,6 +240,7 @@ Args:
   patches: A list of files that are to be applied as patches after extracting
     the archive.
   patch_tool: the patch(1) utility to use.
+  patch_args: arguments given to the patch tool, defaults to ["-p0"]
   patch_cmds: sequence of commands to be applied after patches are applied.
 """
 
@@ -313,6 +315,11 @@ Examples:
   ```
 
   Targets would specify <code>@my_ssl//jar</code> as a dependency to depend on this jar.
+
+  You may also reference files on the current system (localhost) by using "file:///path/to/file"
+  if you are on Unix-based systems. If you're on Windows, use "file:///c:/path/to/file". In both
+  examples, note the three slashes (`/`) -- the first two slashes belong to `file://` and the third
+  one belongs to the absolute path to the file.
 
 
 Args:

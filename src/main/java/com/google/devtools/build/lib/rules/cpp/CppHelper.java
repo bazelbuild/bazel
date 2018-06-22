@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -68,7 +67,6 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -200,7 +198,8 @@ public class CppHelper {
     List<String> result = new ArrayList<>();
     Expander expander = ruleContext.getExpander().withDataExecLocations();
     for (String value : values) {
-      if (isLinkoptLabel(value)) {
+      if (ruleContext.getFragment(CppConfiguration.class).getExpandLinkoptsLabels()
+          && isLinkoptLabel(value)) {
         if (!expandLabel(ruleContext, result, value)) {
           ruleContext.attributeError(attrName, "could not resolve label '" + value + "'");
         }
@@ -227,11 +226,9 @@ public class CppHelper {
       CppConfiguration config, CcToolchainProvider toolchain, boolean sharedLib) {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
-          toolchain.getLegacyMostlyStaticLinkFlags(
-              config.getCompilationMode(), config.getLipoMode()));
+          toolchain.getLegacyMostlyStaticLinkFlags(config.getCompilationMode()));
     } else {
-      return toolchain.getLegacyFullyStaticLinkFlags(
-          config.getCompilationMode(), config.getLipoMode());
+      return toolchain.getLegacyFullyStaticLinkFlags(config.getCompilationMode());
     }
   }
 
@@ -251,13 +248,10 @@ public class CppHelper {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
           shouldStaticallyLinkCppRuntimes
-              ? toolchain.getLegacyMostlyStaticSharedLinkFlags(
-                  config.getCompilationMode(), config.getLipoMode())
-              : toolchain.getLegacyDynamicLinkFlags(
-                  config.getCompilationMode(), config.getLipoMode()));
+              ? toolchain.getLegacyMostlyStaticSharedLinkFlags(config.getCompilationMode())
+              : toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode()));
     } else {
-      return toolchain.getLegacyMostlyStaticLinkFlags(
-          config.getCompilationMode(), config.getLipoMode());
+      return toolchain.getLegacyMostlyStaticLinkFlags(config.getCompilationMode());
     }
   }
 
@@ -275,9 +269,9 @@ public class CppHelper {
       Boolean sharedLib) {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
-          toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()));
+          toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode()));
     } else {
-      return toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode());
+      return toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode());
     }
   }
 
@@ -305,7 +299,11 @@ public class CppHelper {
   private static boolean expandLabel(
       RuleContext ruleContext, List<String> linkopts, String labelName) {
     try {
-      Label label = ruleContext.getLabel().getRelative(labelName);
+      Label label =
+          ruleContext
+              .getLabel()
+              .getRelativeWithRemapping(
+                  labelName, ruleContext.getRule().getPackage().getRepositoryMapping());
       for (String prereqKind : LINKOPTS_PREREQUISITE_LABEL_KINDS) {
         for (TransitiveInfoCollection target : ruleContext
             .getPrerequisitesIf(prereqKind, Mode.TARGET, FileProvider.class)) {
@@ -322,28 +320,6 @@ public class CppHelper {
     }
     linkopts.add(labelName);
     return false;
-  }
-
-  /**
-   * Returns the dynamic linking mode (full, off, or default) implied by the given configuration and
-   * toolchain.
-   */
-  public static DynamicMode getDynamicMode(CppConfiguration config, CcToolchainProvider toolchain) {
-    // With LLVM, ThinLTO is automatically used in place of LIPO. ThinLTO works fine with dynamic
-    // linking (and in fact creates a lot more work when dynamic linking is off).
-    if (config.getLipoMode() == LipoMode.BINARY && !toolchain.isLLVMCompiler()) {
-      // TODO(bazel-team): implement dynamic linking with LIPO
-      return DynamicMode.OFF;
-    } else {
-      return config.getDynamicModeFlag();
-    }
-  }
-
-  /** Returns true if LIPO optimization should be applied for this configuration and toolchain. */
-  public static boolean isLipoOptimization(CppConfiguration config, CcToolchainProvider toolchain) {
-    // The LIPO optimization bits are set in the LIPO context collector configuration, too.
-    // If compiler is LLVM, then LIPO gets auto-converted to ThinLTO.
-    return config.lipoOptimizationIsActivated() && !toolchain.isLLVMCompiler();
   }
 
   /**
@@ -584,8 +560,16 @@ public class CppHelper {
 
   private static Artifact getIncludesOutput(RuleContext ruleContext, Artifact src) {
     Preconditions.checkArgument(!src.isSourceArtifact(), src);
+    PathFragment pkgPath = ruleContext.getLabel().getPackageFragment();
+    PathFragment fileName = src.getRootRelativePath();
+    if (fileName.startsWith(pkgPath)) {
+      // In most cases actions grep the includes of files that they create and that are located
+      // within their own package. In this case, don't duplicate the package path underneath the
+      // actions genfiles directory.
+      fileName = fileName.relativeTo(pkgPath);
+    }
     return ruleContext.getGenfilesArtifact(
-        src.getRootRelativePath().replaceName(src.getFilename() + GREPPED_INCLUDES_SUFFIX));
+        fileName.replaceName(src.getFilename() + GREPPED_INCLUDES_SUFFIX));
   }
 
   /**
@@ -666,41 +650,6 @@ public class CppHelper {
     }
   }
 
-  public static void addTransitiveLipoInfoForCommonAttributes(
-      RuleContext ruleContext,
-      CcCompilationOutputs outputs,
-      NestedSetBuilder<IncludeScannable> scannableBuilder) {
-
-    TransitiveLipoInfoProvider stl = null;
-    if (ruleContext.getRule().getAttributeDefinition(":stl") != null
-        && ruleContext.getPrerequisite(":stl", Mode.TARGET) != null) {
-      // If the attribute is defined, it is never null.
-      stl = ruleContext.getPrerequisite(":stl", Mode.TARGET)
-          .getProvider(TransitiveLipoInfoProvider.class);
-    }
-    if (stl != null) {
-      scannableBuilder.addTransitive(stl.getTransitiveIncludeScannables());
-    }
-
-    for (TransitiveLipoInfoProvider dep :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, TransitiveLipoInfoProvider.class)) {
-      scannableBuilder.addTransitive(dep.getTransitiveIncludeScannables());
-    }
-
-    if (ruleContext.attributes().has("malloc", LABEL)) {
-      TransitiveInfoCollection malloc = mallocForTarget(ruleContext);
-      TransitiveLipoInfoProvider provider = malloc.getProvider(TransitiveLipoInfoProvider.class);
-      if (provider != null) {
-        scannableBuilder.addTransitive(provider.getTransitiveIncludeScannables());
-      }
-    }
-
-    for (IncludeScannable scannable : outputs.getLipoScannables()) {
-      Preconditions.checkState(scannable.getIncludeScannerSources().size() == 1);
-      scannableBuilder.add(scannable);
-    }
-  }
-
   // TODO(bazel-team): figure out a way to merge these 2 methods. See the Todo in
   // CcCommonConfiguredTarget.noCoptsMatches().
   /**
@@ -727,29 +676,6 @@ public class CppHelper {
     }
     return config.forcePic()
         || (toolchain.toolchainNeedsPic() && config.getCompilationMode() != CompilationMode.OPT);
-  }
-
-  /**
-   * Returns true if shared libraries must be compiled with position independent code for the build
-   * implied by the given config and toolchain.
-   */
-
-  /**
-   * Returns the LIPO context provider for configured target,
-   * or null if such a provider doesn't exist.
-   */
-  public static LipoContextProvider getLipoContextProvider(RuleContext ruleContext) {
-    if (ruleContext
-            .getRule()
-            .getAttributeDefinition(TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR)
-        == null) {
-      return null;
-    }
-
-    TransitiveInfoCollection dep =
-        ruleContext.getPrerequisite(
-            TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, Mode.DONT_CHECK);
-    return (dep != null) ? dep.getProvider(LipoContextProvider.class) : null;
   }
 
   /**
@@ -855,30 +781,15 @@ public class CppHelper {
   public static String getFdoBuildStamp(RuleContext ruleContext, FdoSupport fdoSupport) {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     if (fdoSupport.isAutoFdoEnabled()) {
-      return (cppConfiguration.getLipoMode() == LipoMode.BINARY) ? "ALIPO" : "AFDO";
+      return "AFDO";
     }
     if (cppConfiguration.isFdo()) {
-      return (cppConfiguration.getLipoMode() == LipoMode.BINARY) ? "LIPO" : "FDO";
+      return "FDO";
+    }
+    if (fdoSupport.isXBinaryFdoEnabled()) {
+      return "XFDO";
     }
     return null;
-  }
-
-  /**
-   * Returns a relative path to the bin directory for data in AutoFDO LIPO mode.
-   */
-  public static PathFragment getLipoDataBinFragment(BuildConfiguration configuration) {
-    PathFragment parent = configuration.getBinFragment().getParentDirectory();
-    return parent.replaceName(parent.getBaseName() + "-lipodata")
-        .getChild(configuration.getBinFragment().getBaseName());
-  }
-
-  /**
-   * Returns a relative path to the genfiles directory for data in AutoFDO LIPO mode.
-   */
-  public static PathFragment getLipoDataGenfilesFragment(BuildConfiguration configuration) {
-    PathFragment parent = configuration.getGenfilesFragment().getParentDirectory();
-    return parent.replaceName(parent.getBaseName() + "-lipodata")
-        .getChild(configuration.getGenfilesFragment().getBaseName());
   }
 
   /** Creates an action to strip an executable. */
@@ -899,14 +810,13 @@ public class CppHelper {
       return;
     }
 
-    if (!featureConfiguration.actionIsConfigured(CppCompileAction.STRIP_ACTION_NAME)) {
+    if (!featureConfiguration.actionIsConfigured(CppActionNames.STRIP)) {
       context.ruleError("Expected action_config for 'strip' to be configured.");
       return;
     }
 
     Tool stripTool =
-        Preconditions.checkNotNull(
-            featureConfiguration.getToolForAction(CppCompileAction.STRIP_ACTION_NAME));
+        Preconditions.checkNotNull(featureConfiguration.getToolForAction(CppActionNames.STRIP));
     CcToolchainVariables variables =
         new CcToolchainVariables.Builder(toolchain.getBuildVariables())
             .addStringVariable(
@@ -916,8 +826,7 @@ public class CppHelper {
             .addStringVariable(CcCommon.INPUT_FILE_VARIABLE_NAME, input.getExecPathString())
             .build();
     ImmutableList<String> commandLine =
-        ImmutableList.copyOf(
-            featureConfiguration.getCommandLine(CppCompileAction.STRIP_ACTION_NAME, variables));
+        ImmutableList.copyOf(featureConfiguration.getCommandLine(CppActionNames.STRIP, variables));
     ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
     for (String executionRequirement : stripTool.getExecutionRequirements()) {
       executionInfoBuilder.put(executionRequirement, "");
@@ -1027,7 +936,9 @@ public class CppHelper {
       Artifact defParser,
       ImmutableList<Artifact> objectFiles,
       String dllName) {
-    Artifact defFile = ruleContext.getBinArtifact(ruleContext.getLabel().getName() + ".def");
+    Artifact defFile = ruleContext.getBinArtifact(
+        ruleContext.getLabel().getName()
+            + ".gen" + Iterables.getOnlyElement(CppFileTypes.WINDOWS_DEF_FILE.getExtensions()));
     CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
     for (Artifact objectFile : objectFiles) {
       argv.addDynamicString(objectFile.getExecPathString());

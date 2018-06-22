@@ -15,9 +15,12 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ApkInfoApi;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 import javax.annotation.Nullable;
 
 /** A provider for targets that produce an apk file. */
@@ -25,8 +28,11 @@ import javax.annotation.Nullable;
 public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
 
   private static final String SKYLARK_NAME = "ApkInfo";
-  public static final NativeProvider<ApkInfo> PROVIDER =
-      new NativeProvider<ApkInfo>(ApkInfo.class, SKYLARK_NAME) {};
+
+  /**
+   * Provider instance for {@link ApkInfo}.
+   */
+  public static final ApkInfoProvider PROVIDER = new ApkInfoProvider();
 
   private final Artifact apk;
   private final Artifact unsignedApk;
@@ -73,5 +79,20 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
   /* The keystore that was used to sign the apk returned from {@see getApk() */
   public Artifact getKeystore() {
     return keystore;
+  }
+
+  /** Provider for {@link ApkInfo}. */
+  public static class ApkInfoProvider extends BuiltinProvider<ApkInfo>
+      implements ApkInfoApiProvider {
+
+    private ApkInfoProvider() {
+      super(SKYLARK_NAME, ApkInfo.class);
+    }
+
+    @Override
+    public ApkInfoApi<?> createInfo(SkylarkDict<?, ?> kwargs, Location loc)
+        throws EvalException {
+      return throwUnsupportedConstructorException(loc);
+    }
   }
 }

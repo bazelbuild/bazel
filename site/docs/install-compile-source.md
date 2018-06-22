@@ -85,9 +85,9 @@ Bazel binary, without an embedded JDK. You can copy it to a directory in the
 1.  Open the MSYS2 shell.
 
 2.  Set the following environment variables:
-    *   `BAZEL_VS` or `BAZEL_VC`: Set to the path to the Visual Studio directory
-         or to the Visual C++ directory, respectively. Setting one of them is
-         enough.
+    *   Either `BAZEL_VS` or `BAZEL_VC` (they are *not* the same): Set to the
+        path to the Visual Studio directory (BAZEL\_V<b>S</b>) or to the Visual
+        C++ directory (BAZEL\_V<b>C</b>). Setting one of them is enough.
     *   `BAZEL_SH`: Set to the path of the MSYS2 `bash.exe`.
 
         Do not set this to `C:\Windows\System32\bash.exe`. (You have that file
@@ -96,7 +96,7 @@ Bazel binary, without an embedded JDK. You can copy it to a directory in the
     *   `PATH`: Add the Python directory.
     *   `JAVA_HOME`: Set to the JDK directory.
 
-    For example:
+    For example (using BAZEL\_V<b>S</b>):
 
         export BAZEL_VS="C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools"
         export BAZEL_SH="C:/msys64/usr/bin/bash.exe"
@@ -104,7 +104,7 @@ Bazel binary, without an embedded JDK. You can copy it to a directory in the
         export JAVA_HOME="C:/Program Files/Java/jdk1.8.0_112"
 
 
-    or
+    or (using BAZEL\_V<b>C</b>):
 
         export BAZEL_VC="C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC"
         export BAZEL_SH="c:/msys64/usr/bin/bash.exe"

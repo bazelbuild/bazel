@@ -23,9 +23,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -207,8 +207,7 @@ public class AbstractSpawnStrategyTest {
                 .setExitCode(23)
                 .setRunnerName("runner")
                 .build());
-    when(actionExecutionContext.getActionInputFileCache())
-        .thenReturn(mock(ActionInputFileCache.class));
+    when(actionExecutionContext.getMetadataProvider()).thenReturn(mock(MetadataProvider.class));
 
     Artifact input = new Artifact(scratch.file("/execroot/foo", "1"), rootDir);
     scratch.file("/execroot/out1", "123");

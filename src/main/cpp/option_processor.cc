@@ -27,6 +27,8 @@
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 
@@ -44,6 +46,10 @@ using std::vector;
 
 constexpr char WorkspaceLayout::WorkspacePrefix[];
 static std::vector<std::string> GetProcessedEnv();
+
+// Path to the system-wide bazelrc configuration file.
+// This is a mutable global for testing purposes only.
+const char* system_bazelrc_path = BAZEL_SYSTEM_BAZELRC_PATH;
 
 OptionProcessor::OptionProcessor(
     const WorkspaceLayout* workspace_layout,
@@ -136,7 +142,7 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
       "." + parsed_startup_options_->GetLowercaseProductName() + "rc";
 
   if (cmd_line_rc_file != nullptr) {
-    string rcFile = MakeAbsolute(cmd_line_rc_file);
+    string rcFile = blaze::AbsolutePathFromFlag(cmd_line_rc_file);
     if (!blaze_util::CanReadFile(rcFile)) {
       blaze_util::StringPrintf(error,
           "Error: Unable to read %s file '%s'.", rc_basename.c_str(),
@@ -185,6 +191,20 @@ vector<string> DedupeBlazercPaths(const vector<string>& paths) {
   return result;
 }
 
+string FindSystemWideRc() {
+  // MakeAbsoluteAndResolveWindowsEnvvars will standardize the form of the
+  // provided path. This also means we accept relative paths, which is
+  // is convenient for testing.
+  const string path = blaze_util::MakeAbsoluteAndResolveWindowsEnvvars(
+      system_bazelrc_path);
+  if (blaze_util::CanReadFile(path)) {
+    return path;
+  }
+  BAZEL_LOG(INFO) << "Looked for a system bazelrc at path '" << path
+                  << "', but none was found.";
+  return "";
+}
+
 string FindRcAlongsideBinary(const string& cwd, const string& path_to_binary) {
   const string path = blaze_util::IsAbsolute(path_to_binary)
                           ? path_to_binary
@@ -229,9 +249,13 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   if (SearchNullaryOption(cmd_line->startup_args, "master_bazelrc", true)) {
     const string workspace_rc =
         workspace_layout->GetWorkspaceRcPath(workspace, cmd_line->startup_args);
+    // TODO(b/36168162): Remove the alongside-binary rc file. (Part of GitHub
+    // issue #4502)
     const string binary_rc =
         internal::FindRcAlongsideBinary(cwd, cmd_line->path_to_binary);
-    const string system_rc = FindSystemWideBlazerc();
+    // TODO(b/36168162): This is not the desired order, see
+    // https://github.com/bazelbuild/bazel/issues/4502#issuecomment-372697374.
+    const string system_rc = internal::FindSystemWideRc();
     BAZEL_LOG(INFO)
         << "Looking for master bazelrcs in the following three paths: "
         << workspace_rc << ", " << binary_rc << ", " << system_rc;
@@ -385,7 +409,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
 }
 
 static bool IsValidEnvName(const char* p) {
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
   for (; *p && *p != '='; ++p) {
     if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
           (*p >= '0' && *p <= '9') || *p == '_')) {
@@ -396,7 +420,7 @@ static bool IsValidEnvName(const char* p) {
   return true;
 }
 
-#if defined(COMPILER_MSVC)
+#if defined(_WIN32)
 static void PreprocessEnvString(string* env_str) {
   static constexpr const char* vars_to_uppercase[] = {"PATH", "SYSTEMROOT",
                                                       "TEMP", "TEMPDIR", "TMP"};
@@ -413,7 +437,7 @@ static void PreprocessEnvString(string* env_str) {
   }
 }
 
-#elif defined(__CYGWIN__)  // not defined(COMPILER_MSVC)
+#elif defined(__CYGWIN__)  // not defined(_WIN32)
 
 static void PreprocessEnvString(string* env_str) {
   int pos = env_str->find_first_of('=');
@@ -424,7 +448,7 @@ static void PreprocessEnvString(string* env_str) {
   } else if (name == "TMP") {
     // A valid Windows path "c:/foo" is also a valid Unix path list of
     // ["c", "/foo"] so must use ConvertPath here. See GitHub issue #1684.
-    env_str->assign("TMP=" + ConvertPath(env_str->substr(pos + 1)));
+    env_str->assign("TMP=" + blaze_util::ConvertPath(env_str->substr(pos + 1)));
   }
 }
 
@@ -433,7 +457,7 @@ static void PreprocessEnvString(string* env_str) {
 static void PreprocessEnvString(const string* env_str) {
   // do nothing.
 }
-#endif  // defined(COMPILER_MSVC)
+#endif  // defined(_WIN32)
 
 static std::vector<std::string> GetProcessedEnv() {
   std::vector<std::string> processed_env;
@@ -477,7 +501,7 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
       // from multiple places.
       if (rcfile_indexes.find(source_path) != rcfile_indexes.end()) continue;
 
-      result.push_back("--rc_source=" + blaze::ConvertPath(source_path));
+      result.push_back("--rc_source=" + blaze_util::ConvertPath(source_path));
       rcfile_indexes[source_path] = cur_index;
       cur_index++;
     }
@@ -503,7 +527,7 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
   for (const string& env_var : env) {
     result.push_back("--client_env=" + env_var);
   }
-  result.push_back("--client_cwd=" + blaze::ConvertPath(cwd));
+  result.push_back("--client_cwd=" + blaze_util::ConvertPath(cwd));
   return result;
 }
 

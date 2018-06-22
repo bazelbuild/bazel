@@ -1289,7 +1289,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
       getConfiguredTarget("//test:my_rule");
       fail();
     } catch (AssertionError expected) {
-      assertThat(expected).hasMessageThat().contains("Invalid field for default provider: foo");
+      assertThat(expected).hasMessageThat()
+          .contains("unexpected keyword 'foo' in call to DefaultInfo");
     }
   }
 

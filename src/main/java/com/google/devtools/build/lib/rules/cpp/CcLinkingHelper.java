@@ -65,8 +65,8 @@ import javax.annotation.Nullable;
  * lower-level APIs in CppHelper and CppLinkActionBuilder.
  *
  * <p>Rules that want to use this class are required to have implicit dependencies on the toolchain,
- * the STL, the lipo context, and so on. Optionally, they can also have copts, and malloc
- * attributes, but note that these require explicit calls to the corresponding setter methods.
+ * the STL, and so on. Optionally, they can also have copts, and malloc attributes, but note that
+ * these require explicit calls to the corresponding setter methods.
  */
 public final class CcLinkingHelper {
 
@@ -162,8 +162,8 @@ public final class CcLinkingHelper {
 
   private final List<LibraryToLink> staticLibraries = new ArrayList<>();
   private final List<LibraryToLink> picStaticLibraries = new ArrayList<>();
-  private final List<LibraryToLink> dynamicLibraries = new ArrayList<>();
-  private final List<LibraryToLink> executionDynamicLibraries = new ArrayList<>();
+  private final List<LibraryToLink> dynamicLibrariesForLinking = new ArrayList<>();
+  private final List<LibraryToLink> dynamicLibrariesForRuntime = new ArrayList<>();
 
   private boolean checkDepsGenerateCpp = true;
   private boolean emitLinkActionsIfEmpty;
@@ -247,14 +247,14 @@ public final class CcLinkingHelper {
    * linker action) - this makes them available for linking to binary rules that depend on this
    * rule.
    */
-  public CcLinkingHelper addDynamicLibraries(Iterable<LibraryToLink> libraries) {
-    Iterables.addAll(dynamicLibraries, libraries);
+  public CcLinkingHelper addDynamicLibrariesForLinking(Iterable<LibraryToLink> libraries) {
+    Iterables.addAll(dynamicLibrariesForLinking, libraries);
     return this;
   }
 
   /** Add the corresponding files as dynamic libraries required at runtime */
-  public CcLinkingHelper addExecutionDynamicLibraries(Iterable<LibraryToLink> libraries) {
-    Iterables.addAll(executionDynamicLibraries, libraries);
+  public CcLinkingHelper addDynamicLibrariesForRuntime(Iterable<LibraryToLink> libraries) {
+    Iterables.addAll(dynamicLibrariesForRuntime, libraries);
     return this;
   }
 
@@ -466,8 +466,8 @@ public final class CcLinkingHelper {
     CcLinkingOutputs originalLinkingOutputs = ccLinkingOutputs;
     if (!(staticLibraries.isEmpty()
         && picStaticLibraries.isEmpty()
-        && dynamicLibraries.isEmpty()
-        && executionDynamicLibraries.isEmpty())) {
+        && dynamicLibrariesForLinking.isEmpty()
+        && dynamicLibrariesForRuntime.isEmpty())) {
 
       CcLinkingOutputs.Builder newOutputsBuilder = new CcLinkingOutputs.Builder();
       if (!ccOutputs.isEmpty()) {
@@ -478,7 +478,7 @@ public final class CcLinkingHelper {
             CcLinkingOutputs.getLibrariesByIdentifier(
                 Iterables.concat(
                     staticLibraries, picStaticLibraries,
-                    dynamicLibraries, executionDynamicLibraries));
+                    dynamicLibrariesForLinking, dynamicLibrariesForRuntime));
         ImmutableSetMultimap<String, LibraryToLink> linkedLibraryMap =
             originalLinkingOutputs.getLibrariesByIdentifier();
         for (String matchingIdentifier :
@@ -510,8 +510,8 @@ public final class CcLinkingHelper {
           newOutputsBuilder
               .addStaticLibraries(staticLibraries)
               .addPicStaticLibraries(picStaticLibraries)
-              .addDynamicLibraries(dynamicLibraries)
-              .addExecutionDynamicLibraries(executionDynamicLibraries)
+              .addDynamicLibraries(dynamicLibrariesForLinking)
+              .addDynamicLibrariesForRuntime(dynamicLibrariesForRuntime)
               .build();
     }
 
@@ -536,8 +536,9 @@ public final class CcLinkingHelper {
 
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
     ccLinkingInfoBuilder.setCcRunfiles(new CcRunfiles(cppStaticRunfiles, cppSharedRunfiles));
-    ccLinkingInfoBuilder.setCcExecutionDynamicLibraries(
-        collectExecutionDynamicLibraryArtifacts(ccLinkingOutputs.getDynamicLibrariesForRuntime()));
+    ccLinkingInfoBuilder.setCcDynamicLibrariesForRuntime(
+        collectDynamicLibrariesForRuntimeArtifacts(
+            ccLinkingOutputs.getDynamicLibrariesForRuntime()));
 
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     boolean forcePic = cppConfiguration.forcePic();
@@ -646,7 +647,7 @@ public final class CcLinkingHelper {
           if (!linkingStatically
               || (ccLinkingOutputs.getStaticLibraries().isEmpty()
                   && ccLinkingOutputs.getPicStaticLibraries().isEmpty())) {
-            builder.addExecutionDynamicLibraries(
+            builder.addDynamicLibrariesForRuntime(
                 LinkerInputs.toLibraryArtifacts(ccLinkingOutputs.getDynamicLibrariesForRuntime()));
           }
           builder.addLinkOpts(linkopts);
@@ -667,24 +668,25 @@ public final class CcLinkingHelper {
     return result.build();
   }
 
-  private CcExecutionDynamicLibraries collectExecutionDynamicLibraryArtifacts(
-      List<LibraryToLink> executionDynamicLibraries) {
-    Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(executionDynamicLibraries);
+  private CcDynamicLibrariesForRuntime collectDynamicLibrariesForRuntimeArtifacts(
+      List<LibraryToLink> dynamicLibrariesForRuntime) {
+    Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(dynamicLibrariesForRuntime);
     if (!Iterables.isEmpty(artifacts)) {
-      return new CcExecutionDynamicLibraries(NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
+      return new CcDynamicLibrariesForRuntime(NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
     }
 
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (CcLinkingInfo dep : ccLinkingInfos) {
-      CcExecutionDynamicLibraries ccExecutionDynamicLibraries =
-          dep.getCcExecutionDynamicLibraries();
-      if (ccExecutionDynamicLibraries != null) {
-        builder.addTransitive(ccExecutionDynamicLibraries.getExecutionDynamicLibraryArtifacts());
+      CcDynamicLibrariesForRuntime ccDynamicLibrariesForRuntime =
+          dep.getCcDynamicLibrariesForRuntime();
+      if (ccDynamicLibrariesForRuntime != null) {
+        builder.addTransitive(
+            ccDynamicLibrariesForRuntime.getDynamicLibrariesForRuntimeArtifacts());
       }
     }
     return builder.isEmpty()
-        ? CcExecutionDynamicLibraries.EMPTY
-        : new CcExecutionDynamicLibraries(builder.build());
+        ? CcDynamicLibrariesForRuntime.EMPTY
+        : new CcDynamicLibrariesForRuntime(builder.build());
   }
 
   /**
@@ -708,11 +710,6 @@ public final class CcLinkingHelper {
         linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER, "can only handle static links");
 
     CcLinkingOutputs.Builder result = new CcLinkingOutputs.Builder();
-    if (cppConfiguration.isLipoContextCollector()) {
-      // Don't try to create LIPO link actions in collector mode,
-      // because it needs some data that's not available at this point.
-      return result.build();
-    }
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     boolean usePicForBinaries = CppHelper.usePicForBinaries(ruleContext, ccToolchain);
     boolean usePicForDynamicLibs = CppHelper.usePicForDynamicLibraries(ruleContext, ccToolchain);
@@ -954,8 +951,9 @@ public final class CcLinkingHelper {
     // solibDir, instead we use the original interface library and dynamic library.
     if (neverlink
         || featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
-      result.addDynamicLibrary(interfaceLibrary == null ? dynamicLibrary : interfaceLibrary);
-      result.addExecutionDynamicLibrary(dynamicLibrary);
+      result.addDynamicLibraryForLinking(
+          interfaceLibrary == null ? dynamicLibrary : interfaceLibrary);
+      result.addDynamicLibraryForRuntime(dynamicLibrary);
     } else {
       Artifact implLibraryLinkArtifact =
           SolibSymlinkAction.getDynamicLibrarySymlink(
@@ -968,7 +966,7 @@ public final class CcLinkingHelper {
       LibraryToLink implLibraryLink =
           LinkerInputs.solibLibraryToLink(
               implLibraryLinkArtifact, dynamicLibrary.getArtifact(), libraryIdentifier);
-      result.addExecutionDynamicLibrary(implLibraryLink);
+      result.addDynamicLibraryForRuntime(implLibraryLink);
 
       LibraryToLink libraryLink;
       if (interfaceLibrary == null) {
@@ -986,7 +984,7 @@ public final class CcLinkingHelper {
             LinkerInputs.solibLibraryToLink(
                 libraryLinkArtifact, interfaceLibrary.getArtifact(), libraryIdentifier);
       }
-      result.addDynamicLibrary(libraryLink);
+      result.addDynamicLibraryForLinking(libraryLink);
     }
   }
 

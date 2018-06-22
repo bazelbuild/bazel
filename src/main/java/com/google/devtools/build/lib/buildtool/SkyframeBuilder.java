@@ -23,11 +23,11 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressRecei
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
@@ -73,16 +75,22 @@ public class SkyframeBuilder implements Builder {
   private final int numJobs;
   private final boolean finalizeActionsToOutputService;
   private final ModifiedFileSet modifiedOutputFiles;
-  private final ActionInputFileCache fileCache;
+  private final MetadataProvider fileCache;
   private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionCacheChecker actionCacheChecker;
   private final int progressReportInterval;
 
   @VisibleForTesting
-  public SkyframeBuilder(SkyframeExecutor skyframeExecutor, ActionCacheChecker actionCacheChecker,
-      boolean keepGoing, int numJobs, ModifiedFileSet modifiedOutputFiles,
-      boolean finalizeActionsToOutputService, ActionInputFileCache fileCache,
-      ActionInputPrefetcher actionInputPrefetcher, int progressReportInterval) {
+  public SkyframeBuilder(
+      SkyframeExecutor skyframeExecutor,
+      ActionCacheChecker actionCacheChecker,
+      boolean keepGoing,
+      int numJobs,
+      ModifiedFileSet modifiedOutputFiles,
+      boolean finalizeActionsToOutputService,
+      MetadataProvider fileCache,
+      ActionInputPrefetcher actionInputPrefetcher,
+      int progressReportInterval) {
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
     this.keepGoing = keepGoing;
@@ -110,8 +118,12 @@ public class SkyframeBuilder implements Builder {
       @Nullable Range<Long> lastExecutionTimeRange,
       TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
-    skyframeExecutor.detectModifiedOutputFiles(modifiedOutputFiles, lastExecutionTimeRange);
-    skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
+    try (SilentCloseable c = Profiler.instance().profile("detectModifiedOutputFiles")) {
+      skyframeExecutor.detectModifiedOutputFiles(modifiedOutputFiles, lastExecutionTimeRange);
+    }
+    try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
+      skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
+    }
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
     ExecutionProgressReceiver executionProgressReceiver =

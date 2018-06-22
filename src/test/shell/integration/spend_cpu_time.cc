@@ -31,7 +31,7 @@ static void WasteUserTime() {
   volatile_counter = 0;
   while (true) {
     volatile_counter++;
-    if (volatile_counter == 10000000) {
+    if (volatile_counter == 1000) {
       break;
     }
   }
@@ -50,7 +50,7 @@ static void WasteSystemTime() {
       err(EXIT_FAILURE, "chdir() failed");
     }
     volatile_counter++;
-    if (volatile_counter == 100000) {
+    if (volatile_counter == 1000) {
       break;
     }
   }

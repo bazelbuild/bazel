@@ -59,7 +59,7 @@ public final class NestedSetVisitor<E> {
     // We can short-circuit empty nested set visitation here, avoiding load on the shared map
     // VisitedState#seenNodes.
     if (!nestedSet.isEmpty()) {
-      visitRaw(nestedSet.rawChildren());
+      visitRaw(nestedSet.getChildren());
     }
   }
 

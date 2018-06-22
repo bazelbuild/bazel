@@ -255,14 +255,21 @@ public class Package {
   }
 
   /**
-   * Returns the workspace mappings for the repository with the given absolute name.
+   * Returns the repository mapping for the requested external repository.
    *
    * @throws LabelSyntaxException if repository is not a valid {@link RepositoryName}
+   * @throws UnsupportedOperationException if called from any package other than the //external
+   *     package
    */
-  public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
-      String repository) throws LabelSyntaxException {
+  public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(String repository)
+      throws LabelSyntaxException, UnsupportedOperationException {
     RepositoryName repositoryName = RepositoryName.create(repository);
     return getRepositoryMapping(repositoryName);
+  }
+
+  /** Get the repository mapping for this package. */
+  public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+    return repositoryMapping;
   }
 
   /**
@@ -340,7 +347,9 @@ public class Package {
     Path current = buildFile.getParentDirectory();
     for (int i = 0, len = packageFragment.segmentCount();
          i < len && !packageFragment.equals(PathFragment.EMPTY_FRAGMENT); i++) {
-      current = current.getParentDirectory();
+      if (current != null) {
+        current = current.getParentDirectory();
+      }
     }
     return Root.fromPath(current);
   }
@@ -367,8 +376,8 @@ public class Package {
     this.packageDirectory = filename.getParentDirectory();
 
     this.sourceRoot = getSourceRoot(filename, packageIdentifier.getSourceRoot());
-    if ((sourceRoot == null
-        || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory))
+    if ((sourceRoot.asPath() == null
+            || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory))
         && !filename.getBaseName().equals("WORKSPACE")) {
       throw new IllegalArgumentException(
           "Invalid BUILD file name for package '" + packageIdentifier + "': " + filename);
@@ -922,6 +931,11 @@ public class Package {
     Builder setRepositoryMapping(ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
       this.repositoryMapping = repositoryMapping;
       return this;
+    }
+
+    /** Get the repository mapping for this package */
+    ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+      return this.repositoryMapping;
     }
 
     /**
@@ -1645,6 +1659,7 @@ public class Package {
         Package input,
         CodedOutputStream codedOut)
         throws IOException, SerializationException {
+      context.checkClassExplicitlyAllowed(Package.class);
       PackageCodecDependencies codecDeps = context.getDependency(PackageCodecDependencies.class);
       codecDeps.getPackageSerializer().serialize(context, input, codedOut);
     }

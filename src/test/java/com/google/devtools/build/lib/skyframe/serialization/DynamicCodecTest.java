@@ -396,6 +396,7 @@ public final class DynamicCodecTest {
           .hasMessageThat()
           .contains(
               "java.io.BufferedInputStream ["
+                  + "java.io.BufferedInputStream, "
                   + "com.google.devtools.build.lib.skyframe.serialization."
                   + "DynamicCodecTest$NoCodecExample2, "
                   + "com.google.devtools.build.lib.skyframe.serialization."

@@ -22,11 +22,15 @@ import com.google.common.collect.Sets;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
-import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -78,7 +82,7 @@ public class ActionMetadataHandler implements MetadataHandler {
    *
    * <p>This should never be read directly. Use {@link #getInputFileArtifactValue} instead.
    */
-  private final InputArtifactData inputArtifactData;
+  private final ActionInputMap inputArtifactData;
 
   /** FileValues for each output Artifact. */
   private final ConcurrentMap<Artifact, FileValue> outputArtifactData =
@@ -120,6 +124,7 @@ public class ActionMetadataHandler implements MetadataHandler {
    * Use {@link #getTimestampGranularityMonitor(Artifact)} to fetch this member.
    */
   private final TimestampGranularityMonitor tsgm;
+  private final ArtifactPathResolver artifactPathResolver;
 
   /**
    * Whether the action is being executed or not; this flag is set to true in
@@ -129,12 +134,14 @@ public class ActionMetadataHandler implements MetadataHandler {
 
   @VisibleForTesting
   public ActionMetadataHandler(
-      InputArtifactData inputArtifactData,
+      ActionInputMap inputArtifactData,
       Iterable<Artifact> outputs,
-      TimestampGranularityMonitor tsgm) {
+      TimestampGranularityMonitor tsgm,
+      ArtifactPathResolver artifactPathResolver)  {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);
     this.outputs = ImmutableSet.copyOf(outputs);
     this.tsgm = tsgm;
+    this.artifactPathResolver = artifactPathResolver;
   }
 
   /**
@@ -150,7 +157,8 @@ public class ActionMetadataHandler implements MetadataHandler {
     return artifact.isConstantMetadata() ? null : tsgm;
   }
 
-  private static Metadata metadataFromValue(FileArtifactValue value) throws FileNotFoundException {
+  private static FileArtifactValue metadataFromValue(FileArtifactValue value)
+      throws FileNotFoundException {
     if (value == FileArtifactValue.MISSING_FILE_MARKER
         || value == FileArtifactValue.OMITTED_FILE_MARKER) {
       throw new FileNotFoundException();
@@ -168,11 +176,11 @@ public class ActionMetadataHandler implements MetadataHandler {
       return null;
     }
 
-    return inputArtifactData.get(input);
+    return inputArtifactData.getMetadata(input);
   }
 
   @Override
-  public Metadata getMetadata(Artifact artifact) throws IOException {
+  public FileArtifactValue getMetadata(Artifact artifact) throws IOException {
     FileArtifactValue value = getInputFileArtifactValue(artifact);
     if (value != null) {
       return metadataFromValue(value);
@@ -245,8 +253,8 @@ public class ActionMetadataHandler implements MetadataHandler {
    * for normal (non-middleman) artifacts.
    */
   @Nullable
-  private Metadata maybeStoreAdditionalData(Artifact artifact, FileValue data,
-      @Nullable byte[] injectedDigest) throws IOException {
+  private FileArtifactValue maybeStoreAdditionalData(
+      Artifact artifact, FileValue data, @Nullable byte[] injectedDigest) throws IOException {
     if (!data.exists()) {
       // Nonexistent files should only occur before executing an action.
       throw new FileNotFoundException(artifact.prettyPrint() + " does not exist");
@@ -390,7 +398,8 @@ public class ActionMetadataHandler implements MetadataHandler {
       throws IOException {
     Preconditions.checkState(artifact.isTreeArtifact(), artifact);
 
-    if (!artifact.getPath().isDirectory() || artifact.getPath().isSymbolicLink()) {
+    if (!artifactPathResolver.toPath(artifact).isDirectory()
+        || artifactPathResolver.toPath(artifact).isSymbolicLink()) {
       return TreeArtifactValue.MISSING_TREE_ARTIFACT;
     }
 
@@ -580,7 +589,7 @@ public class ActionMetadataHandler implements MetadataHandler {
       setPathReadOnlyAndExecutable(artifact);
     }
 
-    FileValue value = fileValueFromArtifact(artifact, statNoFollow,
+    FileValue value = fileValueFromArtifact(artifact, artifactPathResolver, statNoFollow,
         getTimestampGranularityMonitor(artifact));
     FileValue oldFsValue = outputArtifactData.putIfAbsent(artifact, value);
     checkInconsistentData(artifact, oldFsValue, value);
@@ -591,9 +600,18 @@ public class ActionMetadataHandler implements MetadataHandler {
   static FileValue fileValueFromArtifact(Artifact artifact,
       @Nullable FileStatusWithDigest statNoFollow, @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
-    Path path = artifact.getPath();
+    return fileValueFromArtifact(artifact, ArtifactPathResolver.IDENTITY, statNoFollow, tsgm);
+  }
+
+  private static FileValue fileValueFromArtifact(Artifact artifact,
+      ArtifactPathResolver artifactPathResolver,
+      @Nullable FileStatusWithDigest statNoFollow, @Nullable TimestampGranularityMonitor tsgm)
+      throws IOException {
+    Path path = artifactPathResolver.toPath(artifact);
     RootedPath rootedPath =
-        RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getRootRelativePath());
+        RootedPath.toRootedPath(
+            artifactPathResolver.transformRoot(artifact.getRoot().getRoot()),
+            artifact.getRootRelativePath());
     if (statNoFollow == null) {
       statNoFollow = FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW));
       if (statNoFollow == null) {
@@ -614,7 +632,8 @@ public class ActionMetadataHandler implements MetadataHandler {
     }
     RootedPath realRootedPath =
         RootedPath.toRootedPathMaybeUnderRoot(
-            realPath, ImmutableList.of(artifact.getRoot().getRoot()));
+            realPath,
+            ImmutableList.of(artifactPathResolver.transformRoot(artifact.getRoot().getRoot())));
     FileStateValue fileStateValue =
         FileStateValue.createWithStatNoFollow(rootedPath, statNoFollow, tsgm);
     // TODO(bazel-team): consider avoiding a 'stat' here when the symlink target hasn't changed
@@ -631,7 +650,7 @@ public class ActionMetadataHandler implements MetadataHandler {
     if (injectedFiles.contains(artifact)) {
       return;
     }
-    Path path = artifact.getPath();
+    Path path = artifactPathResolver.toPath(artifact);
     if (path.isFile(Symlinks.NOFOLLOW)) { // i.e. regular files only.
       // We trust the files created by the execution engine to be non symlinks with expected
       // chmod() settings already applied.
@@ -641,7 +660,7 @@ public class ActionMetadataHandler implements MetadataHandler {
 
   private void setTreeReadOnlyAndExecutable(SpecialArtifact parent, PathFragment subpath)
       throws IOException {
-    Path path = parent.getPath().getRelative(subpath);
+    Path path = artifactPathResolver.toPath(parent).getRelative(subpath);
     if (path.isDirectory()) {
       path.chmod(0555);
       for (Path child : path.getDirectoryEntries()) {

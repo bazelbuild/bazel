@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.analysis.test.TestTrimmingTransitionFactory;
 
 /** A set of basic rules - Bazel won't work correctly without these. */
 public final class CoreRules implements RuleSet {
@@ -30,6 +31,7 @@ public final class CoreRules implements RuleSet {
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.addConfig(TestConfiguration.TestOptions.class, new TestConfiguration.Loader());
+    builder.addTrimmingTransitionFactory(new TestTrimmingTransitionFactory());
     builder.addRuleDefinition(new BaseRuleClasses.RootRule());
     builder.addRuleDefinition(new BaseRuleClasses.BaseRule());
     builder.addRuleDefinition(new BaseRuleClasses.RuleBase());

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/main/cpp/blaze_util_platform.h"
+
 #include <fcntl.h>
 #include <stdarg.h>  // va_start, va_end, va_list
 
@@ -33,7 +35,6 @@
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
-#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/global_variables.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
@@ -43,6 +44,8 @@
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/util.h"
@@ -652,36 +655,6 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
 
 const char kListSeparator = ';';
 
-string PathAsJvmFlag(const string& path) {
-  string spath;
-  string error;
-  if (!blaze_util::AsShortWindowsPath(path, &spath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "PathAsJvmFlag(" << path
-        << "): AsShortWindowsPath failed: " << error;
-  }
-  // Convert backslashes to forward slashes, in order to avoid the JVM parsing
-  // Windows paths as if they contained escaped characters.
-  // See https://github.com/bazelbuild/bazel/issues/2576
-  std::replace(spath.begin(), spath.end(), '\\', '/');
-  return spath;
-}
-
-string ConvertPath(const string& path) {
-  // The path may not be Windows-style and may not be normalized, so convert it.
-  wstring wpath;
-  string error;
-  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ConvertPath(" << path
-        << "): AsAbsoluteWindowsPath failed: " << error;
-  }
-  std::transform(wpath.begin(), wpath.end(), wpath.begin(), ::towlower);
-  return string(blaze_util::WstringToCstring(
-                    blaze_util::RemoveUncPrefixMaybe(wpath.c_str()))
-                    .get());
-}
-
 bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
   wstring name;
   wstring target;
@@ -708,9 +681,6 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
   return true;
 }
 
-bool CompareAbsolutePaths(const string& a, const string& b) {
-  return ConvertPath(a) == ConvertPath(b);
-}
 
 #ifndef STILL_ACTIVE
 #define STILL_ACTIVE (259)  // From MSDN about GetExitCodeProcess.

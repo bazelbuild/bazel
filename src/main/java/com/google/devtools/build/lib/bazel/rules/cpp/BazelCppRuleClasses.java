@@ -58,8 +58,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
-import com.google.devtools.build.lib.rules.cpp.TransitiveLipoInfoProvider;
-import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -224,11 +222,6 @@ public class BazelCppRuleClasses {
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("includes", STRING_LIST))
-          .add(
-              attr(TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, LABEL)
-                  .cfg(LipoContextCollectorTransition.INSTANCE)
-                  .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
-                  .skipPrereqValidatorCheck())
           .build();
     }
 
@@ -287,7 +280,7 @@ public class BazelCppRuleClasses {
                                 // thus a dependency of def_parser.
                                 || label.startsWith(toolsRepository + "//tools/cpp")
                             ? null
-                            : env.getLabel(defParserLabel);
+                            : Label.parseAbsoluteUnchecked(defParserLabel);
                       }
                     }));
       }
@@ -463,16 +456,6 @@ public class BazelCppRuleClasses {
           .build();
     }
   }
-
-  /** Implementation for the :lipo_context attribute. */
-  static final LabelLateBoundDefault<?> LIPO_CONTEXT =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          CppConfiguration.class,
-          null,
-          (rule, attributes, cppConfig) -> {
-            Label result = cppConfig.getLipoContextLabel();
-            return (rule == null || rule.getLabel().equals(result)) ? null : result;
-          });
 
   /**
    * Helper rule class.

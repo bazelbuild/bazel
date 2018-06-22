@@ -26,8 +26,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.ProtoConfigurationApi;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -40,12 +39,7 @@ import java.util.List;
 @Immutable
 // This module needs to be exported to Skylark so it can be passed as a mandatory host/target
 // configuration fragment in aspect definitions.
-@SkylarkModule(
-  name = "proto",
-  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
-  doc = "A configuration fragment representing protocol buffers."
-)
-public class ProtoConfiguration extends Fragment {
+public class ProtoConfiguration extends Fragment implements ProtoConfigurationApi {
   /** Command line options. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {

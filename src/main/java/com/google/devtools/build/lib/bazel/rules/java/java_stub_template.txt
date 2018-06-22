@@ -307,18 +307,20 @@ function create_and_run_classpath_jar() {
   # Create manifest file
   MANIFEST_FILE="${self}-${RAND_ID}.jar_manifest"
 
-  echo "Manifest-Version: 1.0" >$MANIFEST_FILE
-  CLASSPATH_LINE="Class-Path:$MANIFEST_CLASSPATH"
-  # No line in the MANIFEST.MF file may be longer than 72 bytes.
-  # A space prefix indicates the line is still the content of the last attribute.
-  for i in `seq 0 71 ${#CLASSPATH_LINE}`; do
-    PREFIX=" "
-    if (($i == 0)); then
-      PREFIX=""
-    fi
-    echo "$PREFIX${CLASSPATH_LINE:$i:71}" >>$MANIFEST_FILE
-  done
-  echo "Created-By: Bazel" >>$MANIFEST_FILE
+  (
+    echo "Manifest-Version: 1.0"
+    CLASSPATH_LINE="Class-Path:$MANIFEST_CLASSPATH"
+    # No line in the MANIFEST.MF file may be longer than 72 bytes.
+    # A space prefix indicates the line is still the content of the last attribute.
+    for ((i = 0; i < "${#CLASSPATH_LINE}"; i += 71)); do
+      PREFIX=" "
+      if ((i == 0)); then
+        PREFIX=""
+      fi
+      echo "$PREFIX${CLASSPATH_LINE:$i:71}"
+    done
+    echo "Created-By: Bazel"
+  ) >$MANIFEST_FILE
 
   # Create classpath JAR file
   MANIFEST_JAR_FILE="${self}-${RAND_ID}-classpath.jar"

@@ -80,17 +80,37 @@ set -ex
     if st.return_code:
         fail("error updating submodules %s:\n%s" % (ctx.name, st.stderr))
 
-def _new_git_repository_implementation(ctx):
-    if ((not ctx.attr.build_file and not ctx.attr.build_file_content) or
-        (ctx.attr.build_file and ctx.attr.build_file_content)):
-        fail("Exactly one of build_file and build_file_content must be provided.")
-    _clone_or_update(ctx)
-    workspace_and_buildfile(ctx)
-    patch(ctx)
+    # After the fact, determine the actual commit and its date
+    actual_commit = ctx.execute([
+        bash_exe,
+        "-c",
+        "(cd '{directory}' && git log -n 1 --pretty='format:%H')".format(
+            directory = ctx.path("."),
+        ),
+    ]).stdout
+    shallow_date = ctx.execute([
+        bash_exe,
+        "-c",
+        "(cd '{directory}' && git log -n 1 --pretty='format:%cd' --date='format:%Y-%d-%m')".format(
+            directory = ctx.path("."),
+        ),
+    ]).stdout
+    return {"commit": actual_commit, "shallow_since": shallow_date}
 
-def _git_repository_implementation(ctx):
-    _clone_or_update(ctx)
-    patch(ctx)
+def _update_commit(orig, keys, override):
+    # Merge the override information into the dict, resulting by taking the
+    # given keys, as well as the name, form orig (if present there).
+    result = {}
+    for key in keys:
+        if getattr(orig, key) != None:
+            result[key] = getattr(orig, key)
+    result["name"] = orig.name
+    result.update(override)
+
+    # remove tag if we found the actual commit
+    if "commit" in result:
+        result.pop("tag", None)
+    return result
 
 _common_attrs = {
     "remote": attr.string(mandatory = True),
@@ -102,22 +122,42 @@ _common_attrs = {
     "strip_prefix": attr.string(default = ""),
     "patches": attr.label_list(default = []),
     "patch_tool": attr.string(default = "patch"),
+    "patch_args": attr.string_list(default = ["-p0"]),
     "patch_cmds": attr.string_list(default = []),
 }
 
+_new_git_repository_attrs = dict(_common_attrs.items() + {
+    "build_file": attr.label(allow_single_file = True),
+    "build_file_content": attr.string(),
+    "workspace_file": attr.label(),
+    "workspace_file_content": attr.string(),
+}.items())
+
+def _new_git_repository_implementation(ctx):
+    if ((not ctx.attr.build_file and not ctx.attr.build_file_content) or
+        (ctx.attr.build_file and ctx.attr.build_file_content)):
+        fail("Exactly one of build_file and build_file_content must be provided.")
+    update = _clone_or_update(ctx)
+    workspace_and_buildfile(ctx)
+    patch(ctx)
+    return _update_commit(ctx.attr, _new_git_repository_attrs.keys(), update)
+
+def _git_repository_implementation(ctx):
+    update = _clone_or_update(ctx)
+    patch(ctx)
+    return _update_commit(ctx.attr, _common_attrs.keys(), update)
+
 new_git_repository = repository_rule(
     implementation = _new_git_repository_implementation,
-    attrs = dict(_common_attrs.items() + {
-        "build_file": attr.label(allow_single_file = True),
-        "build_file_content": attr.string(),
-        "workspace_file": attr.label(),
-        "workspace_file_content": attr.string(),
-    }.items()),
+    attrs = _new_git_repository_attrs,
 )
 """Clone an external git repository.
 
 Clones a Git repository, checks out the specified tag, or commit, and
-makes its targets available for binding.
+makes its targets available for binding. Also determine the id of the
+commit actually checkted out and its date, and return a dict with paramters
+that provide a reproducible version of this rule (which a tag not necessarily
+is).
 
 Args:
   name: A unique name for this rule.
@@ -161,6 +201,7 @@ Args:
   patches: A list of files that are to be applied as patches after extracting
     the archive.
   patch_tool: the patch(1) utility to use.
+  patch_args: arguments given to the patch tool, defaults to ["-p0"]
   patch_cmds: sequence of commands to be applied after patches are applied.
 """
 
@@ -171,7 +212,11 @@ git_repository = repository_rule(
 """Clone an external git repository.
 
 Clones a Git repository, checks out the specified tag, or commit, and
-makes its targets available for binding.
+makes its targets available for binding. Also determine the id of the
+commit actually checkted out and its date, and return a dict with paramters
+that provide a reproducible version of this rule (which a tag not necessarily
+is).
+
 
 Args:
   name: A unique name for this rule.
@@ -196,5 +241,6 @@ Args:
   patches: A list of files that are to be applied as patches after extracting
     the archive.
   patch_tool: the patch(1) utility to use.
+  patch_args: arguments given to the patch tool, defaults to ["-p0"]
   patch_cmds: sequence of commands to be applied after patches are applied.
 """

@@ -124,18 +124,18 @@ public final class Runtime {
   public static final String PKG_NAME = "PACKAGE_NAME";
 
   @SkylarkSignature(
-    name = "REPOSITORY_NAME",
-    returnType = String.class,
-    doc =
-        "<b>Deprecated. Use <a href=\"native.html#repository_name\">repository_name()</a> "
-            + "instead.</b> The name of the repository the rule or build extension is called from. "
-            + "For example, in packages that are called into existence by the WORKSPACE stanza "
-            + "<code>local_repository(name='local', path=...)</code> it will be set to "
-            + "<code>@local</code>. In packages in the main repository, it will be set to "
-            + "<code>@</code>. It can only be accessed in functions (transitively) called from "
-            + "BUILD files, i.e. it follows the same restrictions as "
-            + "<a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>"
-  )
+      name = "REPOSITORY_NAME",
+      returnType = String.class,
+      doc =
+          "<b>Deprecated. Use <a href=\"native.html#repository_name\">repository_name()</a> "
+              + "instead.</b> The name of the repository the rule or build extension is called "
+              + "from. "
+              + "For example, in packages that are called into existence by the WORKSPACE stanza "
+              + "<code>local_repository(name='local', path=...)</code> it will be set to "
+              + "<code>@local</code>. In packages in the main repository, it will be set to "
+              + "<code>@</code>. It can only be accessed in functions (transitively) called from "
+              + "BUILD files, i.e. it follows the same restrictions as "
+              + "<a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>.")
   public static final String REPOSITORY_NAME = "REPOSITORY_NAME";
 
   /** Adds bindings for False/True/None constants to the given map builder. */
@@ -330,9 +330,12 @@ public final class Runtime {
    * Convenience overload of {@link #setupModuleGlobals(ImmutableMap.Builder, Class)} to add
    * bindings directly to an {@link Environment}.
    *
-   * @param env the Environment into which to register fields.
-   * @param moduleClass the Class object containing globals.
+   * @param env the Environment into which to register fields
+   * @param moduleClass the Class object containing globals
+   * @deprecated use {@link #setupSkylarkLibrary} instead (and {@link SkylarkCallable} instead of
+   *     {@link SkylarkSignature})
    */
+  @Deprecated
   public static void setupModuleGlobals(Environment env, Class<?> moduleClass) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
@@ -365,15 +368,16 @@ public final class Runtime {
    * @param builder the builder for the "bindings" map, which maps from symbol names to objects,
    *     and which will be built into a global frame
    * @param moduleClass the Class object containing globals
+   * @deprecated use {@link #setupSkylarkLibrary} instead (and {@link SkylarkCallable} instead of
+   *     {@link SkylarkSignature})
    */
+  @Deprecated
   public static void setupModuleGlobals(ImmutableMap.Builder<String, Object> builder,
       Class<?> moduleClass) {
     try {
-      SkylarkModule skylarkModule = SkylarkInterfaceUtils.getSkylarkModule(moduleClass);
-      if (skylarkModule != null) {
-        builder.put(
-            skylarkModule.name(),
-            moduleClass.getConstructor().newInstance());
+      if (SkylarkInterfaceUtils.getSkylarkModule(moduleClass) != null
+          || SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(moduleClass)) {
+        setupSkylarkLibrary(builder, moduleClass.getConstructor().newInstance());
       }
       for (Field field : moduleClass.getDeclaredFields()) {
         if (field.isAnnotationPresent(SkylarkSignature.class)) {
@@ -390,14 +394,53 @@ public final class Runtime {
           }
         }
       }
-      if (SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(moduleClass)) {
-        Object moduleInstance = moduleClass.getConstructor().newInstance();
-        for (String methodName : FuncallExpression.getMethodNames(moduleClass)) {
-          builder.put(methodName, FuncallExpression.getBuiltinCallable(moduleInstance, methodName));
-        }
-      }
     } catch (ReflectiveOperationException e) {
       throw new AssertionError(e);
+    }
+  }
+
+  /**
+   * Adds global (top-level) symbols, provided by the given object, to the given bindings
+   * builder.
+   *
+   * <p>Global symbols may be provided by the given object in the following ways:
+   * <ul>
+   *   <li>If its class is annotated with {@link SkylarkModule}, an instance of that object is
+   *       a global object with the module's name.</li>
+   *   <li>If its class is annotated with {@link SkylarkGlobalLibrary}, then all of its methods
+   *       which are annotated with
+   *       {@link com.google.devtools.build.lib.skylarkinterface.SkylarkCallable} are global
+   *       callables.</li>
+   * </ul>
+   *
+   * <p>On collisions, this method throws an {@link AssertionError}. Collisions may occur if
+   * multiple global libraries have functions of the same name, two modules of the same name
+   * are given, or if two subclasses of the same module are given.
+   *
+   * @param builder the builder for the "bindings" map, which maps from symbol names to objects,
+   *     and which will be built into a global frame
+   * @param moduleInstance the object containing globals
+   * @throws AssertionError if there are name collisions
+   * @throws IllegalArgumentException if {@code moduleInstance} is not annotated with
+   *     {@link SkylarkGlobalLibrary} nor {@link SkylarkModule}
+   */
+  public static void setupSkylarkLibrary(ImmutableMap.Builder<String, Object> builder,
+      Object moduleInstance) {
+    Class<?> moduleClass = moduleInstance.getClass();
+    SkylarkModule skylarkModule = SkylarkInterfaceUtils.getSkylarkModule(moduleClass);
+    boolean hasSkylarkGlobalLibrary = SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(moduleClass);
+
+    Preconditions.checkArgument(hasSkylarkGlobalLibrary || skylarkModule != null,
+        "%s must be annotated with @SkylarkGlobalLibrary or @SkylarkModule",
+        moduleClass);
+
+    if (skylarkModule != null) {
+      builder.put(skylarkModule.name(), moduleInstance);
+    }
+    if (hasSkylarkGlobalLibrary) {
+      for (String methodName : FuncallExpression.getMethodNames(moduleClass)) {
+        builder.put(methodName, FuncallExpression.getBuiltinCallable(moduleInstance, methodName));
+      }
     }
   }
 }

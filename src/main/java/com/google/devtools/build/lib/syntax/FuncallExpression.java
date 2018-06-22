@@ -411,6 +411,9 @@ public final class FuncallExpression extends Expression {
   /**
    * Invokes the given structField=true method and returns the result.
    *
+   * <p>The given method must <b>not</b> require extra-interpreter parameters, such as
+   * {@link Environment}. This method throws {@link IllegalArgumentException} for violations.</p>
+   *
    * @param methodDescriptor the descriptor of the method to invoke
    * @param fieldName the name of the struct field
    * @param obj the object on which to invoke the method
@@ -420,7 +423,12 @@ public final class FuncallExpression extends Expression {
   public static Object invokeStructField(
       MethodDescriptor methodDescriptor, String fieldName, Object obj)
       throws EvalException, InterruptedException {
-    Preconditions.checkArgument(methodDescriptor.getAnnotation().structField());
+    Preconditions.checkArgument(methodDescriptor.getAnnotation().structField(),
+        "Can only be invoked on structField callables");
+    Preconditions.checkArgument(!methodDescriptor.getAnnotation().useEnvironment()
+        || !methodDescriptor.getAnnotation().useSkylarkSemantics()
+        || !methodDescriptor.getAnnotation().useLocation(),
+        "Cannot be invoked on structField callables with extra interpreter params");
     return callMethod(methodDescriptor, fieldName, obj, new Object[0], Location.BUILTIN, null);
   }
 
@@ -494,8 +502,12 @@ public final class FuncallExpression extends Expression {
     if (methods != null) {
       for (MethodDescriptor method : methods) {
         if (method.getAnnotation().structField()) {
-          // TODO(cparsons): Allow structField methods to accept interpreter-supplied arguments.
-          return new Pair<>(method, null);
+          // This indicates a built-in structField which returns a function which may have
+          // one or more arguments itself. For example, foo.bar('baz'), where foo.bar is a
+          // structField returning a function. Calling the "bar" callable of foo should
+          // not have 'baz' propagated, though extra interpreter arguments should be supplied.
+          return new Pair<>(method,
+              extraInterpreterArgs(method.getAnnotation(), null, getLocation(), environment));
         } else {
           argumentListConversionResult = convertArgumentList(args, kwargs, method, environment);
           if (argumentListConversionResult.getArguments() != null) {
@@ -564,6 +576,36 @@ public final class FuncallExpression extends Expression {
 
   private static boolean isParamNamed(Param param) {
     return param.named() || param.legacyNamed();
+  }
+
+  /**
+   * Returns the extra interpreter arguments for the given {@link SkylarkCallable}, to be added
+   * at the end of the argument list for the callable.
+   *
+   * <p>This method accepts null {@code ast} only if {@code callable.useAst()} is false. It is
+   * up to the caller to validate this invariant.</p>
+   */
+  public static List<Object> extraInterpreterArgs(SkylarkCallable callable,
+      @Nullable FuncallExpression ast, Location loc, Environment env) {
+
+    ImmutableList.Builder<Object> builder = ImmutableList.builder();
+
+    if (callable.useLocation()) {
+      builder.add(loc);
+    }
+    if (callable.useAst()) {
+      if (ast == null) {
+        throw new IllegalArgumentException("Callable expects to receive ast: " + callable.name());
+      }
+      builder.add(ast);
+    }
+    if (callable.useEnvironment()) {
+      builder.add(env);
+    }
+    if (callable.useSkylarkSemantics()) {
+      builder.add(env.getSemantics());
+    }
+    return builder.build();
   }
 
   /**
@@ -702,18 +744,7 @@ public final class FuncallExpression extends Expression {
     if (acceptsExtraKwargs) {
       builder.add(SkylarkDict.copyOf(environment, extraKwargsBuilder.build()));
     }
-    if (callable.useLocation()) {
-      builder.add(getLocation());
-    }
-    if (callable.useAst()) {
-      builder.add(this);
-    }
-    if (callable.useEnvironment()) {
-      builder.add(environment);
-    }
-    if (callable.useSkylarkSemantics()) {
-      builder.add(environment.getSemantics());
-    }
+    builder.addAll(extraInterpreterArgs(callable, this, getLocation(), environment));
 
     return ArgumentListConversionResult.fromArgumentList(builder.build());
   }

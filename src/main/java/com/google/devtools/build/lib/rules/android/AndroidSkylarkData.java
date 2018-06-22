@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
@@ -227,15 +228,21 @@ public abstract class AndroidSkylarkData
     }
 
     // Get the target's local assets, if defined, from the provider
-    boolean definesLocalAssets = assetsInfo.getDirectParsedAssets().isSingleton();
+    boolean definesLocalAssets = false;
     AndroidAssets assets = AndroidAssets.empty();
-    if (definesLocalAssets) {
+    if (assetsInfo.getDirectParsedAssets().isSingleton()) {
       ParsedAndroidAssets parsed = assetsInfo.getDirectParsedAssets().toList().get(0);
       if (parsed.getLabel().equals(ctx.getLabel())) {
         assets = parsed;
-      } else {
-        definesLocalAssets = false;
+        definesLocalAssets = true;
       }
+    }
+
+    if (!definesLocalAssets) {
+      // The target might still define an empty list of assets, in which case its information is not
+      // propagated for efficiency. If this is the case, we will still have an artifact for the
+      // merging output.
+      definesLocalAssets = assetsInfo.getValidationResult() != null;
     }
 
     if (definesLocalResources != definesLocalAssets) {
@@ -746,6 +753,16 @@ public abstract class AndroidSkylarkData
 
   public static <T extends NativeInfo> SkylarkList<T> getProviders(
       SkylarkList<ConfiguredTarget> targets, NativeProvider<T> provider) {
+    return SkylarkList.createImmutable(
+        targets
+            .stream()
+            .map(target -> target.get(provider))
+            .filter(Objects::nonNull)
+            .collect(ImmutableList.toImmutableList()));
+  }
+
+  protected static <T extends NativeInfo> SkylarkList<T> getProviders(
+      SkylarkList<ConfiguredTarget> targets, BuiltinProvider<T> provider) {
     return SkylarkList.createImmutable(
         targets
             .stream()

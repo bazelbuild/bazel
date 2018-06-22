@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.syntax.DebugServer.DebugCallable;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
-/** A helper class for enabling/disabling skylark debugging. */
+/**
+ * A helper class for enabling/disabling skylark debugging.
+ *
+ * <p>{@code runWithDebuggingIfEnabled} must be called after {@code initializeDebugServer}, and
+ * before {@code disableDebugging}.
+ */
 public final class DebugServerUtils {
 
   private DebugServerUtils() {}
@@ -30,35 +32,20 @@ public final class DebugServerUtils {
    * Called at the start of a debuggable skylark session to enable debugging. The custom {@link
    * Eval} supplier provided should intercept statement execution to check for breakpoints.
    */
-  public static void initializeDebugServer(
-      DebugServer server, Function<Environment, Eval> evalOverride) {
+  public static void initializeDebugServer(DebugServer server) {
     instance.set(server);
-    Eval.setEvalSupplier(evalOverride);
-  }
-
-  /** Called at the end of a debuggable skylark session to disable debugging. */
-  public static void disableDebugging() {
-    instance.set(null);
-    Eval.removeCustomEval();
+    Eval.setEvalSupplier(server.evalOverride());
   }
 
   /**
-   * Tracks the execution of the given callable object in the debug server.
-   *
-   * <p>If the skylark debugger is not enabled, runs {@code callable} directly.
-   *
-   * @param env the Skylark execution environment
-   * @param threadName the descriptive name of the thread
-   * @param callable the callable object whose execution will be tracked
-   * @param <T> the result type of the callable
-   * @return the value returned by the callable
+   * Called at the end of a debuggable skylark session to shut down the debug server and disable
+   * debugging.
    */
-  public static <T> T runWithDebuggingIfEnabled(
-      Environment env, Supplier<String> threadName, DebugCallable<T> callable)
-      throws EvalException, InterruptedException {
-    DebugServer server = instance.get();
-    return server != null
-        ? server.runWithDebugging(env, threadName.get(), callable)
-        : callable.call();
+  public static void disableDebugging() {
+    DebugServer server = instance.getAndSet(null);
+    if (server != null) {
+      server.close();
+    }
+    Eval.removeCustomEval();
   }
 }

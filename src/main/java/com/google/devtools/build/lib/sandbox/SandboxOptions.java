@@ -219,6 +219,14 @@ public class SandboxOptions extends OptionsBase {
   public boolean collectLocalSandboxExecutionStatistics;
 
   @Option(
+    name = "experimental_enable_docker_sandbox",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EXECUTION},
+    help = "Enable Docker-based sandboxing. This option has no effect if Docker is not installed.")
+  public boolean enableDockerSandbox;
+
+  @Option(
     name = "experimental_docker_image",
     defaultValue = "",
     documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,

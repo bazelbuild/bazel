@@ -21,12 +21,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 /** A structured representation of the compilation outputs of a C++ rule. */
@@ -67,8 +64,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
    */
   private final ImmutableList<Artifact> headerTokenFiles;
 
-  private final List<IncludeScannable> lipoScannables;
-
   private CcCompilationOutputs(
       ImmutableList<Artifact> objectFiles,
       ImmutableList<Artifact> picObjectFiles,
@@ -76,8 +71,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
       ImmutableList<Artifact> dwoFiles,
       ImmutableList<Artifact> picDwoFiles,
       NestedSet<Artifact> temps,
-      ImmutableList<Artifact> headerTokenFiles,
-      ImmutableList<IncludeScannable> lipoScannables) {
+      ImmutableList<Artifact> headerTokenFiles) {
     this.objectFiles = objectFiles;
     this.picObjectFiles = picObjectFiles;
     this.ltoBitcodeFiles = ltoBitcodeFiles;
@@ -85,7 +79,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
     this.picDwoFiles = picDwoFiles;
     this.temps = temps;
     this.headerTokenFiles = headerTokenFiles;
-    this.lipoScannables = lipoScannables;
   }
 
   /**
@@ -142,22 +135,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
     return headerTokenFiles;
   }
 
-  /**
-   * Returns the {@link IncludeScannable} objects this C++ compile action contributes to a
-   * LIPO context collector.
-   */
-  public List<IncludeScannable> getLipoScannables() {
-    return lipoScannables;
-  }
-
-  /**
-   * Returns the output files that are considered "compiled" by this C++ compile action.
-   */
-  NestedSet<Artifact> getFilesToCompile(
-      boolean isLipoContextCollector, boolean parseHeaders, boolean usePic) {
-    if (isLipoContextCollector) {
-      return NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-    }
+  /** Returns the output files that are considered "compiled" by this C++ compile action. */
+  NestedSet<Artifact> getFilesToCompile(boolean parseHeaders, boolean usePic) {
     NestedSetBuilder<Artifact> files = NestedSetBuilder.stableOrder();
     files.addAll(getObjectFiles(usePic));
     if (parseHeaders) {
@@ -175,7 +154,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
     private final Set<Artifact> picDwoFiles = new LinkedHashSet<>();
     private final NestedSetBuilder<Artifact> temps = NestedSetBuilder.stableOrder();
     private final Set<Artifact> headerTokenFiles = new LinkedHashSet<>();
-    private final List<IncludeScannable> lipoScannables = new ArrayList<>();
 
     public CcCompilationOutputs build() {
       return new CcCompilationOutputs(
@@ -185,8 +163,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
           ImmutableList.copyOf(dwoFiles),
           ImmutableList.copyOf(picDwoFiles),
           temps.build(),
-          ImmutableList.copyOf(headerTokenFiles),
-          ImmutableList.copyOf(lipoScannables));
+          ImmutableList.copyOf(headerTokenFiles));
     }
 
     public Builder merge(CcCompilationOutputs outputs) {
@@ -196,7 +173,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
       this.picDwoFiles.addAll(outputs.picDwoFiles);
       this.temps.addTransitive(outputs.temps);
       this.headerTokenFiles.addAll(outputs.headerTokenFiles);
-      this.lipoScannables.addAll(outputs.lipoScannables);
       this.ltoBitcodeFiles.putAll(outputs.ltoBitcodeFiles);
       return this;
     }
@@ -259,15 +235,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
 
     public Builder addHeaderTokenFile(Artifact artifact) {
       headerTokenFiles.add(artifact);
-      return this;
-    }
-
-    /**
-     * Adds an {@link IncludeScannable} that this compilation output object contributes to a
-     * LIPO context collector.
-     */
-    public Builder addLipoScannable(IncludeScannable scannable) {
-      lipoScannables.add(scannable);
       return this;
     }
   }

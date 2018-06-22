@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -34,20 +33,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
 import com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader.CrosstoolFile;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
-import com.google.devtools.build.lib.rules.cpp.transitions.ContextCollectorOwnerTransition;
-import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CppConfigurationApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -55,6 +49,35 @@ import javax.annotation.Nullable;
  * This class represents the C/C++ parts of the {@link BuildConfiguration}, including the host
  * architecture, target architecture, compiler version, and a standard library version. It has
  * information about the tools locations and the flags required for compiling.
+ *
+ * <p>Before {@link CppConfiguration} is created, two things need to be done:
+ *
+ * <ol>
+ *   <li>choosing a {@link CcToolchainRule} label from {@code toolchains} map attribute of {@link
+ *       CcToolchainSuiteRule}.
+ *   <li>selection of a {@link
+ *       com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain} from the
+ *       CROSSTOOL file.
+ * </ol>
+ *
+ * <p>The process goes as follows:
+ *
+ * <p>Check for existence of {@link CcToolchainSuiteRule}.toolchains[<cpu>|<compiler>], if
+ * --compiler is specified, otherwise check for {@link CcToolchainSuiteRule}.toolchains[<cpu>].
+ *
+ * <ul>
+ *   <li>if a value is found, load the {@link CcToolchainRule} rule and look for the {@code
+ *       toolchain_identifier} attribute.
+ *   <li>
+ *       <ul>
+ *         <li>if the attribute exists, loop through all the {@code CToolchain}s in CROSSTOOL and
+ *             select the one with the matching toolchain identifier.
+ *         <li>otherwise fall back to selecting the CToolchain from CROSSTOOL by matching the --cpu
+ *             and --compiler values.
+ *       </ul>
+ *   <li>If a value is not found, select the CToolchain from CROSSTOOL by matching the --cpu and
+ *       --compiler values, and construct the key as follows: <toolchain.cpu>|<toolchain.compiler>.
+ * </ul>
  */
 @AutoCodec
 @Immutable
@@ -140,8 +163,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   /**
-   * This macro will be passed as a command-line parameter (eg. -DBUILD_FDO_TYPE="LIPO").
-   * For possible values see {@code CppModel.getFdoBuildStamp()}.
+   * This macro will be passed as a command-line parameter (eg. -DBUILD_FDO_TYPE="AUTOFDO"). For
+   * possible values see {@code CppModel.getFdoBuildStamp()}.
    */
   public static final String FDO_STAMP_MACRO = "BUILD_FDO_TYPE";
 
@@ -152,7 +175,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   // it here so that the output directory doesn't depend on the CToolchain. When we will eventually
   // verify that the two are the same, we can remove one of desiredCpu and targetCpu.
   private final String desiredCpu;
-  private final boolean convertLipoToThinLto;
   private final PathFragment crosstoolTopPathFragment;
 
   private final PathFragment fdoPath;
@@ -192,30 +214,23 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final boolean shouldProvideMakeVariables;
   private final boolean dropFullyStaticLinkingMode;
 
-  /**
-   * If true, the ConfiguredTarget is only used to get the necessary cross-referenced {@code
-   * CcCompilationContext}s, but registering build actions is disabled.
-   */
-  private final boolean lipoContextCollector;
-
   private final CppToolchainInfo cppToolchainInfo;
 
   static CppConfiguration create(CppConfigurationParameters params)
       throws InvalidConfigurationException {
-    CrosstoolConfig.CToolchain toolchain = params.toolchain;
     CppOptions cppOptions = params.cppOptions;
     PathFragment crosstoolTopPathFragment =
         params.crosstoolTop.getPackageIdentifier().getPathUnderExecRoot();
     CppToolchainInfo cppToolchainInfo =
-        CppToolchainInfo.create(toolchain, crosstoolTopPathFragment, params.ccToolchainLabel);
+        CppToolchainInfo.create(
+            crosstoolTopPathFragment, params.ccToolchainLabel, params.crosstoolInfo);
 
     CompilationMode compilationMode = params.commonOptions.compilationMode;
 
     ImmutableList.Builder<String> coptsBuilder =
         ImmutableList.<String>builder()
             .addAll(cppToolchainInfo.getCompilerFlags())
-            .addAll(cppToolchainInfo.getCFlagsByCompilationMode().get(compilationMode))
-            .addAll(cppToolchainInfo.getLipoCFlags().get(cppOptions.getLipoMode()));
+            .addAll(cppToolchainInfo.getCFlagsByCompilationMode().get(compilationMode));
     if (cppOptions.experimentalOmitfp) {
       coptsBuilder.add("-fomit-frame-pointer");
       coptsBuilder.add("-fasynchronous-unwind-tables");
@@ -227,7 +242,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         ImmutableList.<String>builder()
             .addAll(cppToolchainInfo.getCxxFlags())
             .addAll(cppToolchainInfo.getCxxFlagsByCompilationMode().get(compilationMode))
-            .addAll(cppToolchainInfo.getLipoCxxFlags().get(cppOptions.getLipoMode()))
             .addAll(cppOptions.cxxoptList)
             .build();
 
@@ -237,17 +251,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       linkoptsBuilder.add("-Wl,--eh-frame-hdr");
     }
 
-    if (cppOptions.getLipoMode() != LipoMode.OFF
-        && !cppOptions.convertLipoToThinLto
-        && !cppOptions.allowLipo) {
-      throw new InvalidConfigurationException("LIPO is disallowed");
-    }
-
     return new CppConfiguration(
         params.crosstoolTop,
         params.crosstoolFile,
         Preconditions.checkNotNull(params.commonOptions.cpu),
-        cppOptions.convertLipoToThinLto,
         crosstoolTopPathFragment,
         params.fdoPath,
         params.fdoOptimizeLabel,
@@ -259,14 +266,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         params.sysrootLabel,
         coptsBuilder.build(),
         cxxOpts,
-        ImmutableList.copyOf(toolchain.getUnfilteredCxxFlagList()),
+        cppToolchainInfo.getUnfilteredCompilerOptions(/* sysroot= */ null),
         ImmutableList.copyOf(cppOptions.conlyoptList),
+        cppToolchainInfo.configureAllLegacyLinkOptions(compilationMode, LinkingMode.STATIC),
         cppToolchainInfo.configureAllLegacyLinkOptions(
-            compilationMode, cppOptions.getLipoMode(), LinkingMode.STATIC),
-        cppToolchainInfo.configureAllLegacyLinkOptions(
-            compilationMode, cppOptions.getLipoMode(), LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES),
-        cppToolchainInfo.configureAllLegacyLinkOptions(
-            compilationMode, cppOptions.getLipoMode(), LinkingMode.DYNAMIC),
+            compilationMode, LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES),
+        cppToolchainInfo.configureAllLegacyLinkOptions(compilationMode, LinkingMode.DYNAMIC),
         ImmutableList.copyOf(cppOptions.coptList),
         ImmutableList.copyOf(cppOptions.cxxoptList),
         linkoptsBuilder.build(),
@@ -280,7 +285,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         compilationMode,
         params.commonOptions.makeVariableSource == MakeVariableSource.CONFIGURATION,
         cppOptions.dropFullyStaticLinkingMode,
-        cppOptions.isLipoContextCollector(),
         cppToolchainInfo);
   }
 
@@ -289,7 +293,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       Label crosstoolTop,
       CrosstoolFile crosstoolFile,
       String desiredCpu,
-      boolean convertLipoToThinLto,
       PathFragment crosstoolTopPathFragment,
       PathFragment fdoPath,
       Label fdoOptimizeLabel,
@@ -315,12 +318,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       CompilationMode compilationMode,
       boolean shouldProvideMakeVariables,
       boolean dropFullyStaticLinkingMode,
-      boolean lipoContextCollector,
       CppToolchainInfo cppToolchainInfo) {
     this.crosstoolTop = crosstoolTop;
     this.crosstoolFile = crosstoolFile;
     this.desiredCpu = desiredCpu;
-    this.convertLipoToThinLto = convertLipoToThinLto;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.fdoPath = fdoPath;
     this.fdoOptimizeLabel = fdoOptimizeLabel;
@@ -346,7 +347,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.compilationMode = compilationMode;
     this.shouldProvideMakeVariables = shouldProvideMakeVariables;
     this.dropFullyStaticLinkingMode = dropFullyStaticLinkingMode;
-    this.lipoContextCollector = lipoContextCollector;
     this.cppToolchainInfo = cppToolchainInfo;
   }
 
@@ -373,8 +373,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   /**
-   * Returns the toolchain identifier, which uniquely identifies the compiler
-   * version, target libc version, target cpu, and LIPO linkage.
+   * Returns the toolchain identifier, which uniquely identifies the compiler version, target libc
+   * version, and target cpu.
    */
   public String getToolchainIdentifier() {
     return cppToolchainInfo.getToolchainIdentifier();
@@ -665,7 +665,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    * @param featuresNotUsedAnymore
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    *     <p>Deprecated: Use {@link CppHelper#getFullyStaticLinkOptions(CppConfiguration,
-   *     CcToolchainProvider, Boolean)}
+   *     CcToolchainProvider, boolean)}
    */
   // TODO(b/64384912): Migrate skylark users to cc_common and remove.
   @Override
@@ -757,6 +757,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return ldExecutable != null ? ldExecutable.getPathString() : "";
   }
 
+  @SkylarkCallable(
+      name = "minimum_os_version",
+      doc = "The minimum OS version for C/C++ compilation.")
+  public String getMinimumOsVersion() {
+    return cppOptions.minimumOsVersion;
+  }
+
   /** Returns the value of the --dynamic_mode flag. */
   public DynamicMode getDynamicModeFlag() {
     return cppOptions.dynamicMode;
@@ -764,14 +771,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean getLinkCompileOutputSeparately() {
     return cppOptions.linkCompileOutputSeparately;
-  }
-
-  /*
-   * If true then the directory name for non-LIPO targets will have a '-lipodata' suffix in
-   * AutoFDO mode.
-   */
-  public boolean getAutoFdoLipoData() {
-    return cppOptions.getAutoFdoLipoData();
   }
 
   /**
@@ -799,62 +798,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return stlLabel;
   }
 
-  /**
-   * Returns the currently active LIPO compilation mode.
-   */
-  public LipoMode getLipoMode() {
-    return cppOptions.getLipoMode();
-  }
-
-  /** Returns true if lipo should be converted to thinlto. */
-  public boolean shouldConvertLipoToThinLto() {
-    return convertLipoToThinLto;
-  }
-
   public boolean dropFullyStaticLinkingMode() {
     return dropFullyStaticLinkingMode;
   }
 
   public boolean isFdo() {
     return cppOptions.isFdo();
-  }
-
-  /** Deprecated: Use {@link CcToolchainProvider#isLLVMCompiler()} */
-  // TODO(b/64384912): Remove in favor of CcToolchainProvider#isLLVMCompiler
-  @Deprecated
-  private final boolean isLLVMCompiler() {
-    return cppToolchainInfo.isLLVMCompiler();
-  }
-
-  /** Returns true if LIPO optimization is implied by the flags of this build. */
-  public boolean lipoOptimizationIsActivated() {
-    return cppOptions.isLipoOptimization();
-  }
-
-  /**
-   * Returns true if LIPO optimization should be applied for this configuration.
-   *
-   * <p>Deprecated: Use {@link CppHelper#isLipoOptimization(CppConfiguration, CcToolchainProvider)}
-   */
-  // TODO(b/64384912): Remove usage in topLevelConfigurationHook and CppRuleClasses and delete.
-  @Deprecated
-  public boolean isLipoOptimization() {
-    // The LIPO optimization bits are set in the LIPO context collector configuration, too.
-    // If compiler is LLVM, then LIPO gets auto-converted to ThinLTO.
-    return cppOptions.isLipoOptimization() && !isLLVMCompiler();
-  }
-
-  public boolean isLipoOptimizationOrInstrumentation() {
-    return cppOptions.isLipoOptimizationOrInstrumentation();
-  }
-
-  /**
-   * Returns true if it is AutoFDO LIPO build.
-   */
-  public boolean isAutoFdoLipo() {
-    return cppOptions.getFdoOptimize() != null
-        && CppFileTypes.GCC_AUTO_PROFILE.matches(cppOptions.getFdoOptimize())
-        && getLipoMode() != LipoMode.OFF;
   }
 
   /**
@@ -893,31 +842,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    */
   public ImmutableList<PerLabelOptions> getPerFileLtoBackendOpts() {
     return ImmutableList.copyOf(cppOptions.perFileLtoBackendOpts);
-  }
-
-  /**
-   * Returns the LIPO context for this configuration.
-   *
-   * <p>This only exists for configurations that apply LIPO in LIPO-optimized builds. It does
-   * <b>not</b> exist for data configurations, which contain LIPO state but don't actually apply
-   * LIPO. Nor does it exist for host configurations, which contain no LIPO state.
-   */
-  public Label getLipoContextLabel() {
-    return cppOptions.getLipoContext();
-  }
-
-  /**
-   * Returns the LIPO context for this build, even if LIPO isn't enabled in the current
-   * configuration.
-   *
-   * <p>Unlike {@link #getLipoContextLabel}, this returns the LIPO context for the data
-   * configuration.
-   *
-   * <p>Unless you have a clear reason to use this version (which basically involves
-   * inspecting oher configurations' state), always use {@link #getLipoContextLabel}.
-   */
-  public Label getLipoContextForBuild() {
-    return cppOptions.getLipoContextForBuild();
   }
 
   /**
@@ -995,6 +919,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.useInterfaceSharedObjects;
   }
 
+  public boolean getExpandLinkoptsLabels() {
+    return cppOptions.expandLinkoptsLabels;
+  }
+
   /**
    * Returns the path to the GNU binutils 'objcopy' binary to use for this build. (Corresponds to
    * $(OBJCOPY) in make-dbg.) Relative paths are relative to the execution root.
@@ -1060,13 +988,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppToolchainInfo.getTargetGnuSystemName();
   }
 
-  /**
-   * Returns whether the configuration's purpose is only to collect LIPO-related data.
-   */
-  public boolean isLipoContextCollector() {
-    return lipoContextCollector;
-  }
-
   /** Returns whether this configuration will use libunwind for stack unwinding. */
   public boolean isOmitfp() {
     return cppOptions.experimentalOmitfp;
@@ -1101,12 +1022,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     }
 
     // FDO
-    if (cppOptions.getFdoOptimize() != null && cppOptions.getFdoProfileLabel() != null) {
+    if (cppOptions.getFdoOptimize() != null && cppOptions.fdoProfileLabel != null) {
       reporter.handle(Event.error("Both --fdo_optimize and --fdo_profile specified"));
     }
 
-    if (cppOptions.getFdoInstrument() != null) {
-      if (cppOptions.getFdoOptimize() != null || cppOptions.getFdoProfileLabel() != null) {
+    if (cppOptions.fdoInstrumentForBuild != null) {
+      if (cppOptions.getFdoOptimize() != null || cppOptions.fdoProfileLabel != null) {
         reporter.handle(
             Event.error(
                 "Cannot instrument and optimize for FDO at the same time. Remove one of the "
@@ -1119,59 +1040,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       }
     }
 
-    if (cppOptions.getLipoMode() != LipoMode.OFF && cppOptions.getFdoProfileLabel() != null) {
-      reporter.handle(
-          Event.error(
-              "LIPO options can not be used with --fdo_profile. Use --fdo_optimize instead"));
-    }
-
-    if (cppOptions.getLipoMode() != LipoMode.OFF
-        && isLLVMCompiler()
-        && !cppOptions.convertLipoToThinLto) {
-      reporter.handle(
-          Event.error(
-              "The LLVM compiler does not support LIPO. Use --convert_lipo_to_thinlto to "
-                  + "automatically fall back to thinlto."));
-    }
-    if (cppOptions.lipoContextForBuild != null) {
-      if (!cppOptions.linkoptList.contains("-Wl,--warn-unresolved-symbols")) {
-        // This is effectively impossible. --lipo_context adds these values, and only invocation
-        // policy could remove them.
-        reporter.handle(
-            Event.error(
-                "The --lipo_context option cannot be used without -Wl,--warn-unresolved-symbols "
-                    + "included as a linkoption"));
-      }
-      if (isLLVMCompiler()) {
-        reporter.handle(
-            Event.warn("LIPO options are not applicable with a LLVM compiler and will be "
-                + "converted to ThinLTO"));
-      } else if (cppOptions.getLipoMode() != LipoMode.BINARY
-          || cppOptions.getFdoOptimize() == null) {
-        reporter.handle(
-            Event.warn(
-                "The --lipo_context option can only be used together with --fdo_optimize="
-                    + "<profile zip> and --lipo=binary. LIPO context will be ignored."));
-      }
-    } else {
-      if (!isLLVMCompiler()
-          && cppOptions.getLipoMode() == LipoMode.BINARY
-          && cppOptions.getFdoOptimize() != null) {
-        reporter.handle(
-            Event.error(
-                "The --lipo_context option must be specified when using "
-                    + "--fdo_optimize=<profile zip> and --lipo=binary"));
-      }
-    }
-    if (cppOptions.getLipoMode() == LipoMode.BINARY && compilationMode != CompilationMode.OPT) {
-      reporter.handle(Event.error(
-          "'--lipo=binary' can only be used with '--compilation_mode=opt' (or '-c opt')"));
-    }
-
     // This is an assertion check vs. user error because users can't trigger this state.
     Verify.verify(
         !(buildOptions.get(BuildConfiguration.Options.class).isHost && cppOptions.isFdo()),
-        "FDO/LIPO state should not propagate to the host configuration");
+        "FDO state should not propagate to the host configuration");
   }
 
   @Override
@@ -1197,20 +1069,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   @Override
   public String getOutputDirectoryName() {
-    String lipoSuffix;
-    if (getLipoMode() != LipoMode.OFF && !isAutoFdoLipo()) {
-      lipoSuffix = "-lipo";
-    } else if (getAutoFdoLipoData()) {
-      lipoSuffix = "-lipodata";
-    } else {
-      lipoSuffix = "";
-    }
     String toolchainPrefix = desiredCpu;
     if (!cppOptions.outputDirectoryTag.isEmpty()) {
       toolchainPrefix += "-" + cppOptions.outputDirectoryTag;
     }
 
-    return toolchainPrefix + lipoSuffix;
+    return toolchainPrefix;
   }
 
   /**
@@ -1233,7 +1097,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   public String getFdoInstrument() {
-    return cppOptions.getFdoInstrument();
+    return cppOptions.fdoInstrumentForBuild;
   }
 
   public PathFragment getFdoPath() {
@@ -1249,7 +1113,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   public Label getFdoProfileLabel() {
-    return cppOptions.getFdoProfileLabel();
+    return cppOptions.fdoProfileLabel;
   }
 
   public boolean isFdoAbsolutePathEnabled() {
@@ -1260,8 +1124,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.useLLVMCoverageMapFormat;
   }
 
-  public static PathFragment computeDefaultSysroot(CToolchain toolchain) {
-    String builtInSysroot = toolchain.getBuiltinSysroot();
+  public static PathFragment computeDefaultSysroot(String builtInSysroot) {
     if (builtInSysroot.isEmpty()) {
       return null;
     }
@@ -1270,25 +1133,5 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
           "The built-in sysroot '" + builtInSysroot + "' is not normalized.");
     }
     return PathFragment.create(builtInSysroot);
-  }
-
-  @Override
-  public PatchTransition getArtifactOwnerTransition() {
-    return isLipoContextCollector() ? ContextCollectorOwnerTransition.INSTANCE : null;
-  }
-
-  @Nullable
-  @Override
-  public PatchTransition topLevelConfigurationHook(Target toTarget) {
-    // Top-level output files that aren't outputs of the LIPO context should be built in
-    // the data config. This is so their output path prefix doesn't have "-lipo" in it, which
-    // is a confusing and unnecessary deviation from how they would normally look.
-    if (toTarget instanceof OutputFile
-        && isLipoOptimization()
-        && !toTarget.getAssociatedRule().getLabel().equals(getLipoContextLabel())) {
-      return DisableLipoTransition.INSTANCE;
-    } else {
-      return null;
-    }
   }
 }

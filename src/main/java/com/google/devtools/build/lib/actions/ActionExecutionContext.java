@@ -44,7 +44,7 @@ import javax.annotation.Nullable;
 public class ActionExecutionContext implements Closeable {
 
   private final Executor executor;
-  private final ActionInputFileCache actionInputFileCache;
+  private final MetadataProvider actionInputFileCache;
   private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionKeyContext actionKeyContext;
   private final MetadataHandler metadataHandler;
@@ -59,9 +59,11 @@ public class ActionExecutionContext implements Closeable {
 
   @Nullable private ImmutableList<FilesetOutputSymlink> outputSymlinks;
 
+  private final ArtifactPathResolver pathResolver;
+
   private ActionExecutionContext(
       Executor executor,
-      ActionInputFileCache actionInputFileCache,
+      MetadataProvider actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
@@ -82,11 +84,14 @@ public class ActionExecutionContext implements Closeable {
     this.artifactExpander = artifactExpander;
     this.env = env;
     this.actionFileSystem = actionFileSystem;
+    this.pathResolver = ArtifactPathResolver.createPathResolver(actionFileSystem,
+        // executor is only ever null in testing.
+        executor == null ? null : executor.getExecRoot());
   }
 
   public ActionExecutionContext(
       Executor executor,
-      ActionInputFileCache actionInputFileCache,
+      MetadataProvider actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
@@ -111,7 +116,7 @@ public class ActionExecutionContext implements Closeable {
 
   public static ActionExecutionContext forInputDiscovery(
       Executor executor,
-      ActionInputFileCache actionInputFileCache,
+      MetadataProvider actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
@@ -137,7 +142,7 @@ public class ActionExecutionContext implements Closeable {
     return actionInputPrefetcher;
   }
 
-  public ActionInputFileCache getActionInputFileCache() {
+  public MetadataProvider getMetadataProvider() {
     return actionInputFileCache;
   }
 
@@ -168,22 +173,15 @@ public class ActionExecutionContext implements Closeable {
    * {@link Artifact.getRoot}.
    */
   public Path getInputPath(ActionInput input) {
-    if (input instanceof Artifact) {
-      Artifact artifact = (Artifact) input;
-      if (actionFileSystem != null) {
-        return actionFileSystem.getPath(artifact.getPath().getPathString());
-      }
-      return artifact.getPath();
-    }
-    return getExecRoot().getRelative(input.getExecPath());
+    return pathResolver.toPath(input);
   }
 
   public Root getRoot(Artifact artifact) {
-    if (actionFileSystem != null) {
-      return Root.fromPath(
-          actionFileSystem.getPath(artifact.getRoot().getRoot().asPath().getPathString()));
-    }
-    return artifact.getRoot().getRoot();
+    return pathResolver.transformRoot(artifact.getRoot().getRoot());
+  }
+
+  public ArtifactPathResolver getPathResolver() {
+    return pathResolver;
   }
 
   /**

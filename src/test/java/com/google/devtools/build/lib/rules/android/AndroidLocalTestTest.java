@@ -149,6 +149,7 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
 
   @Test
   public void testNoBinaryResources() throws Exception {
+    useConfiguration("--noexperimental_android_local_test_binary_resources");
     scratch.file(
         "java/test/BUILD",
         "load('//java/bar:foo.bzl', 'extra_deps')",

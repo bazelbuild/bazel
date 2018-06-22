@@ -101,7 +101,7 @@ public class ToolchainTypeTest extends BuildViewTestCase {
             .setList("copts", "foobar-$(ABI)")
             .write();
     CppCompileAction compileAction =
-        (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/cclib/cclib/a.o", cclibrary));
+        (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/cclib/a.o", cclibrary));
     assertThat(compileAction.getArguments()).contains("foobar-banana");
 
     ConfiguredTarget ccbinary =
@@ -110,7 +110,7 @@ public class ToolchainTypeTest extends BuildViewTestCase {
             .setList("copts", "foobar-$(ABI)")
             .write();
     compileAction =
-        (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/ccbin/ccbin/a.o", ccbinary));
+        (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/ccbin/a.o", ccbinary));
     assertThat(compileAction.getArguments()).contains("foobar-banana");
 
     ConfiguredTarget cctest =
@@ -119,7 +119,7 @@ public class ToolchainTypeTest extends BuildViewTestCase {
             .setList("copts", "foobar-$(ABI)")
             .write();
     compileAction =
-        (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/cctest/cctest/a.o", cctest));
+        (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/cctest/a.o", cctest));
     assertThat(compileAction.getArguments()).contains("foobar-banana");
   }
 }

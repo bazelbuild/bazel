@@ -139,6 +139,7 @@ public class EnvironmentTest extends EvaluationTestCase {
                 "all",
                 "any",
                 "bool",
+                "depset",
                 "dict",
                 "dir",
                 "enumerate",
@@ -155,9 +156,11 @@ public class EnvironmentTest extends EvaluationTestCase {
                 "range",
                 "repr",
                 "reversed",
+                "select",
                 "sorted",
                 "str",
                 "tuple",
+                "type",
                 "zip"));
     assertThat(innerEnv.getVariableNames())
         .isEqualTo(
@@ -171,6 +174,7 @@ public class EnvironmentTest extends EvaluationTestCase {
                 "all",
                 "any",
                 "bool",
+                "depset",
                 "dict",
                 "dir",
                 "enumerate",
@@ -187,9 +191,11 @@ public class EnvironmentTest extends EvaluationTestCase {
                 "range",
                 "repr",
                 "reversed",
+                "select",
                 "sorted",
                 "str",
                 "tuple",
+                "type",
                 "zip"));
   }
 

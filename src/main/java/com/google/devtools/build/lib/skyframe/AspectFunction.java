@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
+import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectResolver;
@@ -101,7 +101,6 @@ import javax.annotation.Nullable;
 public final class AspectFunction implements SkyFunction {
   private final BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
-  private final Supplier<Boolean> removeActionsAfterEvaluation;
   private final BuildOptions defaultBuildOptions;
   @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining;
   /**
@@ -114,13 +113,11 @@ public final class AspectFunction implements SkyFunction {
   AspectFunction(
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
-      Supplier<Boolean> removeActionsAfterEvaluation,
       @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining,
       boolean storeTransitivePackagesForPackageRootResolution,
       BuildOptions defaultBuildOptions) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
-    this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
     this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
     this.storeTransitivePackagesForPackageRootResolution =
         storeTransitivePackagesForPackageRootResolution;
@@ -419,6 +416,7 @@ public final class AspectFunction implements SkyFunction {
                     aspect.getDescriptor().getDescription(),
                     associatedConfiguredTargetAndData.getTarget().toString()),
                 requiredToolchains,
+                /* execConstraintLabels= */ ImmutableSet.of(),
                 key.getAspectConfigurationKey());
       } catch (ToolchainContextException e) {
         // TODO(katre): better error handling
@@ -576,8 +574,7 @@ public final class AspectFunction implements SkyFunction {
         originalTarget.getLocation(),
         ConfiguredAspect.forAlias(real.getConfiguredAspect()),
         GeneratingActions.EMPTY,
-        transitivePackagesForPackageRootResolution,
-        removeActionsAfterEvaluation.get());
+        transitivePackagesForPackageRootResolution);
   }
 
   @Nullable
@@ -666,8 +663,7 @@ public final class AspectFunction implements SkyFunction {
         generatingActions,
         transitivePackagesForPackageRootResolution == null
             ? null
-            : transitivePackagesForPackageRootResolution.build(),
-        removeActionsAfterEvaluation.get());
+            : transitivePackagesForPackageRootResolution.build());
   }
 
   @Override

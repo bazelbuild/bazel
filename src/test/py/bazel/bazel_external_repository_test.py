@@ -14,22 +14,56 @@
 # limitations under the License.
 
 import os
+import threading
 import unittest
+from six.moves import SimpleHTTPServer
+from six.moves import socketserver
 from src.test.py.bazel import test_base
+
+
+class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+  """A helper class to launcher a threaded http server."""
+  pass
 
 
 class BazelExternalRepositoryTest(test_base.TestBase):
 
+  _http_server = None
+
+  def StartHttpServer(self):
+    """Runs a simple http server to serve files under current directory."""
+    # Port 0 means to select an arbitrary unused port
+    host, port = 'localhost', 0
+    http_handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+    server = ThreadedTCPServer((host, port), http_handler)
+    server_thread = threading.Thread(target=server.serve_forever)
+    server_thread.daemon = True
+    server_thread.start()
+    self._http_server = server
+
+  def StopHttpServer(self):
+    """Shutdown and clean up the http server."""
+    if self._http_server:
+      self._http_server.shutdown()
+      self._http_server.server_close()
+
+  def setUp(self):
+    test_base.TestBase.setUp(self)
+    for f in ['six-1.10.0.tar.gz', 'archive_with_symlink.zip']:
+      self.CopyFile(self.Rlocation('io_bazel/src/test/py/bazel/testdata/'
+                                   'bazel_external_repository_test/' + f), f)
+    self.StartHttpServer()
+
+  def tearDown(self):
+    test_base.TestBase.tearDown(self)
+    self.StopHttpServer()
+
   def testNewHttpArchive(self):
+    ip, port = self._http_server.server_address
     rule_definition = [
         'new_http_archive(',
         '    name = "six_archive",',
-        '    urls = [',
-        '      "https://mirror.bazel.build/pypi.python.org/%s' %
-        'packages/source/s/six/six-1.10.0.tar.gz",',
-        '      "https://pypi.python.org/packages/%s' %
-        'source/s/six/six-1.10.0.tar.gz",',
-        '    ],',
+        '    urls = ["http://%s:%s/six-1.10.0.tar.gz"],' % (ip, port),
         '    sha256 = '
         '"105f8d68616f8248e24bf0e9372ef04d3cc10104f1980f54d57b2ce73a5ad56a",',
         '    strip_prefix = "six-1.10.0",',
@@ -80,6 +114,28 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.assertEqual(exit_code, 1, os.linesep.join(stderr))
     self.assertIn('name \'foobar\' is not defined', os.linesep.join(stderr))
 
+  def testNewHttpArchiveWithSymlinks(self):
+    ip, port = self._http_server.server_address
+    self.ScratchFile('WORKSPACE', [
+        'new_http_archive(',
+        '    name = "archive_with_symlink",',
+        '    urls = ["http://%s:%s/archive_with_symlink.zip"],' % (ip, port),
+        '    build_file = "archive_with_symlink.BUILD",',
+        ')',
+    ])
+    # In the archive, A is a symlink pointing to B
+    self.ScratchFile('archive_with_symlink.BUILD', [
+        'filegroup(',
+        '    name = "file-A",',
+        '    srcs = ["A"],',
+        ')',
+    ])
+    self.ScratchFile('BUILD')
+    exit_code, _, stderr = self.RunBazel([
+        'build',
+        '@archive_with_symlink//:file-A',
+    ])
+    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
 
 if __name__ == '__main__':
   unittest.main()

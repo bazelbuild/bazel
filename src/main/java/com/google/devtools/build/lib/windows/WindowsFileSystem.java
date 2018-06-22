@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.windows;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -36,7 +37,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   public WindowsFileSystem() {}
 
-  public WindowsFileSystem(HashFunction hashFunction) {
+  public WindowsFileSystem(DigestHashFunction hashFunction) {
     super(hashFunction);
   }
 

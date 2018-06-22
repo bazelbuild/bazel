@@ -463,7 +463,7 @@ public final class Environment implements Freezable, Debuggable {
     final BaseFunction function;
 
     /** The {@link FuncallExpression} to which this Continuation will return. */
-    final FuncallExpression caller;
+    @Nullable final FuncallExpression caller;
 
     /** The next Continuation after this Continuation. */
     @Nullable final Continuation continuation;
@@ -478,12 +478,12 @@ public final class Environment implements Freezable, Debuggable {
     @Nullable final LinkedHashSet<String> knownGlobalVariables;
 
     Continuation(
-        Continuation continuation,
+        @Nullable Continuation continuation,
         BaseFunction function,
-        FuncallExpression caller,
+        @Nullable FuncallExpression caller,
         LexicalFrame lexicalFrame,
         GlobalFrame globalFrame,
-        LinkedHashSet<String> knownGlobalVariables) {
+        @Nullable LinkedHashSet<String> knownGlobalVariables) {
       this.continuation = continuation;
       this.function = function;
       this.caller = caller;
@@ -719,13 +719,17 @@ public final class Environment implements Freezable, Debuggable {
 
   /**
    * Enters a scope by saving state to a new Continuation
+   *
    * @param function the function whose scope to enter
    * @param lexical the lexical frame to use
    * @param caller the source AST node for the caller
    * @param globals the global Frame that this function closes over from its definition Environment
    */
   void enterScope(
-      BaseFunction function, LexicalFrame lexical, FuncallExpression caller, GlobalFrame globals) {
+      BaseFunction function,
+      LexicalFrame lexical,
+      @Nullable FuncallExpression caller,
+      GlobalFrame globals) {
     continuation =
         new Continuation(
             continuation, function, caller, lexicalFrame, globalFrame, knownGlobalVariables);
@@ -1194,7 +1198,8 @@ public final class Environment implements Freezable, Debuggable {
               .build());
 
       currentFrame = currentContinuation.lexicalFrame;
-      currentLocation = currentContinuation.caller.getLocation();
+      currentLocation =
+          currentContinuation.caller != null ? currentContinuation.caller.getLocation() : null;
       currentContinuation = currentContinuation.continuation;
     }
 

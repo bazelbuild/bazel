@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState.BUILT;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +45,8 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
@@ -50,6 +54,7 @@ import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -60,7 +65,6 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
-import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
@@ -74,11 +78,13 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -106,6 +112,8 @@ public final class SkyframeBuildView {
   // has been invalidated after graph pruning has been executed.
   private Set<SkyKey> dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
   private volatile boolean anyConfiguredTargetDeleted = false;
+
+  private final AtomicInteger evaluatedActionCount = new AtomicInteger();
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
@@ -146,6 +154,48 @@ public final class SkyframeBuildView {
     return factory;
   }
 
+  public int getEvaluatedActionCount() {
+    return evaluatedActionCount.get();
+  }
+
+  public void resetEvaluationActionCount() {
+    evaluatedActionCount.set(0);
+  }
+
+  private boolean areConfigurationsDifferent(BuildConfigurationCollection configurations) {
+    if (this.configurations == null) {
+      // no configurations currently, no need to drop anything
+      return false;
+    }
+    if (configurations.equals(this.configurations)) {
+      // exact same configurations, no need to drop anything
+      return false;
+    }
+    if (configurations.getTargetConfigurations().size()
+        != this.configurations.getTargetConfigurations().size()) {
+      // some option that changes the number of configurations has changed, that's definitely not
+      // any of the options that are okay to change
+      return true;
+    }
+    // Here we assume that the configurations will appear in the same order between invocations -
+    // which is the case today, because the only way to have multiple configurations is to use
+    // --experimental_multi_cpu, which creates configurations in sorted order of cpu value.
+    // Those configurations are all identical except for their cpu values, so the configuration we
+    // compare against only matters for making sure the cpu matches. Which we do care about.
+    for (int configIndex = 0;
+        configIndex < configurations.getTargetConfigurations().size();
+        configIndex += 1) {
+      BuildConfiguration oldConfig = this.configurations.getTargetConfigurations().get(configIndex);
+      BuildConfiguration newConfig = configurations.getTargetConfigurations().get(configIndex);
+      OptionsDiff diff = BuildOptions.diff(oldConfig.getOptions(), newConfig.getOptions());
+      if (ruleClassProvider.shouldInvalidateCacheForDiff(diff, newConfig.getOptions())) {
+        return true;
+      }
+    }
+    // We don't need to check the host configuration because it's derived from the target options.
+    return false;
+  }
+
   /** Sets the configurations. Not thread-safe. DO NOT CALL except from tests! */
   @VisibleForTesting
   public void setConfigurations(
@@ -153,8 +203,7 @@ public final class SkyframeBuildView {
     // Clear all cached ConfiguredTargets on configuration change of if --discard_analysis_cache
     // was set on the previous build. In the former case, it's not required for correctness, but
     // prevents unbounded memory usage.
-    if ((this.configurations != null && !configurations.equals(this.configurations))
-        || skyframeAnalysisWasDiscarded) {
+    if (this.areConfigurationsDifferent(configurations) || skyframeAnalysisWasDiscarded) {
       eventHandler.handle(Event.info("Build options have changed, discarding analysis cache."));
       skyframeExecutor.handleConfiguredTargetChange();
     }
@@ -182,7 +231,7 @@ public final class SkyframeBuildView {
    * Drops the analysis cache. If building with Skyframe, targets in {@code topLevelTargets} may
    * remain in the cache for use during the execution phase.
    *
-   * @see com.google.devtools.build.lib.analysis.BuildView.Options#discardAnalysisCache
+   * @see com.google.devtools.build.lib.analysis.AnalysisOptions#discardAnalysisCache
    */
   public void clearAnalysisCache(
       Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
@@ -248,8 +297,7 @@ public final class SkyframeBuildView {
     }
     PackageRoots packageRoots =
         singleSourceRoot == null
-            ? new MapAsPackageRoots(
-                LoadingPhaseRunner.collectPackageRoots(packages.build().toCollection()))
+            ? new MapAsPackageRoots(collectPackageRoots(packages.build().toCollection()))
             : new PackageRootsNoSymlinkCreation(singleSourceRoot);
 
     if (!result.hasError() && badActions.isEmpty()) {
@@ -416,6 +464,17 @@ public final class SkyframeBuildView {
         packageRoots);
   }
 
+  /** Returns a map of collected package names to root paths. */
+  private static ImmutableMap<PackageIdentifier, Root> collectPackageRoots(
+      Collection<Package> packages) {
+    // Make a map of the package names to their root paths.
+    ImmutableMap.Builder<PackageIdentifier, Root> packageRoots = ImmutableMap.builder();
+    for (Package pkg : packages) {
+      packageRoots.put(pkg.getPackageIdentifier(), pkg.getSourceRoot());
+    }
+    return packageRoots.build();
+  }
+
   @Nullable
   private static Label maybeGetConfiguredTargetCycleCulprit(
       Label labelToLoad, Iterable<CycleInfo> cycleInfos) {
@@ -497,7 +556,6 @@ public final class SkyframeBuildView {
       return null;
     }
     boolean extendedSanityChecks = config != null && config.extendedSanityChecks();
-    boolean allowRegisteringActions = config == null || config.isActionsEnabled();
     return new CachingAnalysisEnvironment(
         artifactFactory,
         skyframeExecutor.getActionKeyContext(),
@@ -505,8 +563,7 @@ public final class SkyframeBuildView {
         isSystemEnv,
         extendedSanityChecks,
         eventHandler,
-        env,
-        allowRegisteringActions);
+        env);
   }
 
   /**
@@ -676,6 +733,7 @@ public final class SkyframeBuildView {
     @Override
     public void evaluated(
         SkyKey skyKey,
+        @Nullable SkyValue value,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
       if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
@@ -686,6 +744,9 @@ public final class SkyframeBuildView {
               // During multithreaded operation, this is only set to true, so no concurrency issues.
               someConfiguredTargetEvaluated = true;
             }
+            if (value instanceof ConfiguredTargetValue) {
+              evaluatedActionCount.addAndGet(((ConfiguredTargetValue) value).getNumActions());
+            }
             break;
           case CLEAN:
             // If the configured target value did not need to be rebuilt, then it wasn't truly
@@ -693,6 +754,10 @@ public final class SkyframeBuildView {
             dirtiedConfiguredTargetKeys.remove(skyKey);
             break;
         }
+      } else if (skyKey.functionName().equals(SkyFunctions.ASPECT)
+          && state == BUILT
+          && value instanceof AspectValue) {
+        evaluatedActionCount.addAndGet(((AspectValue) value).getNumActions());
       }
     }
   }

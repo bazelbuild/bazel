@@ -163,13 +163,13 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/x/a.pic.o");
+            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
     CppLinkAction indexAction =
         (CppLinkAction)
             getPredecessorByInputName(
-                backendAction, "x/libfoo.so.lto/x/_objs/foo/x/a.pic.o.thinlto.bc");
+                backendAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o.thinlto.bc");
     CcToolchainVariables variables = indexAction.getLinkCommandLine().getBuildVariables();
 
     String interfaceLibraryBuilder =
@@ -256,13 +256,13 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/x/a.pic.o");
+            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
     CppLinkAction indexAction =
         (CppLinkAction)
             getPredecessorByInputName(
-                backendAction, "x/libfoo.so.lto/x/_objs/foo/x/a.pic.o.thinlto.bc");
+                backendAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o.thinlto.bc");
     CcToolchainVariables variables = indexAction.getLinkCommandLine().getBuildVariables();
 
     assertThat(variables.isAvailable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName()))

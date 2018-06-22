@@ -19,6 +19,8 @@
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 
 namespace blaze {
 
@@ -59,6 +61,9 @@ string WorkspaceLayout::GetPrettyWorkspaceName(
 std::string WorkspaceLayout::GetWorkspaceRcPath(
     const std::string &workspace,
     const std::vector<std::string> &startup_args) const {
+  // TODO(b/36168162): Rename and remove the tools/ prefix. See
+  // https://github.com/bazelbuild/bazel/issues/4502#issuecomment-372697374
+  // for the final set of bazelrcs we want to have.
   return blaze_util::JoinPath(workspace, "tools/bazel.rc");
 }
 

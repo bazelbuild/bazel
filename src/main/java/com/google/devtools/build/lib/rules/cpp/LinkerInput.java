@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 
 /**
  * Something that appears on the command line of the linker. Since we sometimes expand archive files
@@ -27,9 +28,8 @@ public interface LinkerInput {
    */
   ArtifactCategory getArtifactCategory();
 
-  /**
-   * Returns the artifact that is the input of the linker.
-   */
+  /** Returns the artifact that is the input of the linker. */
+  @SkylarkCallable(name = "artifact", doc = "Artifact passed to the linker.")
   Artifact getArtifact();
 
   /**

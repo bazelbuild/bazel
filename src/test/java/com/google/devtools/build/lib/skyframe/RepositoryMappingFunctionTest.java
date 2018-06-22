@@ -48,6 +48,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testSimpleMapping() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
     scratch.overwriteFile(
         "WORKSPACE",
         "workspace(name = 'good')",
@@ -70,6 +71,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMultipleRepositoriesWithMapping() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
     scratch.overwriteFile(
         "WORKSPACE",
         "workspace(name = 'good')",
@@ -102,6 +104,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testRepositoryWithMultipleMappings() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
     scratch.overwriteFile(
         "WORKSPACE",
         "workspace(name = 'good')",
@@ -124,6 +127,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testErrorWithMapping() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile(
         "WORKSPACE",
@@ -145,6 +149,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testEmptyMapping() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
     scratch.overwriteFile(
         "WORKSPACE",
         "workspace(name = 'good')",
@@ -164,7 +169,27 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testNoMappings() throws Exception {
+  public void testNoMappings_noFlag() throws Exception {
+    setSkylarkSemanticsOptions("--noexperimental_enable_repo_mapping");
+    scratch.overwriteFile(
+        "WORKSPACE",
+        "workspace(name = 'good')",
+        "local_repository(",
+        "    name = 'a_remote_repo',",
+        "    path = '/a_remote_repo',",
+        ")");
+    RepositoryName name = RepositoryName.create("@a_remote_repo");
+    SkyKey skyKey = RepositoryMappingValue.key(name);
+
+    assertThatEvaluationResult(eval(skyKey))
+        .hasEntryThat(skyKey)
+        .isEqualTo(
+            RepositoryMappingValue.withMapping(ImmutableMap.of()));
+  }
+
+  @Test
+  public void testNoMappings_withFlag() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
     scratch.overwriteFile(
         "WORKSPACE",
         "workspace(name = 'good')",

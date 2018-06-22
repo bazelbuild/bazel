@@ -16,9 +16,9 @@
 
 #include <stdio.h>
 
-#if !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
+#if !defined(_WIN32) && !defined(__CYGWIN__)
 #include <unistd.h>
-#endif  // not COMPILER_MSVC and not __CYGWIN__
+#endif  // not _WIN32 and not __CYGWIN__
 
 namespace blaze_util {
 
@@ -51,9 +51,9 @@ struct AutoFileHandle {
   handle_type fd;
 };
 
-#if !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
+#if !defined(_WIN32) && !defined(__CYGWIN__)
 typedef struct AutoFileHandle<int, -1, close> AutoFd;
-#endif  // not COMPILER_MSVC and not __CYGWIN__
+#endif  // not _WIN32 and not __CYGWIN__
 
 typedef struct AutoFileHandle<FILE*, nullptr, fclose> AutoFileStream;
 

@@ -38,8 +38,14 @@ public final class StructProvider extends BuiltinProvider<Info>
 
   @Override
   public Info createStruct(SkylarkDict<?, ?> kwargs, Location loc) throws EvalException {
-    return SkylarkInfo.createSchemaless(
-        this, kwargs.getContents(String.class, Object.class, "kwargs"), loc);
+    Map<String, Object> kwargsMap = kwargs.getContents(String.class, Object.class, "kwargs");
+    if (kwargsMap.containsKey("to_json")) {
+      throw new EvalException(loc, "cannot override built-in struct function 'to_json'");
+    }
+    if (kwargsMap.containsKey("to_proto")) {
+      throw new EvalException(loc, "cannot override built-in struct function 'to_proto'");
+    }
+    return SkylarkInfo.createSchemaless(this, kwargsMap, loc);
   }
 
   /**

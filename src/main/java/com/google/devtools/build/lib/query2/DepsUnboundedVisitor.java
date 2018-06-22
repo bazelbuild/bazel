@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Map;
@@ -47,6 +48,7 @@ class DepsUnboundedVisitor extends AbstractEdgeVisitor<SkyKey> {
 
   private final boolean depsNeedFiltering;
   private final Callback<Target> errorReporter;
+  private final QueryExpressionContext<Target> context;
 
   DepsUnboundedVisitor(
       SkyQueryEnvironment env,
@@ -54,11 +56,13 @@ class DepsUnboundedVisitor extends AbstractEdgeVisitor<SkyKey> {
       Callback<Target> callback,
       MultisetSemaphore<PackageIdentifier> packageSemaphore,
       boolean depsNeedFiltering,
-      Callback<Target> errorReporter) {
+      Callback<Target> errorReporter,
+      QueryExpressionContext<Target> context) {
     super(env, callback, packageSemaphore);
     this.validDepUniquifier = validDepUniquifier;
     this.depsNeedFiltering = depsNeedFiltering;
     this.errorReporter = errorReporter;
+    this.context = context;
   }
 
   /**
@@ -74,25 +78,34 @@ class DepsUnboundedVisitor extends AbstractEdgeVisitor<SkyKey> {
     private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
     private final boolean depsNeedFiltering;
     private final Callback<Target> errorReporter;
+    private final QueryExpressionContext<Target> context;
 
     Factory(
         SkyQueryEnvironment env,
         Callback<Target> callback,
         MultisetSemaphore<PackageIdentifier> packageSemaphore,
         boolean depsNeedFiltering,
-        Callback<Target> errorReporter) {
+        Callback<Target> errorReporter,
+        QueryExpressionContext<Target> context) {
       this.env = env;
       this.validDepUniquifier = env.createSkyKeyUniquifier();
       this.callback = callback;
       this.packageSemaphore = packageSemaphore;
       this.depsNeedFiltering = depsNeedFiltering;
       this.errorReporter = errorReporter;
+      this.context = context;
     }
 
     @Override
     public ParallelVisitor<SkyKey, Target> create() {
       return new DepsUnboundedVisitor(
-          env, validDepUniquifier, callback, packageSemaphore, depsNeedFiltering, errorReporter);
+          env,
+          validDepUniquifier,
+          callback,
+          packageSemaphore,
+          depsNeedFiltering,
+          errorReporter,
+          context);
     }
   }
 
@@ -110,7 +123,7 @@ class DepsUnboundedVisitor extends AbstractEdgeVisitor<SkyKey> {
       packageSemaphore.acquireAll(pkgIdsNeededForTargetification);
       Iterable<Target> deps;
       try {
-        deps = env.getFwdDeps(env.makeTargetsFromSkyKeys(keys).values());
+        deps = env.getFwdDeps(env.makeTargetsFromSkyKeys(keys).values(), context);
       } finally {
         packageSemaphore.releaseAll(pkgIdsNeededForTargetification);
       }

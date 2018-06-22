@@ -292,73 +292,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         ccCompilationContext.propagateModuleMapAsActionInput);
   }
 
-  /**
-   * Returns the context for a LIPO compile action. This uses the include dirs and defines of the
-   * library, but the declared inclusion dirs/srcs from both the library and the owner binary.
-   *
-   * <p>TODO(bazel-team): this might make every LIPO target have an unnecessary large set of
-   * inclusion dirs/srcs. The correct behavior would be to merge only the contexts of actual
-   * referred targets (as listed in .imports file).
-   *
-   * <p>Undeclared inclusion checking ({@link #getDeclaredIncludeDirs()}, {@link
-   * #getDeclaredIncludeWarnDirs()}, and {@link #getDeclaredIncludeSrcs()}) needs to use the union
-   * of the contexts of the involved source files.
-   *
-   * <p>For include and define command line flags ({@link #getIncludeDirs()} {@link
-   * #getQuoteIncludeDirs()}, {@link #getSystemIncludeDirs()}, and {@link #getDefines()}) LIPO
-   * compilations use the same values as non-LIPO compilation.
-   *
-   * <p>Include scanning is not handled by this method. See {@code
-   * IncludeScannable#getAuxiliaryScannables()} instead.
-   *
-   * @param ownerCcCompilationContext the {@code CcCompilationContext} of the owner binary
-   * @param libCcCompilationContext the {@code CcCompilationContext} of the library
-   */
-  public static CcCompilationContext mergeForLipo(
-      CcCompilationContext ownerCcCompilationContext,
-      CcCompilationContext libCcCompilationContext) {
-    ImmutableSet.Builder<Artifact> prerequisites = ImmutableSet.builder();
-    prerequisites.addAll(ownerCcCompilationContext.compilationPrerequisites);
-    prerequisites.addAll(libCcCompilationContext.compilationPrerequisites);
-    ModuleInfo.Builder moduleInfo = new ModuleInfo.Builder();
-    moduleInfo.merge(ownerCcCompilationContext.moduleInfo);
-    moduleInfo.merge(libCcCompilationContext.moduleInfo);
-    ModuleInfo.Builder picModuleInfo = new ModuleInfo.Builder();
-    picModuleInfo.merge(ownerCcCompilationContext.picModuleInfo);
-    picModuleInfo.merge(libCcCompilationContext.picModuleInfo);
-    return new CcCompilationContext(
-        libCcCompilationContext.commandLineCcCompilationContext,
-        prerequisites.build(),
-        mergeSets(
-            ownerCcCompilationContext.declaredIncludeDirs,
-            libCcCompilationContext.declaredIncludeDirs),
-        mergeSets(
-            ownerCcCompilationContext.declaredIncludeWarnDirs,
-            libCcCompilationContext.declaredIncludeWarnDirs),
-        mergeSets(
-            ownerCcCompilationContext.declaredIncludeSrcs,
-            libCcCompilationContext.declaredIncludeSrcs),
-        mergeSets(ownerCcCompilationContext.pregreppedHdrs, libCcCompilationContext.pregreppedHdrs),
-        mergeSets(ownerCcCompilationContext.nonCodeInputs, libCcCompilationContext.nonCodeInputs),
-        moduleInfo.build(),
-        picModuleInfo.build(),
-        mergeSets(
-            ownerCcCompilationContext.directModuleMaps, libCcCompilationContext.directModuleMaps),
-        libCcCompilationContext.cppModuleMap,
-        libCcCompilationContext.verificationModuleMap,
-        libCcCompilationContext.propagateModuleMapAsActionInput);
-  }
-
-  /**
-   * Return a nested set containing all elements from {@code s1} and {@code s2}.
-   */
-  private static <T> NestedSet<T> mergeSets(NestedSet<T> s1, NestedSet<T> s2) {
-    NestedSetBuilder<T> builder = NestedSetBuilder.stableOrder();
-    builder.addTransitive(s1);
-    builder.addTransitive(s2);
-    return builder.build();
-  }
-
   /** @return the C++ module map of the owner. */
   public CppModuleMap getCppModuleMap() {
     return cppModuleMap;
@@ -695,12 +628,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       Preconditions.checkState(
           Objects.equals(moduleInfo.textualHeaders, picModuleInfo.textualHeaders),
           "Module and PIC module's textual headers are expected to be identical");
-      // We don't create middlemen in LIPO collector subtree, because some target CT
-      // will do that instead.
-      Artifact prerequisiteStampFile = (ruleContext != null
-          && ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector())
-          ? getMiddlemanArtifact(middlemanFactory)
-          : createMiddleman(owner, middlemanFactory);
+      Artifact prerequisiteStampFile = createMiddleman(owner, middlemanFactory);
 
       return new CcCompilationContext(
           new CommandLineCcCompilationContext(
@@ -709,7 +637,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
               ImmutableList.copyOf(systemIncludeDirs),
               ImmutableList.copyOf(defines)),
           prerequisiteStampFile == null
-              ? ImmutableSet.<Artifact>of()
+              ? ImmutableSet.of()
               : ImmutableSet.of(prerequisiteStampFile),
           declaredIncludeDirs.build(),
           declaredIncludeWarnDirs.build(),
@@ -757,22 +685,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return middlemanFactory.createErrorPropagatingMiddleman(
           owner, name, purpose,
           ImmutableList.copyOf(compilationPrerequisites),
-          ruleContext.getConfiguration().getMiddlemanDirectory(
-              ruleContext.getRule().getRepository()));
-    }
-
-    /**
-     * Returns the same set of artifacts as createMiddleman() would, but without
-     * actually creating middlemen.
-     */
-    private Artifact getMiddlemanArtifact(MiddlemanFactory middlemanFactory) {
-      if (compilationPrerequisites.isEmpty()) {
-        return null;
-      }
-
-      return middlemanFactory.getErrorPropagatingMiddlemanArtifact(
-          ruleContext.getLabel().toString(),
-          purpose,
           ruleContext.getConfiguration().getMiddlemanDirectory(
               ruleContext.getRule().getRepository()));
     }
@@ -909,8 +821,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         ImmutableSet<Artifact> modularHeaders = ImmutableSet.copyOf(this.modularHeaders);
         NestedSet<Artifact> transitiveModules = this.transitiveModules.build();
         if (headerModule != null) {
-          transitiveModuleHeaders.add(
-              new TransitiveModuleHeaders(headerModule, modularHeaders, transitiveModules));
+          transitiveModuleHeaders.add(new TransitiveModuleHeaders(headerModule, modularHeaders));
         }
         return new ModuleInfo(
             headerModule,
@@ -936,27 +847,13 @@ public final class CcCompilationContext implements CcCompilationContextApi {
      */
     private final ImmutableSet<Artifact> headers;
 
-    /**
-     * This nested set contains 'module' as well as all targets it transitively depends on.
-     * If any of the 'headers' is used, all of these modules a required for the compilation.
-     */
-    private final NestedSet<Artifact> transitiveModules;
-
-    public TransitiveModuleHeaders(
-        Artifact module,
-        ImmutableSet<Artifact> headers,
-        NestedSet<Artifact> transitiveModules) {
+    public TransitiveModuleHeaders(Artifact module, ImmutableSet<Artifact> headers) {
       this.module = module;
       this.headers = headers;
-      this.transitiveModules = transitiveModules;
     }
 
     public Artifact getModule() {
       return module;
-    }
-
-    public Collection<Artifact> getTransitiveModules() {
-      return transitiveModules.toCollection();
     }
   }
 }

@@ -30,11 +30,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -221,7 +221,7 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public ActionInputFileCache getActionInputFileCache() {
+    public MetadataProvider getMetadataProvider() {
       return mockFileCache;
     }
 
@@ -251,7 +251,7 @@ public class LocalSpawnRunnerTest {
     }
   }
 
-  private final ActionInputFileCache mockFileCache = mock(ActionInputFileCache.class);
+  private final MetadataProvider mockFileCache = mock(MetadataProvider.class);
   private final ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
 
   private Logger logger;
@@ -815,14 +815,16 @@ public class LocalSpawnRunnerTest {
     options.collectLocalExecutionStatistics = true;
 
     Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
-    // Because of e.g. interference, wall time taken may be much larger than CPU time used.
-    Duration maximumWallTimeToSpend = Duration.ofSeconds(40);
 
     Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
-    Duration maximumUserTimeToSpend = minimumUserTimeToSpend.plus(Duration.ofSeconds(2));
+    // Under normal loads we should be able to use a much lower bound for maxUserTime, but be
+    // generous here in case of hardware issues.
+    Duration maximumUserTimeToSpend = minimumUserTimeToSpend.plus(Duration.ofSeconds(20));
 
     Duration minimumSystemTimeToSpend = Duration.ZERO;
-    Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plus(Duration.ofSeconds(2));
+    // Under normal loads we should be able to use a much lower bound for maxSysTime, but be
+    // generous here in case of hardware issues.
+    Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plus(Duration.ofSeconds(20));
 
     Path execRoot = getTemporaryExecRoot(fs);
     copyProcessWrapperIntoExecRoot(execRoot);
@@ -856,7 +858,7 @@ public class LocalSpawnRunnerTest {
 
     assertThat(spawnResult.getWallTime()).isPresent();
     assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime().get()).isAtMost(maximumWallTimeToSpend);
+    // Under heavy starvation, max wall time could be anything, so don't check it here.
     assertThat(spawnResult.getUserTime()).isPresent();
     assertThat(spawnResult.getUserTime().get()).isAtLeast(minimumUserTimeToSpend);
     assertThat(spawnResult.getUserTime().get()).isAtMost(maximumUserTimeToSpend);
@@ -878,9 +880,7 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = false;
 
-    Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
-    // Because of e.g. interference, wall time taken may be much larger than CPU time used.
-    Duration maximumWallTimeToSpend = Duration.ofSeconds(40);
+    Duration minimumWallTimeToSpend = Duration.ofSeconds(1);
 
     Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
     Duration minimumSystemTimeToSpend = Duration.ZERO;
@@ -917,7 +917,7 @@ public class LocalSpawnRunnerTest {
 
     assertThat(spawnResult.getWallTime()).isPresent();
     assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime().get()).isAtMost(maximumWallTimeToSpend);
+    // Under heavy starvation, max wall time could be anything, so don't check it here.
     assertThat(spawnResult.getUserTime()).isEmpty();
     assertThat(spawnResult.getSystemTime()).isEmpty();
     assertThat(spawnResult.getNumBlockOutputOperations()).isEmpty();

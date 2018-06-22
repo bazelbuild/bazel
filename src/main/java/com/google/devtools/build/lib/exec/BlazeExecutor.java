@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsClassProvider;
@@ -135,8 +133,6 @@ public final class BlazeExecutor implements Executor {
    */
   public void executionPhaseStarting() {
     Preconditions.checkState(!inExecutionPhase.getAndSet(true));
-    Profiler.instance().startTask(ProfilerTask.INFO, "Initializing executors");
-    Profiler.instance().completeTask(ProfilerTask.INFO);
   }
 
   /**
@@ -147,9 +143,6 @@ public final class BlazeExecutor implements Executor {
     if (!inExecutionPhase.get()) {
       return;
     }
-
-    Profiler.instance().startTask(ProfilerTask.INFO, "Shutting down executors");
-    Profiler.instance().completeTask(ProfilerTask.INFO);
     inExecutionPhase.set(false);
   }
 

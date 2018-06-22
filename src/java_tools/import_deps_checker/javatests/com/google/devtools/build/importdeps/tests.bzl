@@ -13,6 +13,20 @@
 # limitations under the License.
 """Helpers to create golden tests, to minimize code duplication."""
 
+def _compile_time_jars(ctx):
+    jars = depset([], transitive = [dep[JavaInfo].transitive_compile_time_jars for dep in ctx.attr.deps])
+    return [DefaultInfo(
+        files = jars,
+        runfiles = ctx.runfiles(transitive_files = jars),
+    )]
+
+compile_time_jars = rule(
+    attrs = {
+        "deps": attr.label_list(providers = ["java"]),
+    },
+    implementation = _compile_time_jars,
+)
+
 def create_golden_test(
         name,
         golden_output_file,

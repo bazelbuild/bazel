@@ -140,10 +140,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     if (!isNullOrEmpty(target)) {
       javacopts.add("-target").add(target);
     }
-    String encoding = ruleContext.attributes().get("encoding", Type.STRING);
-    if (!isNullOrEmpty(encoding)) {
-      javacopts.add("-encoding", encoding);
-    }
     List<String> xlint = ruleContext.attributes().get("xlint", Type.STRING_LIST);
     if (!xlint.isEmpty()) {
       javacopts.add("-Xlint:" + Joiner.on(",").join(xlint));

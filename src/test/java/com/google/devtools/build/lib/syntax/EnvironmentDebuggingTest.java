@@ -40,7 +40,7 @@ public class EnvironmentDebuggingTest {
 
   /** Enter a dummy function scope with the given name, and the current environment's globals. */
   private static void enterFunctionScope(Environment env, String functionName, Location location) {
-    FuncallExpression ast = new FuncallExpression(new Identifier("test"), ImmutableList.of());
+    FuncallExpression ast = new FuncallExpression(Identifier.of("test"), ImmutableList.of());
     ast.setLocation(location);
     env.enterScope(
         new BaseFunction(functionName) {},

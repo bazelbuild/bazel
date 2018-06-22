@@ -63,17 +63,6 @@ bool ReadFrom(file_handle_type handle, void *data, size_t size);
 bool WriteFile(const std::string &content, const std::string &filename,
                unsigned int perm = 0644);
 
-// Returns the part of the path before the final "/".  If there is a single
-// leading "/" in the path, the result will be the leading "/".  If there is
-// no "/" in the path, the result is the empty prefix of the input (i.e., "").
-std::string Dirname(const std::string &path);
-
-// Returns the part of the path after the final "/".  If there is no
-// "/" in the path, the result is the same as the input.
-std::string Basename(const std::string &path);
-
-std::string JoinPath(const std::string &path1, const std::string &path2);
-
 // Lists all files in `path` and all of its subdirectories.
 //
 // Does not follow symlinks / junctions.

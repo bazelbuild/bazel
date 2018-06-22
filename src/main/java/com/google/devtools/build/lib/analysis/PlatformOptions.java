@@ -141,7 +141,10 @@ public class PlatformOptions extends FragmentOptions {
     converter = LabelListConverter.class,
     documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
     effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-    help = "Signals that the given rule categories use platform-based toolchain resolution"
+    help =
+        "Enable toolchain resolution for the given toolchain type, if the rules used support that. "
+            + "This does not directly change the core Blaze machinery, but is a signal to "
+            + "participating rule implementations that toolchain resolution should be used."
   )
   public List<Label> enabledToolchainTypes;
 

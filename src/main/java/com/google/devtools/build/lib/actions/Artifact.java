@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Comparator.comparing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -124,9 +124,7 @@ public class Artifact
         }
       };
 
-  /** Compares artifacts according to their root relative paths. */
-  public static final Comparator<Artifact> ROOT_RELATIVE_PATH_COMPARATOR =
-      comparing(Artifact::getRootRelativePath);
+  public static final SkyFunctionName ARTIFACT = SkyFunctionName.create("ARTIFACT");
 
   @Override
   public int compareTo(Object o) {

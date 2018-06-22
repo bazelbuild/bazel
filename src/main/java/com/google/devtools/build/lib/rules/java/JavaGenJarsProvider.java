@@ -18,9 +18,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaAnnotationProcessingApi;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** The collection of gen jars from the transitive closure. */
@@ -41,6 +45,44 @@ public final class JavaGenJarsProvider
   private final NestedSet<Artifact> transitiveGenClassJars;
   private final NestedSet<Artifact> transitiveGenSourceJars;
 
+  static JavaGenJarsProvider create(
+      boolean usesAnnotationProcessing,
+      @Nullable Artifact genClassJar,
+      @Nullable Artifact genSourceJar,
+      List<JavaPluginInfoProvider> plugins,
+      Iterable<JavaGenJarsProvider> transitiveJavaGenJars) {
+    NestedSetBuilder<Artifact> classJarsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> sourceJarsBuilder = NestedSetBuilder.stableOrder();
+
+    if (genClassJar != null) {
+      classJarsBuilder.add(genClassJar);
+    }
+    if (genSourceJar != null) {
+      sourceJarsBuilder.add(genSourceJar);
+    }
+    for (JavaGenJarsProvider dep : transitiveJavaGenJars) {
+      classJarsBuilder.addTransitive(dep.getTransitiveGenClassJars());
+      sourceJarsBuilder.addTransitive(dep.getTransitiveGenSourceJars());
+    }
+
+    NestedSetBuilder<Artifact> processorClasspathsBuilder = NestedSetBuilder.naiveLinkOrder();
+    Set<String> processorNames = new LinkedHashSet<>();
+    for (JavaPluginInfoProvider plugin : plugins) {
+      processorClasspathsBuilder.addTransitive(plugin.getProcessorClasspath());
+      processorNames.addAll(plugin.getProcessorClasses());
+    }
+
+    return new JavaGenJarsProvider(
+        usesAnnotationProcessing,
+        genClassJar,
+        genSourceJar,
+        processorClasspathsBuilder.build(),
+        ImmutableList.copyOf(processorNames),
+        classJarsBuilder.build(),
+        sourceJarsBuilder.build());
+  }
+
+  // Package-private for @AutoCodec
   JavaGenJarsProvider(
       boolean usesAnnotationProcessing,
       @Nullable Artifact genClassJar,

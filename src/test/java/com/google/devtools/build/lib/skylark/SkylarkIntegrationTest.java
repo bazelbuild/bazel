@@ -576,12 +576,32 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCannotSpecifyRunfilesWithDataOrDefaultRunfiles() throws Exception {
+  public void testCannotSpecifyRunfilesWithDataOrDefaultRunfiles_struct() throws Exception {
     scratch.file(
         "test/skylark/extension.bzl",
         "def custom_rule_impl(ctx):",
         "  rf = ctx.runfiles()",
         "  return struct(runfiles = rf, default_runfiles = rf)",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl)");
+
+    checkError(
+        "test/skylark",
+        "cr",
+        "Cannot specify the provider 'runfiles' together with "
+            + "'data_runfiles' or 'default_runfiles'",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(name = 'cr')");
+  }
+
+  @Test
+  public void testCannotSpecifyRunfilesWithDataOrDefaultRunfiles_defaultInfo() throws Exception {
+    scratch.file(
+        "test/skylark/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  rf = ctx.runfiles()",
+        "  return struct(DefaultInfo(runfiles = rf, default_runfiles = rf))",
         "",
         "custom_rule = rule(implementation = custom_rule_impl)");
 

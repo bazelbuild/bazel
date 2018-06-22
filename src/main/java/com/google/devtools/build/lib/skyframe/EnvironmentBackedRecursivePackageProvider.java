@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -52,8 +53,7 @@ public final class EnvironmentBackedRecursivePackageProvider
 
   private final Environment env;
 
-  EnvironmentBackedRecursivePackageProvider(Environment env, PathPackageLocator pkgPath) {
-    super(pkgPath);
+  EnvironmentBackedRecursivePackageProvider(Environment env) {
     this.env = env;
   }
 

@@ -34,9 +34,8 @@ public final class SkylarkDebuggerOptions extends OptionsBase {
   public boolean debugSkylark;
 
   @Option(
-      name = "experimental_debug_server_port",
+      name = "experimental_skylark_debug_server_port",
       defaultValue = "7300",
-      category = "server startup",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},

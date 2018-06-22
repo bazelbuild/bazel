@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.skyframe.ShareabilityOfValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -27,14 +28,12 @@ public final class SkyFunctions {
       SkyFunctionName.create("CLIENT_ENVIRONMENT_VARIABLE");
   public static final SkyFunctionName ACTION_ENVIRONMENT_VARIABLE =
       SkyFunctionName.create("ACTION_ENVIRONMENT_VARIABLE");
-  public static final SkyFunctionName FILE_STATE = SkyFunctionName.create("FILE_STATE");
   public static final SkyFunctionName DIRECTORY_LISTING_STATE =
       SkyFunctionName.create("DIRECTORY_LISTING_STATE");
   public static final SkyFunctionName FILE_SYMLINK_CYCLE_UNIQUENESS =
       SkyFunctionName.create("FILE_SYMLINK_CYCLE_UNIQUENESS");
   public static final SkyFunctionName FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS =
       SkyFunctionName.create("FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS");
-  public static final SkyFunctionName FILE = SkyFunctionName.create("FILE");
   public static final SkyFunctionName DIRECTORY_LISTING =
       SkyFunctionName.create("DIRECTORY_LISTING");
   public static final SkyFunctionName PACKAGE_LOOKUP = SkyFunctionName.create("PACKAGE_LOOKUP");
@@ -83,12 +82,12 @@ public final class SkyFunctions {
       SkyFunctionName.create("TARGET_COMPLETION");
   public static final SkyFunctionName ASPECT_COMPLETION =
       SkyFunctionName.create("ASPECT_COMPLETION");
-  public static final SkyFunctionName TEST_COMPLETION = SkyFunctionName.create("TEST_COMPLETION");
+  public static final SkyFunctionName TEST_COMPLETION =
+      SkyFunctionName.create("TEST_COMPLETION", ShareabilityOfValue.NEVER);
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.create("BUILD_CONFIGURATION");
   public static final SkyFunctionName CONFIGURATION_FRAGMENT =
       SkyFunctionName.create("CONFIGURATION_FRAGMENT");
-  public static final SkyFunctionName ARTIFACT = SkyFunctionName.create("ARTIFACT");
   public static final SkyFunctionName ACTION_EXECUTION = ActionLookupData.NAME;
   public static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
       SkyFunctionName.create("RECURSIVE_DIRECTORY_TRAVERSAL");

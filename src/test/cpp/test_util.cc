@@ -55,7 +55,8 @@ void ParseStartupOptionsAndExpectWarning(
     const std::vector<std::string>& options_to_parse,
     const std::string& expected_warning) {
   std::vector<RcStartupFlag> flags;
-  for (std::string option : options_to_parse) {
+  flags.reserve(options_to_parse.size());
+  for (const std::string& option : options_to_parse) {
     flags.push_back(RcStartupFlag("", option));
   }
 

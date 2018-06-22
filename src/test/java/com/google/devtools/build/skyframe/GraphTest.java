@@ -222,7 +222,7 @@ public abstract class GraphTest {
     graph = getGraph(getNextVersion(startingVersion));
     NodeEntry sameEntry = Preconditions.checkNotNull(graph.get(null, Reason.OTHER, key));
     // Mark the node as dirty again and check that the reverse deps have been preserved.
-    sameEntry.markDirty(true);
+    assertThat(sameEntry.markDirty(true).wasCallRedundant()).isFalse();
     startEvaluation(sameEntry);
     sameEntry.markRebuilding();
     sameEntry.setValue(new StringValue("foo2"), getNextVersion(startingVersion));
@@ -368,7 +368,7 @@ public abstract class GraphTest {
                 throw new IllegalStateException(e);
               }
               try {
-                entry.markDirty(true);
+                assertThat(entry.markDirty(true).wasCallRedundant()).isFalse();
 
                 // Make some changes, like adding a dep and rdep.
                 entry.addReverseDepAndCheckIfDone(key("rdep"));

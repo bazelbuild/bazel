@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -388,12 +390,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> builder = ImmutableMap.builder();
     builder
         .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
-        .put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper))
+        .put(FileStateValue.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper))
         .put(SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, new FileSymlinkCycleUniquenessFunction())
         .put(
             SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS,
             new FileSymlinkInfiniteExpansionUniquenessFunction())
-        .put(SkyFunctions.FILE, new FileFunction(pkgLocatorRef))
+        .put(FileValue.FILE, new FileFunction(pkgLocatorRef))
         .put(
             SkyFunctions.PACKAGE_LOOKUP,
             new PackageLookupFunction(

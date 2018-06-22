@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.IOException;
@@ -39,7 +40,12 @@ import java.util.concurrent.Executors;
  */
 public class TestAction extends AbstractAction {
 
-  public static final Runnable NO_EFFECT = new Runnable() { @Override public void run() {} };
+  @AutoCodec
+  public static final Runnable NO_EFFECT =
+      new Runnable() {
+        @Override
+        public void run() {}
+      };
 
   protected final Callable<Void> effect;
 
@@ -138,11 +144,13 @@ public class TestAction extends AbstractAction {
   }
 
   /** No-op action that has exactly one output, and can be a middleman action. */
+  @AutoCodec
   public static class DummyAction extends TestAction {
     private final MiddlemanType type;
 
-    public DummyAction(Collection<Artifact> inputs, Artifact output, MiddlemanType type) {
-      super(NO_EFFECT, inputs, ImmutableList.of(output));
+    @AutoCodec.Instantiator
+    public DummyAction(Collection<Artifact> inputs, Artifact primaryOutput, MiddlemanType type) {
+      super(NO_EFFECT, inputs, ImmutableList.of(primaryOutput));
       this.type = type;
     }
 

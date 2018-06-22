@@ -18,6 +18,8 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -164,38 +166,53 @@ public class NestedSetImplTest {
   public void shallowEquality() {
     // Used below to check that inner nested sets can be compared by reference equality.
     SetWrapper<Integer> myRef = nest(nest(flat(7, 8)), flat(9));
+    // Used to check equality for deserializing nested sets
+    ListenableFuture<Object[]> contents = Futures.immediateFuture(new Object[] {"a", "b"});
+    NestedSet<String> referenceNestedSet = NestedSet.withFuture(Order.STABLE_ORDER, contents);
+    NestedSet<String> otherReferenceNestedSet = NestedSet.withFuture(Order.STABLE_ORDER, contents);
 
     // Each "equality group" contains elements that are equal to one another
     // (according to equals() and hashCode()), yet distinct from all elements
     // of all other equality groups.
     new EqualsTester()
-      .addEqualityGroup(flat(),
-                        flat(),
-                        nest(flat()))  // Empty set elision.
-      .addEqualityGroup(NestedSetBuilder.<Integer>linkOrder().build())
-      .addEqualityGroup(flat(3),
-                        flat(3),
-                        flat(3, 3))  // Element de-duplication.
-      .addEqualityGroup(flat(4),
-                        nest(flat(4))) // Automatic elision of one-element nested sets.
-      .addEqualityGroup(NestedSetBuilder.<Integer>linkOrder().add(4).build())
-      .addEqualityGroup(nestedSetBuilder("4").build())  // Like flat("4").
-      .addEqualityGroup(flat(3, 4),
-                        flat(3, 4))
-      // Make a couple sets deep enough that shallowEquals() fails.
-      // If this test case fails because you improve the representation, just delete it.
-      .addEqualityGroup(nest(nest(flat(3, 4), flat(5)), nest(flat(6, 7), flat(8))))
-      .addEqualityGroup(nest(nest(flat(3, 4), flat(5)), nest(flat(6, 7), flat(8))))
-      .addEqualityGroup(nest(myRef),
-                        nest(myRef),
-                        nest(myRef, myRef))  // Set de-duplication.
-      .addEqualityGroup(nest(3, myRef))
-      .addEqualityGroup(nest(4, myRef))
-      .testEquals();
+        .addEqualityGroup(flat(), flat(), nest(flat())) // Empty set elision.
+        .addEqualityGroup(NestedSetBuilder.<Integer>linkOrder().build())
+        .addEqualityGroup(flat(3), flat(3), flat(3, 3)) // Element de-duplication.
+        .addEqualityGroup(flat(4), nest(flat(4))) // Automatic elision of one-element nested sets.
+        .addEqualityGroup(NestedSetBuilder.<Integer>linkOrder().add(4).build())
+        .addEqualityGroup(nestedSetBuilder("4").build()) // Like flat("4").
+        .addEqualityGroup(flat(3, 4), flat(3, 4))
+        // Make a couple sets deep enough that shallowEquals() fails.
+        // If this test case fails because you improve the representation, just delete it.
+        .addEqualityGroup(nest(nest(flat(3, 4), flat(5)), nest(flat(6, 7), flat(8))))
+        .addEqualityGroup(nest(nest(flat(3, 4), flat(5)), nest(flat(6, 7), flat(8))))
+        .addEqualityGroup(nest(myRef), nest(myRef), nest(myRef, myRef)) // Set de-duplication.
+        .addEqualityGroup(nest(3, myRef))
+        .addEqualityGroup(nest(4, myRef))
+        .addEqualityGroup(
+            new SetWrapper<>(referenceNestedSet), new SetWrapper<>(otherReferenceNestedSet))
+        .testEquals();
 
     // Some things that are not tested by the above:
     //  - ordering among direct members
     //  - ordering among transitive sets
+  }
+
+  @Test
+  public void shallowInequality() {
+    assertThat(nestedSetBuilder("a").build().shallowEquals(null)).isFalse();
+    Object[] contents = {"a", "b"};
+    assertThat(
+            NestedSet.withFuture(Order.STABLE_ORDER, Futures.immediateFuture(contents))
+                .shallowEquals(null))
+        .isFalse();
+
+    // shallowEquals() should require reference equality for underlying futures
+    assertThat(
+            NestedSet.withFuture(Order.STABLE_ORDER, Futures.immediateFuture(contents))
+                .shallowEquals(
+                    NestedSet.withFuture(Order.STABLE_ORDER, Futures.immediateFuture(contents))))
+        .isFalse();
   }
 
   /** Checks that the builder always return a nested set with the correct order. */

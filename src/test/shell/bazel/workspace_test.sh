@@ -348,13 +348,13 @@ EOF
   cd tree
 
   # Do initial load of the packages
-  bazel query --noexperimental_ui //oak:all >& "$TEST_log" \
-        || fail "Expected success"
+  bazel query --experimental_enable_repo_mapping --noexperimental_ui \
+        //oak:all >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: oak"
   expect_log "//oak:oak"
 
-  bazel query --noexperimental_ui @flower//daisy:all >& "$TEST_log" \
-        || fail "Expected success"
+  bazel query --experimental_enable_repo_mapping --noexperimental_ui \
+        @flower//daisy:all >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: @flower//daisy"
   expect_log "@flower//daisy:daisy"
 
@@ -369,16 +369,195 @@ local_repository(
 EOF
 
   # Test that packages in the tree workspace are not affected
-  bazel query --noexperimental_ui //oak:all >& "$TEST_log" \
-        || fail "Expected success"
+  bazel query --experimental_enable_repo_mapping --noexperimental_ui \
+        //oak:all >& "$TEST_log" || fail "Expected success"
   expect_not_log "Loading package: oak"
   expect_log "//oak:oak"
 
   # Test that packages in the flower workspace are reloaded
-  bazel query --noexperimental_ui @flower//daisy:all >& "$TEST_log" \
-        || fail "Expected success"
+  bazel query --experimental_enable_repo_mapping --noexperimental_ui \
+        @flower//daisy:all >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: @flower//daisy"
   expect_log "@flower//daisy:daisy"
+}
+
+function test_repository_mapping_in_build_file_load() {
+  # Main repo assigns @x to @y within @a
+  mkdir -p main
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+
+local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@y"})
+local_repository(name = "y", path="../y")
+EOF
+  touch main/BUILD
+
+  # Repository y is a substitute for x
+  mkdir -p y
+  touch y/WORKSPACE
+  touch y/BUILD
+  cat > y/symbol.bzl <<EOF
+Y_SYMBOL = "y_symbol"
+EOF
+
+  # Repository a refers to @x
+  mkdir -p a
+  touch a/WORKSPACE
+  cat > a/BUILD<<EOF
+load("@x//:symbol.bzl", "Y_SYMBOL")
+genrule(name = "a",
+        outs = ["result.txt"],
+        cmd = "echo %s > \$(location result.txt);" % (Y_SYMBOL)
+)
+EOF
+
+  cd main
+  bazel build --experimental_enable_repo_mapping @a//:a || fail "Expected build to succeed"
+  cat bazel-genfiles/external/a/result.txt
+  grep "y_symbol" bazel-genfiles/external/a/result.txt \
+      || fail "expected 'y_symbol' in $(cat bazel-genfiles/external/a/result.txt)"
+}
+
+function test_repository_reassignment_label_in_build() {
+  # Repository a refers to @x
+  mkdir -p a
+  touch a/WORKSPACE
+  cat > a/BUILD<<EOF
+genrule(name = "a",
+        srcs = ["@x//:x.txt"],
+        outs = ["result.txt"],
+        cmd = "echo hello > \$(location result.txt)"
+)
+EOF
+
+  # Repository b is a substitute for x
+  mkdir -p b
+  touch b/WORKSPACE
+  cat >b/BUILD <<EOF
+exports_files(srcs = ["x.txt"])
+EOF
+  echo "Hello from @b//:x.txt" > b/x.txt
+
+  # Main repo assigns @x to @b within @a
+  mkdir -p main
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+
+local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@b"})
+local_repository(name = "b", path="../b")
+EOF
+  touch main/BUILD
+
+  cd main
+  bazel query --experimental_enable_repo_mapping --output=build @a//:a | grep "@b//:x.txt" \
+      || fail "Expected srcs to contain '@b//:x.txt'"
+}
+
+function test_repository_reassignment_location() {
+  # Repository a refers to @x
+  mkdir -p a
+  touch a/WORKSPACE
+  cat > a/BUILD<<EOF
+genrule(name = "a",
+        srcs = ["@x//:x.txt"],
+        outs = ["result.txt"],
+        cmd = "echo \$(location @x//:x.txt) > \$(location result.txt); \
+            cat \$(location @x//:x.txt)>> \$(location result.txt);"
+)
+EOF
+
+  # Repository b is a substitute for x
+  mkdir -p b
+  touch b/WORKSPACE
+  cat >b/BUILD <<EOF
+exports_files(srcs = ["x.txt"])
+EOF
+  echo "Hello from @b//:x.txt" > b/x.txt
+
+  # Main repo assigns @x to @b within @a
+  mkdir -p main
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+
+local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@b"})
+local_repository(name = "b", path="../b")
+EOF
+  touch main/BUILD
+
+  cd main
+  bazel build --experimental_enable_repo_mapping @a//:a || fail "Expected build to succeed"
+  grep "external/b/x.txt" bazel-genfiles/external/a/result.txt \
+      || fail "expected external/b/x.txt in $(cat bazel-genfiles/external/a/result.txt)"
+}
+
+function test_workspace_addition_change_aspect() {
+  mkdir -p repo_one
+  mkdir -p repo_two
+
+
+  touch foo.c
+  cat > BUILD <<EOF
+cc_library(
+    name = "lib",
+    srcs = ["foo.c"],
+)
+EOF
+
+  touch WORKSPACE
+  touch repo_one/BUILD
+  touch repo_two/BUILD
+
+  cat > repo_one/WORKSPACE <<EOF
+workspace(name = "new_repo")
+EOF
+  cat > repo_two/WORKSPACE <<EOF
+workspace(name = "new_repo")
+EOF
+
+
+  cat > repo_one/aspects.bzl <<EOF
+def _print_aspect_impl(target, ctx):
+  # Make sure the rule has a srcs attribute.
+  if hasattr(ctx.rule.attr, 'srcs'):
+    # Output '1' for each file in srcs.
+    for src in ctx.rule.attr.srcs:
+      for f in src.files:
+        print(1)
+  return []
+
+print_aspect = aspect(
+    implementation = _print_aspect_impl,
+    attr_aspects = ['deps'],
+)
+EOF
+  cat > repo_two/aspects.bzl <<EOF
+def _print_aspect_impl(target, ctx):
+  # Make sure the rule has a srcs attribute.
+  if hasattr(ctx.rule.attr, 'srcs'):
+    print(ctx.rule.attr.srcs)
+  return []
+
+print_aspect = aspect(
+    implementation = _print_aspect_impl,
+    attr_aspects = ['deps'],
+)
+EOF
+
+  bazel clean --expunge
+
+  echo; echo "no repo"; echo
+  bazel build //:lib --aspects @new_repo//:aspects.bzl%print_aspect \
+      && fail "Failure expected" || true
+
+  echo; echo "repo_one"; echo
+  bazel build //:lib --override_repository="new_repo=$PWD/repo_one" \
+      --aspects @new_repo//:aspects.bzl%print_aspect \
+      || fail "Expected build to succeed"
+
+  echo; echo "repo_two"; echo
+  bazel build //:lib --override_repository="new_repo=$PWD/repo_two" \
+      --aspects @new_repo//:aspects.bzl%print_aspect \
+      || fail "Expected build to succeed"
 }
 
 run_suite "workspace tests"

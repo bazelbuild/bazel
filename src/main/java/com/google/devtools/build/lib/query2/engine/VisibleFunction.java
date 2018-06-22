@@ -56,7 +56,7 @@ public class VisibleFunction implements QueryFunction {
   @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
-      final VariableContext<T> context,
+      final QueryExpressionContext<T> context,
       QueryExpression expression,
       final List<Argument> args,
       final Callback<T> callback) {

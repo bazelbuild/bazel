@@ -64,6 +64,8 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/numbers.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
@@ -79,6 +81,7 @@ using std::map;
 using std::set;
 using std::string;
 using std::vector;
+using command_server::CommandServer;
 
 // The following is a treatise on how the interaction between the client and the
 // server works.
@@ -225,7 +228,7 @@ class GrpcBlazeServer : public BlazeServer {
  private:
   enum CancelThreadAction { NOTHING, JOIN, CANCEL, COMMAND_ID_RECEIVED };
 
-  std::unique_ptr<command_server::CommandServer::Stub> client_;
+  std::unique_ptr<CommandServer::Stub> client_;
   std::string request_cookie_;
   std::string response_cookie_;
   std::string command_id_;
@@ -241,7 +244,7 @@ class GrpcBlazeServer : public BlazeServer {
   // actions from.
   blaze_util::IPipe *pipe_;
 
-  bool TryConnect(command_server::CommandServer::Stub *client);
+  bool TryConnect(CommandServer::Stub *client);
   void CancelThread();
   void SendAction(CancelThreadAction action);
   void SendCancelMessage();
@@ -412,7 +415,15 @@ static vector<string> GetArgumentArray(
 
   result.push_back("-XX:+HeapDumpOnOutOfMemoryError");
   string heap_crash_path = globals->options->output_base;
-  result.push_back("-XX:HeapDumpPath=" + blaze::PathAsJvmFlag(heap_crash_path));
+  result.push_back("-XX:HeapDumpPath=" +
+                   blaze_util::PathAsJvmFlag(heap_crash_path));
+
+  // TODO(b/109998449): only assume JDK >= 9 for embedded JDKs
+  if (!globals->options->GetEmbeddedJavabase().empty()) {
+    // quiet warnings from com.google.protobuf.UnsafeUtil,
+    // see: https://github.com/google/protobuf/issues/3781
+    result.push_back("--add-opens=java.base/java.nio=ALL-UNNAMED");
+  }
 
   result.push_back("-Xverify:none");
 
@@ -442,7 +453,7 @@ static vector<string> GetArgumentArray(
   bool first = true;
   for (const auto &it : globals->extracted_binaries) {
     if (IsSharedLibrary(it)) {
-      string libpath(blaze::PathAsJvmFlag(
+      string libpath(blaze_util::PathAsJvmFlag(
           blaze_util::JoinPath(real_install_dir, blaze_util::Dirname(it))));
       // Only add the library path if it's not added yet.
       if (java_library_paths.find(libpath) == java_library_paths.end()) {
@@ -497,14 +508,14 @@ static vector<string> GetArgumentArray(
                    ToString(globals->options->connect_timeout_secs));
 
   result.push_back("--output_user_root=" +
-                   blaze::ConvertPath(globals->options->output_user_root));
+                   blaze_util::ConvertPath(globals->options->output_user_root));
   result.push_back("--install_base=" +
-                   blaze::ConvertPath(globals->options->install_base));
+                   blaze_util::ConvertPath(globals->options->install_base));
   result.push_back("--install_md5=" + globals->install_md5);
   result.push_back("--output_base=" +
-                   blaze::ConvertPath(globals->options->output_base));
+                   blaze_util::ConvertPath(globals->options->output_base));
   result.push_back("--workspace_directory=" +
-                   blaze::ConvertPath(globals->workspace));
+                   blaze_util::ConvertPath(globals->workspace));
   result.push_back("--default_system_javabase=" + GetSystemJavabase());
 
   if (!globals->options->server_jvm_out.empty()) {
@@ -814,29 +825,34 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
 
   BlazeServerStartup *server_startup;
   server_pid = StartServer(workspace_layout, &server_startup);
-
   BAZEL_LOG(USER) << "Starting local " << globals->options->product_name
                   << " server and connecting to it...";
 
   // Give the server two minutes to start up. That's enough to connect with a
   // debugger.
-  auto try_until_time(std::chrono::system_clock::now() +
-                      std::chrono::seconds(120));
+  const auto start_time = std::chrono::system_clock::now();
+  const auto try_until_time = start_time + std::chrono::seconds(120);
+  // Print an update at most once every 10 seconds if we are still trying to
+  // connect.
+  const auto min_message_interval = std::chrono::seconds(10);
+  auto last_message_time = start_time;
   while (std::chrono::system_clock::now() < try_until_time) {
-    auto next_attempt_time(std::chrono::system_clock::now() +
-                           std::chrono::milliseconds(100));
+    const auto attempt_time = std::chrono::system_clock::now();
+    const auto next_attempt_time =
+        attempt_time + std::chrono::milliseconds(100);
+
     if (server->Connect()) {
-      fputc('\n', stderr);
-      fflush(stderr);
       delete server_startup;
       return;
     }
 
-    if (!globals->options->client_debug) {
-      // TODO(ccalvarin) Do we really need the dots? They're 10 years old, and
-      // there's something to be said about tradition, but in this case...
-      fputc('.', stderr);
-      fflush(stderr);
+    if (attempt_time >= (last_message_time + min_message_interval)) {
+      auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(
+          attempt_time - start_time);
+      BAZEL_LOG(USER) << "... still trying to connect to local "
+                      << globals->options->product_name << " server after "
+                      << elapsed_time.count() << " seconds ...";
+      last_message_time = attempt_time;
     }
 
     std::this_thread::sleep_until(next_attempt_time);
@@ -1170,8 +1186,8 @@ static void EnsureCorrectRunningVersion(BlazeServer *server) {
   string prev_installation;
   bool ok =
       blaze_util::ReadDirectorySymlink(installation_path, &prev_installation);
-  if (!ok || !CompareAbsolutePaths(prev_installation,
-                                   globals->options->install_base)) {
+  if (!ok || !blaze_util::CompareAbsolutePaths(
+                 prev_installation, globals->options->install_base)) {
     if (server->Connected()) {
       BAZEL_LOG(INFO)
           << "Killing running server because it is using another version of "
@@ -1508,6 +1524,13 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   globals->jvm_path = globals->options->GetJvm();
 
   blaze_server->Connect();
+
+  if (!globals->options->batch &&
+      "shutdown" == globals->option_processor->GetCommand() &&
+      !blaze_server->Connected()) {
+    return 0;
+  }
+
   EnsureCorrectRunningVersion(blaze_server);
   KillRunningServerIfDifferentStartupOptions(workspace_layout, blaze_server);
 
@@ -1541,7 +1564,8 @@ GrpcBlazeServer::~GrpcBlazeServer() {
   pipe_ = NULL;
 }
 
-bool GrpcBlazeServer::TryConnect(command_server::CommandServer::Stub *client) {
+bool GrpcBlazeServer::TryConnect(
+    CommandServer::Stub *client) {
   grpc::ClientContext context;
   context.set_deadline(std::chrono::system_clock::now() +
                        std::chrono::seconds(connect_timeout_secs_));
@@ -1606,8 +1630,8 @@ bool GrpcBlazeServer::Connect() {
 
   std::shared_ptr<grpc::Channel> channel(
       grpc::CreateChannel(port, grpc::InsecureChannelCredentials()));
-  std::unique_ptr<command_server::CommandServer::Stub> client(
-      command_server::CommandServer::NewStub(channel));
+  std::unique_ptr<CommandServer::Stub> client(
+      CommandServer::NewStub(channel));
 
   if (!TryConnect(client.get())) {
     return false;

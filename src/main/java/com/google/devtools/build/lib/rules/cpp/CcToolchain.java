@@ -325,15 +325,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    TransitiveInfoCollection lipoContextCollector =
-        ruleContext.getPrerequisite(
-            TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, Mode.DONT_CHECK);
-    if (lipoContextCollector != null
-        && lipoContextCollector.getProvider(LipoContextProvider.class) == null) {
-      ruleContext.ruleError("--lipo_context must point to a cc_binary or a cc_test rule");
-      return null;
-    }
-
     BuildConfiguration configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
     CppConfiguration cppConfiguration =
         Preconditions.checkNotNull(configuration.getFragment(CppConfiguration.class));
@@ -383,6 +374,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     FileTypeSet validExtensions =
         FileTypeSet.of(
             CppFileTypes.GCC_AUTO_PROFILE,
+            CppFileTypes.XBINARY_PROFILE,
             CppFileTypes.LLVM_PROFILE,
             CppFileTypes.LLVM_PROFILE_RAW,
             FileType.of(".zip"));
@@ -398,13 +390,14 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       fdoMode = FdoMode.AUTO_FDO;
     } else if (isLLVMOptimizedFdo(toolchainInfo.isLLVMCompiler(), fdoZip)) {
       fdoMode = FdoMode.LLVM_FDO;
+    } else if (CppFileTypes.XBINARY_PROFILE.matches(fdoZip.getBaseName())) {
+      fdoMode = FdoMode.XBINARY_FDO;
     } else {
       fdoMode = FdoMode.VANILLA;
     }
 
     SkyKey fdoKey =
         FdoSupportValue.key(
-            cppConfiguration.getLipoMode(),
             fdoZip,
             prefetchHints,
             cppConfiguration.getFdoInstrument(),
@@ -661,10 +654,18 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     // If we found a toolchain, use it.
     try {
+      toolchain =
+          CppToolchainInfo.addLegacyFeatures(
+              toolchain, cppConfiguration.getCrosstoolTopPathFragment());
+      CrosstoolInfo crosstoolInfo =
+          CrosstoolInfo.fromToolchain(
+              cppConfiguration.getCrosstoolFile().getProto(),
+              toolchain,
+              cppConfiguration.getCrosstoolTopPathFragment());
       return CppToolchainInfo.create(
-          toolchain,
           cppConfiguration.getCrosstoolTopPathFragment(),
-          cppConfiguration.getCcToolchainRuleLabel());
+          cppConfiguration.getCcToolchainRuleLabel(),
+          crosstoolInfo);
     } catch (InvalidConfigurationException e) {
       throw ruleContext.throwWithRuleError(e.getMessage());
     }
@@ -759,8 +760,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       return CrosstoolConfigurationLoader.selectToolchain(
           cppConfiguration.getCrosstoolFile().getProto(),
           config,
-          cppConfiguration.getLipoMode(),
-          cppConfiguration.shouldConvertLipoToThinLto(),
           cppConfiguration.getCpuTransformer());
     } catch (InvalidConfigurationException e) {
       ruleContext.throwWithRuleError(
@@ -887,6 +886,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   private final CcToolchainVariables getBuildVariables(
       RuleContext ruleContext, PathFragment defaultSysroot) throws RuleErrorException {
     CcToolchainVariables.Builder variables = new CcToolchainVariables.Builder();
+
+    CppConfiguration cppConfiguration =
+        Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
+    String minOsVersion = cppConfiguration.getMinimumOsVersion();
+    if (minOsVersion != null) {
+      variables.addStringVariable(CcCommon.MINIMUM_OS_VERSION_VARIABLE_NAME, minOsVersion);
+    }
 
     PathFragment sysroot = calculateSysroot(ruleContext, defaultSysroot);
     if (sysroot != null) {

@@ -16,37 +16,40 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.pkgcache.CompileOneDependencyTransformer;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
-import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -55,10 +58,7 @@ import javax.annotation.Nullable;
  */
 final class TargetPatternPhaseFunction implements SkyFunction {
 
-  private final AtomicReference<PathPackageLocator> pkgPath;
-
-  public TargetPatternPhaseFunction(AtomicReference<PathPackageLocator> pkgPath) {
-    this.pkgPath = pkgPath;
+  public TargetPatternPhaseFunction() {
   }
 
   @Override
@@ -82,7 +82,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     // Determine targets to build:
-    ResolvedTargets<Target> targets = getTargetsToBuild(env, options, pkgPath.get());
+    List<String> failedPatterns = new ArrayList<String>();
+    ResolvedTargets<Target> targets = getTargetsToBuild(env, options, failedPatterns);
 
     // If the --build_tests_only option was specified or we want to run tests, we need to determine
     // the list of targets to test. For that, we remove manual tests and apply the command-line
@@ -167,9 +168,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       env.getListener().handle(Event.warn("Target pattern parsing failed."));
     }
 
-    LoadingPhaseRunner.maybeReportDeprecation(env.getListener(), targets.getTargets());
+    maybeReportDeprecation(env.getListener(), targets.getTargets());
 
-    boolean preExpansionError = targets.hasError();
     ResolvedTargets.Builder<Label> expandedLabelsBuilder = ResolvedTargets.builder();
     for (Target target : targets.getTargets()) {
       if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
@@ -212,8 +212,27 @@ final class TargetPatternPhaseFunction implements SkyFunction {
                 filteredTargets,
                 testFilteredTargets,
                 options.getTargetPatterns(),
-                expandedTargets.getTargets()));
+                expandedTargets.getTargets(),
+                failedPatterns));
     return result;
+  }
+
+  /**
+   * Emit a warning when a deprecated target is mentioned on the command line.
+   *
+   * <p>Note that this does not stop us from emitting "target X depends on deprecated target Y"
+   * style warnings for the same target and it is a good thing; <i>depending</i> on a target and
+   * <i>wanting</i> to build it are different things.
+   */
+  private static void maybeReportDeprecation(
+      ExtendedEventHandler eventHandler, Collection<Target> targets) {
+    for (Rule rule : Iterables.filter(targets, Rule.class)) {
+      if (rule.isAttributeValueExplicitlySpecified("deprecation")) {
+        eventHandler.handle(Event.warn(rule.getLocation(), String.format(
+            "target '%s' is deprecated: %s", rule.getLabel(),
+            NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING))));
+      }
+    }
   }
 
   /**
@@ -222,7 +241,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * @param options the command-line arguments in structured form
    */
   private static ResolvedTargets<Target> getTargetsToBuild(
-      Environment env, TargetPatternPhaseKey options, PathPackageLocator pkgPath)
+      Environment env, TargetPatternPhaseKey options, List<String> failedPatterns)
           throws InterruptedException {
     List<TargetPatternKey> patternSkyKeys = new ArrayList<>();
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
@@ -236,6 +255,11 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       try {
         patternSkyKeys.add(keyOrException.getSkyKey());
       } catch (TargetParsingException e) {
+        failedPatterns.add(keyOrException.getOriginalPattern());
+        // We post a PatternExpandingError here - the pattern could not be parsed, so we don't even
+        // get to run TargetPatternFunction.
+        env.getListener().post(
+            PatternExpandingError.failed(keyOrException.getOriginalPattern(), e.getMessage()));
         // We generally skip patterns that don't parse. We report a parsing failed exception to the
         // event bus here, but not in determineTests below, which goes through the same list. Note
         // that the TargetPatternFunction otherwise reports these events (but only if the target
@@ -254,12 +278,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         builder.setError();
       }
     }
+
     Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
         env.getValuesOrThrow(patternSkyKeys, TargetParsingException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
-
     for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
@@ -267,26 +288,38 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       } catch (TargetParsingException e) {
         String rawPattern = pattern.getPattern();
         String errorMessage = e.getMessage();
-        env.getListener().post(PatternExpandingError.skipped(rawPattern, errorMessage));
+        failedPatterns.add(rawPattern);
+        env.getListener().post(PatternExpandingError.failed(rawPattern, errorMessage));
         env.getListener().handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
         builder.setError();
+        continue;
+      }
+      if (value == null) {
         continue;
       }
       // TODO(ulfjack): This is terribly inefficient.
       ResolvedTargets<Target> asTargets = TestSuiteExpansionFunction.labelsToTargets(
           env, value.getTargets().getTargets(), value.getTargets().hasError());
+      if (asTargets == null) {
+        continue;
+      }
       if (pattern.isNegative()) {
         builder.filter(Predicates.not(Predicates.in(asTargets.getTargets())));
       } else {
         builder.merge(asTargets);
       }
     }
+    // Only check for missing values after reporting errors. Otherwise we will miss errors in the
+    // nokeep_going case.
+    if (env.valuesMissing()) {
+      return null;
+    }
 
     ResolvedTargets<Target> result = builder
         .filter(TargetUtils.tagFilter(options.getBuildTargetFilter()))
         .build();
     if (options.getCompileOneDependency()) {
-      TargetProvider targetProvider = new EnvironmentBackedRecursivePackageProvider(env, pkgPath);
+      TargetProvider targetProvider = new EnvironmentBackedRecursivePackageProvider(env);
       try {
         return new CompileOneDependencyTransformer(targetProvider)
             .transformCompileOneDependency(env.getListener(), result);

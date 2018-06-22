@@ -193,7 +193,7 @@ public final class UnionFileSystem extends FileSystem {
   }
 
   @Override
-  protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
+  protected byte[] getDigest(Path path, DigestHashFunction hashFunction) throws IOException {
     path = internalResolveSymlink(path);
     FileSystem delegate = getDelegate(path);
     return delegate.getDigest(adjustPath(path, delegate), hashFunction);
@@ -425,7 +425,7 @@ public final class UnionFileSystem extends FileSystem {
   }
 
   @Override
-  protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
+  protected byte[] getFastDigest(Path path, DigestHashFunction hashFunction) throws IOException {
     path = internalResolveSymlink(path);
     FileSystem delegate = getDelegate(path);
     return delegate.getFastDigest(adjustPath(path, delegate), hashFunction);

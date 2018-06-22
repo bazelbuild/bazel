@@ -266,6 +266,9 @@ class StartupOptions {
   // from a blazerc file, if a key is not present, it is the default.
   std::map<std::string, std::string> option_sources;
 
+  // Returns the embedded JDK, or an empty string.
+  std::string GetEmbeddedJavabase();
+
   // Returns the GetHostJavabase. This should be called after parsing
   // the --host_javabase option.
   std::string GetHostJavabase();
@@ -312,7 +315,7 @@ class StartupOptions {
   // Contains the collection of startup flags that Bazel accepts.
   std::set<std::unique_ptr<StartupFlag>> valid_startup_flags;
 
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
   static std::string WindowsUnixRoot(const std::string &bazel_sh);
 #endif
 };

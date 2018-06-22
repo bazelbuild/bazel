@@ -38,17 +38,12 @@ import java.util.Set;
 public class AggregatingChartCreator implements ChartCreator {
 
   /** The tasks in the 'actions' category. */
-  private static final Set<ProfilerTask> ACTION_TASKS = EnumSet.of(ProfilerTask.ACTION,
-      ProfilerTask.ACTION_SUBMIT);
+  private static final Set<ProfilerTask> ACTION_TASKS = EnumSet.of(ProfilerTask.ACTION);
 
   /** The tasks in the 'blaze internal' category. */
   private static final Set<ProfilerTask> BLAZE_TASKS =
       EnumSet.of(
           ProfilerTask.CREATE_PACKAGE,
-          ProfilerTask.PACKAGE_VALIDITY_CHECK,
-          ProfilerTask.CONFIGURED_TARGET,
-          ProfilerTask.TRANSITIVE_CLOSURE,
-          ProfilerTask.EXCEPTION,
           ProfilerTask.INFO,
           ProfilerTask.UNKNOWN);
 

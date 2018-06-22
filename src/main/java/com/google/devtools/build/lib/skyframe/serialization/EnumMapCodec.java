@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.UnsafeProvider;
+import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;

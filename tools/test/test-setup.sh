@@ -32,6 +32,11 @@ function is_absolute {
   [[ "$1" = /* ]] || [[ "$1" =~ ^[a-zA-Z]:[/\\].* ]]
 }
 
+# The original execution root. Usually this script changes directory into the
+# runfiles directory, so using $PWD is not a reliable way to find the execution
+# root.
+EXEC_ROOT="$PWD"
+
 # Bazel sets some environment vars to relative paths to improve caching and
 # support remote execution, where the absolute path may not be known to Bazel.
 # Convert them to absolute paths here before running the actual test.
@@ -211,6 +216,30 @@ if is_absolute "$EXE"; then
   TEST_PATH="$EXE"
 else
   TEST_PATH="$(rlocation $TEST_WORKSPACE/$EXE)"
+fi
+
+# TODO(jsharpe): Use --test_env=TEST_SHORT_EXEC_PATH=true to activate this code
+# path to workaround a bug with long executable paths when executing remote
+# tests on Windows.
+if [ ! -z "$TEST_SHORT_EXEC_PATH" ]; then
+  QUALIFIER=0
+  BASE="${EXEC_ROOT}/t${QUALIFIER}"
+  while [[ -e "${BASE}" || -e "${BASE}.exe" || -e "${BASE}.zip" ]]; do
+    ((QUALIFIER++))
+    BASE="${EXEC_ROOT}/t${QUALIFIER}"
+  done
+
+  # Note for the commands below: "ln -s" is equivalent to "cp" on Windows.
+
+  # Needs to be in the same directory for sh_test. Ignore the error when it
+  # doesn't exist.
+  ln -s "${TEST_PATH%.*}" "${BASE}" 2>/dev/null
+  # Needs to be in the same directory for py_test. Ignore the error when it
+  # doesn't exist.
+  ln -s "${TEST_PATH%.*}.zip" "${BASE}.zip" 2>/dev/null
+  # Needed for all tests.
+  ln -s "${TEST_PATH}" "${BASE}.exe"
+  TEST_PATH="${BASE}.exe"
 fi
 
 exitCode=0

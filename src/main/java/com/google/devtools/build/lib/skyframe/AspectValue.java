@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey.KeyAndHost;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import java.util.ArrayList;
 import javax.annotation.Nullable;
 
 /** An aspect in the context of the Skyframe graph. */
@@ -443,9 +442,9 @@ public final class AspectValue extends BasicActionLookupValue {
       Label label,
       Location location,
       ConfiguredAspect configuredAspect,
-      ArrayList<ActionAnalysisMetadata> actions,
+      ImmutableList<ActionAnalysisMetadata> actions,
       ImmutableMap<Artifact, Integer> generatingActionIndex) {
-    super(actions, generatingActionIndex, /*removeActionsAfterEvaluation=*/ false);
+    super(actions, generatingActionIndex);
     this.label = Preconditions.checkNotNull(label, actions);
     this.aspect = Preconditions.checkNotNull(aspect, label);
     this.location = Preconditions.checkNotNull(location, label);
@@ -461,9 +460,8 @@ public final class AspectValue extends BasicActionLookupValue {
       Location location,
       ConfiguredAspect configuredAspect,
       GeneratingActions actions,
-      NestedSet<Package> transitivePackagesForPackageRootResolution,
-      boolean removeActionsAfterEvaluation) {
-    super(actions, removeActionsAfterEvaluation);
+      NestedSet<Package> transitivePackagesForPackageRootResolution) {
+    super(actions);
     this.label = Preconditions.checkNotNull(label, actions);
     this.aspect = Preconditions.checkNotNull(aspect, label);
     this.location = Preconditions.checkNotNull(location, label);

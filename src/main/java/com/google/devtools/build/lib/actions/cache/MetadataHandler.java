@@ -16,16 +16,19 @@ package com.google.devtools.build.lib.actions.cache;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 
 /**
- * Retrieves {@link Metadata} of {@link Artifact}s, and inserts virtual metadata as well. Some
- * methods on this interface may only be called after a call to {@link #discardOutputMetadata}.
- * Calling them before such a call results in an {@link IllegalStateException}.
+ * Retrieves {@link FileArtifactValue} of {@link Artifact}s, and inserts virtual metadata as well.
  *
- * <p>Note that implementations of this interface call chmod on output files if
- * {@link #discardOutputMetadata} has been called.
+ * <p>Some methods on this interface may only be called after a call to {@link
+ * #discardOutputMetadata}. Calling them before such a call results in an {@link
+ * IllegalStateException}.
+ *
+ * <p>Note that implementations of this interface call chmod on output files if {@link
+ * #discardOutputMetadata} has been called.
  */
 public interface MetadataHandler {
   /**
@@ -35,7 +38,7 @@ public interface MetadataHandler {
    * @return metadata instance
    * @throws IOException if metadata could not be obtained.
    */
-  Metadata getMetadata(Artifact artifact) throws IOException;
+  FileArtifactValue getMetadata(Artifact artifact) throws IOException;
 
   /** Sets digest for virtual artifacts (e.g. middlemen). {@code md5Digest} must not be null. */
   void setDigestForVirtualArtifact(Artifact artifact, Md5Digest md5Digest);

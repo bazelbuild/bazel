@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -27,14 +25,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.skyframe.FileValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -43,7 +39,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -51,18 +46,16 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Collection;
 import java.util.Enumeration;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
 /**
- * Support class for FDO (feedback directed optimization) and LIPO (lightweight inter-procedural
- * optimization).
+ * Support class for FDO (feedback directed optimization).
  *
- * <p>Here follows a quick run-down of how FDO/LIPO builds work (for non-FDO/LIPO builds, none of
- * this applies):
+ * <p>Here follows a quick run-down of how FDO builds work (for non-FDO builds, none of this
+ * applies):
  *
  * <p>{@link FdoSupport#create} is called from {@link FdoSupportFunction} (a {@link SkyFunction}),
  * which is requested from Skyframe by the {@code cc_toolchain} rule. It extracts the FDO .zip (in
@@ -80,66 +73,21 @@ import java.util.zip.ZipFile;
  * original source file or the .gcda file for such a referenced file. They both are added to the
  * imports map.
  *
- * <p>If we do LIPO, we create an extra configuration that is called the "LIPO context collector",
- * whose job it is to collect information that every configured target compiled with LIPO needs. The
- * top-level target of this configuration is the LIPO context (always a cc_binary) and is an
- * implicit dependency of every cc_* rule through their :lipo_context_collector attribute. The
- * collected information is encapsulated in {@link LipoContextProvider}.
- *
- * <p>Note that the LIPO context can be different from the actual binary we are compiling because
- * it's beneficial to compile sources in a test in the exact same way as they would be compiled for
- * a particular {@code cc_binary} so that the code tested is the same as the one being run in
- * production. Thus, the {@code --lipo_context} command line flag, which takes the label of a {@code
- * cc_binary} rule as an argument which will be used as the LIPO context.
- *
- * <p>In this case, it can happen that files are needed for the compilation (because code in them is
- * inlined) that are not in the transitive closure of the tests being run. To cover this case, we
- * have the otherwise unused {@code :lipo_context} attribute, which depends on the LIPO context
- * without any configuration transition. Its purpose is to give a chance for the configured targets
- * containing the inlined code to run and thus create generating actions for the artifacts {@link
- * LipoContextProvider} contains. That is, configured targets in the LIPO context collector
- * configuration collect these artifacts but do not generate actions for them, and configured
- * targets under {@code :lipo_context} generate actions, but the artifacts they create are
- * discarded. This works because {@link Artifact} is a value object and the artifacts in {@link
- * LipoContextProvider} are {@code #equals()} to the ones created under {@code :lipo_context}.
- *
  * <p>For each C++ compile action in the target configuration, {@link #configureCompilation} is
- * called, which adds command line options and input files required for the build. There are three
+ * called, which adds command line options and input files required for the build. There are 2
  * cases:
  *
  * <ul>
  *   <li>If we do AutoFDO, the .afdo file and the source files containing the functions imported by
  *       the original source file (as determined from the inputs map) are added.
  *   <li>If we do FDO, the .gcda file corresponding to the source file is added.
- *   <li>If we do LIPO, in addition to the .gcda file corresponding to the source file (like for
- *       FDO) the source files that contain the functions referenced by the source file and their
- *       .gcda files are added, too.
  * </ul>
- *
- * <p>If we do LIPO, the actual {@code CcCompilationContext} for LIPO compilation actions is pieced
- * together from the {@code CcCompilationContext} in LipoContextProvider and that of the rule being
- * compiled. (see {@link CcCompilationContext#mergeForLipo}) This is so that the include files for
- * the extra LIPO sources are found and is, strictly speaking, incorrect, since it also changes the
- * declared include directories of the main source file, which in theory can result in the
- * compilation passing even though it should fail with undeclared inclusion errors.
- *
- * <p>During the actual execution of the C++ compile action, the extra sources also need to be
- * include scanned, which is the reason why they are {@link IncludeScannable} objects and not simple
- * artifacts. We currently create these {@link IncludeScannable} objects by creating actual C++
- * compile actions in the LIPO context collector configuration which are then never executed. In
- * fact, these C++ compile actions are never even registered with Skyframe. For this we propagate a
- * bit from {@code BuildConfiguration.isActionsEnabled} to {@code
- * CachingAnalysisEnvironment.allowRegisteringActions}, which causes actions to be silently
- * discarded after configured targets are created.
  */
 @Immutable
 @AutoCodec
 public class FdoSupport {
   /**
    * The FDO mode we are operating in.
-   *
-   * LIPO can only be active if this is not <code>OFF</code>, but all of the modes below can work
-   * with LIPO either off or on.
    */
   @VisibleForSerialization
   enum FdoMode {
@@ -152,15 +100,11 @@ public class FdoSupport {
     /** FDO based on automatically collected data. */
     AUTO_FDO,
 
+    /** FDO based on cross binary collected data. */
+    XBINARY_FDO,
+
     /** Instrumentation-based FDO implemented on LLVM. */
     LLVM_FDO,
-  }
-
-  /**
-   * Returns true if the given fdoFile represents an AutoFdo profile.
-   */
-  public static final boolean isAutoFdo(String fdoFile) {
-    return CppFileTypes.GCC_AUTO_PROFILE.matches(fdoFile);
   }
 
   /**
@@ -197,12 +141,6 @@ public class FdoSupport {
   private final PathFragment fdoPath;
 
   /**
-   * LIPO mode passed to {@code --lipo}. This is only used if
-   * {@code fdoProfile != null}.
-   */
-  private final LipoMode lipoMode;
-
-  /**
    * FDO mode.
    */
   private final FdoMode fdoMode;
@@ -230,13 +168,11 @@ public class FdoSupport {
    *
    * @param fdoInstrument value of the --fdo_instrument option
    * @param fdoProfile path to the profile file passed to --fdo_optimize option
-   * @param lipoMode value of the --lipo_mode option
    */
   @VisibleForSerialization
   @AutoCodec.Instantiator
   FdoSupport(
       FdoMode fdoMode,
-      LipoMode lipoMode,
       ArtifactRoot fdoRoot,
       PathFragment fdoRootExecPath,
       String fdoInstrument,
@@ -250,7 +186,6 @@ public class FdoSupport {
         ? null
         : FileSystemUtils.removeExtension(PathFragment.create("_fdo").getChild(
             fdoProfile.getBaseName()));
-    this.lipoMode = lipoMode;
     this.fdoMode = fdoMode;
     if (fdoZipContents != null) {
       this.gcdaFiles = fdoZipContents.gcdaFiles;
@@ -259,10 +194,6 @@ public class FdoSupport {
       this.gcdaFiles = null;
       this.imports = null;
     }
-  }
-
-  public ArtifactRoot getFdoRoot() {
-    return fdoRoot;
   }
 
   public Path getFdoProfile() {
@@ -280,15 +211,10 @@ public class FdoSupport {
       SkyFunction.Environment env,
       String fdoInstrument,
       Path fdoProfile,
-      LipoMode lipoMode,
       Path execRoot,
       String productName,
       FdoMode fdoMode)
       throws IOException, FdoException, InterruptedException {
-
-    if (fdoProfile == null) {
-      lipoMode = LipoMode.OFF;
-    }
 
     ArtifactRoot fdoRoot =
         (fdoProfile == null)
@@ -301,18 +227,12 @@ public class FdoSupport {
             PathFragment.create("_fdo").getChild(fdoProfile.getBaseName())));
 
     if (fdoProfile != null) {
-      if (lipoMode != LipoMode.OFF) {
-        // Incrementality is not supported for LIPO builds, see FdoSupport#scannables.
-        // Ensure that the Skyframe value containing the configuration will not be reused to avoid
-        // incrementality issues.
-        PrecomputedValue.dependOnBuildId(env);
-      } else {
         Path path = fdoMode == FdoMode.AUTO_FDO ? getAutoFdoImportsPath(fdoProfile) : fdoProfile;
         env.getValue(
             FileValue.key(
                 RootedPath.toRootedPathMaybeUnderRoot(
                     path, ImmutableList.of(Root.fromPath(execRoot)))));
-      }
+
     }
 
     if (env.valuesMissing()) {
@@ -320,14 +240,13 @@ public class FdoSupport {
     }
 
     if (fdoMode == FdoMode.LLVM_FDO) {
-      return new FdoSupport(
-          fdoMode, LipoMode.OFF, fdoRoot, fdoRootExecPath, fdoInstrument, fdoProfile, null);
+      return new FdoSupport(fdoMode, fdoRoot, fdoRootExecPath, fdoInstrument, fdoProfile, null);
     }
 
     FdoZipContents fdoZipContents =
-        extractFdoZip(fdoMode, lipoMode, execRoot, fdoProfile, fdoRootExecPath, productName);
+        extractFdoZip(fdoMode, execRoot, fdoProfile, fdoRootExecPath, productName);
     return new FdoSupport(
-        fdoMode, lipoMode, fdoRoot, fdoRootExecPath, fdoInstrument, fdoProfile, fdoZipContents);
+        fdoMode, fdoRoot, fdoRootExecPath, fdoInstrument, fdoProfile, fdoZipContents);
   }
 
   @Immutable
@@ -351,13 +270,17 @@ public class FdoSupport {
   /**
    * Extracts the FDO zip file and collects data from it that's needed during analysis.
    *
-   * <p>When an {@code --fdo_optimize} compile is requested, unpacks the given
-   * FDO gcda zip file into a clean working directory under execRoot.
+   * <p>When an {@code --fdo_optimize} compile is requested, unpacks the given FDO zip file
+   * into a clean working directory under execRoot.
    *
    * @throws FdoException if the FDO ZIP contains a file of unknown type
    */
-  private static FdoZipContents extractFdoZip(FdoMode fdoMode, LipoMode lipoMode, Path execRoot,
-      Path fdoProfile, PathFragment fdoRootExecPath, String productName)
+  private static FdoZipContents extractFdoZip(
+      FdoMode fdoMode,
+      Path execRoot,
+      Path fdoProfile,
+      PathFragment fdoRootExecPath,
+      String productName)
       throws IOException, FdoException {
     // The execRoot != null case is only there for testing. We cannot provide a real ZIP file in
     // tests because ZipFileSystem does not work with a ZIP on an in-memory file system.
@@ -371,10 +294,7 @@ public class FdoSupport {
       FileSystemUtils.deleteTreesBelow(fdoDirPath);
       FileSystemUtils.createDirectoryAndParents(fdoDirPath);
 
-      if (fdoMode == FdoMode.AUTO_FDO) {
-        if (lipoMode != LipoMode.OFF) {
-          imports = readAutoFdoImports(getAutoFdoImportsPath(fdoProfile));
-        }
+      if (fdoMode == FdoMode.AUTO_FDO || fdoMode == FdoMode.XBINARY_FDO) {
         FileSystemUtils.ensureSymbolicLink(
             execRoot.getRelative(getAutoProfilePath(fdoProfile, fdoRootExecPath)), fdoProfile);
       } else {
@@ -487,7 +407,7 @@ public class FdoSupport {
   /**
    * Reads a .gcda.imports file and stores the imports information.
    *
-   * @throws FdoException if an auxiliary LIPO input was not found
+   * @throws FdoException
    */
   private static void readCoverageImports(
       ZipFile zipFile,
@@ -513,81 +433,8 @@ public class FdoSupport {
     }
   }
 
-  /**
-   * Reads a .afdo.imports file and stores the imports information.
-   */
-  private static ImmutableMultimap<PathFragment, PathFragment> readAutoFdoImports(Path importsFile)
-          throws IOException, FdoException {
-    ImmutableMultimap.Builder<PathFragment, PathFragment> importBuilder =
-        ImmutableMultimap.builder();
-    for (String line : FileSystemUtils.iterateLinesAsLatin1(importsFile)) {
-      line = line.trim();
-      if (line.isEmpty()) {
-        continue;
-      }
-
-      int colonIndex = line.indexOf(':');
-      if (colonIndex < 0) {
-        continue;
-      }
-      PathFragment key = PathFragment.create(line.substring(0, colonIndex));
-      if (key.isAbsolute()) {
-        throw new FdoException("Absolute paths not allowed in afdo imports file " + importsFile
-            + ": " + key);
-      }
-      for (String auxFile : line.substring(colonIndex + 1).split(" ")) {
-        if (auxFile.length() == 0) {
-          continue;
-        }
-
-        importBuilder.put(key, PathFragment.create(auxFile));
-      }
-    }
-    return importBuilder.build();
-  }
-
   private static Path getAutoFdoImportsPath(Path fdoProfile) {
      return fdoProfile.getParentDirectory().getRelative(fdoProfile.getBaseName() + ".imports");
-  }
-
-  /**
-   * Returns the imports from the .afdo.imports file of a source file.
-   *
-   * @param sourceExecPath the source file
-   */
-  private Collection<Artifact> getAutoFdoImports(RuleContext ruleContext,
-      PathFragment sourceExecPath, LipoContextProvider lipoContextProvider) {
-    Preconditions.checkState(lipoMode != LipoMode.OFF);
-    ImmutableCollection<PathFragment> afdoImports = imports.get(sourceExecPath);
-    Preconditions.checkState(afdoImports != null,
-        "AutoFDO import data missing for %s", sourceExecPath);
-    ImmutableList.Builder<Artifact> result = ImmutableList.builder();
-    for (PathFragment afdoImport : afdoImports) {
-      Artifact afdoArtifact = lipoContextProvider.getSourceArtifactMap().get(afdoImport);
-      if (afdoArtifact != null) {
-        result.add(afdoArtifact);
-      } else {
-        ruleContext.ruleError(String.format(
-            "cannot find source file '%s' referenced from '%s'", afdoImport, sourceExecPath));
-      }
-    }
-    return result.build();
-  }
-
-  /**
-   * Returns the imports from the .gcda.imports file of an object file.
-   *
-   * @param objDirectory the object directory of the object file's target
-   * @param objectName the object file
-   */
-  private Iterable<PathFragment> getImports(PathFragment objDirectory, PathFragment objectName) {
-    Preconditions.checkState(lipoMode != LipoMode.OFF);
-    Preconditions.checkState(imports != null,
-        "Tried to look up imports of uninitialized FDOSupport");
-    PathFragment key = objDirectory.getRelative(FileSystemUtils.removeExtension(objectName));
-    ImmutableCollection<PathFragment> importsForObject = imports.get(key);
-    Preconditions.checkState(importsForObject != null, "Import data missing for %s", key);
-    return importsForObject;
   }
 
   /**
@@ -598,8 +445,6 @@ public class FdoSupport {
   public ImmutableMap<String, String> configureCompilation(
       CppCompileActionBuilder builder,
       RuleContext ruleContext,
-      PathFragment sourceName,
-      PathFragment sourceExecPath,
       PathFragment outputName,
       boolean usePic,
       FeatureConfiguration featureConfiguration,
@@ -632,11 +477,11 @@ public class FdoSupport {
         return ImmutableMap.of();
       }
       Iterable<Artifact> auxiliaryInputs =
-          getAuxiliaryInputs(
-              ruleContext, sourceName, sourceExecPath, outputName, usePic, fdoSupportProvider);
+          getAuxiliaryInputs(ruleContext, outputName, usePic, fdoSupportProvider);
       builder.addMandatoryInputs(auxiliaryInputs);
       if (!Iterables.isEmpty(auxiliaryInputs)) {
-        if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)) {
+        if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
+            || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
           variablesBuilder.put(
               CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
               getAutoProfilePath(fdoProfile, fdoRootExecPath).getPathString());
@@ -660,16 +505,9 @@ public class FdoSupport {
   /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
   private Iterable<Artifact> getAuxiliaryInputs(
       RuleContext ruleContext,
-      PathFragment sourceName,
-      PathFragment sourceExecPath,
       PathFragment outputName,
       boolean usePic,
       FdoSupportProvider fdoSupportProvider) {
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
-    LipoContextProvider lipoContextProvider =
-        toolchain.isLLVMCompiler() ? null : CppHelper.getLipoContextProvider(ruleContext);
-
     ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
 
     if (fdoSupportProvider.getPrefetchHintsArtifact() != null) {
@@ -678,87 +516,41 @@ public class FdoSupport {
     // If --fdo_optimize was not specified, we don't have any additional inputs.
     if (fdoProfile == null) {
       return auxiliaryInputs.build();
-    } else if (fdoMode == FdoMode.LLVM_FDO || fdoMode == FdoMode.AUTO_FDO) {
+    } else if (fdoMode == FdoMode.LLVM_FDO
+        || fdoMode == FdoMode.AUTO_FDO
+        || fdoMode == FdoMode.XBINARY_FDO) {
       auxiliaryInputs.add(fdoSupportProvider.getProfileArtifact());
-      if (lipoContextProvider != null) {
-        auxiliaryInputs.addAll(getAutoFdoImports(ruleContext, sourceExecPath, lipoContextProvider));
-      }
       return auxiliaryInputs.build();
     } else {
       PathFragment objectName =
           FileSystemUtils.appendExtension(outputName, usePic ? ".pic.o" : ".o");
 
-      Label lipoLabel = ruleContext.getLabel();
       auxiliaryInputs.addAll(
-          getGcdaArtifactsForObjectFileName(
-              ruleContext, fdoSupportProvider, objectName, lipoLabel));
-
-      if (lipoContextProvider != null) {
-        for (PathFragment importedFile : getImports(
-            getNonLipoObjDir(ruleContext, lipoLabel), objectName)) {
-          if (CppFileTypes.COVERAGE_DATA.matches(importedFile.getBaseName())) {
-            Artifact gcdaArtifact =
-                getGcdaArtifactsForGcdaPath(fdoSupportProvider, importedFile);
-            if (gcdaArtifact == null) {
-              ruleContext.ruleError(String.format(
-                  ".gcda file %s is not in the FDO zip (referenced by source file %s). Check if "
-                  + "your profile is generated from the same sources you are building the "
-                  + "optimized binary from",
-                  importedFile, sourceName));
-            } else {
-              auxiliaryInputs.add(gcdaArtifact);
-            }
-          } else {
-            Artifact importedArtifact = lipoContextProvider.getSourceArtifactMap()
-                .get(importedFile);
-            if (importedArtifact != null) {
-              auxiliaryInputs.add(importedArtifact);
-            } else {
-              ruleContext.ruleError(String.format(
-                  "cannot find source file '%s' referenced from '%s' by LIPO inclusion. Check if "
-                  + "your profile is generated from the same sources you are building the "
-                  + "optimized binary from",
-                  importedFile, objectName));
-            }
-          }
-        }
-      }
+          getGcdaArtifactsForObjectFileName(ruleContext, fdoSupportProvider, objectName));
 
       return auxiliaryInputs.build();
     }
   }
 
-  /**
-   * Returns the .gcda file artifacts for a .gcda path from the .gcda.imports file or null if the
-   * referenced .gcda file is not in the FDO zip.
-   */
-  private Artifact getGcdaArtifactsForGcdaPath(FdoSupportProvider fdoSupportProvider,
-      PathFragment gcdaPath) {
-    if (!gcdaFiles.contains(gcdaPath)) {
-      return null;
-    }
-
-    return fdoSupportProvider.getGcdaArtifacts().get(gcdaPath);
-  }
-
-  private PathFragment getNonLipoObjDir(RuleContext ruleContext, Label label) {
-    return ruleContext.getConfiguration().getBinFragment()
-        .getRelative(CppHelper.getObjDirectory(label));
+  private PathFragment getObjDir(RuleContext ruleContext) {
+    return ruleContext
+        .getConfiguration()
+        .getBinFragment()
+        .getRelative(CppHelper.getObjDirectory(ruleContext.getLabel()));
   }
 
   /**
    * Returns a list of .gcda file artifacts for an object file path.
    *
-   * <p>The resulting set is either empty (because no .gcda file exists for the
-   * given object file) or contains one or two artifacts (the file itself and a
-   * symlink to it).
+   * <p>The resulting set is either empty (because no .gcda file exists for the given object file)
+   * or contains one or two artifacts (the file itself and a symlink to it).
    */
-  private ImmutableList<Artifact> getGcdaArtifactsForObjectFileName(RuleContext ruleContext,
-      FdoSupportProvider fdoSupportProvider, PathFragment objectFileName, Label lipoLabel) {
+  private ImmutableList<Artifact> getGcdaArtifactsForObjectFileName(
+      RuleContext ruleContext, FdoSupportProvider fdoSupportProvider, PathFragment objectFileName) {
     // We put the .gcda files relative to the location of the .o file in the instrumentation run.
     String gcdaExt = Iterables.getOnlyElement(CppFileTypes.COVERAGE_DATA.getExtensions());
     PathFragment baseName = FileSystemUtils.replaceExtension(objectFileName, gcdaExt);
-    PathFragment gcdaFile = getNonLipoObjDir(ruleContext, lipoLabel).getRelative(baseName);
+    PathFragment gcdaFile = getObjDir(ruleContext).getRelative(baseName);
 
     if (!gcdaFiles.contains(gcdaFile)) {
       // If the object is a .pic.o file and .pic.gcda is not found, we should try finding .gcda too
@@ -768,7 +560,7 @@ public class FdoSupport {
         // Object file is not .pic.o
         return ImmutableList.of();
       }
-      gcdaFile = getNonLipoObjDir(ruleContext, lipoLabel).getRelative(baseName);
+      gcdaFile = getObjDir(ruleContext).getRelative(baseName);
       if (!gcdaFiles.contains(gcdaFile)) {
         // .gcda file not found
         return ImmutableList.of();
@@ -795,6 +587,12 @@ public class FdoSupport {
     return fdoMode == FdoMode.AUTO_FDO;
   }
 
+  /** Returns whether crossbinary FDO is enabled. */
+  @ThreadSafe
+  public boolean isXBinaryFdoEnabled() {
+    return fdoMode == FdoMode.XBINARY_FDO;
+  }
+
   /**
    * Adds the FDO profile output path to the variable builder. If FDO is disabled, no build variable
    * is added.
@@ -815,28 +613,19 @@ public class FdoSupport {
   public ProfileArtifacts buildProfileForLtoBackend(
       FdoSupportProvider fdoSupportProvider,
       FeatureConfiguration featureConfiguration,
-      CcToolchainVariables.Builder buildVariables,
-      RuleContext ruleContext) {
+      CcToolchainVariables.Builder buildVariables) {
     Artifact prefetch = fdoSupportProvider.getPrefetchHintsArtifact();
     if (prefetch != null) {
       buildVariables.addStringVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());
     }
-    if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)) {
+    if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
+        && !featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
       return new ProfileArtifacts(null, prefetch);
     }
 
     Artifact profile = fdoSupportProvider.getProfileArtifact();
     buildVariables.addStringVariable("fdo_profile_path", profile.getExecPathString());
     return new ProfileArtifacts(profile, prefetch);
-  }
-
-  /**
-   * Returns the path of the FDO output tree (relative to the execution root)
-   * containing the .gcda profile files, or null if FDO is not enabled.
-   */
-  @VisibleForTesting
-  public PathFragment getFdoOptimizeDir() {
-    return fdoRootExecPath;
   }
 
   public FdoSupportProvider createFdoSupportProvider(

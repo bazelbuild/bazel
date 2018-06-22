@@ -22,6 +22,7 @@ import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -31,7 +32,11 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
 /**
@@ -64,17 +69,24 @@ public class NestedSetStore {
     /**
      * Associates a fingerprint with the serialized representation of some NestedSet contents.
      * Returns a future that completes when the write completes.
+     *
+     * <p>It is the responsibility of the caller to deduplicate {@code put} calls, to avoid multiple
+     * writes of the same fingerprint.
      */
     ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) throws IOException;
 
     /**
      * Retrieves the serialized bytes for the NestedSet contents associated with this fingerprint.
+     *
+     * <p>It is the responsibility of the caller to deduplicate {@code get} calls, to avoid multiple
+     * fetches of the same fingerprint.
      */
-    byte[] get(ByteString fingerprint) throws IOException;
+    ListenableFuture<byte[]> get(ByteString fingerprint) throws IOException;
   }
 
   /** An in-memory {@link NestedSetStorageEndpoint} */
-  private static class InMemoryNestedSetStorageEndpoint implements NestedSetStorageEndpoint {
+  @VisibleForTesting
+  public static class InMemoryNestedSetStorageEndpoint implements NestedSetStorageEndpoint {
     private final ConcurrentHashMap<ByteString, byte[]> fingerprintToContents =
         new ConcurrentHashMap<>();
 
@@ -85,14 +97,15 @@ public class NestedSetStore {
     }
 
     @Override
-    public byte[] get(ByteString fingerprint) {
-      return fingerprintToContents.get(fingerprint);
+    public ListenableFuture<byte[]> get(ByteString fingerprint) {
+      return Futures.immediateFuture(fingerprintToContents.get(fingerprint));
     }
   }
 
   /** An in-memory cache for fingerprint <-> NestedSet associations. */
-  private static class NestedSetCache {
-    private final Cache<ByteString, Object[]> fingerprintToContents =
+  @VisibleForTesting
+  public static class NestedSetCache {
+    private final Cache<ByteString, ListenableFuture<Object[]>> fingerprintToContents =
         CacheBuilder.newBuilder()
             .concurrencyLevel(SerializationConstants.DESERIALIZATION_POOL_SIZE)
             .weakValues()
@@ -106,34 +119,82 @@ public class NestedSetStore {
             .build();
 
     /**
-     * Returns the NestedSet contents associated with the given fingerprint. Returns null if the
-     * fingerprint is not known.
+     * Returns a {@link ListenableFuture} for NestedSet contents associated with the given
+     * fingerprint if there was already one. Otherwise associates {@code future} with {@code
+     * fingerprint} and returns null.
+     *
+     * <p>Since the associated future is used as the basis for equality comparisons for deserialized
+     * nested sets, it is critical that multiple calls with the same fingerprint don't override the
+     * association.
      */
+    @VisibleForTesting
     @Nullable
-    public Object[] contentsForFingerprint(ByteString fingerprint) {
-      return fingerprintToContents.getIfPresent(fingerprint);
+    ListenableFuture<Object[]> putIfAbsent(
+        ByteString fingerprint, ListenableFuture<Object[]> future) {
+      ListenableFuture<Object[]> result;
+      // Guava's Cache doesn't have a #putIfAbsent method, so we emulate it here.
+      try {
+        result = fingerprintToContents.get(fingerprint, () -> future);
+      } catch (ExecutionException e) {
+        throw new IllegalStateException(e);
+      }
+      if (result.equals(future)) {
+        // This is the first request of this fingerprint. We should put it.
+        putAsync(fingerprint, future);
+        return null;
+      }
+      return result;
     }
 
     /**
      * Retrieves the fingerprint associated with the given NestedSet contents, or null if the given
      * contents are not known.
      */
+    @VisibleForTesting
     @Nullable
-    public FingerprintComputationResult fingerprintForContents(Object[] contents) {
+    FingerprintComputationResult fingerprintForContents(Object[] contents) {
       return contentsToFingerprint.getIfPresent(contents);
     }
 
-    /** Associates the provided fingerprint and NestedSet contents. */
+    /**
+     * Associates the provided {@code fingerprint} and contents of the future, when it completes.
+     *
+     * <p>There may be a race between this call and calls to {@link #put}. Those races are benign,
+     * since the fingerprint should be the same regardless. We may pessimistically end up having a
+     * future to wait on for serialization that isn't actually necessary, but that isn't a big
+     * concern.
+     */
+    private void putAsync(ByteString fingerprint, ListenableFuture<Object[]> futureContents) {
+      futureContents.addListener(
+          () -> {
+            // There may already be an entry here, but it's better to put a fingerprint result with
+            // an immediate future, since then later readers won't need to block unnecessarily. It
+            // would be nice to sanity check the old value, but Cache#put doesn't provide it to us.
+            try {
+              contentsToFingerprint.put(
+                  Futures.getDone(futureContents),
+                  FingerprintComputationResult.create(fingerprint, Futures.immediateFuture(null)));
+
+            } catch (ExecutionException e) {
+              throw new AssertionError(
+                  "Expected write for " + fingerprint + " to be complete", e.getCause());
+            }
+          },
+          MoreExecutors.directExecutor());
+    }
+
+    // TODO(janakr): Currently, racing threads can overwrite each other's
+    // fingerprintComputationResult, leading to confusion and potential performance drag. Fix this.
     public void put(FingerprintComputationResult fingerprintComputationResult, Object[] contents) {
       contentsToFingerprint.put(contents, fingerprintComputationResult);
-      fingerprintToContents.put(fingerprintComputationResult.fingerprint(), contents);
+      fingerprintToContents.put(
+          fingerprintComputationResult.fingerprint(), Futures.immediateFuture(contents));
     }
   }
 
   /** The result of a fingerprint computation, including the status of its storage. */
-  @VisibleForTesting
   @AutoValue
-  public abstract static class FingerprintComputationResult {
+  abstract static class FingerprintComputationResult {
     static FingerprintComputationResult create(
         ByteString fingerprint, ListenableFuture<Void> writeStatus) {
       return new AutoValue_NestedSetStore_FingerprintComputationResult(fingerprint, writeStatus);
@@ -142,15 +203,35 @@ public class NestedSetStore {
     abstract ByteString fingerprint();
 
     @VisibleForTesting
-    public abstract ListenableFuture<Void> writeStatus();
+    abstract ListenableFuture<Void> writeStatus();
   }
 
-  private final NestedSetCache nestedSetCache = new NestedSetCache();
+  private final NestedSetCache nestedSetCache;
   private final NestedSetStorageEndpoint nestedSetStorageEndpoint;
+  private final Executor executor;
 
   /** Creates a NestedSetStore with the provided {@link NestedSetStorageEndpoint} as a backend. */
+  @VisibleForTesting
   public NestedSetStore(NestedSetStorageEndpoint nestedSetStorageEndpoint) {
+    this(nestedSetStorageEndpoint, new NestedSetCache(), MoreExecutors.directExecutor());
+  }
+
+  /**
+   * Creates a NestedSetStore with the provided {@link NestedSetStorageEndpoint} and executor for
+   * deserialization.
+   */
+  public NestedSetStore(NestedSetStorageEndpoint nestedSetStorageEndpoint, Executor executor) {
+    this(nestedSetStorageEndpoint, new NestedSetCache(), executor);
+  }
+
+  @VisibleForTesting
+  public NestedSetStore(
+      NestedSetStorageEndpoint nestedSetStorageEndpoint,
+      NestedSetCache nestedSetCache,
+      Executor executor) {
     this.nestedSetStorageEndpoint = nestedSetStorageEndpoint;
+    this.nestedSetCache = nestedSetCache;
+    this.executor = executor;
   }
 
   /** Creates a NestedSetStore with an in-memory storage backend. */
@@ -163,9 +244,16 @@ public class NestedSetStore {
    * SerializationContext}, while also associating the contents with the computed fingerprint in the
    * store. Recursively does the same for all transitive members (i.e. Object[] members) of the
    * provided contents.
+   *
+   * <p>We wish to serialize each nested set only once. However, this is not currently enforced, due
+   * to the check-then-act race below, where we check nestedSetCache and then, significantly later,
+   * insert a result into the cache. This is a bug, but since any thread that redoes unnecessary
+   * work will return the {@link FingerprintComputationResult} containing its own futures, the
+   * serialization work that must wait on remote storage writes to complete will wait on the correct
+   * futures. Thus it is a performance bug, not a correctness bug.
    */
-  @VisibleForTesting
-  public FingerprintComputationResult computeFingerprintAndStore(
+  // TODO(janakr): fix this, if for no other reason than to make the semantics cleaner.
+  FingerprintComputationResult computeFingerprintAndStore(
       Object[] contents, SerializationContext serializationContext)
       throws SerializationException, IOException {
     FingerprintComputationResult priorFingerprint = nestedSetCache.fingerprintForContents(contents);
@@ -225,38 +313,59 @@ public class NestedSetStore {
     return fingerprintComputationResult;
   }
 
-  /** Retrieves and deserializes the NestedSet contents associated with the given fingerprint. */
-  public Object[] getContentsAndDeserialize(
-      ByteString fingerprint, DeserializationContext deserializationContext)
-      throws SerializationException, IOException {
-    Object[] contents = nestedSetCache.contentsForFingerprint(fingerprint);
+  /**
+   * Retrieves and deserializes the NestedSet contents associated with the given fingerprint.
+   *
+   * <p>We wish to only do one deserialization per fingerprint. This is enforced by the {@link
+   * #nestedSetCache}, which is responsible for returning the canonical future that will contain the
+   * results of the deserialization. If that future is not owned by the current call of this method,
+   * it doesn't have to do anything further.
+   */
+  ListenableFuture<Object[]> getContentsAndDeserialize(
+      ByteString fingerprint, DeserializationContext deserializationContext) throws IOException {
+    SettableFuture<Object[]> future = SettableFuture.create();
+    ListenableFuture<Object[]> contents = nestedSetCache.putIfAbsent(fingerprint, future);
     if (contents != null) {
       return contents;
     }
+    ListenableFuture<byte[]> retrieved = nestedSetStorageEndpoint.get(fingerprint);
+    future.setFuture(
+        Futures.transformAsync(
+            retrieved,
+            bytes -> {
+              CodedInputStream codedIn = CodedInputStream.newInstance(bytes);
+              int numberOfElements = codedIn.readInt32();
+              DeserializationContext newDeserializationContext =
+                  deserializationContext.getNewMemoizingContext();
 
-    byte[] retrieved = nestedSetStorageEndpoint.get(fingerprint);
-    if (retrieved == null) {
-      throw new AssertionError("Fingerprint " + fingerprint + " not found in NestedSetStore");
-    }
+              // The elements of this list are futures for the deserialized values of these
+              // NestedSet contents.  For direct members, the futures complete immediately and yield
+              // an Object.  For transitive members (fingerprints), the futures complete with the
+              // underlying fetch, and yield Object[]s.
+              List<ListenableFuture<?>> deserializationFutures = new ArrayList<>();
+              for (int i = 0; i < numberOfElements; i++) {
+                Object deserializedElement = newDeserializationContext.deserialize(codedIn);
+                if (deserializedElement instanceof ByteString) {
+                  deserializationFutures.add(
+                      getContentsAndDeserialize(
+                          (ByteString) deserializedElement, deserializationContext));
+                } else {
+                  deserializationFutures.add(Futures.immediateFuture(deserializedElement));
+                }
+              }
 
-    CodedInputStream codedIn = CodedInputStream.newInstance(retrieved);
-    DeserializationContext newDeserializationContext =
-        deserializationContext.getNewMemoizingContext();
-
-    int numberOfElements = codedIn.readInt32();
-    Object[] dereferencedContents = new Object[numberOfElements];
-    for (int i = 0; i < numberOfElements; i++) {
-      Object deserializedElement = newDeserializationContext.deserialize(codedIn);
-      dereferencedContents[i] =
-          deserializedElement instanceof ByteString
-              ? getContentsAndDeserialize(
-                  (ByteString) deserializedElement, deserializationContext)
-              : deserializedElement;
-    }
-
-    FingerprintComputationResult fingerprintComputationResult =
-        FingerprintComputationResult.create(fingerprint, Futures.immediateFuture(null));
-    nestedSetCache.put(fingerprintComputationResult, dereferencedContents);
-    return dereferencedContents;
+              return Futures.whenAllComplete(deserializationFutures)
+                  .call(
+                      () -> {
+                        Object[] deserializedContents = new Object[deserializationFutures.size()];
+                        for (int i = 0; i < deserializationFutures.size(); i++) {
+                          deserializedContents[i] = Futures.getDone(deserializationFutures.get(i));
+                        }
+                        return deserializedContents;
+                      },
+                      executor);
+            },
+            executor));
+    return future;
   }
 }

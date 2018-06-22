@@ -15,9 +15,14 @@
 package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
+import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
+import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
+import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -86,6 +91,37 @@ public class BazelStrategyModule extends BlazeModule {
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     builder.addActionContext(new WriteAdbArgsActionContext(env.getClientEnv().get("HOME")));
     BazelExecutionOptions options = env.getOptions().getOptions(BazelExecutionOptions.class);
-    builder.addActionContextConsumer(new BazelActionContextConsumer(options));
+
+    // Default strategies for certain mnemonics - they can be overridden by --strategy= flags.
+    builder.addStrategyByMnemonic("Javac", "worker");
+    builder.addStrategyByMnemonic("Closure", "worker");
+
+    for (Map.Entry<String, String> strategy : options.strategy) {
+      String strategyName = strategy.getValue();
+      // TODO(philwo) - remove this when the standalone / local mess is cleaned up.
+      // Some flag expansions use "local" as the strategy name, but the strategy is now called
+      // "standalone", so we'll translate it here.
+      if (strategyName.equals("local")) {
+        strategyName = "standalone";
+      }
+      builder.addStrategyByMnemonic(strategy.getKey(), strategyName);
+    }
+
+    if (!options.genruleStrategy.isEmpty()) {
+      builder.addStrategyByMnemonic("Genrule", options.genruleStrategy);
+    }
+
+    // TODO(bazel-team): put this in getActionContexts (key=SpawnActionContext.class) instead
+    if (!options.spawnStrategy.isEmpty()) {
+      builder.addStrategyByMnemonic("", options.spawnStrategy);
+    }
+
+    builder
+        .addStrategyByContext(CppCompileActionContext.class, "")
+        .addStrategyByContext(CppIncludeExtractionContext.class, "")
+        .addStrategyByContext(CppIncludeScanningContext.class, "")
+        .addStrategyByContext(FileWriteActionContext.class, "")
+        .addStrategyByContext(WriteAdbArgsActionContext.class, "")
+        .addStrategyByContext(SpawnCache.class, "");
   }
 }

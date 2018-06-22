@@ -14,13 +14,18 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Support for parameter file generation (as used by gcc and other tools, e.g.
@@ -87,35 +92,89 @@ public class ParameterFile {
       throws IOException {
     switch (type) {
       case SHELL_QUOTED:
-        writeContentQuoted(out, arguments, charset);
+        Iterable<String> quotedContent = ShellEscaper.escapeAll(arguments);
+        writeContent(out, quotedContent, charset);
         break;
       case UNQUOTED:
-        writeContentUnquoted(out, arguments, charset);
+        writeContent(out, arguments, charset);
         break;
     }
   }
 
-  /** Writes the arguments from the list into the parameter file. */
-  private static void writeContentUnquoted(
+  private static void writeContent(
       OutputStream outputStream, Iterable<String> arguments, Charset charset) throws IOException {
-    OutputStreamWriter out = new OutputStreamWriter(outputStream, charset);
-    for (String line : arguments) {
-      out.write(line);
-      out.write('\n');
+    if (charset.equals(StandardCharsets.ISO_8859_1) && StringUnsafe.canUse()) {
+      writeContentLatin1Jdk9(outputStream, arguments);
+    } else if (charset.equals(StandardCharsets.UTF_8) && StringUnsafe.canUse()) {
+      writeContentUtf8Jdk9(outputStream, arguments);
+    } else {
+      // Generic charset support
+      OutputStreamWriter out = new OutputStreamWriter(outputStream, charset);
+      for (String line : arguments) {
+        out.write(line);
+        out.write('\n');
+      }
+      out.flush();
     }
-    out.flush();
   }
 
   /**
-   * Writes the arguments from the list into the parameter file with shell quoting (if required).
+   * Fast LATIN-1 path that avoids GC overhead. This takes advantage of the fact that strings are
+   * encoded as either LATIN-1 or UTF-16 under JDK9. When LATIN-1 we can simply copy the byte
+   * buffer, when UTF-16 we can fail loudly.
    */
-  private static void writeContentQuoted(
-      OutputStream outputStream, Iterable<String> arguments, Charset charset) throws IOException {
-    OutputStreamWriter out = new OutputStreamWriter(outputStream, charset);
-    for (String line : ShellEscaper.escapeAll(arguments)) {
-      out.write(line);
-      out.write('\n');
+  private static void writeContentLatin1Jdk9(OutputStream outputStream, Iterable<String> arguments)
+      throws IOException {
+    StringUnsafe stringUnsafe = StringUnsafe.getInstance();
+    for (String line : arguments) {
+      if (stringUnsafe.getCoder(line) == StringUnsafe.LATIN1) {
+        byte[] bytes = stringUnsafe.getByteArray(line);
+        outputStream.write(bytes);
+      } else {
+        // Error case, encode with '?' characters
+        ByteBuffer encodedBytes = StandardCharsets.ISO_8859_1.encode(CharBuffer.wrap(line));
+        outputStream.write(
+            encodedBytes.array(),
+            encodedBytes.arrayOffset(),
+            encodedBytes.arrayOffset() + encodedBytes.limit());
+      }
+      outputStream.write('\n');
     }
-    out.flush();
+    outputStream.flush();
+  }
+
+  /**
+   * Fast UTF-8 path that tries to coder GC overhead. This takes advantage of the fact that strings
+   * are encoded as either LATIN-1 or UTF-16 under JDK9. When LATIN-1 we can check if the buffer is
+   * ASCII and copy that directly (since this is both valid LATIN-1 and UTF-8), in all other cases
+   * we must re-encode.
+   */
+  private static void writeContentUtf8Jdk9(OutputStream outputStream, Iterable<String> arguments)
+      throws IOException {
+    CharsetEncoder encoder = StandardCharsets.UTF_8.newEncoder();
+    StringUnsafe stringUnsafe = StringUnsafe.getInstance();
+    for (String line : arguments) {
+      byte[] bytes = stringUnsafe.getByteArray(line);
+      if (stringUnsafe.getCoder(line) == StringUnsafe.LATIN1 && isAscii(bytes)) {
+        outputStream.write(bytes);
+      } else {
+        ByteBuffer encodedBytes = encoder.encode(CharBuffer.wrap(line));
+        outputStream.write(
+            encodedBytes.array(),
+            encodedBytes.arrayOffset(),
+            encodedBytes.arrayOffset() + encodedBytes.limit());
+      }
+      outputStream.write('\n');
+    }
+    outputStream.flush();
+  }
+
+  private static boolean isAscii(byte[] latin1Bytes) {
+    boolean hiBitSet = false;
+    int n = latin1Bytes.length;
+    for (int i = 0; i < n; ++i) {
+      hiBitSet |= ((latin1Bytes[i] & 0x80) != 0);
+    }
+    return !hiBitSet;
   }
 }

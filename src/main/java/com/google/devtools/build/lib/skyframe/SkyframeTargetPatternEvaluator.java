@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -40,47 +41,38 @@ import java.util.Map;
 /**
  * Skyframe-based target pattern parsing.
  */
-final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
+final class SkyframeTargetPatternEvaluator
+    implements TargetPatternEvaluator, TargetPatternPreloader {
   private final SkyframeExecutor skyframeExecutor;
-  private String offset = "";
 
   SkyframeTargetPatternEvaluator(SkyframeExecutor skyframeExecutor) {
     this.skyframeExecutor = skyframeExecutor;
   }
 
+  // Only used by AnalyzeCommand at this point. All build commands use SkyframeLoadingPhaseRunner.
   @Override
   public ResolvedTargets<Target> parseTargetPatternList(
+      PathFragment relativeWorkingDirectory,
       ExtendedEventHandler eventHandler,
       List<String> targetPatterns,
       FilteringPolicy policy,
       boolean keepGoing)
       throws TargetParsingException, InterruptedException {
     return parseTargetPatternList(
-        offset, eventHandler, ImmutableList.copyOf(targetPatterns), policy, keepGoing);
-  }
-
-  @Override
-  public ResolvedTargets<Target> parseTargetPattern(
-      ExtendedEventHandler eventHandler, String pattern, boolean keepGoing)
-      throws TargetParsingException, InterruptedException {
-    return parseTargetPatternList(eventHandler, ImmutableList.of(pattern),
-        DEFAULT_FILTERING_POLICY, keepGoing);
-  }
-
-  @Override
-  public void updateOffset(PathFragment relativeWorkingDirectory) {
-    offset = relativeWorkingDirectory.getPathString();
-  }
-
-  @Override
-  public String getOffset() {
-    return offset;
+        relativeWorkingDirectory.getPathString(),
+        eventHandler,
+        ImmutableList.copyOf(targetPatterns),
+        policy,
+        keepGoing);
   }
 
   @Override
   public Map<String, ResolvedTargets<Target>> preloadTargetPatterns(
-      ExtendedEventHandler eventHandler, Collection<String> patterns, boolean keepGoing)
-      throws TargetParsingException, InterruptedException {
+      ExtendedEventHandler eventHandler,
+      PathFragment relativeWorkingDirectory,
+      Collection<String> patterns,
+      boolean keepGoing)
+          throws TargetParsingException, InterruptedException {
     // TODO(bazel-team): This is used only in "blaze query". There are plans to dramatically change
     // how query works on Skyframe, in which case this method is likely to go away.
     ImmutableList.Builder<TargetPatternsAndKeysAndResultBuilder>
@@ -91,7 +83,11 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
       targetPatternsAndKeysAndResultListBuilder.add(new TargetPatternsAndKeysAndResultBuilder(
           singletonPatternList,
           getTargetPatternKeys(
-              offset, eventHandler, singletonPatternList, policy, keepGoing),
+              relativeWorkingDirectory.getPathString(),
+              eventHandler,
+              singletonPatternList,
+              policy,
+              keepGoing),
           createTargetPatternEvaluatorUtil(policy, eventHandler, keepGoing)));
 
     }
@@ -163,8 +159,8 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
   private TargetPatternsResultBuilder createTargetPatternEvaluatorUtil(
       FilteringPolicy policy, ExtendedEventHandler eventHandler, boolean keepGoing) {
     return policy == FilteringPolicies.FILTER_TESTS
-        ? new TestTargetPatternsResultBuilder(skyframeExecutor.getPackageManager(), eventHandler,
-          keepGoing)
+        ? new TestTargetPatternsResultBuilder(
+            skyframeExecutor.getPackageManager(), eventHandler, keepGoing)
         : new BuildTargetPatternsResultBuilder();
   }
 

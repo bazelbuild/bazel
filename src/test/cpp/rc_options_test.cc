@@ -19,6 +19,7 @@
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "googletest/include/gtest/gtest.h"

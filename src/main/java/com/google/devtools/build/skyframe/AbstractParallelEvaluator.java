@@ -286,7 +286,8 @@ public abstract class AbstractParallelEvaluator {
           // Tell the receiver that the value was not actually changed this run.
           evaluatorContext
               .getProgressReceiver()
-              .evaluated(skyKey, new EvaluationSuccessStateSupplier(state), EvaluationState.CLEAN);
+              .evaluated(
+                  skyKey, null, new EvaluationSuccessStateSupplier(state), EvaluationState.CLEAN);
           if (!evaluatorContext.keepGoing() && state.getErrorInfo() != null) {
             if (!evaluatorContext.getVisitor().preventNewEvaluations()) {
               return DirtyOutcome.ALREADY_PROCESSED;
@@ -375,19 +376,19 @@ public abstract class AbstractParallelEvaluator {
                 state);
 
         SkyValue value = null;
-        long startTime = BlazeClock.instance().nanoTime();
+        long startTimeNanos = BlazeClock.instance().nanoTime();
         try {
           try {
             evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.COMPUTE);
             value = factory.compute(skyKey, env);
           } finally {
-            long elapsedTimeNanos = BlazeClock.instance().nanoTime() - startTime;
+            long elapsedTimeNanos = BlazeClock.instance().nanoTime() - startTimeNanos;
             if (elapsedTimeNanos > 0) {
               evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMPUTE,
                   elapsedTimeNanos);
               Profiler.instance()
                   .logSimpleTaskDuration(
-                      startTime,
+                      startTimeNanos,
                       Duration.ofNanos(elapsedTimeNanos),
                       ProfilerTask.SKYFUNCTION,
                       skyKey.functionName().getName());

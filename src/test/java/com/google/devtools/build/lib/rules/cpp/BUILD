@@ -12,7 +12,10 @@ filegroup(
 
 java_test(
     name = "cpp-rules-tests",
-    srcs = glob(["*.java"]) + ["proto/CcProtoLibraryTest.java"],
+    srcs = glob(
+        ["*.java"],
+        exclude = ["CcImportBaseConfiguredTargetTest.java"],
+    ) + ["proto/CcProtoLibraryTest.java"],
     resources = [
         "//tools/cpp:crosstool_utils",
         "//tools/cpp:lib_cc_configure",
@@ -20,6 +23,7 @@ java_test(
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
+        ":CcImportBaseConfiguredTargetTest",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -79,6 +83,21 @@ java_library(
         "//third_party:truth",
         "//third_party/java/dd_plist",
         "//third_party/protobuf/3.4.0:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "CcImportBaseConfiguredTargetTest",
+    srcs = ["CcImportBaseConfiguredTargetTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

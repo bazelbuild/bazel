@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
 import com.google.devtools.build.lib.analysis.util.ExpectedTrimmedConfigurationErrors;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
@@ -133,10 +131,7 @@ public class BuildViewTest extends BuildViewTestBase {
     targets =
         Lists.<ConfiguredTarget>newArrayList(
             BuildView.filterTestsByTargets(
-                targets,
-                Sets.newHashSet(test1.getTarget(), suite.getTarget()),
-                NullEventHandler.INSTANCE,
-                skyframeExecutor.getPackageManager()));
+                targets, Sets.newHashSet(test1.getTarget(), suite.getTarget())));
     assertThat(targets).containsExactlyElementsIn(Sets.newHashSet(test1CT, suiteCT));
   }
 
@@ -341,32 +336,6 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void topLevelConfigurationHook() throws Exception {
-    setConfigFragmentsAvailableInTests(TestConfigFragments.FragmentWithTopLevelConfigHook1Factory);
-    scratch.file(
-        "package/BUILD",
-        "sh_binary(name = 'binary', srcs = ['binary.sh'])");
-    ConfiguredTarget ct = Iterables.getOnlyElement(update("//package:binary").getTargetsToBuild());
-    BuildConfiguration.Options options =
-        getConfiguration(ct).getOptions().get(BuildConfiguration.Options.class);
-    assertThat(options.hostCpu).isEqualTo("$CONFIG HOOK 1");
-  }
-
-  @Test
-  public void topLevelComposedConfigurationHooks() throws Exception {
-    setConfigFragmentsAvailableInTests(
-        TestConfigFragments.FragmentWithTopLevelConfigHook1Factory,
-        TestConfigFragments.FragmentWithTopLevelConfigHook2Factory);
-    scratch.file(
-        "package/BUILD",
-        "sh_binary(name = 'binary', srcs = ['binary.sh'])");
-    ConfiguredTarget ct = Iterables.getOnlyElement(update("//package:binary").getTargetsToBuild());
-    BuildConfiguration.Options options =
-        getConfiguration(ct).getOptions().get(BuildConfiguration.Options.class);
-    assertThat(options.hostCpu).isEqualTo("$CONFIG HOOK 1$CONFIG HOOK 2");
-  }
-
-  @Test
   public void testGetDirectPrerequisites() throws Exception {
     scratch.file(
         "package/BUILD",
@@ -376,15 +345,7 @@ public class BuildViewTest extends BuildViewTestBase {
     ConfiguredTarget top = getConfiguredTarget("//package:top", getTargetConfiguration());
     Iterable<ConfiguredTarget> targets = getView().getDirectPrerequisitesForTesting(
         reporter, top, getBuildConfigurationCollection());
-    Iterable<Label> labels =
-        Iterables.transform(
-            targets,
-            new Function<ConfiguredTarget, Label>() {
-              @Override
-              public Label apply(ConfiguredTarget target) {
-                return target.getLabel();
-              }
-            });
+    Iterable<Label> labels = Iterables.transform(targets, target -> target.getLabel());
     assertThat(labels)
         .containsExactly(
             Label.parseAbsolute("//package:inner"), Label.parseAbsolute("//package:file"));
@@ -932,18 +893,18 @@ public class BuildViewTest extends BuildViewTestBase {
     }
     useConfiguration("--cpu=k8");
     reporter.removeHandler(failFastHandler); // Expect errors from action conflicts.
-    scratch.file("conflict/BUILD",
+    scratch.file(
+        "conflict/BUILD",
         "config_setting(name = 'a', values = {'test_arg': 'a'})",
         "cc_library(name='x', srcs=select({':a': ['a.cc'], '//conditions:default': ['foo.cc']}))",
-        "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
-    AnalysisResult result = update(
-        defaultFlags().with(Flag.KEEP_GOING),
-        "//conflict:_objs/x/conflict/foo.pic.o",
-        "//conflict:x");
+        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])");
+    AnalysisResult result =
+        update(
+            defaultFlags().with(Flag.KEEP_GOING), "//conflict:_objs/x/foo.pic.o", "//conflict:x");
     assertThat(result.hasError()).isTrue();
     // Expect to reach this line without a Precondition-triggered NullPointerException.
     assertContainsEvent(
-        "file 'conflict/_objs/x/conflict/foo.pic.o' is generated by these conflicting actions");
+        "file 'conflict/_objs/x/foo.pic.o' is generated by these conflicting actions");
   }
 
   @Test
@@ -1287,7 +1248,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "extra_action(name='xa', cmd='echo dont-care')",
         "action_listener(name='listener', mnemonics=['Mnemonic'], extra_actions=[':xa'])");
 
-    BuildView.AnalysisResult analysisResult = update("//x:a");
+    AnalysisResult analysisResult = update("//x:a");
 
     List<String> owners = new ArrayList<>();
     for (Artifact artifact : analysisResult.getAdditionalArtifactsToBuild()) {
@@ -1361,16 +1322,6 @@ public class BuildViewTest extends BuildViewTestBase {
     update("//foo");
     assertContainsEvent("WARNING /workspace/foo/BUILD:8:12: in deps attribute of custom_rule rule "
         + "//foo:foo: genrule rule '//foo:genlib' is unexpected here; continuing anyway");
-  }
-
-  /** Runs the same test with the reduced loading phase. */
-  @TestSpec(size = Suite.SMALL_TESTS)
-  @RunWith(JUnit4.class)
-  public static class WithSkyframeLoadingPhase extends BuildViewTest {
-    @Override
-    protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.SKYFRAME_LOADING_PHASE);
-    }
   }
 
   /** Runs the same test with trimmed configurations. */

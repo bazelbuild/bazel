@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static org.hamcrest.CoreMatchers.startsWith;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -64,6 +66,28 @@ public class SkylarkImportsTest {
     validAbsoluteLabelTest("@my_repo//some/skylark:file.bzl",
         /*expected label*/ "@my_repo//some/skylark:file.bzl",
         /*expected path*/ "/some/skylark/file.bzl");
+  }
+
+  @Test
+  public void testValidAbsoluteLabelWithRepoRemapped() throws Exception {
+    String labelString = "@orig_repo//some/skylark:file.bzl";
+    String remappedLabelString = "@new_repo//some/skylark:file.bzl";
+    String expectedPath = "/some/skylark/file.bzl";
+    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping =
+        ImmutableMap.of(RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo"));
+    SkylarkImport importForLabel = SkylarkImports.create(labelString, repositoryMapping);
+
+    assertThat(importForLabel.hasAbsolutePath()).named("hasAbsolutePath()").isFalse();
+    assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
+
+    Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
+    assertThat(importForLabel.getLabel(irrelevantContainingFile))
+        .named("getLabel()")
+        .isEqualTo(Label.parseAbsoluteUnchecked(remappedLabelString));
+
+    assertThat(importForLabel.asPathFragment())
+        .named("asPathFragment()")
+        .isEqualTo(PathFragment.create(expectedPath));
   }
 
   private void validRelativeLabelTest(String labelString,

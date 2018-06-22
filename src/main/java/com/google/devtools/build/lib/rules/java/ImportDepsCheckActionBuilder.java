@@ -131,7 +131,6 @@ public final class ImportDepsCheckActionBuilder {
   private static String convertErrorFlag(ImportDepsCheckingLevel level) {
     switch (level) {
       case ERROR:
-      case STRICT_ERROR:
         return "--checking_mode=error";
       case WARNING:
         return "--checking_mode=warning";

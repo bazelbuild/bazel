@@ -490,29 +490,34 @@ public class WorkspaceFactory {
                     + kwargs.get("name")
                     + "')");
           }
-          if (kwargs.containsKey("repo_mapping")) {
-            if (!(kwargs.get("repo_mapping") instanceof Map)) {
-              throw new EvalException(
-                  ast.getLocation(),
-                  "Invalid value for 'repo_mapping': '" + kwargs.get("repo_mapping")
-                      + "'. Value must be a map."
-              );
-            }
-            @SuppressWarnings("unchecked")
-            Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
-            String externalRepoName = (String) kwargs.get("name");
-            for (Map.Entry<String, String> e : map.entrySet()) {
-              builder.addRepositoryMappingEntry(
-                  RepositoryName.createFromValidStrippedName(externalRepoName),
-                  RepositoryName.create((String) e.getKey()),
-                  RepositoryName.create((String) e.getValue()));
+          if (env.getSemantics().experimentalEnableRepoMapping()) {
+            if (kwargs.containsKey("repo_mapping")) {
+              if (!(kwargs.get("repo_mapping") instanceof Map)) {
+                throw new EvalException(
+                    ast.getLocation(),
+                    "Invalid value for 'repo_mapping': '" + kwargs.get("repo_mapping")
+                        + "'. Value must be a map.");
+              }
+              @SuppressWarnings("unchecked")
+              Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
+              String externalRepoName = (String) kwargs.get("name");
+              for (Map.Entry<String, String> e : map.entrySet()) {
+                builder.addRepositoryMappingEntry(
+                    RepositoryName.createFromValidStrippedName(externalRepoName),
+                    RepositoryName.create((String) e.getKey()),
+                    RepositoryName.create((String) e.getValue()));
+              }
             }
           }
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
           Rule rule =
               WorkspaceFactoryHelper.createAndAddRepositoryRule(
-                  builder, ruleClass, bindRuleClass, getFinalKwargs(kwargs), ast);
+                  builder,
+                  ruleClass,
+                  bindRuleClass,
+                  getFinalKwargs(kwargs, env.getSemantics()),
+                  ast);
           if (!isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
                 ast.getLocation(), rule + "'s name field must be a legal workspace name");
@@ -527,12 +532,17 @@ public class WorkspaceFactory {
     };
   }
 
-  private static Map<String, Object> getFinalKwargs(Map<String, Object> kwargs) {
-    // 'repo_mapping' is not an explicit attribute of any rule and so it would
-    // result in a rule error if propagated to the rule factory.
-    return kwargs.entrySet().stream()
-        .filter(x -> !x.getKey().equals("repo_mapping"))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  private static Map<String, Object> getFinalKwargs(
+      Map<String, Object> kwargs,
+      SkylarkSemantics semantics) {
+    if (semantics.experimentalEnableRepoMapping()) {
+      // 'repo_mapping' is not an explicit attribute of any rule and so it would
+      // result in a rule error if propagated to the rule factory.
+      return kwargs.entrySet().stream()
+          .filter(x -> !x.getKey().equals("repo_mapping"))
+          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+    return kwargs;
   }
 
   private static ImmutableMap<String, BaseFunction> createWorkspaceFunctions(

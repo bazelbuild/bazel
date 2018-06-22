@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -153,7 +154,7 @@ public final class LabelExpander {
    */
   private static Label resolveLabelText(String labelText, Label labelResolver) {
     try {
-      return labelResolver.getRelative(labelText);
+      return labelResolver.getRelativeWithRemapping(labelText, ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       // It's a heuristic, so quietly ignore "errors". Because Label.getRelative never
       // returns null, we can use null to indicate an error.

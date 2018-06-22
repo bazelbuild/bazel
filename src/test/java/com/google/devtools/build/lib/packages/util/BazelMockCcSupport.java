@@ -311,11 +311,6 @@ public final class BazelMockCcSupport extends MockCcSupport {
   }
 
   @Override
-  public String getMockLibcPath() {
-    return "tools/cpp/libc";
-  }
-
-  @Override
   public String getMockCrosstoolPath() {
     return "/bazel_tools_workspace/tools/cpp/";
   }

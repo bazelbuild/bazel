@@ -37,9 +37,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolver;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
@@ -84,12 +86,27 @@ public class BaseRuleClasses {
 
   public static final String DEFAULT_COVERAGE_SUPPORT_VALUE = "//tools/test:coverage_support";
 
+  @AutoCodec
+  static final Resolver<TestConfiguration, Label> COVERAGE_SUPPORT_CONFIGURATION_RESOLVER =
+      (rule, attributes, configuration) -> configuration.getCoverageSupport();
+
   public static LabelLateBoundDefault<TestConfiguration> coverageSupportAttribute(
       Label defaultValue) {
     return LabelLateBoundDefault.fromTargetConfiguration(
-        TestConfiguration.class,
-        defaultValue,
-        (rule, attributes, configuration) -> configuration.getCoverageSupport());
+        TestConfiguration.class, defaultValue, COVERAGE_SUPPORT_CONFIGURATION_RESOLVER);
+  }
+
+  public static final String DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE =
+      "//tools/test:coverage_report_generator";
+
+  @AutoCodec
+  static final Resolver<TestConfiguration, Label> COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =
+      (rule, attributes, configuration) -> configuration.getCoverageReportGenerator();
+
+  public static LabelLateBoundDefault<TestConfiguration> coverageReportGeneratorAttribute(
+      Label defaultValue) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        TestConfiguration.class, defaultValue, COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
   }
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
@@ -152,14 +169,16 @@ public class BaseRuleClasses {
               attr("$test_runtime", LABEL_LIST)
                   .cfg(HostTransition.INSTANCE)
                   .value(ImmutableList.of(env.getToolsLabel("//tools/test:runtime"))))
-          .add(attr("$test_setup_script", LABEL)
-              .cfg(HostTransition.INSTANCE)
-              .singleArtifact()
-              .value(env.getToolsLabel("//tools/test:test_setup")))
-          .add(attr("$collect_coverage_script", LABEL)
-              .cfg(HostTransition.INSTANCE)
-              .singleArtifact()
-              .value(env.getToolsLabel("//tools/test:collect_coverage")))
+          .add(
+              attr("$test_setup_script", LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/test:test_setup")))
+          .add(
+              attr("$collect_coverage_script", LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/test:collect_coverage")))
           // Input files for test actions collecting code coverage
           .add(
               attr(":coverage_support", LABEL)
@@ -167,18 +186,15 @@ public class BaseRuleClasses {
                       coverageSupportAttribute(env.getToolsLabel(DEFAULT_COVERAGE_SUPPORT_VALUE))))
           // Used in the one-per-build coverage report generation action.
           .add(
-              attr("$coverage_report_generator", LABEL)
+              attr(":coverage_report_generator", LABEL)
                   .cfg(HostTransition.INSTANCE)
-                  .value(env.getLabel("//tools/defaults:coverage_report_generator"))
+                  .value(
+                      coverageReportGeneratorAttribute(
+                          env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE)))
                   .singleArtifact())
-
-          // The target itself and run_under both run on the same machine. We use the DATA config
-          // here because the run_under acts like a data dependency (e.g. no LIPO optimization).
-          .add(
-              attr(":run_under", LABEL)
-                  .cfg(env.getLipoDataTransition())
-                  .value(RUN_UNDER)
-                  .skipPrereqValidatorCheck())
+          // The target itself and run_under both run on the same machine.
+          .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck())
+          .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
           .build();
     }
 
@@ -341,7 +357,8 @@ public class BaseRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("toolchains", LABEL_LIST)
               .allowedFileTypes(FileTypeSet.NO_FILE)
-              .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id())))
+              .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
+              .dontCheckConstraints())
           .build();
     }
 
@@ -362,9 +379,10 @@ public class BaseRuleClasses {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("deps", LABEL_LIST).legacyAllowAnyFileType())
-          .add(attr("data", LABEL_LIST).cfg(env.getLipoDataTransition())
-              .allowedFileTypes(FileTypeSet.ANY_FILE)
-              .dontCheckConstraints())
+          .add(
+              attr("data", LABEL_LIST)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .dontCheckConstraints())
           .build();
     }
 

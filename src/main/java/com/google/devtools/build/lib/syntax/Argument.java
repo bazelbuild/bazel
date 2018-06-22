@@ -58,8 +58,15 @@ public abstract class Argument extends ASTNode {
       return false;
     }
 
+    /** @deprecated Prefer {@link #getIdentifier()} instead. */
+    @Deprecated
     @Nullable
     public String getName() { // only for keyword arguments
+      return null;
+    }
+
+    @Nullable
+    public Identifier getIdentifier() {
       return null;
     }
 
@@ -94,16 +101,21 @@ public abstract class Argument extends ASTNode {
   /** keyword argument: K = Expression */
   public static final class Keyword extends Passed {
 
-    final String name;
+    final Identifier identifier;
 
-    public Keyword(String name, Expression value) {
+    public Keyword(Identifier identifier, Expression value) {
       super(value);
-      this.name = name;
+      this.identifier = identifier;
     }
 
     @Override
     public String getName() {
-      return name;
+      return identifier.getName();
+    }
+
+    @Override
+    public Identifier getIdentifier() {
+      return identifier;
     }
 
     @Override
@@ -113,7 +125,7 @@ public abstract class Argument extends ASTNode {
 
     @Override
     public void prettyPrint(Appendable buffer) throws IOException {
-      buffer.append(name);
+      buffer.append(identifier.getName());
       buffer.append(" = ");
       value.prettyPrint(buffer);
     }

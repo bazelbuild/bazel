@@ -30,15 +30,6 @@ namespace blaze {
 
 extern const char kServerPidFile[];
 
-// Returns the given path in absolute form.  Does not change paths that are
-// already absolute.
-//
-// If called from working directory "/bar":
-//   MakeAbsolute("foo") --> "/bar/foo"
-//   MakeAbsolute("/foo") ---> "/foo"
-//   MakeAbsolute("C:/foo") ---> "C:/foo"
-std::string MakeAbsolute(const std::string &path);
-
 // If 'arg' matches 'key=value', returns address of 'value'.
 // If it matches 'key' alone, returns address of next_arg.
 // Returns NULL otherwise.
@@ -69,6 +60,12 @@ bool SearchNullaryOption(const std::vector<std::string>& args,
 
 // Returns true iff arg is a valid command line argument for bazel.
 bool IsArg(const std::string& arg);
+
+// Returns the flag value as an absolute path. For legacy reasons, it accepts
+// the empty string as cwd.
+// TODO(b/109874628): Assess if removing the empty string case would break
+// legitimate uses, and if not, remove it.
+std::string AbsolutePathFromFlag(const std::string& value);
 
 // Wait to see if the server process terminates. Checks the server's status
 // immediately, and repeats the check every 100ms until approximately

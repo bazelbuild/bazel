@@ -225,20 +225,22 @@ public class CcLinkingOutputs {
   public static final class Builder {
     private final Set<LibraryToLink> staticLibraries = new LinkedHashSet<>();
     private final Set<LibraryToLink> picStaticLibraries = new LinkedHashSet<>();
-    private final Set<LibraryToLink> dynamicLibraries = new LinkedHashSet<>();
-    private final Set<LibraryToLink> executionDynamicLibraries = new LinkedHashSet<>();
+    private final Set<LibraryToLink> dynamicLibrariesForLinking = new LinkedHashSet<>();
+    private final Set<LibraryToLink> dynamicLibrariesForRuntime = new LinkedHashSet<>();
 
     public CcLinkingOutputs build() {
-      return new CcLinkingOutputs(ImmutableList.copyOf(staticLibraries),
-          ImmutableList.copyOf(picStaticLibraries), ImmutableList.copyOf(dynamicLibraries),
-          ImmutableList.copyOf(executionDynamicLibraries));
+      return new CcLinkingOutputs(
+          ImmutableList.copyOf(staticLibraries),
+          ImmutableList.copyOf(picStaticLibraries),
+          ImmutableList.copyOf(dynamicLibrariesForLinking),
+          ImmutableList.copyOf(dynamicLibrariesForRuntime));
     }
 
     public Builder merge(CcLinkingOutputs outputs) {
       staticLibraries.addAll(outputs.getStaticLibraries());
       picStaticLibraries.addAll(outputs.getPicStaticLibraries());
-      dynamicLibraries.addAll(outputs.getDynamicLibrariesForLinking());
-      executionDynamicLibraries.addAll(outputs.getDynamicLibrariesForRuntime());
+      dynamicLibrariesForLinking.addAll(outputs.getDynamicLibrariesForLinking());
+      dynamicLibrariesForRuntime.addAll(outputs.getDynamicLibrariesForRuntime());
       return this;
     }
 
@@ -262,23 +264,23 @@ public class CcLinkingOutputs {
       return this;
     }
 
-    public Builder addDynamicLibrary(LibraryToLink library) {
-      dynamicLibraries.add(library);
+    public Builder addDynamicLibraryForLinking(LibraryToLink library) {
+      dynamicLibrariesForLinking.add(library);
       return this;
     }
 
     public Builder addDynamicLibraries(Iterable<LibraryToLink> libraries) {
-      Iterables.addAll(dynamicLibraries, libraries);
+      Iterables.addAll(dynamicLibrariesForLinking, libraries);
       return this;
     }
 
-    public Builder addExecutionDynamicLibrary(LibraryToLink library) {
-      executionDynamicLibraries.add(library);
+    public Builder addDynamicLibraryForRuntime(LibraryToLink library) {
+      dynamicLibrariesForRuntime.add(library);
       return this;
     }
 
-    public Builder addExecutionDynamicLibraries(Iterable<LibraryToLink> libraries) {
-      Iterables.addAll(executionDynamicLibraries, libraries);
+    public Builder addDynamicLibrariesForRuntime(Iterable<LibraryToLink> libraries) {
+      Iterables.addAll(dynamicLibrariesForRuntime, libraries);
       return this;
     }
   }

@@ -15,13 +15,15 @@ cc_library(
         "file_platform.h",
         "md5.h",
         "numbers.h",
+        "path.h",
+        "path_platform.h",
         "port.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         ":blaze_exit_code",
         ":errors",
-        ":file",
+        ":filesystem",
         ":md5",
         ":numbers",
         ":port",
@@ -30,18 +32,25 @@ cc_library(
 )
 
 cc_library(
-    name = "file",
-    srcs = ["file.cc"] + select({
+    name = "filesystem",
+    srcs = [
+        "file.cc",
+        "path.cc",
+    ] + select({
         "//src/conditions:windows": [
             "file_windows.cc",
+            "path_windows.cc",
         ],
         "//conditions:default": [
             "file_posix.cc",
+            "path_posix.cc",
         ],
     }),
     hdrs = [
         "file.h",
         "file_platform.h",
+        "path.h",
+        "path_platform.h",
     ],
     visibility = [
         ":ijar",
@@ -98,7 +107,10 @@ cc_library(
     srcs = ["logging.cc"],
     hdrs = ["logging.h"],
     visibility = ["//visibility:public"],
-    deps = [":blaze_exit_code"],
+    deps = [
+        ":blaze_exit_code",
+        ":strings",
+    ],
 )
 
 cc_library(
@@ -108,7 +120,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":blaze_exit_code",
-        ":file",
+        ":filesystem",
         ":logging",
     ],
 )

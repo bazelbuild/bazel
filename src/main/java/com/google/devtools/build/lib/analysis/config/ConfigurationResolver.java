@@ -364,6 +364,15 @@ public final class ConfigurationResolver {
       }
       return hashCode;
     }
+
+    @Override
+    public String toString() {
+      return "AttributeAndLabel{attribute="
+          + attribute.toString()
+          + ", label="
+          + label.toString()
+          + "}";
+    }
   }
 
   /**
@@ -377,8 +386,8 @@ public final class ConfigurationResolver {
     // evaluating value.toString() on every call. This approach essentially eliminates the overhead.
     if (map.containsKey(key)) {
       throw new VerifyException(
-          String.format("couldn't insert %s: map already has key %s",
-              value.toString(), key.toString()));
+          String.format("couldn't insert %s: map already has values for key %s: %s",
+              value.toString(), key.toString(), map.get(key).toString()));
     }
     map.put(key, value);
   }

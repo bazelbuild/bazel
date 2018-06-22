@@ -131,7 +131,8 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getValues(Iterable<SkyKey> depKeys) throws InterruptedException {
+  public Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys)
+      throws InterruptedException {
     Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
     checkValuesAreMissing5(valuesOrExceptions, null, null, null, null, null);
     return Collections.unmodifiableMap(

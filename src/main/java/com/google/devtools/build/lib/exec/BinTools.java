@@ -23,12 +23,11 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.cache.Metadata;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.skyframe.FileArtifactValue;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -231,7 +230,7 @@ public final class BinTools {
   public static final class PathActionInput implements VirtualActionInput {
     private final Path path;
     private final PathFragment execPath;
-    private Metadata metadata;
+    private FileArtifactValue metadata;
 
     public PathActionInput(Path path, PathFragment execPath) {
       this.path = path;
@@ -253,7 +252,7 @@ public final class BinTools {
     }
 
     @Override
-    public synchronized Metadata getMetadata() throws IOException {
+    public synchronized FileArtifactValue getMetadata() throws IOException {
       // We intentionally delay hashing until it is necessary.
       if (metadata == null) {
         metadata = hash(path);
@@ -261,8 +260,8 @@ public final class BinTools {
       return metadata;
     }
 
-    private static Metadata hash(Path path) throws IOException {
-      HashFunction hashFn = path.getFileSystem().getDigestFunction();
+    private static FileArtifactValue hash(Path path) throws IOException {
+      DigestHashFunction hashFn = path.getFileSystem().getDigestFunction();
       Hasher hasher = hashFn.getHash().newHasher();
       int bytesCopied = 0;
       try (InputStream in = path.getInputStream()) {

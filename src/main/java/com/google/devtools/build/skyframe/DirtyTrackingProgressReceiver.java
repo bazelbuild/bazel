@@ -108,10 +108,11 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
   @Override
   public void evaluated(
       SkyKey skyKey,
+      @Nullable SkyValue value,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
       EvaluationState state) {
     if (progressReceiver != null) {
-      progressReceiver.evaluated(skyKey, evaluationSuccessState, state);
+      progressReceiver.evaluated(skyKey, value, evaluationSuccessState, state);
     }
 
     // This key was either built or marked clean, so we can remove it from both the dirty and

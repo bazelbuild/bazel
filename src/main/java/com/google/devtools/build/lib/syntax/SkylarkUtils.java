@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
+import java.util.Objects;
 
 /** This class contains Bazel-specific functions to extend or interoperate with Skylark. */
 public final class SkylarkUtils {
@@ -23,7 +24,24 @@ public final class SkylarkUtils {
   private static class BazelInfo {
     String toolsRepository;
     ImmutableMap<String, Class<?>> fragmentNameToClass;
-    Object lipoDataTransition;
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof BazelInfo)) {
+        return false;
+      }
+      BazelInfo that = (BazelInfo) obj;
+      return Objects.equals(this.toolsRepository, that.toolsRepository)
+          && Objects.equals(this.fragmentNameToClass, that.fragmentNameToClass);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(toolsRepository, fragmentNameToClass);
+    }
   }
 
   private static final String BAZEL_INFO_KEY = "$bazel";
@@ -66,26 +84,5 @@ public final class SkylarkUtils {
    */
   public static ImmutableMap<String, Class<?>> getFragmentMap(Environment env) {
     return getInfo(env).fragmentNameToClass;
-  }
-
-  /**
-   * Sets the configuration transition to apply to <code>cfg = "data"</code> attributes.
-   *
-   * <p>This must be a
-   * {@link com.google.devtools.build.lib.analysis.config.transitions.PatchTransition}. But that
-   * class isn't available in <code>lib.syntax</code>, so we can't type-check it here.
-   */
-  public static void setLipoDataTransition(Environment env, Object lipoDataTransition) {
-    getInfo(env).lipoDataTransition = lipoDataTransition;
-  }
-
-  /**
-   * Returns the configuration transition to apply to <code>cfg = "data"</code> attributes.
-   *
-   * <p>This is always a
-   * {@link com.google.devtools.build.lib.analysis.config.transitions.PatchTransition}.
-   */
-  public static Object getLipoDataTransition(Environment env) {
-    return getInfo(env).lipoDataTransition;
   }
 }

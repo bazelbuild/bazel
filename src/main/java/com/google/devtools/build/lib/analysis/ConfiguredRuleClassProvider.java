@@ -20,9 +20,6 @@ import static com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClass
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,11 +29,11 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -65,7 +62,6 @@ import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -88,6 +84,17 @@ import javax.annotation.Nullable;
  * and configuration options is guaranteed not to change over the life time of the Blaze server.
  */
 public class ConfiguredRuleClassProvider implements RuleClassProvider {
+
+  /**
+   * Predicate for determining whether the analysis cache should be cleared, given the new set of
+   * build options and the diff from the old set.
+   */
+  @FunctionalInterface
+  public interface OptionsDiffPredicate {
+    public static final OptionsDiffPredicate ALWAYS_INVALIDATE = (diff, options) -> true;
+
+    public boolean apply(OptionsDiff diff, BuildOptions newOptions);
+  }
 
   /**
    * Custom dependency validation logic.
@@ -235,17 +242,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
-    private PatchTransition lipoDataTransition;
     private List<Class<? extends BuildConfiguration.Fragment>> universalFragments =
         new ArrayList<>();
     @Nullable private RuleTransitionFactory trimmingTransitionFactory;
+    private OptionsDiffPredicate shouldInvalidateCacheForDiff =
+        OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
     private ImmutableList.Builder<Bootstrap> skylarkBootstraps =
         ImmutableList.<Bootstrap>builder();
     private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
         ImmutableMap.builder();
-     private ImmutableList.Builder<Class<?>> skylarkModules =
-        ImmutableList.<Class<?>>builder();
     private Set<String> reservedActionMnemonics = new TreeSet<>();
     private BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
@@ -372,11 +378,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public Builder addSkylarkModule(Class<?>... modules) {
-      this.skylarkModules.add(modules);
-      return this;
-    }
-
     public Builder addReservedActionMnemonic(String mnemonic) {
       this.reservedActionMnemonics.add(mnemonic);
       return this;
@@ -395,21 +396,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
      */
     public Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
       this.constraintSemantics = constraintSemantics;
-      return this;
-    }
-
-    /**
-     * Sets the C++ LIPO data transition, as defined in {@link
-     * com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition}.
-     *
-     * <p>This is language-specific, so doesn't really belong here. But since non-C++ rules declare
-     * this transition, we need universal access to it. The need for this interface should go away
-     * on the deprecation of LIPO for
-     * <a href="https://clang.llvm.org/docs/ThinLTO.html">ThinLTO</a>.
-     */
-    public Builder setLipoDataTransition(PatchTransition transition) {
-      Preconditions.checkState(lipoDataTransition == null, "LIPO data transition already set");
-      lipoDataTransition = Preconditions.checkNotNull(transition);
       return this;
     }
 
@@ -436,18 +422,36 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     /**
      * Overrides the transition factory run over all targets.
      *
-     * @see #setTrimmingTransitionFactory(RuleTransitionFactory)
+     * @see {@link #addTrimmingTransitionFactory(RuleTransitionFactory)}
      */
-    @VisibleForTesting(/* for testing trimming transition factories without relying on prod use */)
+    @VisibleForTesting(/* for testing trimming transition factories without relying on prod use */ )
     public Builder overrideTrimmingTransitionFactoryForTesting(RuleTransitionFactory factory) {
       trimmingTransitionFactory = null;
       return this.addTrimmingTransitionFactory(factory);
     }
 
-    @Override
-    public PatchTransition getLipoDataTransition() {
-      Preconditions.checkState(lipoDataTransition != null);
-      return lipoDataTransition;
+    /**
+     * Sets the predicate which determines whether the analysis cache should be invalidated for the
+     * given options diff.
+     */
+    public Builder setShouldInvalidateCacheForDiff(
+        OptionsDiffPredicate shouldInvalidateCacheForDiff) {
+      Preconditions.checkState(
+          this.shouldInvalidateCacheForDiff.equals(OptionsDiffPredicate.ALWAYS_INVALIDATE),
+          "Cache invalidation function was already set");
+      this.shouldInvalidateCacheForDiff = shouldInvalidateCacheForDiff;
+      return this;
+    }
+
+    /**
+     * Overrides the predicate which determines whether the analysis cache should be invalidated for
+     * the given options diff.
+     */
+    @VisibleForTesting(/* for testing cache invalidation without relying on prod use */ )
+    public Builder overrideShouldInvalidateCacheForDiffForTesting(
+        OptionsDiffPredicate shouldInvalidateCacheForDiff) {
+      this.shouldInvalidateCacheForDiff = OptionsDiffPredicate.ALWAYS_INVALIDATE;
+      return this.setShouldInvalidateCacheForDiff(shouldInvalidateCacheForDiff);
     }
 
     private RuleConfiguredTargetFactory createFactory(
@@ -523,26 +527,20 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           ImmutableList.copyOf(buildInfoFactories),
           ImmutableList.copyOf(configurationOptions),
           ImmutableList.copyOf(configurationFragmentFactories),
-          lipoDataTransition,
           ImmutableList.copyOf(universalFragments),
           trimmingTransitionFactory,
+          shouldInvalidateCacheForDiff,
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
           skylarkBootstraps.build(),
-          skylarkModules.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
           constraintSemantics);
     }
 
     @Override
-    public Label getLabel(String labelValue) {
-      return LABELS.getUnchecked(labelValue);
-    }
-
-    @Override
     public Label getToolsLabel(String labelValue) {
-      return getLabel(toolsRepository + labelValue);
+      return Label.parseAbsoluteUnchecked(toolsRepository + labelValue);
     }
 
     @Override
@@ -558,22 +556,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return toolsRepository;
     }
   }
-
-  /**
-   * Used to make the label instances unique, so that we don't create a new
-   * instance for every rule.
-   */
-  private static final LoadingCache<String, Label> LABELS = CacheBuilder.newBuilder().build(
-      new CacheLoader<String, Label>() {
-    @Override
-    public Label load(String from) {
-      try {
-        return Label.parseAbsolute(from);
-      } catch (LabelSyntaxException e) {
-        throw new IllegalArgumentException(from, e);
-      }
-    }
-  });
 
   /**
    * Default content that should be added at the beginning of the WORKSPACE file.
@@ -624,10 +606,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /** The set of configuration fragment factories. */
   private final ImmutableList<ConfigurationFragmentFactory> configurationFragmentFactories;
 
-  private final PatchTransition lipoDataTransition;
-
   /** The transition factory used to produce the transition that will trim targets. */
   @Nullable private final RuleTransitionFactory trimmingTransitionFactory;
+
+  /** The predicate used to determine whether a diff requires the cache to be invalidated. */
+  private final OptionsDiffPredicate shouldInvalidateCacheForDiff;
 
   /**
    * Configuration fragments that should be available to all rules even when they don't
@@ -661,13 +644,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
-      PatchTransition lipoDataTransition,
       ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments,
       @Nullable RuleTransitionFactory trimmingTransitionFactory,
+      OptionsDiffPredicate shouldInvalidateCacheForDiff,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
       ImmutableList<Bootstrap> skylarkBootstraps,
-      ImmutableList<Class<?>> skylarkModules,
       ImmutableSet<String> reservedActionMnemonics,
       BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
       ConstraintSemantics constraintSemantics) {
@@ -682,11 +664,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.buildInfoFactories = buildInfoFactories;
     this.configurationOptions = configurationOptions;
     this.configurationFragmentFactories = configurationFragments;
-    this.lipoDataTransition = lipoDataTransition;
     this.universalFragments = universalFragments;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
+    this.shouldInvalidateCacheForDiff = shouldInvalidateCacheForDiff;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkBootstraps, skylarkModules);
+    this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkBootstraps);
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
     this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
@@ -742,18 +724,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   /**
-   * Returns the C++ LIPO data transition, as defined in {@link
-   * com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition}.
-   *
-   * <p>This is language-specific, so doesn't really belong here. But since non-C++ rules declare
-   * this transition, we need universal access to it. The need for this interface should go away on
-   * the deprecation of LIPO for <a href="https://clang.llvm.org/docs/ThinLTO.html">ThinLTO</a>.
-   */
-  public PatchTransition getLipoDataTransition() {
-    return lipoDataTransition;
-  }
-
-  /**
    * Returns the transition factory used to produce the transition to trim targets.
    *
    * <p>This is a temporary measure for supporting manual trimming of feature flags, and support
@@ -763,6 +733,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Nullable
   public RuleTransitionFactory getTrimmingTransitionFactory() {
     return trimmingTransitionFactory;
+  }
+
+  /** Returns whether the analysis cache should be invalidated for the given options diff. */
+  public boolean shouldInvalidateCacheForDiff(OptionsDiff diff, BuildOptions newOptions) {
+    return shouldInvalidateCacheForDiff.apply(diff, newOptions);
   }
 
   /**
@@ -811,14 +786,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private Environment.GlobalFrame createGlobals(
       ImmutableMap<String, Object> skylarkAccessibleTopLevels,
-      ImmutableList<Bootstrap> bootstraps,
-      ImmutableList<Class<?>> modules) {
+      ImmutableList<Bootstrap> bootstraps) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
     SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
-    for (Class<?> module : modules) {
-      Runtime.setupModuleGlobals(envBuilder, module);
-    }
     envBuilder.putAll(skylarkAccessibleTopLevels.entrySet());
     for (Bootstrap bootstrap : bootstraps) {
       bootstrap.addBindingsToBuilder(envBuilder);
@@ -858,7 +829,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
             .build();
     SkylarkUtils.setToolsRepository(env, toolsRepository);
     SkylarkUtils.setFragmentMap(env, configurationFragmentMap);
-    SkylarkUtils.setLipoDataTransition(env, getLipoDataTransition());
     return env;
   }
 

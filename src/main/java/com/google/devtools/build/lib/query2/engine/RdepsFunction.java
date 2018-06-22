@@ -53,7 +53,7 @@ public final class RdepsFunction extends AllRdepsFunction {
   @Override
   public <T> QueryTaskFuture<Void> eval(
       QueryEnvironment<T> env,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       QueryExpression expression,
       List<Argument> args,
       Callback<T> callback) {
@@ -81,7 +81,7 @@ public final class RdepsFunction extends AllRdepsFunction {
   private static <T> QueryTaskFuture<Void> evalWithBoundedDepth(
       QueryEnvironment<T> env,
       QueryExpression rdepsFunctionExpressionForErrorMessages,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       QueryExpression argumentExpression,
       int depth,
       QueryExpression universeExpression,
@@ -94,15 +94,14 @@ public final class RdepsFunction extends AllRdepsFunction {
           try {
             env.buildTransitiveClosure(
                 rdepsFunctionExpressionForErrorMessages, universeValue, Integer.MAX_VALUE);
-            universe = Predicates.in(env.getTransitiveClosure(universeValue));
+            universe = Predicates.in(env.getTransitiveClosure(universeValue, context));
           } catch (InterruptedException e) {
             return env.immediateCancelledFuture();
           } catch (QueryException e) {
             return env.immediateFailedFuture(e);
           }
 
-          return AllRdepsFunction.eval(
-              env, argumentExpression, universe, context, callback, depth);
+          return AllRdepsFunction.eval(env, argumentExpression, universe, context, callback, depth);
         };
 
     return env.transformAsync(universeValueFuture, evalInUniverseAsyncFunction);

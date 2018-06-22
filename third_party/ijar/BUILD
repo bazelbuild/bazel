@@ -30,7 +30,7 @@ cc_library(
     ] + select({
         "//src:windows": [
             "//src/main/cpp/util:errors",
-            "//src/main/cpp/util:file",
+            "//src/main/cpp/util:filesystem",
             "//src/main/cpp/util:logging",
             "//src/main/cpp/util:strings",
         ],
@@ -59,7 +59,7 @@ cc_library(
     visibility = ["//visibility:private"],
     deps = [
         "//src/main/cpp/util:errors",
-        "//src/main/cpp/util:file",
+        "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
     ],
 )

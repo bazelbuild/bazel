@@ -21,6 +21,8 @@
 #include <vector>
 
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/test/cpp/util/test_util.h"
 #include "googletest/include/gtest/gtest.h"
 

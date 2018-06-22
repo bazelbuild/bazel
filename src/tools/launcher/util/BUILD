@@ -19,7 +19,7 @@ cc_library(
     name = "util",
     srcs = ["launcher_util.cc"],
     hdrs = ["launcher_util.h"],
-    deps = ["//src/main/cpp/util:file"],
+    deps = ["//src/main/cpp/util:filesystem"],
 )
 
 cc_test(

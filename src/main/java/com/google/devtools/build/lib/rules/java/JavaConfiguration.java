@@ -69,9 +69,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     /** Emit warnings when the dependencies of java_import/aar_import are not complete. */
     WARNING,
     /** Emit errors when the dependencies of java_import/aar_import are not complete. */
-    ERROR,
-    /** Emit errors when the DIRECT dependencies of java_import/aar_import are not complete. */
-    STRICT_ERROR,
+    ERROR
   }
 
   /**
@@ -314,11 +312,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       reporter.handle(Event.error("Translations enabled, but no message translations specified. " +
           "Use '--message_translations' to select the message translations to use"));
     }
-  }
-
-  @Override
-  public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    globalMakeEnvBuilder.put("JAVA_TRANSLATIONS", buildTranslations() ? "1" : "0");
   }
 
   /**

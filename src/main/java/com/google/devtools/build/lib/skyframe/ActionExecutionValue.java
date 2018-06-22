@@ -23,9 +23,13 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.UnshareableValue;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -79,7 +83,7 @@ public class ActionExecutionValue implements SkyValue {
    *     ActionExecutionValues.
    * @param outputSymlinks This represents the SymlinkTree which is the output of a fileset action.
    */
-  ActionExecutionValue(
+  private ActionExecutionValue(
       Map<Artifact, FileValue> artifactData,
       Map<Artifact, TreeArtifactValue> treeArtifactData,
       Map<Artifact, FileArtifactValue> additionalOutputData,
@@ -88,6 +92,19 @@ public class ActionExecutionValue implements SkyValue {
     this.additionalOutputData = ImmutableMap.copyOf(additionalOutputData);
     this.treeArtifactData = ImmutableMap.copyOf(treeArtifactData);
     this.outputSymlinks = outputSymlinks;
+  }
+
+  static ActionExecutionValue create(
+      Map<Artifact, FileValue> artifactData,
+      Map<Artifact, TreeArtifactValue> treeArtifactData,
+      Map<Artifact, FileArtifactValue> additionalOutputData,
+      @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
+      boolean notifyOnActionCacheHitAction) {
+    return notifyOnActionCacheHitAction
+        ? new CrossServerUnshareableActionExecutionValue(
+            artifactData, treeArtifactData, additionalOutputData, outputSymlinks)
+        : new ActionExecutionValue(
+            artifactData, treeArtifactData, additionalOutputData, outputSymlinks);
   }
 
   /**
@@ -146,7 +163,7 @@ public class ActionExecutionValue implements SkyValue {
    */
   @ThreadSafe
   @VisibleForTesting
-  public static SkyKey key(ActionLookupValue.ActionLookupKey lookupKey, int index) {
+  public static ActionLookupData key(ActionLookupValue.ActionLookupKey lookupKey, int index) {
     return ActionLookupData.create(lookupKey, index);
   }
 
@@ -164,7 +181,10 @@ public class ActionExecutionValue implements SkyValue {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof ActionExecutionValue)) {
+    if (obj == null) {
+      return false;
+    }
+    if (!obj.getClass().equals(getClass())) {
       return false;
     }
     ActionExecutionValue o = (ActionExecutionValue) obj;
@@ -192,5 +212,20 @@ public class ActionExecutionValue implements SkyValue {
               metadata.getSize(), metadata.getDigest(), /*contentsProxy=*/ null));
     }
     return value;
+  }
+
+  /**
+   * Marker subclass that indicates this value cannot be shared across servers. Note that this is
+   * unrelated to the concept of shared actions.
+   */
+  private static class CrossServerUnshareableActionExecutionValue extends ActionExecutionValue
+      implements UnshareableValue {
+    CrossServerUnshareableActionExecutionValue(
+        Map<Artifact, FileValue> artifactData,
+        Map<Artifact, TreeArtifactValue> treeArtifactData,
+        Map<Artifact, FileArtifactValue> additionalOutputData,
+        @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks) {
+      super(artifactData, treeArtifactData, additionalOutputData, outputSymlinks);
+    }
   }
 }

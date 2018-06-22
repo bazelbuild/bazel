@@ -171,9 +171,10 @@ reasonably expected to already be provided.
 
 load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_import_external")
 
-def java_import_external(jar_sha256, **kwargs):
+def java_import_external(jar_sha256, jar_urls, **kwargs):
     jvm_import_external(
         rule_name = "java_import",
-        jar_sha256 = jar_sha256,
+        artifact_sha256 = jar_sha256,
+        artifact_urls = jar_urls,
         **kwargs
     )

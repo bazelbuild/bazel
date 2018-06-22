@@ -24,9 +24,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -177,7 +182,14 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
                 "--cpp_out=%s/external/bla",
                 getTargetConfiguration().getGenfilesFragment().toString()));
 
-    Artifact headerFile = getGenfilesArtifactWithNoOwner("external/bla/foo/bar.pb.h");
+    Artifact headerFile =
+        getDerivedArtifact(
+            PathFragment.create("external/bla/foo/bar.pb.h"),
+            targetConfig.getGenfilesDirectory(),
+            getOwnerForAspect(
+                getConfiguredTarget("@bla//foo:bar_proto"),
+                ruleClassProvider.getNativeAspectClass(BazelCcProtoAspect.class.getSimpleName()),
+                AspectParameters.EMPTY));
     CcCompilationContext ccCompilationContext =
         target.get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs()).containsExactly(headerFile);
@@ -199,4 +211,21 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   }
 
   // TODO(carmi): test blacklisted protos. I don't currently understand what's the wanted behavior.
+
+  @Test
+  public void generatedSourcesNotCoverageInstrumented() throws Exception {
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=.");
+    scratch.file(
+        "x/BUILD",
+        "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
+        "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
+    ConfiguredTarget target = getConfiguredTarget("//x:foo_cc_proto");
+    List<CppCompileAction> compilationSteps =
+        actionsTestUtil()
+            .findTransitivePrerequisitesOf(
+                getFirstArtifactEndingWith(getFilesToBuild(target), ".a"), CppCompileAction.class);
+    List<String> options = compilationSteps.get(0).getCompilerOptions();
+    assertThat(options).doesNotContain("-fprofile-arcs");
+    assertThat(options).doesNotContain("-ftest-coverage");
+  }
 }

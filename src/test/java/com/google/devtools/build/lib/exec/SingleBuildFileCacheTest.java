@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -54,23 +55,23 @@ public class SingleBuildFileCacheTest {
   public final void setUp() throws Exception {
     calls = new HashMap<>();
     md5Overrides = new HashMap<>();
-    fs = new InMemoryFileSystem() {
-        @Override
-        protected InputStream getInputStream(Path path) throws IOException {
-          int c = calls.containsKey(path.toString())
-              ? calls.get(path.toString()) : 0;
-          c++;
-          calls.put(path.toString(), c);
-          return super.getInputStream(path);
-        }
+    fs =
+        new InMemoryFileSystem() {
+          @Override
+          protected InputStream getInputStream(Path path) throws IOException {
+            int c = calls.containsKey(path.toString()) ? calls.get(path.toString()) : 0;
+            c++;
+            calls.put(path.toString(), c);
+            return super.getInputStream(path);
+          }
 
-        @Override
-        protected byte[] getDigest(Path path, HashFunction hf) throws IOException {
-          assertThat(hf).isEqualTo(HashFunction.MD5);
-          byte[] override = md5Overrides.get(path.getPathString());
-          return override != null ? override : super.getDigest(path, hf);
-        }
-      };
+          @Override
+          protected byte[] getDigest(Path path, DigestHashFunction hf) throws IOException {
+            assertThat(hf).isEqualTo(DigestHashFunction.MD5);
+            byte[] override = md5Overrides.get(path.getPathString());
+            return override != null ? override : super.getDigest(path, hf);
+          }
+        };
     underTest = new SingleBuildFileCache("/", fs);
     Path file = fs.getPath("/empty");
     file.getOutputStream().close();

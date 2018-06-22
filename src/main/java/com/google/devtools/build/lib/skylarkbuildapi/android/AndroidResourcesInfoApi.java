@@ -13,11 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 
 /** A provider that supplies resource information from its transitive closure. */
 @SkylarkModule(
@@ -25,6 +30,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     doc = "Android resources provided by a rule",
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidResourcesInfoApi extends StructApi {
+
+  /**
+   * Name of this info object.
+   */
+  public static String NAME = "AndroidResourcesInfo";
 
   /** Returns the compiletime r.txt file for the target. */
   @SkylarkCallable(
@@ -35,4 +45,19 @@ public interface AndroidResourcesInfoApi extends StructApi {
               + " dependencies, or used at runtime.",
       structField = true)
   FileApi getRTxt();
+
+  /** Provider for {@link AndroidResourcesInfoApi}. */
+  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  public interface AndroidResourcesInfoApiProvider extends ProviderApi {
+
+    @SkylarkCallable(
+        name = "AndroidResourcesInfo",
+        // This is left undocumented as it throws a "not-implemented in Skylark" error when invoked.
+        documented = false,
+        extraKeywords = @Param(name = "kwargs"),
+        useLocation = true,
+        selfCall = true)
+    public AndroidResourcesInfoApi createInfo(
+        SkylarkDict<?, ?> kwargs, Location loc) throws EvalException;
+  }
 }

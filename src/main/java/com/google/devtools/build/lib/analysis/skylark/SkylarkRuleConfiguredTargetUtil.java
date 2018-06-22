@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.DebugServerUtils;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
@@ -95,18 +94,12 @@ public final class SkylarkRuleConfiguredTargetUtil {
               .build(); // NB: loading phase functions are not available: this is analysis already,
       // so we do *not* setLoadingPhase().
 
-      final SkylarkRuleContext finalContext = skylarkRuleContext;
       Object target =
-          DebugServerUtils.runWithDebuggingIfEnabled(
-              env,
-              () ->
-                  String.format("Target %s", ruleContext.getTarget().getLabel().getCanonicalForm()),
-              () ->
-                  ruleImplementation.call(
-                      /*args=*/ ImmutableList.of(finalContext),
-                      /*kwargs*/ ImmutableMap.of(),
-                      /*ast=*/ null,
-                      env));
+          ruleImplementation.call(
+              /*args=*/ ImmutableList.of(skylarkRuleContext),
+              /*kwargs*/ ImmutableMap.of(),
+              /*ast=*/ null,
+              env);
 
       if (ruleContext.hasErrors()) {
         return null;
@@ -404,32 +397,51 @@ public final class SkylarkRuleConfiguredTargetUtil {
 
     Location loc = provider.getCreationLoc();
 
-    for (String field : provider.getFieldNames()) {
-      if (field.equals("files")) {
-        files = cast("files", provider, SkylarkNestedSet.class, Artifact.class, loc);
-      } else if (field.equals("runfiles")) {
-        statelessRunfiles = cast("runfiles", provider, Runfiles.class, loc);
-      } else if (field.equals("data_runfiles")) {
-        dataRunfiles = cast("data_runfiles", provider, Runfiles.class, loc);
-      } else if (field.equals("default_runfiles")) {
-        defaultRunfiles = cast("default_runfiles", provider, Runfiles.class, loc);
-      } else if (field.equals("executable")) {
-        executable = cast("executable", provider, Artifact.class, loc);
-        if (!executable.getArtifactOwner().equals(context.getRuleContext().getOwner())) {
-          throw new EvalException(
-              loc,
-              String.format(
-                  "'executable' provided by an executable rule '%s' should be created "
-                      + "by the same rule.",
-                  context.getRuleContext().getRule().getRuleClass()));
+    if (provider
+        .getProvider()
+        .getKey()
+        .equals(DefaultInfo.PROVIDER.getKey())) {
+      DefaultInfo defaultInfo = (DefaultInfo) provider;
+
+      files = defaultInfo.getFiles();
+      statelessRunfiles = defaultInfo.getStatelessRunfiles();
+      dataRunfiles = defaultInfo.getDataRunfiles();
+      defaultRunfiles = defaultInfo.getDefaultRunfiles();
+      executable = defaultInfo.getExecutable();
+
+    } else {
+      // Rule implementations aren't reqiured to return default-info fields via a DefaultInfo
+      // provider. They can return them as fields on the returned struct. For example,
+      // 'return struct(executable = foo)' instead of 'return DefaultInfo(executable = foo)'.
+      // TODO(cparsons): Look into deprecating this option.
+      for (String field : provider.getFieldNames()) {
+        if (field.equals("files")) {
+          files = cast("files", provider, SkylarkNestedSet.class, Artifact.class, loc);
+        } else if (field.equals("runfiles")) {
+          statelessRunfiles = cast("runfiles", provider, Runfiles.class, loc);
+        } else if (field.equals("data_runfiles")) {
+          dataRunfiles = cast("data_runfiles", provider, Runfiles.class, loc);
+        } else if (field.equals("default_runfiles")) {
+          defaultRunfiles = cast("default_runfiles", provider, Runfiles.class, loc);
+        } else if (field.equals("executable") && provider.getValue("executable") != null) {
+          executable = cast("executable", provider, Artifact.class, loc);
         }
-      } else if (provider
-          .getProvider()
-          .getKey()
-          .equals(DefaultInfo.PROVIDER.getKey())) {
-        // Custom fields are not allowed for default providers
-        throw new EvalException(loc, "Invalid field for default provider: " + field);
       }
+
+      if ((statelessRunfiles != null) && (dataRunfiles != null || defaultRunfiles != null)) {
+        throw new EvalException(loc, "Cannot specify the provider 'runfiles' "
+            + "together with 'data_runfiles' or 'default_runfiles'");
+      }
+    }
+
+    if (executable != null
+        && !executable.getArtifactOwner().equals(context.getRuleContext().getOwner())) {
+      throw new EvalException(
+          loc,
+          String.format(
+              "'executable' provided by an executable rule '%s' should be created "
+                  + "by the same rule.",
+              context.getRuleContext().getRule().getRuleClass()));
     }
 
     if (executable != null && context.isExecutable() && context.isDefaultExecutableCreated()) {
@@ -492,11 +504,6 @@ public final class SkylarkRuleConfiguredTargetUtil {
     if (files != null) {
       // If we specify files_to_build we don't have the executable in it by default.
       builder.setFilesToBuild(files.getSet(Artifact.class));
-    }
-
-    if ((statelessRunfiles != null) && (dataRunfiles != null || defaultRunfiles != null)) {
-      throw new EvalException(loc, "Cannot specify the provider 'runfiles' "
-          + "together with 'data_runfiles' or 'default_runfiles'");
     }
 
     if (statelessRunfiles == null && dataRunfiles == null && defaultRunfiles == null) {

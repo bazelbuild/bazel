@@ -42,8 +42,6 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
-import com.google.devtools.build.lib.rules.cpp.transitions.EnableLipoTransition;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OsUtils;
 
@@ -51,26 +49,6 @@ import com.google.devtools.build.lib.util.OsUtils;
  * Rule class definitions for C++ rules.
  */
 public class CppRuleClasses {
-  /**
-   * Implementation for the :lipo_context_collector attribute.
-   *
-   * <p>This attribute connects a target to the LIPO context target configured with the lipo input
-   * collector configuration.
-   */
-  public static final LabelLateBoundDefault<?> LIPO_CONTEXT_COLLECTOR =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          CppConfiguration.class,
-          null,
-          // TODO(b/69548520): Remove call to isLipoOptimization
-          (rule, attributes, cppConfig) ->
-              cppConfig.isLipoOptimization() ? cppConfig.getLipoContextLabel() : null);
-
-  /**
-   * Rule transition factory that enables LIPO on the LIPO context binary (i.e. applies a DATA ->
-   * TARGET transition).
-   */
-  public static final RuleTransitionFactory LIPO_ON_DEMAND =
-      (rule) -> new EnableLipoTransition(rule.getLabel());
 
   /**
    * Label of a pseudo-filegroup that contains all crosstool and libcfiles for all configurations,
@@ -386,10 +364,8 @@ public class CppRuleClasses {
    */
   public static final String AUTOFDO = "autofdo";
 
-  /**
-   * A string constant for the lipo feature.
-   */
-  public static final String LIPO = "lipo";
+  /** A string constant for the xbinaryfdo feature. */
+  public static final String XBINARYFDO = "xbinaryfdo";
 
   /**
    * A string constant for the coverage feature.

@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
@@ -93,69 +94,6 @@ public class CppCompileAction extends AbstractAction
   private static final int VALIDATION_DEBUG = 0;  // 0==none, 1==warns/errors, 2==all
   private static final boolean VALIDATION_DEBUG_WARN = VALIDATION_DEBUG >= 1;
 
-  /** A string constant used to compute CC_FLAGS make variable value */
-  public static final java.lang.String CC_FLAGS_MAKE_VARIABLE_ACTION_NAME =
-      "cc-flags-make-variable";
-
-  /** A string constant for the strip action name. */
-  public static final String STRIP_ACTION_NAME = "strip";
-
-  /** A string constant for the linkstamp-compile action. */
-  public static final String LINKSTAMP_COMPILE = "linkstamp-compile";
-
-  /**
-   * A string constant for the c compilation action.
-   */
-  public static final String C_COMPILE = "c-compile";
-
-  /**
-   * A string constant for the c++ compilation action.
-   */
-  public static final String CPP_COMPILE = "c++-compile";
-
-  /** A string constant for the c++ module compile action. */
-  public static final String CPP_MODULE_CODEGEN = "c++-module-codegen";
-
-  /**
-   * A string constant for the objc compilation action.
-   */
-  public static final String OBJC_COMPILE = "objc-compile";
-
-  /**
-   * A string constant for the objc++ compile action.
-   */
-  public static final String OBJCPP_COMPILE = "objc++-compile";
-
-  /**
-   * A string constant for the c++ header parsing.
-   */
-  public static final String CPP_HEADER_PARSING = "c++-header-parsing";
-
-  /**
-   * A string constant for the c++ header preprocessing.
-   */
-  public static final String CPP_HEADER_PREPROCESSING = "c++-header-preprocessing";
-
-  /**
-   * A string constant for the c++ module compilation action.
-   * Note: currently we don't support C module compilation.
-   */
-  public static final String CPP_MODULE_COMPILE = "c++-module-compile";
-
-  /**
-   * A string constant for the assembler actions.
-   */
-  public static final String ASSEMBLE = "assemble";
-  public static final String PREPROCESS_ASSEMBLE = "preprocess-assemble";
-
-  /**
-   * A string constant for the clif actions. Bazel enables different features of the toolchain based
-   * on the name of the action. This name enables the clif_matcher feature, which switches the
-   * "compiler" to the clif_matcher and adds some additional arguments as described in the CROSSTOOL
-   * file.
-   */
-  public static final String CLIF_MATCH = "clif-match";
-
   protected final Artifact outputFile;
   private final Artifact sourceFile;
   private final NestedSet<Artifact> mandatoryInputs;
@@ -184,9 +122,8 @@ public class CppCompileAction extends AbstractAction
   private final IncludeProcessing includeProcessing;
 
   private final CcCompilationContext ccCompilationContext;
-  private final Iterable<IncludeScannable> lipoScannables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
-  // A list of files to include scan that are not source files, pcm files, lipo scannables, or
+  // A list of files to include scan that are not source files, pcm files, or
   // included via a command-line "-include file.h". Actions that use non C++ files as source
   // files--such as Clif--may use this mechanism.
   private final ImmutableList<Artifact> additionalIncludeScanningRoots;
@@ -248,7 +185,6 @@ public class CppCompileAction extends AbstractAction
    *     if Fission mode is disabled)
    * @param ccCompilationContext the {@code CcCompilationContext}
    * @param coptsFilter regular expression to remove options from {@code copts}
-   * @param lipoScannables List of artifacts to include-scan when this action is a lipo action
    * @param additionalIncludeScanningRoots list of additional artifacts to include-scan
    * @param actionClassId TODO(bazel-team): Add parameter description
    * @param actionName a string giving the name of this action for the purpose of toolchain
@@ -280,7 +216,6 @@ public class CppCompileAction extends AbstractAction
       ActionEnvironment env,
       CcCompilationContext ccCompilationContext,
       CoptsFilter coptsFilter,
-      Iterable<IncludeScannable> lipoScannables,
       ImmutableList<Artifact> additionalIncludeScanningRoots,
       UUID actionClassId,
       ImmutableMap<String, String> executionInfo,
@@ -316,7 +251,6 @@ public class CppCompileAction extends AbstractAction
         useHeaderModules,
         isStrictSystemIncludes,
         ccCompilationContext,
-        lipoScannables,
         builtinIncludeFiles,
         ImmutableList.copyOf(additionalIncludeScanningRoots),
         CompileCommandLine.builder(sourceFile, coptsFilter, actionName, dotdFile)
@@ -358,7 +292,6 @@ public class CppCompileAction extends AbstractAction
       boolean useHeaderModules,
       boolean isStrictSystemIncludes,
       CcCompilationContext ccCompilationContext,
-      Iterable<IncludeScannable> lipoScannables,
       ImmutableList<Artifact> builtinIncludeFiles,
       ImmutableList<Artifact> additionalIncludeScanningRoots,
       CompileCommandLine compileCommandLine,
@@ -389,7 +322,6 @@ public class CppCompileAction extends AbstractAction
     this.useHeaderModules = useHeaderModules;
     this.isStrictSystemIncludes = isStrictSystemIncludes;
     this.ccCompilationContext = ccCompilationContext;
-    this.lipoScannables = lipoScannables;
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.additionalIncludeScanningRoots = additionalIncludeScanningRoots;
     this.compileCommandLine = compileCommandLine;
@@ -723,11 +655,6 @@ public class CppCompileAction extends AbstractAction
     return builder.build().toCollection();
   }
 
-  @Override
-  public Iterable<IncludeScannable> getAuxiliaryScannables() {
-    return lipoScannables;
-  }
-
   /**
    * Returns the list of "-D" arguments that should be used by this gcc
    * invocation. Only used for testing.
@@ -760,13 +687,6 @@ public class CppCompileAction extends AbstractAction
   @Override
   public List<String> getArguments() {
     return compileCommandLine.getArguments(overwrittenVariables);
-  }
-
-  @Override
-  public boolean canRemoveAfterExecution() {
-    // Module-generating actions are needed because the action may be retrieved in
-    // #discoverInputsStage2.
-    return !getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE);
   }
 
   @Override
@@ -986,14 +906,11 @@ public class CppCompileAction extends AbstractAction
   @ThreadCompatible
   public final void updateActionInputs(NestedSet<Artifact> discoveredInputs) {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
-    Profiler.instance().startTask(ProfilerTask.ACTION_UPDATE, describe());
-    try {
+    try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.ACTION_UPDATE, describe())) {
       inputs.addTransitive(mandatoryInputs);
       inputs.addAll(inputsForInvalidation);
       inputs.addTransitive(discoveredInputs);
       updateInputs(inputs.build());
-    } finally {
-      Profiler.instance().completeTask(ProfilerTask.ACTION_UPDATE);
     }
   }
 
@@ -1074,14 +991,6 @@ public class CppCompileAction extends AbstractAction
   /** Return explicitly listed header files. */
   @Override
   public NestedSet<Artifact> getDeclaredIncludeSrcs() {
-    if (lipoScannables != null && lipoScannables.iterator().hasNext()) {
-      NestedSetBuilder<Artifact> srcs = NestedSetBuilder.stableOrder();
-      srcs.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
-      for (IncludeScannable lipoScannable : lipoScannables) {
-        srcs.addTransitive(lipoScannable.getDeclaredIncludeSrcs());
-      }
-      return srcs.build();
-    }
     return ccCompilationContext.getDeclaredIncludeSrcs();
   }
 
@@ -1327,11 +1236,11 @@ public class CppCompileAction extends AbstractAction
   @Override
   public String getMnemonic() {
     switch (actionName) {
-      case OBJC_COMPILE:
-      case OBJCPP_COMPILE:
+      case CppActionNames.OBJC_COMPILE:
+      case CppActionNames.OBJCPP_COMPILE:
         return "ObjcCompile";
 
-      case LINKSTAMP_COMPILE:
+      case CppActionNames.LINKSTAMP_COMPILE:
         // When compiling shared native deps, e.g. when two java_binary rules have the same set of
         // native dependencies, the CppCompileAction for link stamp data is shared also. This means
         // that out of two CppCompileAction instances, only one is actually executed, which means

@@ -24,7 +24,7 @@ public abstract class AbstractFileSystemWithCustomStat extends AbstractFileSyste
 
   public AbstractFileSystemWithCustomStat() {}
 
-  public AbstractFileSystemWithCustomStat(HashFunction hashFunction) {
+  public AbstractFileSystemWithCustomStat(DigestHashFunction hashFunction) {
     super(hashFunction);
   }
 

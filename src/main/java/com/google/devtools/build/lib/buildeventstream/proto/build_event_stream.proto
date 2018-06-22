@@ -188,6 +188,11 @@ message BuildEventId {
   message BuildToolLogsId {
   }
 
+  // Identifier of an event providing build metrics after completion
+  // of the build.
+  message BuildMetricsId {
+  }
+
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
@@ -210,6 +215,7 @@ message BuildEventId {
     TestSummaryId test_summary = 7;
     BuildFinishedId build_finished = 9;
     BuildToolLogsId build_tool_logs = 20;
+    BuildMetricsId build_metrics = 22;
   }
 }
 
@@ -499,6 +505,10 @@ message TestResult {
   // The status of this test.
   TestStatus status = 5;
 
+  // Additional details about the status of the test. This is intended for
+  // user display and must not be parsed.
+  string status_details = 9;
+
   // True, if the reported attempt is taken from the tool's local cache.
   bool cached_locally = 4;
 
@@ -607,6 +617,16 @@ message BuildFinished {
   int64 finish_time_millis = 2;
 }
 
+message BuildMetrics {
+  message ActionSummary {
+    // The total number of actions created and registered during the build.
+    // This includes unused actions that were constructed but
+    // not executed during this build.
+    int64 actions_created = 1;
+  }
+  ActionSummary action_summary = 1;
+}
+
 // Event providing additional statistics/logs after completion of the build.
 message BuildToolLogs {
   repeated File log = 1;
@@ -641,5 +661,6 @@ message BuildEvent {
     TestSummary test_summary = 9;
     BuildFinished finished = 14;
     BuildToolLogs build_tool_logs = 23;
+    BuildMetrics build_metrics = 24;
   };
 }

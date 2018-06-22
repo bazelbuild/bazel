@@ -672,6 +672,13 @@ public class Printer {
         String after,
         @Nullable String singletonTerminator) {
 
+      // If the list is empty, do not split the presentation over
+      // several lines.
+      if (!list.iterator().hasNext()) {
+        this.append(before + after);
+        return this;
+      }
+
       String separator = untrimmedSeparator.trim();
 
       this.append(before + "\n");

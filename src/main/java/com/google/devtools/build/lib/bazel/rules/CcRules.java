@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
 import com.google.devtools.build.lib.rules.cpp.FdoPrefetchHintsRule;
 import com.google.devtools.build.lib.rules.cpp.FdoProfileRule;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
 
 /**
  * Rules for C++ support in Bazel.
@@ -50,8 +51,6 @@ public class CcRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    builder.addSkylarkAccessibleTopLevels("cc_common", CcModule.INSTANCE);
-
     builder.addConfig(CppOptions.class, new CppConfigurationLoader(CpuTransformer.IDENTITY));
     builder.addBuildInfoFactory(new CppBuildInfo());
 
@@ -75,6 +74,8 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new CcIncludeScanningRule());
     builder.addRuleDefinition(new FdoProfileRule());
     builder.addRuleDefinition(new FdoPrefetchHintsRule());
+
+    builder.addSkylarkBootstrap(new CcBootstrap(new CcModule()));
   }
 
   @Override

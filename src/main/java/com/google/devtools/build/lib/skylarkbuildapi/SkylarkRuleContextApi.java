@@ -371,23 +371,26 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       throws EvalException;
 
   @SkylarkCallable(
-    doc = "<b>Deprecated.</b> Use <code>ctx.var</code> to access the variables instead.<br>"
-        + "Returns a string after expanding all references to \"Make variables\". The variables "
-        + "must have the following format: <code>$(VAR_NAME)</code>. Also, <code>$$VAR_NAME"
-        + "</code> expands to <code>$VAR_NAME</code>. Parameters:"
-        + "<ul><li>The name of the attribute (<code>string</code>). It's only used for error "
-        + "reporting.</li>\n"
-        + "<li>The expression to expand (<code>string</code>). It can contain references to "
-        + "\"Make variables\".</li>\n"
-        + "<li>A mapping of additional substitutions (<code>dict</code> of <code>string</code> : "
-        + "<code>string</code>).</li></ul>\n"
-        + "Examples:"
-        + "<pre class=language-python>\n"
-        + "ctx.expand_make_variables(\"cmd\", \"$(MY_VAR)\", {\"MY_VAR\": \"Hi\"})  # == \"Hi\"\n"
-        + "ctx.expand_make_variables(\"cmd\", \"$$PWD\", {})  # == \"$PWD\"\n"
-        + "</pre>"
-        + "Additional variables may come from other places, such as configurations. Note that "
-        + "this function is experimental.")
+      doc =
+          "<b>Deprecated.</b> Use <a href=\"ctx.html#var\">ctx.var</a> to access the variables "
+              + "instead.<br>Returns a string after expanding all references to \"Make "
+              + "variables\". The "
+              + "variables must have the following format: <code>$(VAR_NAME)</code>. Also, "
+              + "<code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>. Parameters:"
+              + "<ul><li>The name of the attribute (<code>string</code>). It's only used for error "
+              + "reporting.</li>\n"
+              + "<li>The expression to expand (<code>string</code>). It can contain references to "
+              + "\"Make variables\".</li>\n"
+              + "<li>A mapping of additional substitutions (<code>dict</code> of "
+              + "<code>string</code> : <code>string</code>).</li></ul>\n"
+              + "Examples:"
+              + "<pre class=language-python>\n"
+              + "ctx.expand_make_variables(\"cmd\", \"$(MY_VAR)\", {\"MY_VAR\": \"Hi\"})  "
+              + "# == \"Hi\"\n"
+              + "ctx.expand_make_variables(\"cmd\", \"$$PWD\", {})  # == \"$PWD\"\n"
+              + "</pre>"
+              + "Additional variables may come from other places, such as configurations. Note "
+              + "that this function is experimental.")
   public String expandMakeVariables(
       String attributeName, String command, final Map<String, String> additionalSubstitutions)
       throws EvalException;
@@ -421,160 +424,148 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   public String getBuildFileRelativePath() throws EvalException;
 
   @SkylarkCallable(
-    name = "action",
-    doc =
-        "DEPRECATED. Use <a href=\"actions.html#run\">ctx.actions.run()</a> or"
-            + " <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>. <br>"
-            + "Creates an action that runs an executable or a shell command."
-            + " You must specify either <code>command</code> or <code>executable</code>.\n"
-            + "Actions and genrules are very similar, but have different use cases. Actions are "
-            + "used inside rules, and genrules are used inside macros. Genrules also have make "
-            + "variable expansion.",
-    parameters = {
-      @Param(
-        name = "outputs",
-        type = SkylarkList.class,
-        generic1 = FileApi.class,
-        named = true,
-        positional = false,
-        doc = "List of the output files of the action."
-      ),
-      @Param(
-        name = "inputs",
-        allowedTypes = {
-          @ParamType(type = SkylarkList.class),
-          @ParamType(type = SkylarkNestedSet.class),
-        },
-        generic1 = FileApi.class,
-        defaultValue = "[]",
-        named = true,
-        positional = false,
-        doc = "List of the input files of the action."
-      ),
-      @Param(
-        name = "executable",
-        type = Object.class,
-        allowedTypes = {
-          @ParamType(type = FileApi.class),
-          @ParamType(type = String.class),
-          @ParamType(type = Runtime.NoneType.class),
-        },
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc = "The executable file to be called by the action."
-      ),
-      @Param(
-        name = "tools",
-        allowedTypes = {
-          @ParamType(type = SkylarkList.class),
-          @ParamType(type = SkylarkNestedSet.class),
-        },
-        generic1 = FileApi.class,
-        defaultValue = "unbound",
-        named = true,
-        positional = false,
-        doc =
-            "List of the any tools needed by the action. Tools are inputs with additional "
-                + "runfiles that are automatically made available to the action."
-      ),
-      @Param(
-        name = "arguments",
-        allowedTypes = {
-          @ParamType(type = SkylarkList.class),
-        },
-        defaultValue = "[]",
-        named = true,
-        positional = false,
-        doc =
-            "Command line arguments of the action."
-                + "Must be a list of strings or actions.args() objects."
-      ),
-      @Param(
-        name = "mnemonic",
-        type = String.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc = "A one-word description of the action, e.g. CppCompile or GoLink."
-      ),
-      @Param(
-        name = "command",
-        type = Object.class,
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = SkylarkList.class, generic1 = String.class),
-          @ParamType(type = Runtime.NoneType.class),
-        },
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc =
-            "Shell command to execute. It is usually preferable to "
-                + "use <code>executable</code> instead. "
-                + "Arguments are available with <code>$1</code>, <code>$2</code>, etc."
-      ),
-      @Param(
-        name = "progress_message",
-        type = String.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc =
-            "Progress message to show to the user during the build, "
-                + "e.g. \"Compiling foo.cc to create foo.o\"."
-      ),
-      @Param(
-        name = "use_default_shell_env",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        positional = false,
-        doc = "Whether the action should use the built in shell environment or not."
-      ),
-      @Param(
-        name = "env",
-        type = SkylarkDict.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc = "Sets the dictionary of environment variables."
-      ),
-      @Param(
-        name = "execution_requirements",
-        type = SkylarkDict.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc =
-            "Information for scheduling the action. See "
-                + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
-                + "for useful keys."
-      ),
-      @Param(
-        // TODO(bazel-team): The name here isn't accurate anymore. This is technically experimental,
-        // so folks shouldn't be too attached, but consider renaming to be more accurate/opaque.
-        name = "input_manifests",
-        type = SkylarkList.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        positional = false,
-        doc =
-            "(Experimental) sets the input runfiles metadata; "
-                + "they are typically generated by resolve_command."
-      )
-    },
-    allowReturnNones = true,
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "action",
+      doc =
+          "DEPRECATED. Use <a href=\"actions.html#run\">ctx.actions.run()</a> or"
+              + " <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>. <br>"
+              + "Creates an action that runs an executable or a shell command."
+              + " You must specify either <code>command</code> or <code>executable</code>.\n"
+              + "Actions and genrules are very similar, but have different use cases. Actions are "
+              + "used inside rules, and genrules are used inside macros. Genrules also have make "
+              + "variable expansion.",
+      parameters = {
+        @Param(
+            name = "outputs",
+            type = SkylarkList.class,
+            generic1 = FileApi.class,
+            named = true,
+            positional = false,
+            doc = "List of the output files of the action."),
+        @Param(
+            name = "inputs",
+            allowedTypes = {
+              @ParamType(type = SkylarkList.class),
+              @ParamType(type = SkylarkNestedSet.class),
+            },
+            generic1 = FileApi.class,
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc = "List of the input files of the action."),
+        @Param(
+            name = "executable",
+            type = Object.class,
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = String.class),
+              @ParamType(type = Runtime.NoneType.class),
+            },
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = "The executable file to be called by the action."),
+        @Param(
+            name = "tools",
+            allowedTypes = {
+              @ParamType(type = SkylarkList.class),
+              @ParamType(type = SkylarkNestedSet.class),
+            },
+            generic1 = FileApi.class,
+            defaultValue = "unbound",
+            named = true,
+            positional = false,
+            doc =
+                "List of the any tools needed by the action. Tools are inputs with additional "
+                    + "runfiles that are automatically made available to the action."),
+        @Param(
+            name = "arguments",
+            allowedTypes = {
+              @ParamType(type = SkylarkList.class),
+            },
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc =
+                "Command line arguments of the action. Must be a list of strings or actions.args() "
+                    + "objects."),
+        @Param(
+            name = "mnemonic",
+            type = String.class,
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = "A one-word description of the action, e.g. CppCompile or GoLink."),
+        @Param(
+            name = "command",
+            type = Object.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = SkylarkList.class, generic1 = String.class),
+              @ParamType(type = Runtime.NoneType.class),
+            },
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Shell command to execute. It is usually preferable to "
+                    + "use <code>executable</code> instead. "
+                    + "Arguments are available with <code>$1</code>, <code>$2</code>, etc."),
+        @Param(
+            name = "progress_message",
+            type = String.class,
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Progress message to show to the user during the build, "
+                    + "e.g. \"Compiling foo.cc to create foo.o\"."),
+        @Param(
+            name = "use_default_shell_env",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = "Whether the action should use the built in shell environment or not."),
+        @Param(
+            name = "env",
+            type = SkylarkDict.class,
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = "Sets the dictionary of environment variables."),
+        @Param(
+            name = "execution_requirements",
+            type = SkylarkDict.class,
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Information for scheduling the action. See "
+                    + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
+                    + "for useful keys."),
+        @Param(
+            // TODO(bazel-team): The name here isn't accurate anymore. This is technically
+            // experimental,
+            // so folks shouldn't be too attached, but consider renaming to be more accurate/opaque.
+            name = "input_manifests",
+            type = SkylarkList.class,
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "(Experimental) sets the input runfiles metadata; "
+                    + "they are typically generated by resolve_command.")
+      },
+      allowReturnNones = true,
+      useLocation = true,
+      useEnvironment = true)
   public Runtime.NoneType action(
       SkylarkList outputs,
       Object inputs,
@@ -737,66 +728,60 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       throws EvalException;
 
   @SkylarkCallable(
-    name = "runfiles",
-    doc = "Creates a runfiles object.",
-    parameters = {
-      @Param(
-        name = "files",
-        type = SkylarkList.class,
-        generic1 = FileApi.class,
-        named = true,
-        defaultValue = "[]",
-        doc = "The list of files to be added to the runfiles."
-      ),
-      // TODO(bazel-team): If we have a memory efficient support for lazy list containing
-      // NestedSets we can remove this and just use files = [file] + list(set)
-      // Also, allow empty set for init
-      @Param(
-        name = "transitive_files",
-        type = SkylarkNestedSet.class,
-        generic1 = FileApi.class,
-        noneable = true,
-        defaultValue = "None",
-        named = true,
-        doc =
-            "The (transitive) set of files to be added to the runfiles. The depset should "
-                + "use the `default` order (which, as the name implies, is the default)."
-      ),
-      @Param(
-        name = "collect_data",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        doc =
-            "Whether to collect the data "
-                + "runfiles from the dependencies in srcs, data and deps attributes."
-      ),
-      @Param(
-        name = "collect_default",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        doc =
-            "Whether to collect the default "
-                + "runfiles from the dependencies in srcs, data and deps attributes."
-      ),
-      @Param(
-        name = "symlinks",
-        type = SkylarkDict.class,
-        defaultValue = "{}",
-        named = true,
-        doc = "The map of symlinks to be added to the runfiles, prefixed by workspace name."
-      ),
-      @Param(
-        name = "root_symlinks",
-        type = SkylarkDict.class,
-        defaultValue = "{}",
-        named = true,
-        doc = "The map of symlinks to be added to the runfiles."
-      )
-    },
-    useLocation = true
-  )
+      name = "runfiles",
+      doc = "Creates a runfiles object.",
+      parameters = {
+        @Param(
+            name = "files",
+            type = SkylarkList.class,
+            generic1 = FileApi.class,
+            named = true,
+            defaultValue = "[]",
+            doc = "The list of files to be added to the runfiles."),
+        // TODO(bazel-team): If we have a memory efficient support for lazy list containing
+        // NestedSets we can remove this and just use files = [file] + list(set)
+        // Also, allow empty set for init
+        @Param(
+            name = "transitive_files",
+            type = SkylarkNestedSet.class,
+            generic1 = FileApi.class,
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            doc =
+                "The (transitive) set of files to be added to the runfiles. The depset should "
+                    + "use the <code>default</code> order (which, as the name implies, is the "
+                    + "default)."),
+        @Param(
+            name = "collect_data",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            doc =
+                "Whether to collect the data "
+                    + "runfiles from the dependencies in srcs, data and deps attributes."),
+        @Param(
+            name = "collect_default",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            doc =
+                "Whether to collect the default "
+                    + "runfiles from the dependencies in srcs, data and deps attributes."),
+        @Param(
+            name = "symlinks",
+            type = SkylarkDict.class,
+            defaultValue = "{}",
+            named = true,
+            doc = "The map of symlinks to be added to the runfiles, prefixed by workspace name."),
+        @Param(
+            name = "root_symlinks",
+            type = SkylarkDict.class,
+            defaultValue = "{}",
+            named = true,
+            doc = "The map of symlinks to be added to the runfiles.")
+      },
+      useLocation = true)
   public RunfilesApi runfiles(
       SkylarkList files,
       Object transitiveFiles,

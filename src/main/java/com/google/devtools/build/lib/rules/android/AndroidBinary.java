@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
+import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -80,6 +82,7 @@ import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -1044,6 +1047,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 proguardedJar,
                 mainDexProguardSpec,
                 proguardOutputMap);
+      } else if (multidexMode == MultidexMode.MANUAL_MAIN_DEX) {
+        mainDexList =
+            transformDexListThroughProguardMapAction(ruleContext, proguardOutputMap, mainDexList);
       }
 
       Artifact classesDex = getDxArtifact(ruleContext, "classes.dex.zip");
@@ -1367,7 +1373,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         new SpawnActionTemplate.Builder(inputTree, outputTree)
             .setExecutable(ruleContext.getExecutablePrerequisite("$dexmerger", Mode.HOST))
             .setMnemonics("DexShardsToMerge", "DexMerger")
-            .setOutputPathMapper(input -> input.getParentRelativePath());
+            .setOutputPathMapper(
+                (OutputPathMapper & Serializable) TreeFileArtifact::getParentRelativePath);
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .addPlaceholderTreeArtifactExecPath("--input", inputTree)
@@ -1789,6 +1796,34 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                     .build())
             .build(ruleContext));
     return mainDexList;
+  }
+
+  /** Transforms manual main_dex_list through proguard obfuscation map. */
+  static Artifact transformDexListThroughProguardMapAction(
+      RuleContext ruleContext, @Nullable Artifact proguardOutputMap, Artifact mainDexList)
+      throws InterruptedException {
+    if (proguardOutputMap == null
+        || !ruleContext.attributes().get("proguard_generate_mapping", Type.BOOLEAN)) {
+      return mainDexList;
+    }
+    Artifact obfuscatedMainDexList =
+        AndroidBinary.getDxArtifact(ruleContext, "main_dex_list_obfuscated.txt");
+    SpawnAction.Builder actionBuilder =
+        new SpawnAction.Builder()
+            .setMnemonic("MainDexProguardClasses")
+            .setProgressMessage("Obfuscating main dex classes list")
+            .setExecutable(ruleContext.getExecutablePrerequisite("$dex_list_obfuscator", Mode.HOST))
+            .addInput(mainDexList)
+            .addInput(proguardOutputMap)
+            .addOutput(obfuscatedMainDexList)
+            .addCommandLine(
+                CustomCommandLine.builder()
+                    .addExecPath("--input", mainDexList)
+                    .addExecPath("--output", obfuscatedMainDexList)
+                    .addExecPath("--obfuscation_map", proguardOutputMap)
+                    .build());
+    ruleContext.registerAction(actionBuilder.build(ruleContext));
+    return obfuscatedMainDexList;
   }
 
   public static Artifact createMainDexProguardSpec(Label label, ActionConstructionContext context) {

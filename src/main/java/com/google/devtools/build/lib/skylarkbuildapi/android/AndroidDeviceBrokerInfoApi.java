@@ -13,9 +13,40 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
+import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.EvalException;
 
 /** Supplies the device broker type string, passed to the Android test runtime. */
 @SkylarkModule(name = "AndroidDeviceBrokerInfo", doc = "", documented = false)
-public interface AndroidDeviceBrokerInfoApi extends StructApi {}
+public interface AndroidDeviceBrokerInfoApi extends StructApi {
+
+  /**
+   * Name of this info object.
+   */
+  public static String NAME = "AndroidDeviceBrokerInfo";
+
+  /** Provider for {@link AndroidDeviceBrokerInfoApi}. */
+  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  public interface AndroidDeviceBrokerInfoApiProvider extends ProviderApi {
+
+    @SkylarkCallable(
+        name = "AndroidDeviceBrokerInfo",
+        doc = "The <code>AndroidDeviceBrokerInfo</code> constructor.",
+        parameters = {
+            @Param(
+                name = "type",
+                type = String.class,
+                named = true,
+                doc = "The type of device broker that is appropriate to use to interact with "
+                    + "devices"
+            )},
+        selfCall = true)
+    @SkylarkConstructor(objectType = AndroidDeviceBrokerInfoApi.class)
+    public AndroidDeviceBrokerInfoApi createInfo(String type) throws EvalException;
+  }
+}
