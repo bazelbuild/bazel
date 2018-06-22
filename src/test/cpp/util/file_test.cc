@@ -148,37 +148,31 @@ TEST(FileTest, TestMtimeHandling) {
   string tempdir(tempdir_cstr);
 
   std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
-  bool actual = false;
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(tempdir, &actual));
-  ASSERT_FALSE(actual);
-
+  // Assert that a directory is always untampered with. (We do
+  // not care about directories' mtimes.)
+  ASSERT_TRUE(mtime.get()->IsUntampered(tempdir));
   // Create a new file, assert its mtime is not in the future.
   string file(JoinPath(tempdir, "foo.txt"));
   ASSERT_TRUE(WriteFile("hello", 5, file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
-  ASSERT_FALSE(actual);
+  ASSERT_FALSE(mtime.get()->IsUntampered(file));
   // Set the file's mtime to the future, assert that it's so.
   ASSERT_TRUE(mtime.get()->SetToDistantFuture(file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
-  ASSERT_TRUE(actual);
-  // Overwrite the file, resetting its mtime, assert that GetIfInDistantFuture
-  // notices.
+  ASSERT_TRUE(mtime.get()->IsUntampered(file));
+  // Overwrite the file, resetting its mtime, assert that
+  // IsUntampered notices.
   ASSERT_TRUE(WriteFile("world", 5, file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
-  ASSERT_FALSE(actual);
+  ASSERT_FALSE(mtime.get()->IsUntampered(file));
   // Set it to the future again so we can reset it using SetToNow.
   ASSERT_TRUE(mtime.get()->SetToDistantFuture(file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
-  ASSERT_TRUE(actual);
+  ASSERT_TRUE(mtime.get()->IsUntampered(file));
   // Assert that SetToNow resets the timestamp.
   ASSERT_TRUE(mtime.get()->SetToNow(file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
-  ASSERT_FALSE(actual);
+  ASSERT_FALSE(mtime.get()->IsUntampered(file));
   // Delete the file and assert that we can no longer set or query its mtime.
   ASSERT_TRUE(UnlinkPath(file));
   ASSERT_FALSE(mtime.get()->SetToNow(file));
   ASSERT_FALSE(mtime.get()->SetToDistantFuture(file));
-  ASSERT_FALSE(mtime.get()->GetIfInDistantFuture(file, &actual));
+  ASSERT_FALSE(mtime.get()->IsUntampered(file));
 }
 
 TEST(FileTest, TestRenameDirectory) {
