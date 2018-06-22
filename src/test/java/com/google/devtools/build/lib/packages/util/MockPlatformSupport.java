@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.util;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
@@ -111,7 +112,9 @@ public class MockPlatformSupport {
         "toolchain(",
         "   name = 'toolchain_cc-compiler-piii',",
         "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
-        "   toolchain = '" + crosstoolLabel.getRelative("cc-compiler-piii") + "',",
+        "   toolchain = '"
+            + crosstoolLabel.getRelativeWithRemapping("cc-compiler-piii", ImmutableMap.of())
+            + "',",
         "   target_compatible_with = [':mock_value'],",
         ")");
   }

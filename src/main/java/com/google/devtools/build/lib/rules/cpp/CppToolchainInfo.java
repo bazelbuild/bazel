@@ -199,14 +199,16 @@ public final class CppToolchainInfo {
           crosstoolInfo.getLdEmbedFlags(),
           crosstoolInfo.getObjcopyEmbedFlags(),
           toolchainLabel,
-          toolchainLabel.getRelative(
+          toolchainLabel.getRelativeWithRemapping(
               !crosstoolInfo.getStaticRuntimesFilegroup().isEmpty()
                   ? crosstoolInfo.getStaticRuntimesFilegroup()
-                  : "static-runtime-libs-" + crosstoolInfo.getTargetCpu()),
-          toolchainLabel.getRelative(
+                  : "static-runtime-libs-" + crosstoolInfo.getTargetCpu(),
+              ImmutableMap.of()),
+          toolchainLabel.getRelativeWithRemapping(
               !crosstoolInfo.getDynamicRuntimesFilegroup().isEmpty()
                   ? crosstoolInfo.getDynamicRuntimesFilegroup()
-                  : "dynamic-runtime-libs-" + crosstoolInfo.getTargetCpu()),
+                  : "dynamic-runtime-libs-" + crosstoolInfo.getTargetCpu(),
+              ImmutableMap.of()),
           "_solib_" + crosstoolInfo.getTargetCpu(),
           crosstoolInfo.getAbiVersion(),
           crosstoolInfo.getTargetSystemName(),
@@ -224,8 +226,8 @@ public final class CppToolchainInfo {
           crosstoolInfo.supportsGoldLinker(),
           crosstoolInfo.needsPic());
     } catch (LabelSyntaxException e) {
-      // All of the above label.getRelative() calls are valid labels, and the crosstool_top
-      // was already checked earlier in the process.
+      // All of the above label.getRelativeWithRemapping() calls are valid labels, and the
+      // crosstool_top was already checked earlier in the process.
       throw new AssertionError(e);
     }
   }

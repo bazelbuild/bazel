@@ -670,7 +670,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     try {
       if (parentLabel != null) {
         LabelValidator.parseAbsoluteLabel(labelString);
-        labelString = parentLabel.getRelative(labelString).getUnambiguousCanonicalForm();
+        // TODO(dannark): pass the environment here
+        labelString =
+            parentLabel
+                .getRelativeWithRemapping(labelString, ImmutableMap.of())
+                .getUnambiguousCanonicalForm();
       }
       return labelCache.get(labelString);
     } catch (LabelValidator.BadLabelException | LabelSyntaxException | ExecutionException e) {

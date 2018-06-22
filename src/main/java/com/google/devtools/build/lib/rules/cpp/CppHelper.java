@@ -299,7 +299,11 @@ public class CppHelper {
   private static boolean expandLabel(
       RuleContext ruleContext, List<String> linkopts, String labelName) {
     try {
-      Label label = ruleContext.getLabel().getRelative(labelName);
+      Label label =
+          ruleContext
+              .getLabel()
+              .getRelativeWithRemapping(
+                  labelName, ruleContext.getRule().getPackage().getRepositoryMapping());
       for (String prereqKind : LINKOPTS_PREREQUISITE_LABEL_KINDS) {
         for (TransitiveInfoCollection target : ruleContext
             .getPrerequisitesIf(prereqKind, Mode.TARGET, FileProvider.class)) {

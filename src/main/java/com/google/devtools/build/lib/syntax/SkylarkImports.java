@@ -142,7 +142,9 @@ public class SkylarkImports {
           PathFragment.create(containingFileLabel.getName()).getParentDirectory();
       String targetNameForImport = containingDirInPkg.getRelative(importFile).toString();
       try {
-        return containingFileLabel.getRelative(targetNameForImport);
+        // This is for imports relative to the current repository, so repositoryMapping can be
+        // empty
+        return containingFileLabel.getRelativeWithRemapping(targetNameForImport, ImmutableMap.of());
       } catch (LabelSyntaxException e) {
         // Shouldn't happen because the parent label is assumed to be valid and the target string is
         // validated on construction.
@@ -198,7 +200,9 @@ public class SkylarkImports {
       // Unlike a relative path import, the import target is relative to the containing package,
       // not the containing directory within the package.
       try {
-        return containingFileLabel.getRelative(importTarget);
+        // This is for imports relative to the current repository, so repositoryMapping can be
+        // empty
+        return containingFileLabel.getRelativeWithRemapping(importTarget, ImmutableMap.of());
       } catch (LabelSyntaxException e) {
         // shouldn't happen because the parent label is assumed validated and the target string is
         // validated on construction

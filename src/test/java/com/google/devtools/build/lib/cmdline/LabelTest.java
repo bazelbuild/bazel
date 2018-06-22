@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -110,7 +111,7 @@ public class LabelTest {
   @Test
   public void testGetRelativeWithAbsoluteLabel() throws Exception {
     Label base = Label.parseAbsolute("//foo/bar:baz");
-    Label l = base.getRelative("//p1/p2:target");
+    Label l = base.getRelativeWithRemapping("//p1/p2:target", ImmutableMap.of());
     assertThat(l.getPackageName()).isEqualTo("p1/p2");
     assertThat(l.getName()).isEqualTo("target");
   }
@@ -118,7 +119,7 @@ public class LabelTest {
   @Test
   public void testGetRelativeWithRelativeLabel() throws Exception {
     Label base = Label.parseAbsolute("//foo/bar:baz");
-    Label l = base.getRelative(":quux");
+    Label l = base.getRelativeWithRemapping(":quux", ImmutableMap.of());
     assertThat(l.getPackageName()).isEqualTo("foo/bar");
     assertThat(l.getName()).isEqualTo("quux");
   }
@@ -127,25 +128,25 @@ public class LabelTest {
   public void testGetRelativeWithIllegalLabel() throws Exception {
     Label base = Label.parseAbsolute("//foo/bar:baz");
     try {
-      base.getRelative("/p1/p2:target");
+      base.getRelativeWithRemapping("/p1/p2:target", ImmutableMap.of());
       fail();
     } catch (LabelSyntaxException e) {
       /* ok */
     }
     try {
-      base.getRelative("quux:");
+      base.getRelativeWithRemapping("quux:", ImmutableMap.of());
       fail();
     } catch (LabelSyntaxException e) {
       /* ok */
     }
     try {
-      base.getRelative(":");
+      base.getRelativeWithRemapping(":", ImmutableMap.of());
       fail();
     } catch (LabelSyntaxException e) {
       /* ok */
     }
     try {
-      base.getRelative("::");
+      base.getRelativeWithRemapping("::", ImmutableMap.of());
       fail();
     } catch (LabelSyntaxException e) {
       /* ok */
@@ -157,7 +158,7 @@ public class LabelTest {
     PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
-    Label relative = base.getRelative("@remote//x:y");
+    Label relative = base.getRelativeWithRemapping("@remote//x:y", ImmutableMap.of());
 
     assertThat(relative.getPackageIdentifier().getRepository())
         .isEqualTo(RepositoryName.create("@remote"));
@@ -170,7 +171,7 @@ public class LabelTest {
     PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
-    Label relative = base.getRelative("//x:y");
+    Label relative = base.getRelativeWithRemapping("//x:y", ImmutableMap.of());
 
     assertThat(relative.getPackageIdentifier().getRepository())
         .isEqualTo(packageId.getRepository());
@@ -183,7 +184,7 @@ public class LabelTest {
     PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
-    Label relative = base.getRelative(":y");
+    Label relative = base.getRelativeWithRemapping(":y", ImmutableMap.of());
 
     assertThat(relative.getPackageIdentifier().getRepository())
         .isEqualTo(packageId.getRepository());
@@ -196,7 +197,7 @@ public class LabelTest {
     PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
-    Label relative = base.getRelative("//conditions:default");
+    Label relative = base.getRelativeWithRemapping("//conditions:default", ImmutableMap.of());
 
     PackageIdentifier expected = PackageIdentifier.createInMainRepo("conditions");
     assertThat(relative.getPackageIdentifier().getRepository()).isEqualTo(expected.getRepository());
@@ -209,7 +210,7 @@ public class LabelTest {
     PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
-    Label relative = base.getRelative("@//x:y");
+    Label relative = base.getRelativeWithRemapping("@//x:y", ImmutableMap.of());
 
     assertThat(relative.getPackageIdentifier().getRepository())
         .isEqualTo(RepositoryName.create("@"));

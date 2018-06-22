@@ -268,9 +268,10 @@ public final class BuildType {
         // TODO(b/110101445): check if context is ever actually null
         if (context == null) {
           return Label.parseAbsolute((String) x, false);
-        // TODO(b/110308446): remove instances of context being a Label
+          // TODO(b/110308446): remove instances of context being a Label
         } else if (context instanceof Label) {
-          return ((Label) context).getRelative(STRING.convert(x, what, context));
+          return ((Label) context)
+              .getRelativeWithRemapping(STRING.convert(x, what, context), ImmutableMap.of());
         } else if (context instanceof LabelConversionContext) {
           LabelConversionContext labelConversionContext = (LabelConversionContext) context;
           return labelConversionContext
