@@ -10,6 +10,14 @@
 # of .proto source files to the protocol compiler.
 #
 # Remote repository "com_google_protobuf" must be defined to use this rule.
+licenses(["notice"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+
 proto_library(
     name = "addressbook_proto",
     srcs = ["addressbook.proto"],
