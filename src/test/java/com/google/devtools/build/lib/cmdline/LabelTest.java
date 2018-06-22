@@ -31,6 +31,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class LabelTest {
 
+  private static final String BAD_PACKAGE_CHARS =
+      "package names may contain A-Z, a-z, 0-9, or any of";
   private static final String INVALID_TARGET_NAME = "invalid target name";
   private static final String INVALID_PACKAGE_NAME = "invalid package name";
 
@@ -56,18 +58,6 @@ public class LabelTest {
       assertThat(l.getPackageIdentifier().getRepository().getName()).isEqualTo("@foo");
       assertThat(l.getPackageName()).isEmpty();
       assertThat(l.getName()).isEqualTo("foo");
-    }
-    {
-      Label l = Label.parseAbsolute("//@foo");
-      assertThat(l.getPackageIdentifier().getRepository().getName()).isEqualTo("@");
-      assertThat(l.getPackageName()).isEqualTo("@foo");
-      assertThat(l.getName()).isEqualTo("@foo");
-    }
-    {
-      Label l = Label.parseAbsolute("//xyz/@foo:abc");
-      assertThat(l.getPackageIdentifier().getRepository().getName()).isEqualTo("@");
-      assertThat(l.getPackageName()).isEqualTo("xyz/@foo");
-      assertThat(l.getName()).isEqualTo("abc");
     }
   }
 
@@ -374,6 +364,16 @@ public class LabelTest {
     Label.parseAbsolute("//$( ):$( )");
   }
 
+  /**
+   * Regression test: we previously expanded the set of characters which are considered label chars
+   * to include "@" (see test above). An unexpected side-effect is that "@D" in genrule(cmd) was
+   * considered to be a valid relative label! The fix is to forbid "@x" in package names.
+   */
+  @Test
+  public void testAtVersionIsIllegal() throws Exception {
+    assertSyntaxError(BAD_PACKAGE_CHARS, "//foo/bar@123:baz");
+  }
+
   @Test
   public void testDoubleSlashPathSeparator() throws Exception {
     assertSyntaxError("package names may not contain '//' path separators",
@@ -443,21 +443,8 @@ public class LabelTest {
       Label.parseAbsolute("foo//bar/baz:bat/boo");
       fail();
     } catch (LabelSyntaxException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("invalid repository name 'foo': workspace names must start with '@'");
-    }
-  }
-
-  @Test
-  public void testInvalidRepoWithColon() throws Exception {
-    try {
-      Label.parseAbsolute("@foo:xyz");
-      fail();
-    } catch (LabelSyntaxException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .containsMatch("invalid repository name '@foo:xyz': workspace names may contain only");
+      assertThat(e).hasMessage(
+          "invalid repository name 'foo': workspace names must start with '@'");
     }
   }
 
