@@ -99,28 +99,12 @@ public final class Label
    *
    * <p>Treats labels in the default repository as being in the main repository instead.
    */
-  public static Label parseAbsolute(String absName) throws LabelSyntaxException {
-    return parseAbsolute(absName, true);
-  }
-
-  /**
-   * Factory for Labels from absolute string form. e.g.
-   *
-   * <pre>
-   * //foo/bar
-   * //foo/bar:quux
-   * {@literal @}foo
-   * {@literal @}foo//bar
-   * {@literal @}foo//bar:baz
-   * </pre>
-   *
-   * @param defaultToMain Treat labels in the default repository as being in the main one instead.
-   */
   @Deprecated
-  // TODO(dannark): Remove usages of this method, use other parseAbsolute() instead
-  public static Label parseAbsolute(String absName, boolean defaultToMain)
-      throws LabelSyntaxException {
-    return parseAbsolute(absName, defaultToMain, /* repositoryMapping= */ ImmutableMap.of());
+  // TODO(b/110698008): deprecate this method and only have parseAbsolute() methods that pass
+  // a repositoryMapping
+  public static Label parseAbsolute(String absName) throws LabelSyntaxException {
+    return parseAbsolute(
+        absName, /* defaultToMain= */ true, /* repositoryMapping= */ ImmutableMap.of());
   }
 
   /**
@@ -185,9 +169,11 @@ public final class Label
    *
    * <p>Do not use this when the argument is not hard-wired.
    */
+  @Deprecated
+  // TODO(b/110698008): create parseAbsoluteUnchecked that passes repositoryMapping
   public static Label parseAbsoluteUnchecked(String absName, boolean defaultToMain) {
     try {
-      return parseAbsolute(absName, defaultToMain);
+      return parseAbsolute(absName, defaultToMain, /* repositoryMapping= */ ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(e);
     }

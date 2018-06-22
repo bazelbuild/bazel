@@ -355,7 +355,11 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("$extra_deps");
     assertThat(attribute.getDefaultValue(null))
-        .isEqualTo(Label.parseAbsolute("//foo/bar:baz", false));
+        .isEqualTo(
+            Label.parseAbsolute(
+                "//foo/bar:baz",
+                /* defaultToMain= */ false,
+                /* repositoryMapping= */ ImmutableMap.of()));
   }
 
   @Test
@@ -467,19 +471,36 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testLabelAttrDefaultValueAsString() throws Exception {
     Attribute sligleAttr = buildAttribute("a1", "attr.label(default = '//foo:bar')");
     assertThat(sligleAttr.getDefaultValueForTesting())
-        .isEqualTo(Label.parseAbsolute("//foo:bar", false));
+        .isEqualTo(
+            Label.parseAbsolute(
+                "//foo:bar",
+                /* defaultToMain= */ false,
+                /* repositoryMapping= */ ImmutableMap.of()));
 
     Attribute listAttr =
         buildAttribute("a2", "attr.label_list(default = ['//foo:bar', '//bar:foo'])");
     assertThat(listAttr.getDefaultValueForTesting())
         .isEqualTo(
             ImmutableList.of(
-                Label.parseAbsolute("//foo:bar", false), Label.parseAbsolute("//bar:foo", false)));
+                Label.parseAbsolute(
+                    "//foo:bar",
+                    /* defaultToMain= */ false,
+                    /* repositoryMapping= */ ImmutableMap.of()),
+                Label.parseAbsolute(
+                    "//bar:foo",
+                    /* defaultToMain= */ false,
+                    /*repositoryMapping= */ ImmutableMap.of())));
 
     Attribute dictAttr =
         buildAttribute("a3", "attr.label_keyed_string_dict(default = {'//foo:bar': 'my value'})");
     assertThat(dictAttr.getDefaultValueForTesting())
-        .isEqualTo(ImmutableMap.of(Label.parseAbsolute("//foo:bar", false), "my value"));
+        .isEqualTo(
+            ImmutableMap.of(
+                Label.parseAbsolute(
+                    "//foo:bar",
+                    /* defaultToMain= */ false,
+                    /* repositoryMapping= */ ImmutableMap.of()),
+                "my value"));
   }
 
   @Test

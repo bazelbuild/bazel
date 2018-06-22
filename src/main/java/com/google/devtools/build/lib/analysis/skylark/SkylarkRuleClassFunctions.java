@@ -100,16 +100,21 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   // If we don't want to support old built-in rules and Skylark simultaneously
   // (except for transition phase) it's probably OK.
   private static final LoadingCache<String, Label> labelCache =
-      CacheBuilder.newBuilder().build(new CacheLoader<String, Label>() {
-        @Override
-        public Label load(String from) throws Exception {
-          try {
-            return Label.parseAbsolute(from, false);
-          } catch (LabelSyntaxException e) {
-            throw new Exception(from);
-          }
-        }
-      });
+      CacheBuilder.newBuilder()
+          .build(
+              new CacheLoader<String, Label>() {
+                @Override
+                public Label load(String from) throws Exception {
+                  try {
+                    return Label.parseAbsolute(
+                        from,
+                        /* defaultToMain=*/ false,
+                        /* repositoryMapping= */ ImmutableMap.of());
+                  } catch (LabelSyntaxException e) {
+                    throw new Exception(from);
+                  }
+                }
+              });
 
   // TODO(bazel-team): Remove the code duplication (BaseRuleClasses and this class).
   /** Parent rule class for non-executable non-test Skylark rules. */
