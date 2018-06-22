@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.unix.NativePosixFiles.Dirents;
 import com.google.devtools.build.lib.unix.NativePosixFiles.ReadTypes;
 import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,7 +41,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   public UnixFileSystem() {
   }
 
-  public UnixFileSystem(HashFunction hashFunction) {
+  public UnixFileSystem(DigestHashFunction hashFunction) {
     super(hashFunction);
   }
 
@@ -398,11 +399,11 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
+  protected byte[] getDigest(Path path, DigestHashFunction hashFunction) throws IOException {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      if (hashFunction == HashFunction.MD5) {
+      if (hashFunction == DigestHashFunction.MD5) {
         return NativePosixFiles.md5sum(name).asBytes();
       }
       return super.getDigest(path, hashFunction);

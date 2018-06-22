@@ -59,8 +59,8 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -116,8 +116,8 @@ public class RemoteSpawnRunnerTest {
   @Before
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
-    digestUtil = new DigestUtil(HashFunction.SHA256);
-    FileSystem fs = new InMemoryFileSystem(new JavaClock(), HashFunction.SHA256);
+    digestUtil = new DigestUtil(DigestHashFunction.SHA256);
+    FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
     logDir = fs.getPath("/server-logs");
     FileSystemUtils.createDirectoryAndParents(execRoot);

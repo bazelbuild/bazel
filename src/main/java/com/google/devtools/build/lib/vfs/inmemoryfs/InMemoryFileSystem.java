@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -78,7 +79,7 @@ public class InMemoryFileSystem extends FileSystem {
    * Creates a new InMemoryFileSystem with scope checking disabled (all paths are considered to be
    * within scope).
    */
-  public InMemoryFileSystem(Clock clock, HashFunction hashFunction) {
+  public InMemoryFileSystem(Clock clock, DigestHashFunction hashFunction) {
     super(hashFunction);
     this.clock = clock;
     this.rootInode = newRootInode(clock);

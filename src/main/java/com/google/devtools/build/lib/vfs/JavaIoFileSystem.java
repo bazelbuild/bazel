@@ -56,7 +56,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     this(new JavaClock());
   }
 
-  public JavaIoFileSystem(HashFunction hashFunction) {
+  public JavaIoFileSystem(DigestHashFunction hashFunction) {
     super(hashFunction);
     this.clock = new JavaClock();
   }
@@ -392,7 +392,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
+  protected byte[] getDigest(Path path, DigestHashFunction hashFunction) throws IOException {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {

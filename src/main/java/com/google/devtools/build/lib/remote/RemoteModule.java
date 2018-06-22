@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
@@ -129,7 +129,7 @@ public final class RemoteModule extends BlazeModule {
     }
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
-    HashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
+    DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
     converter.options = remoteOptions;
     converter.digestUtil = digestUtil;

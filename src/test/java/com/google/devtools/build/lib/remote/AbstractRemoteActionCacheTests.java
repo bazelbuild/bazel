@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.UploadManifest;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -38,11 +38,11 @@ public class AbstractRemoteActionCacheTests {
 
   private FileSystem fs;
   private Path execRoot;
-  private final DigestUtil digestUtil = new DigestUtil(HashFunction.SHA256);
+  private final DigestUtil digestUtil = new DigestUtil(DigestHashFunction.SHA256);
 
   @Before
   public void setUp() throws Exception {
-    fs = new InMemoryFileSystem(new JavaClock(), HashFunction.SHA256);
+    fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/execroot");
     execRoot.createDirectory();
   }

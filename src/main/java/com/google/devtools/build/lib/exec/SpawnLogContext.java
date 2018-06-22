@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.Platform;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -213,7 +213,7 @@ public class SpawnLogContext implements ActionContext {
       @Nullable ActionInput input, @Nullable Path path, MetadataProvider metadataProvider)
       throws IOException {
     Preconditions.checkArgument(input != null || path != null);
-    FileSystem.HashFunction hashFunction = execRoot.getFileSystem().getDigestFunction();
+    DigestHashFunction hashFunction = execRoot.getFileSystem().getDigestFunction();
     Digest.Builder digest = Digest.newBuilder().setHashFunctionName(hashFunction.toString());
     if (input != null) {
       if (input instanceof VirtualActionInput) {

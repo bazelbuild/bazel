@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -52,8 +52,8 @@ public class TreeNodeRepositoryTest {
 
   @Before
   public final void setRootDir() throws Exception {
-    digestUtil = new DigestUtil(HashFunction.SHA256);
-    scratch = new Scratch(new InMemoryFileSystem(BlazeClock.instance(), HashFunction.SHA256));
+    digestUtil = new DigestUtil(DigestHashFunction.SHA256);
+    scratch = new Scratch(new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256));
     execRoot = scratch.getFileSystem().getPath("/exec/root");
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/exec/root")));
   }
