@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
@@ -36,15 +35,13 @@ public class RuleContextTest extends ToolchainTestCase {
         "--host_platform=//platforms:linux",
         "--platforms=//platforms:mac");
     RuleContext ruleContext = getRuleContext(getConfiguredTarget("//x"));
-    assertThat(ruleContext.getToolchainContext().getResolvedToolchainLabels())
+    assertThat(ruleContext.getToolchainContext().resolvedToolchainLabels())
         .contains(Label.parseAbsolute("//toolchain:toolchain_1_impl"));
 
-    ResolvedToolchainProviders resolvedToolchainProviders =
-        (ResolvedToolchainProviders)
-            ruleContext.getToolchainContext().getResolvedToolchainProviders();
     ToolchainInfo toolchain =
-        resolvedToolchainProviders.getForToolchainType(
-            Label.parseAbsolute("//toolchain:test_toolchain"));
+        ruleContext
+            .getToolchainContext()
+            .forToolchainType(Label.parseAbsolute("//toolchain:test_toolchain"));
     assertThat(toolchain.getValue("data")).isEqualTo("foo");
   }
 }

@@ -16,14 +16,12 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 
-/**
- * Stores toolchains available to a given rule.
- */
+/** Stores toolchains available to a given rule. */
 @SkylarkModule(
     name = "ToolchainContext",
     category = SkylarkModuleCategory.BUILTIN,
-    doc = "Stores toolchains available to a given rule."
-)
-public interface ToolchainContextApi {
-}
+    doc = "Stores toolchains available to a given rule.")
+public interface ToolchainContextApi extends SkylarkValue, SkylarkIndexable {}
