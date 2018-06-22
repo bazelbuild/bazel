@@ -104,16 +104,16 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     ToolchainContext toolchainContext = result.get(key).toolchainContext();
     assertThat(toolchainContext).isNotNull();
 
-    assertThat(toolchainContext.getRequiredToolchains()).containsExactly(testToolchainType);
-    assertThat(toolchainContext.getResolvedToolchainLabels())
+    assertThat(toolchainContext.requiredToolchainTypes()).containsExactly(testToolchainType);
+    assertThat(toolchainContext.resolvedToolchainLabels())
         .containsExactly(Label.parseAbsoluteUnchecked("//extra:extra_toolchain_mac_impl"));
 
-    assertThat(toolchainContext.getExecutionPlatform()).isNotNull();
-    assertThat(toolchainContext.getExecutionPlatform().label())
+    assertThat(toolchainContext.executionPlatform()).isNotNull();
+    assertThat(toolchainContext.executionPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:mac"));
 
-    assertThat(toolchainContext.getTargetPlatform()).isNotNull();
-    assertThat(toolchainContext.getTargetPlatform().label())
+    assertThat(toolchainContext.targetPlatform()).isNotNull();
+    assertThat(toolchainContext.targetPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
   }
 
@@ -132,15 +132,15 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     ToolchainContext toolchainContext = result.get(key).toolchainContext();
     assertThat(toolchainContext).isNotNull();
 
-    assertThat(toolchainContext.getRequiredToolchains()).isEmpty();
+    assertThat(toolchainContext.requiredToolchainTypes()).isEmpty();
 
     // With no toolchains requested, should fall back to the host platform.
-    assertThat(toolchainContext.getExecutionPlatform()).isNotNull();
-    assertThat(toolchainContext.getExecutionPlatform().label())
+    assertThat(toolchainContext.executionPlatform()).isNotNull();
+    assertThat(toolchainContext.executionPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//host:host"));
 
-    assertThat(toolchainContext.getTargetPlatform()).isNotNull();
-    assertThat(toolchainContext.getTargetPlatform().label())
+    assertThat(toolchainContext.targetPlatform()).isNotNull();
+    assertThat(toolchainContext.targetPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
   }
 
@@ -176,15 +176,15 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     ToolchainContext toolchainContext = result.get(key).toolchainContext();
     assertThat(toolchainContext).isNotNull();
 
-    assertThat(toolchainContext.getRequiredToolchains()).isEmpty();
+    assertThat(toolchainContext.requiredToolchainTypes()).isEmpty();
 
     // With no toolchains requested, should fall back to the host platform.
-    assertThat(toolchainContext.getExecutionPlatform()).isNotNull();
-    assertThat(toolchainContext.getExecutionPlatform().label())
+    assertThat(toolchainContext.executionPlatform()).isNotNull();
+    assertThat(toolchainContext.executionPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//sample:sample_b"));
 
-    assertThat(toolchainContext.getTargetPlatform()).isNotNull();
-    assertThat(toolchainContext.getTargetPlatform().label())
+    assertThat(toolchainContext.targetPlatform()).isNotNull();
+    assertThat(toolchainContext.targetPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
   }
 
@@ -365,16 +365,16 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     ToolchainContext toolchainContext = result.get(key).toolchainContext();
     assertThat(toolchainContext).isNotNull();
 
-    assertThat(toolchainContext.getRequiredToolchains()).containsExactly(testToolchainType);
-    assertThat(toolchainContext.getResolvedToolchainLabels())
+    assertThat(toolchainContext.requiredToolchainTypes()).containsExactly(testToolchainType);
+    assertThat(toolchainContext.resolvedToolchainLabels())
         .containsExactly(Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"));
 
-    assertThat(toolchainContext.getExecutionPlatform()).isNotNull();
-    assertThat(toolchainContext.getExecutionPlatform().label())
+    assertThat(toolchainContext.executionPlatform()).isNotNull();
+    assertThat(toolchainContext.executionPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
 
-    assertThat(toolchainContext.getTargetPlatform()).isNotNull();
-    assertThat(toolchainContext.getTargetPlatform().label())
+    assertThat(toolchainContext.targetPlatform()).isNotNull();
+    assertThat(toolchainContext.targetPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
   }
 

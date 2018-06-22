@@ -101,13 +101,13 @@ public abstract class Util {
     ToolchainContext toolchainContext = ruleContext.getToolchainContext();
     if (toolchainContext != null) {
       BuildConfiguration config = ruleContext.getConfiguration();
-      for (Label toolchain : toolchainContext.getResolvedToolchainLabels()) {
+      for (Label toolchain : toolchainContext.resolvedToolchainLabels()) {
         maybeImplicitDeps.add(ConfiguredTargetKey.of(toolchain, config));
       }
       maybeImplicitDeps.add(
-          ConfiguredTargetKey.of(toolchainContext.getExecutionPlatform().label(), config));
+          ConfiguredTargetKey.of(toolchainContext.executionPlatform().label(), config));
       maybeImplicitDeps.add(
-          ConfiguredTargetKey.of(toolchainContext.getTargetPlatform().label(), config));
+          ConfiguredTargetKey.of(toolchainContext.targetPlatform().label(), config));
     }
     return ImmutableSet.copyOf(Sets.difference(maybeImplicitDeps, explicitDeps));
   }
