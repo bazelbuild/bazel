@@ -37,8 +37,6 @@ function set_up() {
   cat >>"$TEST_TMPDIR/bazelrc" <<EOF
 # Workaround for https://github.com/bazelbuild/bazel/issues/2983
 startup --host_jvm_args=-Dbazel.windows_unix_root=C:/fake/msys
-
-startup --batch
 EOF
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
