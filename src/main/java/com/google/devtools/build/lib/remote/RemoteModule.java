@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -39,11 +40,14 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.remoteexecution.v1test.Digest;
+import com.google.protobuf.Any;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.rpc.PreconditionFailure;
+import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
-import io.grpc.Status;
-import io.grpc.StatusException;
-import io.grpc.StatusRuntimeException;
+import io.grpc.Status.Code;
+import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.util.function.Predicate;
 import java.util.concurrent.Executors;
@@ -104,15 +108,39 @@ public final class RemoteModule extends BlazeModule {
     builder.addPathToUriConverter(converter);
   }
 
+  private static String VIOLATION_TYPE_MISSING = "MISSING";
+
   private static final Predicate<? super Exception> RETRIABLE_EXEC_ERRORS =
       e -> {
-        if (e instanceof CacheNotFoundException) {
+        if (e instanceof CacheNotFoundException
+            || e.getCause() instanceof CacheNotFoundException) {
           return true;
         }
-        if (e instanceof StatusRuntimeException) {
-          return Status.fromThrowable(e).getCode() == Status.Code.FAILED_PRECONDITION;
+        if (!(e instanceof RetryException)
+            || !RemoteRetrierUtils.causedByStatus((RetryException) e, Code.FAILED_PRECONDITION)) {
+          return false;
         }
-        return false;
+        com.google.rpc.Status status = StatusProto.fromThrowable(e);
+        if (status == null || status.getDetailsCount() == 0) {
+          return false;
+        }
+        for (Any details : status.getDetailsList()) {
+          PreconditionFailure f;
+          try {
+            f = details.unpack(PreconditionFailure.class);
+          } catch (InvalidProtocolBufferException protoEx) {
+            return false;
+          }
+          if (f.getViolationsCount() == 0) {
+            return false; // Generally shouldn't happen
+          }
+          for (Violation v : f.getViolationsList()) {
+            if (!v.getType().equals(VIOLATION_TYPE_MISSING)) {
+              return false;
+            }
+          }
+        }
+        return true; // if *all* > 0 violations have type MISSING
       };
 
   @Override
