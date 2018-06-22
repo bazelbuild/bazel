@@ -34,8 +34,7 @@
 #error("This test should only be run on Windows")
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
 
-#define _T(x) #x
-#define T(x) _T(x)
+#define TOSTRING(x) #x
 
 namespace blaze_util {
 
@@ -306,7 +305,7 @@ TEST_F(FileWindowsTest, TestMtimeHandling) {
   ASSERT_NE(tempdir_cstr[0], 0);
   string tempdir(tempdir_cstr);
 
-  string target(JoinPath(tempdir, "target" T(__LINE__)));
+  string target(JoinPath(tempdir, "target" TOSTRING(__LINE__)));
   wstring wtarget;
   EXPECT_TRUE(AsWindowsPath(target, &wtarget, nullptr));
   EXPECT_TRUE(CreateDirectoryW(wtarget.c_str(), NULL));
@@ -314,16 +313,16 @@ TEST_F(FileWindowsTest, TestMtimeHandling) {
   std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
   // Assert that a directory is always a good embedded binary. (We do not care
   // about directories' mtimes.)
-  ASSERT_TRUE(mtime.get()->IsValidEmbeddedBinary(target));
+  ASSERT_TRUE(mtime.get()->IsUntampered(target));
   // Assert that junctions whose target exists are "good" embedded binaries.
-  string sym(JoinPath(tempdir, "junc" T(__LINE__)));
+  string sym(JoinPath(tempdir, "junc" TOSTRING(__LINE__)));
   CREATE_JUNCTION(sym, target);
-  ASSERT_TRUE(mtime.get()->IsValidEmbeddedBinary(sym));
+  ASSERT_TRUE(mtime.get()->IsUntampered(sym));
   // Assert that checking fails for non-existent directories and dangling
   // junctions.
   EXPECT_TRUE(RemoveDirectoryW(wtarget.c_str()));
-  ASSERT_FALSE(mtime.get()->IsValidEmbeddedBinary(target));
-  ASSERT_FALSE(mtime.get()->IsValidEmbeddedBinary(sym));
+  ASSERT_FALSE(mtime.get()->IsUntampered(target));
+  ASSERT_FALSE(mtime.get()->IsUntampered(sym));
 }
 
 }  // namespace blaze_util

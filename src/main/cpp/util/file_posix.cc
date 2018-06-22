@@ -329,7 +329,7 @@ class PosixFileMtime : public IFileMtime {
       : near_future_(GetFuture(9)),
         distant_future_({GetFuture(10), GetFuture(10)}) {}
 
-  bool IsValidEmbeddedBinary(const string &path) override;
+  bool IsUntampered(const string &path) override;
   bool SetToNow(const string &path) override;
   bool SetToDistantFuture(const string &path) override;
 
@@ -344,7 +344,7 @@ class PosixFileMtime : public IFileMtime {
   static time_t GetFuture(unsigned int years);
 };
 
-bool PosixFileMtime::IsValidEmbeddedBinary(const string &path) {
+bool PosixFileMtime::IsUntampered(const string &path) {
   struct stat buf;
   if (stat(path.c_str(), &buf)) {
     return false;

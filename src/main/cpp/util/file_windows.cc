@@ -109,7 +109,7 @@ class WindowsFileMtime : public IFileMtime {
   WindowsFileMtime()
       : near_future_(GetFuture(9)), distant_future_(GetFuture(10)) {}
 
-  bool IsValidEmbeddedBinary(const string& path) override;
+  bool IsUntampered(const string& path) override;
   bool SetToNow(const string& path) override;
   bool SetToDistantFuture(const string& path) override;
 
@@ -124,7 +124,7 @@ class WindowsFileMtime : public IFileMtime {
   static bool Set(const string& path, FILETIME time);
 };
 
-bool WindowsFileMtime::IsValidEmbeddedBinary(const string& path) {
+bool WindowsFileMtime::IsUntampered(const string& path) {
   if (path.empty() || IsDevNull(path.c_str())) {
     return false;
   }
@@ -133,7 +133,7 @@ bool WindowsFileMtime::IsValidEmbeddedBinary(const string& path) {
   string error;
   if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WindowsFileMtime::IsValidEmbeddedBinary(" << path
+        << "WindowsFileMtime::IsUntampered(" << path
         << "): AsAbsoluteWindowsPath failed: " << error;
   }
 
