@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -64,12 +63,11 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
             .setList("srcs", "a.cc")
             .write();
-    ResolvedToolchainProviders providers =
-        (ResolvedToolchainProviders)
-            getRuleContext(target).getToolchainContext().getResolvedToolchainProviders();
     CcToolchainProvider toolchain =
         (CcToolchainProvider)
-            providers.getForToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
+            getRuleContext(target)
+                .getToolchainContext()
+                .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
     assertThat(Iterables.getOnlyElement(toolchain.getCompile()).getExecPathString())
         .endsWith("piii");
   }
@@ -101,12 +99,11 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
             .setList("srcs", "a.cc")
             .write();
-    ResolvedToolchainProviders providers =
-        (ResolvedToolchainProviders)
-            getRuleContext(target).getToolchainContext().getResolvedToolchainProviders();
     CcToolchainProvider toolchain =
         (CcToolchainProvider)
-            providers.getForToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
+            getRuleContext(target)
+                .getToolchainContext()
+                .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
     assertThat(toolchain.getToolchainIdentifier()).endsWith("piii");
   }
 
@@ -163,12 +160,11 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
             .setList("srcs", "a.cc")
             .write();
-    ResolvedToolchainProviders providers =
-        (ResolvedToolchainProviders)
-            getRuleContext(target).getToolchainContext().getResolvedToolchainProviders();
     CcToolchainProvider toolchain =
         (CcToolchainProvider)
-            providers.getForToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
+            getRuleContext(target)
+                .getToolchainContext()
+                .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
     assertThat(toolchain.getToolPathFragment(CppConfiguration.Tool.LD).toString())
         .contains("piii-ld");
   }

@@ -294,7 +294,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               ctgValue,
               ImmutableList.<Aspect>of(),
               configConditions,
-              toolchainContext,
+              toolchainContext == null
+                  ? ImmutableSet.of()
+                  : toolchainContext.resolvedToolchainLabels(),
               ruleClassProvider,
               view.getHostConfiguration(configuration),
               transitivePackagesForPackageRootResolution,
@@ -309,6 +311,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 "Analysis failed", configuration, transitiveRootCauses.build()));
       }
       Preconditions.checkNotNull(depValueMap);
+
+      // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
+      if (toolchainContext != null) {
+        toolchainContext.resolveToolchains(depValueMap);
+      }
+
       ConfiguredTargetValue ans =
           createConfiguredTarget(
               view,
@@ -416,7 +424,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * @param ctgValue the label and the configuration of the node
    * @param aspects
    * @param configConditions the configuration conditions for evaluating the attributes of the node
-   * @param toolchainContext context information for required toolchains
+   * @param toolchainLabels labels of required toolchain dependencies
    * @param ruleClassProvider rule class provider for determining the right configuration fragments
    *     to apply to deps
    * @param hostConfiguration the host configuration. There's a noticeable performance hit from
@@ -433,7 +441,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       TargetAndConfiguration ctgValue,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ToolchainContext toolchainContext,
+      ImmutableSet<Label> toolchainLabels,
       RuleClassProvider ruleClassProvider,
       BuildConfiguration hostConfiguration,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
@@ -450,9 +458,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               hostConfiguration,
               aspects,
               configConditions,
-              toolchainContext == null
-                  ? ImmutableSet.of()
-                  : toolchainContext.getResolvedToolchainLabels(),
+              toolchainLabels,
               transitiveRootCauses,
               defaultBuildOptions,
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());

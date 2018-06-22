@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
@@ -80,10 +79,8 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
         && ruleContext
             .getFragment(PlatformConfiguration.class)
             .isToolchainTypeEnabled(ruleContext.getLabel())) {
-      ResolvedToolchainProviders providers =
-          (ResolvedToolchainProviders)
-              ruleContext.getToolchainContext().getResolvedToolchainProviders();
-      ToolchainInfo toolchainInfo = providers.getForToolchainType(ruleContext.getLabel());
+      ToolchainInfo toolchainInfo =
+          ruleContext.getToolchainContext().forToolchainType(ruleContext.getLabel());
       if (toolchainInfo != null) {
         toolchainInfo.addGlobalMakeVariables(fragmentBuilder);
       }

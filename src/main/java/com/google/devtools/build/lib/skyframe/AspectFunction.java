@@ -434,7 +434,9 @@ public final class AspectFunction implements SkyFunction {
                 originalTargetAndAspectConfiguration,
                 aspectPath,
                 configConditions,
-                toolchainContext,
+                toolchainContext == null
+                    ? ImmutableSet.of()
+                    : toolchainContext.resolvedToolchainLabels(),
                 ruleClassProvider,
                 view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
                 transitivePackagesForPackageRootResolution,
@@ -449,6 +451,11 @@ public final class AspectFunction implements SkyFunction {
       if (!transitiveRootCauses.isEmpty()) {
         throw new AspectFunctionException(
             new AspectCreationException("Loading failed", transitiveRootCauses.build()));
+      }
+
+      // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
+      if (toolchainContext != null) {
+        toolchainContext.resolveToolchains(depValueMap);
       }
 
       return createAspect(
