@@ -35,7 +35,7 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_bu
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
     if not ctx.attr.url and not ctx.attr.urls:
-        ctx.fail("At least of url and urls must be provided")
+        ctx.fail("At least one of url and urls must be provided")
     if ctx.attr.build_file and ctx.attr.build_file_content:
         ctx.fail("Only one of build_file and build_file_content can be provided.")
 
