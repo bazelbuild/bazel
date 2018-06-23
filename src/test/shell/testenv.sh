@@ -105,7 +105,7 @@ python_server="${BAZEL_RUNFILES}/src/test/shell/bazel/testing_server.py"
 # Third-party
 MACHINE_TYPE="$(uname -m)"
 MACHINE_IS_64BIT='no'
-if [ "${MACHINE_TYPE}" = 'amd64' ] || [ "${MACHINE_TYPE}" = 'x86_64' ] || [ "${MACHINE_TYPE}" = 's390x' ]; then
+if [ "${MACHINE_TYPE}" = 'amd64' ] || [ "${MACHINE_TYPE}" = 'x86_64' ] || [ "${MACHINE_TYPE}" = 's390x' ] || [ "${MACHINE_TYPE}" = 'aarch64' ]; then
   MACHINE_IS_64BIT='yes'
 fi
 
