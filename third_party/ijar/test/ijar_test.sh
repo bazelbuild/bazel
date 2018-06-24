@@ -80,7 +80,9 @@ SOURCEDEBUGEXT_IJAR=$TEST_TMPDIR/source_debug_extension.jar
 CENTRAL_DIR_LARGEST_REGULAR=$IJAR_SRCDIR/test/largest_regular.jar
 CENTRAL_DIR_SMALLEST_ZIP64=$IJAR_SRCDIR/test/smallest_zip64.jar
 CENTRAL_DIR_ZIP64=$IJAR_SRCDIR/test/definitely_zip64.jar
-
+KOTLIN_INLINE_JAR=$IJAR_SRCDIR/test/kotlin/inline-cases.jar
+KOTLIN_INLINE_INTERFACE_JAR=$TEST_TMPDIR/kotlin/inline-cases.jar
+KOTLIN_INLINE_OUTPUT_DIR=$TEST_TMPDIR/kotlin/inline
 #### Setup
 
 # set_file_length FILE SIZE
@@ -114,13 +116,49 @@ function check_consistent_file_contents() {
 
 function set_up() {
   mkdir -p $TEST_TMPDIR/classes
+  mkdir -p $TEST_TMPDIR/kotlin
 }
 
 function tear_down() {
   rm -fr $TEST_TMPDIR/classes
+  rm -fr $TEST_TMPDIR/kotlin
+}
+
+function run_ijar_and_extract_to() {
+    mkdir -p $3 || fail "could not ensure output dir"
+    ${IJAR} $1 $2 || fail "ijar failed"
+    pushd $3
+        ${JAR} xf $2 || fail "could not extract jar contents"
+    popd
+}
+
+function javap_decompile_and_assert_contains() {
+    local output=$(${JAVAP} -c $1)
+    [[ "${output}" =~ "${2}" ]] || fail "javap output missing expected substring: ${2}"
 }
 
 #### Tests
+function test_kotlin_metadata_retention() {
+    run_ijar_and_extract_to $KOTLIN_INLINE_JAR $KOTLIN_INLINE_INTERFACE_JAR $KOTLIN_INLINE_OUTPUT_DIR
+    [[ -f "${KOTLIN_INLINE_OUTPUT_DIR}/META-INF/inline-cases.kotlin_module" ]] || fail "kotlin metadata not retained"
+}
+
+function test_kotlin_inline_retention() {
+    run_ijar_and_extract_to $KOTLIN_INLINE_JAR $KOTLIN_INLINE_INTERFACE_JAR $KOTLIN_INLINE_OUTPUT_DIR
+    javap_decompile_and_assert_contains "${KOTLIN_INLINE_OUTPUT_DIR}/ClassWithInline.class" \
+        "  public final void classInlineFun(kotlin.jvm.functions.Function0<kotlin.Unit>);
+    Code:"
+    javap_decompile_and_assert_contains "${KOTLIN_INLINE_OUTPUT_DIR}/InlineCasesKt.class" \
+        "  public static final void freeInlineFun(kotlin.jvm.functions.Function0<kotlin.Unit>);
+    Code:"
+    javap_decompile_and_assert_contains "${KOTLIN_INLINE_OUTPUT_DIR}/ObjectWithInline.class" \
+        "  public final void objectInlineFun(kotlin.jvm.functions.Function0<kotlin.Unit>);
+    Code:"
+    javap_decompile_and_assert_contains "${KOTLIN_INLINE_OUTPUT_DIR}/AbstractClassWithInline.class" \
+        "  public final void inheritedInlineFun(kotlin.jvm.functions.Function0<kotlin.Unit>);
+    Code:"
+}
+
 function test_output_bigger_than_input() {
   # Tests that ijar does not crash when output ijar is bigger than the input jar
   $JAVAC -g -d $TEST_TMPDIR/classes \

@@ -41,6 +41,7 @@ sh_test(
         # Intentionally bad test JAR: file count in central directory
         # wrong.
         "libwrongcentraldir.jar",
+        "kotlin/inline-cases.jar",
         "//tools/defaults:jdk",
         "//tools/jdk:langtools",
     ],
