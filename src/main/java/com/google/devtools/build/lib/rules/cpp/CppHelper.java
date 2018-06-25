@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -479,6 +481,40 @@ public class CppHelper {
   /** Returns the directory where object files are created. */
   public static PathFragment getObjDirectory(Label ruleLabel) {
     return getObjDirectory(ruleLabel, false);
+  }
+
+  /**
+   * Returns a function that gets the C++ runfiles from a {@link TransitiveInfoCollection} or the
+   * empty runfiles instance if it does not contain that provider.
+   */
+  public static final Function<TransitiveInfoCollection, Runfiles> runfilesFunction(
+      RuleContext ruleContext, boolean linkingStatically) {
+    final Function<TransitiveInfoCollection, Runfiles> runfilesForLinkingDynamically =
+        input -> {
+          CcLinkingInfo provider = input.get(CcLinkingInfo.PROVIDER);
+          CcLinkParamsStore ccLinkParamsStore =
+              provider == null ? null : provider.getCcLinkParamsStore();
+          return ccLinkParamsStore == null
+              ? Runfiles.EMPTY
+              : new Runfiles.Builder(ruleContext.getWorkspaceName())
+                  .addTransitiveArtifacts(
+                      ccLinkParamsStore.get(false, false).getDynamicLibrariesForRuntime())
+                  .build();
+        };
+
+    final Function<TransitiveInfoCollection, Runfiles> runfilesForLinkingStatically =
+        input -> {
+          CcLinkingInfo provider = input.get(CcLinkingInfo.PROVIDER);
+          CcLinkParamsStore ccLinkParamsStore =
+              provider == null ? null : provider.getCcLinkParamsStore();
+          return ccLinkParamsStore == null
+              ? Runfiles.EMPTY
+              : new Runfiles.Builder(ruleContext.getWorkspaceName())
+                  .addTransitiveArtifacts(
+                      ccLinkParamsStore.get(true, false).getDynamicLibrariesForRuntime())
+                  .build();
+        };
+    return linkingStatically ? runfilesForLinkingStatically : runfilesForLinkingDynamically;
   }
 
   /**

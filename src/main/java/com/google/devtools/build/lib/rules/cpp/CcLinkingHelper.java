@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
@@ -531,11 +529,7 @@ public final class CcLinkingHelper {
       providers.add(new CcNativeLibraryProvider(collectNativeCcLibraries(ccLinkingOutputs)));
     }
 
-    Runfiles cppStaticRunfiles = collectCppRunfiles(ccLinkingOutputs, true);
-    Runfiles cppSharedRunfiles = collectCppRunfiles(ccLinkingOutputs, false);
-
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcRunfiles(new CcRunfiles(cppStaticRunfiles, cppSharedRunfiles));
     ccLinkingInfoBuilder.setCcDynamicLibrariesForRuntime(
         collectDynamicLibrariesForRuntimeArtifacts(
             ccLinkingOutputs.getDynamicLibrariesForRuntime()));
@@ -613,19 +607,6 @@ public final class CcLinkingHelper {
 
     outputGroups.put(ARCHIVE_LIBRARY_OUTPUT_GROUP_NAME, archiveFile.build());
     outputGroups.put(DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME, dynamicLibrary.build());
-  }
-
-  private Runfiles collectCppRunfiles(
-      CcLinkingOutputs ccLinkingOutputs, boolean linkingStatically) {
-    Runfiles.Builder builder =
-        new Runfiles.Builder(
-            ruleContext.getWorkspaceName(),
-            ruleContext.getConfiguration().legacyExternalRunfiles());
-    builder.addTargets(deps, RunfilesProvider.DEFAULT_RUNFILES);
-    builder.addTargets(deps, CcRunfiles.runfilesFunction(linkingStatically));
-    // Add the shared libraries to the runfiles.
-    builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(linkingStatically));
-    return builder.build();
   }
 
   private AbstractCcLinkParamsStore createCcLinkParamsStore(
