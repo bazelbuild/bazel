@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkdebug.server;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
@@ -22,7 +21,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Breakpoint.ConditionCase;
 import com.google.devtools.build.lib.syntax.DebugServer;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Eval;
@@ -194,13 +192,7 @@ public final class SkylarkDebugServer implements DebugServer {
   /** Handles a {@code SetBreakpointsRequest} and returns its response. */
   private SkylarkDebuggingProtos.DebugEvent setBreakpoints(
       long sequenceNumber, SkylarkDebuggingProtos.SetBreakpointsRequest request) {
-    threadHandler.setBreakpoints(
-        request
-            .getBreakpointList()
-            .stream()
-            .filter(b -> b.getConditionCase() == ConditionCase.LOCATION)
-            .map(SkylarkDebuggingProtos.Breakpoint::getLocation)
-            .collect(toImmutableSet()));
+    threadHandler.setBreakpoints(request.getBreakpointList());
     return DebugEventHelper.setBreakpointsResponse(sequenceNumber);
   }
 

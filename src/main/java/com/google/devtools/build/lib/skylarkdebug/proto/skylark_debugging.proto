@@ -178,9 +178,15 @@ message ThreadContinuedEvent {
 message Breakpoint {
   oneof condition {
     // A breakpoint that is triggered when a particular line is reached.
-    // Column index will be ignored for breakpoints.
+    // Column index will be ignored for breakpoints. The debugger only supports
+    // one breakpoint per line. If multiple breakpoints are supplied for a
+    // single line, only the last such breakpoint is accepted.
     Location location = 1;
   }
+  // An optional condition for the breakpoint. When present, the breakpoint will
+  // be triggered iff both the primary condition holds and this expression
+  // evaluates to True.
+  string expression = 2;
 }
 
 // A single frame in a thread's stack trace.
@@ -251,6 +257,10 @@ message PausedThread {
   // The location in Skylark code of the next statement or expression that will
   // be executed.
   Location location = 4;
+
+  // An error that occurred while evaluating a breakpoint condition. Present if
+  // and only if pause_reason is CONDITIONAL_BREAKPOINT_ERROR.
+  Error conditional_breakpoint_error = 5;
 }
 
 // The reason why a thread was paused
@@ -259,16 +269,19 @@ enum PauseReason {
   UNSET = 0;
 
   // The stepping condition in a ContinueExecutionRequest was hit.
-  STEPPING = 4;
+  STEPPING = 1;
 
   // All threads are paused (e.g. prior to the initial StartDebuggingRequest).
-  ALL_THREADS_PAUSED = 1;
+  ALL_THREADS_PAUSED = 2;
 
   // Thread paused in response to a PauseThreadRequest.
-  PAUSE_THREAD_REQUEST = 2;
+  PAUSE_THREAD_REQUEST = 3;
 
   // A breakpoint was hit.
-  HIT_BREAKPOINT = 3;
+  HIT_BREAKPOINT = 4;
+
+  // An error occurred evaluating a breakpoint condition
+  CONDITIONAL_BREAKPOINT_ERROR = 5;
 }
 
 // The debugger representation of a Skylark value.

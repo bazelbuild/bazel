@@ -49,10 +49,12 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -164,6 +166,104 @@ public class SkylarkDebugServerTest {
             .setId(threadId)
             .setPauseReason(PauseReason.HIT_BREAKPOINT)
             .setLocation(breakpoint.toBuilder().setColumnNumber(1))
+            .build();
+
+    assertThat(event).isEqualTo(DebugEventHelper.threadPausedEvent(expectedThreadState));
+  }
+
+  @Test
+  public void testDoNotPauseAtUnsatisfiedConditionalBreakpoint() throws Exception {
+    sendStartDebuggingRequest();
+    BuildFileAST buildFile =
+        parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]", "z = 1");
+    Environment env = newEnvironment();
+
+    ImmutableList<Breakpoint> breakpoints =
+        ImmutableList.of(
+            Breakpoint.newBuilder()
+                .setLocation(Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD"))
+                .setExpression("x[0] == 2")
+                .build(),
+            Breakpoint.newBuilder()
+                .setLocation(Location.newBuilder().setLineNumber(3).setPath("/a/build/file/BUILD"))
+                .setExpression("x[0] == 1")
+                .build());
+    setBreakpoints(breakpoints);
+
+    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    String threadName = evaluationThread.getName();
+    long threadId = evaluationThread.getId();
+    Breakpoint expectedBreakpoint = breakpoints.get(1);
+
+    DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+    assertThat(event)
+        .isEqualTo(
+            DebugEventHelper.threadPausedEvent(
+                SkylarkDebuggingProtos.PausedThread.newBuilder()
+                    .setName(threadName)
+                    .setId(threadId)
+                    .setLocation(expectedBreakpoint.getLocation().toBuilder().setColumnNumber(1))
+                    .setPauseReason(PauseReason.HIT_BREAKPOINT)
+                    .build()));
+  }
+
+  @Test
+  public void testPauseAtSatisfiedConditionalBreakpoint() throws Exception {
+    sendStartDebuggingRequest();
+    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    Environment env = newEnvironment();
+
+    Location location =
+        Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
+    Breakpoint breakpoint =
+        Breakpoint.newBuilder().setLocation(location).setExpression("x[0] == 1").build();
+    setBreakpoints(ImmutableList.of(breakpoint));
+
+    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    String threadName = evaluationThread.getName();
+    long threadId = evaluationThread.getId();
+
+    // wait for breakpoint to be hit
+    DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+
+    SkylarkDebuggingProtos.PausedThread expectedThreadState =
+        SkylarkDebuggingProtos.PausedThread.newBuilder()
+            .setName(threadName)
+            .setId(threadId)
+            .setPauseReason(PauseReason.HIT_BREAKPOINT)
+            .setLocation(location.toBuilder().setColumnNumber(1))
+            .build();
+
+    assertThat(event).isEqualTo(DebugEventHelper.threadPausedEvent(expectedThreadState));
+  }
+
+  @Test
+  public void testPauseAtInvalidConditionBreakpointWithError() throws Exception {
+    sendStartDebuggingRequest();
+    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    Environment env = newEnvironment();
+
+    Location location =
+        Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
+    Breakpoint breakpoint =
+        Breakpoint.newBuilder().setLocation(location).setExpression("z[0] == 1").build();
+    setBreakpoints(ImmutableList.of(breakpoint));
+
+    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    String threadName = evaluationThread.getName();
+    long threadId = evaluationThread.getId();
+
+    // wait for breakpoint to be hit
+    DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+
+    SkylarkDebuggingProtos.PausedThread expectedThreadState =
+        SkylarkDebuggingProtos.PausedThread.newBuilder()
+            .setName(threadName)
+            .setId(threadId)
+            .setPauseReason(PauseReason.CONDITIONAL_BREAKPOINT_ERROR)
+            .setLocation(location.toBuilder().setColumnNumber(1))
+            .setConditionalBreakpointError(
+                SkylarkDebuggingProtos.Error.newBuilder().setMessage("name \'z\' is not defined"))
             .build();
 
     assertThat(event).isEqualTo(DebugEventHelper.threadPausedEvent(expectedThreadState));
@@ -473,12 +573,21 @@ public class SkylarkDebugServerTest {
     assertThat(pausedThread.getLocation()).isEqualTo(expectedLocation);
   }
 
-  private void setBreakpoints(Iterable<Location> locations) throws Exception {
-    SetBreakpointsRequest.Builder request = SetBreakpointsRequest.newBuilder();
-    locations.forEach(l -> request.addBreakpoint(Breakpoint.newBuilder().setLocation(l)));
+  private void setBreakpoints(Collection<Location> locations) throws Exception {
+    setBreakpoints(
+        locations
+            .stream()
+            .map(l -> Breakpoint.newBuilder().setLocation(l).build())
+            .collect(Collectors.toList()));
+  }
+
+  private void setBreakpoints(Iterable<Breakpoint> breakpoints) throws Exception {
     DebugEvent response =
         client.sendRequestAndWaitForResponse(
-            DebugRequest.newBuilder().setSequenceNumber(10).setSetBreakpoints(request).build());
+            DebugRequest.newBuilder()
+                .setSequenceNumber(10)
+                .setSetBreakpoints(SetBreakpointsRequest.newBuilder().addAllBreakpoint(breakpoints))
+                .build());
     assertThat(response.hasSetBreakpoints()).isTrue();
     assertThat(response.getSequenceNumber()).isEqualTo(10);
   }
