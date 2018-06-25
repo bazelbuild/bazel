@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 
 /** Information about the C++ toolchain. */
 @SkylarkModule(name = "CcToolchainInfo", doc = "Information about the C++ compiler being used.")
@@ -54,8 +56,18 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
   @SkylarkCallable(
       name = "unfiltered_compiler_options",
       doc =
-          "Returns the default list of options which cannot be filtered by BUILD "
-              + "rules. These should be appended to the command line after filtering.")
+          "<b>Deprecated</b>. Returns the default list of options which cannot be filtered by "
+          + "BUILD rules. These should be appended to the command line after filtering.",
+      parameters = {
+        @Param(
+            name = "features",
+            doc = "Unused.",
+            positional = true,
+            named = false,
+            type = SkylarkList.class
+        )
+      }
+  )
   // TODO(b/24373706): Remove this method once new C++ toolchain API is available
   public ImmutableList<String> getUnfilteredCompilerOptionsWithSysroot(
       Iterable<String> featuresNotUsedAnymore);
@@ -109,7 +121,17 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
       doc =
           "Returns the immutable list of linker options for fully statically linked "
               + "outputs. Does not include command-line options passed via --linkopt or "
-              + "--linkopts.")
+              + "--linkopts.",
+      parameters = {
+        @Param(
+            name = "shared_lib",
+            doc = "If true, returns the link options for a shared library.",
+            positional = true,
+            named = false,
+            type = Boolean.class
+        )
+      }
+  )
   @Deprecated
   public ImmutableList<String> getFullyStaticLinkOptions(Boolean sharedLib) throws EvalException;
 
@@ -118,7 +140,17 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
       doc =
           "Returns the immutable list of linker options for mostly statically linked "
               + "outputs. Does not include command-line options passed via --linkopt or "
-              + "--linkopts.")
+              + "--linkopts.",
+      parameters = {
+        @Param(
+            name = "shared_lib",
+            doc = "If true, returns the link options for a shared library.",
+            positional = true,
+            named = false,
+            type = Boolean.class
+        )
+      }
+  )
   @Deprecated
   public ImmutableList<String> getMostlyStaticLinkOptions(Boolean sharedLib);
 
@@ -127,7 +159,16 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
       doc =
           "Returns the immutable list of linker options for artifacts that are not "
               + "fully or mostly statically linked. Does not include command-line options "
-              + "passed via --linkopt or --linkopts."
+              + "passed via --linkopt or --linkopts.",
+      parameters = {
+        @Param(
+            name = "shared_lib",
+            doc = "If true, returns the link options for a shared library.",
+            positional = true,
+            named = false,
+            type = Boolean.class
+        )
+      }
   )
   @Deprecated
   public ImmutableList<String> getDynamicLinkOptions(Boolean sharedLib);

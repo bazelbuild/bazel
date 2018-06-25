@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 
 /**
  * The C++ configuration fragment.
@@ -62,10 +64,19 @@ public interface CppConfigurationApi <InvalidConfigurationExceptionT extends Exc
   @SkylarkCallable(
     name = "compiler_options",
     doc =
-        "Returns the default options to use for compiling C, C++, and assembler. "
-            + "This is just the options that should be used for all three languages. "
+        "<b>Deprecated.</b> Returns the default options to use for compiling C, C++, and "
+            + "assembler. This is just the options that should be used for all three languages. "
             + "There may be additional C-specific or C++-specific options that should be used, "
-            + "in addition to the ones returned by this method"
+            + "in addition to the ones returned by this method",
+    parameters = {
+      @Param(
+          name = "features",
+          doc = "Unused.",
+          positional = true,
+          named = false,
+          type = SkylarkList.class
+      )
+    }
   )
   @Deprecated
   public ImmutableList<String> getCompilerOptions(Iterable<String> featuresNotUsedAnymore);
@@ -84,7 +95,16 @@ public interface CppConfigurationApi <InvalidConfigurationExceptionT extends Exc
     doc =
         "Returns the list of additional C++-specific options to use for compiling C++. "
             + "These should be go on the command line after the common options returned by "
-            + "<code>compiler_options</code>"
+            + "<code>compiler_options</code>",
+    parameters = {
+      @Param(
+          name = "features",
+          doc = "Unused.",
+          positional = true,
+          named = false,
+          type = SkylarkList.class
+      )
+    }
   )
   @Deprecated
   public ImmutableList<String> getCxxOptions(Iterable<String> featuresNotUsedAnymore);
@@ -93,7 +113,16 @@ public interface CppConfigurationApi <InvalidConfigurationExceptionT extends Exc
     name = "unfiltered_compiler_options",
     doc =
         "Returns the default list of options which cannot be filtered by BUILD "
-            + "rules. These should be appended to the command line after filtering."
+            + "rules. These should be appended to the command line after filtering.",
+    parameters = {
+      @Param(
+          name = "features",
+          doc = "Unused.",
+          positional = true,
+          named = false,
+          type = SkylarkList.class
+      )
+    }
   )
   public ImmutableList<String> getUnfilteredCompilerOptionsWithLegacySysroot(
       Iterable<String> featuresNotUsedAnymore);
@@ -112,7 +141,23 @@ public interface CppConfigurationApi <InvalidConfigurationExceptionT extends Exc
     doc =
         "Returns the immutable list of linker options for fully statically linked "
             + "outputs. Does not include command-line options passed via --linkopt or "
-            + "--linkopts."
+            + "--linkopts.",
+    parameters = {
+      @Param(
+          name = "features",
+          doc = "Unused.",
+          positional = true,
+          named = false,
+          type = SkylarkList.class
+      ),
+      @Param(
+          name = "shared_lib",
+          doc = "If true, returns the link options for a shared library.",
+          positional = true,
+          named = false,
+          type = Boolean.class
+      )
+    }
   )
   @Deprecated
   public ImmutableList<String> getFullyStaticLinkOptions(
@@ -123,7 +168,23 @@ public interface CppConfigurationApi <InvalidConfigurationExceptionT extends Exc
     doc =
         "Returns the immutable list of linker options for mostly statically linked "
             + "outputs. Does not include command-line options passed via --linkopt or "
-            + "--linkopts."
+            + "--linkopts.",
+    parameters = {
+      @Param(
+          name = "features",
+          doc = "Unused.",
+          positional = true,
+          named = false,
+          type = SkylarkList.class
+      ),
+      @Param(
+          name = "shared_lib",
+          doc = "If true, returns the link options for a shared library.",
+          positional = true,
+          named = false,
+          type = Boolean.class
+      )
+    }
   )
   @Deprecated
   public ImmutableList<String> getMostlyStaticLinkOptions(
@@ -134,7 +195,23 @@ public interface CppConfigurationApi <InvalidConfigurationExceptionT extends Exc
     doc =
         "Returns the immutable list of linker options for artifacts that are not "
             + "fully or mostly statically linked. Does not include command-line options "
-            + "passed via --linkopt or --linkopts."
+            + "passed via --linkopt or --linkopts.",
+    parameters = {
+      @Param(
+          name = "features",
+          doc = "Unused.",
+          positional = true,
+          named = false,
+          type = SkylarkList.class
+      ),
+      @Param(
+          name = "shared_lib",
+          doc = "If true, returns the link options for a shared library.",
+          positional = true,
+          named = false,
+          type = Boolean.class
+      )
+    }
   )
   @Deprecated
   public ImmutableList<String> getDynamicLinkOptions(
