@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -37,7 +38,16 @@ public interface DottedVersionApi<SelfT extends DottedVersionApi<?>>
       name = "compare_to",
       doc =
           "Compares based on most signifigant (first) not-matching version component. "
-              + "So, for example, 1.2.3 < 1.2.4"
+              + "So, for example, 1.2.3 < 1.2.4",
+      parameters = {
+        @Param(
+            name = "other",
+            positional = true,
+            named = false,
+            type = DottedVersionApi.class,
+            doc = "The other dotted version."
+        )
+      }
   )
   public int compareTo_skylark(SelfT other);
 }
