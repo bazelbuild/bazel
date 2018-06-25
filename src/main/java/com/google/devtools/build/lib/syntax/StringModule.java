@@ -898,7 +898,7 @@ public final class StringModule {
             name = "sub",
             allowedTypes = {
               @ParamType(type = String.class),
-              @ParamType(type = SkylarkList.class, generic1 = String.class),
+              @ParamType(type = Tuple.class, generic1 = String.class),
             },
             legacyNamed = true,
             doc = "The substring to check."),
@@ -924,8 +924,8 @@ public final class StringModule {
     }
 
     @SuppressWarnings("unchecked")
-    SkylarkList<String> subs = (SkylarkList<String>) sub;
-    for (String s : subs.getImmutableList()) {
+    Tuple<String> subs = (Tuple<String>) sub;
+    for (String s : subs) {
       if (str.endsWith(s)) {
         return true;
       }
@@ -989,7 +989,7 @@ public final class StringModule {
             name = "sub",
             allowedTypes = {
               @ParamType(type = String.class),
-              @ParamType(type = SkylarkList.class, generic1 = String.class),
+              @ParamType(type = Tuple.class, generic1 = String.class),
             },
             legacyNamed = true,
             doc = "The substring to check."),
@@ -1015,8 +1015,8 @@ public final class StringModule {
     }
 
     @SuppressWarnings("unchecked")
-    SkylarkList<String> subs = (SkylarkList<String>) sub;
-    for (String s : subs.getImmutableList()) {
+    Tuple<String> subs = (Tuple<String>) sub;
+    for (String s : subs) {
       if (str.startsWith(s)) {
         return true;
       }

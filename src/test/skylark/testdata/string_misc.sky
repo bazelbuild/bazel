@@ -70,6 +70,9 @@ assert_eq('a'.endswith(('a', 'a')), True)
 assert_eq(''.endswith(('a', '')), True)
 assert_eq(''.endswith(('', '')), True)
 assert_eq(''.endswith(('a', 'a')), False)
+---
+'a'.endswith(['a']) ### expected value of type 'string or tuple of strings' for parameter 'sub', in method call endswith(list) of 'string'
+---
 
 # startswith
 assert_eq('Apricot'.startswith('Apr'), True)
@@ -86,6 +89,9 @@ assert_eq('a'.startswith(('a', 'a')), True)
 assert_eq(''.startswith(('a', '')), True)
 assert_eq(''.startswith(('', '')), True)
 assert_eq(''.startswith(('a', 'a')), False)
+---
+'a'.startswith(['a']) ### expected value of type 'string or tuple of strings' for parameter 'sub', in method call startswith(list) of 'string'
+---
 
 # substring
 assert_eq('012345678'[0:-1], "01234567")
