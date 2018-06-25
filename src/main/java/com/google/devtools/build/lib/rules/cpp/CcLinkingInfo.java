@@ -40,14 +40,24 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
           FunctionSignature.of(
               /* numMandatoryPositionals= */ 0,
               /* numOptionalPositionals= */ 0,
+              // TODO(plf): Make CcLinkParams parameters mandatory once existing rules have been
+              // migrated.
               /* numMandatoryNamedOnly= */ 0,
               /* starArg= */ false,
               /* kwArg= */ false,
-              "cc_link_params_store",
+              "static_shared_params",
+              "static_no_shared_params",
+              "no_static_shared_params",
+              "no_static_no_shared_params",
               "cc_runfiles"),
-          /* defaultValues= */ ImmutableList.of(Runtime.NONE, Runtime.NONE),
+          /* defaultValues= */ ImmutableList.of(
+              Runtime.NONE, Runtime.NONE, Runtime.NONE, Runtime.NONE, Runtime.NONE),
           /* types= */ ImmutableList.of(
-              SkylarkType.of(CcLinkParamsStore.class), SkylarkType.of(CcRunfiles.class)));
+              SkylarkType.of(CcLinkParams.class),
+              SkylarkType.of(CcLinkParams.class),
+              SkylarkType.of(CcLinkParams.class),
+              SkylarkType.of(CcLinkParams.class),
+              SkylarkType.of(CcRunfiles.class)));
 
   @Nullable
   private static Object nullIfNone(Object object) {
@@ -67,10 +77,28 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
             Object[] args, Environment env, Location loc) throws EvalException {
           CcCommon.checkLocationWhitelisted(loc);
           int i = 0;
-          CcLinkParamsStore ccLinkParamsStore = (CcLinkParamsStore) nullIfNone(args[i++]);
+          CcLinkParams staticSharedParams = (CcLinkParams) nullIfNone(args[i++]);
+          CcLinkParams staticNoSharedParams = (CcLinkParams) nullIfNone(args[i++]);
+          CcLinkParams noStaticSharedParams = (CcLinkParams) nullIfNone(args[i++]);
+          CcLinkParams noStaticNoSharedParams = (CcLinkParams) nullIfNone(args[i++]);
           CcRunfiles ccRunfiles = (CcRunfiles) nullIfNone(args[i++]);
           CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-          ccLinkingInfoBuilder.setCcLinkParamsStore(ccLinkParamsStore);
+          if (staticSharedParams != null) {
+            if (staticNoSharedParams == null
+                || noStaticSharedParams == null
+                || noStaticNoSharedParams == null) {
+              throw new EvalException(
+                  loc,
+                  "Every CcLinkParams parameter must be passed to CcLinkingInfo "
+                      + "if one of them is passed.");
+            }
+            ccLinkingInfoBuilder.setCcLinkParamsStore(
+                new CcLinkParamsStore(
+                    staticSharedParams,
+                    staticNoSharedParams,
+                    noStaticSharedParams,
+                    noStaticNoSharedParams));
+          }
           // TODO(plf): The CcDynamicLibrariesForRuntime provider can be removed perhaps. Do not
           // add to the API until we know for sure. The CcRunfiles provider is already in the API
           // at the time of this comment (cl/200184914). Perhaps it can be removed but Skylark rules
