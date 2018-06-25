@@ -23,8 +23,8 @@ namespace launcher {
 class BashBinaryLauncher : public BinaryLauncherBase {
  public:
   BashBinaryLauncher(const LaunchDataParser::LaunchInfo& launch_info, int argc,
-                     char* argv[])
-      : BinaryLauncherBase(launch_info, argc, argv){}
+                     wchar_t* argv[])
+      : BinaryLauncherBase(launch_info, argc, argv) {}
   ExitCode Launch();
 };
 

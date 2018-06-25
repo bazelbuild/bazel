@@ -19,6 +19,7 @@
 
 #include <cinttypes>
 #include <string>
+#include <vector>
 
 namespace blaze_util {
 
@@ -206,6 +207,38 @@ void ForEachDirectoryEntry(const std::string &path,
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 std::wstring GetCwdW();
+bool MakeDirectoriesW(const std::wstring &path, unsigned int mode);
+
+// Interface to be implemented by ForEachDirectoryEntryW clients.
+class DirectoryEntryConsumerW {
+ public:
+  virtual ~DirectoryEntryConsumerW() {}
+
+  // This method is called for each entry in a directory.
+  // `name` is the full path of the entry.
+  // `is_directory` is true if this entry is a directory (but false if this is a
+  // symlink pointing to a directory).
+  virtual void Consume(const std::wstring &name, bool is_directory) = 0;
+};
+
+// Lists all files in `path` and all of its subdirectories.
+//
+// Does not follow symlinks / junctions.
+//
+// Populates `result` with the full paths of the files. Every entry will have
+// `path` as its prefix. If `path` is a file, `result` contains just this
+// file.
+void GetAllFilesUnderW(const std::wstring &path,
+                       std::vector<std::wstring> *result);
+
+// Visible for testing only.
+typedef void (*_ForEachDirectoryEntryW)(const std::wstring &path,
+                                        DirectoryEntryConsumerW *consume);
+
+// Visible for testing only.
+void _GetAllFilesUnderW(const std::wstring &path,
+                        std::vector<std::wstring> *result,
+                        _ForEachDirectoryEntryW walk_entries);
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
 
 }  // namespace blaze_util

@@ -308,4 +308,8 @@ unique_ptr<wchar_t[]> CstringToWstring(const char *input) {
   return UstringToVstring<char, wchar_t>(input, mbstowcs, "%s");
 }
 
+std::wstring CstringToWstring(const std::string &input) {
+  return wstring(CstringToWstring(input.c_str()).get());
+}
+
 }  // namespace blaze_util

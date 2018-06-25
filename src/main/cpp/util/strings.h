@@ -115,6 +115,7 @@ std::string WstringToString(const std::wstring &input);
 // Convert a char string to a wchar_t string. Useful when passing arguments to
 // widechar Windows API functions.
 std::unique_ptr<wchar_t[]> CstringToWstring(const char *input);
+std::wstring CstringToWstring(const std::string &input);
 
 }  // namespace blaze_util
 

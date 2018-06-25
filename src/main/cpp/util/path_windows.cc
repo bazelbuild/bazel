@@ -396,6 +396,10 @@ bool IsAbsolute(const std::string& path) {
   return IsRootOrAbsolute(path, false);
 }
 
+bool IsAbsolute(const std::wstring& path) {
+  return IsRootOrAbsolute(path, false);
+}
+
 bool IsRootDirectoryW(const std::wstring& path) {
   return IsRootOrAbsolute(path, true);
 }

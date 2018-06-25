@@ -70,7 +70,12 @@ std::string MakeAbsoluteAndResolveWindowsEnvvars(const std::string &path);
 // is that this would add more complexity to the implementation file(s)? of
 // path.h, which would have to have the platform-specific implementations.
 #if defined(_WIN32) || defined(__CYGWIN__)
+bool IsDevNull(const wchar_t *path);
+
+bool IsAbsolute(const std::wstring &path);
+
 const wchar_t *RemoveUncPrefixMaybe(const wchar_t *ptr);
+
 void AddUncPrefixMaybe(std::wstring *path);
 
 std::pair<std::wstring, std::wstring> SplitPathW(const std::wstring &path);

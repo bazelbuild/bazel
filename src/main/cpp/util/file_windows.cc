@@ -32,17 +32,16 @@
 
 namespace blaze_util {
 
-using std::basic_string;
-using std::pair;
-using std::string;
-using std::unique_ptr;
-using std::wstring;
 using bazel::windows::AutoHandle;
 using bazel::windows::GetLongPath;
 using bazel::windows::HasUncPrefix;
 using bazel::windows::OpenDirectory;
-
-
+using std::basic_string;
+using std::pair;
+using std::string;
+using std::unique_ptr;
+using std::vector;
+using std::wstring;
 
 // Returns true if `path` refers to a directory or (non-dangling) junction.
 // `path` must be a normalized Windows path, with UNC prefix (and absolute) if
@@ -54,8 +53,6 @@ static bool IsDirectoryW(const wstring& path);
 // `path` must be a normalized Windows path, with UNC prefix (and absolute) if
 // necessary.
 static bool UnlinkPathW(const wstring& path);
-
-static bool MakeDirectoriesW(const wstring& path);
 
 static bool CanReadFileW(const wstring& path);
 
@@ -806,7 +803,7 @@ void SyncFile(const string& path) {
   // fsync always fails on Cygwin with "Permission denied" for some reason.
 }
 
-static bool MakeDirectoriesW(const wstring& path) {
+bool MakeDirectoriesW(const wstring& path, unsigned int mode) {
   if (path.empty()) {
     return false;
   }
@@ -821,7 +818,7 @@ static bool MakeDirectoriesW(const wstring& path) {
         << "MakeDirectoriesW(" << blaze_util::WstringToString(path)
         << ") could not find dirname: " << GetLastErrorString();
   }
-  return MakeDirectoriesW(parent) &&
+  return MakeDirectoriesW(parent, mode) &&
          ::CreateDirectoryW(path.c_str(), NULL) == TRUE;
 }
 
@@ -841,7 +838,7 @@ bool MakeDirectories(const string& path, unsigned int mode) {
         << "): AsAbsoluteWindowsPath failed: " << error;
     return false;
   }
-  return MakeDirectoriesW(wpath);
+  return MakeDirectoriesW(wpath, mode);
 }
 
 std::wstring GetCwdW() {
@@ -870,6 +867,79 @@ bool ChangeDirectory(const string& path) {
         << "ChangeDirectory(" << path << "): failed: " << error;
   }
   return ::SetCurrentDirectoryA(spath.c_str()) == TRUE;
+}
+
+class DirectoryTreeWalkerW : public DirectoryEntryConsumerW {
+ public:
+  DirectoryTreeWalkerW(vector<wstring>* files,
+                       _ForEachDirectoryEntryW walk_entries)
+      : _files(files), _walk_entries(walk_entries) {}
+
+  void Consume(const wstring& path, bool follow_directory) override {
+    if (follow_directory) {
+      Walk(path);
+    } else {
+      _files->push_back(path);
+    }
+  }
+
+  void Walk(const wstring& path) { _walk_entries(path, this); }
+
+ private:
+  vector<wstring>* _files;
+  _ForEachDirectoryEntryW _walk_entries;
+};
+
+void ForEachDirectoryEntryW(const wstring& path,
+                            DirectoryEntryConsumerW* consume) {
+  wstring wpath;
+  if (path.empty() || IsDevNull(path.c_str())) {
+    return;
+  }
+  string error;
+  if (!AsWindowsPath(path, &wpath, &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "ForEachDirectoryEntryW(" << path
+        << "): AsWindowsPath failed: " << GetLastErrorString();
+  }
+
+  static const wstring kUncPrefix(L"\\\\?\\");
+  static const wstring kDot(L".");
+  static const wstring kDotDot(L"..");
+  // Always add an UNC prefix to ensure we can work with long paths.
+  if (!HasUncPrefix(wpath.c_str())) {
+    wpath = kUncPrefix + wpath;
+  }
+  // Unconditionally add a trailing backslash. We know `wpath` has no trailing
+  // backslash because it comes from AsWindowsPath whose output is always
+  // normalized (see NormalizeWindowsPath).
+  wpath.append(L"\\");
+  WIN32_FIND_DATAW metadata;
+  HANDLE handle = ::FindFirstFileW((wpath + L"*").c_str(), &metadata);
+  if (handle == INVALID_HANDLE_VALUE) {
+    return;  // directory does not exist or is empty
+  }
+
+  do {
+    if (kDot != metadata.cFileName && kDotDot != metadata.cFileName) {
+      wstring wname = wpath + metadata.cFileName;
+      wstring name(/* omit prefix */ 4 + wname.c_str());
+      bool is_dir = (metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+      bool is_junc =
+          (metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+      consume->Consume(name, is_dir && !is_junc);
+    }
+  } while (::FindNextFileW(handle, &metadata));
+  ::FindClose(handle);
+}
+
+void GetAllFilesUnderW(const wstring& path, vector<wstring>* result) {
+  _GetAllFilesUnderW(path, result, &ForEachDirectoryEntryW);
+}
+
+void _GetAllFilesUnderW(const wstring& path, vector<wstring>* result,
+                        _ForEachDirectoryEntryW walk_entries) {
+  DirectoryTreeWalkerW(result, walk_entries).Walk(path);
 }
 
 void ForEachDirectoryEntry(const string &path,
