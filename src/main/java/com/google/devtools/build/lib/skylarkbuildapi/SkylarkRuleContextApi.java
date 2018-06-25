@@ -305,8 +305,18 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
 
   @SkylarkCallable(
     name = "tokenize",
-    doc = "Splits a shell command to a list of tokens.",
-    documented = false
+    doc = "Splits a shell command into a list of tokens.",
+    // TODO(cparsons): Look into flipping this to true.
+    documented = false,
+    parameters = {
+      @Param(
+        name = "option",
+        positional = true,
+        named = false,
+        type = String.class,
+        doc = "The string to split."
+      ),
+    }
   )
   public SkylarkList<String> tokenize(String optionString) throws FuncallException, EvalException;
 
@@ -316,7 +326,31 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
         "Expands all references to labels embedded within a string for all files using a mapping "
             + "from definition labels (i.e. the label in the output type attribute) to files. "
             + "Deprecated.",
-    documented = false
+    // TODO(cparsons): Look into flipping this to true.
+    documented = false,
+    parameters = {
+      @Param(
+        name = "expression",
+        positional = true,
+        named = false,
+        type = String.class,
+        doc = "The string expression to expand."
+      ),
+      @Param(
+        name = "files",
+        positional = true,
+        named = false,
+        type = SkylarkList.class,
+        doc = "The list of files."
+      ),
+      @Param(
+        name = "label_resolver",
+        positional = true,
+        named = false,
+        type = Label.class,
+        doc = "The label resolver."
+      ),
+    }
   )
   public String expand(
       @Nullable String expression, SkylarkList<Object> artifacts, Label labelResolver)
@@ -338,7 +372,25 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   )
   public FileApi newFileFromFilename(String filename) throws EvalException;
 
-  @SkylarkCallable(name = "new_file", documented = false)
+  @SkylarkCallable(name = "new_file",
+    documented = false,
+    parameters = {
+      @Param(
+        name = "root",
+        positional = true,
+        named = false,
+        type = FileRootApi.class,
+        doc = "The file root."
+      ),
+      @Param(
+        name = "filename",
+        positional = true,
+        named = false,
+        type = String.class,
+        doc = "The file name."
+      ),
+    }
+  )
   public FileApi newFileFromRoot(FileRootApi root, String filename) throws EvalException;
 
   @SkylarkCallable(
@@ -361,7 +413,33 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   )
   public FileApi newFileFromBaseFile(FileApi baseArtifact, String newBaseName) throws EvalException;
 
-  @SkylarkCallable(name = "new_file", documented = false)
+  @SkylarkCallable(
+    name = "new_file",
+    documented = false,
+    parameters = {
+      @Param(
+        name = "root",
+        positional = true,
+        named = false,
+        type = FileRootApi.class,
+        doc = "The file root."
+      ),
+      @Param(
+        name = "base_file",
+        positional = true,
+        named = false,
+        type = FileApi.class,
+        doc = "The base file."
+      ),
+      @Param(
+        name = "suffix",
+        positional = true,
+        named = false,
+        type = String.class,
+        doc = "The filename suffix."
+      ),
+    }
+  )
   public FileApi newFileFromRootAndBase(FileRootApi root, FileApi baseArtifact, String suffix)
       throws EvalException;
 
@@ -383,7 +461,23 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
 
   @SkylarkCallable(
     name = "check_placeholders",
-    documented = false
+    documented = false,
+    parameters = {
+      @Param(
+          name = "template",
+          positional = true,
+          named = false,
+          type = String.class,
+          doc = "The template."
+      ),
+      @Param(
+          name = "allowed_placeholders",
+          positional = true,
+          named = false,
+          type = SkylarkList.class,
+          doc = "The allowed placeholders."
+      ),
+    }
   )
   public boolean checkPlaceholders(String template, SkylarkList<Object> allowedPlaceholders)
       throws EvalException;
@@ -395,13 +489,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
               + "instead.<br>Returns a string after expanding all references to \"Make "
               + "variables\". The "
               + "variables must have the following format: <code>$(VAR_NAME)</code>. Also, "
-              + "<code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>. Parameters:"
-              + "<ul><li>The name of the attribute (<code>string</code>). It's only used for error "
-              + "reporting.</li>\n"
-              + "<li>The expression to expand (<code>string</code>). It can contain references to "
-              + "\"Make variables\".</li>\n"
-              + "<li>A mapping of additional substitutions (<code>dict</code> of "
-              + "<code>string</code> : <code>string</code>).</li></ul>\n"
+              + "<code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>."
               + "Examples:"
               + "<pre class=language-python>\n"
               + "ctx.expand_make_variables(\"cmd\", \"$(MY_VAR)\", {\"MY_VAR\": \"Hi\"})  "
@@ -409,7 +497,32 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
               + "ctx.expand_make_variables(\"cmd\", \"$$PWD\", {})  # == \"$PWD\"\n"
               + "</pre>"
               + "Additional variables may come from other places, such as configurations. Note "
-              + "that this function is experimental.")
+              + "that this function is experimental.",
+      parameters = {
+        @Param(
+            name = "attribute_name",
+            positional = true,
+            named = false,
+            type = String.class,
+            doc = "The attribute name. Used for error reporting."
+        ),
+        @Param(
+            name = "command",
+            positional = true,
+            named = false,
+            type = String.class,
+            doc = "The expression to expand. It can contain references to "
+              + "\"Make variables\"."
+        ),
+        @Param(
+            name = "additional_substitutions",
+            positional = true,
+            named = false,
+            type = SkylarkDict.class,
+            doc = "Additional substitutions to make beyond the default make variables."
+        ),
+      }
+  )
   public String expandMakeVariables(
       String attributeName, String command, final Map<String, String> additionalSubstitutions)
       throws EvalException;

@@ -15,10 +15,14 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * Interface for an object representing the type of file.
@@ -36,8 +40,21 @@ public interface FileTypeApi<FileApiT extends FileApi> {
     name = "filter",
     doc =
       "Returns a list created from the elements of the parameter containing all the "
-          + "<a href=\"File.html\"><code>File</code></a>s that match the FileType. The parameter "
-          + "must be a <a href=\"depset.html\"><code>depset</code></a> or a "
-          + "<a href=\"list.html\"><code>list</code></a>.")
+          + "<a href=\"File.html\"><code>File</code></a>s that match the FileType.",
+      parameters = {
+        @Param(
+            name = "files",
+            positional = true,
+            named = false,
+            allowedTypes = {
+                @ParamType(type = SkylarkNestedSet.class),
+                @ParamType(type = SkylarkList.class)
+            },
+            doc = "The files to match. This parameter "
+                + "must be a <a href=\"depset.html\"><code>depset</code></a> or a "
+                + "<a href=\"list.html\"><code>list</code></a>."
+        )
+      }
+  )
   public ImmutableList<FileApiT> filter(Object filesUnchecked) throws EvalException;
 }

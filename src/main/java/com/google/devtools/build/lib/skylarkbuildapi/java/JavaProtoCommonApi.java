@@ -82,7 +82,16 @@ public interface JavaProtoCommonApi<FileT extends FileApi,
       name = "has_proto_sources",
       doc = "Returns whether the given proto_library target contains proto sources. If there are no"
           + " sources it means that the proto_library is an alias library, which exports its"
-          + " dependencies."
+          + " dependencies.",
+      parameters = {
+        @Param(
+            name = "target",
+            positional = true,
+            named = false,
+            type = TransitiveInfoCollectionApi.class,
+            doc = "The proto_library target."
+        ),
+      }
   )
   public boolean hasProtoSources(TransitiveInfoCollectionT target);
 
