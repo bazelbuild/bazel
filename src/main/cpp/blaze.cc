@@ -1052,7 +1052,7 @@ static void ExtractData(const string &self_path) {
   } else {
     if (!blaze_util::IsDirectory(globals->options->install_base)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "Install base directory '" << globals->options->install_base
+          << "install base directory '" << globals->options->install_base
           << "' could not be created. It exists but is not a directory.";
     }
 
@@ -1062,31 +1062,11 @@ static void ExtractData(const string &self_path) {
         globals->options->install_base, "_embedded_binaries");
     for (const auto &it : globals->extracted_binaries) {
       string path = blaze_util::JoinPath(real_install_dir, it);
-      // Check that the file exists and is readable.
-      if (blaze_util::IsDirectory(path)) {
-        continue;
-      }
-      if (!blaze_util::CanReadFile(path)) {
+      if (!mtime->IsUntampered(path)) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
             << "corrupt installation: file '" << path
-            << "' missing. Please remove '" << globals->options->install_base
-            << "' and try again.";
-      }
-      // Check that the timestamp is in the future. A past timestamp would
-      // indicate that the file has been tampered with.
-      // See ActuallyExtractData().
-      bool is_in_future = false;
-      if (!mtime.get()->GetIfInDistantFuture(path, &is_in_future)) {
-        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-            << "Error: could not retrieve mtime of file '" << path
-            << "'. Please remove '" << globals->options->install_base
-            << "' and try again.";
-      }
-      if (!is_in_future) {
-        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-            << "Error: corrupt installation: file '" << path
-            << "' modified.  Please remove '" << globals->options->install_base
-            << "' and try again.";
+            << "' is missing or modified.  Please remove '"
+            << globals->options->install_base << "' and try again.";
       }
     }
   }

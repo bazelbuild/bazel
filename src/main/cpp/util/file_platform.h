@@ -31,10 +31,15 @@ class IFileMtime {
  public:
   virtual ~IFileMtime() {}
 
-  // Queries the mtime of `path` to see whether it's in the distant future.
-  // Returns true if querying succeeded and stores the result in `result`.
-  // Returns false if querying failed.
-  virtual bool GetIfInDistantFuture(const std::string &path, bool *result) = 0;
+  // Checks if `path` is a file/directory in the embedded tools directory that
+  // was not tampered with.
+  // Returns true if `path` is a directory or directory symlink, or if `path` is
+  // a file with an mtime in the distant future.
+  // Returns false otherwise, or if querying the information failed.
+  // TODO(laszlocsomor): move this function, and with it the whole IFileMtime
+  // class into blaze_util_<platform>.cc, because it is Bazel-specific logic,
+  // not generic file-handling logic.
+  virtual bool IsUntampered(const std::string &path) = 0;
 
   // Sets the mtime of file under `path` to the current time.
   // Returns true if the mtime was changed successfully.
