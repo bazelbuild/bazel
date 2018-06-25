@@ -39,12 +39,6 @@ def _http_archive_impl(ctx):
     if ctx.attr.build_file and ctx.attr.build_file_content:
         ctx.fail("Only one of build_file and build_file_content can be provided.")
 
-    if ctx.attr.build_file:
-        print("ctx.attr.build_file %s, path %s" %
-              (str(ctx.attr.build_file), ctx.path(ctx.attr.build_file)))
-    for patchfile in ctx.attr.patches:
-        print("patch file %s, path %s" % (patchfile, ctx.path(patchfile)))
-
     all_urls = []
     if ctx.attr.urls:
         all_urls = ctx.attr.urls
