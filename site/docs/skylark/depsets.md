@@ -284,7 +284,8 @@ print(create("topological").to_list())  # ["d", "b", "c", "a"]
 Due to how traversals are implemented, the order must be specified at the time
 the depset is created with the constructor’s `order` keyword argument. If this
 argument is omitted, the depset has the special `default` order, in which case
-there are no guarantees about the order of any of its elements.
+there are no guarantees about the order of any of its elements (except that it
+is deterministic).
 
 For safety, depsets with different orders cannot be merged with the `+` operator
 unless one of them uses the default order; the resulting depset’s order is the
