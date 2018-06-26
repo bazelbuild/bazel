@@ -150,7 +150,7 @@ final class ThreadHandler {
     threadsToPause.clear();
     pausingAllThreads = false;
     synchronized (this) {
-      for (PausedThreadState thread : pausedThreads.values()) {
+      for (PausedThreadState thread : ImmutableList.copyOf(pausedThreads.values())) {
         // continue-all doesn't support stepping.
         resumePausedThread(thread, SkylarkDebuggingProtos.Stepping.NONE);
       }

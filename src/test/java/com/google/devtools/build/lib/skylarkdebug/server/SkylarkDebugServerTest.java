@@ -145,6 +145,41 @@ public class SkylarkDebugServerTest {
   }
 
   @Test
+  public void testResumeAllThreads() throws Exception {
+    sendStartDebuggingRequest();
+    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+
+    Location breakpoint =
+        Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
+    setBreakpoints(ImmutableList.of(breakpoint));
+
+    // evaluate in two separate worker threads
+    execInWorkerThread(buildFile, newEnvironment());
+    execInWorkerThread(buildFile, newEnvironment());
+
+    // wait for both breakpoints to be hit
+    boolean paused =
+        client.waitForEvents(
+            list -> list.stream().filter(DebugEvent::hasThreadPaused).count() == 2,
+            Duration.ofSeconds(5));
+
+    assertThat(paused).isTrue();
+
+    client.sendRequestAndWaitForResponse(
+        DebugRequest.newBuilder()
+            .setSequenceNumber(45)
+            .setContinueExecution(ContinueExecutionRequest.newBuilder())
+            .build());
+
+    boolean resumed =
+        client.waitForEvents(
+            list -> list.stream().filter(DebugEvent::hasThreadContinued).count() == 2,
+            Duration.ofSeconds(5));
+
+    assertThat(resumed).isTrue();
+  }
+
+  @Test
   public void testPauseAtBreakpoint() throws Exception {
     sendStartDebuggingRequest();
     BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
