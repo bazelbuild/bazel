@@ -1544,6 +1544,24 @@ java_test(
     ],
 )
 
+java_test(
+    name = "java-integration-tests",
+    srcs = glob(["integration/blackbox/**/*.java"]),
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        ":guava_junit_truth",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib:os_util",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+    ],
+)
+
 java_library(
     name = "guava_junit_truth",
     testonly = 1,
