@@ -616,6 +616,34 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testDefaultInfoWithRunfilesConstructor() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        "sh_binary(name = 'tryme',",
+        "          srcs = [':tryme.sh'],",
+        "          visibility = ['//visibility:public'],",
+        ")");
+
+    scratch.file(
+        "src/rulez.bzl",
+        "def  _impl(ctx):",
+        "   info = DefaultInfo(runfiles = ctx.runfiles(files=[ctx.executable.dep]))",
+        "   if info.default_runfiles.files.to_list()[0] != ctx.executable.dep:",
+        "       fail('expected runfile to be in info.default_runfiles')",
+        "   return [info]",
+        "r = rule(_impl,",
+        "         attrs = {",
+        "            'dep' : attr.label(executable = True, mandatory = True, cfg = 'host'),",
+        "         }",
+        ")");
+
+    scratch.file(
+        "src/BUILD", "load(':rulez.bzl', 'r')", "r(name = 'r_tools', dep = '//pkg:tryme')");
+
+    assertThat(getConfiguredTarget("//src:r_tools")).isNotNull();
+  }
+
+  @Test
   public void testInstrumentedFilesProviderWithCodeCoverageDiabled() throws Exception {
     scratch.file(
         "test/skylark/extension.bzl",

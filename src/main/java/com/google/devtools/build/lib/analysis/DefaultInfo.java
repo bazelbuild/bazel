@@ -103,7 +103,13 @@ public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
 
   @Override
   public Runfiles getDefaultRunfiles() {
-    return defaultRunfiles;
+    if (dataRunfiles == null && defaultRunfiles == null) {
+      // This supports the legacy skylark runfiles constructor -- if the 'runfiles' attribute
+      // is used, then default_runfiles will return all runfiles.
+      return runfiles;
+    } else {
+      return defaultRunfiles;
+    }
   }
 
   /**
