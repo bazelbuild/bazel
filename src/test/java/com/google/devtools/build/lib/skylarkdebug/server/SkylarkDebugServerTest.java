@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.syntax.DebugServerUtils;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -378,7 +379,35 @@ public class SkylarkDebugServerTest {
   }
 
   @Test
-  public void testEvaluateRequest() throws Exception {
+  public void testEvaluateRequestWithExpression() throws Exception {
+    sendStartDebuggingRequest();
+    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    Environment env = newEnvironment();
+
+    Location breakpoint =
+        Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
+    setBreakpoints(ImmutableList.of(breakpoint));
+
+    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    long threadId = evaluationThread.getId();
+
+    // wait for breakpoint to be hit
+    client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+
+    DebugEvent response =
+        client.sendRequestAndWaitForResponse(
+            DebugRequest.newBuilder()
+                .setSequenceNumber(123)
+                .setEvaluate(
+                    EvaluateRequest.newBuilder().setThreadId(threadId).setStatement("x[1]").build())
+                .build());
+    assertThat(response.hasEvaluate()).isTrue();
+    assertThat(response.getEvaluate().getResult())
+        .isEqualTo(DebuggerSerialization.getValueProto("Evaluation result", 2));
+  }
+
+  @Test
+  public void testEvaluateRequestWithAssignmentStatement() throws Exception {
     sendStartDebuggingRequest();
     BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
     Environment env = newEnvironment();
@@ -400,12 +429,55 @@ public class SkylarkDebugServerTest {
                 .setEvaluate(
                     EvaluateRequest.newBuilder()
                         .setThreadId(threadId)
-                        .setExpression("x[1]")
+                        .setStatement("x = [5,6]")
                         .build())
                 .build());
-    assertThat(response.hasEvaluate()).isTrue();
     assertThat(response.getEvaluate().getResult())
-        .isEqualTo(DebuggerSerialization.getValueProto("Evaluation result", 2));
+        .isEqualTo(
+            DebuggerSerialization.getValueProto(
+                "Evaluation result", SkylarkList.createImmutable(ImmutableList.of(5, 6))));
+
+    ListFramesResponse frames = listFrames(threadId);
+    assertThat(frames.getFrame(0).getScope(0).getBindingList())
+        .contains(
+            DebuggerSerialization.getValueProto(
+                "x", SkylarkList.createImmutable(ImmutableList.of(5, 6))));
+  }
+
+  @Test
+  public void testEvaluateRequestWithExpressionStatementMutatingState() throws Exception {
+    sendStartDebuggingRequest();
+    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    Environment env = newEnvironment();
+
+    Location breakpoint =
+        Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
+    setBreakpoints(ImmutableList.of(breakpoint));
+
+    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    long threadId = evaluationThread.getId();
+
+    // wait for breakpoint to be hit
+    client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+
+    DebugEvent response =
+        client.sendRequestAndWaitForResponse(
+            DebugRequest.newBuilder()
+                .setSequenceNumber(123)
+                .setEvaluate(
+                    EvaluateRequest.newBuilder()
+                        .setThreadId(threadId)
+                        .setStatement("x.append(4)")
+                        .build())
+                .build());
+    assertThat(response.getEvaluate().getResult())
+        .isEqualTo(DebuggerSerialization.getValueProto("Evaluation result", Runtime.NONE));
+
+    ListFramesResponse frames = listFrames(threadId);
+    assertThat(frames.getFrame(0).getScope(0).getBindingList())
+        .contains(
+            DebuggerSerialization.getValueProto(
+                "x", SkylarkList.createImmutable(ImmutableList.of(1, 2, 3, 4))));
   }
 
   @Test
@@ -429,10 +501,7 @@ public class SkylarkDebugServerTest {
             DebugRequest.newBuilder()
                 .setSequenceNumber(123)
                 .setEvaluate(
-                    EvaluateRequest.newBuilder()
-                        .setThreadId(threadId)
-                        .setExpression("z[0]")
-                        .build())
+                    EvaluateRequest.newBuilder().setThreadId(threadId).setStatement("z[0]").build())
                 .build());
     assertThat(response.hasError()).isTrue();
     assertThat(response.getError().getMessage()).isEqualTo("name 'z' is not defined");

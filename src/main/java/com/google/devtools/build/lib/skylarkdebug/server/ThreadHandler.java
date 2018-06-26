@@ -235,7 +235,7 @@ final class ThreadHandler {
     }
   }
 
-  SkylarkDebuggingProtos.Value evaluate(long threadId, String expression)
+  SkylarkDebuggingProtos.Value evaluate(long threadId, String statement)
       throws DebugRequestException {
     Debuggable debuggable;
     synchronized (this) {
@@ -250,7 +250,7 @@ final class ThreadHandler {
     // accessed in response to a client request, and requests are handled serially
     // TODO(bazel-team): support asynchronous replies, and use finer-grained locks
     try {
-      Object result = doEvaluate(debuggable, expression);
+      Object result = doEvaluate(debuggable, statement);
       return DebuggerSerialization.getValueProto("Evaluation result", result);
     } catch (EvalException | InterruptedException e) {
       throw new DebugRequestException(e.getMessage());

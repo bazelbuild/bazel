@@ -201,7 +201,7 @@ public final class SkylarkDebugServer implements DebugServer {
       long sequenceNumber, SkylarkDebuggingProtos.EvaluateRequest request)
       throws DebugRequestException {
     return DebugEventHelper.evaluateResponse(
-        sequenceNumber, threadHandler.evaluate(request.getThreadId(), request.getExpression()));
+        sequenceNumber, threadHandler.evaluate(request.getThreadId(), request.getStatement()));
   }
 
   /** Handles a {@code ContinueExecutionRequest} and returns its response. */

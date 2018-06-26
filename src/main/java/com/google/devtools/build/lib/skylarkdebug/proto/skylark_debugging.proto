@@ -66,14 +66,14 @@ message ContinueExecutionRequest {
   Stepping stepping = 2;
 }
 
-// A request to evaluate a Skylark expression in a thread's current environment.
+// A request to evaluate a Skylark statement in a thread's current environment.
 message EvaluateRequest {
   // The identifier of the thread in whose execution context the expression
   // should be evaluated.
   int64 thread_id = 1;
 
-  // The Skylark expression to evaluate.
-  string expression = 2;
+  // The Skylark statement to evaluate.
+  string statement = 2;
 }
 
 // A request to list the stack frames of a thread.
@@ -141,7 +141,7 @@ message ContinueExecutionResponse {
 
 // The response to an EvaluateRequest.
 message EvaluateResponse {
-  // The result of evaluating an expression.
+  // The result of evaluating a statement.
   Value result = 1;
 }
 
@@ -185,7 +185,8 @@ message Breakpoint {
   }
   // An optional condition for the breakpoint. When present, the breakpoint will
   // be triggered iff both the primary condition holds and this expression
-  // evaluates to True.
+  // evaluates to True. It is unspecified how many times this expression will be
+  // evaluated, so it should be free of side-effects.
   string expression = 2;
 }
 

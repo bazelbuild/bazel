@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
+import com.google.devtools.build.lib.syntax.Parser.ParsingLevel;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.SpellChecker;
@@ -1169,15 +1170,31 @@ public final class Environment implements Freezable, Debuggable {
   }
 
   @Override
-  public Object evaluate(String expression) throws EvalException, InterruptedException {
-    ParserInputSource inputSource =
-        ParserInputSource.create(expression, PathFragment.create("<debug eval>"));
+  public Object evaluate(String contents) throws EvalException, InterruptedException {
+    ParserInputSource input =
+        ParserInputSource.create(contents, PathFragment.create("<debug eval>"));
     EvalEventHandler eventHandler = new EvalEventHandler();
-    Expression expr = Parser.parseExpression(inputSource, eventHandler);
+    Statement statement = Parser.parseStatement(input, eventHandler, ParsingLevel.LOCAL_LEVEL);
     if (!eventHandler.messages.isEmpty()) {
-      throw new EvalException(expr.getLocation(), eventHandler.messages.get(0));
+      throw new EvalException(statement.getLocation(), eventHandler.messages.get(0));
     }
-    return expr.eval(this);
+    // TODO(bazel-team): move statement handling code to Eval
+    // deal with the most common case first
+    if (statement.kind() == Statement.Kind.EXPRESSION) {
+      return ((ExpressionStatement) statement).getExpression().doEval(this);
+    }
+    // all other statement types are executed directly
+    Eval.fromEnvironment(this).exec(statement);
+    switch (statement.kind()) {
+      case ASSIGNMENT:
+      case AUGMENTED_ASSIGNMENT:
+        return ((AssignmentStatement) statement).getLValue().getExpression().doEval(this);
+      case RETURN:
+        Expression expr = ((ReturnStatement) statement).getReturnExpression();
+        return expr != null ? expr.doEval(this) : Runtime.NONE;
+      default:
+        return Runtime.NONE;
+    }
   }
 
   @Override
