@@ -923,10 +923,8 @@ public final class CcCompilationHelper {
 
   /**
    * Create {@code CcCompilationContext} for cc compile action from generated inputs.
-   *
-   * <p>TODO(plf): Try to pull out CcCompilationContext building out of this class.
    */
-  public CcCompilationContext initializeCcCompilationContext() {
+  private CcCompilationContext initializeCcCompilationContext() {
     CcCompilationContext.Builder ccCompilationContextBuilder =
         new CcCompilationContext.Builder(ruleContext);
 
