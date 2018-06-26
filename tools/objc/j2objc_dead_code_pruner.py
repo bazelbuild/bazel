@@ -352,7 +352,9 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
                                               header_map,
                                               archive_source_file_mapping)
 
-  cmd_env = {}
+  # Copy the current processes' environment, as xcrunwrapper depends on these
+  # variables.
+  cmd_env = dict(os.environ)
   j2objc_cmd = ''
   if input_archive in archive_source_file_mapping:
     source_files = archive_source_file_mapping[input_archive]
