@@ -49,7 +49,7 @@ filegroup(
 # *before* the transition.
 alias(
     name = "java_runtime_alias",
-    actual = "//tools/jdk:current_java_runtime",
+    actual = "@bazel_tools//tools/jdk:current_java_runtime",
 )
 
 alias(

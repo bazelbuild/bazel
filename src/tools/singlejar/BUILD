@@ -310,7 +310,7 @@ sh_test(
     ],
     data = [
         ":singlejar",
-        "//tools/defaults:jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
         "@local_jdk//:jar",
     ],
     deps = ["//src/test/shell:bashunit"],
@@ -478,7 +478,7 @@ genrule(
     name = "stored_jar",
     srcs = [
         "output_jar.cc",
-        "//tools/defaults:jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     outs = ["stored.jar"],
     cmd = "$(location @local_jdk//:jar) -0cf \"$@\" $(location :output_jar.cc)",

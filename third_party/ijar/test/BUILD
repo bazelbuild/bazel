@@ -41,7 +41,7 @@ sh_test(
         # Intentionally bad test JAR: file count in central directory
         # wrong.
         "libwrongcentraldir.jar",
-        "//tools/defaults:jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
         "//tools/jdk:langtools",
     ],
     shard_count = 5,

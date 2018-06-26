@@ -90,9 +90,9 @@ function test_genrule_and_genquery() {
   diff $want ./bazel-bin/examples/gen/genquery \
     || fail "genrule and genquery output differs"
 
-  grep -qE "^//tools/jdk:jdk$" $want || {
+  grep -qE "^@bazel_tools//tools/jdk:jdk$" $want || {
     cat $want
-    fail "//tools/jdk:jdk not found in genquery output"
+    fail "@bazel_tools//tools/jdk:jdk not found in genquery output"
   }
 }
 

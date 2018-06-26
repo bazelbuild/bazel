@@ -49,9 +49,9 @@ filegroup(
 # so we cannot get it from the command-line options.
 genquery(
     name = "java_toolchain_content",
-    expression = "kind(java_toolchain, deps(//tools/defaults:java_toolchain))",
+    expression = "kind(java_toolchain, deps(@bazel_tools//tools/jdk:current_java_toolchain))",
     opts = ["--output=xml"],
-    scope = ["//tools/defaults:java_toolchain"],
+    scope = ["@bazel_tools//tools/jdk:current_java_toolchain"],
 )
 
 # Create dummy tools so we can do select to prevent building iOS target on
