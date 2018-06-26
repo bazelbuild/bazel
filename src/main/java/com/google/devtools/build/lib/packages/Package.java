@@ -402,7 +402,7 @@ public class Package {
     this.posts = ImmutableList.copyOf(builder.posts);
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
-    this.repositoryMapping = builder.repositoryMapping;
+    this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
     ImmutableMap.Builder<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
         repositoryMappingsBuilder = ImmutableMap.builder();
     if (!builder.externalPackageRepositoryMappings.isEmpty() && !builder.isWorkspace()) {
@@ -929,7 +929,7 @@ public class Package {
      * package)
      */
     Builder setRepositoryMapping(ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
-      this.repositoryMapping = repositoryMapping;
+      this.repositoryMapping = Preconditions.checkNotNull(repositoryMapping);
       return this;
     }
 
