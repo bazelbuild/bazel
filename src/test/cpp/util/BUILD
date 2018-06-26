@@ -140,6 +140,16 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "threadpool_test",
+    srcs = ["thrdpool_test.cc"],
+    deps = [
+        "//src/main/cpp/util:profiler",
+        "//src/main/cpp/util:threadpool",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "test_util",
     testonly = 1,

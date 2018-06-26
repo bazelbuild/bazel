@@ -168,6 +168,16 @@ cc_library(
 )
 
 cc_library(
+    name = "threadpool",
+    hdrs = ["thrdpool.h"],
+    srcs = ["thrdpool.cc"],
+    visibility = [
+        "//src/main/cpp:__pkg__",
+        "//src/test/cpp/util:__pkg__",
+    ],
+)
+
+cc_library(
     name = "blaze_exit_code",
     hdrs = ["exit_code.h"],
     visibility = ["//visibility:public"],
