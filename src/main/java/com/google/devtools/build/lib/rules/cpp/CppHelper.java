@@ -684,21 +684,6 @@ public class CppHelper {
 
   // TODO(bazel-team): figure out a way to merge these 2 methods. See the Todo in
   // CcCommonConfiguredTarget.noCoptsMatches().
-  /**
-   * Determines if we should apply -fPIC for this rule's C++ compilations. This determination is
-   * generally made by the global C++ configuration settings "needsPic" and "usePicForBinaries".
-   * However, an individual rule may override these settings by applying -fPIC" to its "nocopts"
-   * attribute. This allows incompatible rules to "opt out" of global PIC settings (see bug:
-   * "Provide a way to turn off -fPIC for targets that can't be built that way").
-   *
-   * @param ruleContext the context of the rule to check
-   * @return true if this rule's compilations should apply -fPIC, false otherwise
-   */
-  public static boolean usePicForDynamicLibraries(
-      RuleContext ruleContext, CcToolchainProvider toolchain) {
-    return ruleContext.getFragment(CppConfiguration.class).forcePic()
-        || toolchain.toolchainNeedsPic();
-  }
 
   /** Returns whether binaries must be compiled with position independent code. */
   public static boolean usePicForBinaries(RuleContext ruleContext, CcToolchainProvider toolchain) {

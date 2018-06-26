@@ -256,6 +256,19 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
   }
 
   /**
+   * Determines if we should apply -fPIC for this rule's C++ compilations. This determination is
+   * generally made by the global C++ configuration settings "needsPic" and "usePicForBinaries".
+   * However, an individual rule may override these settings by applying -fPIC" to its "nocopts"
+   * attribute. This allows incompatible rules to "opt out" of global PIC settings (see bug:
+   * "Provide a way to turn off -fPIC for targets that can't be built that way").
+   *
+   * @return true if this rule's compilations should apply -fPIC, false otherwise
+   */
+  public boolean usePicForDynamicLibraries() {
+    return getCppConfiguration().forcePic() || toolchainNeedsPic();
+  }
+
+  /**
    * Returns true if Fission is specified and supported by the CROSSTOOL for the build implied by
    * the given configuration and toolchain.
    */
