@@ -1,3 +1,111 @@
+## Release 0.15.0 (2018-06-26)
+
+```
+Baseline: b93ae42e8e693ccbcc387841a17f58259966fa38
+
+Cherry picks:
+   + 4b80f2455e7e49a95f3a4c9102a67a57dad52207:
+     Add option to enable Docker sandboxing.
+   + 6b1635279e8b33dc1ac505ac81825e38f8797a14:
+     Allow disabling the simple blob caches via CLI flag overrides.
+   + 4ec0a7524913ab2c4641368e3f8c09b347351a08:
+     Use BUILD.bazel instead of BUILD for external projects
+```
+
+Incompatible changes:
+
+  - Bazel now always runs binaries in with "bazel run" in
+    interactive mode. The "--nodirect_run" command line option is now
+    a no-op.
+  - "bazel run --noas_test" is not supported anymore.
+  - Indentation on the first line of a file was previously ignored.
+    This is now fixed.
+
+New features:
+
+  - C++,runfiles: to access data-dependencies (runfiles) in C++
+    programs, use the runfiles library built into Bazel. For usage
+    info, see
+    https://github.com/bazelbuild/bazel/blob/master/tools/cpp/runfiles
+    /runfiles.h
+
+Important changes:
+
+  - Bazel now allows almost all 7-bit ASCII characters in labels.
+  - Remove vestigial java_plugin.data attribute
+  - Bazel supports including select Java 8 APIs into Android apps
+    targeting pre-Nougat Android devices with
+    --experimental_desugar_java8_libs
+  - Flag `--incompatible_disable_glob_tracking` is removed.
+  - SkyQuery's rbuildfiles now returns targets corresponding to
+    broken packages.
+  - Introduce build support for providing cache prefetch hints.
+  - Update the skylark DefaultInfo documentation to spell out
+    runfiles, data_runfiles and default_runfiles
+  - An internal action for symlinking runfiles will use Command
+    instead of a Spawns. This should have no functional chages; the
+    only user visible consequence should be that the internal action
+    is no longer be included in statistics when calculating processes
+    count.
+  - --batch is deprecated
+  - execution strategies line no longer handles differently the case
+    where all processes have the same strategy.
+  - The --experimental_remote_spawn_cache flag is now enabled by
+    default, and remote caching no longer needs --*_strategy=remote
+    flags (it will fail if they are specified).
+  - android_binary.aapt_version='aapt2' now supports en_XA and ar_XB
+  - Added --apple_enable_auto_dsym_dbg flag.
+  - non_propagated_deps has been removed from objc_library and
+    apple_binary.
+  - For Android projects, Bazel now supports building fonts as
+    resources. See
+    https://developer.android.com/guide/topics/ui/look-and-feel/fonts-in-xml
+    for more information on the feature.
+  - With --incompatible_no_support_tools_in_action_inputs enabled, Skylark
+    action inputs are no longer scanned for tools. Move any such
+    inputs to the newly introduced 'tools' attribute.
+
+## Release 0.14.1 (2018-06-08)
+
+```
+Baseline: 5c3f5c9be7fa40d4fb3c35756891fab8483ca406
+
+Cherry picks:
+   + f96f037f8f77335dc444844abcc31a372a3e1849:
+     Windows, Java launcher: Support jar files under different drives
+   + ff8162d01409db34893de98bd840a51c5f13e257:
+     sh_configure.bzl: FreeBSD is also a known platform
+   + 7092ed324137f03fcd34856bdb0595a1bdec3069:
+     Remove unneeded exec_compatible_with from local_sh_toolchain
+   + 57bc201346e61c62a921c1cbf32ad24f185c10c9:
+     Do not autodetect C++ toolchain when
+     BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 is present
+   + 35a78c09cf2fbfc3de9c124d2142e3d72aac4348:
+     remote: recursively delete incomplete downloaded output
+     directory.
+   + 3c9cd82b847f3ece8ec04b2029bd5e8ad0eb7502:
+     distfile: pack the archives needed later in the build
+   + 27487c77387e457df18be3b6833697096d074eab:
+     Slightly refactor SpawnAction to improve env handling
+   + 1b333a2c37add9d04fe5bc5258ee4f73c93115e2:
+     Fix Cpp{Compile,Link}Action environment and cache key computation
+   + 3da8929963e9c70dff5d8859d6e988e6e7f4f9d7:
+     Make SymlinkTreeAction properly use the configuration's
+     environment
+   + eca7b81cf8cc51e1fe56e5ed7d4ad5cd1668a17a:
+     Add a missing dependency from checker framework dataflow to
+     javacutils
+   + 10a4de954c2061258d8222961fc3bd39516db49d:
+     Release 0.14.0 (2018-06-01)
+   + 4b80f2455e7e49a95f3a4c9102a67a57dad52207:
+     Add option to enable Docker sandboxing.
+   + 6b1635279e8b33dc1ac505ac81825e38f8797a14:
+     Allow disabling the simple blob caches via CLI flag overrides.
+```
+
+Bug fix for [#5336](https://github.com/bazelbuild/bazel/issues/5336)
+Bug fix fot [#5308](https://github.com/bazelbuild/bazel/issues/5308)
+
 ## Release 0.14.0 (2018-06-01)
 
 ```
@@ -2873,6 +2981,8 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
+
 
 
 
