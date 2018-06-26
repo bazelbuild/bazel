@@ -515,7 +515,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
                     + "whitespace</li><li>"
                     + "\"multiline\": All arguments are unquoted and separated by newline "
                     + "characters</li></ul>"
-                    + "The format defaults to \"shell\" if not called.")
+                    + "<p>The format defaults to \"shell\" if not called.")
       })
   public void setParamFileFormat(String format) throws EvalException;
 }
