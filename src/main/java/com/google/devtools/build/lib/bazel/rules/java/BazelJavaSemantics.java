@@ -50,8 +50,8 @@ import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -509,7 +509,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   private static NestedSet<Artifact> getRuntimeJarsForTargets(TransitiveInfoCollection... deps) {
     // The dep may be a simple JAR and not a java rule, hence we can't simply do
     // dep.getProvider(JavaCompilationArgsProvider.class).getRecursiveJavaCompilationArgs(),
-    // so we reuse the logic within JavaCompilationArgs to handle both scenarios.
+    // so we reuse the logic within JavaCompilationArgsProvider to handle both scenarios.
     return JavaCompilationArgsProvider.legacyFromTargets(ImmutableList.copyOf(deps))
         .getRuntimeJars();
   }

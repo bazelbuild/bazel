@@ -50,7 +50,7 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -111,7 +111,9 @@ public class JavaCommon {
   private JavaCompilationHelper javaCompilationHelper;
 
   public JavaCommon(RuleContext ruleContext, JavaSemantics semantics) {
-    this(ruleContext, semantics,
+    this(
+        ruleContext,
+        semantics,
         ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list(),
         collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.COMPILE_ONLY),
         collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.RUNTIME_ONLY),
@@ -120,7 +122,9 @@ public class JavaCommon {
 
   public JavaCommon(RuleContext ruleContext, JavaSemantics semantics,
       ImmutableList<Artifact> sources) {
-    this(ruleContext, semantics,
+    this(
+        ruleContext,
+        semantics,
         sources,
         collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.COMPILE_ONLY),
         collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.RUNTIME_ONLY),
@@ -147,10 +151,11 @@ public class JavaCommon {
     this.javaToolchain = JavaToolchainProvider.from(ruleContext);
     this.semantics = semantics;
     this.sources = sources;
-    this.targetsTreatedAsDeps = ImmutableMap.of(
-        ClasspathType.COMPILE_ONLY, compileDeps,
-        ClasspathType.RUNTIME_ONLY, runtimeDeps,
-        ClasspathType.BOTH, bothDeps);
+    this.targetsTreatedAsDeps =
+        ImmutableMap.of(
+            ClasspathType.COMPILE_ONLY, compileDeps,
+            ClasspathType.RUNTIME_ONLY, runtimeDeps,
+            ClasspathType.BOTH, bothDeps);
   }
 
   public JavaSemantics getJavaSemantics() {
@@ -242,15 +247,13 @@ public class JavaCommon {
   /**
    * Collects Java compilation arguments for this target.
    *
-   * @param recursive Whether to scan dependencies recursively.
    * @param isNeverLink Whether the target has the 'neverlink' attr.
    * @param srcLessDepsExport If srcs is omitted, deps are exported (deprecated behaviour for
    *     android_library only)
    */
-  public JavaCompilationArgs collectJavaCompilationArgs(
-      boolean recursive, boolean isNeverLink, boolean srcLessDepsExport) {
+  public JavaCompilationArgsProvider collectJavaCompilationArgs(
+      boolean isNeverLink, boolean srcLessDepsExport) {
     return collectJavaCompilationArgs(
-        /* recursive= */ recursive,
         /* isNeverLink= */ isNeverLink,
         /* srcLessDepsExport= */ srcLessDepsExport,
         getJavaCompilationArtifacts(),
@@ -262,8 +265,7 @@ public class JavaCommon {
         ImmutableList.of(JavaCompilationArgsProvider.legacyFromTargets(getExports(ruleContext))));
   }
 
-  static JavaCompilationArgs collectJavaCompilationArgs(
-      boolean recursive,
+  static JavaCompilationArgsProvider collectJavaCompilationArgs(
       boolean isNeverLink,
       boolean srcLessDepsExport,
       JavaCompilationArtifacts compilationArtifacts,
@@ -271,16 +273,18 @@ public class JavaCommon {
       List<JavaCompilationArgsProvider> runtimeDeps,
       List<JavaCompilationArgsProvider> exports) {
     ClasspathType type = isNeverLink ? ClasspathType.COMPILE_ONLY : ClasspathType.BOTH;
-    JavaCompilationArgs.Builder builder =
-        JavaCompilationArgs.builder()
-            .merge(compilationArtifacts, isNeverLink)
-            .addTransitiveCompilationArgs(exports, recursive, type);
-    // TODO(bazel-team): remove srcs-less behaviour after android_library users are refactored
-    if (recursive || srcLessDepsExport) {
-      builder
-          .addTransitiveCompilationArgs(deps, recursive, type)
-          .addTransitiveCompilationArgs(runtimeDeps, recursive, ClasspathType.RUNTIME_ONLY);
+    JavaCompilationArgsProvider.Builder builder =
+        JavaCompilationArgsProvider.builder().merge(compilationArtifacts, isNeverLink);
+    exports.forEach(export -> builder.addExports(export, type));
+    if (srcLessDepsExport) {
+      deps.forEach(dep -> builder.addExports(dep, type));
+    } else {
+      deps.forEach(dep -> builder.addDeps(dep, type));
     }
+    runtimeDeps.forEach(dep -> builder.addDeps(dep, ClasspathType.RUNTIME_ONLY));
+    builder.addCompileTimeJavaDependencyArtifacts(
+        collectCompileTimeDependencyArtifacts(
+            compilationArtifacts.getCompileTimeDependencyArtifact(), exports));
     return builder.build();
   }
 
@@ -303,13 +307,15 @@ public class JavaCommon {
    * @param exports dependencies with export-like semantics
    */
   public static NestedSet<Artifact> collectCompileTimeDependencyArtifacts(
-      @Nullable Artifact jdeps, Iterable<JavaCompilationArgsProvider> exports) {
+      @Nullable Artifact jdeps, Collection<JavaCompilationArgsProvider> exports) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     if (jdeps != null) {
       builder.add(jdeps);
     }
-    exports.forEach(
-        export -> builder.addTransitive(export.getCompileTimeJavaDependencyArtifacts()));
+    exports
+        .stream()
+        .map(JavaCompilationArgsProvider::getCompileTimeJavaDependencyArtifacts)
+        .forEach(builder::addTransitive);
     return builder.build();
   }
 

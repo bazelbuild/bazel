@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -699,7 +698,7 @@ public final class JavaCompilationHelper {
   }
 
   private void addArgsAndJarsToAttributes(
-      JavaCompilationArgs args, NestedSet<Artifact> directJars) {
+      JavaCompilationArgsProvider args, NestedSet<Artifact> directJars) {
     // Can only be non-null when isStrict() returns true.
     if (directJars != null) {
       attributes.addDirectJars(directJars);
@@ -709,8 +708,7 @@ public final class JavaCompilationHelper {
   }
 
   private void addLibrariesToAttributesInternal(Iterable<? extends TransitiveInfoCollection> deps) {
-    JavaCompilationArgs args =
-        JavaCompilationArgsProvider.legacyFromTargets(deps).getRecursiveJavaCompilationArgs();
+    JavaCompilationArgsProvider args = JavaCompilationArgsProvider.legacyFromTargets(deps);
 
     NestedSet<Artifact> directJars =
         isStrict() ? getNonRecursiveCompileTimeJarsFromCollection(deps) : null;
@@ -723,12 +721,7 @@ public final class JavaCompilationHelper {
 
   private NestedSet<Artifact> getNonRecursiveCompileTimeJarsFromCollection(
       Iterable<? extends TransitiveInfoCollection> deps) {
-    JavaCompilationArgs.Builder builder = JavaCompilationArgs.builder();
-    builder.addTransitiveCompilationArgs(
-        JavaCompilationArgsProvider.legacyFromTargets(deps),
-        /*recursive=*/ false,
-        ClasspathType.BOTH);
-    return builder.build().getCompileTimeJars();
+    return JavaCompilationArgsProvider.legacyFromTargets(deps).getDirectCompileTimeJars();
   }
 
   static void addDependencyArtifactsToAttributes(

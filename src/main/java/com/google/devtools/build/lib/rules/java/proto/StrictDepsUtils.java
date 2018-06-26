@@ -14,13 +14,11 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
-import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.BOTH;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -43,14 +41,24 @@ public class StrictDepsUtils {
     if (StrictDepsUtils.isStrictDepsJavaProtoLibrary(ruleContext)) {
       return strictCompProvider;
     } else {
-      JavaCompilationArgs.Builder nonStrictDirectJars = JavaCompilationArgs.builder();
+      JavaCompilationArgsProvider.Builder nonStrictDirectJars =
+          JavaCompilationArgsProvider.builder();
       for (JavaProtoLibraryAspectProvider p : javaProtoLibraryAspectProviders) {
-        nonStrictDirectJars.addTransitiveArgs(p.getNonStrictCompArgs(), BOTH);
+        JavaCompilationArgsProvider args = p.getNonStrictCompArgs();
+        nonStrictDirectJars
+            .addRuntimeJars(args.getRuntimeJars())
+            .addDirectCompileTimeJars(
+                /* interfaceJars= */ args.getDirectCompileTimeJars(),
+                /* fullJars= */ args.getDirectFullCompileTimeJars())
+            .addTransitiveCompileTimeJars(args.getTransitiveCompileTimeJars())
+            .addInstrumentationMetadata(args.getInstrumentationMetadata());
       }
-      return JavaCompilationArgsProvider.create(
-          nonStrictDirectJars.build(),
-          strictCompProvider.getRecursiveJavaCompilationArgs(),
-          strictCompProvider.getCompileTimeJavaDependencyArtifacts());
+      // Don't collect .jdeps recursively for legacy "feature" compatibility reasons. Collecting
+      // .jdeps here is probably a mistake; see JavaCompilationArgsProvider#makeNonStrict.
+      return nonStrictDirectJars
+          .addCompileTimeJavaDependencyArtifacts(
+              strictCompProvider.getCompileTimeJavaDependencyArtifacts())
+          .build();
     }
   }
 
@@ -59,19 +67,19 @@ public class StrictDepsUtils {
    * It contains the jars a proto_library (or the proto aspect) produced, as well as all transitive
    * proto jars, and the proto runtime jars, all described as direct dependencies.
    */
-  public static JavaCompilationArgs createNonStrictCompilationArgsProvider(
+  public static JavaCompilationArgsProvider createNonStrictCompilationArgsProvider(
       Iterable<JavaProtoLibraryAspectProvider> deps,
       JavaCompilationArgsProvider directJars,
       ImmutableList<TransitiveInfoCollection> protoRuntimes) {
-    JavaCompilationArgs.Builder result = JavaCompilationArgs.builder();
+    JavaCompilationArgsProvider.Builder result = JavaCompilationArgsProvider.builder();
     for (JavaProtoLibraryAspectProvider p : deps) {
-      result.addTransitiveArgs(p.getNonStrictCompArgs(), BOTH);
+      result.addExports(p.getNonStrictCompArgs());
     }
-    result.addTransitiveCompilationArgs(directJars, /* recursive= */ false, BOTH);
+    result.addExports(directJars);
     for (TransitiveInfoCollection t : protoRuntimes) {
       JavaCompilationArgsProvider p = JavaInfo.getProvider(JavaCompilationArgsProvider.class, t);
       if (p != null) {
-        result.addTransitiveArgs(p.getJavaCompilationArgs(), BOTH);
+        result.addExports(p);
       }
     }
     return result.build();

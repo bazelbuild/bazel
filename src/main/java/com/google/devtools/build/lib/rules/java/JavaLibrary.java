@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 
 /**
@@ -162,12 +162,8 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         new ClasspathConfiguredFragment(
             javaArtifacts, attributes, neverLink, helper.getBootclasspathOrDefault()));
 
-    JavaCompilationArgs javaCompilationArgs =
-        common.collectJavaCompilationArgs(false, neverLink, false);
-    JavaCompilationArgs recursiveJavaCompilationArgs =
-        common.collectJavaCompilationArgs(true, neverLink, false);
-    NestedSet<Artifact> compileTimeJavaDepArtifacts = common.collectCompileTimeDependencyArtifacts(
-        javaArtifacts.getCompileTimeDependencyArtifact());
+    JavaCompilationArgsProvider javaCompilationArgs =
+        common.collectJavaCompilationArgs(neverLink, false);
     NestedSet<LinkerInput> transitiveJavaNativeLibraries =
         common.collectTransitiveJavaNativeLibraries();
 
@@ -179,9 +175,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
       builder.add(GeneratedExtensionRegistryProvider.class, generatedExtensionRegistryProvider);
     }
 
-    JavaCompilationArgsProvider compilationArgsProvider =
-        JavaCompilationArgsProvider.create(
-            javaCompilationArgs, recursiveJavaCompilationArgs, compileTimeJavaDepArtifacts);
+    JavaCompilationArgsProvider compilationArgsProvider = javaCompilationArgs;
     JavaSourceJarsProvider sourceJarsProvider = sourceJarsProviderBuilder.build();
     JavaRuleOutputJarsProvider ruleOutputJarsProvider = ruleOutputJarsProviderBuilder.build();
 

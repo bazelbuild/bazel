@@ -74,7 +74,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
@@ -104,7 +104,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib-ijar.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars()))
@@ -166,7 +166,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_direct.jar");
@@ -193,7 +193,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_direct.jar");
@@ -223,7 +223,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars())).isEmpty();
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getTransitiveCompileTimeJars()))
@@ -472,7 +472,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_exports-hjar.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_exports.jar");
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_exports.jar");
@@ -519,7 +519,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
             "foo/libmy_java_lib_a-hjar.jar",
             "foo/libmy_java_lib_b-hjar.jar");
 
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly(
             "foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_a.jar", "foo/libmy_java_lib_b.jar");
 
@@ -590,7 +590,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
             "foo/libmy_java_lib_a-hjar.jar",
             "foo/libmy_java_lib_b-hjar.jar");
 
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly(
             "foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_a.jar", "foo/libmy_java_lib_b.jar");
 
@@ -632,31 +632,13 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         fetchJavaInfo().getProvider(JavaCompilationArgsProvider.class);
-    assertThat(
-            prettyArtifactNames(
-                javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(
-            prettyArtifactNames(
-                javaCompilationArgsProvider.getJavaCompilationArgs().getFullCompileTimeJars()))
-        .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(
-            prettyArtifactNames(
-                javaCompilationArgsProvider.getJavaCompilationArgs().getCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib-stamped.jar");
-    assertThat(
-            prettyArtifactNames(
-                javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(
-            prettyArtifactNames(
-                javaCompilationArgsProvider
-                    .getRecursiveJavaCompilationArgs()
-                    .getFullCompileTimeJars()))
-        .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(
-            prettyArtifactNames(
-                javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getTransitiveCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib-stamped.jar");
   }
 

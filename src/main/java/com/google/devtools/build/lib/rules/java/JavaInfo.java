@@ -281,7 +281,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   public SkylarkNestedSet getFullCompileTimeJars() {
     NestedSet<Artifact> fullCompileTimeJars =
         getProviderAsNestedSet(
-            JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::getFullCompileTimeJars);
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider::getDirectFullCompileTimeJars);
     return SkylarkNestedSet.of(Artifact.class, fullCompileTimeJars);
   }
 
