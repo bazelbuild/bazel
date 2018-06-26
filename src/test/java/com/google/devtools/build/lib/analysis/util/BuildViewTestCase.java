@@ -163,6 +163,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -2093,6 +2094,37 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   public Path getExecRoot() {
     return directories.getExecRoot(ruleClassProvider.getRunfilesPrefix());
+  }
+
+  /** Returns true iff commandLine contains the option --flagName followed by arg. */
+  protected static boolean containsFlag(String flagName, String arg, Iterable<String> commandLine) {
+    Iterator<String> iterator = commandLine.iterator();
+    while (iterator.hasNext()) {
+      if (flagName.equals(iterator.next()) && iterator.hasNext() && arg.equals(iterator.next())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Returns the list of arguments in commandLine that follow after --flagName. */
+  protected static ImmutableList<String> flagValue(String flagName, Iterable<String> commandLine) {
+    ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
+    Iterator<String> iterator = commandLine.iterator();
+    boolean found = false;
+    while (iterator.hasNext()) {
+      String val = iterator.next();
+      if (found) {
+        if (val.startsWith("--")) {
+          break;
+        }
+        resultBuilder.add(val);
+      } else if (flagName.equals(val)) {
+        found = true;
+      }
+    }
+    Preconditions.checkArgument(found);
+    return resultBuilder.build();
   }
 
   /** Creates instances of {@link ActionExecutionContext} consistent with test case. */
