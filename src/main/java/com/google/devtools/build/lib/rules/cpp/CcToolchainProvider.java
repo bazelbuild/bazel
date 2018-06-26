@@ -293,8 +293,7 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
     // If parse_headers_verifies_modules is switched on, we verify that headers are
     // self-contained by building the module instead.
     return !cppConfiguration.getParseHeadersVerifiesModules()
-        && (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)
-            || featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS));
+        && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
   }
 
   /**

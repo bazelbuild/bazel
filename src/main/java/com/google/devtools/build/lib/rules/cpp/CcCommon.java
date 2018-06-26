@@ -115,7 +115,6 @@ public final class CcCommon {
           CppActionNames.C_COMPILE,
           CppActionNames.CPP_COMPILE,
           CppActionNames.CPP_HEADER_PARSING,
-          CppActionNames.CPP_HEADER_PREPROCESSING,
           CppActionNames.CPP_MODULE_COMPILE,
           CppActionNames.CPP_MODULE_CODEGEN,
           CppActionNames.ASSEMBLE,
@@ -829,7 +828,6 @@ public final class CcCommon {
       // TODO(bazel-team): Remove once supports_header_parsing has been removed from the
       // cc_toolchain rule.
       unsupportedFeaturesBuilder.add(CppRuleClasses.PARSE_HEADERS);
-      unsupportedFeaturesBuilder.add(CppRuleClasses.PREPROCESS_HEADERS);
     }
     if (toolchain.getCcCompilationInfo().getCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);

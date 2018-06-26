@@ -31,9 +31,6 @@ CPP_MODULE_CODEGEN_ACTION_NAME = "c++-module-codegen"
 # Name of the C++ header parsing action.
 CPP_HEADER_PARSING_ACTION_NAME = "c++-header-parsing"
 
-# Name of the C++ header preprocessing action.
-CPP_HEADER_PREPROCESSING_ACTION_NAME = "c++-header-preprocessing"
-
 # Name of the C++ module compile action.
 CPP_MODULE_COMPILE_ACTION_NAME = "c++-module-compile"
 

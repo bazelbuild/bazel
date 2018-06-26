@@ -60,7 +60,6 @@ public class CompileCommandLineTest extends BuildViewTestCase {
                 CppActionNames.C_COMPILE,
                 CppActionNames.CPP_COMPILE,
                 CppActionNames.CPP_HEADER_PARSING,
-                CppActionNames.CPP_HEADER_PREPROCESSING,
                 CppActionNames.CPP_MODULE_CODEGEN,
                 CppActionNames.CPP_MODULE_COMPILE));
   }

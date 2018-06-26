@@ -122,11 +122,6 @@ public class CppRuleClasses {
   public static final String PARSE_HEADERS = "parse_headers";
 
   /**
-   * A string constant for the preprocess_headers feature.
-   */
-  public static final String PREPROCESS_HEADERS = "preprocess_headers";
-
-  /**
    * A string constant for the module_maps feature; this is a precondition to the layering_check and
    * header_modules features.
    */

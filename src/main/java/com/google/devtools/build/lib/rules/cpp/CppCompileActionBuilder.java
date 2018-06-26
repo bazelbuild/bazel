@@ -193,13 +193,9 @@ public class CppCompileActionBuilder {
       if (!cppConfiguration.getParseHeadersVerifiesModules()
           && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)) {
         return CppActionNames.CPP_HEADER_PARSING;
-      } else if (!cppConfiguration.getParseHeadersVerifiesModules()
-          && featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)) {
-        return CppActionNames.CPP_HEADER_PREPROCESSING;
       } else {
         // CcCommon.collectCAndCppSources() ensures we do not add headers to
-        // the compilation artifacts unless either 'parse_headers' or
-        // 'preprocess_headers' is set.
+        // the compilation artifacts unless 'parse_headers' is set.
         throw new IllegalStateException();
       }
     } else if (CppFileTypes.C_SOURCE.matches(sourcePath)) {

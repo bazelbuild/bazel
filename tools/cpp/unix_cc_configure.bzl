@@ -419,7 +419,6 @@ def _coverage_feature(repository_ctx, darwin):
         action: 'c-compile'
         action: 'c++-compile'
         action: 'c++-header-parsing'
-        action: 'c++-header-preprocessing'
         action: 'c++-module-compile'
         """ + compile_flags + """
       }

@@ -80,10 +80,8 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  /**
-   * A feature configuration snippet useful for testing header processing.
-   */
-  public static final String HEADER_PROCESSING_FEATURE_CONFIGURATION =
+  /** A feature configuration snippet useful for testing header processing. */
+  public static final String PARSE_HEADERS_FEATURE_CONFIGURATION =
       ""
           + "feature {"
           + "  name: 'parse_headers'"
@@ -91,15 +89,6 @@ public abstract class MockCcSupport {
           + "    action: 'c++-header-parsing'"
           + "    flag_group {"
           + "      flag: '<c++-header-parsing>'"
-          + "    }"
-          + "  }"
-          + "}"
-          + "feature {"
-          + "  name: 'preprocess_headers'"
-          + "  flag_set {"
-          + "    action: 'c++-header-preprocessing'"
-          + "    flag_group {"
-          + "      flag: '<c++-header-preprocessing>'"
           + "    }"
           + "  }"
           + "}";
