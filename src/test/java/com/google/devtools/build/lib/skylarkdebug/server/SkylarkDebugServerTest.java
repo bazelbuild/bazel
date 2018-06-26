@@ -79,7 +79,9 @@ public class SkylarkDebugServerTest {
     ServerSocket serverSocket = new ServerSocket(0, 1, InetAddress.getByName(null));
     Future<SkylarkDebugServer> future =
         executor.submit(
-            () -> SkylarkDebugServer.createAndWaitForConnection(events.reporter(), serverSocket));
+            () ->
+                SkylarkDebugServer.createAndWaitForConnection(
+                    events.reporter(), serverSocket, false));
     client = new MockDebugClient();
     client.connect(serverSocket, Duration.ofSeconds(10));
 

@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
 import com.google.devtools.build.lib.syntax.DebugServer;
@@ -30,7 +31,6 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.List;
 import java.util.function.Function;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /** Manages the network socket and debugging state for threads running Skylark code. */
@@ -41,29 +41,42 @@ public final class SkylarkDebugServer implements DebugServer {
    * debug server socket and blocks waiting for an incoming connection.
    *
    * @param port the port on which the server should listen for connections
+   * @param verboseLogging if false, debug-level events will be suppressed
    * @throws IOException if an I/O error occurs while opening the socket or waiting for a connection
    */
-  public static SkylarkDebugServer createAndWaitForConnection(EventHandler eventHandler, int port)
-      throws IOException {
+  public static SkylarkDebugServer createAndWaitForConnection(
+      EventHandler eventHandler, int port, boolean verboseLogging) throws IOException {
     ServerSocket serverSocket = new ServerSocket(port, /* backlog */ 1);
-    return createAndWaitForConnection(eventHandler, serverSocket);
+    return createAndWaitForConnection(eventHandler, serverSocket, verboseLogging);
   }
 
   /**
    * Initializes debugging support, setting up any debugging-specific overrides, then opens the
    * debug server socket and blocks waiting for an incoming connection.
    *
+   * @param verboseLogging if false, debug-level events will be suppressed
    * @throws IOException if an I/O error occurs while waiting for a connection
    */
   @VisibleForTesting
   static SkylarkDebugServer createAndWaitForConnection(
-      EventHandler eventHandler, ServerSocket serverSocket) throws IOException {
+      EventHandler eventHandler, ServerSocket serverSocket, boolean verboseLogging)
+      throws IOException {
+    if (!verboseLogging) {
+      eventHandler = getHandlerSuppressingDebugEvents(eventHandler);
+    }
     DebugServerTransport transport =
         DebugServerTransport.createAndWaitForClient(eventHandler, serverSocket);
     return new SkylarkDebugServer(eventHandler, transport);
   }
 
-  private static final Logger logger = Logger.getLogger(SkylarkDebugServer.class.getName());
+  /** Wraps an event handler, suppressing debug-level events. */
+  private static EventHandler getHandlerSuppressingDebugEvents(EventHandler handler) {
+    return event -> {
+      if (event.getKind() != EventKind.DEBUG) {
+        handler.handle(event);
+      }
+    };
+  }
 
   private final EventHandler eventHandler;
   /** Handles all thread-related state. */
@@ -120,7 +133,7 @@ public final class SkylarkDebugServer implements DebugServer {
   @Override
   public void close() {
     try {
-      logger.fine("Closing debug server");
+      eventHandler.handle(Event.debug("Closing debug server"));
       transport.close();
 
     } catch (IOException e) {
