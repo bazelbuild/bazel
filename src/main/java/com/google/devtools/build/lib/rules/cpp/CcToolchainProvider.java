@@ -264,6 +264,26 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
         && supportsFission();
   }
 
+  /** Whether the toolchains supports header parsing. */
+  public boolean supportsHeaderParsing() {
+    return supportsHeaderParsing;
+  }
+
+  /**
+   * Returns true if headers should be parsed in this build.
+   *
+   * <p>This means headers in 'srcs' and 'hdrs' will be "compiled" using {@link CppCompileAction}).
+   * It will run compiler's parser to ensure the header is self-contained. This is required for
+   * layering_check to work.
+   */
+  public boolean shouldProcessHeaders(FeatureConfiguration featureConfiguration) {
+    // If parse_headers_verifies_modules is switched on, we verify that headers are
+    // self-contained by building the module instead.
+    return !cppConfiguration.getParseHeadersVerifiesModules()
+        && (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)
+            || featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS));
+  }
+
   /**
    * Returns true if Fission and PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL
    * for the build implied by the given configuration, toolchain and feature configuration.
@@ -448,13 +468,6 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
    */
   public boolean supportsParamFiles() {
     return supportsParamFiles;
-  }
-
-  /**
-   * Whether the toolchains supports header parsing.
-   */
-  public boolean supportsHeaderParsing() {
-    return supportsHeaderParsing;
   }
   
   /**

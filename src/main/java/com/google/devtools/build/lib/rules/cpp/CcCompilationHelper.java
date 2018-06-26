@@ -407,7 +407,7 @@ public final class CcCompilationHelper {
         CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(privateHeader.getExecPath());
     Preconditions.checkState(isHeader || isTextualInclude);
 
-    if (shouldProcessHeaders() && !isTextualInclude) {
+    if (ccToolchain.shouldProcessHeaders(featureConfiguration) && !isTextualInclude) {
       compilationUnitSources.add(CppSource.create(privateHeader, label, CppSource.Type.HEADER));
     }
     this.privateHeaders.add(privateHeader);
@@ -461,7 +461,7 @@ public final class CcCompilationHelper {
         CppFileTypes.CPP_HEADER.matches(header.getExecPath()) || header.isTreeArtifact();
     boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(header.getExecPath());
     publicHeaders.add(header);
-    if (isTextualInclude || !isHeader || !shouldProcessHeaders()) {
+    if (isTextualInclude || !isHeader || !ccToolchain.shouldProcessHeaders(featureConfiguration)) {
       return;
     }
     compilationUnitSources.add(CppSource.create(header, label, CppSource.Type.HEADER));
@@ -498,14 +498,6 @@ public final class CcCompilationHelper {
       type = CppSource.Type.SOURCE;
     }
     compilationUnitSources.add(CppSource.create(source, label, type));
-  }
-
-  private boolean shouldProcessHeaders() {
-    // If parse_headers_verifies_modules is switched on, we verify that headers are
-    // self-contained by building the module instead.
-    return !cppConfiguration.getParseHeadersVerifiesModules()
-        && (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)
-            || featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS));
   }
 
   /**
