@@ -275,6 +275,17 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 .toString());
       }
 
+      try {
+        context.prefetchInputs();
+      } catch (IOException e) {
+        throw new UserExecException(
+            ErrorMessage.builder()
+                .message("IOException while prefetching for worker:")
+                .exception(e)
+                .build()
+                .toString());
+      }
+
       try (ResourceHandle handle =
           ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
         context.report(ProgressStatus.EXECUTING, getName());
