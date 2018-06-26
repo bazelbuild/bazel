@@ -415,12 +415,12 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   @Override
   public SkylarkAspect aspect(
       BaseFunction implementation,
-      SkylarkList attributeAspects,
+      SkylarkList<?> attributeAspects,
       Object attrs,
-      SkylarkList requiredAspectProvidersArg,
-      SkylarkList providesArg,
-      SkylarkList fragments,
-      SkylarkList hostFragments,
+      SkylarkList<?> requiredAspectProvidersArg,
+      SkylarkList<?> providesArg,
+      SkylarkList<?> fragments,
+      SkylarkList<?> hostFragments,
       SkylarkList<?> toolchains,
       String doc,
       FuncallExpression ast,

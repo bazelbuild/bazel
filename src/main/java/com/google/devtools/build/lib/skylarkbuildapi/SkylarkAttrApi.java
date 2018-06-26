@@ -792,7 +792,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       useEnvironment = true)
   public Descriptor outputListAttribute(
       Boolean allowEmpty,
-      SkylarkList defaultList,
+      SkylarkList<?> defaultList,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
