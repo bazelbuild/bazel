@@ -62,6 +62,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skylarkdebug/server:srcs",
         "//src/test/java/com/google/devtools/build/lib/skylarkinterface/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/unsafe:srcs",
+        "//src/test/java/com/google/devtools/build/lib/integration/blackbox/framework/junit:srcs",
     ],
     visibility = ["//src:__pkg__"],
 )
@@ -1559,6 +1560,7 @@ java_test(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 
