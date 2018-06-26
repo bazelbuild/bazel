@@ -421,9 +421,11 @@ public class ObjcRuleClasses {
           /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(resources) -->
           Files to include in the final application bundle.
 
-          They are not processed or compiled in any way besides the processing
-          done by the rules that actually generate them. These files are placed
-          in the root of the bundle (e.g. Payload/foo.app/...) in most cases.
+          Files that are processable resources, like .xib, .storyboard, .strings, .png, and others,
+          will be processed by the Apple bundling rules that have those files as dependencies. Other
+          file types that are not processed will be copied verbatim.
+
+          These files are placed in the root of the bundle (e.g. Payload/foo.app/...) in most cases.
           However, if they appear to be localized (i.e. are contained in a
           directory called *.lproj), they will be placed in a directory of the
           same name in the app bundle.
