@@ -896,14 +896,6 @@ public final class Environment implements Freezable, Debuggable {
       this.mutability = mutability;
     }
 
-    /**
-     * Obsolete, doesn't do anything.
-     * TODO(laurentlb): To be removed once call-sites have been updated
-     */
-    public Builder setSkylark() {
-      return this;
-    }
-
     /** Enables loading or workspace phase only functions in this Environment. */
     public Builder setPhase(Phase phase) {
       Preconditions.checkState(this.phase == Phase.ANALYSIS);
