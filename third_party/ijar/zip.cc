@@ -1078,8 +1078,8 @@ int OutputZipFile::FinishFile(size_t filelength, bool compress,
 bool OutputZipFile::Open() {
   if (estimated_size_ > kMaximumOutputSize) {
     fprintf(stderr,
-            "Uncompressed input jar has size %lu, "
-            "which exceeds the maximum supported output size %lu.\n"
+            "Uncompressed input jar has size %zu, "
+            "which exceeds the maximum supported output size %zu.\n"
             "Assuming that ijar will be smaller and hoping for the best.\n",
             estimated_size_, kMaximumOutputSize);
     estimated_size_ = kMaximumOutputSize;
