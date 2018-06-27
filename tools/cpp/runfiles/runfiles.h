@@ -14,30 +14,39 @@
 
 // Runfiles lookup library for Bazel-built C++ binaries and tests.
 //
-// Usage:
+// USAGE:
+// 1.  Depend on this runfiles library from your build rule:
 //
-//   #include "tools/cpp/runfiles/runfiles.h"
+//       cc_binary(
+//           name = "my_binary",
+//           ...
+//           deps = ["@bazel_tools//tools/cpp/runfiles"],
+//       )
 //
-//   using bazel::tools::cpp::runfiles::Runfiles;
+// 2.  Include the runfiles library.
 //
-//   int main(int argc, char** argv) {
-//     std::string error;
-//     std::unique_ptr<Runfiles> runfiles(Runfiles::Create(argv[0], &error));
-//     if (runfiles == nullptr) {
-//       ...  // error handling
-//     }
-//     std::string path = runfiles->Rlocation("io_bazel/src/bazel");
-//     if (!path.empty()) {
-//       std::ifstream data(path);
-//       if (data.is_open()) {
-//         ...  // use the runfile
+//       #include "tools/cpp/runfiles/runfiles.h"
 //
-// The code above creates a Runfiles object and retrieves a runfile path.
+//       using bazel::tools::cpp::runfiles::Runfiles;
 //
-// The Runfiles::Create function uses the runfiles manifest and the runfiles
-// directory from the RUNFILES_MANIFEST_FILE and RUNFILES_DIR environment
-// variables. If not present, the function looks for the manifest and directory
-// near argv[0], the path of the main program.
+// 3.  Create a Runfiles object and use rlocation to look up runfile paths:
+//
+//       int main(int argc, char** argv) {
+//         std::string error;
+//         std::unique_ptr<Runfiles> runfiles(Runfiles::Create(argv[0], &error));
+//         if (runfiles == nullptr) {
+//           ...  // error handling
+//         }
+//         std::string path =
+//            runfiles->Rlocation("my_workspace/path/to/my/data.txt");
+//         ...
+//
+//      The code above creates a Runfiles object and retrieves a runfile path.
+//
+//      The Runfiles::Create function uses the runfiles manifest and the
+//      runfiles directory from the RUNFILES_MANIFEST_FILE and RUNFILES_DIR
+//      environment variables. If not present, the function looks for the
+//      manifest and directory near argv[0], the path of the main program.
 //
 // To start child processes that also need runfiles, you need to set the right
 // environment variables for them:
