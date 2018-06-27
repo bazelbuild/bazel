@@ -532,7 +532,7 @@ execute = rule(
   executable=True,
   attrs={
       "command": attr.string(),
-      "data": attr.label_list(cfg="data", allow_files=True),
+      "data": attr.label_list(allow_files=True),
       },
 )
 ```
