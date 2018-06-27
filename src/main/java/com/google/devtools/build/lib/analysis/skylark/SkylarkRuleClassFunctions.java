@@ -80,7 +80,6 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -651,17 +650,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
   }
 
-  /**
-   * All classes of values that need special processing after they are exported from an extension
-   * file.
-   *
-   * <p>Order in list is significant: all {@link SkylarkDefinedAspect}s need to be exported before
-   * {@link SkylarkRuleFunction}s etc.
-   */
-  private static final ImmutableList<Class<? extends SkylarkExportable>> EXPORTABLES =
-      ImmutableList.of(
-          SkylarkProvider.class, SkylarkDefinedAspect.class, SkylarkRuleFunction.class);
-
   @Override
   public Label label(
       String labelString, Boolean relativeToCallerRepository, Location loc, Environment env)
@@ -698,9 +686,5 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
               + "--incompatible_disallow_filetype=false");
     }
     return SkylarkFileType.of(types.getContents(String.class, "types"));
-  }
-
-  static {
-    SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkRuleClassFunctions.class);
   }
 }
