@@ -1,3 +1,5 @@
+load(":skydoc_test.bzl", "skydoc_test")
+
 package(
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
@@ -29,55 +31,16 @@ java_test(
     ],
 )
 
-# TODO(cparsons): Make test cases and golden-genrules into a macro.
-sh_test(
-    name = "simple_skydoc_e2e_test",
-    srcs = ["skydoc_e2e_test_runner.sh"],
-    args = [
-        "$(location //src/main/java/com/google/devtools/build/skydoc:skydoc)",
-        "$(location simple_test/input.txt)",
-        "$(location simple_test/golden.txt)",
-    ],
-    data = [
-        "simple_test/golden.txt",
-        "simple_test/input.txt",
-        "//src/main/java/com/google/devtools/build/skydoc",
-    ],
+skydoc_test(
+    name = "simple_test",
+    golden_file = "simple_test/golden.txt",
+    input_file = "simple_test/input.txt",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
 
-genrule(
-    name = "regenerate_simple_golden",
-    srcs = [
-        "simple_test/input.txt",
-    ],
-    outs = ["simple_output.txt"],
-    cmd = "$(location //src/main/java/com/google/devtools/build/skydoc:skydoc) " +
-          "$(location simple_test/input.txt) $(location simple_output.txt)",
-    tools = ["//src/main/java/com/google/devtools/build/skydoc"],
-)
-
-sh_test(
-    name = "unknown_name_skydoc_e2e_test",
-    srcs = ["skydoc_e2e_test_runner.sh"],
-    args = [
-        "$(location //src/main/java/com/google/devtools/build/skydoc:skydoc)",
-        "$(location unknown_name_test/input.txt)",
-        "$(location unknown_name_test/golden.txt)",
-    ],
-    data = [
-        "unknown_name_test/golden.txt",
-        "unknown_name_test/input.txt",
-        "//src/main/java/com/google/devtools/build/skydoc",
-    ],
-)
-
-genrule(
-    name = "regenerate_unknown_name_golden",
-    srcs = [
-        "unknown_name_test/input.txt",
-    ],
-    outs = ["unknown_name_output.txt"],
-    cmd = "$(location //src/main/java/com/google/devtools/build/skydoc:skydoc) " +
-          "$(location unknown_name_test/input.txt) $(location unknown_name_output.txt)",
-    tools = ["//src/main/java/com/google/devtools/build/skydoc"],
+skydoc_test(
+    name = "unknown_name",
+    golden_file = "unknown_name_test/golden.txt",
+    input_file = "unknown_name_test/input.txt",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
