@@ -192,8 +192,6 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     assertThat(unionfs.getDelegate(unionfs.getPath("/in/./foo.txt"))).isSameAs(inDelegate);
   }
 
-  // Basic *explicit* cross-filesystem symlink check.
-  // Note: This does not work implicitly yet, as the next test illustrates.
   @Test
   public void testCrossDeviceSymlinks() throws Exception {
     assertThat(unionfs.createDirectory(unionfs.getPath("/out"))).isTrue();
@@ -209,12 +207,7 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     unionfs.createSymbolicLink(outFoo, PathFragment.create("../in/bar.txt"));
     assertThat(unionfs.stat(outFoo, false).isSymbolicLink()).isTrue();
 
-    try {
-      unionfs.stat(outFoo, true).isFile();
-      fail("Stat on cross-device symlink succeeded!");
-    } catch (FileNotFoundException expected) {
-      // OK
-    }
+    assertThat(unionfs.stat(outFoo, true).isFile()).isTrue();
 
     Path resolved = unionfs.resolveSymbolicLinks(outFoo);
     assertThat(resolved.getFileSystem()).isSameAs(unionfs);

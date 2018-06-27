@@ -506,7 +506,7 @@ public final class UnionFileSystem extends FileSystem {
   private Path internalResolveSymlink(Path path) throws IOException {
     while (isSymbolicLink(path)) {
       PathFragment pathFragment = resolveOneLink(path);
-      path = path.getRelative(pathFragment);
+      path = path.getParentDirectory().getRelative(pathFragment);
     }
     return path;
   }
