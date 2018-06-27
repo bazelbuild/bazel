@@ -61,9 +61,23 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell/bazel/apple:objc-deps",
+        "@bazel_tools//tools/bash/runfiles",
     ],
-    shard_count = 3,
-    tags = ["no_windows"],
+    shard_count = 5,
+)
+
+sh_test(
+    name = "bazel_example_skylark_test",
+    size = "large",
+    srcs = ["bazel_example_skylark_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/test/shell/bazel/apple:objc-deps",
+    ],
+    shard_count = 2,
+    tags = [
+        "no_windows",  # The Skylark examples don't work on Windows yet.
+    ],
 )
 
 sh_test(
@@ -73,6 +87,7 @@ sh_test(
     data = [
         ":test-deps",
     ],
+    shard_count = 3,
 )
 
 sh_test(

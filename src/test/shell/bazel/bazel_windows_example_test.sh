@@ -120,16 +120,6 @@ EOF
   expect_log "global : 2"
 }
 
-function test_java() {
-  local java_pkg=examples/java-native/src/main/java/com/example/myproject
-
-  assert_build_output ./bazel-bin/${java_pkg}/libhello-lib.jar ${java_pkg}:hello-lib
-  assert_build_output ./bazel-bin/${java_pkg}/libcustom-greeting.jar ${java_pkg}:custom-greeting
-  assert_build_output ./bazel-bin/${java_pkg}/hello-world ${java_pkg}:hello-world
-  assert_build_output ./bazel-bin/${java_pkg}/hello-resources ${java_pkg}:hello-resources
-  assert_binary_run_from_subdir "bazel-bin/${java_pkg}/hello-world foo" "Hello foo"
-}
-
 function create_tmp_drive() {
   mkdir "$TEST_TMPDIR/tmp_drive"
 
@@ -165,20 +155,6 @@ function test_java_with_jar_under_different_drive() {
   bazel --output_user_root=${TMP_DRIVE}:/tmp build ${java_pkg}:hello-world
 
   assert_binary_run_from_subdir "bazel-bin/${java_pkg}/hello-world --classpath_limit=0" "Hello world"
-}
-
-function test_java_test() {
-  setup_javatest_support
-  local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
-  local java_native_main=//examples/java-native/src/main/java/com/example/myproject
-
-  assert_build "-- //examples/java-native/... -${java_native_main}:hello-error-prone"
-  assert_build_fails "${java_native_main}:hello-error-prone" \
-      "Did you mean 'result = b == -1;'?"
-  assert_test_ok "${java_native_tests}:hello"
-  assert_test_ok "${java_native_tests}:custom"
-  assert_test_fails "${java_native_tests}:fail"
-  assert_test_fails "${java_native_tests}:resource-fail"
 }
 
 function test_native_python() {

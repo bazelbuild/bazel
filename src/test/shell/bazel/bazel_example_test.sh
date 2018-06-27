@@ -17,9 +17,29 @@
 # Tests the examples provided in Bazel
 #
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+set -euo pipefail
+# --- begin runfiles.bash initialization ---
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function set_up() {
@@ -47,6 +67,9 @@ function assert_binary_run_from_subdir() {
     cd x &&
     unset JAVA_RUNFILES &&
     unset TEST_SRCDIR &&
+    unset RUNFILES_MANIFEST_FILE &&
+    unset RUNFILES_MANIFEST_ONLY &&
+    unset RUNFILES_DIR &&
     assert_binary_run "../$1" "$2" )
 }
 
@@ -57,6 +80,7 @@ function test_java() {
   assert_build_output ./bazel-bin/${java_pkg}/libcustom-greeting.jar ${java_pkg}:custom-greeting
   assert_build_output ./bazel-bin/${java_pkg}/hello-world ${java_pkg}:hello-world
   assert_build_output ./bazel-bin/${java_pkg}/hello-resources ${java_pkg}:hello-resources
+
   assert_binary_run_from_subdir "bazel-bin/${java_pkg}/hello-world foo" "Hello foo"
 }
 
@@ -66,7 +90,12 @@ function test_java_test() {
   local java_native_main=//examples/java-native/src/main/java/com/example/myproject
 
   assert_build "-- //examples/java-native/... -${java_native_main}:hello-error-prone"
-  JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:toolchain' | grep source_version | cut -d '"' -f 2)"
+  JAVA_VERSION="$(bazel query --output=build 'kind(java_toolchain, deps(@bazel_tools//tools/jdk:toolchain))' 2>/dev/null | grep source_version | cut -d '"' -f 2)"
+  if [[ -n "${JAVA_VERSION:-}" ]]; then
+    JAVA_VERSION="1.${JAVA_VERSION}"
+  else
+    fail "Could not determine Java version."
+  fi
   assert_test_ok "${java_native_tests}:hello"
   assert_test_ok "${java_native_tests}:custom"
   assert_test_fails "${java_native_tests}:fail"
@@ -108,8 +137,12 @@ function test_native_python_with_zip() {
   ./bazel-bin/examples/py_native/bin >& $TEST_log \
     || fail "//examples/py_native:bin execution failed"
   expect_log "Fib(5) == 8"
+  local zipfile=./bazel-bin/examples/py_native/bin
+  if is_windows; then
+    zipfile="${zipfile}.zip"
+  fi
   # Using python <zipfile> to run the python package
-  python ./bazel-bin/examples/py_native/bin >& $TEST_log \
+  python "$zipfile" >& $TEST_log \
     || fail "//examples/py_native:bin execution failed"
   expect_log "Fib(5) == 8"
   assert_test_ok //examples/py_native:test --python2_path=python --build_python_zip
@@ -141,25 +174,6 @@ function test_python() {
   ./bazel-bin/examples/py/bin >& $TEST_log \
     || fail "//examples/py:bin 2nd build execution failed"
   expect_log "Hello"
-}
-
-function test_java_skylark() {
-  local java_pkg=examples/java-skylark/src/main/java/com/example/myproject
-  assert_build_output ./bazel-bin/${java_pkg}/libhello-lib.jar ${java_pkg}:hello-lib
-  assert_build_output ./bazel-bin/${java_pkg}/hello-data ${java_pkg}:hello-data
-  assert_build_output ./bazel-bin/${java_pkg}/hello-world ${java_pkg}:hello-world
-  # we built hello-world but hello-data is still there.
-  want=./bazel-bin/${java_pkg}/hello-data
-  test -x $want || fail "executable $want not found"
-  assert_binary_run_from_subdir "bazel-bin/${java_pkg}/hello-data foo" "Heyo foo"
-}
-
-function test_java_test_skylark() {
-  setup_skylark_javatest_support
-  javatests=examples/java-skylark/src/test/java/com/example/myproject
-  assert_build //${javatests}:pass
-  assert_test_ok //${javatests}:pass
-  assert_test_fails //${javatests}:fail
 }
 
 run_suite "examples"
