@@ -279,6 +279,71 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     }
   }
 
+  /** MockClassCommonNameOne */
+  @SkylarkModule(name = "MockClassCommonName",
+      doc = "MockClassCommonName")
+  private static class MockClassCommonNameOne {
+
+    @SkylarkCallable(name = "one", doc = "one")
+    public Integer one() {
+      return 1;
+    }
+  }
+
+  /** SubclassOfMockClassCommonNameOne */
+  @SkylarkModule(name = "MockClassCommonName",
+      doc = "MockClassCommonName")
+  private static class SubclassOfMockClassCommonNameOne extends MockClassCommonNameOne {
+
+    @SkylarkCallable(name = "two", doc = "two")
+    public Integer two() {
+      return 1;
+    }
+  }
+
+  /** PointsToCommonNameOneWithSubclass */
+  @SkylarkModule(name = "PointsToCommonNameOneWithSubclass",
+      doc = "PointsToCommonNameOneWithSubclass")
+  private static class PointsToCommonNameOneWithSubclass {
+    @SkylarkCallable(name = "one", doc = "one")
+    public MockClassCommonNameOne getOne() {
+      return null;
+    }
+
+    @SkylarkCallable(name = "one_subclass", doc = "one_subclass")
+    public SubclassOfMockClassCommonNameOne getOneSubclass() {
+      return null;
+    }
+  }
+
+  /** MockClassCommonNameOneUndocumented */
+  @SkylarkModule(name = "MockClassCommonName",
+      documented = false,
+      doc = "")
+  private static class MockClassCommonNameUndocumented {
+
+    @SkylarkCallable(name = "two", doc = "two")
+    public Integer two() {
+      return 1;
+    }
+  }
+
+  /** PointsToCommonNameAndUndocumentedModule */
+  @SkylarkModule(name = "PointsToCommonNameAndUndocumentedModule",
+      doc = "PointsToCommonNameAndUndocumentedModule")
+  private static class PointsToCommonNameAndUndocumentedModule {
+    @SkylarkCallable(name = "one", doc = "one")
+    public MockClassCommonNameOne getOne() {
+      return null;
+    }
+
+    @SkylarkCallable(name = "undocumented_module", doc = "undocumented_module")
+    public MockClassCommonNameUndocumented getUndocumented() {
+      return null;
+    }
+  }
+
+
   @Test
   public void testSkylarkJavaInterfaceExplorerOnSimpleClass() throws Exception {
     Map<String, SkylarkModuleDoc> objects = collect(MockClassA.class);
@@ -437,6 +502,26 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
         .contains(
             "<a class=\"anchor\" href=\"list.html\">sequence</a> "
                 + "MockClassWithContainerReturnValues.skylark()");
+  }
+
+  @Test
+  public void testDocumentedModuleTakesPrecedence() throws Exception {
+    Map<String, SkylarkModuleDoc> objects = collect(PointsToCommonNameAndUndocumentedModule.class);
+    Collection<SkylarkMethodDoc> methods =
+        objects.get("MockClassCommonName").getMethods();
+    List<String> methodNames =
+        methods.stream().map(m -> m.getName()).collect(Collectors.toList());
+    assertThat(methodNames).containsExactly("one");
+  }
+
+  @Test
+  public void testDocumentModuleSubclass() {
+    Map<String, SkylarkModuleDoc> objects = collect(PointsToCommonNameOneWithSubclass.class);
+    Collection<SkylarkMethodDoc> methods =
+        objects.get("MockClassCommonName").getMethods();
+    List<String> methodNames =
+        methods.stream().map(m -> m.getName()).collect(Collectors.toList());
+    assertThat(methodNames).containsExactly("one", "two");
   }
 
   private Iterable<Method> extractMethods(Collection<SkylarkMethodDoc> methods) {

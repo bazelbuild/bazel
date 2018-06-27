@@ -10,9 +10,19 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-test_suite(
-    name = "all_tests",
+java_test(
+    name = "DocumentationFailuresTests",
+    size = "medium",
+    shard_count = 1,
     tags = ["docgen"],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    visibility = ["//devtools/blaze/main:__pkg__"],
+    runtime_deps = [
+        ":documentation-failures-tests",
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:junit4",
+    ],
 )
 
 java_test(
@@ -25,6 +35,26 @@ java_test(
         ":documentation-tests",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:junit4",
+    ],
+)
+
+java_library(
+    name = "documentation-failures-tests",
+    testonly = 1,
+    srcs = [
+        "SkylarkDocumentationFailuresTest.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/test/java/com/google/devtools/build/lib:syntax_testutil",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 
@@ -45,7 +75,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/test/java/com/google/devtools/build/lib:syntax_testutil",
@@ -66,6 +95,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib/actions",
     ],
+)
+
+test_suite(
+    name = "all_tests",
+    tags = ["docgen"],
 )
 
 test_suite(

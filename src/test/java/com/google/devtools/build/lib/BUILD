@@ -153,6 +153,7 @@ java_library(
     name = "test_runner",
     testonly = 1,
     srcs = ["AllTests.java"],
+    visibility = ["//src/test/java/com/google/devtools/build:__subpackages__"],
     deps = [
         ":testutil",
         "//third_party:junit4",
