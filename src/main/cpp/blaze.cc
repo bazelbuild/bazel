@@ -893,12 +893,13 @@ class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
   void Process(const char *filename, const devtools_ijar::u4 attr,
                const devtools_ijar::u1 *data, const size_t size) override {
     string path = blaze_util::JoinPath(embedded_binaries_, filename);
+    string dirname = blaze_util::Dirname(path);
     // Performance optimization: memoize the paths we already created a
     // directory for, to spare a stat in attempting to recreate an already
     // existing directory. This optimization alone shaves off seconds from the
     // extraction time on Windows.
-    if (created_directories_.insert(path).second) {
-      if (!blaze_util::MakeDirectories(blaze_util::Dirname(path), 0777)) {
+    if (created_directories_.insert(dirname).second) {
+      if (!blaze_util::MakeDirectories(dirname, 0777)) {
         BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
             << "couldn't create '" << path << "': " << GetLastErrorString();
       }
