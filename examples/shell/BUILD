@@ -3,7 +3,10 @@ package(default_visibility = ["//visibility:public"])
 sh_binary(
     name = "bin",
     srcs = ["bin.sh"],
-    deps = [":lib"],
+    deps = [
+        ":lib",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_library(
@@ -12,6 +15,7 @@ sh_library(
         "data/file.txt",
         "lib.sh",
     ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 sh_test(
@@ -19,7 +23,10 @@ sh_test(
     size = "small",
     srcs = ["test.sh"],
     data = ["data/test_file.txt"],
-    deps = [":lib"],
+    deps = [
+        ":lib",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 filegroup(
