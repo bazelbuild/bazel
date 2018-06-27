@@ -44,3 +44,10 @@ skydoc_test(
     input_file = "unknown_name_test/input.txt",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
+
+skydoc_test(
+    name = "multiple_rules_test",
+    golden_file = "multiple_rules_test/golden.txt",
+    input_file = "multiple_rules_test/input.txt",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)

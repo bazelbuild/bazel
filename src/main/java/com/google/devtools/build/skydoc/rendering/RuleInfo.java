@@ -17,6 +17,7 @@ package com.google.devtools.build.skydoc.rendering;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.BaseFunction;
 import java.util.Collection;
 
 /**
@@ -24,14 +25,23 @@ import java.util.Collection;
  */
 public class RuleInfo {
 
+  private final BaseFunction identifierFunction;
   private final Location location;
   private final String docString;
   private final Collection<String> attrNames;
 
-  public RuleInfo(Location location, String docString, Collection<String> attrNames) {
+  public RuleInfo(BaseFunction identifierFunction,
+      Location location,
+      String docString,
+      Collection<String> attrNames) {
+    this.identifierFunction = identifierFunction;
     this.location = location;
     this.docString = docString;
     this.attrNames = attrNames;
+  }
+
+  public BaseFunction getIdentifierFunction() {
+    return identifierFunction;
   }
 
   public Location getLocation() {

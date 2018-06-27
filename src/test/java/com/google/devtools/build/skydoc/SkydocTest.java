@@ -16,13 +16,17 @@ package com.google.devtools.build.skydoc;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
-import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -56,12 +60,63 @@ public final class SkydocTest extends SkylarkTestCase {
     ParserInputSource parserInputSource =
         ParserInputSource.create(bytes, file.asFragment());
 
-    List<RuleInfo> ruleInfos = new SkydocMain().eval(parserInputSource);
+    ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
+    ImmutableList.Builder<RuleInfo> unexportedRuleInfos = ImmutableList.builder();
+
+    new SkydocMain().eval(parserInputSource, ruleInfoMap, unexportedRuleInfos);
+    Map<String, RuleInfo> ruleInfos = ruleInfoMap.build();
     assertThat(ruleInfos).hasSize(1);
 
-    RuleInfo ruleInfo = Iterables.getOnlyElement(ruleInfos);
-    assertThat(ruleInfo.getDocString()).isEqualTo("This is my rule. It does stuff.");
-    assertThat(ruleInfo.getAttrNames()).containsExactly(
+    Entry<String, RuleInfo> ruleInfo = Iterables.getOnlyElement(ruleInfos.entrySet());
+    assertThat(ruleInfo.getKey()).isEqualTo("my_rule");
+    assertThat(ruleInfo.getValue().getDocString()).isEqualTo("This is my rule. It does stuff.");
+    assertThat(ruleInfo.getValue().getAttrNames()).containsExactly(
         "first", "second", "third", "fourth");
+    assertThat(unexportedRuleInfos.build()).isEmpty();
+  }
+
+  @Test
+  public void testMultipleRuleNames() throws Exception {
+    Path file =
+        scratch.file(
+            "/test/test.bzl",
+            "def rule_impl(ctx):",
+            "  return struct()",
+            "",
+            "rule_one = rule(",
+            "    doc = 'Rule one',",
+            "    implementation = rule_impl,",
+            ")",
+            "",
+            "rule(",
+            "    doc = 'This rule is not named',",
+            "    implementation = rule_impl,",
+            ")",
+            "",
+            "rule(",
+            "    doc = 'This rule also is not named',",
+            "    implementation = rule_impl,",
+            ")",
+            "",
+            "rule_two = rule(",
+            "    doc = 'Rule two',",
+            "    implementation = rule_impl,",
+            ")");
+    byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
+
+    ParserInputSource parserInputSource =
+        ParserInputSource.create(bytes, file.asFragment());
+
+    ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
+    ImmutableList.Builder<RuleInfo> unexportedRuleInfos = ImmutableList.builder();
+
+    new SkydocMain().eval(parserInputSource, ruleInfoMap, unexportedRuleInfos);
+
+    assertThat(ruleInfoMap.build().keySet()).containsExactly("rule_one", "rule_two");
+
+    assertThat(unexportedRuleInfos.build().stream()
+            .map(ruleInfo -> ruleInfo.getDocString())
+            .collect(Collectors.toList()))
+        .containsExactly("This rule is not named", "This rule also is not named");
   }
 }

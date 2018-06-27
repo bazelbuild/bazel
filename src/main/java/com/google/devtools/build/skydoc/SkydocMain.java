@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.skydoc;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
+import com.google.common.base.Functions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
+import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
@@ -47,8 +47,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 /**
  * Main entry point for the Skydoc binary.
@@ -65,11 +65,6 @@ import java.util.regex.Pattern;
  * </pre>
  */
 public class SkydocMain {
-
-  // Pattern to match the assignment of a variable to a rule definition
-  // For example, 'my_rule = rule(' will match and have 'my_rule' available as group(1).
-  private static final Pattern ruleDefinitionLinePattern =
-      Pattern.compile("([^\\s]+) = rule\\(");
 
   private final EventHandler eventHandler = new SystemOutEventHandler();
 
@@ -88,35 +83,34 @@ public class SkydocMain {
     ParserInputSource parserInputSource =
         ParserInputSource.create(content, PathFragment.create(path.toString()));
 
-    List<RuleInfo> ruleInfoList = new SkydocMain().eval(parserInputSource);
+    ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
+    ImmutableList.Builder<RuleInfo> unexportedRuleInfos = ImmutableList.builder();
+
+    new SkydocMain().eval(parserInputSource, ruleInfoMap, unexportedRuleInfos);
 
     try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
-      printRuleInfos(printWriter, ruleInfoList);
+      printRuleInfos(printWriter, ruleInfoMap.build(), unexportedRuleInfos.build());
     }
   }
 
   // TODO(cparsons): Improve output (markdown or HTML).
   private static void printRuleInfos(
-      PrintWriter printWriter, List<RuleInfo> ruleInfos) throws IOException {
-    for (RuleInfo ruleInfo : ruleInfos) {
-      Location location = ruleInfo.getLocation();
-      Path filePath = Paths.get(location.getPath().getPathString());
-      List<String> lines = Files.readAllLines(filePath, UTF_8);
-      String definingString = lines.get(location.getStartLine() - 1);
-      // Rule definitions don't specify their own visible name directly. Instead, the name of
-      // a rule is dependent on the name of the variable assigend to the return value of rule().
-      // This attempts to find a line of the form 'foo = rule(' and thus label the rule as
-      // named 'foo'.
-      // TODO(cparsons): Inspect the global bindings of the environment instead of using string
-      // matching.
-      Matcher matcher = ruleDefinitionLinePattern.matcher(definingString);
-      if (matcher.matches()) {
-        printWriter.println(matcher.group(1));
-      } else {
-        printWriter.println("<unknown name>");
-      }
-      printWriter.println(ruleInfo.getDescription());
+      PrintWriter printWriter,
+      Map<String, RuleInfo> ruleInfos,
+      List<RuleInfo> unexportedRuleInfos) throws IOException {
+    for (Entry<String, RuleInfo> ruleInfoEntry : ruleInfos.entrySet()) {
+      printRuleInfo(printWriter, ruleInfoEntry.getKey(), ruleInfoEntry.getValue());
     }
+    for (RuleInfo unexportedRuleInfo : unexportedRuleInfos) {
+      printRuleInfo(printWriter, "<unknown name>", unexportedRuleInfo);
+    }
+  }
+
+  private static void printRuleInfo(
+      PrintWriter printWriter, String exportedName, RuleInfo ruleInfo) {
+    printWriter.println(exportedName);
+    printWriter.println(ruleInfo.getDescription());
+    printWriter.println();
   }
 
   /**
@@ -124,11 +118,17 @@ public class SkydocMain {
    * collects information about all rule definitions made in that file.
    *
    * @param parserInputSource the input source representing the input skylark file
-   * @return a list of {@link RuleInfo} objects describing the rule definitions
+   * @param ruleInfoMap a map builder to be populated with rule definition information for
+   *     named rules. Keys are exported names of rules, and values are their {@link RuleInfo}
+   *     rule descriptions. For example, 'my_rule = rule(...)' has key 'my_rule'
+   * @param unexportedRuleInfos a list builder to be populated with rule definition information
+   *     for rules which were not exported as top level symbols
    * @throws InterruptedException if evaluation is interrupted
    */
   // TODO(cparsons): Evaluate load statements recursively.
-  public List<RuleInfo> eval(ParserInputSource parserInputSource)
+  public void eval(ParserInputSource parserInputSource,
+      ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
+      ImmutableList.Builder<RuleInfo> unexportedRuleInfos)
       throws InterruptedException {
     List<RuleInfo> ruleInfoList = new ArrayList<>();
 
@@ -146,7 +146,19 @@ public class SkydocMain {
 
     env.mutability().freeze();
 
-    return ruleInfoList;
+    Map<BaseFunction, RuleInfo> ruleFunctions = ruleInfoList.stream()
+        .collect(Collectors.toMap(
+            RuleInfo::getIdentifierFunction,
+            Functions.identity()));
+
+    for (Entry<String, Object> envEntry : env.getGlobals().getBindings().entrySet()) {
+      if (ruleFunctions.containsKey(envEntry.getValue())) {
+        ruleInfoMap.put(envEntry.getKey(), ruleFunctions.get(envEntry.getValue()));
+        ruleFunctions.remove(envEntry.getValue());
+      }
+    }
+
+    unexportedRuleInfos.addAll(ruleFunctions.values());
   }
 
   /**

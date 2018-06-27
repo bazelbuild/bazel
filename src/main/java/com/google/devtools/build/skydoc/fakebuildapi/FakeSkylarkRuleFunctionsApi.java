@@ -27,18 +27,20 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Fake implementation of {@link SkylarkRuleFunctionsApi}.
  *
- * <p>This fake hooks into the global {@code rule()} function, noting calls of that function
- * with a {@link RuleInfoCollector} given in the class constructor.</p>
+ * <p>This fake hooks into the global {@code rule()} function, adding descriptors of calls of that
+ * function to a {@link List} given in the class constructor.</p>
  */
 public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<FileApi> {
 
@@ -67,7 +69,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Boolean executionPlatformConstraintsAllowed, SkylarkList<?> execCompatibleWith,
       FuncallExpression ast, Environment funcallEnv) throws EvalException {
     Set<String> attrNames;
-    if (attrs != null) {
+    if (attrs != null && attrs != Runtime.NONE) {
       SkylarkDict<?, ?> attrsDict = (SkylarkDict<?, ?>) attrs;
       Map<String, Descriptor> attrsMap =
           attrsDict.getContents(String.class, Descriptor.class, "attrs");
@@ -76,9 +78,10 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       attrNames = ImmutableSet.of();
     }
 
+    RuleDefinitionIdentifier functionIdentifier = new RuleDefinitionIdentifier();
     // TODO(cparsons): Improve details given to RuleInfo (for example, attribute types).
-    ruleInfoList.add(new RuleInfo(ast.getLocation(), doc, attrNames));
-    return implementation;
+    ruleInfoList.add(new RuleInfo(functionIdentifier, ast.getLocation(), doc, attrNames));
+    return functionIdentifier;
   }
 
   @Override
@@ -99,5 +102,25 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       SkylarkList<?> fragments, SkylarkList<?> hostFragments, SkylarkList<?> toolchains, String doc,
       FuncallExpression ast, Environment funcallEnv) throws EvalException {
     return null;
+  }
+
+  /**
+   * A fake {@link BaseFunction} implementation which serves as an identifier for a rule definition.
+   * A skylark invocation of 'rule()' should spawn a unique instance of this class and return it.
+   * Thus, skylark code such as 'foo = rule()' will result in 'foo' being assigned to a unique
+   * identifier, which can later be matched to a registered rule() invocation saved by the fake
+   * build API implementation.
+   */
+  private static class RuleDefinitionIdentifier extends BaseFunction {
+
+    public RuleDefinitionIdentifier() {
+      super("RuleDefinitionIdentifier");
+    }
+
+    @Override
+    public boolean equals(@Nullable Object other) {
+      // Use exact object matching.
+      return this == other;
+    }
   }
 }
