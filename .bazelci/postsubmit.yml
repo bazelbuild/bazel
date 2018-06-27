@@ -45,8 +45,6 @@ platforms:
     - "//src/test/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
-    - "-//src/test/shell/bazel/android:android_ndk_integration_test"
   macos:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
