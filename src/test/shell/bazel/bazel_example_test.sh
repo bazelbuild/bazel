@@ -118,6 +118,8 @@ function test_native_python_with_zip() {
 
 function test_shell() {
   assert_build "//examples/shell:bin"
+  unset RUNFILES_DIR
+  unset RUNFILES_MANIFEST_FILE
   assert_bazel_run "//examples/shell:bin" "Hello Bazel!"
   assert_test_ok "//examples/shell:test"
 }
