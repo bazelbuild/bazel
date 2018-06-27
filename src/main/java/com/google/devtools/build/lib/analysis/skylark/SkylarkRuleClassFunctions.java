@@ -385,7 +385,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     ImmutableList.Builder<Label> requiredToolchains = new ImmutableList.Builder<>();
     for (String rawLabel : rawLabels) {
       try {
-        Label toolchainLabel = Label.parseAbsolute(rawLabel);
+        Label toolchainLabel = Label.parseAbsolute(rawLabel, ImmutableMap.of());
         requiredToolchains.add(toolchainLabel);
       } catch (LabelSyntaxException e) {
         throw new EvalException(
@@ -401,7 +401,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     ImmutableList.Builder<Label> constraintLabels = new ImmutableList.Builder<>();
     for (String rawLabel : rawLabels) {
       try {
-        Label constraintLabel = Label.parseAbsolute(rawLabel);
+        Label constraintLabel = Label.parseAbsolute(rawLabel, ImmutableMap.of());
         constraintLabels.add(constraintLabel);
       } catch (LabelSyntaxException e) {
         throw new EvalException(

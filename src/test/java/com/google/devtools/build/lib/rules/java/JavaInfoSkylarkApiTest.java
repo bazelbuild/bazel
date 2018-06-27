@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -506,9 +507,8 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     JavaExportsProvider exportsProvider = javaInfo.getProvider(JavaExportsProvider.class);
 
-    assertThat(
-        exportsProvider.getTransitiveExports())
-        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b"));
+    assertThat(exportsProvider.getTransitiveExports())
+        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         javaInfo.getProvider(JavaCompilationArgsProvider.class);
@@ -577,9 +577,8 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     JavaExportsProvider exportsProvider = javaInfo.getProvider(JavaExportsProvider.class);
 
-    assertThat(
-        exportsProvider.getTransitiveExports())
-        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b"));
+    assertThat(exportsProvider.getTransitiveExports())
+        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         javaInfo.getProvider(JavaCompilationArgsProvider.class);
@@ -879,7 +878,9 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
   private JavaInfo fetchJavaInfo() throws Exception {
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
     Info info =
-        myRuleTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "result"));
+        myRuleTarget.get(
+            new SkylarkKey(
+                Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
     @SuppressWarnings("unchecked")
     JavaInfo javaInfo = (JavaInfo) info.getValue("property");

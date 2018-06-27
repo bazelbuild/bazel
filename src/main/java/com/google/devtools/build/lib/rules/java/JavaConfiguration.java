@@ -211,7 +211,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
       try {
-        Label label = Label.parseAbsolute(s);
+        Label label = Label.parseAbsolute(s, ImmutableMap.of());
         translationsBuilder.add(label);
       } catch (LabelSyntaxException e) {
         throw new InvalidConfigurationException("Invalid translations target '" + s + "', make " +

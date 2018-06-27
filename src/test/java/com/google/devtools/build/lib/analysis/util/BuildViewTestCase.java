@@ -357,7 +357,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Target getTarget(String label)
       throws NoSuchPackageException, NoSuchTargetException,
       LabelSyntaxException, InterruptedException {
-    return getTarget(Label.parseAbsolute(label));
+    return getTarget(Label.parseAbsolute(label, ImmutableMap.of()));
   }
 
   protected Target getTarget(Label label)
@@ -552,7 +552,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final ConfiguredTarget getDirectPrerequisite(ConfiguredTarget target, String label)
       throws Exception {
-    Label candidateLabel = Label.parseAbsolute(label);
+    Label candidateLabel = Label.parseAbsolute(label, ImmutableMap.of());
     for (ConfiguredTarget candidate : getDirectPrerequisites(target)) {
       if (candidate.getLabel().equals(candidateLabel)) {
         return candidate;
@@ -564,7 +564,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final ConfiguredTargetAndData getConfiguredTargetAndDataDirectPrerequisite(
       ConfiguredTargetAndData ctad, String label) throws Exception {
-    Label candidateLabel = Label.parseAbsolute(label);
+    Label candidateLabel = Label.parseAbsolute(label, ImmutableMap.of());
     for (ConfiguredTargetAndData candidate : getDirectPrerequisites(ctad)) {
       if (candidate.getConfiguredTarget().getLabel().equals(candidateLabel)) {
         return candidate;
@@ -829,7 +829,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected ConfiguredTarget getConfiguredTarget(String label, BuildConfiguration config)
       throws LabelSyntaxException {
-    return getConfiguredTarget(Label.parseAbsolute(label), config);
+    return getConfiguredTarget(Label.parseAbsolute(label, ImmutableMap.of()), config);
   }
 
   /**
@@ -861,7 +861,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   public ConfiguredTargetAndData getConfiguredTargetAndData(String label)
       throws LabelSyntaxException {
-    return getConfiguredTargetAndData(Label.parseAbsolute(label), targetConfig);
+    return getConfiguredTargetAndData(Label.parseAbsolute(label, ImmutableMap.of()), targetConfig);
   }
 
   /**
@@ -1486,7 +1486,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   public static Label makeLabel(String label) {
     try {
-      return Label.parseAbsolute(label);
+      return Label.parseAbsolute(label, ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
@@ -1782,7 +1782,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   public static Set<Label> asLabelSet(Iterable<String> strings) throws LabelSyntaxException {
     Set<Label> result = Sets.newTreeSet();
     for (String s : strings) {
-      result.add(Label.parseAbsolute(s));
+      result.add(Label.parseAbsolute(s, ImmutableMap.of()));
     }
     return result;
   }

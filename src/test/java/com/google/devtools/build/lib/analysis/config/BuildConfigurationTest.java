@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
@@ -192,12 +193,15 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   @Test
   public void testTargetEnvironment() throws Exception {
     BuildConfiguration oneEnvConfig = create("--target_environment=//foo");
-    assertThat(oneEnvConfig.getTargetEnvironments()).containsExactly(Label.parseAbsolute("//foo"));
+    assertThat(oneEnvConfig.getTargetEnvironments())
+        .containsExactly(Label.parseAbsolute("//foo", ImmutableMap.of()));
 
     BuildConfiguration twoEnvsConfig =
         create("--target_environment=//foo", "--target_environment=//bar");
     assertThat(twoEnvsConfig.getTargetEnvironments())
-        .containsExactly(Label.parseAbsolute("//foo"), Label.parseAbsolute("//bar"));
+        .containsExactly(
+            Label.parseAbsolute("//foo", ImmutableMap.of()),
+            Label.parseAbsolute("//bar", ImmutableMap.of()));
 
     BuildConfiguration noEnvsConfig = create();
     assertThat(noEnvsConfig.getTargetEnvironments()).isEmpty();

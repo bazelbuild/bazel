@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -42,9 +43,9 @@ public class ConstantRuleVisibility implements RuleVisibility, Serializable {
 
   static {
     try {
-      PUBLIC_LABEL = Label.parseAbsolute("//visibility:public");
-      LEGACY_PUBLIC_LABEL = Label.parseAbsolute("//visibility:legacy_public");
-      PRIVATE_LABEL = Label.parseAbsolute("//visibility:private");
+      PUBLIC_LABEL = Label.parseAbsolute("//visibility:public", ImmutableMap.of());
+      LEGACY_PUBLIC_LABEL = Label.parseAbsolute("//visibility:legacy_public", ImmutableMap.of());
+      PRIVATE_LABEL = Label.parseAbsolute("//visibility:private", ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException();
     }

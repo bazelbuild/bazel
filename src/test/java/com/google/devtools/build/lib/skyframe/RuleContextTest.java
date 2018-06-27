@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,12 +37,12 @@ public class RuleContextTest extends ToolchainTestCase {
         "--platforms=//platforms:mac");
     RuleContext ruleContext = getRuleContext(getConfiguredTarget("//x"));
     assertThat(ruleContext.getToolchainContext().resolvedToolchainLabels())
-        .contains(Label.parseAbsolute("//toolchain:toolchain_1_impl"));
+        .contains(Label.parseAbsolute("//toolchain:toolchain_1_impl", ImmutableMap.of()));
 
     ToolchainInfo toolchain =
         ruleContext
             .getToolchainContext()
-            .forToolchainType(Label.parseAbsolute("//toolchain:test_toolchain"));
+            .forToolchainType(Label.parseAbsolute("//toolchain:test_toolchain", ImmutableMap.of()));
     assertThat(toolchain.getValue("data")).isEqualTo("foo");
   }
 }

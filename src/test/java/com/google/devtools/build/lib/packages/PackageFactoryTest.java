@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
@@ -581,7 +582,9 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     assertThat(attributes(pkg.getRule("t1")).get("$implicit_tests", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
-            Sets.newHashSet(Label.parseAbsolute("//x:c"), Label.parseAbsolute("//x:j")));
+            Sets.newHashSet(
+                Label.parseAbsolute("//x:c", ImmutableMap.of()),
+                Label.parseAbsolute("//x:j", ImmutableMap.of())));
     assertThat(attributes(pkg.getRule("t2")).get("$implicit_tests", BuildType.LABEL_LIST))
         .isEmpty();
     assertThat(attributes(pkg.getRule("t3")).get("$implicit_tests", BuildType.LABEL_LIST))
@@ -604,14 +607,16 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     List<Label> yesFiles = attributes(pkg.getRule("yes")).get("srcs", BuildType.LABEL_LIST);
     List<Label> noFiles = attributes(pkg.getRule("no")).get("srcs", BuildType.LABEL_LIST);
 
-    assertThat(yesFiles).containsExactly(
-        Label.parseAbsolute("@//fruit:data/apple"),
-        Label.parseAbsolute("@//fruit:data/pear"));
+    assertThat(yesFiles)
+        .containsExactly(
+            Label.parseAbsolute("@//fruit:data/apple", ImmutableMap.of()),
+            Label.parseAbsolute("@//fruit:data/pear", ImmutableMap.of()));
 
-    assertThat(noFiles).containsExactly(
-        Label.parseAbsolute("@//fruit:data/apple"),
-        Label.parseAbsolute("@//fruit:data/pear"),
-        Label.parseAbsolute("@//fruit:data/berry"));
+    assertThat(noFiles)
+        .containsExactly(
+            Label.parseAbsolute("@//fruit:data/apple", ImmutableMap.of()),
+            Label.parseAbsolute("@//fruit:data/pear", ImmutableMap.of()),
+            Label.parseAbsolute("@//fruit:data/berry", ImmutableMap.of()));
   }
 
   // TODO(bazel-team): This is really a test for GlobCache.
@@ -1032,7 +1037,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("e")).isNotNull();
     List globList = (List) pkg.getRule("e").getAttributeContainer().getAttr("data");
-    assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt"));
+    assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt", ImmutableMap.of()));
   }
 
   @Test
@@ -1213,8 +1218,10 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             "    default_compatible_with=['//foo'],",
             "    default_restricted_to=['//bar'],",
             ")");
-    assertThat(pkg.getDefaultCompatibleWith()).containsExactly(Label.parseAbsolute("//foo"));
-    assertThat(pkg.getDefaultRestrictedTo()).containsExactly(Label.parseAbsolute("//bar"));
+    assertThat(pkg.getDefaultCompatibleWith())
+        .containsExactly(Label.parseAbsolute("//foo", ImmutableMap.of()));
+    assertThat(pkg.getDefaultRestrictedTo())
+        .containsExactly(Label.parseAbsolute("//bar", ImmutableMap.of()));
   }
 
   @Test

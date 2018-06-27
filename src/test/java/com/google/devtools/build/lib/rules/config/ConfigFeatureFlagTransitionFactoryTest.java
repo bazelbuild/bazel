@@ -120,7 +120,8 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     Rule rule = scratchRule("a", "empty", "feature_flag_setter(name = 'empty', flag_values = {})");
     PatchTransition transition =
         new ConfigFeatureFlagTransitionFactory("flag_values").buildTransitionFor(rule);
-    Map<Label, String> originalFlagMap = ImmutableMap.of(Label.parseAbsolute("//a:flag"), "value");
+    Map<Label, String> originalFlagMap =
+        ImmutableMap.of(Label.parseAbsolute("//a:flag", ImmutableMap.of()), "value");
 
     BuildOptions original = getOptionsWithFlagFragment(originalFlagMap);
     BuildOptions converted = transition.patch(original);
@@ -147,8 +148,10 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
             "    default_value = 'a')");
     PatchTransition transition =
         new ConfigFeatureFlagTransitionFactory("flag_values").buildTransitionFor(rule);
-    Map<Label, String> originalFlagMap = ImmutableMap.of(Label.parseAbsolute("//a:old"), "value");
-    Map<Label, String> expectedFlagMap = ImmutableMap.of(Label.parseAbsolute("//a:flag"), "a");
+    Map<Label, String> originalFlagMap =
+        ImmutableMap.of(Label.parseAbsolute("//a:old", ImmutableMap.of()), "value");
+    Map<Label, String> expectedFlagMap =
+        ImmutableMap.of(Label.parseAbsolute("//a:flag", ImmutableMap.of()), "a");
 
     BuildOptions original = getOptionsWithFlagFragment(originalFlagMap);
     BuildOptions converted = transition.patch(original);

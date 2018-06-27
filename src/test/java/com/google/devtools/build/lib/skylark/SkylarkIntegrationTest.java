@@ -1639,7 +1639,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "my_dep_rule(name = 'yyy', dep = ':xxx')"
     );
 
-    SkylarkKey pInfoKey = new SkylarkKey(Label.parseAbsolute("//test:rule.bzl"), "PInfo");
+    SkylarkKey pInfoKey =
+        new SkylarkKey(Label.parseAbsolute("//test:rule.bzl", ImmutableMap.of()), "PInfo");
 
     ConfiguredTarget targetXXX = getConfiguredTarget("//test:xxx");
     assertThat(targetXXX.get(pInfoKey).getValue("s"))

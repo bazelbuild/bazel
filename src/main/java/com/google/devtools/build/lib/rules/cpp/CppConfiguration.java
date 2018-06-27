@@ -790,7 +790,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public Label getSkylarkStl() {
     if (stlLabel == null) {
       try {
-        return Label.parseAbsolute("//third_party/stl");
+        return Label.parseAbsolute("//third_party/stl", ImmutableMap.of());
       } catch (LabelSyntaxException e) {
         throw new IllegalStateException("STL label not formatted correctly", e);
       }

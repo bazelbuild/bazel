@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylark;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -58,7 +59,8 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
 
-    SkylarkKey fooKey = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "foo");
+    SkylarkKey fooKey =
+        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
 
     assertThat(configuredAspect.get(fooKey).getValue("actions")).isNotNull();
     @SuppressWarnings("unchecked")
@@ -112,7 +114,8 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
 
-    SkylarkKey fooKey = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "foo");
+    SkylarkKey fooKey =
+        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
 
     assertThat(configuredAspect.get(fooKey).getValue("actions")).isNotNull();
 

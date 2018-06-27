@@ -98,13 +98,21 @@ public final class Label
    * </pre>
    *
    * <p>Treats labels in the default repository as being in the main repository instead.
+   *
+   * <p>Labels that begin with a repository name may have the repository name remapped to a
+   * different name if it appears in {@code repositoryMapping}. This happens if the current
+   * repository being evaluated is external to the main repository and the main repository set the
+   * {@code repo_mapping} attribute when declaring this repository.
+   *
+   * @param absName label-like string to be parsed
+   * @param repositoryMapping map of repository names from the local name found in the current
+   *     repository to the global name declared in the main repository
    */
-  @Deprecated
-  // TODO(b/110698008): deprecate this method and only have parseAbsolute() methods that pass
-  // a repositoryMapping
-  public static Label parseAbsolute(String absName) throws LabelSyntaxException {
+  public static Label parseAbsolute(
+      String absName, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      throws LabelSyntaxException {
     return parseAbsolute(
-        absName, /* defaultToMain= */ true, /* repositoryMapping= */ ImmutableMap.of());
+        absName, /* defaultToMain= */ true, repositoryMapping);
   }
 
   /**
@@ -123,7 +131,10 @@ public final class Label
    * repository being evaluated is external to the main repository and the main repository set the
    * {@code repo_mapping} attribute when declaring this repository.
    *
+   * @param absName label-like string to be parsed
    * @param defaultToMain Treat labels in the default repository as being in the main one instead.
+   * @param repositoryMapping map of repository names from the local name found in the current
+   *     repository to the global name declared in the main repository
    */
   public static Label parseAbsolute(
       String absName,
@@ -242,7 +253,7 @@ public final class Label
       throws LabelSyntaxException {
     Preconditions.checkArgument(!workspaceRelativePath.isAbsolute());
     if (LabelValidator.isAbsolute(label)) {
-      return parseAbsolute(label);
+      return parseAbsolute(label, ImmutableMap.of());
     }
     int index = label.indexOf(':');
     if (index < 0) {

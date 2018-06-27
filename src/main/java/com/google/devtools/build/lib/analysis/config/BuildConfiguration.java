@@ -169,7 +169,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       if (!input.startsWith("/") && !input.startsWith("@")) {
         input = "//" + input;
       }
-      return Label.parseAbsolute(input);
+      return Label.parseAbsolute(input, ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       throw new OptionsParsingException(e.getMessage());
     }

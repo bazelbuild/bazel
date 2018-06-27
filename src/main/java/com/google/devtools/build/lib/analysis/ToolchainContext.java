@@ -200,7 +200,7 @@ public class ToolchainContext implements ToolchainContextApi {
       Label toolchainType = null;
       String rawLabel = (String) key;
       try {
-        toolchainType = Label.parseAbsolute(rawLabel);
+        toolchainType = Label.parseAbsolute(rawLabel, ImmutableMap.of());
       } catch (LabelSyntaxException e) {
         throw new EvalException(
             loc, String.format("Unable to parse toolchain %s: %s", rawLabel, e.getMessage()), e);

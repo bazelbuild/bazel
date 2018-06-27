@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -106,8 +107,10 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect = Iterables.getOnlyElement(analysisResult.getAspects())
         .getConfiguredAspect();
 
-    SkylarkKey fooKey = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "foo");
-    SkylarkKey barKey = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "bar");
+    SkylarkKey fooKey =
+        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
+    SkylarkKey barKey =
+        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "bar");
 
     assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
     assertThat(configuredAspect.get(barKey).getProvider().getKey()).isEqualTo(barKey);
@@ -133,8 +136,10 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect = Iterables.getOnlyElement(analysisResult.getAspects())
         .getConfiguredAspect();
 
-    SkylarkKey fooKey = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "foo");
-    SkylarkKey barKey = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "bar");
+    SkylarkKey fooKey =
+        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
+    SkylarkKey barKey =
+        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "bar");
 
     assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
     assertThat(configuredAspect.get(barKey).getProvider().getKey()).isEqualTo(barKey);
@@ -2290,7 +2295,8 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     AnalysisResult analysisResult = update(ImmutableList.of("//test:aspect.bzl%a3"), "//test:r2_1");
     ConfiguredAspect configuredAspect = Iterables.getOnlyElement(analysisResult.getAspects())
         .getConfiguredAspect();
-    SkylarkKey p3 = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "p3");
+    SkylarkKey p3 =
+        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "p3");
     assertThat((SkylarkList<?>) configuredAspect.get(p3).getValue("value"))
         .containsExactly(
             "//test:r0_1=True",
@@ -2353,7 +2359,8 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     AnalysisResult analysisResult = update(ImmutableList.of(), "//test:rcollect");
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    SkylarkKey pCollector = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "PCollector");
+    SkylarkKey pCollector =
+        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     assertThat((SkylarkList<?>) configuredTarget.get(pCollector).getValue("result"))
         .containsExactly(
             "//test:r1",
@@ -2393,9 +2400,11 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:baz");
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
-    SkylarkKey pCollector = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "PCollector");
+    SkylarkKey pCollector =
+        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     Info collector = configuredAspect.get(pCollector);
-    assertThat(collector.getValue("aspect_attr")).isEqualTo(Label.parseAbsolute("//test:foo"));
+    assertThat(collector.getValue("aspect_attr"))
+        .isEqualTo(Label.parseAbsolute("//test:foo", ImmutableMap.of()));
   }
 
   @Test
@@ -2434,7 +2443,8 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:baz");
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
-    SkylarkKey pCollector = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "PCollector");
+    SkylarkKey pCollector =
+        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     Info collector = configuredAspect.get(pCollector);
     assertThat(collector.getValue("attr_value")).isEqualTo(30);
   }
@@ -2489,7 +2499,8 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:quux");
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
-    SkylarkKey pCollector = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "PCollector");
+    SkylarkKey pCollector =
+        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     Info collector = configuredAspect.get(pCollector);
     assertThat(collector.getValue("attr_value")).isEqualTo(30);
   }
@@ -2529,13 +2540,14 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:baz");
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
-    SkylarkKey pCollector = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "PCollector");
+    SkylarkKey pCollector =
+        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     Info collector = configuredAspect.get(pCollector);
     assertThat(((SkylarkNestedSet) collector.getValue("visited")).toCollection())
         .containsExactly(
-            Label.parseAbsolute("//test:referenced_from_aspect_only"),
-            Label.parseAbsolute("//test:bar"),
-            Label.parseAbsolute("//test:baz"));
+            Label.parseAbsolute("//test:referenced_from_aspect_only", ImmutableMap.of()),
+            Label.parseAbsolute("//test:bar", ImmutableMap.of()),
+            Label.parseAbsolute("//test:baz", ImmutableMap.of()));
   }
 
   @Test

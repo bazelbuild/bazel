@@ -448,8 +448,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     PackageValue value = validPackage(skyKey);
-    assertThat(value.getPackage().getSkylarkFileDependencies()).containsExactly(
-        Label.parseAbsolute("//bar:ext.bzl"), Label.parseAbsolute("//baz:ext.bzl"));
+    assertThat(value.getPackage().getSkylarkFileDependencies())
+        .containsExactly(
+            Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
+            Label.parseAbsolute("//baz:ext.bzl", ImmutableMap.of()));
 
     scratch.overwriteFile("bar/ext.bzl",
         "load('//qux:ext.bzl', 'c')",
@@ -461,8 +463,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
 
     value = validPackage(skyKey);
-    assertThat(value.getPackage().getSkylarkFileDependencies()).containsExactly(
-        Label.parseAbsolute("//bar:ext.bzl"), Label.parseAbsolute("//qux:ext.bzl"));
+    assertThat(value.getPackage().getSkylarkFileDependencies())
+        .containsExactly(
+            Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
+            Label.parseAbsolute("//qux:ext.bzl", ImmutableMap.of()));
   }
 
   @Test

@@ -194,7 +194,7 @@ public class PackageCacheTest extends FoundationTestCase {
   }
 
   private Target getTarget(String label) throws Exception {
-    return getTarget(Label.parseAbsolute(label));
+    return getTarget(Label.parseAbsolute(label, ImmutableMap.of()));
   }
 
   private void createPkg1() throws IOException {
@@ -245,7 +245,7 @@ public class PackageCacheTest extends FoundationTestCase {
   @Test
   public void testGetTarget() throws Exception {
     createPkg1();
-    Label label = Label.parseAbsolute("//pkg1:foo");
+    Label label = Label.parseAbsolute("//pkg1:foo", ImmutableMap.of());
     Target target = getTarget(label);
     assertThat(target.getLabel()).isEqualTo(label);
   }
@@ -403,7 +403,7 @@ public class PackageCacheTest extends FoundationTestCase {
   }
 
   private void assertLabelValidity(boolean expected, String labelString) throws Exception {
-    Label label = Label.parseAbsolute(labelString);
+    Label label = Label.parseAbsolute(labelString, ImmutableMap.of());
 
     boolean actual = false;
     String error = null;
