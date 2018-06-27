@@ -13,8 +13,11 @@
 # limitations under the License.
 #
 # Convenience macro for skydoc tests. Each target represents two targets:
-# a shell test verifying the contents of the golden file, and a genrule
-# which will regenerate the golden file.
+# 1. A sh_test target which verifies that skydoc, when run on an input file,
+#    creates output matching the contents of a golden file.
+# 2. A genrule target which will generate a new golden file given an input file
+#    and the current version of skydoc. This target should be used to regenerate
+#    the golden file if changes are made to skydoc.
 """Convenience macro for skydoc tests."""
 
 def skydoc_test(name, input_file, golden_file, skydoc):
