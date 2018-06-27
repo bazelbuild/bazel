@@ -19,7 +19,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
 import com.google.devtools.build.lib.syntax.DebugServer;
@@ -41,7 +40,7 @@ public final class SkylarkDebugServer implements DebugServer {
    * debug server socket and blocks waiting for an incoming connection.
    *
    * @param port the port on which the server should listen for connections
-   * @param verboseLogging if false, debug-level events will be suppressed
+   * @param verboseLogging if true, debug-level events will be logged
    * @throws IOException if an I/O error occurs while opening the socket or waiting for a connection
    */
   public static SkylarkDebugServer createAndWaitForConnection(
@@ -54,28 +53,16 @@ public final class SkylarkDebugServer implements DebugServer {
    * Initializes debugging support, setting up any debugging-specific overrides, then opens the
    * debug server socket and blocks waiting for an incoming connection.
    *
-   * @param verboseLogging if false, debug-level events will be suppressed
+   * @param verboseLogging if true, debug-level events will be logged
    * @throws IOException if an I/O error occurs while waiting for a connection
    */
   @VisibleForTesting
   static SkylarkDebugServer createAndWaitForConnection(
       EventHandler eventHandler, ServerSocket serverSocket, boolean verboseLogging)
       throws IOException {
-    if (!verboseLogging) {
-      eventHandler = getHandlerSuppressingDebugEvents(eventHandler);
-    }
     DebugServerTransport transport =
-        DebugServerTransport.createAndWaitForClient(eventHandler, serverSocket);
-    return new SkylarkDebugServer(eventHandler, transport);
-  }
-
-  /** Wraps an event handler, suppressing debug-level events. */
-  private static EventHandler getHandlerSuppressingDebugEvents(EventHandler handler) {
-    return event -> {
-      if (event.getKind() != EventKind.DEBUG) {
-        handler.handle(event);
-      }
-    };
+        DebugServerTransport.createAndWaitForClient(eventHandler, serverSocket, verboseLogging);
+    return new SkylarkDebugServer(eventHandler, transport, verboseLogging);
   }
 
   private final EventHandler eventHandler;
@@ -84,10 +71,14 @@ public final class SkylarkDebugServer implements DebugServer {
   /** The server socket for the debug server. */
   private final DebugServerTransport transport;
 
-  private SkylarkDebugServer(EventHandler eventHandler, DebugServerTransport transport) {
+  private final boolean verboseLogging;
+
+  private SkylarkDebugServer(
+      EventHandler eventHandler, DebugServerTransport transport, boolean verboseLogging) {
     this.eventHandler = eventHandler;
     this.threadHandler = new ThreadHandler();
     this.transport = transport;
+    this.verboseLogging = verboseLogging;
     listenForClientRequests();
   }
 
@@ -133,7 +124,9 @@ public final class SkylarkDebugServer implements DebugServer {
   @Override
   public void close() {
     try {
-      eventHandler.handle(Event.debug("Closing debug server"));
+      if (verboseLogging) {
+        eventHandler.handle(Event.debug("Closing debug server"));
+      }
       transport.close();
 
     } catch (IOException e) {
