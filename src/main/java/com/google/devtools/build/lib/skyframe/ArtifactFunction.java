@@ -271,6 +271,7 @@ class ArtifactFunction implements SkyFunction {
     return FileArtifactValue.createNormalFile(data);
   }
 
+  @Nullable
   private static AggregatingArtifactValue createAggregatingValue(
       Artifact artifact,
       ActionAnalysisMetadata action,
@@ -283,7 +284,9 @@ class ArtifactFunction implements SkyFunction {
         env.getValues(ArtifactSkyKey.mandatoryKeys(action.getInputs())).entrySet()) {
       Artifact input = ArtifactSkyKey.artifact(entry.getKey());
       SkyValue inputValue = entry.getValue();
-      Preconditions.checkNotNull(inputValue, "%s has null dep %s", artifact, input);
+      if (inputValue == null) {
+        return null;
+      }
       if (inputValue instanceof FileArtifactValue) {
         inputs.add(Pair.of(input, (FileArtifactValue) inputValue));
       } else if (inputValue instanceof TreeArtifactValue) {
