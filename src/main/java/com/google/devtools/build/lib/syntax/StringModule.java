@@ -917,15 +917,15 @@ public final class StringModule {
             doc = "optional position at which to stop comparing.")
       })
   public Boolean endsWith(String self, Object sub, Integer start, Object end)
-      throws ConversionException {
+      throws ConversionException, EvalException {
     String str = pythonSubstring(self, start, end, "'end' operand of 'endswith'");
     if (sub instanceof String) {
       return str.endsWith((String)sub);
     }
 
     @SuppressWarnings("unchecked")
-    Tuple<String> subs = (Tuple<String>) sub;
-    for (String s : subs) {
+    Tuple<Object> subs = (Tuple<Object>) sub;
+    for (String s : subs.getContents(String.class, "string")) {
       if (str.endsWith(s)) {
         return true;
       }
@@ -1008,15 +1008,15 @@ public final class StringModule {
             doc = "Stop comparing at this position.")
       })
   public Boolean startsWith(String self, Object sub, Integer start, Object end)
-      throws ConversionException {
+      throws ConversionException, EvalException {
     String str = pythonSubstring(self, start, end, "'end' operand of 'startswith'");
     if (sub instanceof String) {
       return str.startsWith((String)sub);
     }
 
     @SuppressWarnings("unchecked")
-    Tuple<String> subs = (Tuple<String>) sub;
-    for (String s : subs) {
+    Tuple<Object> subs = (Tuple<Object>) sub;
+    for (String s : subs.getContents(String.class, "string")) {
       if (str.startsWith(s)) {
         return true;
       }

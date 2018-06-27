@@ -70,8 +70,16 @@ assert_eq('a'.endswith(('a', 'a')), True)
 assert_eq(''.endswith(('a', '')), True)
 assert_eq(''.endswith(('', '')), True)
 assert_eq(''.endswith(('a', 'a')), False)
+assert_eq('a'.endswith(('a',)), True)
+assert_eq('a'.endswith(('b',)), False)
+assert_eq('a'.endswith(()), False)
+assert_eq(''.endswith(()), False)
 ---
 'a'.endswith(['a']) ### expected value of type 'string or tuple of strings' for parameter 'sub', in method call endswith(list) of 'string'
+---
+assert_eq('1'.endswith((1,)), False) ### expected type 'string' for 'string' element but got type 'int' instead
+---
+'a'.endswith(('1', 1)) ### expected type 'string' for 'string' element but got type 'int' instead
 ---
 
 # startswith
@@ -89,8 +97,16 @@ assert_eq('a'.startswith(('a', 'a')), True)
 assert_eq(''.startswith(('a', '')), True)
 assert_eq(''.startswith(('', '')), True)
 assert_eq(''.startswith(('a', 'a')), False)
+assert_eq('a'.startswith(('a',)), True)
+assert_eq('a'.startswith(('b',)), False)
+assert_eq('a'.startswith(()), False)
+assert_eq(''.startswith(()), False)
 ---
 'a'.startswith(['a']) ### expected value of type 'string or tuple of strings' for parameter 'sub', in method call startswith(list) of 'string'
+---
+'1'.startswith((1,)) ### expected type 'string' for 'string' element but got type 'int' instead
+---
+'a'.startswith(('1', 1)) ### expected type 'string' for 'string' element but got type 'int' instead
 ---
 
 # substring
