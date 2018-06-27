@@ -128,8 +128,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
    * Builder#mergeDependentCcCompilationContexts(Iterable)}, they are consolidated into a single
    * middleman Artifact when {@link Builder#build()} is called.
    *
-   * <p>The returned set can be empty if there are no prerequisites. Usually it contains a single
-   * middleman, but if LIPO is used there can be two.
+   * <p>The returned set can be empty if there are no prerequisites. Usually, it contains a single
+   * middleman.
    */
   public ImmutableSet<Artifact> getTransitiveCompilationPrerequisites() {
     return compilationPrerequisites;
@@ -426,8 +426,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
      * headers.
      */
     public Builder addCompilationPrerequisites(Iterable<Artifact> prerequisites) {
-      // LIPO collector must not add compilation prerequisites in order to avoid
-      // the creation of a middleman action.
       for (Artifact prerequisite : prerequisites) {
         String basename = prerequisite.getFilename();
         Preconditions.checkArgument(!Link.OBJECT_FILETYPES.matches(basename));
@@ -786,22 +784,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
       public Builder addTextualHeaders(Collection<Artifact> headers) {
         this.textualHeaders.addAll(headers);
-        return this;
-      }
-
-      /**
-       * Merges a {@link ModuleInfo} into this one. In contrast to addTransitive, this doesn't add
-       * the dependent module to transitiveModules, but just merges the transitive sets. The main
-       * usage is to merge multiple {@link ModuleInfo} instances for Lipo.
-       */
-      public Builder merge(ModuleInfo other) {
-        if (headerModule == null) {
-          headerModule = other.headerModule;
-        }
-        modularHeaders.addAll(other.modularHeaders);
-        textualHeaders.addAll(other.textualHeaders);
-        transitiveModules.addTransitive(other.transitiveModules);
-        transitiveModuleHeaders.addTransitive(other.transitiveModuleHeaders);
         return this;
       }
 
