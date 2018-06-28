@@ -265,17 +265,15 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     List<? extends VariableElement> methodSignatureParams = methodElement.getParameters();
     int numExtraInterpreterParams = numExpectedExtraInterpreterParams(annotation);
 
-    if (annotation.parameters().length > 0 || annotation.mandatoryPositionals() >= 0) {
-      int numDeclaredArgs =
-          annotation.parameters().length + Math.max(0, annotation.mandatoryPositionals());
-      if (methodSignatureParams.size() != numDeclaredArgs + numExtraInterpreterParams) {
-        throw new SkylarkCallableProcessorException(
-            methodElement,
-            String.format(
-                "@SkylarkCallable annotated method has %d parameters, but annotation declared "
-                    + "%d user-supplied parameters and %d extra interpreter parameters.",
-                methodSignatureParams.size(), numDeclaredArgs, numExtraInterpreterParams));
-      }
+    int numDeclaredArgs =
+        annotation.parameters().length + Math.max(0, annotation.mandatoryPositionals());
+    if (methodSignatureParams.size() != numDeclaredArgs + numExtraInterpreterParams) {
+      throw new SkylarkCallableProcessorException(
+          methodElement,
+          String.format(
+              "@SkylarkCallable annotated method has %d parameters, but annotation declared "
+                  + "%d user-supplied parameters and %d extra interpreter parameters.",
+              methodSignatureParams.size(), numDeclaredArgs, numExtraInterpreterParams));
     }
     if (annotation.structField()) {
       if (methodSignatureParams.size() != numExtraInterpreterParams) {

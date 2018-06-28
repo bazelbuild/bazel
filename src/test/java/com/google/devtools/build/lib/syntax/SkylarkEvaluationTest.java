@@ -120,11 +120,15 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       return "I'm a mock named " + myName;
     }
 
-    @SkylarkCallable(name = "value_of", documented = false)
+    @SkylarkCallable(name = "value_of",
+        parameters = { @Param(name = "str", type = String.class) },
+        documented = false)
     public static Integer valueOf(String str) {
       return Integer.valueOf(str);
     }
-    @SkylarkCallable(name = "is_empty", documented = false)
+    @SkylarkCallable(name = "is_empty",
+        parameters = { @Param(name = "str", type = String.class) },
+        documented = false)
     public Boolean isEmpty(String str) {
       return str.isEmpty();
     }
@@ -155,7 +159,12 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       return "a";
     }
     @SuppressWarnings("unused")
-    @SkylarkCallable(name = "nullfunc_failing", documented = false, allowReturnNones = false)
+    @SkylarkCallable(name = "nullfunc_failing",
+        parameters = {
+          @Param(name = "p1", type = String.class),
+          @Param(name = "p2", type = Integer.class),
+        },
+        documented = false, allowReturnNones = false)
     public SkylarkValue nullfuncFailing(String p1, Integer p2) {
       return null;
     }
@@ -482,7 +491,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @SkylarkModule(name = "MockInterface", doc = "")
   static interface MockInterface {
-    @SkylarkCallable(name = "is_empty_interface", documented = false)
+    @SkylarkCallable(name = "is_empty_interface",
+        parameters = { @Param(name = "str", type = String.class) },
+        documented = false)
     public Boolean isEmptyInterface(String str);
   }
 
