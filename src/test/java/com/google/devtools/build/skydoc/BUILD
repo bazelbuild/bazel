@@ -33,28 +33,28 @@ java_test(
 
 skydoc_test(
     name = "simple_test",
-    golden_file = "simple_test/golden.txt",
-    input_file = "simple_test/input.txt",
+    golden_file = "testdata/simple_test/golden.txt",
+    input_file = "testdata/simple_test/input.bzl",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
 
 skydoc_test(
     name = "unknown_name",
-    golden_file = "unknown_name_test/golden.txt",
-    input_file = "unknown_name_test/input.txt",
+    golden_file = "testdata/unknown_name_test/golden.txt",
+    input_file = "testdata/unknown_name_test/input.bzl",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
 
 skydoc_test(
     name = "multiple_rules_test",
-    golden_file = "multiple_rules_test/golden.txt",
-    input_file = "multiple_rules_test/input.txt",
+    golden_file = "testdata/multiple_rules_test/golden.txt",
+    input_file = "testdata/multiple_rules_test/input.bzl",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
 
 skydoc_test(
     name = "apple_basic_test",
-    golden_file = "apple_basic_test/golden.txt",
-    input_file = "apple_basic_test/input.txt",
+    golden_file = "testdata/apple_basic_test/golden.txt",
+    input_file = "testdata/apple_basic_test/input.bzl",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
