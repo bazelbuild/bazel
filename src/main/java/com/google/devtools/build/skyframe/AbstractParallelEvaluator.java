@@ -678,15 +678,15 @@ public abstract class AbstractParallelEvaluator {
       SkyFunctionEnvironment env,
       boolean keepGoing)
       throws InterruptedException {
+    Iterator<SkyKey> it = env.getNewlyRequestedDeps().iterator();
+    if (!it.hasNext()) {
+      return;
+    }
 
     // We don't expect any unfinished deps in a keep-going build.
     if (!keepGoing) {
       Map<SkyKey, ? extends NodeEntry> newlyRequestedDepMap =
           graph.getBatch(skyKey, Reason.DONE_CHECKING, env.getNewlyRequestedDeps());
-      Iterator<SkyKey> it = env.getNewlyRequestedDeps().iterator();
-      if (!it.hasNext()) {
-        return;
-      }
       Set<SkyKey> unfinishedDeps = new HashSet<>();
       while (it.hasNext()) {
         SkyKey dep = it.next();
