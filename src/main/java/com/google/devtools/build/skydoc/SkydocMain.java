@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
@@ -43,10 +44,11 @@ import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -69,6 +71,13 @@ import java.util.stream.Collectors;
 public class SkydocMain {
 
   private final EventHandler eventHandler = new SystemOutEventHandler();
+  private final LinkedHashSet<Path> pending = new LinkedHashSet<>();
+  private final Map<Path, Environment> loaded = new HashMap<>();
+  private final SkylarkFileAccessor fileAccessor;
+
+  public SkydocMain(SkylarkFileAccessor fileAccessor) {
+    this.fileAccessor = fileAccessor;
+  }
 
   public static void main(String[] args) throws IOException, InterruptedException {
     if (args.length != 2) {
@@ -80,15 +89,11 @@ public class SkydocMain {
     String outputPath = args[1];
 
     Path path = Paths.get(bzlPath);
-    byte[] content = Files.readAllBytes(path);
-
-    ParserInputSource parserInputSource =
-        ParserInputSource.create(content, PathFragment.create(path.toString()));
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
     ImmutableList.Builder<RuleInfo> unexportedRuleInfos = ImmutableList.builder();
 
-    new SkydocMain().eval(parserInputSource, ruleInfoMap, unexportedRuleInfos);
+    new SkydocMain(new FilesystemFileAccessor()).eval(path, ruleInfoMap, unexportedRuleInfos);
 
     try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
       printRuleInfos(printWriter, ruleInfoMap.build(), unexportedRuleInfos.build());
@@ -116,10 +121,10 @@ public class SkydocMain {
   }
 
   /**
-   * Evaluates/interprets the skylark file at the given input source using a fake build API and
-   * collects information about all rule definitions made in that file.
+   * Evaluates/interprets the skylark file at a given path and its transitive skylark dependencies
+   * using a fake build API and collects information about all rule definitions made in those files.
    *
-   * @param parserInputSource the input source representing the input skylark file
+   * @param path the path of the skylark file to evaluate
    * @param ruleInfoMap a map builder to be populated with rule definition information for
    *     named rules. Keys are exported names of rules, and values are their {@link RuleInfo}
    *     rule descriptions. For example, 'my_rule = rule(...)' has key 'my_rule'
@@ -128,19 +133,58 @@ public class SkydocMain {
    * @throws InterruptedException if evaluation is interrupted
    */
   // TODO(cparsons): Evaluate load statements recursively.
-  public void eval(ParserInputSource parserInputSource,
+  public Environment eval(
+      Path path,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
       ImmutableList.Builder<RuleInfo> unexportedRuleInfos)
-      throws InterruptedException {
-    List<RuleInfo> ruleInfoList = new ArrayList<>();
+      throws InterruptedException, IOException {
+    if (pending.contains(path)) {
+      throw new IllegalStateException("cycle with " + path);
+    } else if (loaded.containsKey(path)) {
+      return loaded.get(path);
+    }
+    pending.add(path);
 
-    BuildFileAST buildFileAST = BuildFileAST.parseSkylarkFile(
-        parserInputSource, eventHandler);
+    ParserInputSource parserInputSource = fileAccessor.inputSource(path.toString());
+    BuildFileAST buildFileAST = BuildFileAST.parseSkylarkFile(parserInputSource, eventHandler);
+
+    Map<String, Extension> imports = new HashMap<>();
+    for (SkylarkImport anImport : buildFileAST.getImports()) {
+      Path importPath = fromPathFragment(path, anImport.asPathFragment());
+
+      Environment importEnv = eval(importPath, ruleInfoMap, unexportedRuleInfos);
+
+      imports.put(anImport.getImportString(), new Extension(importEnv));
+    }
+
+    Environment env = evalSkylarkBody(buildFileAST, imports, ruleInfoMap, unexportedRuleInfos);
+
+    pending.remove(path);
+    env.mutability().freeze();
+    loaded.put(path, env);
+    return env;
+  }
+
+  private static Path fromPathFragment(Path fromPath, PathFragment pathFragment) {
+    return pathFragment.isAbsolute()
+        ? Paths.get(pathFragment.getPathString())
+        : fromPath.resolveSibling(pathFragment.getPathString());
+  }
+
+  /**
+   * Evaluates the AST from a single skylark file, given the already-resolved imports.
+   */
+  private Environment evalSkylarkBody(
+      BuildFileAST buildFileAST,
+      Map<String, Extension> imports,
+      ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
+      ImmutableList.Builder<RuleInfo> unexportedRuleInfos) throws InterruptedException {
+    List<RuleInfo> ruleInfoList = new ArrayList<>();
 
     Environment env = createEnvironment(
         eventHandler,
         globalFrame(ruleInfoList),
-        /* imports= */ ImmutableMap.of());
+        imports);
 
     if (!buildFileAST.exec(env, eventHandler)) {
       throw new RuntimeException("Error loading file");
@@ -159,8 +203,9 @@ public class SkydocMain {
         ruleFunctions.remove(envEntry.getValue());
       }
     }
-
     unexportedRuleInfos.addAll(ruleFunctions.values());
+
+    return env;
   }
 
   /**

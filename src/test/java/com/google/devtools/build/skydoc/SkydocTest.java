@@ -15,6 +15,7 @@
 package com.google.devtools.build.skydoc;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,9 +25,12 @@ import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
+import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,33 +41,47 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class SkydocTest extends SkylarkTestCase {
 
+  private SkydocMain skydocMain;
+
+  @Before
+  public void setUp() {
+    skydocMain = new SkydocMain(new SkylarkFileAccessor() {
+
+      @Override
+      public ParserInputSource inputSource(String pathString) throws IOException {
+        Path path = fileSystem.getPath(pathString);
+        byte[] bytes = FileSystemUtils.asByteSource(path).read();
+
+        return ParserInputSource.create(bytes, path.asFragment());
+      }
+    });
+  }
+
   @Test
   public void testRuleInfoAttrs() throws Exception {
-    Path file =
-        scratch.file(
-            "/test/test.bzl",
-            "def rule_impl(ctx):",
-            "  return struct()",
-            "",
-            "my_rule = rule(",
-            "    doc = 'This is my rule. It does stuff.',",
-            "    implementation = rule_impl,",
-            "    attrs = {",
-            "        'first': attr.label(mandatory=True, allow_files=True, single_file=True),",
-            "        'second': attr.string_dict(mandatory=True),",
-            "        'third': attr.output(mandatory=True),",
-            "        'fourth': attr.bool(default=False, mandatory=False),",
-            "    },",
-            ")");
-    byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
-
-    ParserInputSource parserInputSource =
-        ParserInputSource.create(bytes, file.asFragment());
+    scratch.file(
+        "/test/test.bzl",
+        "def rule_impl(ctx):",
+        "  return struct()",
+        "",
+        "my_rule = rule(",
+        "    doc = 'This is my rule. It does stuff.',",
+        "    implementation = rule_impl,",
+        "    attrs = {",
+        "        'first': attr.label(mandatory=True, allow_files=True, single_file=True),",
+        "        'second': attr.string_dict(mandatory=True),",
+        "        'third': attr.output(mandatory=True),",
+        "        'fourth': attr.bool(default=False, mandatory=False),",
+        "    },",
+        ")");
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
     ImmutableList.Builder<RuleInfo> unexportedRuleInfos = ImmutableList.builder();
 
-    new SkydocMain().eval(parserInputSource, ruleInfoMap, unexportedRuleInfos);
+    skydocMain.eval(
+        Paths.get("/test/test.bzl"),
+        ruleInfoMap,
+        unexportedRuleInfos);
     Map<String, RuleInfo> ruleInfos = ruleInfoMap.build();
     assertThat(ruleInfos).hasSize(1);
 
@@ -77,40 +95,38 @@ public final class SkydocTest extends SkylarkTestCase {
 
   @Test
   public void testMultipleRuleNames() throws Exception {
-    Path file =
-        scratch.file(
-            "/test/test.bzl",
-            "def rule_impl(ctx):",
-            "  return struct()",
-            "",
-            "rule_one = rule(",
-            "    doc = 'Rule one',",
-            "    implementation = rule_impl,",
-            ")",
-            "",
-            "rule(",
-            "    doc = 'This rule is not named',",
-            "    implementation = rule_impl,",
-            ")",
-            "",
-            "rule(",
-            "    doc = 'This rule also is not named',",
-            "    implementation = rule_impl,",
-            ")",
-            "",
-            "rule_two = rule(",
-            "    doc = 'Rule two',",
-            "    implementation = rule_impl,",
-            ")");
-    byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
-
-    ParserInputSource parserInputSource =
-        ParserInputSource.create(bytes, file.asFragment());
+    scratch.file(
+        "/test/test.bzl",
+        "def rule_impl(ctx):",
+        "  return struct()",
+        "",
+        "rule_one = rule(",
+        "    doc = 'Rule one',",
+        "    implementation = rule_impl,",
+        ")",
+        "",
+        "rule(",
+        "    doc = 'This rule is not named',",
+        "    implementation = rule_impl,",
+        ")",
+        "",
+        "rule(",
+        "    doc = 'This rule also is not named',",
+        "    implementation = rule_impl,",
+        ")",
+        "",
+        "rule_two = rule(",
+        "    doc = 'Rule two',",
+        "    implementation = rule_impl,",
+        ")");
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
     ImmutableList.Builder<RuleInfo> unexportedRuleInfos = ImmutableList.builder();
 
-    new SkydocMain().eval(parserInputSource, ruleInfoMap, unexportedRuleInfos);
+    skydocMain.eval(
+        Paths.get("/test/test.bzl"),
+        ruleInfoMap,
+        unexportedRuleInfos);
 
     assertThat(ruleInfoMap.build().keySet()).containsExactly("rule_one", "rule_two");
 
@@ -118,5 +134,83 @@ public final class SkydocTest extends SkylarkTestCase {
             .map(ruleInfo -> ruleInfo.getDocString())
             .collect(Collectors.toList()))
         .containsExactly("This rule is not named", "This rule also is not named");
+  }
+
+  @Test
+  public void testRulesAcrossMultipleFiles() throws Exception {
+    scratch.file(
+        "/lib/rule_impl.bzl",
+        "def rule_impl(ctx):",
+        "  return struct()");
+
+    scratch.file(
+        "/deps/foo/docstring.bzl",
+        "doc_string = 'Dep rule'");
+
+    scratch.file(
+        "/deps/foo/dep_rule.bzl",
+        "load('//lib:rule_impl.bzl', 'rule_impl')",
+        "load(':docstring.bzl', 'doc_string')",
+        "",
+        "some_var = 1",
+        "",
+        "dep_rule = rule(",
+        "    doc = doc_string,",
+        "    implementation = rule_impl,",
+        ")");
+
+    scratch.file(
+        "/test/main.bzl",
+        "load('//lib:rule_impl.bzl', 'rule_impl')",
+        "load('//deps/foo:dep_rule.bzl', 'some_var')",
+        "",
+        "main_rule = rule(",
+        "    doc = 'Main rule',",
+        "    implementation = rule_impl,",
+        ")");
+
+    ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
+
+    skydocMain.eval(
+        Paths.get("/test/main.bzl"),
+        ruleInfoMapBuilder,
+        ImmutableList.builder());
+
+    Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
+
+    assertThat(ruleInfoMap.keySet()).containsExactly("main_rule", "dep_rule");
+    assertThat(ruleInfoMap.get("main_rule").getDocString()).isEqualTo("Main rule");
+    assertThat(ruleInfoMap.get("dep_rule").getDocString()).isEqualTo("Dep rule");
+  }
+
+  @Test
+  public void testSkydocCrashesOnCycle() throws Exception {
+    scratch.file(
+        "/dep/dep.bzl",
+        "load('//test:main.bzl', 'some_var')",
+        "def rule_impl(ctx):",
+        "  return struct()");
+
+    scratch.file(
+        "/test/main.bzl",
+        "load('//dep:dep.bzl', 'rule_impl')",
+        "",
+        "some_var = 1",
+        "",
+        "main_rule = rule(",
+        "    doc = 'Main rule',",
+        "    implementation = rule_impl,",
+        ")");
+
+    ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
+
+    IllegalStateException expected =
+        assertThrows(IllegalStateException.class,
+            () -> skydocMain.eval(
+                Paths.get("/test/main.bzl"),
+                ruleInfoMapBuilder,
+                ImmutableList.builder()));
+
+    assertThat(expected).hasMessageThat().contains("cycle with /test/main.bzl");
   }
 }

@@ -24,7 +24,9 @@ golden_file=$3
 
 actual_file="${TEST_TMPDIR}/actual"
 
+set -e
 ${skydoc_bin} ${input_file} ${actual_file}
+set +e
 
 DIFF="$(diff ${actual_file} ${golden_file})"
 

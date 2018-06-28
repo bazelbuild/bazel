@@ -20,7 +20,7 @@
 #    the golden file if changes are made to skydoc.
 """Convenience macro for skydoc tests."""
 
-def skydoc_test(name, input_file, golden_file, skydoc):
+def skydoc_test(name, input_file, golden_file, skydoc, deps = []):
     """Creates a test target and golden-file regeneration target for skydoc testing.
 
     The test target is named "{name}_e2e_test".
@@ -33,6 +33,7 @@ def skydoc_test(name, input_file, golden_file, skydoc):
       golden_file: The label string of the golden file containing the documentation when skydoc
           is run on the input file.
       skydoc: The label string of the skydoc binary.
+      deps: A list of label strings of skylark file dependencies of the input_file.
     """
     output_golden_file = "%s_output.txt" % name
     native.sh_test(
@@ -47,14 +48,14 @@ def skydoc_test(name, input_file, golden_file, skydoc):
             input_file,
             golden_file,
             skydoc,
-        ],
+        ] + deps,
     )
 
     native.genrule(
         name = "regenerate_%s_golden" % name,
         srcs = [
             input_file,
-        ],
+        ] + deps,
         outs = [output_golden_file],
         cmd = "$(location %s) " % skydoc +
               "$(location %s) $(location %s)" % (input_file, output_golden_file),

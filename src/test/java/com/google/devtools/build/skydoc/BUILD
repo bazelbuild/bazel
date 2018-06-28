@@ -58,3 +58,14 @@ skydoc_test(
     input_file = "testdata/apple_basic_test/input.bzl",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
+
+skydoc_test(
+    name = "multiple_files_test",
+    golden_file = "testdata/multiple_files_test/golden.txt",
+    input_file = "testdata/multiple_files_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+    deps = [
+        "testdata/multiple_files_test/dep.bzl",
+        "testdata/multiple_files_test/inner_dep.bzl",
+    ],
+)
