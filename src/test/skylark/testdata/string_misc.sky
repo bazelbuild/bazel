@@ -62,6 +62,26 @@ assert_eq('Apricot'.endswith('co', -1), False)
 assert_eq('abcd'.endswith('c', -2, -1), True)
 assert_eq('abcd'.endswith('c', 1, 8), False)
 assert_eq('abcd'.endswith('d', 1, 8), True)
+assert_eq('Apricot'.endswith(('cot', 'toc')), True)
+assert_eq('Apricot'.endswith(('toc', 'cot')), True)
+assert_eq('a'.endswith(('', '')), True)
+assert_eq('a'.endswith(('', 'a')), True)
+assert_eq('a'.endswith(('a', 'a')), True)
+assert_eq(''.endswith(('a', '')), True)
+assert_eq(''.endswith(('', '')), True)
+assert_eq(''.endswith(('a', 'a')), False)
+assert_eq('a'.endswith(('a')), True)
+assert_eq('a'.endswith(('a',)), True)
+assert_eq('a'.endswith(('b',)), False)
+assert_eq('a'.endswith(()), False)
+assert_eq(''.endswith(()), False)
+---
+'a'.endswith(['a']) ### expected value of type 'string or tuple of strings' for parameter 'sub', in method call endswith(list) of 'string'
+---
+'1'.endswith((1,)) ### expected type 'string' for 'string' element but got type 'int' instead
+---
+'a'.endswith(('1', 1)) ### expected type 'string' for 'string' element but got type 'int' instead
+---
 
 # startswith
 assert_eq('Apricot'.startswith('Apr'), True)
@@ -70,6 +90,26 @@ assert_eq('Apricot'.startswith(''), True)
 assert_eq('Apricot'.startswith('z'), False)
 assert_eq(''.startswith(''), True)
 assert_eq(''.startswith('a'), False)
+assert_eq('Apricot'.startswith(('Apr', 'rpA')), True)
+assert_eq('Apricot'.startswith(('rpA', 'Apr')), True)
+assert_eq('a'.startswith(('', '')), True)
+assert_eq('a'.startswith(('', 'a')), True)
+assert_eq('a'.startswith(('a', 'a')), True)
+assert_eq(''.startswith(('a', '')), True)
+assert_eq(''.startswith(('', '')), True)
+assert_eq(''.startswith(('a', 'a')), False)
+assert_eq('a'.startswith(('a')), True)
+assert_eq('a'.startswith(('a',)), True)
+assert_eq('a'.startswith(('b',)), False)
+assert_eq('a'.startswith(()), False)
+assert_eq(''.startswith(()), False)
+---
+'a'.startswith(['a']) ### expected value of type 'string or tuple of strings' for parameter 'sub', in method call startswith(list) of 'string'
+---
+'1'.startswith((1,)) ### expected type 'string' for 'string' element but got type 'int' instead
+---
+'a'.startswith(('1', 1)) ### expected type 'string' for 'string' element but got type 'int' instead
+---
 
 # substring
 assert_eq('012345678'[0:-1], "01234567")
