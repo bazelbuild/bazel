@@ -122,10 +122,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   private final String toolsRepository;
   private final Label ccToolchainType;
+  private final LabelLateBoundDefault<CppConfiguration> ccToolchain;
 
   public J2ObjcAspect(RuleDefinitionEnvironment env) {
     this.toolsRepository = checkNotNull(env.getToolsRepository());
     this.ccToolchainType = CppRuleClasses.ccToolchainTypeAttribute(env);
+    this.ccToolchain = CppRuleClasses.ccToolchainAttribute(env);
   }
 
   /** Returns whether this aspect allows proto services to be generated from this proto rule */
@@ -214,7 +216,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .value(
                     getProtoToolchainLabel(
                         toolsRepository + "//tools/j2objc:j2objc_proto_toolchain")))
-        .add(attr(":j2objc_cc_toolchain", LABEL).value(ObjcRuleClasses.APPLE_TOOLCHAIN))
+        .add(attr(":j2objc_cc_toolchain", LABEL).value(ccToolchain))
         .build();
   }
 

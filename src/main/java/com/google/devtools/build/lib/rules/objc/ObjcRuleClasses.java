@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
@@ -145,28 +144,6 @@ public class ObjcRuleClasses {
   public static boolean isInstrumentable(Artifact sourceArtifact) {
     return !ASSEMBLY_SOURCES.matches(sourceArtifact.getFilename());
   }
-
-  /**
-   * Label of a filegroup that contains all crosstool and grte files for all configurations,
-   * as specified on the command-line.
-   *
-   * <p> Since this is the loading-phase default for the :cc_toolchain attribute of rules
-   * using the crosstool, it must contain in its transitive closure the computer value
-   * of that attribute under the default configuration.
-   */
-  public static final String CROSSTOOL_LABEL = "//tools/defaults:crosstool";
-
-  /**
-   * Late-bound attribute giving the CcToolchain for CROSSTOOL_LABEL.
-   *
-   * <p>TODO(cpeyser): Use AppleCcToolchain instead of CcToolchain once released.
-   */
-  @AutoCodec
-  public static final LabelLateBoundDefault<?> APPLE_TOOLCHAIN =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          CppConfiguration.class,
-          Label.parseAbsoluteUnchecked(CROSSTOOL_LABEL),
-          (rule, attributes, cppConfig) -> cppConfig.getCcToolchainRuleLabel());
 
   /**
    * Creates a new spawn action builder with apple environment variables set that are typically
@@ -522,7 +499,9 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL).value(APPLE_TOOLCHAIN))
+          .add(
+              attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
+                  .value(CppRuleClasses.ccToolchainAttribute(env)))
           .add(
               attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                   .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
@@ -955,7 +934,7 @@ public class ObjcRuleClasses {
           .add(
               attr(CHILD_CONFIG_ATTR, LABEL)
                   .cfg(splitTransitionProvider)
-                  .value(ObjcRuleClasses.APPLE_TOOLCHAIN))
+                  .value(CppRuleClasses.ccToolchainAttribute(env)))
           /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(deps) -->
           The list of targets that are linked together to form the final binary.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
