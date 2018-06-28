@@ -14,11 +14,11 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.devtools.build.skyframe.AbstractParallelEvaluator.isDoneForBuild;
-import static com.google.devtools.build.skyframe.ParallelEvaluator.maybeGetValueFromError;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -37,11 +37,11 @@ import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParent
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import javax.annotation.Nullable;
@@ -71,8 +71,15 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private SkyValue value = null;
   private ErrorInfo errorInfo = null;
   private final Map<SkyKey, ValueWithMetadata> bubbleErrorInfo;
-  /** The values previously declared as dependencies. */
-  private final Map<SkyKey, NodeEntry> directDeps;
+
+  /**
+   * The values previously declared as dependencies.
+   *
+   * <p>Values in this map are either {@link #NULL_MARKER} or were retrieved via {@link
+   * NodeEntry#getValueMaybeWithMetadata}. In the latter case, they should be processed using the
+   * static methods of {@link ValueWithMetadata}.
+   */
+  private final Map<SkyKey, SkyValue> directDeps;
 
   /**
    * The grouped list of values requested during this build as dependencies. On a subsequent build,
@@ -132,9 +139,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     this.oldDeps = oldDeps;
     this.evaluatorContext = evaluatorContext;
     this.directDeps =
-        Collections.<SkyKey, NodeEntry>unmodifiableMap(
-            batchPrefetch(
-                skyKey, directDeps, oldDeps, /*assertDone=*/ bubbleErrorInfo == null, skyKey));
+        batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ bubbleErrorInfo == null, skyKey);
     this.bubbleErrorInfo = bubbleErrorInfo;
     Preconditions.checkState(
         !this.directDeps.containsKey(ErrorTransienceValue.KEY),
@@ -142,7 +147,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         skyKey);
   }
 
-  private Map<SkyKey, ? extends NodeEntry> batchPrefetch(
+  private Map<SkyKey, SkyValue> batchPrefetch(
       SkyKey requestor,
       GroupedList<SkyKey> depKeys,
       Set<SkyKey> oldDeps,
@@ -176,13 +181,18 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
               + ": "
               + Sets.difference(depKeys.toSet(), batchMap.keySet()));
     }
-    if (assertDone) {
-      for (Map.Entry<SkyKey, ? extends NodeEntry> entry : batchMap.entrySet()) {
-        Preconditions.checkState(
-            entry.getValue().isDone(), "%s had not done %s", keyForDebugging, entry);
+    ImmutableMap.Builder<SkyKey, SkyValue> depValuesBuilder =
+        ImmutableMap.builderWithExpectedSize(batchMap.size());
+    for (Entry<SkyKey, ? extends NodeEntry> entry : batchMap.entrySet()) {
+      SkyValue valueMaybeWithMetadata = entry.getValue().getValueMaybeWithMetadata();
+      if (assertDone) {
+        Preconditions.checkNotNull(
+            valueMaybeWithMetadata, "%s had not done %s", keyForDebugging, entry);
       }
+      depValuesBuilder.put(
+          entry.getKey(), valueMaybeWithMetadata == null ? NULL_MARKER : valueMaybeWithMetadata);
     }
-    return batchMap;
+    return depValuesBuilder.build();
   }
 
   private void checkActive() {
@@ -339,8 +349,14 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   }
 
   @Nullable
-  private SkyValue maybeGetValueFromErrorOrDeps(SkyKey key) throws InterruptedException {
-    return maybeGetValueFromError(key, directDeps.get(key), bubbleErrorInfo);
+  private SkyValue maybeGetValueFromErrorOrDeps(SkyKey key) {
+    if (bubbleErrorInfo != null) {
+      ValueWithMetadata bubbleErrorInfoValue = bubbleErrorInfo.get(key);
+      if (bubbleErrorInfoValue != null) {
+        return bubbleErrorInfoValue;
+      }
+    }
+    return directDeps.get(key);
   }
 
   private static SkyValue getValueOrNullMarker(@Nullable NodeEntry nodeEntry)
@@ -476,8 +492,41 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     return newlyRequestedDeps;
   }
 
-  Collection<NodeEntry> getDirectDepsValues() {
-    return directDeps.values();
+  boolean isAnyDirectDepErrorTransitivelyTransient() {
+    Preconditions.checkState(
+        bubbleErrorInfo == null,
+        "Checking dep error transitive transience during error bubbling for: %s",
+        skyKey);
+    for (SkyValue skyValue : directDeps.values()) {
+      ErrorInfo maybeErrorInfo = ValueWithMetadata.getMaybeErrorInfo(skyValue);
+      if (maybeErrorInfo != null && maybeErrorInfo.isTransitivelyTransient()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  boolean isAnyNewlyRequestedDepErrorTransitivelyTransient() throws InterruptedException {
+    // TODO(mschaller): consider collecting SkyValues of newly requested deps as they're requested
+    // which would allow this code to avoid graph queries for nodes already queried.
+    //
+    // This will also be necessary for correct behavior in the presence of node re-dirtying.
+      Preconditions.checkState(
+          bubbleErrorInfo == null,
+          "Checking dep error transitive transience during error bubbling for: %s",
+          skyKey);
+    Map<SkyKey, ? extends NodeEntry> newlyRequestedDeps =
+        evaluatorContext.getBatchValues(skyKey, Reason.DONE_CHECKING, getNewlyRequestedDeps());
+    for (NodeEntry depEntry : newlyRequestedDeps.values()) {
+      if (!isDoneForBuild(depEntry)) {
+        continue;
+      }
+      ErrorInfo depError = depEntry.getErrorInfo();
+      if (depError != null && depError.isTransitivelyTransient()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Collection<ErrorInfo> getChildErrorInfos() {

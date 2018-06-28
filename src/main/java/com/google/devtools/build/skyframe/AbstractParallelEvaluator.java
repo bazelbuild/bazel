@@ -424,20 +424,10 @@ public abstract class AbstractParallelEvaluator {
               }
             }
 
-            Map<SkyKey, ? extends NodeEntry> newlyRequestedDeps =
-                evaluatorContext.getBatchValues(
-                    skyKey, Reason.DONE_CHECKING, env.getNewlyRequestedDeps());
-            boolean isTransitivelyTransient = reifiedBuilderException.isTransient();
-            for (NodeEntry depEntry :
-                Iterables.concat(env.getDirectDepsValues(), newlyRequestedDeps.values())) {
-              if (!isDoneForBuild(depEntry)) {
-                continue;
-              }
-              ErrorInfo depError = depEntry.getErrorInfo();
-              if (depError != null) {
-                isTransitivelyTransient |= depError.isTransitivelyTransient();
-              }
-            }
+            boolean isTransitivelyTransient =
+                reifiedBuilderException.isTransient()
+                    || env.isAnyDirectDepErrorTransitivelyTransient()
+                    || env.isAnyNewlyRequestedDepErrorTransitivelyTransient();
             ErrorInfo errorInfo = evaluatorContext.getErrorInfoManager().fromException(
                 skyKey,
                 reifiedBuilderException,

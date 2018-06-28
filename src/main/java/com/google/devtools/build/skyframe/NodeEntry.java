@@ -119,12 +119,17 @@ public interface NodeEntry extends ThinNodeEntry {
 
   /**
    * Returns raw {@link SkyValue} stored in this entry, which may include metadata associated with
-   * it (like events and errors). This method may only be called after the evaluation of this node
-   * is complete, i.e., after {@link #setValue} has been called.
+   * it (like events and errors).
+   *
+   * <p>This method returns {@code null} if the evaluation of this node is not complete, i.e.,
+   * after node creation or dirtying and before {@link #setValue} has been called. Callers should
+   * assert that the returned value is not {@code null} whenever they expect the node should be
+   * done.
    *
    * <p>Use the static methods of {@link ValueWithMetadata} to extract metadata if necessary.
    */
   @ThreadSafe
+  @Nullable
   SkyValue getValueMaybeWithMetadata() throws InterruptedException;
 
   /** Returns the value, even if dirty or changed. Returns null otherwise. */
