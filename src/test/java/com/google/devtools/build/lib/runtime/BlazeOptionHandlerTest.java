@@ -349,36 +349,6 @@ public class BlazeOptionHandlerTest {
     }
   }
 
-  private void testExpandConfigOptions_withConfigForUnapplicableCommand_allowUndefined()
-      throws Exception {
-    parser.parse("--config=other", "--allow_undefined_configs");
-    optionHandler.expandConfigOptions(eventHandler, structuredArgsFrom2SimpleRcsWithOnlyResidue());
-  }
-
-  @Test
-  public void testExpandConfigOptions_withConfigForUnapplicableCommand_allowUndefined_inPlace()
-      throws Exception {
-    
-    testExpandConfigOptions_withConfigForUnapplicableCommand_allowUndefined();
-    assertThat(eventHandler.getEvents())
-        .contains(Event.warn("Config value other is not defined in any .rc file"));
-  }
-
-  private void testAllowUndefinedConfig() throws Exception {
-    parser.parse("--config=invalid", "--allow_undefined_configs");
-    optionHandler.expandConfigOptions(eventHandler, ArrayListMultimap.create());
-    assertThat(parser.getResidue()).isEmpty();
-    assertThat(optionHandler.getRcfileNotes()).isEmpty();
-  }
-
-  @Test
-  public void testAllowUndefinedConfig_inPlace() throws Exception {
-    
-    testAllowUndefinedConfig();
-    assertThat(eventHandler.getEvents())
-        .contains(Event.warn("Config value invalid is not defined in any .rc file"));
-  }
-
   private void testUndefinedConfig() throws OptionsParsingException {
     parser.parse("--config=invalid");
     optionHandler.expandConfigOptions(eventHandler, ArrayListMultimap.create());

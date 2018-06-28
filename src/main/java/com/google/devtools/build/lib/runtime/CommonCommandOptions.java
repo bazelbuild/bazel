@@ -105,15 +105,6 @@ public class CommonCommandOptions extends OptionsBase {
   )
   public boolean alwaysProfileSlowOperations;
 
-  @Option(
-    name = "allow_undefined_configs",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
-    help = "Do not throw an error when the config is not defined."
-  )
-  public boolean allowUndefinedConfigs;
-
   /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
   public static class UUIDConverter implements Converter<UUID> {
 
