@@ -42,6 +42,8 @@ class BinaryLauncherBase {
   BinaryLauncherBase(const LaunchDataParser::LaunchInfo& launch_info, int argc,
                      wchar_t* argv[]);
 
+  virtual ~BinaryLauncherBase() = default;
+
   // Get launch information based on a launch info key.
   std::wstring GetLaunchInfoByKey(const std::string& key);
 

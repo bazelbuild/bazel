@@ -25,7 +25,8 @@ class BashBinaryLauncher : public BinaryLauncherBase {
   BashBinaryLauncher(const LaunchDataParser::LaunchInfo& launch_info, int argc,
                      wchar_t* argv[])
       : BinaryLauncherBase(launch_info, argc, argv) {}
-  ExitCode Launch();
+  ~BashBinaryLauncher() override = default;
+  ExitCode Launch() override;
 };
 
 }  // namespace launcher

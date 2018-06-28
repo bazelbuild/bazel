@@ -35,7 +35,8 @@ class JavaBinaryLauncher : public BinaryLauncherBase {
         singlejar(false),
         print_javabin(false),
         classpath_limit(MAX_ARG_STRLEN) {}
-  ExitCode Launch();
+  ~JavaBinaryLauncher() override = default;
+  ExitCode Launch() override;
 
  private:
   // If present, these flags should either be at the beginning of the command
