@@ -227,6 +227,12 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         // This used to apply the "disable LIPO" (a.k.a. "data") transition. But now that LIPO is
         // turned down this is a noop. Still, there are cfg = "data"' references in the depot. So
         // we have to remove them via b/28688645 before we can remove this path.
+        if (env.getSemantics().incompatibleDisallowDataTransition()) {
+          throw new EvalException(ast.getLocation(),
+              "Using cfg = \"data\" on an attribute is a noop and no longer supported. Please "
+                  + "remove it. You can use --incompatible_disallow_data_transition=false to "
+                  + "temporarily disable this check.");
+        }
       } else if (trans.equals("host")) {
         builder.cfg(HostTransition.INSTANCE);
       } else if (trans instanceof SplitTransition) {

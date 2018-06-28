@@ -49,6 +49,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDisableObjcProviderResources();
 
+  public abstract boolean incompatibleDisallowDataTransition();
+
   public abstract boolean incompatibleDisallowDictPlus();
 
   public abstract boolean incompatibleDisallowFileType();
@@ -93,6 +95,7 @@ public abstract class SkylarkSemantics {
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
           .incompatibleDisableObjcProviderResources(false)
+          .incompatibleDisallowDataTransition(false)
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowFileType(false)
           .incompatibleDisallowLegacyJavaInfo(false)
@@ -121,6 +124,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDepsetUnion(boolean value);
 
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
+
+    public abstract Builder incompatibleDisallowDataTransition(boolean value);
 
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
 

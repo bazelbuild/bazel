@@ -570,6 +570,20 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void incompatibleDataTransition() throws Exception {
+    ev = createEvaluationTestCase(
+        SkylarkSemantics.DEFAULT_SEMANTICS
+            .toBuilder()
+            .incompatibleDisallowDataTransition(true)
+            .build());
+    ev.initialize();
+    EvalException expected =
+        assertThrows(EvalException.class, () -> eval("attr.label(cfg = 'data')"));
+    assertThat(expected).hasMessageThat().contains(
+        "Using cfg = \"data\" on an attribute is a noop and no longer supported");
+  }
+
+  @Test
   public void testAttrValues() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.string(values = ['ab', 'cd'])");
     PredicateWithMessage<Object> predicate = attr.getAllowedValues();
