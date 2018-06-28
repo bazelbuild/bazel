@@ -209,7 +209,7 @@ public final class CcCompilationHelper {
   private final Set<String> defines = new LinkedHashSet<>();
   private final List<TransitiveInfoCollection> deps = new ArrayList<>();
   private final List<CcCompilationInfo> ccCompilationInfos = new ArrayList<>();
-  private final List<PathFragment> looseIncludeDirs = new ArrayList<>();
+  private Set<PathFragment> looseIncludeDirs = ImmutableSet.of();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> includeDirs = new ArrayList<>();
 
@@ -324,7 +324,7 @@ public final class CcCompilationHelper {
     setCopts(Iterables.concat(common.getCopts(), additionalCopts));
     addDefines(common.getDefines());
     addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET));
-    addLooseIncludeDirs(common.getLooseIncludeDirs());
+    setLooseIncludeDirs(common.getLooseIncludeDirs());
     addSystemIncludeDirs(common.getSystemIncludeDirs());
     setCoptsFilter(common.getCoptsFilter());
     setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
@@ -583,12 +583,12 @@ public final class CcCompilationHelper {
   }
 
   /**
-   * Adds the given directories to the loose include directories that are only allowed to be
+   * Sets the given directories to by loose include directories that are only allowed to be
    * referenced when headers checking is {@link HeadersCheckingMode#LOOSE} or {@link
    * HeadersCheckingMode#WARN}.
    */
-  private void addLooseIncludeDirs(Iterable<PathFragment> looseIncludeDirs) {
-    Iterables.addAll(this.looseIncludeDirs, looseIncludeDirs);
+  private void setLooseIncludeDirs(Set<PathFragment> looseIncludeDirs) {
+    this.looseIncludeDirs = looseIncludeDirs;
   }
 
   /**
