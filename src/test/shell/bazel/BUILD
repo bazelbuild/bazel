@@ -573,9 +573,11 @@ sh_test(
     name = "rule_test_test",
     size = "medium",
     srcs = ["rule_test_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
     shard_count = 2,
-    tags = ["no_windows"],
 )
 
 sh_test(
