@@ -106,7 +106,7 @@ public interface JavaSemantics {
   /**
    * Label to the Java Toolchain rule. It is resolved from a label given in the java options.
    */
-  String JAVA_TOOLCHAIN_LABEL = "//tools/defaults:java_toolchain";
+  String JAVA_TOOLCHAIN_LABEL = "//tools/jdk:toolchain";
 
   /** The java_toolchain.compatible_javacopts key for Java 7 javacopts */
   public static final String JAVA7_JAVACOPTS_KEY = "java7";
@@ -121,9 +121,7 @@ public interface JavaSemantics {
       RuleDefinitionEnvironment environment) {
     return LabelLateBoundDefault.fromTargetConfiguration(
         JavaConfiguration.class,
-        // TODO(b/79239052): replace by //environment.getToolsLabel(JAVA_TOOLCHAIN_LABEL)
-        // @bazel_tools//tools/defaults can not be resolved while DefaultPackage exists.
-        Label.parseAbsoluteUnchecked(JAVA_TOOLCHAIN_LABEL),
+        environment.getToolsLabel(JAVA_TOOLCHAIN_LABEL),
         (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
             (rule, attributes, javaConfig) -> javaConfig.getToolchainLabel());
   }
