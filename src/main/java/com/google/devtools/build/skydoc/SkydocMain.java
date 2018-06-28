@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBootstrap;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -38,6 +39,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkCommandLineApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkNativeModuleApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
+import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -180,12 +182,14 @@ public class SkydocMain {
             new FakeOutputGroupInfoProvider(),
             new FakeActionsInfoProvider(),
             new FakeDefaultInfoProvider());
+    AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
 
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
     Runtime.addConstantsToBuilder(envBuilder);
     MethodLibrary.addBindingsToBuilder(envBuilder);
     topLevelBootstrap.addBindingsToBuilder(envBuilder);
+    appleBootstrap.addBindingsToBuilder(envBuilder);
 
     return GlobalFrame.createForBuiltins(envBuilder.build());
   }

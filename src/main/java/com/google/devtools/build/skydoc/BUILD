@@ -16,6 +16,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi:srcs",
+        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/apple:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/rendering:srcs",
     ],
 )
@@ -35,8 +36,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",
+        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/apple",
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//third_party:guava",
         "//third_party:jsr305",
