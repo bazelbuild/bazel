@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.protobuf.ByteString;
@@ -60,9 +61,23 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
       throws ActionExecutionException, InterruptedException {
     ActionResult actionResult;
     try {
+      DeterministicWriter deterministicWriter;
+      try {
+        deterministicWriter = newDeterministicWriter(actionExecutionContext);
+      } catch (IOException e) {
+        // Message is a bit misleading but is good enough for the end user.
+        throw new EnvironmentalExecException("failed to create file '"
+            + getPrimaryOutput().prettyPrint() + "' due to I/O error: " + e.getMessage(), e);
+      }
       actionResult =
           ActionResult.create(
-              getStrategy(actionExecutionContext).exec(this, actionExecutionContext));
+              getStrategy(actionExecutionContext)
+                  .writeOutputToFile(
+                      this,
+                      actionExecutionContext,
+                      deterministicWriter,
+                      makeExecutable,
+                      isRemotable()));
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",

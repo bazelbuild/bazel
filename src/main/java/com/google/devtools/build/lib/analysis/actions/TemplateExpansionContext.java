@@ -11,31 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.analysis.actions;
 
-import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
 import java.util.List;
 
-/**
- * The action context for {@link AbstractFileWriteAction} instances (technically instances of
- * subclasses).
- */
-public interface FileWriteActionContext extends ActionContext {
-
-  /**
-   * Writes the output created by the {@link DeterministicWriter} to the sole output of the given
-   * action.
-   */
-  List<SpawnResult> writeOutputToFile(
-      AbstractAction action,
-      ActionExecutionContext actionExecutionContext,
-      DeterministicWriter deterministicWriter,
-      boolean makeExecutable,
-      boolean isRemotable)
+/** The action context for {@link TemplateExpansionAction} instances */
+public interface TemplateExpansionContext extends ActionContext {
+  List<SpawnResult> expandTemplate(TemplateExpansionAction action, ActionExecutionContext ctx)
       throws ExecException, InterruptedException;
 }
