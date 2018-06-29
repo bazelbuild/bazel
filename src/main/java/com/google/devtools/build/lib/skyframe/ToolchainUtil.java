@@ -24,19 +24,18 @@ import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Table;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.skyframe.ConstraintValueLookupFunction.InvalidConstraintValueException;
 import com.google.devtools.build.lib.skyframe.PlatformLookupFunction.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
 import com.google.devtools.build.lib.skyframe.ToolchainResolutionFunction.NoToolchainFoundException;
@@ -417,7 +416,8 @@ public class ToolchainUtil {
     if (platformInfoMap == null) {
       return null;
     }
-    List<ConstraintValueInfo> constraints = getConstraintValueInfo(constraintKeys, env);
+    List<ConstraintValueInfo> constraints =
+        getConstraintValueInfo(constraintKeys, env);
     if (constraints == null) {
       return null;
     }
@@ -426,53 +426,6 @@ public class ToolchainUtil {
         .stream()
         .filter(key -> filterPlatform(platformInfoMap.get(key), constraints, env, debug))
         .collect(toImmutableList());
-  }
-
-  @Nullable
-  private static List<ConstraintValueInfo> getConstraintValueInfo(
-      ImmutableList<ConfiguredTargetKey> constraintKeys, Environment env)
-      throws InterruptedException, InvalidConstraintValueException {
-
-    Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
-        env.getValuesOrThrow(constraintKeys, ConfiguredValueCreationException.class);
-    boolean valuesMissing = env.valuesMissing();
-    List<ConstraintValueInfo> constraintValues = valuesMissing ? null : new ArrayList<>();
-      for (ConfiguredTargetKey key : constraintKeys) {
-      ConstraintValueInfo constraintValueInfo =
-          findConstraintValueInfo(key.getLabel(), values.get(key));
-        if (!valuesMissing && constraintValueInfo != null) {
-          constraintValues.add(constraintValueInfo);
-        }
-      }
-
-    if (valuesMissing) {
-      return null;
-    }
-    return constraintValues;
-  }
-
-  @Nullable
-  private static ConstraintValueInfo findConstraintValueInfo(
-      Label label, ValueOrException<ConfiguredValueCreationException> valueOrException)
-      throws InvalidConstraintValueException {
-
-    try {
-      ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) valueOrException.get();
-      if (configuredTargetValue == null) {
-        return null;
-      }
-
-      ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
-      ConstraintValueInfo constraintValueInfo =
-          PlatformProviderUtils.constraintValue(configuredTarget);
-      if (constraintValueInfo == null) {
-        throw new InvalidConstraintValueException(label);
-      }
-
-      return constraintValueInfo;
-    } catch (ConfiguredValueCreationException e) {
-      throw new InvalidConstraintValueException(label, e);
-    }
   }
 
   private static boolean filterPlatform(
@@ -514,6 +467,20 @@ public class ToolchainUtil {
       return null;
     }
     return platforms.platforms();
+  }
+
+  @Nullable
+  private static List<ConstraintValueInfo> getConstraintValueInfo(
+      Iterable<ConfiguredTargetKey> constraintValueKeys, Environment env)
+      throws InterruptedException, InvalidConstraintValueException {
+
+    ConstraintValueLookupValue.Key key = ConstraintValueLookupValue.key(constraintValueKeys);
+    ConstraintValueLookupValue constraintValues =
+        (ConstraintValueLookupValue) env.getValueOrThrow(key, InvalidConstraintValueException.class);
+    if (constraintValues == null) {
+      return null;
+    }
+    return constraintValues.constraintValues();
   }
 
   /** Exception used when no execution platform can be found. */
@@ -575,24 +542,6 @@ public class ToolchainUtil {
 
     public TargetParsingException getTpe() {
       return tpe;
-    }
-  }
-
-  /** Exception used when a constraint value label is not a valid constraint value. */
-  static final class InvalidConstraintValueException extends ToolchainException {
-    InvalidConstraintValueException(Label label) {
-      super(formatError(label));
-    }
-
-    InvalidConstraintValueException(Label label, ConfiguredValueCreationException e) {
-      super(formatError(label), e);
-    }
-
-    private static String formatError(Label label) {
-      return String.format(
-          "Target %s was referenced as a constraint_value,"
-              + " but does not provide ConstraintValueInfo",
-          label);
     }
   }
 
