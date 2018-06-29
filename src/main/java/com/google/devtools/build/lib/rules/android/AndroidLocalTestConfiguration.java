@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -34,7 +33,6 @@ import javax.annotation.Nullable;
 @Immutable
 public class AndroidLocalTestConfiguration extends BuildConfiguration.Fragment {
   /** android_local_test specific options */
-  @AutoCodec(strategy = Strategy.PUBLIC_FIELDS)
   public static final class Options extends FragmentOptions {
     @Option(
       name = "experimental_android_local_test_binary_resources",

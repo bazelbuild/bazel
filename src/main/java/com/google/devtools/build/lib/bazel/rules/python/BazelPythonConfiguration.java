@@ -56,7 +56,6 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
   }
 
   /** Bazel-specific Python configuration options. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static final class Options extends FragmentOptions {
     @Option(
       name = "python2_path",

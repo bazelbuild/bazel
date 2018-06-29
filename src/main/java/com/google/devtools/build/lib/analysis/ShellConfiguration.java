@@ -57,7 +57,6 @@ public class ShellConfiguration extends BuildConfiguration.Fragment {
   }
 
   /** An option that tells Bazel where the shell is. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
     @Option(
         name = "shell_executable",

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsChec
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -39,7 +38,6 @@ import java.util.Map;
 import java.util.Set;
 
 /** Command-line options for building Java targets */
-@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class JavaOptions extends FragmentOptions {
   /** Converter for the --java_classpath option. */
   public static class JavaClasspathModeConverter extends EnumConverter<JavaClasspathMode> {

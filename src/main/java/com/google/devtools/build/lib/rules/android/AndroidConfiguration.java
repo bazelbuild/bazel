@@ -275,7 +275,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   }
 
   /** Android configuration options. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
     @Option(
       name = "Android configuration distinguisher",

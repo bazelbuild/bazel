@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -29,7 +28,6 @@ import java.util.Optional;
 import java.util.Set;
 
 /** The options fragment which defines {@link ConfigFeatureFlagConfiguration}. */
-@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public final class ConfigFeatureFlagOptions extends FragmentOptions {
   /** A converter used by the flag options which always returns an empty map, ignoring input. */
   public static final class EmptyImmutableSortedMapConverter

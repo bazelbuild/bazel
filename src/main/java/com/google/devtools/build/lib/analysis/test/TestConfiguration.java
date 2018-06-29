@@ -44,7 +44,6 @@ import java.util.Set;
 @AutoCodec
 public class TestConfiguration extends Fragment {
   /** Command-line options. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class TestOptions extends FragmentOptions {
     @Option(
       name = "test_filter",

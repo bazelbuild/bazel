@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.StripMode;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
@@ -41,7 +40,6 @@ import java.util.Map;
 import java.util.Set;
 
 /** Command-line options for C++. */
-@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class CppOptions extends FragmentOptions {
   /**
    * Converts a comma-separated list of compilation mode settings to a properly typed List.

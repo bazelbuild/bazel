@@ -25,10 +25,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBitcodeModeApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
@@ -43,11 +41,7 @@ import java.io.IOException;
 import java.util.List;
 
 /** Command-line options for building for Apple platforms. */
-@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class AppleCommandLineOptions extends FragmentOptions {
-  public static final ObjectCodec<AppleCommandLineOptions> CODEC =
-      new AppleCommandLineOptions_AutoCodec();
-
   @Option(
     name = "experimental_apple_mandatory_minimum_version",
     defaultValue = "false",

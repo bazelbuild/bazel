@@ -45,7 +45,6 @@ import org.junit.runners.JUnit4;
 public class ConfigSettingTest extends BuildViewTestCase {
 
   /** Test option that has its null default overridden by its fragment. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class LateBoundTestOptions extends FragmentOptions {
     public LateBoundTestOptions() {}
 
@@ -84,7 +83,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   /** Test option which is private. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class InternalTestOptions extends FragmentOptions {
     public InternalTestOptions() {}
 

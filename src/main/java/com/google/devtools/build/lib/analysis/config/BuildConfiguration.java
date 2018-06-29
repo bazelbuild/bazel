@@ -336,7 +336,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * for semantically identical option values. The simplest way to ensure that is to return the
    * input string.
    */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions implements Cloneable {
     @Option(
       name = "experimental_separate_genfiles_directory",
