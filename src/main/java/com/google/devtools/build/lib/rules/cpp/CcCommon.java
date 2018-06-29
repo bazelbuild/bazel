@@ -208,13 +208,6 @@ public final class CcCommon {
       throws EvalException {
     RuleContext context = skylarkRuleContext.getRuleContext();
     Rule rule = context.getRule();
-    if (!context.getFragment(CppConfiguration.class).getEnableCcSkylarkApi()) {
-      throw new EvalException(
-          rule.getLocation(),
-          "Pass --experimental_enable_cc_skylark_api in "
-              + "order to use the C++ API. Beware that we will be making breaking "
-              + "changes to this API without prior warning.");
-    }
     RuleClass ruleClass = rule.getRuleClassObject();
     Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
     if (label != null
