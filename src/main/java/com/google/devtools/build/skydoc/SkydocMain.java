@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
@@ -53,6 +54,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidSkylarkC
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeApkInfo.FakeApkInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigSkylarkCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcModule;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryModule;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
@@ -249,6 +251,7 @@ public class SkydocMain {
         new FakeAndroidNativeLibsInfoProvider());
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
     ConfigBootstrap configBootstrap = new ConfigBootstrap(new FakeConfigSkylarkCommon());
+    CcBootstrap ccBootstrap = new CcBootstrap(new FakeCcModule());
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
     RepositoryBootstrap repositoryBootstrap = new RepositoryBootstrap(new FakeRepositoryModule());
     TestingBootstrap testingBootstrap = new TestingBootstrap(new FakeTestingModule());
@@ -260,6 +263,7 @@ public class SkydocMain {
     topLevelBootstrap.addBindingsToBuilder(envBuilder);
     androidBootstrap.addBindingsToBuilder(envBuilder);
     appleBootstrap.addBindingsToBuilder(envBuilder);
+    ccBootstrap.addBindingsToBuilder(envBuilder);
     configBootstrap.addBindingsToBuilder(envBuilder);
     platformBootstrap.addBindingsToBuilder(envBuilder);
     repositoryBootstrap.addBindingsToBuilder(envBuilder);
