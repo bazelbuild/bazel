@@ -36,7 +36,6 @@ import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -675,16 +674,7 @@ public abstract class AbstractParallelEvaluator {
 
     // We don't expect any unfinished deps in a keep-going build.
     if (!keepGoing) {
-      Map<SkyKey, ? extends NodeEntry> newlyRequestedDepMap =
-          graph.getBatch(skyKey, Reason.DONE_CHECKING, env.getNewlyRequestedDeps());
-      Set<SkyKey> unfinishedDeps = new HashSet<>();
-      while (it.hasNext()) {
-        SkyKey dep = it.next();
-        if (!isDoneForBuild(newlyRequestedDepMap.get(dep))) {
-          unfinishedDeps.add(dep);
-        }
-      }
-      env.getNewlyRequestedDeps().remove(unfinishedDeps);
+      env.removeUndoneNewlyRequestedDeps();
     }
 
     Set<SkyKey> uniqueNewDeps = entry.addTemporaryDirectDeps(env.getNewlyRequestedDeps());
