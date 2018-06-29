@@ -97,7 +97,8 @@ public class JavaSkylarkCommon implements JavaCommonApi<Artifact, JavaInfo, Skyl
       ConfiguredTarget hostJavabase,
       SkylarkList<Artifact> sourcepathEntries,
       SkylarkList<Artifact> resources,
-      Boolean neverlink) throws EvalException, InterruptedException {
+      Boolean neverlink,
+      Environment environment) throws EvalException, InterruptedException {
 
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
@@ -116,7 +117,8 @@ public class JavaSkylarkCommon implements JavaCommonApi<Artifact, JavaInfo, Skyl
             sourcepathEntries,
             resources,
             neverlink,
-            javaSemantics);
+            javaSemantics,
+            environment);
   }
 
   @Override

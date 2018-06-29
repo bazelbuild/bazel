@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -422,7 +423,8 @@ final class JavaInfoBuildHelper {
       SkylarkList<Artifact> sourcepathEntries,
       SkylarkList<Artifact> resources,
       Boolean neverlink,
-      JavaSemantics javaSemantics)
+      JavaSemantics javaSemantics,
+      Environment environment)
       throws EvalException {
     if (sourceJars.isEmpty() && sourceFiles.isEmpty() && exports.isEmpty()) {
       throw new EvalException(
@@ -469,13 +471,19 @@ final class JavaInfoBuildHelper {
 
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
 
-    boolean generateMergedSourceJar =
-        (sourceJars.size() > 1 || !sourceFiles.isEmpty())
-            || (sourceJars.isEmpty() && sourceFiles.isEmpty() && !exports.isEmpty());
-    Artifact outputSourceJar =
-        generateMergedSourceJar
-            ? getSourceJar(skylarkRuleContext.getRuleContext(), outputJar)
-            : sourceJars.get(0);
+    boolean createOutputSourceJar;
+    Artifact outputSourceJar;
+    if (environment.getSemantics().incompatibleGenerateJavaCommonSourceJar()) {
+      outputSourceJar = getSourceJar(skylarkRuleContext.getRuleContext(), outputJar);
+      createOutputSourceJar = true;
+    } else {
+      createOutputSourceJar = (sourceJars.size() > 1 || !sourceFiles.isEmpty())
+          || (sourceJars.isEmpty() && sourceFiles.isEmpty() && !exports.isEmpty());
+      outputSourceJar =
+          createOutputSourceJar
+              ? getSourceJar(skylarkRuleContext.getRuleContext(), outputJar)
+              : sourceJars.get(0);
+    }
 
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
     JavaCompilationArtifacts artifacts =
@@ -485,7 +493,7 @@ final class JavaInfoBuildHelper {
             javaRuntimeInfo,
             SkylarkList.createImmutable(ImmutableList.of()),
             outputJarsBuilder,
-            /*createOutputSourceJar=*/ generateMergedSourceJar,
+            /*createOutputSourceJar=*/ createOutputSourceJar,
             outputSourceJar,
             javaInfoBuilder,
             // Include JavaGenJarsProviders from both deps and exports in the JavaGenJarsProvider

@@ -54,6 +54,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowLegacyJavaInfo());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowOldStyleArgsAdd());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowSlashOperator());
+    codedOut.writeBoolNoTag(semantics.incompatibleGenerateJavaCommonSourceJar());
     codedOut.writeBoolNoTag(semantics.incompatibleNewActionsApi());
     codedOut.writeBoolNoTag(semantics.incompatibleNoSupportToolsInActionInputs());
     codedOut.writeBoolNoTag(semantics.incompatiblePackageNameIsAFunction());
@@ -80,6 +81,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     builder.incompatibleDisallowLegacyJavaInfo(codedIn.readBool());
     builder.incompatibleDisallowOldStyleArgsAdd(codedIn.readBool());
     builder.incompatibleDisallowSlashOperator(codedIn.readBool());
+    builder.incompatibleGenerateJavaCommonSourceJar(codedIn.readBool());
     builder.incompatibleNewActionsApi(codedIn.readBool());
     builder.incompatibleNoSupportToolsInActionInputs(codedIn.readBool());
     builder.incompatiblePackageNameIsAFunction(codedIn.readBool());
