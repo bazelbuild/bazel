@@ -124,7 +124,7 @@ public class PlatformInfo extends NativeInfo implements PlatformInfoApi<Constrai
   public static class Builder {
     private Label label;
     private final List<ConstraintValueInfo> constraints = new ArrayList<>();
-    private String remoteExecutionProperties;
+    private String remoteExecutionProperties = "";
     private Location location = Location.BUILTIN;
 
     /**
