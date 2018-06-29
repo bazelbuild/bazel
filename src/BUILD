@@ -172,7 +172,7 @@ py_binary(
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
         ],
         "//conditions:default": [
-            "//src/tools/singlejar:singlejar",
+            "//src/tools/singlejar:singlejar_local",
         ],
     }) + ([":embedded_jdk"] if (suffix == "") else []),
     visibility = [

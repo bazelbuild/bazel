@@ -43,7 +43,7 @@ output_paths = [
     ('*ExperimentalRunner_deploy.jar',
      lambda x: 'tools/jdk/ExperimentalTestRunner_deploy.jar'),
     ('*Runner_deploy.jar', lambda x: 'tools/jdk/TestRunner_deploy.jar'),
-    ('*singlejar', lambda x: 'tools/jdk/singlejar/singlejar'),
+    ('*singlejar_local', lambda x: 'tools/jdk/singlejar/singlejar'),
     ('src/tools/runfiles/runfiles.py', lambda x: 'tools/runfiles/runfiles.py'),
     ('*launcher.exe', lambda x: 'tools/launcher/launcher.exe'),
     ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),

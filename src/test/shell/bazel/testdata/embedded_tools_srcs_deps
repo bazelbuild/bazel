@@ -10,7 +10,7 @@
 //third_party/ijar:platform_utils
 //third_party/def_parser:def_parser
 //third_party/def_parser:def_parser_lib
-//src/tools/singlejar:singlejar
+//src/tools/singlejar:singlejar_local
 //src/tools/singlejar:output_jar
 //src/tools/singlejar:options
 //src/tools/singlejar:token_stream
@@ -18,6 +18,7 @@
 //src/tools/singlejar:combiners
 //src/tools/singlejar:diag
 //src/tools/singlejar:mapped_file
+//src/tools/singlejar:desugar_checking
 //third_party/zlib:zlib
 //src/tools/launcher:launcher
 //src/tools/launcher:python_launcher

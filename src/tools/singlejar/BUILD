@@ -50,7 +50,6 @@ cc_binary(
         "//conditions:default": [],
     }),
     linkstatic = 1,
-    # TODO(b/68065069): use singlejar_local except in remote execution
     visibility = ["//visibility:public"],
     deps = [
         "options",
@@ -335,6 +334,7 @@ cc_library(
     hdrs = ["desugar_checking.h"],
     deps = [
         ":combiners",
+        "//src/main/protobuf:desugar_deps_cc_proto",
     ],
 )
 
