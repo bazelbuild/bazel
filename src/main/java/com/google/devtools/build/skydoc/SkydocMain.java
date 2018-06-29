@@ -20,6 +20,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -41,6 +45,10 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkNativeModuleApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigSkylarkCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryModule;
+import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -228,6 +236,10 @@ public class SkydocMain {
             new FakeActionsInfoProvider(),
             new FakeDefaultInfoProvider());
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
+    ConfigBootstrap configBootstrap = new ConfigBootstrap(new FakeConfigSkylarkCommon());
+    PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
+    RepositoryBootstrap repositoryBootstrap = new RepositoryBootstrap(new FakeRepositoryModule());
+    TestingBootstrap testingBootstrap = new TestingBootstrap(new FakeTestingModule());
 
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
@@ -235,6 +247,10 @@ public class SkydocMain {
     MethodLibrary.addBindingsToBuilder(envBuilder);
     topLevelBootstrap.addBindingsToBuilder(envBuilder);
     appleBootstrap.addBindingsToBuilder(envBuilder);
+    configBootstrap.addBindingsToBuilder(envBuilder);
+    platformBootstrap.addBindingsToBuilder(envBuilder);
+    repositoryBootstrap.addBindingsToBuilder(envBuilder);
+    testingBootstrap.addBindingsToBuilder(envBuilder);
 
     return GlobalFrame.createForBuiltins(envBuilder.build());
   }

@@ -69,3 +69,10 @@ skydoc_test(
         "testdata/multiple_files_test/inner_dep.bzl",
     ],
 )
+
+skydoc_test(
+    name = "misc_apis_test",
+    golden_file = "testdata/misc_apis_test/golden.txt",
+    input_file = "testdata/misc_apis_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)

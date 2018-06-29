@@ -1,0 +1,4 @@
+my_rule
+This rule exercises some of the build API.
+first,second,third,fourth
+
