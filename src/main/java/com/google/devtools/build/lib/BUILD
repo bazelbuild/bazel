@@ -658,6 +658,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

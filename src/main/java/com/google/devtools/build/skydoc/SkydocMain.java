@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
@@ -55,6 +56,9 @@ import com.google.devtools.build.skydoc.fakebuildapi.android.FakeApkInfo.FakeApk
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigSkylarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcModule;
+import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryModule;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
@@ -252,6 +256,9 @@ public class SkydocMain {
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
     ConfigBootstrap configBootstrap = new ConfigBootstrap(new FakeConfigSkylarkCommon());
     CcBootstrap ccBootstrap = new CcBootstrap(new FakeCcModule());
+    JavaBootstrap javaBootstrap = new JavaBootstrap(new FakeJavaCommon(),
+        new FakeJavaInfoProvider(),
+        new FakeJavaProtoCommon());
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
     RepositoryBootstrap repositoryBootstrap = new RepositoryBootstrap(new FakeRepositoryModule());
     TestingBootstrap testingBootstrap = new TestingBootstrap(new FakeTestingModule());
@@ -265,6 +272,7 @@ public class SkydocMain {
     appleBootstrap.addBindingsToBuilder(envBuilder);
     ccBootstrap.addBindingsToBuilder(envBuilder);
     configBootstrap.addBindingsToBuilder(envBuilder);
+    javaBootstrap.addBindingsToBuilder(envBuilder);
     platformBootstrap.addBindingsToBuilder(envBuilder);
     repositoryBootstrap.addBindingsToBuilder(envBuilder);
     testingBootstrap.addBindingsToBuilder(envBuilder);

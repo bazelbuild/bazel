@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.rules.java.JavaToolchainAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoSkylarkCommon;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
 
@@ -85,10 +86,10 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new ExtraActionRule());
     builder.addRuleDefinition(new ActionListenerRule());
 
-    builder.addSkylarkAccessibleTopLevels("java_common",
-        new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE));
-    builder.addSkylarkAccessibleTopLevels("JavaInfo", JavaInfo.PROVIDER);
-    builder.addSkylarkAccessibleTopLevels("java_proto_common", new JavaProtoSkylarkCommon());
+    builder.addSkylarkBootstrap(new JavaBootstrap(
+        new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE),
+        JavaInfo.PROVIDER,
+        new JavaProtoSkylarkCommon()));
 
     try {
       builder.addWorkspaceFilePrefix(
