@@ -127,7 +127,6 @@ public class AndroidCommon {
   private final RuleContext ruleContext;
   private final JavaCommon javaCommon;
   private final boolean asNeverLink;
-  private final boolean exportDeps;
 
   private NestedSet<Artifact> filesToBuild;
   private NestedSet<Artifact> transitiveNeverlinkLibraries =
@@ -151,7 +150,7 @@ public class AndroidCommon {
   private AndroidIdlHelper idlHelper;
 
   public AndroidCommon(JavaCommon javaCommon) {
-    this(javaCommon, JavaCommon.isNeverLink(javaCommon.getRuleContext()), false);
+    this(javaCommon, JavaCommon.isNeverLink(javaCommon.getRuleContext()));
   }
 
   /**
@@ -160,12 +159,10 @@ public class AndroidCommon {
    * @param common the JavaCommon instance
    * @param asNeverLink Boolean to indicate if this rule should be treated as a compile time dep by
    *     consuming rules.
-   * @param exportDeps Boolean to indicate if the dependencies should be treated as "exported" deps.
    */
-  public AndroidCommon(JavaCommon common, boolean asNeverLink, boolean exportDeps) {
+  public AndroidCommon(JavaCommon common, boolean asNeverLink) {
     this.ruleContext = common.getRuleContext();
     this.asNeverLink = asNeverLink;
-    this.exportDeps = exportDeps;
     this.javaCommon = common;
   }
 
@@ -654,9 +651,6 @@ public class AndroidCommon {
     if (collectJavaCompilationArgs) {
       boolean hasSources = attributes.hasSources();
       this.javaCompilationArgs = collectJavaCompilationArgs(asNeverLink, hasSources);
-      if (exportDeps) {
-        this.javaCompilationArgs = JavaCompilationArgsProvider.makeNonStrict(javaCompilationArgs);
-      }
     }
   }
 
