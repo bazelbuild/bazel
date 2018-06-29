@@ -32,6 +32,10 @@ public @interface ParamType {
    * {@link com.google.devtools.build.lib.syntax.SkylarkList}), specify the type parameter (e.g.
    * {@link String}.class} along with {@link com.google.devtools.build.lib.syntax.SkylarkList} for
    * {@link #type()} to specify a list of strings).
+   *
+   * <p>This is only used for documentation generation. The actual generic type is not checked at
+   * runtime, so the Java method signature should use a generic type of Object and cast
+   * appropriately.
    */
   Class<?> generic1() default Object.class;
 }
