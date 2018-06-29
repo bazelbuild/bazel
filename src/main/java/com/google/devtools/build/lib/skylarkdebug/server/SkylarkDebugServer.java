@@ -177,6 +177,8 @@ public final class SkylarkDebugServer implements DebugServer {
           return pauseThread(sequenceNumber, request.getPauseThread());
         case EVALUATE:
           return evaluate(sequenceNumber, request.getEvaluate());
+        case GET_CHILDREN:
+          return getChildren(sequenceNumber, request.getGetChildren());
         case PAYLOAD_NOT_SET:
           DebugEventHelper.error(sequenceNumber, "No request payload found");
       }
@@ -208,6 +210,15 @@ public final class SkylarkDebugServer implements DebugServer {
       throws DebugRequestException {
     return DebugEventHelper.evaluateResponse(
         sequenceNumber, threadHandler.evaluate(request.getThreadId(), request.getStatement()));
+  }
+
+  /** Handles a {@code GetChildrenRequest} and returns its response. */
+  private SkylarkDebuggingProtos.DebugEvent getChildren(
+      long sequenceNumber, SkylarkDebuggingProtos.GetChildrenRequest request)
+      throws DebugRequestException {
+    return DebugEventHelper.getChildrenResponse(
+        sequenceNumber,
+        threadHandler.getChildrenForValue(request.getThreadId(), request.getValueId()));
   }
 
   /** Handles a {@code ContinueExecutionRequest} and returns its response. */

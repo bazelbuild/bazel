@@ -35,6 +35,7 @@ message DebugRequest {
     ListFramesRequest list_frames = 104;
     StartDebuggingRequest start_debugging = 105;
     PauseThreadRequest pause_thread = 106;
+    GetChildrenRequest get_children = 107;
   }
 }
 
@@ -98,6 +99,19 @@ message PauseThreadRequest {
   int64 thread_id = 1;
 }
 
+// A request to list the children of a previously-communicated Value, such as
+// its elements (for a list or dictionary), its fields (for a struct), and so
+// forth.
+message GetChildrenRequest {
+  // The identifier of the relevant thread.
+  int64 thread_id = 1;
+
+  // The identifier of the value for which children are being requested. If the
+  // value has no children, an empty list will be returned in
+  // GetChildrenResponse.
+  int64 value_id = 2;
+}
+
 // There are two kinds of events: "responses", which correspond to a
 // DebugRequest sent by the client, and other asynchronous events that may be
 // sent by the server to notify the client of activity in the Skylark code being
@@ -118,6 +132,7 @@ message DebugEvent {
     ListFramesResponse list_frames = 104;
     StartDebuggingResponse start_debugging = 105;
     PauseThreadResponse pause_thread = 106;
+    GetChildrenResponse get_children = 107;
 
     ThreadPausedEvent thread_paused = 1001;
     ThreadContinuedEvent thread_continued = 1002;
@@ -160,6 +175,11 @@ message StartDebuggingResponse {
 // request was received. Actual pausing of individual threads happens
 // asynchronously, and will be communicated via ThreadPausedEvent(s).
 message PauseThreadResponse {
+}
+
+// The response to a GetChildrenRequest.
+message GetChildrenResponse {
+  repeated Value children = 1;
 }
 
 // An event indicating that a thread was paused during execution.
@@ -307,7 +327,12 @@ message Value {
   // themselves do not have a meaningful type with respect to our rendering.
   string type = 3;
 
-  // Any child values associated with this value, such as its elements (for a
-  // list or dictionary), its fields (for a struct), and so forth.
-  repeated Value child = 4;
+  // Will be false if the value is known to have no children. May sometimes be
+  // true if this isn't yet known, in which case GetChildrenResponse#children
+  // will be empty.
+  bool has_children = 4;
+
+  // An identifier for this value, used to request its children. The same value
+  // may be known by multiple ids. Not set for values without children.
+  int64 id = 5;
 }

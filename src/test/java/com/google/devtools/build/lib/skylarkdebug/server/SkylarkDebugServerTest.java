@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Set
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingRequest;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Stepping;
+import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.DebugServerUtils;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -51,6 +52,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -70,9 +72,25 @@ public class SkylarkDebugServerTest {
   private final Scratch scratch = new Scratch();
   private final EventCollectionApparatus events =
       new EventCollectionApparatus(EventKind.ALL_EVENTS);
+  private final ThreadObjectMap dummyObjectMap = new ThreadObjectMap();
 
   private MockDebugClient client;
   private SkylarkDebugServer server;
+
+  /**
+   * Returns the {@link Value} proto message corresponding to the given object and label. Subsequent
+   * calls may return values with different IDs.
+   */
+  private Value getValueProto(String label, Object value) {
+    return DebuggerSerialization.getValueProto(dummyObjectMap, label, value);
+  }
+
+  private ImmutableList<Value> getChildren(Value value) {
+    Object object = dummyObjectMap.getValue(value.getId());
+    return object != null
+        ? DebuggerSerialization.getChildren(dummyObjectMap, object)
+        : ImmutableList.of();
+  }
 
   @Before
   public void setUpServerAndClient() throws Exception {
@@ -338,18 +356,47 @@ public class SkylarkDebugServerTest {
 
     ListFramesResponse frames = listFrames(threadId);
     assertThat(frames.getFrameCount()).isEqualTo(1);
-    assertThat(frames.getFrame(0))
+    assertFramesEqualIgnoringValueIdentifiers(
+        frames.getFrame(0),
+        Frame.newBuilder()
+            .setFunctionName("<top level>")
+            .setLocation(breakpoint.toBuilder().setColumnNumber(1))
+            .addScope(
+                Scope.newBuilder()
+                    .setName("global")
+                    .addBinding(
+                        getValueProto("x", SkylarkList.createImmutable(ImmutableList.of(1, 2, 3)))))
+            .build());
+  }
+
+  @Test
+  public void testGetChildrenRequest() throws Exception {
+    sendStartDebuggingRequest();
+    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    Environment env = newEnvironment();
+
+    Location breakpoint =
+        Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
+    setBreakpoints(ImmutableList.of(breakpoint));
+
+    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    long threadId = evaluationThread.getId();
+
+    // wait for breakpoint to be hit
+    client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+
+    ListFramesResponse frames = listFrames(threadId);
+    Value xValue = frames.getFrame(0).getScope(0).getBinding(0);
+
+    assertValuesEqualIgnoringId(
+        xValue, getValueProto("x", SkylarkList.createImmutable(ImmutableList.of(1, 2, 3))));
+
+    List<Value> children = getChildren(xValue);
+
+    assertThat(children)
         .isEqualTo(
-            Frame.newBuilder()
-                .setFunctionName("<top level>")
-                .setLocation(breakpoint.toBuilder().setColumnNumber(1))
-                .addScope(
-                    Scope.newBuilder()
-                        .setName("global")
-                        .addBinding(
-                            DebuggerSerialization.getValueProto(
-                                "x", SkylarkList.createImmutable(ImmutableList.of(1, 2, 3)))))
-                .build());
+            ImmutableList.of(
+                getValueProto("[0]", 1), getValueProto("[1]", 2), getValueProto("[2]", 3)));
   }
 
   @Test
@@ -380,39 +427,39 @@ public class SkylarkDebugServerTest {
     ListFramesResponse frames = listFrames(threadId);
     assertThat(frames.getFrameCount()).isEqualTo(2);
 
-    assertThat(frames.getFrame(0))
-        .isEqualTo(
-            Frame.newBuilder()
-                .setFunctionName("fn")
-                .setLocation(breakpoint.toBuilder().setColumnNumber(3))
-                .addScope(
-                    Scope.newBuilder()
-                        .setName("local")
-                        .addBinding(DebuggerSerialization.getValueProto("a", 2))
-                        .addBinding(DebuggerSerialization.getValueProto("b", 1)))
-                .addScope(
-                    Scope.newBuilder()
-                        .setName("global")
-                        .addBinding(DebuggerSerialization.getValueProto("c", 3))
-                        .addBinding(DebuggerSerialization.getValueProto("fn", env.lookup("fn"))))
-                .build());
+    assertFramesEqualIgnoringValueIdentifiers(
+        frames.getFrame(0),
+        Frame.newBuilder()
+            .setFunctionName("fn")
+            .setLocation(breakpoint.toBuilder().setColumnNumber(3))
+            .addScope(
+                Scope.newBuilder()
+                    .setName("local")
+                    .addBinding(getValueProto("a", 2))
+                    .addBinding(getValueProto("b", 1)))
+            .addScope(
+                Scope.newBuilder()
+                    .setName("global")
+                    .addBinding(getValueProto("c", 3))
+                    .addBinding(getValueProto("fn", env.lookup("fn"))))
+            .build());
 
-    assertThat(frames.getFrame(1))
-        .isEqualTo(
-            Frame.newBuilder()
-                .setFunctionName("<top level>")
-                .setLocation(
-                    Location.newBuilder()
-                        .setPath("/a/build/file/test.bzl")
-                        .setLineNumber(7)
-                        .setColumnNumber(1))
-                .addScope(
-                    Scope.newBuilder()
-                        .setName("global")
-                        .addBinding(DebuggerSerialization.getValueProto("a", 1))
-                        .addBinding(DebuggerSerialization.getValueProto("c", 3))
-                        .addBinding(DebuggerSerialization.getValueProto("fn", env.lookup("fn"))))
-                .build());
+    assertFramesEqualIgnoringValueIdentifiers(
+        frames.getFrame(1),
+        Frame.newBuilder()
+            .setFunctionName("<top level>")
+            .setLocation(
+                Location.newBuilder()
+                    .setPath("/a/build/file/test.bzl")
+                    .setLineNumber(7)
+                    .setColumnNumber(1))
+            .addScope(
+                Scope.newBuilder()
+                    .setName("global")
+                    .addBinding(getValueProto("a", 1))
+                    .addBinding(getValueProto("c", 3))
+                    .addBinding(getValueProto("fn", env.lookup("fn"))))
+            .build());
   }
 
   @Test
@@ -439,8 +486,7 @@ public class SkylarkDebugServerTest {
                     EvaluateRequest.newBuilder().setThreadId(threadId).setStatement("x[1]").build())
                 .build());
     assertThat(response.hasEvaluate()).isTrue();
-    assertThat(response.getEvaluate().getResult())
-        .isEqualTo(DebuggerSerialization.getValueProto("Evaluation result", 2));
+    assertThat(response.getEvaluate().getResult()).isEqualTo(getValueProto("Evaluation result", 2));
   }
 
   @Test
@@ -471,14 +517,12 @@ public class SkylarkDebugServerTest {
                 .build());
     assertThat(response.getEvaluate().getResult())
         .isEqualTo(
-            DebuggerSerialization.getValueProto(
+            getValueProto(
                 "Evaluation result", SkylarkList.createImmutable(ImmutableList.of(5, 6))));
 
     ListFramesResponse frames = listFrames(threadId);
     assertThat(frames.getFrame(0).getScope(0).getBindingList())
-        .contains(
-            DebuggerSerialization.getValueProto(
-                "x", SkylarkList.createImmutable(ImmutableList.of(5, 6))));
+        .contains(getValueProto("x", SkylarkList.createImmutable(ImmutableList.of(5, 6))));
   }
 
   @Test
@@ -508,13 +552,11 @@ public class SkylarkDebugServerTest {
                         .build())
                 .build());
     assertThat(response.getEvaluate().getResult())
-        .isEqualTo(DebuggerSerialization.getValueProto("Evaluation result", Runtime.NONE));
+        .isEqualTo(getValueProto("Evaluation result", Runtime.NONE));
 
     ListFramesResponse frames = listFrames(threadId);
     assertThat(frames.getFrame(0).getScope(0).getBindingList())
-        .contains(
-            DebuggerSerialization.getValueProto(
-                "x", SkylarkList.createImmutable(ImmutableList.of(1, 2, 3, 4))));
+        .contains(getValueProto("x", SkylarkList.createImmutable(ImmutableList.of(1, 2, 3, 4))));
   }
 
   @Test
@@ -753,5 +795,36 @@ public class SkylarkDebugServerTest {
             });
     thread.start();
     return thread;
+  }
+
+  /**
+   * Asserts that the given frames are equal after clearing the identifier from all {@link Value}s.
+   */
+  private void assertFramesEqualIgnoringValueIdentifiers(Frame frame1, Frame frame2) {
+    assertThat(clearIds(frame1)).isEqualTo(clearIds(frame2));
+  }
+
+  private static Frame clearIds(Frame frame) {
+    Frame.Builder builder = frame.toBuilder();
+    for (int i = 0; i < frame.getScopeCount(); i++) {
+      builder.setScope(i, clearIds(builder.getScope(i)));
+    }
+    return builder.build();
+  }
+
+  private static Scope clearIds(Scope scope) {
+    Scope.Builder builder = scope.toBuilder();
+    for (int i = 0; i < scope.getBindingCount(); i++) {
+      builder.getBindingBuilder(i).clearId();
+    }
+    return builder.build();
+  }
+
+  private void assertValuesEqualIgnoringId(Value value1, Value value2) {
+    assertThat(clearId(value1)).isEqualTo(clearId(value2));
+  }
+
+  private static Value clearId(Value value) {
+    return value.toBuilder().clearId().build();
   }
 }

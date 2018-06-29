@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Breakpoint;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Error;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PauseReason;
+import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.Debuggable;
 import com.google.devtools.build.lib.syntax.Debuggable.ReadyToPause;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -50,12 +51,15 @@ final class ThreadHandler {
     /** Used to block execution of threads */
     final Semaphore semaphore;
 
+    final ThreadObjectMap objectMap;
+
     PausedThreadState(long id, String name, Debuggable debuggable, Location location) {
       this.id = id;
       this.name = name;
       this.debuggable = debuggable;
       this.location = location;
       this.semaphore = new Semaphore(0);
+      this.objectMap = new ThreadObjectMap();
     }
   }
 
@@ -230,14 +234,33 @@ final class ThreadHandler {
           .debuggable
           .listFrames(thread.location)
           .stream()
-          .map(DebugEventHelper::getFrameProto)
+          .map(frame -> DebugEventHelper.getFrameProto(thread.objectMap, frame))
           .collect(toImmutableList());
     }
+  }
+
+  ImmutableList<Value> getChildrenForValue(long threadId, long valueId)
+      throws DebugRequestException {
+    ThreadObjectMap objectMap;
+    synchronized (this) {
+      PausedThreadState thread = pausedThreads.get(threadId);
+      if (thread == null) {
+        throw new DebugRequestException(
+            String.format("Thread %s is not paused or does not exist.", threadId));
+      }
+      objectMap = thread.objectMap;
+    }
+    Object value = objectMap.getValue(valueId);
+    if (value == null) {
+      throw new DebugRequestException("Couldn't retrieve children; object not found.");
+    }
+    return DebuggerSerialization.getChildren(objectMap, value);
   }
 
   SkylarkDebuggingProtos.Value evaluate(long threadId, String statement)
       throws DebugRequestException {
     Debuggable debuggable;
+    ThreadObjectMap objectMap;
     synchronized (this) {
       PausedThreadState thread = pausedThreads.get(threadId);
       if (thread == null) {
@@ -245,13 +268,15 @@ final class ThreadHandler {
             String.format("Thread %s is not paused or does not exist.", threadId));
       }
       debuggable = thread.debuggable;
+      objectMap = thread.objectMap;
     }
-    // no need to evaluate within the synchronize block: for paused threads, debuggable is only
-    // accessed in response to a client request, and requests are handled serially
+    // no need to evaluate within the synchronize block: for paused threads, the debuggable and
+    // object map are only accessed in response to a client request, and requests are handled
+    // serially
     // TODO(bazel-team): support asynchronous replies, and use finer-grained locks
     try {
       Object result = doEvaluate(debuggable, statement);
-      return DebuggerSerialization.getValueProto("Evaluation result", result);
+      return DebuggerSerialization.getValueProto(objectMap, "Evaluation result", result);
     } catch (EvalException | InterruptedException e) {
       throw new DebugRequestException(e.getMessage());
     }
