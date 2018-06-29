@@ -382,9 +382,10 @@ public abstract class AbstractParallelEvaluator {
             value = factory.compute(skyKey, env);
           } finally {
             long elapsedTimeNanos = BlazeClock.instance().nanoTime() - startTimeNanos;
+            evaluatorContext
+                .getProgressReceiver()
+                .stateEnding(skyKey, NodeState.COMPUTE, elapsedTimeNanos);
             if (elapsedTimeNanos > 0) {
-              evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMPUTE,
-                  elapsedTimeNanos);
               Profiler.instance()
                   .logSimpleTaskDuration(
                       startTimeNanos,
