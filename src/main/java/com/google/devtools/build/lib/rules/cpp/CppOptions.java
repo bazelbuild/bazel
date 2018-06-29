@@ -789,6 +789,17 @@ public class CppOptions extends FragmentOptions {
       help = "If true, entries in linkopts that are not preceded by - or $ will be expanded.")
   public boolean expandLinkoptsLabels;
 
+  @Option(
+      name = "experimental_enable_cc_skylark_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, the C++ Skylark API can be used. Don't enable this flag yet, we will be making "
+              + "breaking changes.")
+  public boolean enableCcSkylarkApi;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
