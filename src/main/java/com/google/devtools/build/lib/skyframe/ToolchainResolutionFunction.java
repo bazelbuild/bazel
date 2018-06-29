@@ -28,8 +28,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
-import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.skyframe.ToolchainUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -64,14 +63,11 @@ public class ToolchainResolutionFunction implements SkyFunction {
           (RegisteredToolchainsValue)
               env.getValueOrThrow(
                   RegisteredToolchainsValue.key(key.configurationKey()),
-                  InvalidToolchainLabelException.class,
-                  EvalException.class);
+                  InvalidToolchainLabelException.class);
       if (toolchains == null) {
         return null;
       }
     } catch (InvalidToolchainLabelException e) {
-      throw new ToolchainResolutionFunctionException(e);
-    } catch (EvalException e) {
       throw new ToolchainResolutionFunctionException(e);
     }
 
@@ -125,7 +121,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       if (platforms == null) {
         return null;
       }
-    } catch (ToolchainContextException e) {
+    } catch (InvalidPlatformException e) {
       throw new ToolchainResolutionFunctionException(e);
     }
 
@@ -255,15 +251,11 @@ public class ToolchainResolutionFunction implements SkyFunction {
       super(e, Transience.PERSISTENT);
     }
 
-    public ToolchainResolutionFunctionException(ToolchainContextException e) {
-      super(e, Transience.PERSISTENT);
-    }
-
     public ToolchainResolutionFunctionException(InvalidToolchainLabelException e) {
       super(e, Transience.PERSISTENT);
     }
 
-    public ToolchainResolutionFunctionException(EvalException e) {
+    public ToolchainResolutionFunctionException(InvalidPlatformException e) {
       super(e, Transience.PERSISTENT);
     }
   }
