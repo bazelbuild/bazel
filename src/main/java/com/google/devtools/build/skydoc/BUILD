@@ -16,6 +16,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi:srcs",
+        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/android:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/apple:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/config:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/platform:srcs",
@@ -40,6 +41,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/config",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
@@ -47,6 +49,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",
+        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/android",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/apple",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/config",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/platform",

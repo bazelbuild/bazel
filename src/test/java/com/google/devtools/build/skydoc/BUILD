@@ -53,6 +53,13 @@ skydoc_test(
 )
 
 skydoc_test(
+    name = "android_basic_test",
+    golden_file = "testdata/android_basic_test/golden.txt",
+    input_file = "testdata/android_basic_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)
+
+skydoc_test(
     name = "apple_basic_test",
     golden_file = "testdata/apple_basic_test/golden.txt",
     input_file = "testdata/apple_basic_test/input.bzl",

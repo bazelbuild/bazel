@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
@@ -44,6 +45,12 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkCommandLineApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkNativeModuleApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidDeviceBrokerInfo.FakeAndroidDeviceBrokerInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidInstrumentationInfo.FakeAndroidInstrumentationInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidNativeLibsInfo.FakeAndroidNativeLibsInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidResourcesInfo.FakeAndroidResourcesInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidSkylarkCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeApkInfo.FakeApkInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigSkylarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
@@ -235,6 +242,12 @@ public class SkydocMain {
             new FakeOutputGroupInfoProvider(),
             new FakeActionsInfoProvider(),
             new FakeDefaultInfoProvider());
+    AndroidBootstrap androidBootstrap = new AndroidBootstrap(new FakeAndroidSkylarkCommon(),
+        new FakeApkInfoProvider(),
+        new FakeAndroidInstrumentationInfoProvider(),
+        new FakeAndroidDeviceBrokerInfoProvider(),
+        new FakeAndroidResourcesInfoProvider(),
+        new FakeAndroidNativeLibsInfoProvider());
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
     ConfigBootstrap configBootstrap = new ConfigBootstrap(new FakeConfigSkylarkCommon());
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
@@ -246,6 +259,7 @@ public class SkydocMain {
     Runtime.addConstantsToBuilder(envBuilder);
     MethodLibrary.addBindingsToBuilder(envBuilder);
     topLevelBootstrap.addBindingsToBuilder(envBuilder);
+    androidBootstrap.addBindingsToBuilder(envBuilder);
     appleBootstrap.addBindingsToBuilder(envBuilder);
     configBootstrap.addBindingsToBuilder(envBuilder);
     platformBootstrap.addBindingsToBuilder(envBuilder);

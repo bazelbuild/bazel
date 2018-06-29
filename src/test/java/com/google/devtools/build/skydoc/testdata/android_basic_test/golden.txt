@@ -1,0 +1,4 @@
+android_related_rule
+This rule does android-related things.
+first,second,third,fourth
+
