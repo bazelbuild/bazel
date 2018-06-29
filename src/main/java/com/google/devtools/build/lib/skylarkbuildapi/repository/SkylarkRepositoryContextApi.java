@@ -295,7 +295,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       ),
     }
   )
-  public void download(Object url, Object output, String sha256, Boolean executable)
+  public String download(Object url, Object output, String sha256, Boolean executable)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -364,7 +364,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       ),
     }
   )
-  public void downloadAndExtract(
+  public String downloadAndExtract(
       Object url, Object output, String sha256, String type, String stripPrefix)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;
 }

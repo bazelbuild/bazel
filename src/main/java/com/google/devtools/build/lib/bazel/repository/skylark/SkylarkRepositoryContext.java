@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
@@ -56,6 +58,8 @@ import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -283,7 +287,7 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public void download(Object url, Object output, String sha256, Boolean executable)
+  public String download(Object url, Object output, String sha256, Boolean executable)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     validateSha256(sha256);
     List<URL> urls = getUrls(url);
@@ -307,10 +311,14 @@ public class SkylarkRepositoryContext
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
+    if (!Strings.isNullOrEmpty(sha256)) {
+      return sha256;
+    }
+    return "";
   }
 
   @Override
-  public void downloadAndExtract(
+  public String downloadAndExtract(
       Object url, Object output, String sha256, String type, String stripPrefix)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     validateSha256(sha256);
@@ -355,6 +363,24 @@ public class SkylarkRepositoryContext
               "Couldn't delete temporary file (" + downloadedPath.getPathString() + ")", e),
           Transience.TRANSIENT);
     }
+    String finalSha;
+    if (!Strings.isNullOrEmpty(sha256)) {
+      finalSha = sha256;
+    } else {
+      // calculate the hash of the downloaded file
+      java.nio.file.Path path = Paths.get(outputPath.getPath().getPathString());
+      String contentString = "";
+      try {
+        byte[] fileBytes = Files.readAllBytes(path);
+        contentString = new String(fileBytes);
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+      finalSha = Hashing.sha256()
+          .hashString(contentString, StandardCharsets.UTF_8)
+          .toString();
+    }
+    return finalSha;
   }
 
   private static void validateSha256(String sha256) throws RepositoryFunctionException {

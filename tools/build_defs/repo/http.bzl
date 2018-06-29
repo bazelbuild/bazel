@@ -32,76 +32,16 @@ replace the native rules.
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_buildfile")
 
-def _http_archive_impl(ctx):
-    """Implementation of the http_archive rule."""
-    if not ctx.attr.url and not ctx.attr.urls:
-        ctx.fail("At least one of url and urls must be provided")
-    if ctx.attr.build_file and ctx.attr.build_file_content:
-        ctx.fail("Only one of build_file and build_file_content can be provided.")
-
-    all_urls = []
-    if ctx.attr.urls:
-        all_urls = ctx.attr.urls
-    if ctx.attr.url:
-        all_urls = [ctx.attr.url] + all_urls
-
-    ctx.download_and_extract(
-        all_urls,
-        "",
-        ctx.attr.sha256,
-        ctx.attr.type,
-        ctx.attr.strip_prefix,
-    )
-    patch(ctx)
-    workspace_and_buildfile(ctx)
-
-_HTTP_FILE_BUILD = """
-package(default_visibility = ["//visibility:public"])
-
-filegroup(
-    name = "file",
-    srcs = ["downloaded"],
-)
-"""
-
-def _http_file_impl(ctx):
-    """Implementation of the http_file rule."""
-    ctx.download(
-        ctx.attr.urls,
-        "file/downloaded",
-        ctx.attr.sha256,
-        ctx.attr.executable,
-    )
-    ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("file/BUILD", _HTTP_FILE_BUILD)
-
-_HTTP_JAR_BUILD = """
-package(default_visibility = ["//visibility:public"])
-
-java_import(
-  name = 'jar',
-  jars = ['downloaded.jar'],
-  visibility = ['//visibility:public'],
-)
-
-filegroup(
-  name = 'file',
-  srcs = ['downloaded.jar'],
-  visibility = ['//visibility:public'],
-)
-
-"""
-
-def _http_jar_impl(ctx):
-    """Implementation of the http_jar rule."""
-    all_urls = []
-    if ctx.attr.urls:
-        all_urls = ctx.attr.urls
-    if ctx.attr.url:
-        all_urls = [ctx.attr.url] + all_urls
-    ctx.download(all_urls, "jar/downloaded.jar", ctx.attr.sha256)
-    ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("jar/BUILD", _HTTP_JAR_BUILD)
+def _update_sha(orig, keys, override):
+  # Merge the override information into the dict, resulting by taking the
+  # given keys, as well as the name, from orig (if present there).
+  result = {}
+  for key in keys:
+      if getattr(orig, key) != None:
+          result[key] = getattr(orig, key)
+  result["name"] = orig.name
+  result.update(override)
+  return result
 
 _http_archive_attrs = {
     "url": attr.string(),
@@ -118,6 +58,33 @@ _http_archive_attrs = {
     "workspace_file": attr.label(),
     "workspace_file_content": attr.string(),
 }
+
+def _http_archive_impl(ctx):
+    """Implementation of the http_archive rule."""
+    if not ctx.attr.url and not ctx.attr.urls:
+        ctx.fail("At least one of url and urls must be provided")
+    if ctx.attr.build_file and ctx.attr.build_file_content:
+        ctx.fail("Only one of build_file and build_file_content can be provided.")
+
+    all_urls = []
+    if ctx.attr.urls:
+        all_urls = ctx.attr.urls
+    if ctx.attr.url:
+        all_urls = [ctx.attr.url] + all_urls
+
+    updated_sha = ctx.download_and_extract(
+        all_urls,
+        "",
+        ctx.attr.sha256,
+        ctx.attr.type,
+        ctx.attr.strip_prefix,
+    )
+    patch(ctx)
+    workspace_and_buildfile(ctx)
+
+    # return the dict of attrs, potentially with the sha updated
+    return _update_sha(ctx.attr, _http_archive_attrs.keys(), {"sha256" : updated_sha})
+
 
 http_archive = repository_rule(
     implementation = _http_archive_impl,
@@ -238,13 +205,37 @@ Args:
   patch_cmds: sequence of commands to be applied after patches are applied.
 """
 
+_HTTP_FILE_BUILD = """
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "file",
+    srcs = ["downloaded"],
+)
+"""
+
+_http_file_attrs = {
+    "executable": attr.bool(),
+    "sha256": attr.string(),
+    "urls": attr.string_list(mandatory = True),
+}
+
+def _http_file_impl(ctx):
+    """Implementation of the http_file rule."""
+    updated_sha = ctx.download(
+        ctx.attr.urls,
+        "file/downloaded",
+        ctx.attr.sha256,
+        ctx.attr.executable,
+    )
+    ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
+    ctx.file("file/BUILD", _HTTP_FILE_BUILD)
+
+    return _update_sha(ctx.attrs, _http_file_attrs.keys(), {"sha256" : updated_sha})
+
 http_file = repository_rule(
     implementation = _http_file_impl,
-    attrs = {
-        "executable": attr.bool(),
-        "sha256": attr.string(),
-        "urls": attr.string_list(mandatory = True),
-    },
+    attrs = _http_file_attrs,
 )
 """Downloads a file from a URL and makes it available to be used as a file
 group.
@@ -280,13 +271,46 @@ Args:
     Authentication is not supported.
 """
 
+
+_HTTP_JAR_BUILD = """
+package(default_visibility = ["//visibility:public"])
+
+java_import(
+  name = 'jar',
+  jars = ['downloaded.jar'],
+  visibility = ['//visibility:public'],
+)
+
+filegroup(
+  name = 'file',
+  srcs = ['downloaded.jar'],
+  visibility = ['//visibility:public'],
+)
+"""
+
+_http_jar_attrs = {
+    "sha256": attr.string(),
+    "url": attr.string(),
+    "urls": attr.string_list(),
+}
+
+def _http_jar_impl(ctx):
+    """Implementation of the http_jar rule."""
+    all_urls = []
+    if ctx.attr.urls:
+        all_urls = ctx.attr.urls
+    if ctx.attr.url:
+        all_urls = [ctx.attr.url] + all_urls
+    updated_sha = ctx.download(all_urls, "jar/downloaded.jar", ctx.attr.sha256)
+    ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
+    ctx.file("jar/BUILD", _HTTP_JAR_BUILD)
+
+    return _update_sha(ctx.attrs, _http_jar_attrs.keys(), {"sha256" : updated_sha})
+
+
 http_jar = repository_rule(
     implementation = _http_jar_impl,
-    attrs = {
-        "sha256": attr.string(),
-        "url": attr.string(),
-        "urls": attr.string_list(),
-    },
+    attrs = _http_jar_attrs,
 )
 """Downloads a jar from a URL and makes it available as java_import
 
