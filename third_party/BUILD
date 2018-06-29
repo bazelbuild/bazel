@@ -543,16 +543,6 @@ java_import(
 )
 
 java_import(
-    name = "kryo_lib",
-    jars = ["kryo/kryo-3.0.2.jar"],
-)
-
-java_library(
-    name = "kryo",
-    exports = ["kryo_lib"],
-)
-
-java_import(
     name = "minlog_lib",
     jars = ["minlog/minlog-1.2.jar"],
 )
