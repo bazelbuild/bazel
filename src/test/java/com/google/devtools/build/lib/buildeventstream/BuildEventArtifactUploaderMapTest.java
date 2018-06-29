@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
 import org.junit.Before;
@@ -33,8 +35,8 @@ public final class BuildEventArtifactUploaderMapTest {
     noConversionUploader =
         new BuildEventArtifactUploader() {
           @Override
-          public PathConverter upload(Set<Path> files) {
-            return PathConverter.NO_CONVERSION;
+          public ListenableFuture<PathConverter> upload(Set<Path> files) {
+            return Futures.immediateFuture(PathConverter.NO_CONVERSION);
           }
         };
     uploader =
