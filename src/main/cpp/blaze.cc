@@ -367,7 +367,7 @@ static void ComputeInstallMd5AndNoteAllFiles(const string &self_path) {
                                   &install_key_processor});
   std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
       devtools_ijar::ZipExtractor::Create(self_path.c_str(), &processor));
-  if (extractor.get() == NULL) {
+  if (extractor == NULL) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Failed to open " << globals->options->product_name
         << " as a zip file: " << GetLastErrorString();
@@ -937,7 +937,7 @@ static void ActuallyExtractData(const string &argv0,
 
   std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
       devtools_ijar::ZipExtractor::Create(argv0.c_str(), &processor));
-  if (extractor.get() == NULL) {
+  if (extractor == NULL) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Failed to open " << globals->options->product_name
         << " as a zip file: " << GetLastErrorString();
@@ -980,7 +980,7 @@ static void ActuallyExtractData(const string &argv0,
     // releases so that the metadata cache knows that the files may have
     // changed. This is essential for the correctness of actions that use
     // embedded binaries as artifacts.
-    if (!mtime.get()->SetToDistantFuture(it)) {
+    if (!mtime->SetToDistantFuture(it)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "failed to set timestamp on '" << extracted_path
           << "': " << GetLastErrorString();
@@ -1196,7 +1196,7 @@ static void EnsureCorrectRunningVersion(BlazeServer *server) {
     // find install bases that haven't been used for a long time
     std::unique_ptr<blaze_util::IFileMtime> mtime(
         blaze_util::CreateFileMtime());
-    if (!mtime.get()->SetToNow(globals->options->install_base)) {
+    if (!mtime->SetToNow(globals->options->install_base)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "failed to set timestamp on '" << globals->options->install_base
           << "': " << GetLastErrorString();
