@@ -91,6 +91,14 @@ class GrpcRemoteExecutor {
         if (resp.hasStatus()) {
           handleStatus(resp.getStatus(), resp);
         }
+        Preconditions.checkState(
+            resp.hasResult(), "Unexpected result of remote execution: no result");
+        if (resp.getResult().getExitCode() == 0) {
+          Preconditions.checkState(
+              resp.getResult().getOutputFilesCount() + resp.getResult().getOutputDirectoriesCount()
+                  > 0,
+              "Unexpected result of remote execution: no output files.");
+        }
         return resp;
       } catch (InvalidProtocolBufferException e) {
         throw new IOException(e);
