@@ -147,7 +147,6 @@ public class SkydocMain {
    *     for rules which were not exported as top level symbols
    * @throws InterruptedException if evaluation is interrupted
    */
-  // TODO(cparsons): Evaluate load statements recursively.
   public Environment eval(
       Path path,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
