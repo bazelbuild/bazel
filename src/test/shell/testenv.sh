@@ -161,8 +161,6 @@ EOF
   cp -R ${langtools_dir}/* third_party/java/jdk/langtools
 
   chmod -R +w .
-  mkdir -p tools/defaults
-  touch tools/defaults/BUILD
 
   mkdir -p third_party/py/gflags
   cat > third_party/py/gflags/BUILD <<EOF
