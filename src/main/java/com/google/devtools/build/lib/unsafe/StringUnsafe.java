@@ -30,8 +30,6 @@ import sun.misc.Unsafe;
  * <p>The <code>value</code> field contains the actual bytes.
  */
 public class StringUnsafe {
-  private static final boolean CAN_USE = getVersion() > 1.8;
-
   // Fields corresponding to the coder
   public static final byte LATIN1 = 0;
   public static final byte UTF16 = 1;
@@ -43,14 +41,7 @@ public class StringUnsafe {
   private final long coderOffset;
 
   public static boolean canUse() {
-    return CAN_USE;
-  }
-
-  private static double getVersion() {
-    String version = System.getProperty("java.version");
-    int pos = version.indexOf('.');
-    pos = version.indexOf('.', pos + 1);
-    return Double.parseDouble(version.substring(0, pos));
+    return RuntimeVersion.isAtLeast9();
   }
 
   @Nullable
