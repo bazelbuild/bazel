@@ -29,7 +29,7 @@ ptrdiff_t pread(int fd, void *buf, size_t count, ptrdiff_t offset) {
     overlap.Offset = offset;
     ::ReadFile(hFile, buf, count, &ret, &overlap);
   }
-  return static_cast<int>(ret);
+  return ret;
 }
 
 #endif  // _WIN32
