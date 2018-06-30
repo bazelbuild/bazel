@@ -17,14 +17,15 @@
  */
 #include "src/tools/singlejar/output_jar.h"
 
-#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <time.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/diag.h"
@@ -100,8 +101,8 @@ int OutputJar::Doit(Options *options) {
       fprintf(stderr, "java_launcher_file=%s\n",
               options_->java_launcher.c_str());
     }
-    fprintf(stderr, "%ld source files\n", options_->input_jars.size());
-    fprintf(stderr, "%ld manifest lines\n", options_->manifest_lines.size());
+    fprintf(stderr, "%zu source files\n", options_->input_jars.size());
+    fprintf(stderr, "%zu manifest lines\n", options_->manifest_lines.size());
   }
 
   if (!Open()) {
@@ -119,12 +120,12 @@ int OutputJar::Doit(Options *options) {
     // TODO(asmundak):  Consider going back to sendfile() or reflink
     // (BTRFS_IOC_CLONE/XFS_IOC_CLONE) here.  The launcher preamble can
     // be very large for targets with many native deps.
-    ssize_t byte_count = AppendFile(in_fd, 0, statbuf.st_size);
+    ptrdiff_t byte_count = AppendFile(in_fd, 0, statbuf.st_size);
     if (byte_count < 0) {
       diag_err(1, "%s:%d: Cannot copy %s to %s", __FILE__, __LINE__,
                launcher_path, options_->output_jar.c_str());
     } else if (byte_count != statbuf.st_size) {
-      diag_err(1, "%s:%d: Copied only %ld bytes out of %" PRIu64 " from %s",
+      diag_err(1, "%s:%d: Copied only %zu bytes out of %" PRIu64 " from %s",
                __FILE__, __LINE__, byte_count, statbuf.st_size, launcher_path);
     }
     close(in_fd);
@@ -489,7 +490,7 @@ bool OutputJar::AddJar(int jar_path_index) {
 
     // Do the actual copy.
     if (!WriteBytes(input_jar.mapped_start() + copy_from, num_bytes)) {
-      diag_err(1, "%s:%d: Cannot write %ld bytes of %.*s from %s", __FILE__,
+      diag_err(1, "%s:%d: Cannot write %zu bytes of %.*s from %s", __FILE__,
                __LINE__, num_bytes, file_name_length, file_name,
                input_jar_path.c_str());
     }
@@ -520,7 +521,7 @@ void OutputJar::WriteEntry(void *buffer) {
   }
   LH *entry = reinterpret_cast<LH *>(buffer);
   if (options_->verbose) {
-    fprintf(stderr, "%-.*s combiner has %lu bytes, %s to %lu\n",
+    fprintf(stderr, "%-.*s combiner has %zu bytes, %s to %zu\n",
             entry->file_name_length(), entry->file_name(),
             entry->uncompressed_file_size(),
             entry->compression_method() == Z_NO_COMPRESSION ? "copied"
@@ -750,7 +751,7 @@ uint8_t *OutputJar::ReserveCdr(size_t chunk_size) {
     cen_capacity_ += 1000000;
     cen_ = reinterpret_cast<uint8_t *>(realloc(cen_, cen_capacity_));
     if (!cen_) {
-      diag_errx(1, "%s:%d: Cannot allocate %ld bytes for the directory",
+      diag_errx(1, "%s:%d: Cannot allocate %zu bytes for the directory",
                 __FILE__, __LINE__, cen_capacity_);
     }
   }
