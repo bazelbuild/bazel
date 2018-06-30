@@ -24,6 +24,8 @@
 #include <stdio.h>
 #include <time.h>
 
+// Various MSVC polyfills for POSIX functions.
+
 inline tm* localtime_r(const time_t* tin, tm* tout) {
   if (!localtime_s(tout, tin))
     return tout;
@@ -34,6 +36,9 @@ inline tm* localtime_r(const time_t* tin, tm* tout) {
 ptrdiff_t pread(int fd, void* buf, size_t count, ptrdiff_t offset);
 
 #ifdef _WIN64
+// MSVC by default defines stat and related functions to a version with 32-bit
+// st_size even for Win64. We want 64-bit st_size instead so that we can handle
+// large file.
 #undef stat
 #undef fstat
 #define stat _stat64
@@ -42,4 +47,4 @@ ptrdiff_t pread(int fd, void* buf, size_t count, ptrdiff_t offset);
 
 #endif  // _WIN32
 
-#endif  //   BAZEL_SRC_TOOLS_SINGLEJAR_PORTR_H_
+#endif  //   BAZEL_SRC_TOOLS_SINGLEJAR_PORT_H_
