@@ -33,4 +33,3 @@ ptrdiff_t pread(int fd, void *buf, size_t count, ptrdiff_t offset) {
 }
 
 #endif  // _WIN32
-
