@@ -397,11 +397,11 @@ public abstract class AbstractParallelEvaluator {
         } catch (final SkyFunctionException builderException) {
           ReifiedSkyFunctionException reifiedBuilderException =
               new ReifiedSkyFunctionException(builderException, skyKey);
-          // In keep-going mode, we do not let SkyFunctions throw errors with missing deps -- we
-          // will restart them when their deps are done, so we can have a definitive error and
-          // definitive graph structure, thus avoiding non-determinism. It's completely reasonable
-          // for SkyFunctions to throw eagerly because they do not know if they are in keep-going
-          // mode.
+          // In keep-going mode, we do not let SkyFunctions complete with a thrown error if they
+          // have missing deps. Instead, we wait until their deps are done and restart the
+          // SkyFunction, so we can have a definitive error and definitive graph structure, thus
+          // avoiding non-determinism. It's completely reasonable for SkyFunctions to throw eagerly
+          // because they do not know if they are in keep-going mode.
           // Propagated transitive errors are treated the same as missing deps.
           if ((!evaluatorContext.keepGoing() || !env.valuesMissing())
               && reifiedBuilderException.getRootCauseSkyKey().equals(skyKey)) {
