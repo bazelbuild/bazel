@@ -25,7 +25,8 @@ ptrdiff_t pread(int fd, void *buf, size_t count, ptrdiff_t offset) {
   DWORD ret = -1;
   HANDLE hFile = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
   if (hFile) {
-    OVERLAPPED overlap = {0};
+    OVERLAPPED overlap;
+    memset(&overlap, 0, sizeof(OVERLAPPED));
     overlap.Offset = offset;
     ::ReadFile(hFile, buf, count, &ret, &overlap);
   }
