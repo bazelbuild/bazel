@@ -37,12 +37,13 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
       name = "remote_max_connections",
-      defaultValue = "0",
+      defaultValue = "100",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "The max. number of concurrent network connections to the remote cache/executor. By "
-              + "default Bazel selects the ideal number of connections automatically.")
+              + "default Bazel limits the number of TCP connections to 100. Setting this flag to "
+              + "0 will make Bazel choose the number of connections automatically.")
   public int remoteMaxConnections;
 
   @Option(
