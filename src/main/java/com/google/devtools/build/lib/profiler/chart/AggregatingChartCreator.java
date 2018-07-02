@@ -112,13 +112,13 @@ public class AggregatingChartCreator implements ChartCreator {
 
     for (ProfileInfo.Task task : info.allTasksById) {
       if (ACTION_TASKS.contains(task.type)) {
-        createBar(chart, task, actionType);
+        createBar(chart, info.getMinTaskStartTime(), task, actionType);
       } else if (LOCK_TASKS.contains(task.type)) {
-        createBar(chart, task, lockType);
+        createBar(chart, info.getMinTaskStartTime(), task, lockType);
       } else if (BLAZE_TASKS.contains(task.type)) {
-        createBar(chart, task, blazeType);
+        createBar(chart, info.getMinTaskStartTime(), task, blazeType);
       } else if (showVFS && VFS_TASKS.contains(task.type)) {
-        createBar(chart, task, vfsType);
+        createBar(chart, info.getMinTaskStartTime(), task, vfsType);
       }
     }
 
@@ -132,9 +132,11 @@ public class AggregatingChartCreator implements ChartCreator {
    * @param task the profiler task from which the bar is created
    * @param type the type of the bar
    */
-  private void createBar(Chart chart, Task task, ChartBarType type) {
+  private void createBar(Chart chart, long minTaskStartTime, Task task, ChartBarType type) {
     String label = task.type.description + ": " + task.getDescription();
-    chart.addBar(task.threadId, task.startTime, task.startTime + task.durationNanos, type, label);
+    chart.addBar(task.threadId,
+        task.startTime - minTaskStartTime,
+        task.startTime - minTaskStartTime + task.durationNanos, type, label);
   }
 
   /**
