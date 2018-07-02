@@ -115,19 +115,20 @@ public class DigestUtilsTest {
   }
 
   /**
-   * Ensures that digest calculation is synchronized for files
-   * greater than 4096 bytes if the digest is not available cheaply,
-   * so machines with rotating drives don't become unusable.
+   * Ensures that digest calculation is synchronized for files greater than
+   * {@link DigestUtils#MULTI_THREADED_DIGEST_MAX_FILE_SIZE} bytes if the digest is not
+   * available cheaply, so machines with rotating drives don't become unusable.
    */
   @Test
   public void testCalculationConcurrency() throws Exception {
+    final int small = DigestUtils.MULTI_THREADED_DIGEST_MAX_FILE_SIZE;
+    final int large = DigestUtils.MULTI_THREADED_DIGEST_MAX_FILE_SIZE + 1;
     for (DigestHashFunction hf : Arrays.asList(DigestHashFunction.MD5, DigestHashFunction.SHA1)) {
-      assertDigestCalculationConcurrency(true, true, 4096, 4096, hf);
-      assertDigestCalculationConcurrency(true, true, 4097, 4097, hf);
-      assertDigestCalculationConcurrency(true, false, 4096, 4096, hf);
-      assertDigestCalculationConcurrency(false, false, 4097, 4097, hf);
-      assertDigestCalculationConcurrency(true, false, 1024, 4097, hf);
-      assertDigestCalculationConcurrency(true, false, 1024, 1024, hf);
+      assertDigestCalculationConcurrency(true, true, small, small, hf);
+      assertDigestCalculationConcurrency(true, true, large, large, hf);
+      assertDigestCalculationConcurrency(true, false, small, small, hf);
+      assertDigestCalculationConcurrency(true, false, small, large, hf);
+      assertDigestCalculationConcurrency(false, false, large, large, hf);
     }
   }
 
