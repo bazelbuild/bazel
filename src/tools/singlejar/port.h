@@ -35,7 +35,7 @@ inline tm* localtime_r(const time_t* tin, tm* tout) {
   return nullptr;
 }
 
-// Make sure that the file HANDLE associated with |fd| is created by CreateFileA
+// Make sure that the file HANDLE associated with |fd| is created by CreateFile
 // with FILE_FLAG_OVERLAPPED flag for this function to work.
 ptrdiff_t pread(int fd, void* buf, size_t count, ptrdiff_t offset);
 
