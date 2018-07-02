@@ -14,21 +14,30 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkParamsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 
-/**
- * Fake implementation of {@link CcModuleApi}.
- */
-public class FakeCcModule implements CcModuleApi<CcToolchainProviderApi, FeatureConfigurationApi,
-    CcToolchainVariablesApi> {
+/** Fake implementation of {@link CcModuleApi}. */
+public class FakeCcModule
+    implements CcModuleApi<
+        CcToolchainProviderApi,
+        FeatureConfigurationApi,
+        CcToolchainVariablesApi,
+        LibraryToLinkApi,
+        CcLinkParamsApi,
+        CcSkylarkInfoApi> {
 
   @Override
   public ProviderApi getCcToolchainProvider() {
@@ -86,6 +95,35 @@ public class FakeCcModule implements CcModuleApi<CcToolchainProviderApi, Feature
 
   @Override
   public CcToolchainVariablesApi getVariables() {
+    return null;
+  }
+
+  @Override
+  public LibraryToLinkApi createLibraryLinkerInput(
+      SkylarkRuleContext skylarkRuleContext, Artifact library, String skylarkArtifactCategory)
+      throws EvalException {
+    return null;
+  }
+
+  @Override
+  public LibraryToLinkApi createSymlinkLibraryLinkerInput(
+      SkylarkRuleContext skylarkRuleContext, CcToolchainProviderApi ccToolchain, Artifact library) {
+    return null;
+  }
+
+  @Override
+  public CcLinkParamsApi createCcLinkParams(
+      SkylarkRuleContext skylarkRuleContext,
+      Object skylarkLibrariesToLink,
+      Object skylarkDynamicLibrariesForRuntime,
+      Object skylarkUserLinkFlags)
+      throws EvalException {
+    return null;
+  }
+
+  @Override
+  public CcSkylarkInfoApi createCcSkylarkInfo(Object skylarkRuleContextObject)
+      throws EvalException {
     return null;
   }
 }

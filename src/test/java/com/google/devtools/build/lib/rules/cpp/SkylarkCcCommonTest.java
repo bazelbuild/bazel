@@ -14,9 +14,12 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -24,9 +27,11 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -36,6 +41,12 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class SkylarkCcCommonTest extends BuildViewTestCase {
+
+  @Before
+  public void setConfiguration() throws Exception {
+    useConfiguration("--experimental_enable_cc_skylark_api");
+  }
+
   @Test
   public void testGetToolForAction() throws Exception {
     scratch.file(
@@ -121,7 +132,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, "feature { name: 'foo_feature' }");
-    useConfiguration("--features=foo_feature");
+    useConfiguration("--features=foo_feature", "--experimental_enable_cc_skylark_api");
     scratch.file(
         "a/BUILD",
         "load(':rule.bzl', 'crule')",
@@ -663,7 +674,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testIsLinkingDynamicLibraryLinkVariables() throws Exception {
-    useConfiguration("--linkopt=-pie");
+    useConfiguration("--linkopt=-pie", "--experimental_enable_cc_skylark_api");
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_LINK_EXECUTABLE,
@@ -688,7 +699,9 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testIsUsingLinkerLinkVariables() throws Exception {
-    useConfiguration("--linkopt=-i_dont_want_to_see_this_on_archiver_command_line");
+    useConfiguration(
+        "--linkopt=-i_dont_want_to_see_this_on_archiver_command_line",
+        "--experimental_enable_cc_skylark_api");
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_LINK_EXECUTABLE,
@@ -820,5 +833,207 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     @SuppressWarnings("unchecked")
     SkylarkList<String> result = (SkylarkList<String>) r.get("command_line");
     return result;
+  }
+
+  @Test
+  public void testCcCompilationProvider() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "cc_library(",
+        "    name='lib',",
+        "    hdrs = ['lib.h'],",
+        "    srcs = ['lib.cc'],",
+        "    deps = ['r']",
+        ")",
+        "crule(name='r')");
+    scratch.file("tools/build_defs/cc/BUILD", "");
+    scratch.file(
+        "tools/build_defs/cc/rule.bzl",
+        "def _impl(ctx):",
+        "  cc_compilation_info = CcCompilationInfo(headers=depset([ctx.file._header]))",
+        "  return [",
+        "    cc_compilation_info, cc_common.create_cc_skylark_info(ctx=ctx),",
+        "  ]",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_header': attr.label(allow_single_file=True, default=Label('//a:header.h'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:lib");
+    @SuppressWarnings("unchecked")
+    CcCompilationContext ccCompilationContext =
+        r.get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
+    assertThat(
+            ccCompilationContext
+                .getDeclaredIncludeSrcs()
+                .toCollection()
+                .stream()
+                .map(Artifact::getFilename)
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("lib.h", "header.h");
+  }
+
+  @Test
+  public void testLibraryLinkerInputs() throws Exception {
+    scratch.file("a/BUILD", "load('//tools/build_defs/cc:rule.bzl', 'crule')", "crule(name='r')");
+    scratch.file("a/lib.a", "");
+    scratch.file("a/lib.lo", "");
+    scratch.file("a/lib.so", "");
+    scratch.file("a/lib.ifso", "");
+    scratch.file("tools/build_defs/cc/BUILD", "");
+    scratch.file(
+        "tools/build_defs/cc/rule.bzl",
+        "def _create(ctx, lib, c):",
+        "  return cc_common.create_library_to_link(ctx=ctx, library=lib, artifact_category=c)",
+        "def _impl(ctx):",
+        "  static_library = _create(ctx, ctx.file.liba, 'static_library')",
+        "  alwayslink_static_library = _create(ctx, ctx.file.liblo, 'alwayslink_static_library')",
+        "  dynamic_library = _create(ctx, ctx.file.libso, 'dynamic_library')",
+        "  interface_library = _create(ctx, ctx.file.libifso, 'interface_library')",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  symlink_library = cc_common.create_symlink_library_to_link(",
+        "      ctx=ctx, cc_toolchain=toolchain, library=ctx.file.libso)",
+        "  return struct(",
+        "    static_library = static_library,",
+        "    alwayslink_static_library = alwayslink_static_library,",
+        "    dynamic_library = dynamic_library,",
+        "    interface_library = interface_library,",
+        "    symlink_library = symlink_library",
+        "  )",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    'liba': attr.label(default='//a:lib.a', allow_single_file=True),",
+        "    'liblo': attr.label(default='//a:lib.lo', allow_single_file=True),",
+        "    'libso': attr.label(default='//a:lib.so', allow_single_file=True),",
+        "    'libifso': attr.label(default='//a:lib.ifso', allow_single_file=True),",
+        "     '_cc_toolchain': attr.label(default =",
+        "         configuration_field(fragment = 'cpp', name = 'cc_toolchain'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked")
+    LibraryToLink staticLibrary = (LibraryToLink) r.get("static_library");
+    assertThat(staticLibrary.getArtifact().getFilename()).isEqualTo("lib.a");
+    LibraryToLink alwaysLinkStaticLibrary = (LibraryToLink) r.get("alwayslink_static_library");
+    assertThat(alwaysLinkStaticLibrary.getArtifact().getFilename()).isEqualTo("lib.lo");
+    LibraryToLink dynamicLibrary = (LibraryToLink) r.get("dynamic_library");
+    assertThat(dynamicLibrary.getArtifact().getFilename()).isEqualTo("lib.so");
+    LibraryToLink interfaceLibrary = (LibraryToLink) r.get("interface_library");
+    assertThat(interfaceLibrary.getArtifact().getFilename()).isEqualTo("lib.ifso");
+    LibraryToLink symlinkLibrary = (LibraryToLink) r.get("symlink_library");
+    assertThat(symlinkLibrary.getArtifact().getFilename()).isEqualTo("lib.so");
+    assertThat(symlinkLibrary.getArtifact().getPath())
+        .isNotEqualTo(symlinkLibrary.getOriginalLibraryArtifact().getPath());
+  }
+
+  @Test
+  public void testLibraryLinkerInputArtifactCategoryError() throws Exception {
+    scratch.file("a/BUILD", "load('//tools/build_defs/cc:rule.bzl', 'crule')", "crule(name='r')");
+    scratch.file("a/lib.a", "");
+    scratch.file("tools/build_defs/cc/BUILD", "");
+    scratch.file(
+        "tools/build_defs/cc/rule.bzl",
+        "def _impl(ctx):",
+        "  executable = cc_common.create_library_to_link(",
+        "    ctx=ctx, library=ctx.file.lib, artifact_category='executable')",
+        "  return struct(",
+        "    executable = executable,",
+        "  )",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    'lib': attr.label(default='//a:lib.a', allow_single_file=True),",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:r"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Possible values for artifact_category: static_library, alwayslink_static_library, "
+                + "dynamic_library, interface_library");
+  }
+
+  @Test
+  public void testCcLinkingProviderParamsWithoutFlag() throws Exception {
+    useConfiguration("--noexperimental_enable_cc_skylark_api");
+    setUpCcLinkingProviderParamsTest();
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:r"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Pass --experimental_enable_cc_skylark_api in order to "
+                + "use the C++ API. Beware that we will be making breaking changes to this API "
+                + "without prior warning.");
+  }
+
+  @Test
+  public void testCcLinkingProviderParamsWithFlag() throws Exception {
+    setUpCcLinkingProviderParamsTest();
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked")
+    CcLinkParamsStore ccLinkParamsStore =
+        ((CcLinkingInfo) r.get("cc_linking_info")).getCcLinkParamsStore();
+    assertThat(ccLinkParamsStore).isNotNull();
+    assertThat(
+            ccLinkParamsStore
+                .get(/* linkingStatically= */ true, /* linkShared= */ true)
+                .flattenedLinkopts())
+        .containsExactly("-static_shared");
+    assertThat(
+            ccLinkParamsStore
+                .get(/* linkingStatically= */ true, /* linkShared= */ false)
+                .flattenedLinkopts())
+        .containsExactly("-static_no_shared");
+    assertThat(
+            ccLinkParamsStore
+                .get(/* linkingStatically= */ false, /* linkShared= */ true)
+                .flattenedLinkopts())
+        .containsExactly("-no_static_shared");
+    assertThat(
+            ccLinkParamsStore
+                .get(/* linkingStatically= */ false, /* linkShared= */ false)
+                .flattenedLinkopts())
+        .containsExactly("-no_static_no_shared");
+  }
+
+  private void setUpCcLinkingProviderParamsTest() throws Exception {
+    scratch.file("a/BUILD", "load('//tools/build_defs/cc:rule.bzl', 'crule')", "crule(name='r')");
+    scratch.file("a/lib.a", "");
+    scratch.file("a/lib.so", "");
+    scratch.file("tools/build_defs/cc/BUILD", "");
+    scratch.file(
+        "tools/build_defs/cc/rule.bzl",
+        "def _create(ctx, l, r, f):",
+        "  return cc_common.create_cc_link_params(",
+        "    ctx=ctx, libraries_to_link=depset(l), dynamic_libraries_for_runtime=depset(r),",
+        "        user_link_flags=depset(f))",
+        "def _impl(ctx):",
+        "  liba = cc_common.create_library_to_link(ctx=ctx, library=ctx.file.liba,",
+        "    artifact_category='static_library')",
+        "  ss = _create(ctx, [liba], [ctx.file.libso], ['-static_shared'])",
+        "  sns = _create(ctx, [liba], [ctx.file.libso], ['-static_no_shared'])",
+        "  nss = _create(ctx, [liba], [ctx.file.libso], ['-no_static_shared'])",
+        "  nsns = _create(ctx, [liba], [ctx.file.libso], ['-no_static_no_shared'])",
+        "  cc_linking_info = CcLinkingInfo(",
+        "    static_shared_params=ss, static_no_shared_params=sns,",
+        "    no_static_shared_params=nss, no_static_no_shared_params=nsns)",
+        "  return struct(",
+        "    cc_linking_info = cc_linking_info,",
+        "  )",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    'liba': attr.label(default='//a:lib.a', allow_single_file=True),",
+        "    'libso': attr.label(default='//a:lib.so', allow_single_file=True),",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
   }
 }

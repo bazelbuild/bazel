@@ -17,13 +17,24 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.rules.cpp.CcModule.CcSkylarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -33,7 +44,32 @@ import javax.annotation.Nullable;
 
 /** A module that contains Skylark utilities for C++ support. */
 public class CcModule
-    implements CcModuleApi<CcToolchainProvider, FeatureConfiguration, CcToolchainVariables> {
+    implements CcModuleApi<
+        CcToolchainProvider,
+        FeatureConfiguration,
+        CcToolchainVariables,
+        LibraryToLink,
+        CcLinkParams,
+        CcSkylarkInfo> {
+
+  /**
+   * C++ Skylark rules should have this provider so that native rules can depend on them. This will
+   * eventually go away once b/73921130 is fixed.
+   */
+  @Immutable
+  @AutoCodec
+  public static final class CcSkylarkInfo extends NativeInfo implements CcSkylarkInfoApi {
+    public static final ObjectCodec<CcSkylarkInfo> CODEC = new CcModule_CcSkylarkInfo_AutoCodec();
+
+    public static final NativeProvider<CcSkylarkInfo> PROVIDER =
+        new NativeProvider<CcSkylarkInfo>(CcSkylarkInfo.class, "CcSkylarkInfo") {};
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    CcSkylarkInfo() {
+      super(PROVIDER);
+    }
+  }
 
   @Override
   public Provider getCcToolchainProvider() {
@@ -182,12 +218,79 @@ public class CcModule
   }
 
   /** Converts an object that can be the either SkylarkNestedSet or None into NestedSet. */
-  protected NestedSet<String> asStringNestedSet(Object o) throws EvalException {
+  protected NestedSet<String> asStringNestedSet(Object o) {
     SkylarkNestedSet skylarkNestedSet = convertFromNoneable(o, /* defaultValue= */ null);
     if (skylarkNestedSet != null) {
       return skylarkNestedSet.getSet(String.class);
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
+  }
+
+  @Override
+  public LibraryToLink createLibraryLinkerInput(
+      SkylarkRuleContext skylarkRuleContext, Artifact library, String skylarkArtifactCategory)
+      throws EvalException {
+    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
+    ArtifactCategory artifactCategory =
+        ArtifactCategory.fromString(
+            skylarkArtifactCategory,
+            skylarkRuleContext.getRuleContext().getRule().getLocation(),
+            "artifact_category");
+    return LinkerInputs.opaqueLibraryToLink(
+        library, artifactCategory, CcLinkingOutputs.libraryIdentifierOf(library));
+  }
+
+  @Override
+  public LibraryToLink createSymlinkLibraryLinkerInput(
+      SkylarkRuleContext skylarkRuleContext, CcToolchainProvider ccToolchain, Artifact library) {
+    Artifact dynamicLibrarySymlink =
+        SolibSymlinkAction.getDynamicLibrarySymlink(
+            skylarkRuleContext.getRuleContext(),
+            ccToolchain.getSolibDirectory(),
+            library,
+            /* preserveName= */ true,
+            /* prefixConsumer= */ true,
+            skylarkRuleContext.getRuleContext().getConfiguration());
+    return LinkerInputs.solibLibraryToLink(
+        dynamicLibrarySymlink, library, CcLinkingOutputs.libraryIdentifierOf(library));
+  }
+
+  @Override
+  public CcLinkParams createCcLinkParams(
+      SkylarkRuleContext skylarkRuleContext,
+      Object skylarkLibrariesToLink,
+      Object skylarkDynamicLibrariesForRuntime,
+      Object skylarkUserLinkFlags)
+      throws EvalException {
+    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
+
+    SkylarkNestedSet librariesToLink = convertFromNoneable(skylarkLibrariesToLink, null);
+    SkylarkNestedSet dynamicLibrariesForRuntime =
+        convertFromNoneable(skylarkDynamicLibrariesForRuntime, null);
+    SkylarkNestedSet userLinkFlags = convertFromNoneable(skylarkUserLinkFlags, null);
+
+    CcLinkParams.Builder builder = CcLinkParams.builder();
+    if (librariesToLink != null) {
+      builder.addLibraries(librariesToLink.toCollection(LibraryToLink.class));
+    }
+    if (dynamicLibrariesForRuntime != null) {
+      builder.addDynamicLibrariesForRuntime(
+          dynamicLibrariesForRuntime.toCollection(Artifact.class));
+    }
+    if (userLinkFlags != null) {
+      builder.addLinkOpts(userLinkFlags.toCollection(String.class));
+    }
+    return builder.build();
+  }
+
+  @Override
+  public CcSkylarkInfo createCcSkylarkInfo(Object skylarkRuleContextObject) throws EvalException {
+    SkylarkRuleContext skylarkRuleContext =
+        convertFromNoneable(skylarkRuleContextObject, /* defaultValue= */ null);
+    if (skylarkRuleContext != null) {
+      CcCommon.checkRuleWhitelisted(skylarkRuleContext);
+    }
+    return new CcSkylarkInfo();
   }
 }

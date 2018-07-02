@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -33,7 +35,10 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public interface CcModuleApi<
     CcToolchainProviderT extends CcToolchainProviderApi,
     FeatureConfigurationT extends FeatureConfigurationApi,
-    CcToolchainVariablesT extends CcToolchainVariablesApi> {
+    CcToolchainVariablesT extends CcToolchainVariablesApi,
+    LibraryToLinkT extends LibraryToLinkApi,
+    CcLinkParamsT extends CcLinkParamsApi,
+    CcSkylarkInfoT extends CcSkylarkInfoApi> {
 
   @SkylarkCallable(
       name = "CcToolchainInfo",
@@ -450,4 +455,135 @@ public interface CcModuleApi<
 
   @SkylarkCallable(name = "empty_variables", documented = false)
   CcToolchainVariablesT getVariables();
+
+  @SkylarkCallable(
+      name = "create_library_to_link",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "ctx",
+            doc = "Skylark rule context.",
+            positional = false,
+            named = true,
+            type = SkylarkRuleContext.class),
+        @Param(
+            name = "library",
+            doc = "Library to be linked.",
+            positional = false,
+            named = true,
+            type = Artifact.class),
+        @Param(
+            name = "artifact_category",
+            doc =
+                "Artifact category. Can be: static_library, alwayslink_static_library, "
+                    + "dynamic_library or interface_library",
+            positional = false,
+            named = true,
+            type = String.class)
+      })
+  LibraryToLinkT createLibraryLinkerInput(
+      SkylarkRuleContext skylarkRuleContext, Artifact library, String skylarkArtifactCategory)
+      throws EvalException;
+
+  @SkylarkCallable(
+      name = "create_symlink_library_to_link",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "ctx",
+            doc = "Skylark rule context.",
+            positional = false,
+            named = true,
+            type = SkylarkRuleContext.class),
+        @Param(
+            name = "cc_toolchain",
+            doc = "C++ toolchain provider to be used.",
+            positional = false,
+            named = true,
+            type = CcToolchainProviderApi.class),
+        @Param(
+            name = "library",
+            doc = "Library that should be symlinked.",
+            positional = false,
+            named = true,
+            type = Artifact.class),
+      })
+  LibraryToLinkT createSymlinkLibraryLinkerInput(
+      SkylarkRuleContext skylarkRuleContext, CcToolchainProviderT ccToolchain, Artifact library);
+
+  @SkylarkCallable(
+      name = "create_cc_link_params",
+      doc = "Creates cc link parameters",
+      parameters = {
+        @Param(
+            name = "ctx",
+            positional = false,
+            named = true,
+            type = SkylarkRuleContextApi.class,
+            doc = "The rule context."),
+        @Param(
+            name = "libraries_to_link",
+            doc =
+                "List of libraries that should be passed to the linker/archiver. They can be "
+                    + "static and/or dynamic libraries.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = NoneType.class)
+            }),
+        @Param(
+            name = "dynamic_libraries_for_runtime",
+            doc =
+                "When 'libraries_to_link' has dynamic libraries, then the runtime library can "
+                    + "be specified as well. This is not obligatory though, as we may provide a "
+                    + "library for linking and at runtime the actual library will be provided by "
+                    + "the system.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = NoneType.class)
+            }),
+        @Param(
+            name = "user_link_flags",
+            doc = "List of user provided linker flags.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = NoneType.class)
+            })
+      })
+  CcLinkParamsT createCcLinkParams(
+      SkylarkRuleContext skylarkRuleContext,
+      Object skylarkLibrariesToLink,
+      Object skylarkDynamicLibrariesForRuntime,
+      Object skylarkUserLinkFlags)
+      throws EvalException;
+
+  @SkylarkCallable(
+      name = "create_cc_skylark_info",
+      documented = false,
+      parameters = {
+        // TODO(plf): Make this parameter mandatory. Change cc_embed_data.bzl first.
+        @Param(
+            name = "ctx",
+            doc = "Skylark rule context.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = SkylarkRuleContextApi.class),
+              @ParamType(type = NoneType.class)
+            })
+      })
+  CcSkylarkInfoT createCcSkylarkInfo(Object skylarkRuleContextObject) throws EvalException;
 }
