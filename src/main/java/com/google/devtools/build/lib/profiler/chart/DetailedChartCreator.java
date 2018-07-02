@@ -52,7 +52,7 @@ public class DetailedChartCreator implements ChartCreator {
     for (Task task : info.allTasksById) {
       String label = task.type.description + ": " + task.getDescription();
       ChartBarType type = chart.lookUpType(task.type.description);
-      long stop = task.startTime + task.durationNanos;
+      long stop = task.startTime - info.getMinTaskStartTime() + task.durationNanos;
       CriticalPathEntry entry = null;
 
       // for top level tasks, check if they are on the critical path
@@ -66,12 +66,14 @@ public class DetailedChartCreator implements ChartCreator {
           }
           if (nextEntry != null) {
             // time is start and not stop as we traverse the critical back backwards
-            chart.addVerticalLine(task.threadId, nextEntry.task.threadId, task.startTime);
+            chart.addVerticalLine(task.threadId, nextEntry.task.threadId,
+                task.startTime - info.getMinTaskStartTime());
           }
         }
       }
 
-      chart.addBar(task.threadId, task.startTime, stop, type, (entry != null), label);
+      chart.addBar(task.threadId, task.startTime - info.getMinTaskStartTime(), stop, type,
+          entry != null, label);
     }
 
     return chart;
