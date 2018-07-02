@@ -362,8 +362,8 @@ public interface NodeEntry extends ThinNodeEntry {
   /**
    * Erases all stored work during this evaluation from this entry, namely all temporary direct
    * deps. The entry will be as if it had never evaluated at this version. Called after the {@link
-   * SkyFunction} for this entry returns {@link SkyFunction#SENTINEL_FOR_RESTART_FROM_SCRATCH},
-   * indicating that something went wrong in external state and the evaluation has to be restarted.
+   * SkyFunction} for this entry returns {@link SkyFunction.Restart}, indicating that something went
+   * wrong in external state and the evaluation has to be restarted.
    */
   @ThreadSafe
   void resetForRestartFromScratch();
