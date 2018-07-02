@@ -1269,6 +1269,30 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testXcodeVersionFeature() throws Exception {
+    useConfiguration("--xcode_version=5.8");
+
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m")
+        .write();
+    CommandAction action = compileAction("//objc:lib", "a.o");
+
+    assertThat(action.getArguments()).contains("-DXCODE_FEATURE_FOR_TESTING=xcode_5.8");
+  }
+
+  @Test
+  public void testXcodeVersionFeatureUnused() throws Exception {
+    useConfiguration("--xcode_version=7.3");
+
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m")
+        .write();
+    CommandAction action = compileAction("//objc:lib", "a.o");
+
+    assertThat(action.getArguments()).doesNotContain("-DXCODE_FEATURE_FOR_TESTING=xcode_5.8");
+  }
+
+  @Test
   public void testIosSdkVersionCannotBeDefinedButEmpty() throws Exception {
     try {
       useConfiguration("--ios_sdk_version=");

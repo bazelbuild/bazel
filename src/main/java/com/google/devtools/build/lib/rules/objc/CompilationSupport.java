@@ -223,6 +223,8 @@ public class CompilationSupport {
 
   private static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
 
+  private static final String XCODE_VERSION_FEATURE_NAME_PREFIX = "xcode_";
+
   /** Enabled if this target has objc sources in its transitive closure. */
   private static final String CONTAINS_OBJC = "contains_objc_sources";
 
@@ -544,6 +546,9 @@ public class CompilationSupport {
     if (toolchain.useFission()) {
       activatedCrosstoolSelectables.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
+
+    activatedCrosstoolSelectables.add(XCODE_VERSION_FEATURE_NAME_PREFIX
+        + XcodeConfig.getXcodeVersion(ruleContext).toStringWithMinimumComponents(2));
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
 
