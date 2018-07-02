@@ -99,7 +99,7 @@ set -ex
 
 def _update_commit(orig, keys, override):
     # Merge the override information into the dict, resulting by taking the
-    # given keys, as well as the name, form orig (if present there).
+    # given keys, as well as the name, from orig (if present there).
     result = {}
     for key in keys:
         if getattr(orig, key) != None:
@@ -155,7 +155,7 @@ new_git_repository = repository_rule(
 
 Clones a Git repository, checks out the specified tag, or commit, and
 makes its targets available for binding. Also determine the id of the
-commit actually checkted out and its date, and return a dict with paramters
+commit actually checked out and its date, and return a dict with paramters
 that provide a reproducible version of this rule (which a tag not necessarily
 is).
 
@@ -213,7 +213,7 @@ git_repository = repository_rule(
 
 Clones a Git repository, checks out the specified tag, or commit, and
 makes its targets available for binding. Also determine the id of the
-commit actually checkted out and its date, and return a dict with paramters
+commit actually checked out and its date, and return a dict with paramters
 that provide a reproducible version of this rule (which a tag not necessarily
 is).
 
