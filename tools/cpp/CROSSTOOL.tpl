@@ -376,6 +376,19 @@ toolchain {
   }
 
   action_config {
+    config_name: 'preprocess-assemble'
+    action_name: 'preprocess-assemble'
+    tool {
+      tool_path: '%{msvc_ml_path}'
+    }
+    implies: 'compiler_input_flags'
+    implies: 'compiler_output_flags'
+    implies: 'nologo'
+    implies: 'msvc_env'
+    implies: 'sysroot'
+  }
+
+  action_config {
     config_name: 'c-compile'
     action_name: 'c-compile'
     tool {
