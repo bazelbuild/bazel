@@ -1093,7 +1093,7 @@ static string GetMsysBash() {
   // MSYS2 installer writes its registry into HKCU, although documentation
   // (https://msdn.microsoft.com/en-us/library/ms954376.aspx)
   // clearly states that it should go to HKLM.
-  static const char* const key =
+  static constexpr const char key[] =
       "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
   if (RegOpenKeyExA(HKEY_CURRENT_USER,  // _In_     HKEY    hKey,
                     key,                // _In_opt_ LPCTSTR lpSubKey,
@@ -1111,7 +1111,7 @@ static string GetMsysBash() {
   // we enumerate all keys under
   // HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall and find the first
   // with MSYS2 64bit display name.
-  static const char* const msys_display_name = "MSYS2 64bit";
+  static constexpr const char msys_display_name[] = "MSYS2 64bit";
   DWORD n_subkeys;
 
   if (RegQueryInfoKey(h_uninstall,  // _In_        HKEY      hKey,
@@ -1220,7 +1220,7 @@ static string GetBashFromGitOnWin() {
   HKEY h_GitOnWin_uninstall;
 
   // Well-known registry key for Git-on-Windows.
-  static const char* const key =
+  static constexpr const char key[] =
       "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Git_is1";
   if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,    // _In_     HKEY    hKey,
                     key,                   // _In_opt_ LPCTSTR lpSubKey,
