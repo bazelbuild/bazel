@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
+import com.google.devtools.build.skyframe.GraphInconsistencyReceiver.Inconsistency;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -149,14 +150,24 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       GroupedList<SkyKey> directDeps,
       Set<SkyKey> oldDeps,
       ParallelEvaluatorContext evaluatorContext)
-      throws InterruptedException {
-    this(skyKey, directDeps, null, oldDeps, evaluatorContext);
+      throws InterruptedException, UndonePreviouslyRequestedDep {
+    super(directDeps);
+    this.skyKey = skyKey;
+    this.oldDeps = oldDeps;
+    this.evaluatorContext = evaluatorContext;
+    this.bubbleErrorInfo = null;
+    this.previouslyRequestedDepsValues =
+        batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ true, skyKey);
+    Preconditions.checkState(
+        !this.previouslyRequestedDepsValues.containsKey(ErrorTransienceValue.KEY),
+        "%s cannot have a dep on ErrorTransienceValue during building",
+        skyKey);
   }
 
   SkyFunctionEnvironment(
       SkyKey skyKey,
       GroupedList<SkyKey> directDeps,
-      @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo,
+      Map<SkyKey, ValueWithMetadata> bubbleErrorInfo,
       Set<SkyKey> oldDeps,
       ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
@@ -164,9 +175,14 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     this.skyKey = skyKey;
     this.oldDeps = oldDeps;
     this.evaluatorContext = evaluatorContext;
-    this.previouslyRequestedDepsValues =
-        batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ bubbleErrorInfo == null, skyKey);
-    this.bubbleErrorInfo = bubbleErrorInfo;
+    this.bubbleErrorInfo = Preconditions.checkNotNull(bubbleErrorInfo);
+    try {
+      this.previouslyRequestedDepsValues =
+          batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ false, skyKey);
+    } catch (UndonePreviouslyRequestedDep undonePreviouslyRequestedDep) {
+      throw new IllegalStateException(
+          "batchPrefetch can't throw UndonePreviouslyRequestedDep unless assertDone is true");
+    }
     Preconditions.checkState(
         !this.previouslyRequestedDepsValues.containsKey(ErrorTransienceValue.KEY),
         "%s cannot have a dep on ErrorTransienceValue during building",
@@ -179,7 +195,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       Set<SkyKey> oldDeps,
       boolean assertDone,
       SkyKey keyForDebugging)
-      throws InterruptedException {
+      throws InterruptedException, UndonePreviouslyRequestedDep {
     Set<SkyKey> depKeysAsSet = null;
     if (PREFETCH_OLD_DEPS) {
       if (!oldDeps.isEmpty()) {
@@ -211,9 +227,15 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         ImmutableMap.builderWithExpectedSize(batchMap.size());
     for (Entry<SkyKey, ? extends NodeEntry> entry : batchMap.entrySet()) {
       SkyValue valueMaybeWithMetadata = entry.getValue().getValueMaybeWithMetadata();
-      if (assertDone) {
-        Preconditions.checkNotNull(
-            valueMaybeWithMetadata, "%s had not done %s", keyForDebugging, entry);
+      if (assertDone && valueMaybeWithMetadata == null) {
+        // A previously requested dep may have transitioned from done to dirty between when the node
+        // was read during a previous attempt to build this node and now. Notify the graph
+        // inconsistency receiver so that we can crash if that's unexpected.
+        evaluatorContext
+            .getGraphInconsistencyReceiver()
+            .noteInconsistencyAndMaybeThrow(
+                skyKey, entry.getKey(), Inconsistency.CHILD_UNDONE_FOR_BUILDING_NODE);
+        throw new UndonePreviouslyRequestedDep(entry.getKey());
       }
       depValuesBuilder.put(
           entry.getKey(), valueMaybeWithMetadata == null ? NULL_MARKER : valueMaybeWithMetadata);
@@ -407,6 +429,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       newlyRequestedDepsValues.put(key, valueOrNullMarker);
       if (valueOrNullMarker == NULL_MARKER) {
         // TODO(mschaller): handle registered deps that transitioned from done to dirty during eval
+        // But how? Restarting the current node may not help, because this dep was *registered*, not
+        // requested. For now, no node that gets registered as a dep is eligible for
+        // intra-evaluation dirtying, so let it crash.
         Preconditions.checkState(!assertDone, "%s had not done: %s", skyKey, key);
         continue;
       }
@@ -428,7 +453,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * (Note that none of the maps can have {@code null} as a value.)
    */
   @Nullable
-  private SkyValue maybeGetValueFromErrorOrDeps(SkyKey key) {
+  SkyValue maybeGetValueFromErrorOrDeps(SkyKey key) {
     if (bubbleErrorInfo != null) {
       ValueWithMetadata bubbleErrorInfoValue = bubbleErrorInfo.get(key);
       if (bubbleErrorInfoValue != null) {
@@ -713,7 +738,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         .evaluated(
             skyKey,
             evaluationState == EvaluationState.BUILT ? value : null,
-            new EvaluationSuccessStateSupplier(primaryEntry),
+            EvaluationSuccessStateSupplier.fromSkyValue(valueWithMetadata),
             evaluationState);
 
     evaluatorContext.signalValuesAndEnqueueIfReady(
@@ -755,5 +780,18 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       }
     }
     newlyRequestedDeps.endGroup();
+  }
+
+  /** Thrown during environment construction if a previously requested dep is no longer done. */
+  static class UndonePreviouslyRequestedDep extends Exception {
+    private final SkyKey depKey;
+
+    UndonePreviouslyRequestedDep(SkyKey depKey) {
+      this.depKey = depKey;
+    }
+
+    SkyKey getDepKey() {
+      return depKey;
+    }
   }
 }
