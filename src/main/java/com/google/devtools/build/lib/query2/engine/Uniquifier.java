@@ -31,14 +31,14 @@ public interface Uniquifier<T> {
   boolean uniquePure(T newElement);
 
   /**
-   * Returns whether {@code newElement} has been seen before by {@link #unique(T)} or
-   * {@link #unique(Iterable)}.
+   * Returns whether {@code newElement} has been seen before by {@link #unique(T)} or {@link
+   * #unique(Iterable)}.
    */
-  boolean unique(T newElement);
+  boolean unique(T newElement) throws QueryException;
 
   /**
    * Returns the subset of {@code newElements} that haven't been seen before by {@link #unique(T)}
    * or {@link #unique(Iterable)}.
    */
-  ImmutableList<T> unique(Iterable<T> newElements);
+  ImmutableList<T> unique(Iterable<T> newElements) throws QueryException;
 }

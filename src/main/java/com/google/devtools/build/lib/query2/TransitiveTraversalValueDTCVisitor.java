@@ -92,7 +92,7 @@ class TransitiveTraversalValueDTCVisitor extends ParallelVisitor<SkyKey, SkyKey>
   }
 
   @Override
-  protected ImmutableList<SkyKey> getUniqueValues(Iterable<SkyKey> values) {
+  protected ImmutableList<SkyKey> getUniqueValues(Iterable<SkyKey> values) throws QueryException {
     return uniquifier.unique(values);
   }
 }

@@ -403,8 +403,7 @@ abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQueryEnviron
 
   @Override
   public Uniquifier<T> createUniquifier() {
-    return new UniquifierImpl<>(
-        getConfiguredTargetKeyExtractor(), SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
+    return new UniquifierImpl<>(getConfiguredTargetKeyExtractor());
   }
 
   @Override
