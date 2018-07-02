@@ -1,0 +1,50 @@
+Incompatible changes:
+
+  - The $(ANDROID_CPU) Make variable is not available anymore. Use
+    $(TARGET_CPU) after an Android configuration transition instead.
+  - The $(JAVA_TRANSLATIONS) Make variable is not supported anymore.
+  - Skylark structs (using struct()) may no longer have to_json and
+    to_proto overridden.
+  - The mobile-install --skylark_incremental_res flag is no longer
+    available, use the --skylark flag instead.
+
+New features:
+
+  - android_local_test now takes advantage of Robolectric's binary
+    resource processing which allows for faster tests.
+  - Allow @ in package names.
+
+Important changes:
+
+  - Option --glibc is removed, toolchain selection relies solely on
+    --cpu and --compiler options.
+  - Build support for enabling cross binary FDO optimization.
+  - The --distdir option is no longer experimental. This
+      option allows to specify additional directories to look for
+      files before trying to fetch them from the network. Files from
+      any of the distdirs are only used if a checksum for the file
+      is specified and both, the filename and the checksum, match.
+  - Java coverage works now with multiple jobs.
+  - Flip default value of --experimental_shortened_obj_file_path to
+    true, Bazel now generates short object file path by default.
+  - New rules for importing Android dependencies:
+    `aar_import_external` and `aar_maven_import_external`.
+    `aar_import_external` enables specifying external AAR
+    dependencies using a list of HTTP URLs for the artifact.
+    `aar_maven_import_external` enables specifying external AAR
+    dependencies using the artifact coordinate and a list of server
+    URLs.
+  - The BAZEL_JAVAC_OPTS environment variable allows arguments, e.g.,
+    "-J-Xmx2g", may be passed to the javac compiler during bootstrap
+    build. This is helpful if your system chooses too small of a max
+    heap size for the Java compiler during the bootstrap build.
+  - --noexpand_configs_in_place is deprecated.
+  - A tool to parse the Bazel execution log.
+  - Support for LIPO has been fully removed.
+  - Remove support for --discard_actions_after_execution.
+  - Add --materialize_param_files flag to write parameter files even
+    when actions are executed remotely.
+  - Windows default system bazelrc is read from the user's
+    ProgramData if present.
+  - --[no]allow_undefined_configs no longer exists, passing undefined
+    configs is an error.
