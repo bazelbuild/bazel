@@ -6,7 +6,7 @@ load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 def _path_ignoring_repository(f):
   if (len(f.owner.workspace_root) == 0):
     return f.short_path
-  return f.path[len(f.owner.workspace_root)+1:]
+  return f.path[f.path.find(f.owner.workspace_root)+len(f.owner.workspace_root)+1:]
 
 def _gensource_impl(ctx):
   if len(ctx.attr.srcs) > 1:

@@ -30,7 +30,7 @@ java_import(
     jars = ["libprotobuf_java_util.jar"],
     visibility = ["//visibility:public"],
     exports = [
-        "@io_bazel//third_party:gson",
+        "//external:gson",
     ],
 )
 
@@ -50,88 +50,88 @@ filegroup(
 # Well Known Types
 
 proto_library(
-    name = "well_known_types_any_proto",
+    name = "any_proto",
     srcs = ["google/protobuf/any.proto"],
     visibility = ["//visibility:public"],
 )
 
 proto_library(
-    name = "well_known_types_timestamp_proto",
+    name = "timestamp_proto",
     srcs = ["google/protobuf/timestamp.proto"],
     visibility = ["//visibility:public"],
 )
 
 proto_library(
-    name = "well_known_types_api_proto",
+    name = "api_proto",
     srcs = ["google/protobuf/api.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        ":well_known_types_source_context_proto",
-        ":well_known_types_type_proto",
+        ":source_context_proto",
+        ":type_proto",
     ],
 )
 
 proto_library(
-    name = "well_known_types_type_proto",
+    name = "type_proto",
     srcs = ["google/protobuf/type.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        ":well_known_types_any_proto",
-        ":well_known_types_source_context_proto",
+        ":any_proto",
+        ":source_context_proto",
     ],
 )
 
 proto_library(
-    name = "well_known_types_source_context_proto",
+    name = "source_context_proto",
     srcs = ["google/protobuf/source_context.proto"],
     visibility = ["//visibility:public"],
 )
 
 proto_library(
-    name = "well_known_types_compiler_plugin_proto",
+    name = "compiler_plugin_proto",
     srcs = ["google/protobuf/compiler/plugin.proto"],
     visibility = ["//visibility:public"],
-    deps = [":well_known_types_descriptor_proto"],
+    deps = [":descriptor_proto"],
 )
 
 proto_library(
-    name = "well_known_types_descriptor_proto",
+    name = "descriptor_proto",
     srcs = ["google/protobuf/descriptor.proto"],
     visibility = ["//visibility:public"],
 )
 
 proto_library(
-    name = "well_known_types_duration_proto",
+    name = "duration_proto",
     srcs = ["google/protobuf/duration.proto"],
     visibility = ["//visibility:public"],
 )
 
 proto_library(
-    name = "well_known_types_empty_proto",
+    name = "empty_proto",
     srcs = ["google/protobuf/empty.proto"],
     visibility = ["//visibility:public"],
 )
 
 proto_library(
-    name = "well_known_types_field_mask_proto",
+    name = "field_mask_proto",
     srcs = ["google/protobuf/field_mask.proto"],
     visibility = ["//visibility:public"],
 )
 
 proto_library(
-    name = "well_known_types_struct_proto",
+    name = "struct_proto",
     srcs = ["google/protobuf/struct.proto"],
     visibility = ["//visibility:public"],
 )
 
 proto_library(
-    name = "well_known_types_wrappers_proto",
+    name = "wrappers_proto",
     srcs = ["google/protobuf/wrappers.proto"],
     visibility = ["//visibility:public"],
 )
 
 proto_library(
-    name = "well_known_types_compiler_profile_proto",
+    name = "compiler_profile_proto",
     srcs = ["google/protobuf/compiler/profile.proto"],
     visibility = ["//visibility:public"],
 )
