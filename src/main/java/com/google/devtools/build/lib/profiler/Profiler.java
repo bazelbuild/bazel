@@ -564,10 +564,10 @@ public final class Profiler {
     FileWriter writer = null;
     if (stream != null) {
       if (format == Format.BINARY_BAZEL_FORMAT) {
-        writer = new BinaryFormatWriter(stream, profileStartTime, comment);
+        writer = new BinaryFormatWriter(stream, execStartTimeNanos, comment);
         writer.start();
       } else if (format == Format.JSON_TRACE_FILE_FORMAT) {
-        writer = new JsonTraceFileWriter(stream, profileStartTime);
+        writer = new JsonTraceFileWriter(stream, execStartTimeNanos);
         writer.start();
       }
     }
