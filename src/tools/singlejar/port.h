@@ -16,6 +16,8 @@
 #define BAZEL_SRC_TOOLS_SINGLEJAR_PORT_H_ 1
 
 #ifdef _WIN32
+// This macro is required to tell MSVC headers to also define POSIX names
+// without "_" prefix (such as "open" for "_open").
 #define _CRT_DECLARE_NONSTDC_NAMES 1
 #include <fcntl.h>
 #include <io.h>
@@ -33,6 +35,8 @@ inline tm* localtime_r(const time_t* tin, tm* tout) {
   return nullptr;
 }
 
+// Make sure that the file HANDLE associated with |fd| is created by CreateFileA
+// with FILE_FLAG_OVERLAPPED flag for this function to work.
 ptrdiff_t pread(int fd, void* buf, size_t count, ptrdiff_t offset);
 
 #ifdef _WIN64
