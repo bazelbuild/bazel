@@ -311,10 +311,7 @@ public class SkylarkRepositoryContext
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
-    if (!Strings.isNullOrEmpty(sha256)) {
-      return sha256;
-    }
-    return "";
+    return calculateSha256(sha256, outputPath);
   }
 
   @Override
@@ -363,18 +360,22 @@ public class SkylarkRepositoryContext
               "Couldn't delete temporary file (" + downloadedPath.getPathString() + ")", e),
           Transience.TRANSIENT);
     }
+    return calculateSha256(sha256, outputPath);
+  }
+
+  private String calculateSha256(String inputSha, SkylarkPath outputPath) throws RepositoryFunctionException{
     String finalSha;
-    if (!Strings.isNullOrEmpty(sha256)) {
-      finalSha = sha256;
+    if (!Strings.isNullOrEmpty(inputSha)) {
+      return inputSha;
     } else {
-      // calculate the hash of the downloaded file
       java.nio.file.Path path = Paths.get(outputPath.getPath().getPathString());
       String contentString = "";
       try {
         byte[] fileBytes = Files.readAllBytes(path);
         contentString = new String(fileBytes);
       } catch (IOException e) {
-        e.printStackTrace();
+        throw new RepositoryFunctionException(
+            new IOException("Couldn't read downloaded file" + path.toString() + " to calculate sha", e), Transience.PERSISTENT);
       }
       finalSha = Hashing.sha256()
           .hashString(contentString, StandardCharsets.UTF_8)
