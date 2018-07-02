@@ -198,8 +198,7 @@ public final class LtoBackendArtifacts {
       builder.addImportsInfo(bitcodeFiles, imports);
       // Although the imports file is not used by the LTOBackendAction while the action is
       // executing, it is needed during the input discovery phase, and we must list it as an input
-      // to the action // in order for it to be preserved under
-      // --experimental_discard_orphaned_artifacts.
+      // to the action in order for it to be preserved under --discard_orphaned_artifacts.
       builder.addInput(imports);
     }
     if (index != null) {
