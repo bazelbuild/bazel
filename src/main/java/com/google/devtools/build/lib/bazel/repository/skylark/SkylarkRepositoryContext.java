@@ -23,6 +23,7 @@ import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
@@ -292,10 +293,11 @@ public class SkylarkRepositoryContext
     validateSha256(sha256);
     List<URL> urls = getUrls(url);
     SkylarkPath outputPath = getPath("download()", output);
+    Path downloadedPath;
     try {
       checkInOutputDirectory(outputPath);
       makeDirectories(outputPath.getPath());
-      httpDownloader.download(
+      downloadedPath = httpDownloader.download(
           urls,
           sha256,
           Optional.<String>absent(),
@@ -311,7 +313,16 @@ public class SkylarkRepositoryContext
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
-    return calculateSha256(sha256, outputPath);
+    String finalSha256;
+    try {
+      finalSha256 = calculateSha256(sha256, downloadedPath);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "Couldn't hash downloaded file (" + downloadedPath.getPathString() + ")", e),
+          Transience.PERSISTENT);
+    }
+    return finalSha256;
   }
 
   @Override
@@ -350,6 +361,15 @@ public class SkylarkRepositoryContext
             .setRepositoryPath(outputPath.getPath())
             .setPrefix(stripPrefix)
             .build());
+    String finalSha256 = null;
+    try {
+      finalSha256 = calculateSha256(sha256, downloadedPath);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "Couldn't hash downloaded file (" + downloadedPath.getPathString() + ")", e),
+          Transience.PERSISTENT);
+    }
     try {
       if (downloadedPath.exists()) {
         downloadedPath.delete();
@@ -360,28 +380,15 @@ public class SkylarkRepositoryContext
               "Couldn't delete temporary file (" + downloadedPath.getPathString() + ")", e),
           Transience.TRANSIENT);
     }
-    return calculateSha256(sha256, outputPath);
+    return finalSha256;
   }
 
-  private String calculateSha256(String inputSha, SkylarkPath outputPath) throws RepositoryFunctionException{
-    String finalSha;
-    if (!Strings.isNullOrEmpty(inputSha)) {
-      return inputSha;
-    } else {
-      java.nio.file.Path path = Paths.get(outputPath.getPath().getPathString());
-      String contentString = "";
-      try {
-        byte[] fileBytes = Files.readAllBytes(path);
-        contentString = new String(fileBytes);
-      } catch (IOException e) {
-        throw new RepositoryFunctionException(
-            new IOException("Couldn't read downloaded file" + path.toString() + " to calculate sha", e), Transience.PERSISTENT);
-      }
-      finalSha = Hashing.sha256()
-          .hashString(contentString, StandardCharsets.UTF_8)
-          .toString();
+  private String calculateSha256(String originalSha, Path path) throws IOException {
+    if (!Strings.isNullOrEmpty(originalSha)) {
+      // The sha is checked on download, so if we got here, the user provided sha is good
+      return originalSha;
     }
-    return finalSha;
+    return RepositoryCache.getChecksum(KeyType.SHA256, path);
   }
 
   private static void validateSha256(String sha256) throws RepositoryFunctionException {
