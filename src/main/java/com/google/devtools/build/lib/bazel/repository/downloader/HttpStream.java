@@ -48,8 +48,6 @@ final class HttpStream extends FilterInputStream {
   private static final ImmutableSet<String> GZIP_CONTENT_ENCODING =
       ImmutableSet.of("gzip", "x-gzip");
 
-  public HashCode hashcode = null;
-
   /** Factory for {@link HttpStream}. */
   @ThreadSafe
   static class Factory {
@@ -139,5 +137,4 @@ final class HttpStream extends FilterInputStream {
   URL getUrl() {
     return url;
   }
-
 }
