@@ -220,6 +220,7 @@ public class HttpDownloader {
     boolean success = false;
     try (HttpStream payload = multiplexer.connect(urls, sha256);
         OutputStream out = destination.getOutputStream()) {
+
       ByteStreams.copy(payload, out);
       success = true;
     } catch (InterruptedIOException e) {

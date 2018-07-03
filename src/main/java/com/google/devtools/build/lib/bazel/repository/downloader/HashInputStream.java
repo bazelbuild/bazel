@@ -81,6 +81,13 @@ final class HashInputStream extends InputStream {
     check();
   }
 
+  public HashCode getActual() {
+    if (actual == null) {
+      actual = hasher.hash();
+    }
+    return actual;
+  }
+
   private void check() throws IOException {
     if (actual == null) {
       actual = hasher.hash();
