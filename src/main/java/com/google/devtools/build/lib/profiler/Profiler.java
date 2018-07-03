@@ -1032,6 +1032,7 @@ public final class Profiler {
             }
             char eventType = data.duration == 0 ? 'i' : 'X';
             out.append("{");
+            out.append("\"cat\":\"").append(data.type.description).append("\",");
             out.append("\"name\":\"").append(data.description).append("\",");
             out.append("\"ph\":\"").append(eventType).append("\",");
             out.append("\"ts\":")
