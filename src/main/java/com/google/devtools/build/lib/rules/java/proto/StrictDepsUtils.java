@@ -72,10 +72,10 @@ public class StrictDepsUtils {
       JavaCompilationArgsProvider directJars,
       ImmutableList<TransitiveInfoCollection> protoRuntimes) {
     JavaCompilationArgsProvider.Builder result = JavaCompilationArgsProvider.builder();
+    result.addExports(directJars);
     for (JavaProtoLibraryAspectProvider p : deps) {
       result.addExports(p.getNonStrictCompArgs());
     }
-    result.addExports(directJars);
     for (TransitiveInfoCollection t : protoRuntimes) {
       JavaCompilationArgsProvider p = JavaInfo.getProvider(JavaCompilationArgsProvider.class, t);
       if (p != null) {
