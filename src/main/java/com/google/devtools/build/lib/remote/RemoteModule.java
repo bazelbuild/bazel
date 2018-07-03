@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -160,6 +161,7 @@ public final class RemoteModule extends BlazeModule {
         interceptors.add(new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock()));
       }
 
+      final RemoteCooldown remoteCooldown;
       final RemoteRetrier executeRetrier;
       final AbstractRemoteActionCache cache;
       if (enableBlobStoreCache) {
@@ -169,6 +171,7 @@ public final class RemoteModule extends BlazeModule {
                 (e) -> false,
                 retryScheduler,
                 Retrier.ALLOW_ALL_CALLS);
+        remoteCooldown = null;
         executeRetrier = null;
         cache =
             new SimpleBlobStoreActionCache(
@@ -180,6 +183,9 @@ public final class RemoteModule extends BlazeModule {
                 retrier,
                 digestUtil);
       } else if (enableGrpcCache || remoteOptions.remoteExecutor != null) {
+        remoteCooldown = new RemoteCooldown(
+            remoteOptions.remoteCooldownDelay,
+            remoteOptions.remoteCooldownSuccessAcceptAfterOff);
         // If a remote executor but no remote cache is specified, assume both at the same target.
         String target = enableGrpcCache ? remoteOptions.remoteCache : remoteOptions.remoteExecutor;
         ReferenceCountedChannel channel =
@@ -193,8 +199,8 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions,
                 RemoteRetrier.RETRIABLE_GRPC_ERRORS,
                 retryScheduler,
-                Retrier.ALLOW_ALL_CALLS);
-        executeRetrier = createExecuteRetrier(remoteOptions, retryScheduler);
+                remoteCooldown);
+        executeRetrier = createExecuteRetrier(remoteOptions, retryScheduler, remoteCooldown);
         CallCredentials credentials = GoogleAuthUtils.newCallCredentials(authAndTlsOptions);
         ByteStreamUploader uploader =
             new ByteStreamUploader(
@@ -219,6 +225,7 @@ public final class RemoteModule extends BlazeModule {
         uploader.release();
         channel.release();
       } else {
+        remoteCooldown = null;
         executeRetrier = null;
         cache = null;
       }
@@ -235,7 +242,7 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions,
                 RemoteRetrier.RETRIABLE_GRPC_ERRORS,
                 retryScheduler,
-                Retrier.ALLOW_ALL_CALLS);
+                remoteCooldown);
         executor =
             new GrpcRemoteExecutor(
                 channel,
@@ -246,7 +253,7 @@ public final class RemoteModule extends BlazeModule {
         executor = null;
       }
       actionContextProvider =
-          new RemoteActionContextProvider(env, cache, executor, executeRetrier, digestUtil, logDir);
+          new RemoteActionContextProvider(env, cache, executor, executeRetrier, remoteCooldown, digestUtil, logDir);
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       env.getBlazeModuleEnvironment()
@@ -285,14 +292,16 @@ public final class RemoteModule extends BlazeModule {
   }
 
   static RemoteRetrier createExecuteRetrier(
-      RemoteOptions options, ListeningScheduledExecutorService retryService) {
+      RemoteOptions options,
+      ListeningScheduledExecutorService retryService,
+      CircuitBreaker circuitBreaker) {
     return new RemoteRetrier(
         options.experimentalRemoteRetry
             ? () -> new Retrier.ZeroBackoff(options.experimentalRemoteRetryMaxAttempts)
             : () -> Retrier.RETRIES_DISABLED,
         RemoteModule.RETRIABLE_EXEC_ERRORS,
         retryService,
-        Retrier.ALLOW_ALL_CALLS);
+        circuitBreaker);
   }
 
   private static class BuildEventArtifactUploaderFactoryDelegate

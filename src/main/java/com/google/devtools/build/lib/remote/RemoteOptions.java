@@ -248,4 +248,26 @@ public final class RemoteOptions extends OptionsBase {
             + "otherwise cachable actions that output symlinks will fail."
   )
   public boolean allowSymlinkUpload;
+
+  @Option(
+    name = "remote_cooldown_delay",
+    defaultValue = "0",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Specify a delay in seconds after a fallback to local execution to avoid"
+        + " remote cache or remote executor procedure calls."
+  )
+  public int remoteCooldownDelay;
+
+  @Option(
+    name = "remote_cooldown_success_accept_after_off",
+    defaultValue = "0",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "A number of successful responses which must be received in order to allow"
+        + " remote procedure retries."
+  )
+  public int remoteCooldownSuccessAcceptAfterOff;
 }

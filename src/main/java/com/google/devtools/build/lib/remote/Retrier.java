@@ -386,4 +386,8 @@ public class Retrier {
   public boolean isRetriable(Exception e) {
     return shouldRetry.test(e);
   }
+
+  public CircuitBreaker getCircuitBreaker() {
+    return circuitBreaker;
+  }
 }

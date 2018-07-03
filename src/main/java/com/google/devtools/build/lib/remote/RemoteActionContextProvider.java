@@ -43,6 +43,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   @Nullable private final AbstractRemoteActionCache cache;
   @Nullable private final GrpcRemoteExecutor executor;
   private final RemoteRetrier retrier;
+  private final RemoteCooldown remoteCooldown;
   private final DigestUtil digestUtil;
   private final Path logDir;
   private final AtomicReference<SpawnRunner> fallbackRunner = new AtomicReference<>();
@@ -52,12 +53,14 @@ final class RemoteActionContextProvider extends ActionContextProvider {
       @Nullable AbstractRemoteActionCache cache,
       @Nullable GrpcRemoteExecutor executor,
       RemoteRetrier retrier,
+      RemoteCooldown remoteCooldown,
       DigestUtil digestUtil,
       Path logDir) {
     this.env = env;
     this.executor = executor;
     this.cache = cache;
     this.retrier = retrier;
+    this.remoteCooldown = remoteCooldown;
     this.digestUtil = digestUtil;
     this.logDir = logDir;
   }
@@ -95,6 +98,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               cache,
               executor,
               retrier,
+              remoteCooldown,
               digestUtil,
               logDir);
       return ImmutableList.of(new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner));

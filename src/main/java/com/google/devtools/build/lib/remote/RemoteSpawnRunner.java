@@ -90,6 +90,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   @Nullable private final AbstractRemoteActionCache remoteCache;
   @Nullable private final GrpcRemoteExecutor remoteExecutor;
   @Nullable private final RemoteRetrier retrier;
+  @Nullable private final RemoteCooldown remoteCooldown;
   private final String buildRequestId;
   private final String commandId;
   private final DigestUtil digestUtil;
@@ -110,6 +111,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       @Nullable AbstractRemoteActionCache remoteCache,
       @Nullable GrpcRemoteExecutor remoteExecutor,
       @Nullable RemoteRetrier retrier,
+      @Nullable RemoteCooldown remoteCooldown,
       DigestUtil digestUtil,
       Path logDir) {
     this.execRoot = execRoot;
@@ -123,6 +125,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.retrier = retrier;
+    this.remoteCooldown = remoteCooldown;
     this.digestUtil = digestUtil;
     this.logDir = logDir;
   }
@@ -296,6 +299,9 @@ class RemoteSpawnRunner implements SpawnRunner {
     if (remoteOptions.remoteLocalFallback
         && !(cause instanceof RetryException
             && RemoteRetrierUtils.causedByExecTimeout((RetryException) cause))) {
+      if (remoteCooldown != null) {
+        remoteCooldown.start();
+      }
       return execLocally(spawn, context, inputMap, uploadLocalResults, remoteCache, actionKey);
     }
     return handleError(cause, context.getFileOutErr(), actionKey);

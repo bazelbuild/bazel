@@ -25,6 +25,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -145,7 +146,7 @@ public class RemoteSpawnRunnerTest {
     outErr = new FileOutErr(stdout, stderr);
 
     options = Options.getDefaults(RemoteOptions.class);
-    retrier = RemoteModule.createExecuteRetrier(options, retryService);
+    retrier = RemoteModule.createExecuteRetrier(options, retryService, Retrier.ALLOW_ALL_CALLS);
   }
 
   @AfterClass
@@ -177,6 +178,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -237,6 +239,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             null,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -291,6 +294,7 @@ public class RemoteSpawnRunnerTest {
                 cache,
                 null,
                 retrier,
+                /*remoteCooldown=*/ null,
                 digestUtil,
                 logDir));
 
@@ -342,6 +346,7 @@ public class RemoteSpawnRunnerTest {
                 cache,
                 null,
                 retrier,
+                /*remoteCooldown=*/ null,
                 digestUtil,
                 logDir));
 
@@ -355,8 +360,8 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  public void printWarningIfCacheIsDown() throws Exception {
-    // If we try to upload to a local cache, that is down a warning should be printed.
+  public void fallbackIfCacheIsDown() throws Exception {
+    // If we try to upload to an unavailable cache, we should fallback
 
     options.remoteUploadLocalResults = true;
     options.remoteLocalFallback = true;
@@ -365,6 +370,7 @@ public class RemoteSpawnRunnerTest {
     StoredEventHandler eventHandler = new StoredEventHandler();
     reporter.addHandler(eventHandler);
 
+    RemoteCooldown remoteCooldown = Mockito.mock(RemoteCooldown.class);
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
             execRoot,
@@ -378,6 +384,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             null,
             retrier,
+            remoteCooldown,
             digestUtil,
             logDir);
 
@@ -408,12 +415,7 @@ public class RemoteSpawnRunnerTest {
 
     verify(localRunner).exec(eq(spawn), eq(policy));
 
-    assertThat(eventHandler.getEvents()).hasSize(1);
-
-    Event evt = eventHandler.getEvents().get(0);
-    assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
-    assertThat(evt.getMessage()).contains("fail");
-    assertThat(evt.getMessage()).contains("upload");
+    verify(remoteCooldown, times(1)).start();
   }
 
   @Test
@@ -436,6 +438,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             null,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -477,6 +480,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             null,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -515,6 +519,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -552,6 +557,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -594,6 +600,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -639,6 +646,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -679,6 +687,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -721,6 +730,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -764,6 +774,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -813,6 +824,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -860,6 +872,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -902,6 +915,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -940,6 +954,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
@@ -975,6 +990,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             retrier,
+            /*remoteCooldown=*/ null,
             digestUtil,
             logDir);
 
