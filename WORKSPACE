@@ -93,24 +93,24 @@ new_local_repository(
 
 http_archive(
     name = "desugar_jdk_libs",
-    url = "https://github.com/google/desugar_jdk_libs/archive/f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip",
+    url = "https://github.com/google/desugar_jdk_libs/archive/fd937f4180c1b557805219af4482f1a27eb0ff2b.zip",
     # Computed using "shasum -a 256 <zip>"
-    sha256 = "c80f3f3d442d8a6ca7adc83f90ecd638c3864087fdd6787ffac070b6f1cc8f9b",
-    strip_prefix = "desugar_jdk_libs-f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd",
+    sha256 = "43b8fcc56a180e178d498f375fbeb95e8b65b9bf6c2da91ae3ae0332521a1a12",
+    strip_prefix = "desugar_jdk_libs-fd937f4180c1b557805219af4482f1a27eb0ff2b",
 )
 
 load("//:distdir.bzl", "distdir_tar")
 distdir_tar(
     name = "additional_distfiles",
     dirname = "derived/distdir",
-    archives = ["f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip"],
+    archives = ["fd937f4180c1b557805219af4482f1a27eb0ff2b.zip"],
     urls = {
-        "f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip" :
-        ["https://github.com/google/desugar_jdk_libs/archive/f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip"],
+        "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip" :
+        ["https://github.com/google/desugar_jdk_libs/archive/fd937f4180c1b557805219af4482f1a27eb0ff2b.zip"],
     },
     sha256 = {
-        "f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip" :
-        "c80f3f3d442d8a6ca7adc83f90ecd638c3864087fdd6787ffac070b6f1cc8f9b",
+        "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip" :
+        "43b8fcc56a180e178d498f375fbeb95e8b65b9bf6c2da91ae3ae0332521a1a12",
   },
 )
 
