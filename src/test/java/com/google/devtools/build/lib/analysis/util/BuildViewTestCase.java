@@ -348,7 +348,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     optionsPolicyEnforcer.enforce(optionsParser);
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
-    skyframeExecutor.invalidateConfigurationCollection();
+    skyframeExecutor.resetConfigurationCollectionForTesting();
     return skyframeExecutor.createConfigurations(
         reporter, ruleClassProvider.getConfigurationFragments(), buildOptions,
         ImmutableSet.<String>of(), false);

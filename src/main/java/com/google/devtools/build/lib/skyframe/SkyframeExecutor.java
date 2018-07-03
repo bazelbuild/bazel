@@ -734,12 +734,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Computes statistics on heap-resident rules and aspects. */
   public abstract List<RuleStat> getRuleStats(ExtendedEventHandler eventHandler);
 
-  /**
-   * Removes ConfigurationFragmentValues from the cache.
-   */
+  /** Removes ConfigurationFragmentValues from the cache. */
   @VisibleForTesting
-  public void invalidateConfigurationCollection() {
-    invalidate(SkyFunctionName.functionIsIn(ImmutableSet.of(SkyFunctions.CONFIGURATION_FRAGMENT)));
+  public void resetConfigurationCollectionForTesting() {
+    memoizingEvaluator.delete(
+        SkyFunctionName.functionIsIn(ImmutableSet.of(SkyFunctions.CONFIGURATION_FRAGMENT)));
   }
 
   /**
