@@ -275,7 +275,7 @@ bool OutputJar::Open() {
   }
   outpos_ = 0;
   buffer_.reset(new char[kBufferSize]);
-  setbuffer(file_, buffer_.get(), kBufferSize);
+  setvbuf(file_, buffer_.get(), _IOFBF, kBufferSize);
   if (options_->verbose) {
     fprintf(stderr, "Writing to %s\n", path());
   }
