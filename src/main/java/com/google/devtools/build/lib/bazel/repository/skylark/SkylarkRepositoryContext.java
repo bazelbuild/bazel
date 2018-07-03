@@ -19,6 +19,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
@@ -230,9 +231,14 @@ public class SkylarkRepositoryContext
 
   @Override
   public SkylarkExecutionResult execute(
-      SkylarkList<Object> arguments, Integer timeout, SkylarkDict<String, String> environment,
-      boolean quiet)
+      SkylarkList<Object> arguments,
+      Integer timeout,
+      SkylarkDict<String, String> environment,
+      boolean quiet,
+      Location location)
       throws EvalException, RepositoryFunctionException {
+    WorkspaceRuleEvent w = new WorkspaceRuleEvent(location, "Executing a command.");
+    env.getListener().post(w);
     createDirectory(outputDirectory);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
         .addArguments(arguments)

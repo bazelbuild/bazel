@@ -647,3 +647,10 @@ test_suite(
     ],
     visibility = ["//src/test/shell:__pkg__"],
 )
+
+sh_test(
+    name = "bazel_workspaces_test",
+    srcs = ["bazel_workspaces_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
