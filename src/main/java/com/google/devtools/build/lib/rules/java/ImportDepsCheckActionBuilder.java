@@ -39,6 +39,7 @@ public final class ImportDepsCheckActionBuilder {
   private NestedSet<Artifact> jarsToCheck;
   private NestedSet<Artifact> bootclasspath;
   private NestedSet<Artifact> declaredDeps;
+  private NestedSet<Artifact> transitiveDeps;
   private ImportDepsCheckingLevel importDepsCheckingLevel;
 
   private ImportDepsCheckActionBuilder() {}
@@ -86,11 +87,18 @@ public final class ImportDepsCheckActionBuilder {
     return this;
   }
 
+  public ImportDepsCheckActionBuilder transitiveDeps(NestedSet<Artifact> transitiveDeps) {
+    checkState(this.transitiveDeps == null);
+    this.transitiveDeps = checkNotNull(transitiveDeps);
+    return this;
+  }
+
   public void buildAndRegister(RuleContext ruleContext) {
     checkNotNull(outputArtifact);
     checkNotNull(jarsToCheck);
     checkNotNull(bootclasspath);
     checkNotNull(declaredDeps);
+    checkNotNull(transitiveDeps);
     checkNotNull(importDepsCheckingLevel);
     checkNotNull(jdepsArtifact);
     checkNotNull(ruleLabel);
@@ -101,6 +109,7 @@ public final class ImportDepsCheckActionBuilder {
             .setExecutable(ruleContext.getExecutablePrerequisite("$import_deps_checker", Mode.HOST))
             .addTransitiveInputs(jarsToCheck)
             .addTransitiveInputs(declaredDeps)
+            .addTransitiveInputs(transitiveDeps)
             .addTransitiveInputs(bootclasspath)
             .addOutput(outputArtifact)
             .addOutput(jdepsArtifact)
@@ -120,7 +129,8 @@ public final class ImportDepsCheckActionBuilder {
     return CustomCommandLine.builder()
         .addExecPath("--output", outputArtifact)
         .addExecPaths(VectorArg.addBefore("--input").each(jarsToCheck))
-        .addExecPaths(VectorArg.addBefore("--classpath_entry").each(declaredDeps))
+        .addExecPaths(VectorArg.addBefore("--directdep").each(declaredDeps))
+        .addExecPaths(VectorArg.addBefore("--classpath_entry").each(transitiveDeps))
         .addExecPaths(VectorArg.addBefore("--bootclasspath_entry").each(bootclasspath))
         .addDynamicString(convertErrorFlag(importDepsCheckingLevel))
         .addExecPath("--jdeps_output", jdepsArtifact)

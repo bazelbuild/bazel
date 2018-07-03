@@ -174,14 +174,12 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .build());
 
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
-    // TODO(cnsun): need to pass the transitive classpath too to emit add dep command.
-    NestedSet<Artifact> directDeps = getCompileTimeJarsFromCollection(targets, /*isStrict=*/ true);
-      NestedSet<Artifact> bootclasspath = getBootclasspath(ruleContext);
     Artifact depsCheckerResult =
         createAarArtifact(ruleContext, "aar_import_deps_checker_result.txt");
     ImportDepsCheckActionBuilder.newBuilder()
-        .bootcalsspath(bootclasspath)
-        .declareDeps(directDeps)
+        .bootcalsspath(getBootclasspath(ruleContext))
+        .declareDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ true))
+        .transitiveDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ false))
         .checkJars(NestedSetBuilder.<Artifact>stableOrder().add(mergedJar).build())
         .outputArtifiact(depsCheckerResult)
         .importDepsCheckingLevel(javaConfig.getImportDepsCheckingLevel())
@@ -235,10 +233,10 @@ public class AarImport implements RuleConfiguredTargetFactory {
     return ruleBuilder.build();
   }
 
-  private NestedSet<Artifact> getCompileTimeJarsFromCollection(
-      ImmutableList<TransitiveInfoCollection> deps, boolean isStrict) {
+  private static NestedSet<Artifact> getCompileTimeJarsFromCollection(
+      ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) {
     JavaCompilationArgsProvider provider = JavaCompilationArgsProvider.legacyFromTargets(deps);
-    return isStrict ? provider.getDirectCompileTimeJars() : provider.getTransitiveCompileTimeJars();
+    return isDirect ? provider.getDirectCompileTimeJars() : provider.getTransitiveCompileTimeJars();
   }
 
   private NestedSet<Artifact> getBootclasspath(RuleContext ruleContext) {

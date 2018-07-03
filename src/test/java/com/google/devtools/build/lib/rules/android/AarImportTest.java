@@ -231,6 +231,7 @@ public class AarImportTest extends BuildViewTestCase {
         .containsAllOf(
             "--bootclasspath_entry",
             "--classpath_entry",
+            "--directdep",
             "--input",
             "--output",
             "--checking_mode=error",
@@ -239,7 +240,9 @@ public class AarImportTest extends BuildViewTestCase {
     ensureArgumentsHaveClassEntryOptionWithSuffix(
         arguments, "/intermediate/classes_and_libs_merged.jar");
     assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
-        .isEqualTo(1);
+        .isEqualTo(5);  // transitive classpath
+    assertThat(arguments.stream().filter(arg -> "--directdep".equals(arg)).count())
+        .isEqualTo(1);  // 1 declared dep
   }
 
   @Test
@@ -270,6 +273,7 @@ public class AarImportTest extends BuildViewTestCase {
         .containsAllOf(
             "--bootclasspath_entry",
             "--classpath_entry",
+            "--directdep",
             "--input",
             "--output",
             "--checking_mode=error",
@@ -278,7 +282,9 @@ public class AarImportTest extends BuildViewTestCase {
     ensureArgumentsHaveClassEntryOptionWithSuffix(
         arguments, "/intermediate/classes_and_libs_merged.jar");
     assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
-        .isEqualTo(1);
+        .isEqualTo(5);  // transitive classpath
+    assertThat(arguments.stream().filter(arg -> "--directdep".equals(arg)).count())
+        .isEqualTo(1);  // 1 declared dep
   }
 
   @Test
