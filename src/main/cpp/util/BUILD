@@ -175,6 +175,11 @@ cc_library(
         "//src/main/cpp:__pkg__",
         "//src/test/cpp/util:__pkg__",
     ],
+    deps = [
+        ":blaze_exit_code",
+        ":errors",
+        ":logging",
+    ],
 )
 
 cc_library(
