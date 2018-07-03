@@ -801,8 +801,6 @@ function test_skylark_repository_download() {
   echo "echo 'I am executable'" > "${download_executable_file}"
   file_sha256="$(sha256sum "${download_with_sha256}" | head -c 64)"
 
-  echo "file sha is $"
-
   # Start HTTP server with Python
   startup_server "${server_dir}"
 
@@ -872,9 +870,6 @@ function test_skylark_repository_context_downloads_return_sha() {
   not_provided_sha256="$(sha256sum "${download_no_sha256}" | head -c 64)"
   compressed_provided_sha256="$(sha256sum "${compressed_with_sha256}.zip" | head -c 64)"
   compressed_not_provided_sha256="$(sha256sum "${compressed_no_sha256}.zip" | head -c 64)"
-  
-  echo "provided file sha is $provided_sha256"
-  echo "not provided file sha is $not_provided_sha256"
 
   # Start HTTP server with Python
   startup_server "${server_dir}"
