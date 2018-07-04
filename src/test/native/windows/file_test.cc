@@ -30,6 +30,11 @@
 namespace bazel {
 namespace windows {
 
+#define TOSTRING(x) #x
+#define TOWSTRING1(x) L##x
+#define TOWSTRING(x) TOWSTRING1(x)
+#define WLINE TOWSTRING(TOSTRING(__LINE__))
+
 using blaze_util::DeleteAllUnder;
 using blaze_util::GetTestTmpDirW;
 using std::unique_ptr;
@@ -107,6 +112,122 @@ TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
   ASSERT_NE(INVALID_FILE_ATTRIBUTES,
             ::GetFileAttributesW((name + L"4\\bar").c_str()));
 }
+
+TEST_F(WindowsFileOperationsTest, TestCanDeleteExistingFile) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring path = tmp + L"\\file" WLINE;
+  EXPECT_TRUE(blaze_util::CreateDummyFile(path));
+  ASSERT_EQ(DeletePath(path.c_str(), nullptr), DELETE_PATH_SUCCESS);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCanDeleteExistingDirectory) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring path = tmp + L"\\dir" WLINE;
+  EXPECT_TRUE(CreateDirectoryW(path.c_str(), NULL));
+  ASSERT_EQ(DeletePath(path.c_str(), nullptr), DELETE_PATH_SUCCESS);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCanDeleteExistingJunction) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring name = tmp + L"\\junc" WLINE;
+  wstring target = tmp + L"\\target" WLINE;
+  EXPECT_TRUE(CreateDirectoryW(target.c_str(), NULL));
+  EXPECT_EQ(L"", CreateJunction(name, target));
+  ASSERT_EQ(DeletePath(name.c_str(), nullptr), DELETE_PATH_SUCCESS);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCanDeleteExistingJunctionWithoutTarget) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring name = tmp + L"\\junc" WLINE;
+  wstring target = tmp + L"\\target" WLINE;
+  EXPECT_TRUE(CreateDirectoryW(target.c_str(), NULL));
+  EXPECT_EQ(L"", CreateJunction(name, target));
+  EXPECT_TRUE(RemoveDirectoryW(target.c_str()));
+  // The junction still exists, its target does not.
+  EXPECT_NE(GetFileAttributesW(name.c_str()), INVALID_FILE_ATTRIBUTES);
+  EXPECT_EQ(GetFileAttributesW(target.c_str()), INVALID_FILE_ATTRIBUTES);
+  // We can delete the dangling junction.
+  ASSERT_EQ(DeletePath(name.c_str(), nullptr), DELETE_PATH_SUCCESS);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCannotDeleteNonExistentPath) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring path = tmp + L"\\dummy" WLINE;
+  EXPECT_EQ(GetFileAttributesW(path.c_str()), INVALID_FILE_ATTRIBUTES);
+  ASSERT_EQ(DeletePath(path.c_str(), nullptr), DELETE_PATH_DOES_NOT_EXIST);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCannotDeletePathWhereParentIsFile) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring parent = tmp + L"\\file" WLINE;
+  wstring child = parent + L"\\file" WLINE;
+  EXPECT_TRUE(blaze_util::CreateDummyFile(parent));
+  ASSERT_EQ(DeletePath(child.c_str(), nullptr), DELETE_PATH_DOES_NOT_EXIST);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCannotDeleteNonEmptyDirectory) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring parent = tmp + L"\\dir" WLINE;
+  wstring child = parent + L"\\file" WLINE;
+  EXPECT_TRUE(CreateDirectoryW(parent.c_str(), NULL));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(child));
+  ASSERT_EQ(DeletePath(parent.c_str(), nullptr),
+            DELETE_PATH_DIRECTORY_NOT_EMPTY);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyFile) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring path = tmp + L"\\file" WLINE;
+  EXPECT_TRUE(blaze_util::CreateDummyFile(path));
+  HANDLE h = CreateFileW(path.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                         FILE_ATTRIBUTE_NORMAL, NULL);
+  EXPECT_NE(h, INVALID_HANDLE_VALUE);
+  ASSERT_EQ(DeletePath(path.c_str(), nullptr), DELETE_PATH_ACCESS_DENIED);
+  CloseHandle(h);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyDirectory) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring path = tmp + L"\\dir" WLINE;
+  EXPECT_TRUE(CreateDirectoryW(path.c_str(), NULL));
+  HANDLE h = CreateFileW(path.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                         FILE_FLAG_BACKUP_SEMANTICS, NULL);
+  EXPECT_NE(h, INVALID_HANDLE_VALUE);
+  ASSERT_EQ(DeletePath(path.c_str(), nullptr), DELETE_PATH_ACCESS_DENIED);
+  CloseHandle(h);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyJunction) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring name = tmp + L"\\junc" WLINE;
+  wstring target = tmp + L"\\target" WLINE;
+  EXPECT_TRUE(CreateDirectoryW(target.c_str(), NULL));
+  EXPECT_EQ(L"", CreateJunction(name, target));
+  // Open the junction itself (do not follow symlinks).
+  HANDLE h = CreateFileW(
+      name.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+      FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, NULL);
+  ASSERT_EQ(DeletePath(name.c_str(), nullptr), DELETE_PATH_ACCESS_DENIED);
+  CloseHandle(h);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCanDeleteJunctionWhoseTargetIsBusy) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring name = tmp + L"\\junc" WLINE;
+  wstring target = tmp + L"\\target" WLINE;
+  EXPECT_TRUE(CreateDirectoryW(target.c_str(), NULL));
+  EXPECT_EQ(L"", CreateJunction(name, target));
+  // Open the junction's target (follow symlinks).
+  HANDLE h = CreateFileW(target.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                         FILE_FLAG_BACKUP_SEMANTICS, NULL);
+  ASSERT_EQ(DeletePath(name.c_str(), nullptr), DELETE_PATH_SUCCESS);
+  CloseHandle(h);
+}
+
+#undef TOSTRING
+#undef TOWSTRING1
+#undef TOWSTRING
+#undef WLINE
 
 }  // namespace windows
 }  // namespace bazel

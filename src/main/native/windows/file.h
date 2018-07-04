@@ -41,6 +41,15 @@ enum {
   IS_JUNCTION_ERROR = 2,
 };
 
+// Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
+enum {
+  DELETE_PATH_SUCCESS = 0,
+  DELETE_PATH_DOES_NOT_EXIST = 1,
+  DELETE_PATH_DIRECTORY_NOT_EMPTY = 2,
+  DELETE_PATH_ACCESS_DENIED = 3,
+  DELETE_PATH_ERROR = 4,
+};
+
 // Determines whether `path` is a junction (or directory symlink).
 //
 // `path` should be an absolute, normalized, Windows-style path, with "\\?\"
@@ -84,6 +93,13 @@ HANDLE OpenDirectory(const WCHAR* path, bool read_write);
 // function will add the right prefixes as necessary.
 wstring CreateJunction(const wstring& junction_name,
                        const wstring& junction_target);
+
+// Deletes the file or directory at `path`.
+// Returns DELETE_PATH_SUCCESS if it successfully deleted the path, otherwise
+// returns one of the other DELETE_PATH_* constants.
+// Returns DELETE_PATH_ERROR for unexpected errors. If `error` is not null, the
+// function writes an error message into it. 
+int DeletePath(const wstring& path, wstring* error);
 
 }  // namespace windows
 }  // namespace bazel
