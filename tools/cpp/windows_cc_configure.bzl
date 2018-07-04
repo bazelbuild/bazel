@@ -168,6 +168,20 @@ def find_vc_path(repository_ctx):
                     if line.startswith(version) and line.find("REG_SZ") != -1:
                         vc_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip() + suffix
 
+    # 4. Check default directories for VC installation
+    auto_configure_warning("Looking for default Visual C++ installation directory")
+    program_files_dir = get_env_var(repository_ctx, "PROGRAMFILES(X86)", default = "C:\\Program Files (x86)", enable_warning = True)
+    for path in [
+        "Microsoft Visual Studio\\2017\\BuildTools\\VC",
+        "Microsoft Visual Studio\\2017\\Community\\VC",
+        "Microsoft Visual Studio\\2017\\Enterprise\\VC",
+        "Microsoft Visual Studio 14.0\\VC",
+    ]:
+        path = program_files_dir + "\\" + path
+        if repository_ctx.path(path).exists:
+            vc_dir = path
+            break
+
     if not vc_dir:
         return None
     auto_configure_warning("Visual C++ build tools found at %s" % vc_dir)
