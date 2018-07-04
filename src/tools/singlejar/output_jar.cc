@@ -120,7 +120,7 @@ int OutputJar::Doit(Options *options) {
     // TODO(asmundak):  Consider going back to sendfile() or reflink
     // (BTRFS_IOC_CLONE/XFS_IOC_CLONE) here.  The launcher preamble can
     // be very large for targets with many native deps.
-    ptrdiff_t byte_count = AppendFile(in_fd, 0, statbuf.st_size);
+    ssize_t byte_count = AppendFile(in_fd, 0, statbuf.st_size);
     if (byte_count < 0) {
       diag_err(1, "%s:%d: Cannot copy %s to %s", __FILE__, __LINE__,
                launcher_path, options_->output_jar.c_str());
