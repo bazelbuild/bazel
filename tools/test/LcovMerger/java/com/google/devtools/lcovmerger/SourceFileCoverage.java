@@ -34,13 +34,6 @@ class SourceFileCoverage {
   private final TreeMap<Integer, BranchCoverage> branches; // line number to branch
   private final TreeMap<Integer, LineCoverage> lines; // line number to line execution
 
-  private int nrFunctionsFound;
-  private int nrFunctionsHit;
-  private int nrBranchesFound;
-  private int nrBranchesHit;
-  private int nrOfLinesWithNonZeroExecution;
-  private int nrOfInstrumentedLines;
-
   SourceFileCoverage(String sourcefile) {
     this.sourceFileName = sourcefile;
     this.functionsExecution = new TreeMap<>();
@@ -61,13 +54,6 @@ class SourceFileCoverage {
     this.functionsExecution.putAll(other.functionsExecution);
     this.branches.putAll(other.branches);
     this.lines.putAll(other.lines);
-
-    this.nrFunctionsFound = other.nrFunctionsFound;
-    this.nrFunctionsHit = other.nrFunctionsHit;
-    this.nrBranchesFound = other.nrBranchesFound;
-    this.nrBranchesHit = other.nrBranchesHit;
-    this.nrOfLinesWithNonZeroExecution = other.nrOfLinesWithNonZeroExecution;
-    this.nrOfInstrumentedLines = other.nrOfInstrumentedLines;
   }
 
   /*
@@ -169,13 +155,6 @@ class SourceFileCoverage {
     merged.addAllFunctionsExecution(mergeFunctionsExecution(source1, source2));
     merged.addAllBranches(mergeBranches(source1, source2));
     merged.addAllLines(mergeLines(source1, source2));
-
-    merged.nrBranchesHit(getNumberOfBranchesHit(merged));
-    merged.nrOfLinesWithNonZeroExecution(getNumberOfExecutedLines(merged));
-    merged.nrFunctionsFound(merged.lineNumbers.size());
-    merged.nrFunctionsHit(merged.functionsExecution.size());
-    merged.nrBranchesFound(merged.branches.size());
-    merged.nrOfInstrumentedLines(merged.lines.size());
     return merged;
   }
 
@@ -184,51 +163,29 @@ class SourceFileCoverage {
   }
 
   int nrFunctionsFound() {
-    return nrFunctionsFound;
-  }
-
-  void nrFunctionsFound(int nrFunctionsFound) {
-    this.nrFunctionsFound = nrFunctionsFound;
+    return functionsExecution.size();
   }
 
   int nrFunctionsHit() {
-    return nrFunctionsHit;
-  }
-
-  void nrFunctionsHit(int nrFunctionsHit) {
-    this.nrFunctionsHit = nrFunctionsHit;
+    return (int) functionsExecution.entrySet().stream()
+        .filter(function -> function.getValue() > 0)
+        .count();
   }
 
   int nrBranchesFound() {
-    return nrBranchesFound;
-  }
-
-  void nrBranchesFound(int nrBranchesFound) {
-    this.nrBranchesFound = nrBranchesFound;
+    return branches.size();
   }
 
   int nrBranchesHit() {
-    return nrBranchesHit;
-  }
-
-  void nrBranchesHit(int nrBranchesHit) {
-    this.nrBranchesHit = nrBranchesHit;
+    return getNumberOfBranchesHit(this);
   }
 
   int nrOfLinesWithNonZeroExecution() {
-    return nrOfLinesWithNonZeroExecution;
-  }
-
-  void nrOfLinesWithNonZeroExecution(int nrOfLinesWithNonZeroExecution) {
-    this.nrOfLinesWithNonZeroExecution = nrOfLinesWithNonZeroExecution;
+    return getNumberOfExecutedLines(this);
   }
 
   int nrOfInstrumentedLines() {
-    return nrOfInstrumentedLines;
-  }
-
-  void nrOfInstrumentedLines(int nrOfInstrumentedLines) {
-    this.nrOfInstrumentedLines = nrOfInstrumentedLines;
+    return this.lines.size();
   }
 
   Collection<LineCoverage> getAllLineExecution() {
