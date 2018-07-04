@@ -23,7 +23,11 @@ import com.google.auto.value.AutoValue;
 abstract class BranchCoverage {
 
   static BranchCoverage create(
-      int lineNumber, int blockNumber, int branchNumber, boolean wasExecuted, int nrOfExecutions) {
+    int lineNumber, 
+    String blockNumber, 
+    String branchNumber, 
+    boolean wasExecuted, 
+    int nrOfExecutions) {
     assert (wasExecuted && nrOfExecutions > 0) || (!wasExecuted && nrOfExecutions == 0);
     return new AutoValue_BranchCoverage(
         lineNumber, blockNumber, branchNumber, wasExecuted, nrOfExecutions);
@@ -37,8 +41,8 @@ abstract class BranchCoverage {
    */
   static BranchCoverage merge(BranchCoverage first, BranchCoverage second) {
     assert first.lineNumber() == second.lineNumber();
-    assert first.blockNumber() == second.blockNumber();
-    assert first.branchNumber() == second.branchNumber();
+    assert first.blockNumber().equals(second.blockNumber());
+    assert first.branchNumber().equals(second.branchNumber());
 
     return create(
         first.lineNumber(),
@@ -50,8 +54,8 @@ abstract class BranchCoverage {
 
   abstract int lineNumber();
   // The two numbers below should be -1 for non-gcc emitted coverage (e.g. Java).
-  abstract int blockNumber();  // internal gcc internal ID for the branch
-  abstract int branchNumber(); // internal gcc internal ID for the branch
+  abstract String blockNumber();  // internal gcc internal ID for the branch
+  abstract String branchNumber(); // internal gcc internal ID for the branch
   abstract boolean wasExecuted();
   abstract int nrOfExecutions();
 }

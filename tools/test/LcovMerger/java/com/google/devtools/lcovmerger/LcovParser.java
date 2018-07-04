@@ -258,7 +258,7 @@ class LcovParser {
         wasExecuted = true;
       }
       BranchCoverage branchCoverage =
-          BranchCoverage.create(lineNumber, -1, -1, wasExecuted, taken);
+          BranchCoverage.create(lineNumber, "", "", wasExecuted, taken);
 
       currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);
     } catch (NumberFormatException e) {
@@ -284,8 +284,8 @@ class LcovParser {
     }
     try {
       int lineNumber = Integer.parseInt(lineData[0]);
-      int blockNumber = Integer.parseInt(lineData[1]);
-      int branchNumber = Integer.parseInt(lineData[2]);
+      String blockNumber = lineData[1];
+      String branchNumber = lineData[2];
       String taken = lineData[3];
 
       boolean wasExecuted = false;
