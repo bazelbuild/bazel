@@ -19,12 +19,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -37,7 +39,7 @@ import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.Message;
 import java.io.IOException;
-import java.util.Set;
+import java.util.Collection;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -147,10 +149,14 @@ abstract class FileTransport implements BuildEventTransport {
    * Returns a {@link PathConverter} for the uploaded files, or {@code null} when the uploaded
    * failed.
    */
-  private ListenableFuture<PathConverter> uploadReferencedFiles(Set<Path> artifacts) {
-    checkNotNull(artifacts);
-
-    ListenableFuture<PathConverter> upload = uploader.upload(artifacts);
+  private ListenableFuture<PathConverter> uploadReferencedFiles(Collection<LocalFile> localFiles) {
+    checkNotNull(localFiles);
+    ImmutableMap.Builder<Path, LocalFile> localFileMap =
+        ImmutableMap.builderWithExpectedSize(localFiles.size());
+    for (LocalFile localFile : localFiles) {
+      localFileMap.put(localFile.path, localFile);
+    }
+    ListenableFuture<PathConverter> upload = uploader.upload(localFileMap.build());
     Futures.addCallback(
         upload,
         new FutureCallback<PathConverter>() {

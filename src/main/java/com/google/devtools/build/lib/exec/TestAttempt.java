@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -189,12 +189,16 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
   }
 
   @Override
-  public ImmutableSet<Path> referencedLocalFiles() {
-    ImmutableSet.Builder<Path> artifacts = ImmutableSet.builder();
+  public ImmutableList<LocalFile> referencedLocalFiles() {
+    LocalFileType localFileType =
+        status == TestStatus.PASSED
+            ? LocalFileType.SUCCESSFUL_TEST_OUTPUT
+            : LocalFileType.FAILED_TEST_OUTPUT;
+    ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
     for (Pair<String, Path> file : files) {
-      artifacts.add(file.getSecond());
+      localFiles.add(new LocalFile(file.getSecond(), localFileType));
     }
-    return artifacts.build();
+    return localFiles.build();
   }
 
   @Override

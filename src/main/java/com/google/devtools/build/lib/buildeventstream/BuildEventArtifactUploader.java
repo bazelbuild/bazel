@@ -15,30 +15,32 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.PathConverter.FileUriPathConverter;
 import com.google.devtools.build.lib.vfs.Path;
-import java.util.Set;
+import java.util.Map;
 
 /** Uploads artifacts referenced by the Build Event Protocol (BEP). */
 public interface BuildEventArtifactUploader {
-  BuildEventArtifactUploader LOCAL_FILES_UPLOADER = new BuildEventArtifactUploader() {
-    private final ListenableFuture<PathConverter> completedPathConverter =
-        Futures.immediateFuture(new FileUriPathConverter());
+  BuildEventArtifactUploader LOCAL_FILES_UPLOADER =
+      new BuildEventArtifactUploader() {
+        private final ListenableFuture<PathConverter> completedPathConverter =
+            Futures.immediateFuture(new FileUriPathConverter());
 
-    @Override
-    public ListenableFuture<PathConverter> upload(Set<Path> files) {
-      return completedPathConverter;
-    }
-  };
+        @Override
+        public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
+          return completedPathConverter;
+        }
+      };
 
   /**
-   * Asynchronously uploads a set of files referenced by the protobuf representation of a
-   * {@link BuildEvent}. This method is expected to return quickly.
+   * Asynchronously uploads a set of files referenced by the protobuf representation of a {@link
+   * BuildEvent}. This method is expected to return quickly.
    *
    * <p>This method must not throw any exceptions.
-   * 
+   *
    * <p>Returns a future to a {@link PathConverter} that must provide a name for each uploaded file
    * as it should appear in the BEP.
    */
-  ListenableFuture<PathConverter> upload(Set<Path> files);
+  ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files);
 }

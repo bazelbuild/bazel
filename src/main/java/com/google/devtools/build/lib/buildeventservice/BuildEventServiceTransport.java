@@ -27,6 +27,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceC
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.v1.BuildStatus.Result;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
@@ -57,6 +60,7 @@ import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import com.google.protobuf.Any;
 import io.grpc.Status;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
@@ -310,8 +314,13 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       }
     }
 
-    ListenableFuture<PathConverter> upload =
-        artifactUploader.upload(event.referencedLocalFiles());
+    Collection<LocalFile> localFiles = event.referencedLocalFiles();
+    ImmutableMap.Builder<Path, LocalFile> localFileMap =
+        ImmutableMap.builderWithExpectedSize(localFiles.size());
+    for (LocalFile localFile : localFiles) {
+      localFileMap.put(localFile.path, localFile);
+    }
+    ListenableFuture<PathConverter> upload = artifactUploader.upload(localFileMap.build());
     InternalOrderedBuildEvent buildEvent = new DefaultInternalOrderedBuildEvent(event, namer,
         upload, besProtoUtil.nextSequenceNumber());
     sendOrderedBuildEvent(buildEvent);
