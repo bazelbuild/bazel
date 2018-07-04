@@ -443,6 +443,11 @@ package_group(
     packages = ["//..."],
 )
 
+package_group(
+    name = "allow_android_library_deps_without_srcs_whitelist",
+    packages = ["//..."],
+)
+
 sh_binary(
     name = "dex_list_obfuscator",
     srcs = ["dex_list_obfuscator.sh"],

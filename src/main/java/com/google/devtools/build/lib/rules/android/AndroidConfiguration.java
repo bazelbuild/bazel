@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -1138,8 +1139,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     return useRexToCompressDexFiles;
   }
 
-  public boolean allowSrcsLessAndroidLibraryDeps() {
-    return allowAndroidLibraryDepsWithoutSrcs;
+  public boolean allowSrcsLessAndroidLibraryDeps(RuleContext ruleContext) {
+    return allowAndroidLibraryDepsWithoutSrcs
+        && Whitelist.isAvailable(ruleContext, "allow_deps_without_srcs");
   }
 
   public boolean useAndroidResourceShrinking() {

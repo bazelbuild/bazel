@@ -759,7 +759,7 @@ public class AndroidCommon {
         !hasSrcs
             && ruleContext
                 .getFragment(AndroidConfiguration.class)
-                .allowSrcsLessAndroidLibraryDeps();
+                .allowSrcsLessAndroidLibraryDeps(ruleContext);
     return javaCommon.collectJavaCompilationArgs(isNeverLink, exportDeps);
   }
 

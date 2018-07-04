@@ -1670,7 +1670,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     assertThat(
             getConfiguration(target)
                 .getFragment(AndroidConfiguration.class)
-                .allowSrcsLessAndroidLibraryDeps())
+                .allowSrcsLessAndroidLibraryDeps(getRuleContext(target)))
         .isTrue();
   }
 

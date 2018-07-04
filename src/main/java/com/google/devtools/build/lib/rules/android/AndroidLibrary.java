@@ -62,7 +62,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
               + "targets implicitly. Please use android_library.exports to explicitly specify "
               + "targets this rule exports";
       AndroidConfiguration androidConfig = ruleContext.getFragment(AndroidConfiguration.class);
-      if (androidConfig.allowSrcsLessAndroidLibraryDeps()) {
+      if (androidConfig.allowSrcsLessAndroidLibraryDeps(ruleContext)) {
         ruleContext.attributeWarning("deps", message);
       } else {
         ruleContext.attributeError("deps", message);
