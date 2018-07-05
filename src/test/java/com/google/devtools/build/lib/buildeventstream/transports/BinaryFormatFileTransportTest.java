@@ -18,19 +18,33 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Progress;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TargetComplete;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.buildeventstream.PathConverter.FileUriPathConverter;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Options;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -138,8 +152,8 @@ public class BinaryFormatFileTransportTest {
             output.getAbsolutePath(), defaultOpts, LOCAL_FILES_UPLOADER, (e) -> {});
 
     // Close the stream.
-    transport.out.close();
-    assertThat(transport.out.isOpen()).isFalse();
+    transport.writer.out.close();
+    assertThat(transport.writer.pendingWrites.isEmpty()).isTrue();
 
     // This should not throw an exception.
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
@@ -167,16 +181,118 @@ public class BinaryFormatFileTransportTest {
 
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
     Future<Void> closeFuture = transport.close();
+    closeFuture.get();
     // This should not throw an exception, but also not perform any write.
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
-    closeFuture.get();
-    assertThat(transport.out.isOpen()).isFalse();
+    assertThat(transport.writer.pendingWrites.isEmpty()).isTrue();
 
     // There should have only been one write.
     try (InputStream in = new FileInputStream(output)) {
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(started);
       assertThat(in.available()).isEqualTo(0);
+    }
+  }
+
+  @Test
+  public void testWritesWithUploadDelays() throws Exception {
+    // Test that events are written in order if the first event
+    // has to wait a bit for local file uploads to finish.
+
+    Path file1 = Mockito.mock(Path.class);
+    when(file1.getBaseName()).thenReturn("file1");
+    Path file2 = Mockito.mock(Path.class);
+    when(file2.getBaseName()).thenReturn("file2");
+    BuildEvent event1 = new WithLocalFileEvent(file1);
+    BuildEvent event2 = new WithLocalFileEvent(file2);
+
+    BuildEventArtifactUploader uploader =
+        files -> {
+          if (files.containsKey(file1)) {
+            LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(200));
+          }
+          return Futures.immediateFuture(new FileUriPathConverter());
+        };
+
+    File output = tmp.newFile();
+    BinaryFormatFileTransport transport =
+        new BinaryFormatFileTransport(output.getAbsolutePath(), defaultOpts, uploader, (e) -> {});
+    transport.sendBuildEvent(event1, artifactGroupNamer);
+    transport.sendBuildEvent(event2, artifactGroupNamer);
+    transport.close().get();
+
+    assertThat(transport.writer.pendingWrites.isEmpty()).isTrue();
+
+    try (InputStream in = new FileInputStream(output)) {
+      assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in))
+          .isEqualTo(event1.asStreamProto(null));
+      assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in))
+          .isEqualTo(event2.asStreamProto(null));
+      assertThat(in.available()).isEqualTo(0);
+    }
+  }
+
+  @Test
+  public void testCloseWaitsForWritesToFinish() throws Exception {
+    // Test that .close() waits for all writes to finish.
+
+    Path file1 = Mockito.mock(Path.class);
+    when(file1.getBaseName()).thenReturn("file1");
+    BuildEvent event = new WithLocalFileEvent(file1);
+
+    SettableFuture<PathConverter> upload = SettableFuture.create();
+    BuildEventArtifactUploader uploader = files -> upload;
+
+    File output = tmp.newFile();
+    BinaryFormatFileTransport transport =
+        new BinaryFormatFileTransport(output.getAbsolutePath(), defaultOpts, uploader, (e) -> {});
+    transport.sendBuildEvent(event, artifactGroupNamer);
+    ListenableFuture<Void> closeFuture = transport.close();
+
+    upload.set(PathConverter.NO_CONVERSION);
+
+    closeFuture.get();
+
+    try (InputStream in = new FileInputStream(output)) {
+      assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in))
+          .isEqualTo(event.asStreamProto(null));
+      assertThat(in.available()).isEqualTo(0);
+    }
+  }
+
+  private static class WithLocalFileEvent implements BuildEvent {
+
+    int id;
+    Path file;
+
+    WithLocalFileEvent(Path file) {
+      this.file = file;
+    }
+
+    @Override
+    public Collection<LocalFile> referencedLocalFiles() {
+      return Collections.singleton(new LocalFile(file, LocalFileType.OUTPUT));
+    }
+
+    @Override
+    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext context) {
+      return BuildEventStreamProtos.BuildEvent.newBuilder()
+          .setId(BuildEventId.progressId(id).asStreamProto())
+          .setProgress(
+              BuildEventStreamProtos.Progress.newBuilder()
+                  .setStdout("basename: " + file.getBaseName())
+                  .build())
+          .build();
+    }
+
+    @Override
+    public BuildEventId getEventId() {
+      return BuildEventId.progressId(id);
+    }
+
+    @Override
+    public Collection<BuildEventId> getChildrenEvents() {
+      return ImmutableList.of(BuildEventId.progressId(id + 1));
     }
   }
 }

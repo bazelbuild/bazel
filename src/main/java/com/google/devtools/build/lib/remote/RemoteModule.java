@@ -14,13 +14,15 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
@@ -39,10 +41,11 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.remoteexecution.v1test.Digest;
+import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
@@ -51,59 +54,15 @@ public final class RemoteModule extends BlazeModule {
   private static final Logger logger = Logger.getLogger(RemoteModule.class.getName());
   private AsynchronousFileOutputStream rpcLogFile;
 
-  @VisibleForTesting
-  static final class CasPathConverter implements PathConverter {
-    // Not final; unfortunately, the Bazel startup process requires us to create this object before
-    // we have the options available, so we have to create it first, and then set the options
-    // afterwards. At the time of this writing, I believe that we aren't using the PathConverter
-    // before the options are available, so this should be safe.
-    // TODO(ulfjack): Change the Bazel startup process to make the options available when we create
-    // the PathConverter.
-    RemoteOptions options;
-    DigestUtil digestUtil;
-    PathConverter fallbackConverter = new FileUriPathConverter();
-
-    @Override
-    public String apply(Path path) {
-      if (options == null || digestUtil == null || !remoteEnabled(options)) {
-        return fallbackConverter.apply(path);
-      }
-      String server = options.remoteCache;
-      String remoteInstanceName = options.remoteInstanceName;
-      try {
-        Digest digest = digestUtil.compute(path);
-        return remoteInstanceName.isEmpty()
-            ? String.format(
-                "bytestream://%s/blobs/%s/%d",
-                server,
-                digest.getHash(),
-                digest.getSizeBytes())
-            : String.format(
-                "bytestream://%s/%s/blobs/%s/%d",
-                server,
-                remoteInstanceName,
-                digest.getHash(),
-                digest.getSizeBytes());
-      } catch (IOException e) {
-        // TODO(ulfjack): Don't fail silently!
-        return fallbackConverter.apply(path);
-      }
-    }
-  }
-
-  private final CasPathConverter converter = new CasPathConverter();
   private final ListeningScheduledExecutorService retryScheduler =
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   private RemoteActionContextProvider actionContextProvider;
+  private final BuildEventArtifactUploaderDelegate buildEventArtifactUploaderDelegate
+      = new BuildEventArtifactUploaderDelegate();
 
   @Override
   public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
-    builder.addBuildEventArtifactUploader(
-        files -> {
-          // TODO(ulfjack): Actually hook up upload here.
-          return Futures.immediateFuture(converter);
-        },
-        "remote");
+    builder.addBuildEventArtifactUploader(buildEventArtifactUploaderDelegate, "remote");
   }
 
   @Override
@@ -129,8 +88,6 @@ public final class RemoteModule extends BlazeModule {
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
-    converter.options = remoteOptions;
-    converter.digestUtil = digestUtil;
 
     // Quit if no remote options specified.
     if (remoteOptions == null) {
@@ -189,13 +146,21 @@ public final class RemoteModule extends BlazeModule {
                 RemoteRetrier.RETRIABLE_GRPC_ERRORS,
                 retryScheduler,
                 Retrier.ALLOW_ALL_CALLS);
+        CallCredentials credentials = GoogleAuthUtils.newCallCredentials(authAndTlsOptions);
+        ByteStreamUploader uploader =
+            new ByteStreamUploader(remoteOptions.remoteInstanceName, ch, credentials,
+                remoteOptions.remoteTimeout, retrier);
         cache =
             new GrpcRemoteCache(
                 ch,
-                GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
+                credentials,
                 remoteOptions,
                 retrier,
-                digestUtil);
+                digestUtil,
+                uploader);
+        buildEventArtifactUploaderDelegate.setDelegate(
+            new ByteStreamBuildEventArtifactUploader(uploader, target,
+                remoteOptions.remoteInstanceName));
       } else {
         cache = null;
       }
@@ -261,5 +226,25 @@ public final class RemoteModule extends BlazeModule {
   public static boolean remoteEnabled(RemoteOptions options) {
     return SimpleBlobStoreFactory.isRemoteCacheOptions(options)
         || GrpcRemoteCache.isRemoteCacheOptions(options);
+  }
+
+  private static class BuildEventArtifactUploaderDelegate implements BuildEventArtifactUploader {
+
+    private static final ListenableFuture<PathConverter> LOCAL_PATH_CONVERTER =
+        Futures.immediateFuture(new PathConverter.FileUriPathConverter());
+
+    private BuildEventArtifactUploader uploader;
+
+    public void setDelegate(BuildEventArtifactUploader uploader) {
+      this.uploader = uploader;
+    }
+
+    @Override
+    public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
+      if (uploader == null) {
+        return LOCAL_PATH_CONVERTER;
+      }
+      return uploader.upload(files);
+    }
   }
 }

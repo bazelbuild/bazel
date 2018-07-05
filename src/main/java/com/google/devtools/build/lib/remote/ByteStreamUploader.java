@@ -57,7 +57,7 @@ import javax.annotation.concurrent.GuardedBy;
  *
  * <p>Users must call {@link #shutdown()} before exiting.
  */
-final class ByteStreamUploader {
+class ByteStreamUploader {
 
   private static final Logger logger = Logger.getLogger(ByteStreamUploader.class.getName());
 
