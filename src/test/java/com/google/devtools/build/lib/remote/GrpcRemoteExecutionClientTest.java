@@ -264,7 +264,18 @@ public class GrpcRemoteExecutionClientTest {
     CallCredentials creds =
         GoogleAuthUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
     GrpcRemoteCache remoteCache =
-        new GrpcRemoteCache(channel, creds, remoteOptions, retrier, DIGEST_UTIL);
+        new GrpcRemoteCache(
+            channel,
+            creds,
+            remoteOptions,
+            retrier,
+            DIGEST_UTIL,
+            new ByteStreamUploader(
+                remoteOptions.remoteInstanceName,
+                channel,
+                creds,
+                remoteOptions.remoteTimeout,
+                retrier));
     client =
         new RemoteSpawnRunner(
             execRoot,
@@ -509,9 +520,7 @@ public class GrpcRemoteExecutionClientTest {
   private static class RequestHeadersValidator implements ServerInterceptor {
     @Override
     public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
-        ServerCall<ReqT, RespT> call,
-        Metadata headers,
-        ServerCallHandler<ReqT, RespT> next) {
+        ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
       RequestMetadata meta = headers.get(TracingMetadataUtils.METADATA_KEY);
       assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
       assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
@@ -631,7 +640,8 @@ public class GrpcRemoteExecutionClientTest {
     ExecutionImplBase mockExecutionImpl = Mockito.mock(ExecutionImplBase.class);
     Answer<Void> successAnswer =
         invocationOnMock -> {
-          @SuppressWarnings("unchecked") StreamObserver<Operation> responseObserver =
+          @SuppressWarnings("unchecked")
+          StreamObserver<Operation> responseObserver =
               (StreamObserver<Operation>) invocationOnMock.getArguments()[1];
           responseObserver.onNext(Operation.newBuilder().setName(opName).build());
           responseObserver.onCompleted();
@@ -639,7 +649,8 @@ public class GrpcRemoteExecutionClientTest {
         };
     Mockito.doAnswer(
             invocationOnMock -> {
-              @SuppressWarnings("unchecked") StreamObserver<Operation> responseObserver =
+              @SuppressWarnings("unchecked")
+              StreamObserver<Operation> responseObserver =
                   (StreamObserver<Operation>) invocationOnMock.getArguments()[1];
               responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
               return null;
@@ -828,8 +839,7 @@ public class GrpcRemoteExecutionClientTest {
         .execute(
             Mockito.<ExecuteRequest>anyObject(), Mockito.<StreamObserver<Operation>>anyObject());
     Mockito.verify(mockWatcherImpl, Mockito.times(4))
-        .watch(
-            Mockito.<Request>anyObject(), Mockito.<StreamObserver<ChangeBatch>>anyObject());
+        .watch(Mockito.<Request>anyObject(), Mockito.<StreamObserver<ChangeBatch>>anyObject());
     Mockito.verify(mockByteStreamImpl, Mockito.times(2))
         .read(Mockito.<ReadRequest>anyObject(), Mockito.<StreamObserver<ReadResponse>>anyObject());
   }
@@ -852,7 +862,8 @@ public class GrpcRemoteExecutionClientTest {
       assertThat(expected.getSpawnResult().status())
           .isEqualTo(SpawnResult.Status.EXECUTION_FAILED_CATASTROPHICALLY);
       // Ensure we also got back the stack trace.
-      assertThat(expected).hasMessageThat()
+      assertThat(expected)
+          .hasMessageThat()
           .contains("GrpcRemoteExecutionClientTest.passUnavailableErrorWithStackTrace");
     }
   }
@@ -874,7 +885,8 @@ public class GrpcRemoteExecutionClientTest {
     } catch (ExecException expected) {
       assertThat(expected).hasMessageThat().contains("whoa"); // Error details.
       // Ensure we also got back the stack trace.
-      assertThat(expected).hasMessageThat()
+      assertThat(expected)
+          .hasMessageThat()
           .contains("GrpcRemoteExecutionClientTest.passInternalErrorWithStackTrace");
     }
   }
@@ -936,7 +948,8 @@ public class GrpcRemoteExecutionClientTest {
           .isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
       assertThat(expected).hasMessageThat().contains(DIGEST_UTIL.toString(stdOutDigest));
       // Ensure we also got back the stack trace.
-      assertThat(expected).hasMessageThat()
+      assertThat(expected)
+          .hasMessageThat()
           .contains("GrpcRemoteExecutionClientTest.passCacheMissErrorWithStackTrace");
     }
   }

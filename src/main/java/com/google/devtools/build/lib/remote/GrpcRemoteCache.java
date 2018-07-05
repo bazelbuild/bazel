@@ -76,15 +76,13 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       CallCredentials credentials,
       RemoteOptions options,
       RemoteRetrier retrier,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      ByteStreamUploader uploader) {
     super(options, digestUtil, retrier);
     this.credentials = credentials;
     this.channel = channel;
     this.retrier = retrier;
-
-    uploader =
-        new ByteStreamUploader(
-            options.remoteInstanceName, channel, credentials, options.remoteTimeout, retrier);
+    this.uploader = uploader;
   }
 
   private ContentAddressableStorageBlockingStub casBlockingStub() {
