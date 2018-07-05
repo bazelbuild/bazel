@@ -211,22 +211,12 @@ toolchain {
   # Turn off warning messages.
   compiler_flag: "/D_CRT_SECURE_NO_DEPRECATE"
   compiler_flag: "/D_CRT_SECURE_NO_WARNINGS"
-  compiler_flag: "/D_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS"
 
   # Useful options to have on for compilation.
   # Increase the capacity of object files to 2^32 sections.
   compiler_flag: "/bigobj"
   # Allocate 500MB for precomputed headers.
   compiler_flag: "/Zm500"
-  # Use unsigned char by default.
-  compiler_flag: "/J"
-  # Use function level linking.
-  compiler_flag: "/Gy"
-  # Use string pooling.
-  compiler_flag: "/GF"
-  # Catch C++ exceptions only and tell the compiler to assume that functions declared
-  # as extern "C" never throw a C++ exception.
-  compiler_flag: "/EHsc"
 
   # Globally disabled warnings.
   # Don't warn about elements of array being be default initialized.
@@ -881,7 +871,6 @@ toolchain {
       flag_group {
         flag: "/Od"
         flag: "/Z7"
-        flag: "/DDEBUG"
       }
     }
     flag_set {
@@ -904,7 +893,6 @@ toolchain {
       flag_group {
         flag: "/Od"
         flag: "/Z7"
-        flag: "/DDEBUG"
       }
     }
     flag_set {
@@ -925,8 +913,136 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       flag_group {
-        flag: "/O2"
+        flag: "/O2" # Implies /Og /Oi /Ot /Oy /Ob2 /Gs /GF /Gy
         flag: "/DNDEBUG"
+      }
+    }
+  }
+
+  feature {
+    name: 'treat_warnings_as_errors'
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      flag_group {
+        flag: "/WX"
+      }
+    }
+  }
+
+  # Enable C++ exception by default.
+  feature {
+    name: 'default_exceptions'
+    enabled: true
+    flag_set {
+      action: 'c++-compile'
+      with_feature: {
+        not_feature: 'no_exceptions'
+        not_feature: 'use_exceptions'
+      }
+      flag_group {
+        flag: "/D_HAS_EXCEPTIONS=1"
+        flag: "/EHsc"
+      }
+    }
+  }
+
+  feature {
+    name: 'use_exceptions'
+    flag_set {
+      action: 'c++-compile'
+      with_feature: {
+        not_feature: 'no_exceptions'
+      }
+      flag_group {
+        flag: "/D_HAS_EXCEPTIONS=1"
+        flag: "/EHsc"
+      }
+    }
+  }
+
+  feature {
+    name: 'no_exceptions'
+    flag_set {
+      action: 'c++-compile'
+      with_feature: {
+        not_feature: 'use_exceptions'
+      }
+      flag_group {
+        flag: "/D_HAS_EXCEPTIONS=0"
+        flag: "/EHs-c-"
+        flag: "/wd4577" # Suppress 'noexcept used with no exception handling mode specified'
+      }
+    }
+  }
+
+  # 'default_rtti' omitted as RTTI is always enabled by default in MSVC
+
+  feature {
+    name: 'use_rtti'
+    flag_set {
+      action: 'c++-compile'
+      with_feature: {
+        not_feature: 'no_rtti'
+      }
+      flag_group {
+        flag: "/GR"
+      }
+    }
+  }
+
+  feature {
+    name: 'no_rtti'
+    flag_set {
+      action: 'c++-compile'
+      with_feature: {
+        not_feature: 'use_rtti'
+        not_feature: 'use_exceptions' # RTTI is needed for exceptions to work
+      }
+      flag_group {
+        flag: "/GR-"
+      }
+    }
+  }
+
+  # Trade slower build time for smaller binary
+  feature {
+    name: 'smaller_binary'
+    enabled: true
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      with_feature: {
+        feature: 'opt'
+      }
+      flag_group {
+        flag: "/Gy" # Enable function-level linking (-ffunction-sections)
+        flag: "/Gw" # Optimize global data (-fdata-sections)
+      }
+    }
+    flag_set {
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library',
+      action: 'c++-link-nodeps-dynamic-library'
+      with_feature: {
+        feature: 'opt'
+      }
+      flag_group {
+        flag: '/OPT:ICF' # Fold identical functions
+        flag: '/OPT:REF' # Eliminate unreferenced functions and data
+      }
+    }
+  }
+
+  # Suppress warnings that most users do not care
+  feature {
+    name: 'ignore_noisy_warnings'
+    enabled: true
+    flag_set {
+      action: 'c++-link-static-library'
+      flag_group {
+        # Suppress 'object file does not define any public symbols' warning
+        flag: '/ignore:4221'
       }
     }
   }
