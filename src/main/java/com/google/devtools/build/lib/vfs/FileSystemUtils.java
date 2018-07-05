@@ -698,7 +698,14 @@ public class FileSystemUtils {
    */
   public static void writeContent(Path outputFile, Charset charset, String content)
       throws IOException {
-    asByteSink(outputFile).asCharSink(charset).write(content);
+    try (OutputStream out = outputFile.getOutputStream()) {
+      new ByteSink() {
+        @Override
+        public OutputStream openStream() throws IOException {
+          return out;
+        }
+      }.asCharSink(charset).write(content);
+    }
   }
 
   /**
@@ -729,7 +736,14 @@ public class FileSystemUtils {
   public static void writeLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
     createDirectoryAndParents(file.getParentDirectory());
-    asByteSink(file).asCharSink(charset).writeLines(lines);
+    try (OutputStream out = file.getOutputStream()) {
+      new ByteSink() {
+        @Override
+        public OutputStream openStream() throws IOException {
+          return out;
+        }
+      }.asCharSink(charset).writeLines(lines);
+    }
   }
 
   /**
@@ -740,7 +754,14 @@ public class FileSystemUtils {
   public static void appendLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
     createDirectoryAndParents(file.getParentDirectory());
-    asByteSink(file, true).asCharSink(charset).writeLines(lines);
+    try (OutputStream out = file.getOutputStream(true)) {
+      new ByteSink() {
+        @Override
+        public OutputStream openStream() throws IOException {
+          return out;
+        }
+      }.asCharSink(charset).writeLines(lines);
+    }
   }
 
   /**
@@ -749,7 +770,15 @@ public class FileSystemUtils {
    * @throws IOException if there was an error
    */
   public static void writeContent(Path outputFile, byte[] content) throws IOException {
-    asByteSink(outputFile).write(content);
+    try (OutputStream out = outputFile.getOutputStream()) {
+      new ByteSink() {
+        @Override
+        public OutputStream openStream() throws IOException {
+          return out;
+        }
+      }.write(content);
+      ;
+    }
   }
 
   /**

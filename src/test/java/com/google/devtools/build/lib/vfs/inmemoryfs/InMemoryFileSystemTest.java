@@ -59,9 +59,9 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
    * Writes the given data to the given file.
    */
   private static void writeToFile(Path path, String data) throws IOException {
-    OutputStream out = path.getOutputStream();
-    out.write(data.getBytes(Charset.defaultCharset()));
-    out.close();
+    try (OutputStream out = path.getOutputStream()) {
+      out.write(data.getBytes(Charset.defaultCharset()));
+    }
   }
 
   /**
