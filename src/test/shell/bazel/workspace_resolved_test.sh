@@ -350,6 +350,19 @@ EOF
   bazel build :a :b || fail "Expected both repositories to be present"
 }
 
+test_sync_load_errors_reported() {
+  rm -rf fetchrepo
+  mkdir fetchrepo
+  cd fetchrepo
+  cat > WORKSPACE <<'EOF'
+load("//does/not:exist.bzl", "randomfunction")
+
+radomfunction(name="foo")
+EOF
+  bazel sync > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+  expect_log '//does/not:exist.bzl'
+}
+
 test_sync_debug_and_errors_printed() {
   rm -rf fetchrepo
   mkdir fetchrepo
