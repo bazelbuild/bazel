@@ -20,12 +20,13 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -50,7 +51,15 @@ public final class SkydocTest extends SkylarkTestCase {
       @Override
       public ParserInputSource inputSource(String pathString) throws IOException {
         Path path = fileSystem.getPath(pathString);
-        byte[] bytes = FileSystemUtils.asByteSource(path).read();
+        byte[] bytes = null;
+        try (InputStream in = path.getInputStream()) {
+          bytes = new ByteSource() {
+            @Override
+            public InputStream openStream() throws IOException {
+              return in;
+            }
+          }.read();
+        }
 
         return ParserInputSource.create(bytes, path.asFragment());
       }

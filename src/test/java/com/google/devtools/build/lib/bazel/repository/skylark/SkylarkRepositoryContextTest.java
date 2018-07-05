@@ -182,10 +182,10 @@ public class SkylarkRepositoryContextTest {
 
   private void testOutputFile(Path path, String content) throws IOException {
     assertThat(path.exists()).isTrue();
-    assertThat(
-            CharStreams.toString(
-                new InputStreamReader(path.getInputStream(), StandardCharsets.UTF_8)))
-        .isEqualTo(content);
+    try (InputStreamReader reader =
+        new InputStreamReader(path.getInputStream(), StandardCharsets.UTF_8)) {
+      assertThat(CharStreams.toString(reader)).isEqualTo(content);
+    }
   }
 
   @Test

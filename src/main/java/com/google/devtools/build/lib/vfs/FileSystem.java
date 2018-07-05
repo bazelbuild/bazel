@@ -268,12 +268,14 @@ public abstract class FileSystem {
    * @throws IOException if the digest could not be computed for any reason
    */
   protected byte[] getDigest(final Path path, DigestHashFunction hashFunction) throws IOException {
-    return new ByteSource() {
-      @Override
-      public InputStream openStream() throws IOException {
-        return getInputStream(path);
-      }
-    }.hash(hashFunction.getHash()).asBytes();
+    try (InputStream in = getInputStream(path)) {
+      return new ByteSource() {
+        @Override
+        public InputStream openStream() throws IOException {
+          return in;
+        }
+      }.hash(hashFunction.getHash()).asBytes();
+    }
   }
 
   /**
