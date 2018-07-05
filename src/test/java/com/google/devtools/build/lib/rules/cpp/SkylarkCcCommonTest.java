@@ -503,6 +503,35 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testEmptyLinkVariablesContainSysroot() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            "builtin_sysroot: '/foo/bar/sysroot'",
+            "feature {",
+            "  name: 'sysroot'",
+            "  enabled: true",
+            "  flag_set {",
+            "    action: 'c++-link-executable'",
+            "    flag_group {",
+            "      expand_if_all_available: 'sysroot'",
+            "      flag: '--yolo_sysroot_flag=%{sysroot}'",
+            "    }",
+            "  }",
+            "}");
+    useConfiguration();
+    assertThat(
+            commandLineForVariables(
+                CppActionNames.CPP_LINK_EXECUTABLE,
+                "cc_common.create_link_variables(",
+                "feature_configuration = feature_configuration,",
+                "cc_toolchain = toolchain,",
+                ")"))
+        .contains("--yolo_sysroot_flag=/foo/bar/sysroot");
+  }
+
+  @Test
   public void testLibrarySearchDirectoriesLinkVariables() throws Exception {
     AnalysisMock.get()
         .ccSupport()
