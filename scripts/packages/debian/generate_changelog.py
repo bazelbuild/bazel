@@ -19,23 +19,23 @@ import sys
 
 
 def main(input_file, output_file):
-  changelog_out = open(output_file, "w")
-  version = None
-  with open(input_file, "r") as status_file:
-    for line in status_file:
-      line = line.strip()
-      if line.startswith("RELEASE_NAME "):
-        version = line[len("RELEASE_NAME "):].strip()
+  with open(output_file, "w") as changelog_out:
+    version = None
+    with open(input_file, "r") as status_file:
+      for line in status_file:
+        line = line.strip()
+        if line.startswith("RELEASE_NAME "):
+          version = line[len("RELEASE_NAME "):].strip()
 
-  if version:
-    changelog_out.write("bazel (%s) unstable; urgency=low\n" % version)
-    changelog_out.write("\n    Bumped Bazel version to %s.\n" % version)
-  else:
-    changelog_out.write("bazel (0.1.0~HEAD) unstable; urgency=low\n")
-    changelog_out.write("\n    Development version\n")
-  changelog_out.write(
-      "\n -- The Bazel Authors <bazel-dev@googlegroups.com>  %s\n\n" %
-      datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0100"))
+    if version:
+      changelog_out.write("bazel (%s) unstable; urgency=low\n" % version)
+      changelog_out.write("\n    Bumped Bazel version to %s.\n" % version)
+    else:
+      changelog_out.write("bazel (0.1.0~HEAD) unstable; urgency=low\n")
+      changelog_out.write("\n    Development version\n")
+    changelog_out.write(
+        "\n -- The Bazel Authors <bazel-dev@googlegroups.com>  %s\n\n" %
+        datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0100"))
 
 
 if __name__ == "__main__":

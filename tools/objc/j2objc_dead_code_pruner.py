@@ -200,11 +200,10 @@ def _PruneFile(file_queue, reachable_files, objc_file_path, file_open=open,
     if file_name in reachable_files:
       file_shutil.copy(input_file, output_file)
     else:
-      f = file_open(output_file, 'w')
-      # Use a static variable scoped to the source file to supress
-      # the "has no symbols" linker warning for empty object files.
-      f.write(PRUNED_SRC_CONTENT)
-      f.close()
+      with file_open(output_file, 'w') as f:
+        # Use a static variable scoped to the source file to supress
+        # the "has no symbols" linker warning for empty object files.
+        f.write(PRUNED_SRC_CONTENT)
     file_queue.task_done()
 
 
