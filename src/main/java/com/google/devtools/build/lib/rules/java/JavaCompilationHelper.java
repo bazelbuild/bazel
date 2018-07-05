@@ -70,6 +70,8 @@ public final class JavaCompilationHelper {
   private final ImmutableList<Artifact> additionalJavaBaseInputs;
   private final StrictDepsMode strictJavaDeps;
   private final String fixDepsTool;
+  // TODO(twerth): Remove after java_proto_library.strict_deps migration is done.
+  private final boolean javaProtoLibraryStrictDeps;
 
   private static final String DEFAULT_ATTRIBUTES_SUFFIX = "";
   private static final PathFragment JAVAC = PathFragment.create("_javac");
@@ -94,6 +96,7 @@ public final class JavaCompilationHelper {
         ? StrictDepsMode.OFF
         : getJavaConfiguration().getFilteredStrictJavaDeps();
     this.fixDepsTool = getJavaConfiguration().getFixDepsTool();
+    this.javaProtoLibraryStrictDeps = semantics.isJavaProtoLibraryStrictDeps(ruleContext);
   }
 
   public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
@@ -721,7 +724,8 @@ public final class JavaCompilationHelper {
 
   private NestedSet<Artifact> getNonRecursiveCompileTimeJarsFromCollection(
       Iterable<? extends TransitiveInfoCollection> deps) {
-    return JavaCompilationArgsProvider.legacyFromTargets(deps).getDirectCompileTimeJars();
+    return JavaCompilationArgsProvider.legacyFromTargets(deps, javaProtoLibraryStrictDeps)
+        .getDirectCompileTimeJars();
   }
 
   static void addDependencyArtifactsToAttributes(

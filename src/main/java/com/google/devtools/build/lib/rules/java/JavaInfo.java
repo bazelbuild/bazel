@@ -69,15 +69,15 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
 
   private static final ImmutableSet<Class<? extends TransitiveInfoProvider>> ALLOWED_PROVIDERS =
       ImmutableSet.of(
-        JavaCompilationArgsProvider.class,
-        JavaSourceJarsProvider.class,
-        JavaRuleOutputJarsProvider.class,
-        JavaRunfilesProvider.class,
-        JavaPluginInfoProvider.class,
-        JavaGenJarsProvider.class,
-        JavaExportsProvider.class,
-        JavaCompilationInfoProvider.class
-      );
+          JavaCompilationArgsProvider.class,
+          JavaSourceJarsProvider.class,
+          JavaRuleOutputJarsProvider.class,
+          JavaRunfilesProvider.class,
+          JavaPluginInfoProvider.class,
+          JavaGenJarsProvider.class,
+          JavaExportsProvider.class,
+          JavaCompilationInfoProvider.class,
+          JavaStrictCompilationArgsProvider.class);
 
   private final TransitiveInfoProviderMap providers;
 
@@ -118,6 +118,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   public static JavaInfo merge(List<JavaInfo> providers) {
     List<JavaCompilationArgsProvider> javaCompilationArgsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
+    List<JavaStrictCompilationArgsProvider> javaStrictCompilationArgsProviders =
+        JavaInfo.fetchProvidersFromList(providers, JavaStrictCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaSourceJarsProvider.class);
     List<JavaRunfilesProvider> javaRunfilesProviders =
@@ -139,7 +141,10 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
             JavaCompilationArgsProvider.class,
             JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
         .addProvider(
-          JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
+            JavaStrictCompilationArgsProvider.class,
+            JavaStrictCompilationArgsProvider.merge(javaStrictCompilationArgsProviders))
+        .addProvider(
+            JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
         // When a rule merges multiple JavaProviders, its purpose is to pass on information, so
         // it doesn't have any output jars.
         .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.builder().build())

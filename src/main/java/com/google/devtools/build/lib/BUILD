@@ -1031,6 +1031,7 @@ java_library(
         "rules/java/JavaSkylarkApiProvider.java",
         "rules/java/JavaSkylarkCommon.java",
         "rules/java/JavaSourceJarsProvider.java",
+        "rules/java/JavaStrictCompilationArgsProvider.java",
         "rules/java/JavaTargetAttributes.java",
         "rules/java/JavaToolchainProvider.java",
         "rules/java/JavaUtil.java",

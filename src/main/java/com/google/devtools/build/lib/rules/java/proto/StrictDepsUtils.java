@@ -34,11 +34,19 @@ public class StrictDepsUtils {
   public static JavaCompilationArgsProvider constructJcapFromAspectDeps(
       RuleContext ruleContext,
       Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders) {
+    return constructJcapFromAspectDeps(
+        ruleContext, javaProtoLibraryAspectProviders, /* alwaysStrict= */ false);
+  }
+
+  public static JavaCompilationArgsProvider constructJcapFromAspectDeps(
+      RuleContext ruleContext,
+      Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders,
+      boolean alwaysStrict) {
     JavaCompilationArgsProvider strictCompProvider =
         JavaCompilationArgsProvider.merge(
             WrappingProvider.Helper.unwrapProviders(
                 javaProtoLibraryAspectProviders, JavaCompilationArgsProvider.class));
-    if (StrictDepsUtils.isStrictDepsJavaProtoLibrary(ruleContext)) {
+    if (alwaysStrict || StrictDepsUtils.isStrictDepsJavaProtoLibrary(ruleContext)) {
       return strictCompProvider;
     } else {
       JavaCompilationArgsProvider.Builder nonStrictDirectJars =
