@@ -1237,6 +1237,9 @@ java_test(
     name = "remote-tests",
     srcs = glob(["remote/**/*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
+    tags = [
+        "no-sandbox"
+    ],
     deps = [
         ":analysis_testutil",
         ":foundations_testutil",

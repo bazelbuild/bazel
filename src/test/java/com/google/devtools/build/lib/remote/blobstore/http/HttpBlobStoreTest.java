@@ -30,6 +30,7 @@ import com.google.api.client.util.Preconditions;
 import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
 import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -118,7 +119,7 @@ public class HttpBlobStoreTest {
 
   private static DomainSocketAddress newDomainSocketAddress() {
     try {
-      File file = File.createTempFile("bazel", ".sock");
+      File file = File.createTempFile("bazel", ".sock", TestUtils.tmpDirFile());
       file.delete();
       return new DomainSocketAddress(file.getAbsoluteFile());
     } catch (Exception e) {
