@@ -775,7 +775,7 @@ public class GrpcServerImpl implements RPCServer {
      */
     StringWriter err = new StringWriter();
     PrintWriter printErr = new PrintWriter(err);
-    printErr.println("=======[BLAZE SERVER: ENCOUNTERED IO EXCEPTION]=======");
+    printErr.println("=======[BAZEL SERVER: ENCOUNTERED IO EXCEPTION]=======");
     e.printStackTrace(printErr);
     printErr.println("=====================================================");
     logger.severe(err.toString());

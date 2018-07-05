@@ -347,7 +347,7 @@ public class DumpCommand implements BlazeCommand {
       PrintStream out) {
     List<RuleStat> ruleStats = executor.getRuleStats(eventHandler);
     if (ruleStats.isEmpty()) {
-      out.print("No rules in Blaze server, please run a build command first.");
+      out.print("No rules in Bazel server, please run a build command first.");
       return;
     }
     List<RuleStat> rules = ruleStats.stream().filter(RuleStat::isRule).collect(toList());

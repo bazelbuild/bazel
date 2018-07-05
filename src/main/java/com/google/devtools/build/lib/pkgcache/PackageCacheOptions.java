@@ -59,38 +59,35 @@ public class PackageCacheOptions extends OptionsBase {
   }
 
   @Option(
-    name = "package_path",
-    defaultValue = "%workspace%",
-    converter = Converters.ColonSeparatedOptionListConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "A colon-separated list of where to look for packages. "
-            + "Elements beginning with '%workspace%' are relative to the enclosing "
-            + "workspace. If omitted or empty, the default is the output of "
-            + "'blaze info default-package-path'."
-  )
+      name = "package_path",
+      defaultValue = "%workspace%",
+      converter = Converters.ColonSeparatedOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A colon-separated list of where to look for packages. "
+              + "Elements beginning with '%workspace%' are relative to the enclosing "
+              + "workspace. If omitted or empty, the default is the output of "
+              + "'bazel info default-package-path'.")
   public List<String> packagePath;
 
   @Option(
-    name = "show_package_location",
-    defaultValue = "false",
-    deprecationWarning = "This flag is no longer supported and will go away soon.",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If enabled, causes Blaze to print the location on the --package_path "
-            + "from which each package was loaded."
-  )
+      name = "show_package_location",
+      defaultValue = "false",
+      deprecationWarning = "This flag is no longer supported and will go away soon.",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If enabled, causes Bazel to print the location on the --package_path "
+              + "from which each package was loaded.")
   public boolean showPackageLocation;
 
   @Option(
-    name = "show_loading_progress",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "If enabled, causes Blaze to print \"Loading package:\" messages."
-  )
+      name = "show_loading_progress",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, causes Bazel to print \"Loading package:\" messages.")
   public boolean showLoadingProgress;
 
   @Option(

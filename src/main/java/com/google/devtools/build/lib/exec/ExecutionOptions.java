@@ -153,13 +153,12 @@ public class ExecutionOptions extends OptionsBase {
   public List<PerLabelOptions> testAttempts;
 
   @Option(
-    name = "test_tmpdir",
-    defaultValue = "null",
-    converter = OptionsUtils.PathFragmentConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Specifies the base temporary directory for 'blaze test' to use."
-  )
+      name = "test_tmpdir",
+      defaultValue = "null",
+      converter = OptionsUtils.PathFragmentConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Specifies the base temporary directory for 'bazel test' to use.")
   public PathFragment testTmpDir;
 
   @Option(
@@ -201,37 +200,35 @@ public class ExecutionOptions extends OptionsBase {
   public boolean useResourceAutoSense;
 
   @Option(
-    name = "ram_utilization_factor",
-    defaultValue = "67",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specify what percentage of the system's RAM Blaze should try to use for its subprocesses. "
-            + "This option affects how many processes Blaze will try to run in parallel. "
-            + "If you run several Blaze builds in parallel, using a lower value for "
-            + "this option may avoid thrashing and thus improve overall throughput. "
-            + "Using a value higher than the default is NOT recommended. "
-            + "Note that Blaze's estimates are very coarse, so the actual RAM usage may be much "
-            + "higher or much lower than specified. "
-            + "Note also that this option does not affect the amount of memory that the Blaze "
-            + "server itself will use. "
-  )
+      name = "ram_utilization_factor",
+      defaultValue = "67",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify what percentage of the system's RAM Bazel should try to use for its "
+              + "subprocesses. This option affects how many processes Bazel will try to run in "
+              + "parallel. If you run several Bazel builds in parallel, using a lower value for "
+              + "this option may avoid thrashing and thus improve overall throughput. "
+              + "Using a value higher than the default is NOT recommended. "
+              + "Note that Blaze's estimates are very coarse, so the actual RAM usage may be much "
+              + "higher or much lower than specified. "
+              + "Note also that this option does not affect the amount of memory that the Bazel "
+              + "server itself will use. ")
   public int ramUtilizationPercentage;
 
   @Option(
-    name = "local_resources",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Explicitly set amount of local resources available to Blaze. "
-            + "By default, Blaze will query system configuration to estimate amount of RAM (in MB) "
-            + "and number of CPU cores available for the locally executed build actions. It would "
-            + "also assume default I/O capabilities of the local workstation (1.0). This options "
-            + "allows to explicitly set all 3 values. Note, that if this option is used, Blaze "
-            + "will ignore --ram_utilization_factor.",
-    converter = ResourceSet.ResourceSetConverter.class
-  )
+      name = "local_resources",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Explicitly set amount of local resources available to Blaze. By default, Bazel will "
+              + "query system configuration to estimate amount of RAM (in MB) "
+              + "and number of CPU cores available for the locally executed build actions. It "
+              + "would also assume default I/O capabilities of the local workstation (1.0). This "
+              + "options allows to explicitly set all 3 values. Note, that if this option is used, "
+              + "Bazel will ignore --ram_utilization_factor.",
+      converter = ResourceSet.ResourceSetConverter.class)
   public ResourceSet availableResources;
 
   @Option(
@@ -275,17 +272,16 @@ public class ExecutionOptions extends OptionsBase {
   public boolean debugPrintActionContexts;
 
   @Option(
-    name = "cache_computed_file_digests",
-    defaultValue = "50000",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If greater than 0, configures Blaze to cache file digests in memory based on their "
-            + "metadata instead of recomputing the digests from disk every time they are needed. "
-            + "Setting this to 0 ensures correctness because not all file changes can be noted "
-            + "from file metadata. When not 0, the number indicates the size of the cache as the "
-            + "number of file digests to be cached."
-  )
+      name = "cache_computed_file_digests",
+      defaultValue = "50000",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If greater than 0, configures Bazel to cache file digests in memory based on their "
+              + "metadata instead of recomputing the digests from disk every time they are needed. "
+              + "Setting this to 0 ensures correctness because not all file changes can be noted "
+              + "from file metadata. When not 0, the number indicates the size of the cache as the "
+              + "number of file digests to be cached.")
   public long cacheSizeForComputedFileDigests;
 
   @Option(

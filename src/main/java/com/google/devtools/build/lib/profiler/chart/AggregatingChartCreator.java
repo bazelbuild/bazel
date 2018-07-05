@@ -146,7 +146,7 @@ public class AggregatingChartCreator implements ChartCreator {
    */
   private void createTypes(Chart chart) {
     actionType = chart.createType("Action processing", new Color(0x000099));
-    blazeType = chart.createType("Blaze internal processing", new Color(0x999999));
+    blazeType = chart.createType("Bazel internal processing", new Color(0x999999));
     lockType = chart.createType("Waiting for resources", new Color(0x990000));
     if (showVFS) {
       vfsType = chart.createType("File system access", new Color(0x009900));

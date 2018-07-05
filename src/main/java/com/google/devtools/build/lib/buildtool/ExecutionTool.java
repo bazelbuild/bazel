@@ -587,8 +587,10 @@ public class ExecutionTool {
       // caches.
       LoggingUtil.logToRemote(Level.WARNING, "Failed to initialize action cache: "
           + e.getMessage(), e);
-      throw new LocalEnvironmentException("couldn't create action cache: " + e.getMessage()
-          + ". If error persists, use 'blaze clean'");
+      throw new LocalEnvironmentException(
+          "couldn't create action cache: "
+              + e.getMessage()
+              + ". If error persists, use 'bazel clean'");
     }
   }
 

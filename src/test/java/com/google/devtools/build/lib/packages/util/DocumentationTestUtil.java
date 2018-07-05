@@ -105,7 +105,7 @@ public abstract class DocumentationTestUtil {
         found = validOptions.contains(flag.substring(4));
       }
 
-      assertWithMessage("flag '" + flag + "' is not a blaze option (anymore)").that(found).isTrue();
+      assertWithMessage("flag '" + flag + "' is not a bazel option (anymore)").that(found).isTrue();
     }
 
     String unclosedTag = DocCheckerUtils.getFirstUnclosedTagAndPrintHelp(documentationSource);

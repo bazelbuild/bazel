@@ -95,7 +95,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   /**
    * Function that limits this aspect to Java 8 desugaring (disabling incremental dexing) when
    * attaching this aspect to a target. This is intended for implicit attributes like the stub APKs
-   * for {@code blaze mobile-install}.
+   * for {@code bazel mobile-install}.
    */
   @AutoCodec
   static final Function<Rule, AspectParameters> ONLY_DESUGAR_JAVA8 =

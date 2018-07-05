@@ -360,21 +360,20 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public Label androidLibcTopLabel;
 
     @Option(
-      name = "android_dynamic_mode",
-      defaultValue = "off",
-      converter = DynamicModeConverter.class,
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      help =
-          "Determines whether C++ deps of Android rules will be linked dynamically when a "
-              + "cc_binary does not explicitly create a shared library. "
-              + "'default' means blaze will choose whether to link dynamically.  "
-              + "'fully' means all libraries will be linked dynamically. "
-              + "'off' means that all libraries will be linked in mostly static mode."
-    )
+        name = "android_dynamic_mode",
+        defaultValue = "off",
+        converter = DynamicModeConverter.class,
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        help =
+            "Determines whether C++ deps of Android rules will be linked dynamically when a "
+                + "cc_binary does not explicitly create a shared library. "
+                + "'default' means bazel will choose whether to link dynamically.  "
+                + "'fully' means all libraries will be linked dynamically. "
+                + "'off' means that all libraries will be linked in mostly static mode.")
     public DynamicMode dynamicMode;
 
     // Label of filegroup combining all Android tools used as implicit dependencies of
