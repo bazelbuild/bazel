@@ -104,7 +104,7 @@ class TestBase(unittest.TestCase):
     """
     value = os.getenv(name, '__undefined_envvar__')
     if value == '__undefined_envvar__':
-      if default:
+      if default is not None:
         return default
       raise EnvVarUndefinedError(name)
     return value
@@ -357,9 +357,10 @@ class TestBase(unittest.TestCase):
           'BAZEL_SH':
               TestBase.GetEnv('BAZEL_SH',
                               'c:\\tools\\msys64\\usr\\bin\\bash.exe'),
-          'JAVA_HOME':
-              TestBase.GetEnv('JAVA_HOME'),
       }
+      java_home = TestBase.GetEnv('JAVA_HOME', '')
+      if java_home:
+        env['JAVA_HOME'] = java_home
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
 
