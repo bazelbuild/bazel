@@ -637,7 +637,11 @@ public class CppCompileAction extends AbstractAction
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext) {
     CppCompileInfo.Builder info = CppCompileInfo.newBuilder();
     info.setTool(compileCommandLine.getToolPath());
-    for (String option : getCompilerOptions()) {
+    // TODO(djasper): We are getting discovered or transitive modules through the action's inputs
+    // here. For shorter command lines, we'd prefer to use topLevelModules here, but they are not
+    // computed in the codepaths leading here.
+    for (String option :
+        compileCommandLine.getCompilerOptions(getOverwrittenVariables(getInputs()))) {
       info.addCompilerOption(option);
     }
     info.setOutputFile(outputFile.getExecPathString());
